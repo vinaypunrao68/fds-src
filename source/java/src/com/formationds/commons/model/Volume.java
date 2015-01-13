@@ -4,6 +4,7 @@
 
 package com.formationds.commons.model;
 
+import com.formationds.apis.MediaPolicy;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.util.ModelFieldValidator;
 
@@ -21,13 +22,16 @@ public class Volume
   extends Context {
   private static final long serialVersionUID = 7961922641732546048L;
 
+  private String domain;                // domain name
+  private long tenantId;
   private String name;
-  private Long limit;                    // maximum IOPS
-  private Long sla;                      // minimum IOPS -- service level agreement
-  private String id;                     // volume Id
+  private Long limit;                   // maximum IOPS
+  private Long sla;                     // minimum IOPS -- service level agreement
+  private String id;                    // volume Id
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
+  private MediaPolicy mediaPolicy;
   private Long commit_log_retention;
 
   private static final Map<String, ModelFieldValidator> VALIDATORS =
@@ -57,15 +61,29 @@ public class Volume
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if( this == o ) {
 
-    Volume volume = (Volume) o;
+      return true;
+    }
 
-    if (!Objects.equals(id, volume.id)) return false;
-    if (!Objects.equals(name, volume.name)) return false;
+    if( ( o == null ) || ( getClass() != o.getClass() ) ) {
 
-    return true;
+      return false;
+    }
+
+    Volume volume = ( Volume ) o;
+
+    return Objects.equals( id, volume.id ) &&
+        Objects.equals( name, volume.name );
+
+  }
+
+  public long getTenantId( ) {
+    return tenantId;
+  }
+
+  public void setTenantId( final long tenantId ) {
+    this.tenantId = tenantId;
   }
 
   @Override
@@ -171,8 +189,19 @@ public class Volume
   }
   
   /**
+   * 
+   * @return return a {@link MediaPolicy} that dictates where/how data should be stored
+   */
+  public MediaPolicy getMediaPolicy(){
+	  return mediaPolicy;
+  }
+  
+  public void setMediaPolicy( MediaPolicy aPolicy ){
+	  mediaPolicy = aPolicy;
+  }
+
+   /**	  
    * Get the number of ? that the volume journal will be retained.
-   * @return
    */
   public long getCommit_log_retention(){
 	  return commit_log_retention;

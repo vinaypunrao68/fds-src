@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc. 
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 #include <string>
@@ -35,7 +35,6 @@ ObjectStore::~ObjectStore() {
     // Call destructors of ObjectDataStore and ObjectMetadataStore,
     // this will chain down the components closing levelDBs
     // and cleaning memory
-    LOGDEBUG << "Destructing ObjectStore";
 
     dataStore.reset();
     metaStore.reset();
@@ -196,7 +195,7 @@ ObjectStore::putObject(fds_volid_t volId,
     // TODO(Anna) When we review SM -> SM migration, review if we need origin timestamp
     // Would need to pass int64_t origin timestamp as param to this method
     /*
-    if (md.obj_map.obj_create_time == 0) {                                                                                                                                                    
+    if (md.obj_map.obj_create_time == 0) {
         md.obj_map.obj_create_time = opCtx.ts;
     }
     md.obj_map.assoc_mod_time = opCtx.ts;
@@ -557,6 +556,11 @@ ObjectStore::snapshotMetadata(fds_token_id smTokId,
 Error
 ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     return dataStore->scavengerControlCmd(scavCmd);
+}
+
+fds_uint32_t
+ObjectStore::getDiskCount() const {
+    return diskMap->getTotalDisks();
 }
 
 /**

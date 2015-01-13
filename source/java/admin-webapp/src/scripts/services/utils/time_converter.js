@@ -2,12 +2,21 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
     
     var service = {};
     
+    service.MILLIS = 0;
+    service.SECONDS = 1;
+    service.MINUTES = 2;
+    service.HOURS = 3;
+    service.DAYS = 4;
+    service.WEEKS = 5;
+    service.YEARS = 6;
+    
     service.MS_PER_SECOND = 1000;
     service.MS_PER_MINUTE = service.MS_PER_SECOND*60;
     service.MS_PER_HOUR = service.MS_PER_MINUTE*60;
     service.MS_PER_DAY = service.MS_PER_HOUR*24;
     service.MS_PER_WEEK = service.MS_PER_DAY*7;
     service.MS_PER_4_WEEKS = service.MS_PER_WEEK * 4;
+    service.MS_PER_YEAR = service.MS_PER_DAY*366;
     
     var secondsAgo = $filter( 'translate' )( 'common.l_seconds_ago' );
     var minutesAgo = $filter( 'translate' )( 'common.l_minutes_ago' );
@@ -15,6 +24,80 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
     var daysAgo = $filter( 'translate' )( 'common.l_days_ago' );
     var weeksAgo = $filter( 'translate' )( 'common.l_weeks_ago' );
     var yesterday = $filter( 'translate' )( 'common.l_yesterday' );
+    
+    service.convertToTime = function( ms ){
+        
+        var value = 0;
+        var unit = service.MILLIS;
+        var str = '';
+        
+        if ( ms < service.MS_PER_SECOND ){
+            value = ms;
+            unit = service.MILLIS;
+        }
+        else if ( ms < service.MS_PER_MINUTE ){
+            value = Math.round( ms / service.MS_PER_SECOND );
+            unit = service.SECONDS;
+        }
+        else if ( ms < service.MS_PER_HOUR ){
+            value = Math.round( ms / service.MS_PER_MINUTE );
+            unit = service.MINUTES;
+        }
+        else if ( ms < service.MS_PER_DAY ){
+            value = Math.round( ms / service.MS_PER_HOUR );
+            unit = service.HOURS;
+        }
+        else if ( ms < service.MS_PER_WEEK ){
+            value = Math.round( ms / service.MS_PER_DAY );
+            unit = service.DAYS;
+        }
+        else if ( ms < service.MS_PER_YEAR ){
+            value = Math.round( ms / service.MS_PER_WEEK );
+            unit = service.WEEKS;
+        }
+        else {
+            value = Math.round( ms / service.MS_PER_YEAR );
+            unit = service.YEARS;
+        }
+        
+        str += value.toFixed( 2 ) + ' ';
+        
+        var pluralize = function( value, plural, singular ){
+            
+            if ( value === 1 ){
+                return singular;
+            }
+            else {
+                return plural;
+            }
+        };
+        
+        switch( unit ){
+            case service.MILLIS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_millis' ), $filter( 'translate' )( 'common.l_milli' ) );
+                break;
+            case service.SECONDS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_seconds' ), $filter( 'translate' )( 'common.l_second' ) );
+                break;
+            case service.MINUTES:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_minutes' ), $filter( 'translate' )( 'common.l_minute' ) );
+                break;
+            case service.HOURS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_hours' ), $filter( 'translate' )( 'common.l_hour' ) );
+                break;
+            case service.DAYS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_days' ), $filter( 'translate' )( 'common.l_day' ) );
+                break;                
+            case service.WEEKS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_weeks' ), $filter( 'translate' )( 'common.l_week' ) );
+                break;                
+            default:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_years' ), $filter( 'translate' )( 'common.l_year' ) );
+                break;                                
+        }
+        
+        return str;
+    };
     
     service.convertToTimePastLabel = function( ms ){
         var timePast = (new Date()).getTime() - ms;

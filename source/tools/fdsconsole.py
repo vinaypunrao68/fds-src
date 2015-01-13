@@ -9,6 +9,9 @@ sys.path.insert(0,'{}/test/'.format(dirname))
 import fdsconsole.console
 
 if __name__ == '__main__':
-    cli = fdsconsole.console.FDSConsole()
-    cli.init()
-    cli.run(sys.argv[1:])
+    args=sys.argv[1:]
+    fInit = not (len(args) > 0 and args[0] == 'set')
+    cli = fdsconsole.console.FDSConsole(fInit)
+    if fInit:
+        cli.init()
+    cli.run(args)

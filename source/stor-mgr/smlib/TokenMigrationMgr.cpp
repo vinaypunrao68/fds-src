@@ -9,8 +9,10 @@
 namespace fds {
 
 SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
-        : smReqHandler(dataStore) {
+        : smReqHandler(dataStore),
+          clientLock("Migration Client Map Lock") {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
+    nextExecutorId = ATOMIC_VAR_INIT(0);
 
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapshotRequest.smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
@@ -39,6 +41,9 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         return err;
     }
 
+    // TODO(Sean:)  Need to disable GarbageCollection here, before
+    //              we can proceed with migration.
+
     // we need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
@@ -61,8 +66,12 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
             if ((migrExecutors.count(smTok) == 0) ||
                 (migrExecutors.count(smTok) > 0 && migrExecutors[smTok].count(srcSmUuid) == 0)) {
                 LOGNORMAL << "Will create migration executor class";
+                fds_uint64_t eId = std::atomic_fetch_add(&nextExecutorId, (fds_uint64_t)1);
                 migrExecutors[smTok][srcSmUuid] = MigrationExecutor::unique_ptr(
-                    new MigrationExecutor(smReqHandler, bitsPerDltToken, srcSmUuid, smTok));
+                    new MigrationExecutor(smReqHandler,
+                                          bitsPerDltToken,
+                                          srcSmUuid,
+                                          smTok, eId));
             }
             // tell migration executor that it is responsible for this DLT token
             migrExecutors[smTok][srcSmUuid]->addDltToken(dltTok);
@@ -139,11 +148,31 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
  * Handle start object rebalance from destination SM
  */
 Error
-SmTokenMigrationMgr::startObjectRebalance(
-                               fds_token_id tokenId,
-                               std::vector<fpi::CtrlObjectMetaDataSync>& objToSync) {
+SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+                                          const fpi::SvcUuid &executorSmUuid,
+                                          fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
-    LOGDEBUG << "";
+    LOGDEBUG << "Object Rebalance Initial Set executor SM Id " << std::hex
+             << executorSmUuid.svc_uuid << std::dec << " executor ID "
+             << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
+             << " last " << rebalSetMsg->lastFilterSet;
+
+    MigrationClient::shared_ptr migrClient;
+    int64_t executorId = rebalSetMsg->executorID;
+    {
+        fds_mutex::scoped_lock l(clientLock);
+        if (migrClients.count(executorId) == 0) {
+            // first time we see a message for this executor ID
+            NodeUuid executorNodeUuid(executorSmUuid);
+            migrClient = MigrationClient::shared_ptr(new MigrationClient(smReqHandler,
+                                                                         executorNodeUuid));
+            migrClients[executorId] = migrClient;
+        } else {
+            migrClient = migrClients[executorId];
+        }
+    }
+    // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
+    migrClient->migClientAddObjectSet(rebalSetMsg);
     return err;
 }
 

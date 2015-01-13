@@ -15,6 +15,9 @@ def suiteConstruction():
     """
     Construct the ordered set of test cases that comprise the
     test cases necessary to check whether a node is started.
+
+    Note that this does not check non-transient nodes. For those, use
+    suite TransientNodeWaitSuite.
     """
     suite = unittest.TestSuite()
 

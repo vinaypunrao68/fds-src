@@ -60,7 +60,7 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceInitialSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
@@ -84,11 +84,28 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // be cast back to the unsigned equivalents
 }
 
+/**
+ * This is the message from destination SM (SM that asks this SM to migrate objects)
+ * with an filter set of object metadata
+ */
 void
 SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                boost::shared_ptr<fpi::CtrlObjectRebalanceInitialSet>& initialObjSet)
+                boost::shared_ptr<fpi::CtrlObjectRebalanceFilterSet>& filterObjSet)
 {
+    Error err(ERR_OK);
     LOGDEBUG << "Initiate Object Sync";
+    const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
+    fds_verify(dlt != NULL);
+    err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
+                                                         asyncHdr->msg_src_uuid,
+                                                         dlt->getNumBitsForToken());
+
+    // TODO(Anna) if we get an error, we should respond with error
+    // on a non-error case, we are not going to send responses
+    // beta 2: any migration error --> log, stop migration, and respond to OM
+    // with error
+    // TODO(Anna) respond with error in the next check in, for now asserting
+    fds_verify(err.ok());
 }
 
 void

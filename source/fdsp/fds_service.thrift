@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+
 include "FDSP.thrift"
 include "snapshot.thrift"
 
@@ -96,7 +97,7 @@ enum  FDSPMsgTypeId {
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
     CtrlNotifySMStartMigrationTypeId   = 2062,
-    CtrlObjectRebalanceInitialSetTypeId = 2063,
+    CtrlObjectRebalanceFilterSetTypeId = 2063,
     CtrlObjectRebalanceDeltaSetTypeId  = 2064,
 
     /* DM messages. */
@@ -566,7 +567,7 @@ struct CtrlNotifyDLTUpdate {
 
 /* ---------------------- CtrlNotifySMStartMigration --------------------------- */
 struct SMTokenMigrationGroup {
-     1: i64                       source;
+     1: SvcUuid                   source;
      2: list<i32>                 tokens;
 }
 
@@ -988,27 +989,32 @@ struct CtrlObjectMetaDataSync
  * SM.  The set is filtered against the existing objects on SM, only
  * the "diff'ed" objects and meta data is sync'ed.
  */
-struct CtrlObjectRebalanceInitialSet
+struct CtrlObjectRebalanceFilterSet
 {
-    /* Token to be rebalance */
-    1: FDSP.FDSP_Token                    objectToken
+    /* DLT token to be rebalance */
+    1: FDSP.FDSP_Token              tokenId
+
+    /* unique id of executor on the destination SM */
+    2: i64 executorID
+
+    /* sequence number */
+    3: i64 seqNum
+
+    /* true if this is the last message */
+    4: bool lastFilterSet
     
     /* Set of objects to be sync'ed */
-    2: list<CtrlObjectMetaDataSync> objectsToSync
+    5: list<CtrlObjectMetaDataSync> objectsToFilter
 }
 
-/* Response from the source SM to destination SM.  
- * Notify the destination SM of the status and number objects to be sync'ed
- * This is an ack from source SM to destination SM after a set of delta set
- * of objects are computed (i.e. after source SM snapshot and filter).
- */
-struct CtrlObjectRebalanceInitialSetResp
+/* Object volume association */
+struct MetaDataVolumeAssoc
 {
-    /* Response status */
-    1: i64      objRebalanceStatus
+    /* object volume association */
+    1: i64 volumeAssoc  
 
-    /* Number of objects to be sent from source SM to destination SM */
-    2: i64      objNum
+    /* reference count for volume association */
+    2: i32 volumeRefCnt
 }
 
 /* Object + Data + MetaData to be propogated to the destination SM from source SM*/
@@ -1024,38 +1030,51 @@ struct CtrlObjectMetaDataPropagate
      * Is it possible that the compression type of the source and destination
      * object is different, if we ever support this feature?
      */
+    
+    /* volume information */
+    4: list<MetaDataVolumeAssoc> objectVolumeAssoc
+    
     /* Compression type for this object */
-    3: i32              objectCompressType
+    5: i32              objectCompressType
 
     /* Size of data after compression */
-    4: i32              objectCompressLen
+    6: i32              objectCompressLen
 
     /* Object block size */
-    5: i32              objectBlkLen
+    7: i32              objectBlkLen
 
     /* object size */
-    6: i32              objectSize
+    8: i32              objectSize
 
     /* object flag */
-    7: i32              objectFlags
+    9: i32              objectFlags
     
     /* object expieration time */
-    8: i32              objectExpireTime    
+    10: i32              objectExpireTime    
 }
 
 struct CtrlObjectRebalanceDeltaSet
 {
-    1: list<CtrlObjectMetaDataPropagate> objectToPropogate
-}
+    /*
+     * unique id of executor on the destination SM
+     /
+    1: i64 executorID
 
-struct CtrlObjectRebalanceDeltaSetResp
-{
-    /* Response status */
-    1: i64      objRebalanceDeltaStatus
+    /* sequence number of the delta set.  It's not important to handle
+     * delta set sent from the source SM to the destination SM, but it's
+     * important 
+     */
+    2: i64      seqNum
 
-    /* Number of object synced from source SM to destination SM */
-    2: i64      objNumSynced
+    /* boolean state to indicate that the whether this set is the last one
+     * or noe.
+     */
+    3: bool     lastDeltaSet
+
+    /* set of objects, which consists of data + metadata, to be applied 
+     * at the destination SM.
+     */
+    4: list<CtrlObjectMetaDataPropagate> objectToPropogate
 }
 
 #endif
-

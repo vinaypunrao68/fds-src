@@ -2,7 +2,6 @@
 {% block content %}
 fds: {
     /* Network interface that all fds nodes should have */
-
     nic_if="{{ default_nic }}"
 
     /* Use genkey to generate a new one */
@@ -18,6 +17,47 @@ fds: {
     }
 
     disable_qos = false
+
+    /* Feature toggles, use "common:" for features that propogate across components */
+    feature_toggle: {
+        common: {
+            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
+
+            java_is_fussy_an_entry_must_exist_here = true
+        }
+        plat: {
+            use_disk_hints = {{ ft_platform_use_disk_hints }}
+            force_simulation_mode = {{ ft_platform_force_simulation_mode }}
+
+            java_is_fussy_an_entry_must_exist_here = true
+        }
+        dm: {
+            java_is_fussy_an_entry_must_exist_here = true
+        }
+        sm: {
+            java_is_fussy_an_entry_must_exist_here = true
+        }
+        am: {
+            java_is_fussy_an_entry_must_exist_here = true
+        }
+        om: {
+            java_is_fussy_an_entry_must_exist_here = true
+        }
+    }
+
+    /* Use this section for settings that are shared (or needed) by most or all processes */
+    common: {
+{% if om_ip_count != empty_om_list %}
+{% set hosts = groups[group_names[0]] %}
+{% for i in range(om_ip_count|int) %}
+{% if loop.first %}        om_ip_list = "{% endif %}{{ hosts[i] }}{% if not loop.last %}:{% endif %}
+{% endfor %}"
+{% else %}
+         om_ip_list = "{{ empty_om_list }}"
+{% endif %}
+
+        java_is_fussy_an_entry_must_exist_here = true
+    }
 
     plat: {
         /* process id */
@@ -73,6 +113,7 @@ fds: {
 	    }
 	}
     }
+
     dm: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -148,6 +189,7 @@ fds: {
             long_slots = 6
         }
     }
+
     sm: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -193,7 +235,7 @@ fds: {
 
             /* enable simulated latency with its timueout value */
             enable_mocking = false
-            mocktimeout = 500   
+            mocktimeout = 500
             /* enable if testing SM standalone, no dependency on platform and OM */
             standalone = false
 
@@ -252,6 +294,7 @@ fds: {
             period = 5
         }
     }
+
     am: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -299,7 +342,7 @@ fds: {
             toggleStandAlone = false
 
             /* Toggle to disable stats collection for metadata streaming */
-            toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }} 
+            toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }}
 
             /* NBD module driver */
             nbd_vol_module = "sm"
@@ -309,7 +352,7 @@ fds: {
             /* Forces all AM dispatcher APIs to immediately return success */
             uturn_dispatcher_all = false
             /* dipatchers timeout in us */
-            uturn_dispatcher_timeout = 200 
+            uturn_dispatcher_timeout = 200
             /* Test mode to bypass local catalog cache */
             disable_vcc = true
             /* Forces all AM service APIs to immediately return success */
@@ -342,6 +385,7 @@ fds: {
             print_qos_stats = false
         }
     }
+
     om:
     {
         id="om"
@@ -372,10 +416,11 @@ fds: {
         }
 
         snmp: {
-            targetip = "127.0.0.1"
-            community = "public"
+            targetip = "{{ snmp_targetip }}"
+            community = "{{ snmp_community }}"
         }
     }
+
     checker: {
         id = "checker"
         path = "/home/bao_pham/temp/skinet2"
@@ -401,7 +446,7 @@ fds: {
             max_thread  = 8
         }
     }
-    
+
     xdi: {
 	am_host = "{{ am_host }}"
     }

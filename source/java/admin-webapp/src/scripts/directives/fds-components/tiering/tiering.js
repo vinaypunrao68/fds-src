@@ -10,9 +10,9 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
             
             $scope.tieringChoices = [
                 { label: $filter( 'translate' )( 'volumes.tiering.l_ssd_only' ), value: 'SSD_ONLY' },
-                { label: $filter( 'translate' )( 'volumes.tiering.l_ssd_preferred' ), value: 'SSD_PREFERRED' },
+//                { label: $filter( 'translate' )( 'volumes.tiering.l_ssd_preferred' ), value: 'SSD_PREFERRED' },
                 { label: $filter( 'translate' )( 'volumes.tiering.l_disk_only' ), value: 'HDD_ONLY' },
-                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_preferred' ), value: 'HDD_PREFERRED' }
+//                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_preferred' ), value: 'HDD_PREFERRED' }
             ];
             
             var fixPolicySetting = function(){

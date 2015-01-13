@@ -1,9 +1,12 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+
 #ifndef __SNAPSHOT_H__
 #define __SNAPSHOT_H__
+
 include "common.thrift"
+
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.apis
 
