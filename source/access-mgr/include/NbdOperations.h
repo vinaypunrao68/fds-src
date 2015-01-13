@@ -75,6 +75,7 @@ struct SectorLockMap {
                 map_lock.write_unlock();
             }
         } else {
+            fds_assert(false);  // This shouldn't happen, let's know in debug
             map_lock.cond_write_unlock();
         }
         return no;
