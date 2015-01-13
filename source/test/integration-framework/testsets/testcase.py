@@ -43,13 +43,13 @@ class FDSTestCase(unittest.TestCase):
         self.result = None
         self.test_passed = True
         self.test_failure = test_failure
-        
         if parameters:
             self.parameters = parameters
         else:
-            self.parameters = TestUtils.get_config(True, config.pyUnitConfig, 
-                                                   False, False,
-                                                   False, "passwd")
+            #self.parameters = TestUtils.get_config(True, config.pyUnitConfig, 
+            #                                       False, False,
+            #                                       False, "passwd")
+            self.parameters = {}
             self.parameters['s3'] = self.s3conn
             self.parameters['s3'].conn = self.s3conn.get_s3_connection()
         
