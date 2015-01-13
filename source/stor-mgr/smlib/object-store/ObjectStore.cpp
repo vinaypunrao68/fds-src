@@ -395,8 +395,8 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
 
     // do not move if object is deleted
     if (objMeta->getRefCnt() < 1) {
-        LOGWARN << "Object refcnt == 0";
-        return err;
+        LOGWARN << "object " << objId << " refcnt == 0";
+        return ERR_SM_ZERO_REFCNT_OBJECT;
     }
 
     if (relocateFlag &&
@@ -458,18 +458,22 @@ Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
 
     if (!objMeta->onTier(diskio::DataTier::diskTier)) {
         LOGNOTIFY << "Object " << objId << " hasn't made it to disk yet.  Ignoring move";
-        return ERR_OK;
+        return ERR_SM_TIER_WRITEBACK_NOT_DONE; 
     }
 
     /* Remove flash as the phsycal location */
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
     updatedMeta->removePhyLocation(diskio::DataTier::flashTier);
     fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
+    fds_assert(updatedMeta->onTier(diskio::DataTier::flashTier) == false);
 
     /* write metadata to metadata store */
     err = metaStore->putObjectMetadata(invalid_vol_id, objId, updatedMeta);
     if (!err.ok()) {
         LOGERROR << "Failed to update metadata for obj " << objId;
+    } else {
+        // TODO(Rao): Remove this log statement
+        DBG(LOGDEBUG << "Moved object " << objId << "from flash to disk");
     }
     return err;
 }
