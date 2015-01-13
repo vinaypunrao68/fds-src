@@ -134,7 +134,7 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
 
     @Override
     public User getUser(String login) {
-        return null;
+        return fillCacheMaybe().usersByName().get(login);
     }
 
     @Override
@@ -147,7 +147,6 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
         EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
         return tenantId;
     }
-
 
     @Override
     public List<Tenant> listTenants(int ignore)
