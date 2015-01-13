@@ -63,7 +63,8 @@ public class CloneVolume
                                        ( int ) volume.getSla(),
                                        volume.getPriority(),
                                        ( int ) volume.getLimit(),
-                                       volume.getCommit_log_retention() );
+                                       volume.getCommit_log_retention(),
+                                       volume.getMediaPolicy());
     }
 
     // TODO register to get metadata, i.e. statistics

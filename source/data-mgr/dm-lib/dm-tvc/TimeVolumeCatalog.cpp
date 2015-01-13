@@ -516,8 +516,8 @@ void DmTimeVolCatalog::monitorLogs() {
                             dmGetCatJournalStartTime(volTLPath + f, &startTime);
                             dataMgr->timeline.addJournalFile(volId, startTime, volTLPath + f);
                         } else {
-                            LOGWARN << "Failed to copy file '" << srcFile << "' to directory '"
-                                    << volTLPath;
+                            LOGWARN << "Failed to run command '" << cpCmd << "', error: '"
+                                    << rc << "'";
                         }
                     }
                 }

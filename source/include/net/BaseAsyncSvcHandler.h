@@ -78,8 +78,8 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     void asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
 
-    virtual void uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMsg& msg) override;
-    virtual void uuidBind(fpi::AsyncHdr &_return,
+    void uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMsg& msg) override;
+    void uuidBind(fpi::AsyncHdr &_return,
                           boost::shared_ptr<fpi::UuidBindMsg>& msg) override;
 
     static void asyncRespHandler(

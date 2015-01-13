@@ -15,7 +15,7 @@ public class CapacityToFull
   private static final long serialVersionUID = 4144617532432238800L;
 
   @SerializedName( "to_full" )
-  private Integer toFull;
+  private Long toFull;
 
   /**
    * default constructor
@@ -27,7 +27,7 @@ public class CapacityToFull
    * @return Returns the {@link java.lang.Integer} representing the duration
    * until capacity is 100% (full)
    */
-  public Integer getToFull() {
+  public Long getToFull() {
     return toFull;
   }
 
@@ -35,7 +35,7 @@ public class CapacityToFull
    * @param toFull the {@link java.lang.Integer}  representing the duration
    *               until capacity is 100% (full)
    */
-  public void setToFull( final Integer toFull ) {
+  public void setToFull( final Long toFull ) {
     this.toFull = toFull;
   }
 }

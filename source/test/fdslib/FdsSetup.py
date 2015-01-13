@@ -207,7 +207,8 @@ class FdsLocalEnv(FdsEnv):
                  wait_compl = False,
                  fds_bin = False,
                  output = False,
-                 return_stdin = False):
+                 return_stdin = False,
+                 cmd_input=None):
         log = logging.getLogger(self.__class__.__name__ + '.' + "local_exec")
 
         # We need to modify the command to use the credentials that have been configured.
@@ -222,7 +223,10 @@ class FdsLocalEnv(FdsEnv):
 
         if self.env_verbose:
             if self.env_verbose['verbose']:
-                log.info("Running local command: %s" % (cmd_exec))
+                if cmd_input is not None:
+                    log.info("Running local command: %s [<< %s]" % (cmd_exec, cmd_input))
+                else:
+                    log.info("Running local command: %s" % (cmd_exec))
 
             if self.env_verbose['dryrun']:
                 log.info("...not executed in dryrun mode")
@@ -232,7 +236,17 @@ class FdsLocalEnv(FdsEnv):
         call_args = shlex.split(cmd_exec)
 
         p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate(self.env_sudo_password + "\n")
+
+        if cmd_input is not None:
+            # Watch for a sudo password of "dummy". In that case we'll assume that the environment
+            # will not request a password for sudo and so execute the command without providing it
+            # as input.
+            if self.env_sudo_password == "dummy":
+                stdout, stderr = p.communicate(cmd_input + "\n")
+            else:
+                stdout, stderr = p.communicate(self.env_sudo_password + "\n" + cmd_input + "\n")
+        else:
+            stdout, stderr = p.communicate(self.env_sudo_password + "\n")
 
         if wait_compl:
             p.wait()
@@ -277,8 +291,9 @@ class FdsLocalEnv(FdsEnv):
     # Execute command and wait for result. We'll also log
     # output in this case.
     #
-    def exec_wait(self, cmd, return_stdin=False):
-        return self.local_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin)
+    def exec_wait(self, cmd, return_stdin=False, cmd_input=None):
+        return self.local_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin,
+                               cmd_input=cmd_input)
 
     def local_close(self):
         pass

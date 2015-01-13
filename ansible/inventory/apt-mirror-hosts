@@ -1,0 +1,4 @@
+[apt-mirror-hosts]
+bld-dev-02 apt_mirror_public_ubuntu=true apt_mirror_private_artifactory=true
+coke apt_mirror_public_ubuntu=true apt_mirror_private_artifactory=true
+awo-apt apt_mirror_public_ubuntu=false apt_mirror_private_artifactory=true

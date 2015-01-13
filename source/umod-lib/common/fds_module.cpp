@@ -267,6 +267,7 @@ ModuleVector::mod_mk_sysparams()
 
     if (vm.count("help")) {
         std::cout << desc << std::endl;
+        // TODO(...): Fix this some day, using the -h causes a core dump
         return;
     }
     // Make the FDS root directory.

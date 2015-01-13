@@ -141,6 +141,12 @@ class ObjectStore : public Module, public boost::noncopyable {
     void snapshotMetadata(fds_token_id smTokId,
                           SmIoSnapshotObjectDB::CbType notifFn);
 
+
+    /**
+     * Returns number of disks on this SM
+     */
+    fds_uint32_t getDiskCount() const;
+
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
 

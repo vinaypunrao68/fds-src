@@ -1,5 +1,10 @@
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+
 #ifndef __FDSP_H__
 #define __FDSP_H__
+
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace * FDS_ProtocolInterface
@@ -101,5 +106,3 @@ service orch_PolicyReq {
 }
 
 #endif
-
-

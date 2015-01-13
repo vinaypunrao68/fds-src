@@ -29,8 +29,11 @@ user_non_fds_libs +=  \
     jansson \
 	udev \
 	parted \
-    crypt pcre crypto \
-	z cryptopp \
+    crypt \
+	pcre \
+	crypto \
+	z \
+	cryptopp \
     ssl \
     boost_timer \
     gmock \

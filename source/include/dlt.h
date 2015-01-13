@@ -161,7 +161,7 @@ namespace fds {
         // dlt : is the base dlt relative to which diffs will be maintained
         // version : is the new version number of the dltdiff. if version is 0
         // the version will be set as dlt.version1
-        DLTDiff(DLT* baseDlt, fds_uint64_t version = 0);
+        explicit DLTDiff(DLT* baseDlt, fds_uint64_t version = 0);
 
         // get all the Nodes for a token/objid
         DltTokenGroupPtr getNodes(fds_token_id token) const;

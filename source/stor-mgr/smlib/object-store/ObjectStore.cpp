@@ -558,6 +558,11 @@ ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     return dataStore->scavengerControlCmd(scavCmd);
 }
 
+fds_uint32_t
+ObjectStore::getDiskCount() const {
+    return diskMap->getTotalDisks();
+}
+
 /**
  * Module initialization
  */
