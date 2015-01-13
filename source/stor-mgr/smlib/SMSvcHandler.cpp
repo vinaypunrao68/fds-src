@@ -630,10 +630,9 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
     fds_assert(vol != NULL);
     if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
-        MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
-        fdp::FDSP_TierPolicyPtr tp(new FDSP_TierPolicy());
-        tp->tier_media_pct = vdb->mediaPolicy;
-        objStorMgr->omc_srv_pol->serv_recvTierPolicyReq(tp);
+        // TODO(Rao): Total hack. This should go through some sort of synchronization.
+        // I can't fina a better interface for doing this in the existing code
+        vol->voldesc->mediaPolicy = vdb->mediaPolicy;
     }
 
     vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
