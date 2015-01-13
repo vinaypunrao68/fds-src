@@ -31,7 +31,7 @@ ObjectStore::ObjectStore(const std::string &modName,
               "SM Object Metadata Storage Module")),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
-                                    volTbl, data_store)) {
+                                    volTbl, diskMap, data_store)) {
 }
 
 ObjectStore::~ObjectStore() {
@@ -382,8 +382,7 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
 
     if (relocateFlag &&
         fromTier == diskio::DataTier::flashTier &&
-        toTier == diskio::DataTier::diskTier &&
-        ) {
+        toTier == diskio::DataTier::diskTier) {
         return updateLocationFromFlashToDisk(objId, objMeta);
     }
 
@@ -439,11 +438,11 @@ Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
 
     /* Remove flash as the phsycal location */
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-    updatedMeta->removePhyLocation(fdiskio::DataTier::flashTier);
+    updatedMeta->removePhyLocation(diskio::DataTier::flashTier);
     fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
 
     /* write metadata to metadata store */
-    err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+    err = metaStore->putObjectMetadata(invalid_vol_id, objId, updatedMeta);
     if (!err.ok()) {
         LOGERROR << "Failed to update metadata for obj " << objId;
     }

@@ -5,9 +5,10 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_HYBRIDTIERCTRLR_H_
 #define SOURCE_STOR_MGR_INCLUDE_HYBRIDTIERCTRLR_H_
 
-#include <vector>
+#include <set>
 #include <fds_types.h>
 #include <SmIo.h>
+#include <object-store/SmDiskMap.h>
 
 namespace fds {
 
@@ -23,12 +24,12 @@ typedef boost::shared_ptr<FdsTimerTask> FdsTimerTaskPtr;
 * NOTE: This implementation is valid for beta-2 timeframe.
 */
 struct HybridTierCtrlr {
-    HybridTierCtrlr(CommonModuleProviderIf* modProvider,
-                    SmIoReqHandler* storMgr,
+    HybridTierCtrlr(SmIoReqHandler* storMgr,
                     SmDiskMap::ptr diskMap);
     void start();
     void stop();
 
+    void run();
     void moveToNextToken();
     void snapToken();
     void constructTierMigrationList();
@@ -39,20 +40,25 @@ struct HybridTierCtrlr {
     void moveObjsToTierCb(const Error& e,
                           SmIoMoveObjsToTier *req);
  protected:
+    void initMoveTierRequest_();
+
     static uint32_t BATCH_SZ;
     static uint32_t FREQUENCY;
 
-    CommonModuleProviderIf* modProvider_;
     fds_threadpool *threadpool_;
     SmIoReqHandler* storMgr_;
     SmDiskMap::ptr diskMap_;
     FdsTimerTaskPtr runTask_;
-    SmIoSnapshotObjectDB snapRequest_;
-    std::vector<fds_token_id> tokenList_;
-    int curTokenIdx_;
+    bool inProgress_;
+    std::set<fds_token_id> tokenSet_;
+    std::set<fds_token_id>::iterator nextToken_;
     std::unique_ptr<SMTokenItr> tokenItr_;
-    SmIoMoveObjsToTier moveTierRequest_;
+    SmIoSnapshotObjectDB snapRequest_;
+    SmIoMoveObjsToTier *moveTierRequest_;
     uint64_t hybridMoveTs_;
+
+    /* Counters */
+    uint32_t movedCnt_;
 };
 } // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_HYBRIDTIERCTRLR_H_

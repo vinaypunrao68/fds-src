@@ -540,6 +540,7 @@ class SmIoMoveObjsToTier: public SmIoReq {
     SmIoMoveObjsToTier() {
         moveObjsRespCb = NULL;
         relocate = false;
+        movedCnt = 0;
     }
 
     /// list of object ids
@@ -553,6 +554,9 @@ class SmIoMoveObjsToTier: public SmIoReq {
 
     /// if true, relocate objects (remove from fromTier)
     fds_bool_t relocate;
+
+    /// moved cnt
+    uint32_t movedCnt;
 
     /// response callback
     cbType moveObjsRespCb;

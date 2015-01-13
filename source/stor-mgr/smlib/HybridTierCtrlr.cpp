@@ -5,11 +5,11 @@
 #include <fds_module_provider.h>
 #include <fds_timer.h>
 #include <concurrency/ThreadPool.h>
+#include <ObjMeta.h>
 #include <HybridTierCtrlr.h>
 
 namespace fds {
 
-// TODO(Rao): Get this from config file
 uint32_t HybridTierCtrlr::BATCH_SZ = 1024;
 uint32_t HybridTierCtrlr::FREQUENCY = 10;
 
@@ -18,14 +18,19 @@ uint32_t HybridTierCtrlr::FREQUENCY = 10;
 // -Move runTask into ObjectStore
 // -Start garbage collection for ssd
 // -Expose stats for testing
-HybridTierCtrlr::HybridTierCtrlr(CommonModuleProviderIf* modProvider,
-                                   SmIoReqHandler* storMgr,
-                                   SmDiskMap::ptr diskMap)
+HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
+                                 SmDiskMap::ptr diskMap)
 {
-    modProvider_ = modProvider_;
-    threadpool_ = modProvider_->proc_thrpool();
+    threadpool_ = gModuleProvider->proc_thrpool();
     storMgr_ = storMgr;
     diskMap_ = diskMap;
+
+    BATCH_SZ = gModuleProvider->get_fds_config()->\
+                       get<uint32_t>("fds.sm.tiering.hybrid.batchSz");
+    FREQUENCY = gModuleProvider->get_fds_config()->\
+                       get<uint32_t>("fds.sm.tiering.hybrid.frequency");
+
+    inProgress_ = false;
     snapRequest_.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapRequest_.smio_snap_resp_cb = std::bind(&HybridTierCtrlr::snapTokenCb,
                                               this,
@@ -33,39 +38,37 @@ HybridTierCtrlr::HybridTierCtrlr(CommonModuleProviderIf* modProvider,
                                               std::placeholders::_2,
                                               std::placeholders::_3,
                                               std::placeholders::_4);
-
-    moveTierRequest_.oidList.reserve(BATCH_SZ);
-    moveTierRequest_.fromTier = diskio::DataTier::flashTier;
-    moveTierRequest_.toTier = diskio::DataTier::diskTier;
-    moveTierRequest_.relocate = true;
-    moveTierRequest_.moveObjsRespCb = std::bind(&HybridTierCtrlr::moveObjsToTierCb,
-                                                this,
-                                                std::placeholders::_1,
-                                                std::placeholders::_2);
-    /* Start from -1 b/c moveToNexToken() increments */
-    curTokenIdx_ = -1;
-    BATCH_SZ = modProvider->get_fds_config()->\
-                       get<uint32_t>("fds.sm.tiering.batchSz");
-    FREQUENCY = modProvider->get_fds_config()->\
-                       get<uint32_t>("fds.sm.tiering.frequency");
+    movedCnt_ = 0;
 }
 
 void HybridTierCtrlr::start()
 {
     GLOGNOTIFY;
 
+    /* Schedule run() on timer */
     fds_assert(runTask_.get() == nullptr);
-    auto &timer = *(modProvider_->getTimer());
+    auto &timer = *(gModuleProvider->getTimer());
     runTask_.reset(
-        boost::make_shared<FdsTimerFunctionTask>(
+        new FdsTimerFunctionTask(
             timer,
-            std::bind(&HybridTierCtrlr::moveToNextToken, this)));
+            std::bind(&HybridTierCtrlr::run, this)));
     timer.schedule(runTask_, std::chrono::seconds(FREQUENCY));
 }
 
 void HybridTierCtrlr::run()
 {
-    threadpool_.schedule(&HybridTierCtrlr::moveToNextToken, this);
+    fds_assert(tokenSet_.empty() &&
+               tokenItr_.get() == nullptr &&
+               inProgress_ == false &&
+               movedCnt_ == 0);
+
+    hybridMoveTs_ = util::getTimeStampSeconds() - FREQUENCY;
+    tokenSet_ = diskMap_->getSmTokens();
+    threadpool_->schedule(&HybridTierCtrlr::moveToNextToken, this);
+
+    GLOGNOTIFY << "Move objects older than ts: " << hybridMoveTs_ 
+        << " token cnt: " << tokenSet_.size();
+
 }
 
 void HybridTierCtrlr::stop()
@@ -75,36 +78,44 @@ void HybridTierCtrlr::stop()
     GLOGNOTIFY;
 
     fds_assert(runTask_);
-    modProvider_->getTimer()->cancel(runTask_);
+    gModuleProvider->getTimer()->cancel(runTask_);
     runTask_.reset();
 }
 
 void HybridTierCtrlr::moveToNextToken()
 {
-    curTokenIdx_++;
+    if (inProgress_ == false) {
+        /* We are at first token..don't increment nextToken_ */
+        inProgress_ = true;
+        nextToken_ = tokenSet_.begin();
+    } else {
+        fds_assert(inProgress_ == true);
+        nextToken_++;
+    }
 
-    if (curTokenIdx_ < tokenList_.size()) {
-        GLOGDEBUG << "next token id: " << tokenList_[curTokenIdx_];
-        /* Start moving objects for the next token */
+    if (nextToken_ != tokenSet_.end()) {
+        GLOGDEBUG << "next token id: " << *nextToken_;
+        /* Start moving objects for the next token.  First we take a snap */
         snapToken();
     } else {
-        GLOGNOTIFY << "Completed processing all tokens.  Scheduling hybrid tier work again";
+        GLOGNOTIFY << "Completed processing all tokens.  Moved cnt: " << movedCnt_
+            << ".  Scheduling hybrid tier work again";
         /* Completed moving objects.  Schedule the next relocation task */
-        curTokenIdx_ = -1;
-        // TODO(Rao): Get from config
-        timer.schedule(runTask_, std::chrono::seconds(10));
+        inProgress_ = false;
+        movedCnt_ = 0;
+        tokenSet_.clear();
+        gModuleProvider->getTimer()->schedule(runTask_, std::chrono::seconds(FREQUENCY));
     }
 }
 
 void HybridTierCtrlr::snapToken()
 {
-    GLOGDEBUG << "token id: " << tokenList_[curTokenIdx_];
+    GLOGDEBUG << "token id: " << *nextToken_;
 
     fds_assert(tokenItr_.get() == nullptr);
-    fds_assert(moveTierRequest_.oidList.empty() == true);
 
-    snapRequest_.token_id = tokenList_[curTokenIdx_];
-    err = storMgr_->enqueueMsg(FdsSysTaskQueueId, &snapRequest_);
+    snapRequest_.token_id = *nextToken_;
+    Error err = storMgr_->enqueueMsg(FdsSysTaskQueueId, &snapRequest_);
     if (!err.ok()) {
         GLOGWARN << "Failed to enqueue snapshot request: err " << err;
         leveldb::ReadOptions options;
@@ -118,11 +129,11 @@ void HybridTierCtrlr::snapTokenCb(const Error& err,
                               leveldb::ReadOptions& options,
                               leveldb::DB* db)
 {
-    GLOGDEBUG << "token id: " << tokenList_[curTokenIdx_];
+    GLOGDEBUG << "token id: " << *nextToken_;
 
     if (!err.ok()) {
         GLOGERROR << "Failed to take snap.  Err: "
-            << err << " token id: " << tokenList_[curTokenIdx_];
+            << err << " token id: " << *nextToken_;
         /* Move on to next token */
         threadpool_->schedule(&HybridTierCtrlr::moveToNextToken, this);
         return;
@@ -141,26 +152,26 @@ void HybridTierCtrlr::snapTokenCb(const Error& err,
 
 void HybridTierCtrlr::constructTierMigrationList()
 {
-    fds_assert(moveTierRequest_.oidList.empty() == true);
+    initMoveTierRequest_();
 
     ObjMetaData omd;
 
     /* Construct object list to update tier location from flash to disk */
     auto &itr = tokenItr_->itr;
-    for (; itr->Valid() && tierMigrationList_.size() < BATCH_SZ;
+    for (; itr->Valid() && moveTierRequest_->oidList.size() < BATCH_SZ;
          itr->Next()) {
-        omd.deserializeFrom(itr->Value());
+        omd.deserializeFrom(itr->value());
         if (omd.onFlashTier() && omd.getCreationTime() < hybridMoveTs_) {
-            moveTierRequest_.oidList.push_back(ObjectID(itr->Key()));
+            moveTierRequest_->oidList.push_back(ObjectID(itr->key().ToString()));
         }
     }
 
     /* Send message to move the objects */
-    err = storMgr_->enqueueMsg(FdsSysTaskQueueId, &moveTierRequest_);
+    Error err = storMgr_->enqueueMsg(FdsSysTaskQueueId, moveTierRequest_);
     if (!err.ok()) {
         GLOGWARN << "Failed to enqueue move tier request: err " << err;
         leveldb::ReadOptions options;
-        moveObjsToTierCb(err, &snapRequest_);
+        moveObjsToTierCb(err, moveTierRequest_);
         return;
     }
 }
@@ -170,27 +181,41 @@ void HybridTierCtrlr::moveObjsToTierCb(const Error& e,
 {
     if (e != ERR_OK) {
         LOGWARN << "Failed to move some objects to disk from flash for token: "
-            << tokenList_[curTokenIdx_];
+            << *nextToken_;
         /* On error we still continue processing */
+    } else {
+        LOGDEBUG << "Moved " << req->movedCnt << " objects for token: " << *nextToken_;
+        movedCnt_ += req->movedCnt;
     }
 
     if (tokenItr_->itr->Valid()) {
         /* We haven't finished processing the current token..go back to building list */
-        moveTierRequest_.oidList.clear();
         threadpool_->\
             schedule(&HybridTierCtrlr::constructTierMigrationList, this);
         return;
     }
     
-    LOGDEBUG << "Moved objects for token: " << tokenList_[curTokenIdx_];
+    LOGDEBUG << "Completed moving objects for token: " << *nextToken_;
 
     /* Completed current token.  Release snapshot */
-    tokenItr_->itr = nullptr;
     tokenItr_->db->ReleaseSnapshot(tokenItr_->options.snapshot);
-    tokenItr_->db = nullptr;
-    tokenItr_->done = true;
+    tokenItr_.reset();
 
     /* Move on to next token */
-    threadpool_->schedule(&HybridTierCtrlr::moveToNextToken(), this);
+    threadpool_->schedule(&HybridTierCtrlr::moveToNextToken, this);
+}
+
+void HybridTierCtrlr::initMoveTierRequest_()
+{
+    moveTierRequest_ = new SmIoMoveObjsToTier();
+    moveTierRequest_->io_type = FDS_SM_TIER_PROMOTE_OBJECTS;
+    moveTierRequest_->oidList.reserve(BATCH_SZ);
+    moveTierRequest_->fromTier = diskio::DataTier::flashTier;
+    moveTierRequest_->toTier = diskio::DataTier::diskTier;
+    moveTierRequest_->relocate = true;
+    moveTierRequest_->moveObjsRespCb = std::bind(&HybridTierCtrlr::moveObjsToTierCb,
+                                                this,
+                                                std::placeholders::_1,
+                                                std::placeholders::_2);
 }
 }  // namespace fds

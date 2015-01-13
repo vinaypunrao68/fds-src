@@ -11,6 +11,8 @@
 
 namespace fds {
 
+uint32_t gStayInGdb = 1;
+
 TierEngine::TierEngine(const std::string &modName,
         rankPolicyType _rank_type,
         StorMgrVolumeTable* _sm_volTbl,
@@ -18,7 +20,8 @@ TierEngine::TierEngine(const std::string &modName,
         SmIoReqHandler* storMgr) :
         Module(modName.c_str()),
         migrator(nullptr),
-        sm_volTbl(_sm_volTbl) {
+        sm_volTbl(_sm_volTbl),
+        hybridTierCtrlr(storMgr, diskMap) {
     switch (_rank_type) {
         case FDS_RANDOM_RANK_POLICY:
             rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy(storMgr, 50));
@@ -30,7 +33,6 @@ TierEngine::TierEngine(const std::string &modName,
     }
 
     migrator = new SmTierMigration(storMgr);
-    this->diskMap = diskMap;
 }
 
 
@@ -42,6 +44,15 @@ TierEngine::~TierEngine() {
 
 int TierEngine::mod_init(SysParams const *const param) {
     Module::mod_init(param);
+    // TODO(Rao): Remove this
+    while (gStayInGdb) {
+        sleep(10);
+    }
+
+    if (gModuleProvider->get_fds_config()->\
+        get<bool>("fds.sm.tiering.hybrid.enable")) {
+        hybridTierCtrlr.start();
+    }
 
     /*
     boost::shared_ptr<FdsConfig> conf = g_fdsprocess->get_fds_config();

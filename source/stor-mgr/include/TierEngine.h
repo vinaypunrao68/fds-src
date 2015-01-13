@@ -10,6 +10,7 @@
 #include <StorMgrVolumes.h>
 #include <ObjRank.h>
 #include <TierMigration.h>
+#include <HybridTierCtrlr.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmDiskMap.h>
 
@@ -96,7 +97,6 @@ class TierEngine : public Module {
     StorMgrVolumeTable* sm_volTbl;
     SmTierMigration* migrator;
 
-    SmDiskMap::ptr diskMap;
     HybridTierCtrlr hybridTierCtrlr;
 };
 

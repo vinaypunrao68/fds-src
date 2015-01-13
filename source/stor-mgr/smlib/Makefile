@@ -22,6 +22,7 @@ user_cpp          :=                   \
     ObjStats.cpp                       \
     TierMigration.cpp                  \
     TierEngine.cpp                     \
+    HybridTierCtrlr.cpp		       \
     ObjMeta.cpp                        \
     SmObjDb.cpp                        \
     SMSvcHandler.cpp                   \
