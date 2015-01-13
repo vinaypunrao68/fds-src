@@ -193,24 +193,6 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Command line argument for'
                                      ' the integration framework')
-    #parser.add_argument('-f', '--failfast', action='store_true',
-    #                    default=False,
-    #                    help='Define if the test should fail fast.')
-    #parser.add_argument('-v', '--verbose', action='store_true',
-    #                    default=False,
-    #                    help='Define if output must be verbose.')
-    #parser.add_argument('-r', '--dryrun', action='store_true',
-    #                     default=False,
-    #                     help='Define if test must be run without' \
-    #                     ' initial setup')
-    #parser.add_argument('-d', '--sudo-password', action='store_true',
-    #                     default='passwd',
-    #                     help='Define the root password, if not' \
-    #                     ' specified defaults to "passwd"')
-    #parser.add_argument('-i', '--install', action='store_true',
-    #                     default=False,
-    #                     help='Specify if a fresh install must be' \
-    #                     ' performed')
     parser.add_argument('-b', '--build', action='store_true',
                         default='nightly',
                         help='Specify if the build is local or nightly')
