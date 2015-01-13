@@ -66,17 +66,17 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // DLT token so that the source knows there are no objects for a given
     // DLT token
     leveldb::Iterator* it = db->NewIterator(options);
-    std::map<fds_token_id, fpi::CtrlObjectRebalanceInitialSetPtr> perTokenMsgs;
-    fds_uint64_t seqId = 0;
+    std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
+    uint64_t seqId = 0;
     for (auto tok : dltTokens) {
         // for now packing all objects per one DLT token into one message
-        fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
+        fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
         msg->tokenId = tok;
         msg->executorID = executorId;
         msg->seqNum = seqId++;
-        msg->last = (seqId < dltTokens.size()) ? false : true;
+        msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
         LOGNORMAL << "Initial Set Msg: token " << tok << ", seqNum "
-                  << msg->seqNum << ", last " << msg->last;
+                  << msg->seqNum << ", last " << msg->lastFilterSet;
         perTokenMsgs[tok] = msg;
     }
 
@@ -100,19 +100,19 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         LOGNORMAL << "Will add object " << id << ", dltToken " << dltTokId
                  << " refcnt " << omdSync.objRefCnt << " to thrift msg to source SM "
                  << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        perTokenMsgs[dltTokId]->objectsToSync.push_back(omdSync);
+        perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdSync);
     }
     delete it;
 
     // send rebalance set of objects to source SM
     for (auto tok : dltTokens) {
         LOGNORMAL << "Sending rebalance initial set for DLT token "
-                  << tok << " set size " << perTokenMsgs[tok]->objectsToSync.size()
+                  << tok << " set size " << perTokenMsgs[tok]->objectsToFilter.size()
                   << " to source SM "
                   << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         if (!testMode) {
             auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceInitialSet),
+            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                        perTokenMsgs[tok]);
             asyncRebalSetReq->setTimeoutMs(5000);
             // we are not waiting for response, so not setting a callback

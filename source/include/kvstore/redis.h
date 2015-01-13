@@ -35,8 +35,8 @@ namespace redis {
      * Reply from redis server
      */
     struct Reply {
-        Reply(redisReply* r, bool fOwner = true);
-        Reply(void* v, bool fOwner = true);
+        explicit Reply(redisReply* r, bool fOwner = true);
+        explicit Reply(void* v, bool fOwner = true);
         Reply& operator=(const Reply& rhs);
         virtual ~Reply();
 
@@ -68,7 +68,7 @@ namespace redis {
      * Connection to Redis
      */
     struct Connection {
-        Connection(const std::string& host = "localhost", uint port = 6379);
+        explicit Connection(const std::string& host = "localhost", uint port = 6379);
         void connect();
         Reply getReply();
         bool isConnected();

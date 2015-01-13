@@ -70,12 +70,12 @@ class SmTokenMigrationMgr {
     /**
      * Handle start object rebalance from destination SM
      */
-    Error startObjectRebalance(fpi::CtrlObjectRebalanceInitialSetPtr& rebalSetMsg,
+    Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                const fpi::SvcUuid &executorSmUuid,
                                fds_uint32_t bitsPerDltToken);
 
     /**
-     * Ack from source SM when it receives the whole initial set of
+     * Ack from source SM when it receives the whole filter set of
      * objects.
      */
     Error startObjectRebalanceResp();

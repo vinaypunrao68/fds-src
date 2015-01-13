@@ -12,6 +12,8 @@
 #include <fds_types.h>
 #include <SmIo.h>
 
+#include <MigrationUtility.h>
+
 namespace fds {
 
 /**
@@ -81,7 +83,7 @@ class MigrationExecutor {
     void handleMigrationDone(const Error& error);
 
     /// Id of this executor, used for communicating with source SM
-    fds_uint64_t executorId;
+    uint64_t executorId;
 
     /// state of this migration executor
     std::atomic<MigrationExecutorState> state;
@@ -110,6 +112,12 @@ class MigrationExecutor {
      */
     std::set<fds_token_id> dltTokens;
     fds_uint32_t bitsPerDltToken;
+
+    /**
+     * Maintain messages from the source SM, so we don't lose it.  Each async message
+     * from source SM has a unique sequence number.
+     */
+    MigrationSeqNumReceiver seqNumDeltaSet;
 
     /// true if standalone (no rpc sent)
     fds_bool_t testMode;

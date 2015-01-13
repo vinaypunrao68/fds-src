@@ -60,7 +60,7 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceInitialSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
@@ -86,17 +86,17 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 /**
  * This is the message from destination SM (SM that asks this SM to migrate objects)
- * with an initial set of object metadata
+ * with an filter set of object metadata
  */
 void
 SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 fpi::CtrlObjectRebalanceInitialSetPtr& initialObjSet)
+                                 fpi::CtrlObjectRebalanceInitialSetPtr& filterObjSet)
 {
     Error err(ERR_OK);
     LOGDEBUG << "Initiate Object Sync";
     const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
     fds_verify(dlt != NULL);
-    err = objStorMgr->migrationMgr->startObjectRebalance(initialObjSet,
+    err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
                                                          asyncHdr->msg_src_uuid,
                                                          dlt->getNumBitsForToken());
 

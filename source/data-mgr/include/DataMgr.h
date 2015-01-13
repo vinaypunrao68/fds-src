@@ -380,7 +380,7 @@ struct DataMgr : Module, DmIoReqHandler {
      */
     class ReqHandler : public FDS_ProtocolInterface::FDSP_MetaDataPathReqIf {
       public:
-        explicit ReqHandler();
+        ReqHandler();
         ~ReqHandler();
 
         void StartBlobTx(const FDSP_MsgHdrType& msg_hdr,
