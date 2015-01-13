@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+
 include "FDSP.thrift"
 include "snapshot.thrift"
 
@@ -96,7 +97,7 @@ enum  FDSPMsgTypeId {
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
     CtrlNotifySMStartMigrationTypeId   = 2062,
-    CtrlObjectRebalanceInitialSetTypeId = 2063,
+    CtrlObjectRebalanceFilterSetTypeId = 2063,
     CtrlObjectRebalanceDeltaSetTypeId  = 2064,
 
     /* DM messages. */
@@ -988,7 +989,7 @@ struct CtrlObjectMetaDataSync
  * SM.  The set is filtered against the existing objects on SM, only
  * the "diff'ed" objects and meta data is sync'ed.
  */
-struct CtrlObjectRebalanceInitialSet
+struct CtrlObjectRebalanceFilterSet
 {
     /* DLT token to be rebalance */
     1: FDSP.FDSP_Token              tokenId
@@ -1000,10 +1001,10 @@ struct CtrlObjectRebalanceInitialSet
     3: i64 seqNum
 
     /* true if this is the last message */
-    4: bool last
+    4: bool lastFilterSet
     
     /* Set of objects to be sync'ed */
-    5: list<CtrlObjectMetaDataSync> objectsToSync
+    5: list<CtrlObjectMetaDataSync> objectsToFilter
 }
 
 /* Object volume association */
@@ -1068,7 +1069,7 @@ struct CtrlObjectRebalanceDeltaSet
     /* boolean state to indicate that the whether this set is the last one
      * or noe.
      */
-    3: bool     lastSet
+    3: bool     lastDeltaSet
 
     /* set of objects, which consists of data + metadata, to be applied 
      * at the destination SM.
@@ -1077,4 +1078,3 @@ struct CtrlObjectRebalanceDeltaSet
 }
 
 #endif
-

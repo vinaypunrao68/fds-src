@@ -31,7 +31,7 @@ struct BlobObjKey {
 
     BlobObjKey() : blobId(INVALID_BLOB_ID), objIndex(BLOB_META_INDEX) {}
 
-    BlobObjKey(fds_uint64_t blobId_, fds_uint32_t objIndex_ = BLOB_META_INDEX)
+    explicit BlobObjKey(fds_uint64_t blobId_, fds_uint32_t objIndex_ = BLOB_META_INDEX)
             : blobId(blobId_), objIndex(objIndex_) {}
 };
 

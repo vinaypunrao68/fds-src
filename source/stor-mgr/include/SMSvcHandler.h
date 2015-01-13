@@ -135,7 +135,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
             boost::shared_ptr <fpi::CtrlNotifySMStartMigration> &migrationMsg);
 
     void initiateObjectSync(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::CtrlObjectRebalanceInitialSet> &initialObjSet);
+            boost::shared_ptr <fpi::CtrlObjectRebalanceFilterSet> &filterObjSet);
 
     void syncObjectSet(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlObjectRebalanceDeltaSet> &deltaObjSet);

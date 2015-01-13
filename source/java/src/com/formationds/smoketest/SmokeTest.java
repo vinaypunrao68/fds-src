@@ -287,23 +287,6 @@ public class SmokeTest {
             e.printStackTrace();
             System.err.println("ERR: unable to create Snapshot.");
         }
-
-        IntStream.range(0, count)
-                .map(new ConsoleProgress("Getting objects from snapshot", count))
-                .forEach(i -> {
-                    String key = prefix + "-" + i;
-                    S3Object object = userClient.getObject(snapBucket, key);
-                    //assertEquals(key, object.getObjectMetadata().getUserMetaDataOf(CUSTOM_METADATA_HEADER));
-                    //assertEquals(last[0].getContentMd5(), object.getObjectMetadata().getContentMD5());
-                    assertEquals(last[0].getETag(), object.getObjectMetadata()
-                            .getETag());
-                    try {
-                        assertArrayEquals(randomBytes, IOUtils.toByteArray(object.getObjectContent()));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        fail("Error reading object");
-                    }
-                });
     }
 
     @Test

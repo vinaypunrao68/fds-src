@@ -557,9 +557,17 @@ DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     LOGDEBUG << "FSM DACT_Rebalance";
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
 
     Error err = dp->beginRebalance();
     fds_verify(err == ERR_OK);
+
+    // if we did not send msg to any SMs, go to next state
+    NodeUuidSet rebalNodes = dp->getRebalanceNodes();
+    if (rebalNodes.size() == 0) {
+        LOGDEBUG << "Migration msg wasn't sent, so going to next state";
+        fsm.process_event(DltRebalOkEvt(cm, dp));
+    }
 }
 
 // DACT_Commit

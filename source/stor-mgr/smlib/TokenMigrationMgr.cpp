@@ -41,6 +41,9 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         return err;
     }
 
+    // TODO(Sean:)  Need to disable GarbageCollection here, before
+    //              we can proceed with migration.
+
     // we need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
@@ -145,17 +148,17 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
  * Handle start object rebalance from destination SM
  */
 Error
-SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceInitialSetPtr& rebalSetMsg,
+SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                           const fpi::SvcUuid &executorSmUuid,
                                           fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
     LOGDEBUG << "Object Rebalance Initial Set executor SM Id " << std::hex
              << executorSmUuid.svc_uuid << std::dec << " executor ID "
              << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
-             << " last " << rebalSetMsg->last;
+             << " last " << rebalSetMsg->lastFilterSet;
 
     MigrationClient::shared_ptr migrClient;
-    fds_uint64_t executorId = rebalSetMsg->executorID;
+    int64_t executorId = rebalSetMsg->executorID;
     {
         fds_mutex::scoped_lock l(clientLock);
         if (migrClients.count(executorId) == 0) {
@@ -168,7 +171,8 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceInitialSetPtr&
             migrClient = migrClients[executorId];
         }
     }
-    migrClient->migClientAddDestSet(rebalSetMsg);
+    // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
+    migrClient->migClientAddObjectSet(rebalSetMsg);
     return err;
 }
 

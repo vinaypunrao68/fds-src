@@ -379,7 +379,7 @@ Reply Redis::sendCommand(const char* cmdfmt, ...) {
 
 bool Redis::set(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "set %s %b", key.c_str(), value.data(), value.length()); //NOLINT
+    Reply reply(redisCommand(cxn->ctx, "set %s %b", key.c_str(), value.data(), value.length()));
     return reply.isOk();
 }
 
@@ -390,7 +390,7 @@ Reply Redis::get(const std::string& key) {
 
 bool Redis::del(const std::string& key) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "del %s", key.c_str()); //NOLINT
+    Reply reply(redisCommand(cxn->ctx, "del %s", key.c_str()));
     return reply.isOk();
 }
 
@@ -403,16 +403,16 @@ Reply Redis::append(const std::string& key, const std::string& value) {
 int64_t Redis::incr(const std::string& key, int64_t increment) {
     SCOPEDCXN();
     if (1 == increment) {
-        Reply reply = redisCommand(cxn->ctx, "incr %s", key.c_str());
+        Reply reply(redisCommand(cxn->ctx, "incr %s", key.c_str()));
         return reply.getLong();
     } else {
-        Reply reply = redisCommand(cxn->ctx, "incrby %s %ld", key.c_str(), increment);
+        Reply reply(redisCommand(cxn->ctx, "incrby %s %ld", key.c_str(), increment));
         return reply.getLong();
     }
 }
 
 // list commands
-Reply Redis::lrange(const std::string& key, long start, long end) { //NOLINT
+Reply Redis::lrange(const std::string& key, long start, long end) {
     SCOPEDCXN();
     return Reply(redisCommand(cxn->ctx, "lrange %s %ld %ld", key.c_str(), start, end));
 }
@@ -434,25 +434,27 @@ Reply Redis::rpush(const std::string& key, const std::string& value) {
 
 bool Redis::hset(const std::string& key, const std::string& field, const std::string& value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hset %s %s %b", key.c_str(), field.c_str(), value.data(), value.length()); //NOLINT
+    Reply reply(redisCommand(
+            cxn->ctx, "hset %s %s %b", key.c_str(), field.c_str(), value.data(), value.length()));
     return reply.getLong() == 1;
 }
 
 bool Redis::hset(const std::string& key, int64_t field, const std::string& value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hset %s %ld %b", key.c_str(), field, value.data(), value.length()); //NOLINT
+    Reply reply(redisCommand(
+            cxn->ctx, "hset %s %ld %b", key.c_str(), field, value.data(), value.length()));
     return reply.getLong() == 1;
 }
 
 bool Redis::hexists(const std::string& key, int64_t field) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hexists %s %ld", key.c_str(), field);
+    Reply reply(redisCommand(cxn->ctx, "hexists %s %ld", key.c_str(), field));
     return reply.getLong() == 1;
 }
 
 bool Redis::hexists(const std::string& key, const std::string field) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hexists %s %ld", key.c_str(), field.c_str());
+    Reply reply(redisCommand(cxn->ctx, "hexists %s %ld", key.c_str(), field.c_str()));
     return reply.getLong() == 1;
 }
 
@@ -473,19 +475,19 @@ Reply Redis::hgetall(const std::string& key) {
 
 int64_t Redis::hlen(const std::string& key) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hlen %s", key.c_str());
+    Reply reply(redisCommand(cxn->ctx, "hlen %s", key.c_str()));
     return reply.getLong();
 }
 
 bool Redis::hdel(const std::string& key, const std::string& field) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hget %s %s", key.c_str(), field.c_str());
+    Reply reply(redisCommand(cxn->ctx, "hget %s %s", key.c_str(), field.c_str()));
     return reply.getLong() > 0;
 }
 
 bool Redis::hdel(const std::string& key, int64_t field) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hget %s %ld", key.c_str(), field);
+    Reply reply(redisCommand(cxn->ctx, "hget %s %ld", key.c_str(), field));
     return reply.getLong() > 0;
 }
 
@@ -496,37 +498,38 @@ Reply Redis::smembers(const std::string& key) {
 
 bool Redis::sismember(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "sismember %s %b", key.c_str(), value.data(), value.length()); //NOLINT
+    Reply reply(redisCommand(
+            cxn->ctx, "sismember %s %b", key.c_str(), value.data(), value.length()));
     return reply.getLong() == 1;
 }
 
 bool Redis::sismember(const std::string& key, const int64_t value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "sismember %s %ld", key.c_str(), value); //NOLINT
+    Reply reply(redisCommand(cxn->ctx, "sismember %s %ld", key.c_str(), value));
     return reply.getLong() == 1;
 }
 
 bool Redis::sadd(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "sadd %s %b", key.c_str(), value.data(), value.length());
+    Reply reply(redisCommand(cxn->ctx, "sadd %s %b", key.c_str(), value.data(), value.length()));
     return reply.wasModified();
 }
 
 bool Redis::sadd(const std::string& key, const int64_t value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "sadd %s %ld", key.c_str(), value);
+    Reply reply(redisCommand(cxn->ctx, "sadd %s %ld", key.c_str(), value));
     return reply.wasModified();
 }
 
 bool Redis::srem(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "srem %s %b", key.c_str(), value.data(), value.length());
+    Reply reply(redisCommand(cxn->ctx, "srem %s %b", key.c_str(), value.data(), value.length()));
     return reply.wasModified();
 }
 
 bool Redis::srem(const std::string& key, const int64_t value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "srem %s %ld", key.c_str(), value);
+    Reply reply(redisCommand(cxn->ctx, "srem %s %ld", key.c_str(), value));
     return reply.wasModified();
 }
 

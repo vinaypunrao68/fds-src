@@ -1,11 +1,15 @@
-#ifndef __FDSP_H__
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
 
+#ifndef __FDSP_H__
 #define __FDSP_H__
+
 include "common.thrift"
+
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace * FDS_ProtocolInterface
-
 
 struct FDS_ObjectIdType {
   1: string  digest,
@@ -167,7 +171,6 @@ struct  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
  4: binary           dlt_data,
 }
 
-
 struct FDSP_OffsetWriteObjType {
   1: FDS_ObjectIdType   data_obj_id_old,
   2: i32      data_obj_len,
@@ -176,7 +179,6 @@ struct FDSP_OffsetWriteObjType {
   5: binary  data_obj,
   6: binary  dlt_data
 }
-
 
 struct FDSP_RedirReadObjType {
   1: FDS_ObjectIdType   data_obj_id_old,
@@ -188,7 +190,6 @@ struct FDSP_RedirReadObjType {
   7: binary   data_obj,
   8: binary   dlt_data
 }
-
 
 struct FDSP_VerifyObjType {
   1: FDS_ObjectIdType   data_obj_id,
@@ -725,13 +726,13 @@ struct FDSP_MsgHdrType {
   7: i32 frag_len,    /* Fragment Length  */
   8: i32 frag_num,    /* Fragment number for partial transfer */
 
-  // Volume entity idenfiers 
+  // Volume entity idenfiers
   9:  i32    tennant_id,      /* Tennant owning the Local-domain and  Storage  hypervisor */
   10: i32    local_domain_id, /* Local domain the volume in question bei64s */
   11: i64    glob_volume_id, /* Tennant owning the Local-domain and Storage hypervisor */
   12: string bucket_name, /* Bucket Name or Container Name for S3 or Azure entities */
 
- // Source and Destination Distributed s/w entities 
+ // Source and Destination Distributed s/w entities
   13: FDSP_MgrIdType  src_id,
   14: FDSP_MgrIdType  dst_id,
   15: i64             src_ip_hi_addr, /* IPv4 or IPv6 Address */
@@ -742,12 +743,12 @@ struct FDSP_MsgHdrType {
   20: i32             dst_port,
   21: string          src_node_name, /* string identifying the source node that sent this request */
 
-  // FDSP Result valid for response messages 
+  // FDSP Result valid for response messages
   22: FDSP_ResultType result,
   23: string          err_msg,
   24: i32             err_code,
 
-  // Checksum of the entire message including the payload/objects 
+  // Checksum of the entire message including the payload/objects
   25: i32         req_cookie,
   26: i32         msg_chksum,
   27: string      payload_chksum,
@@ -916,10 +917,10 @@ struct FDSP_SyncTokenReq
 
     /* Token to sync*/
     2: FDSP_Token			      token
-    
+
     /* Sync start time */
     3: i64                        start_time;
-    
+
     /* Sync end time.  zero means unspecified and upperbound is left for sender/om
      * to decide
      */
@@ -969,7 +970,7 @@ struct FDSP_ObjectVolumeAssociation
 {
 	1: FDSP_Uuid				vol_id
 	2: i32						ref_cnt
-} 
+}
 typedef list<FDSP_ObjectVolumeAssociation> FDSP_ObjectVolumeAssociationList
 
 /* Meta data for migration object */
@@ -1041,7 +1042,7 @@ struct FDSP_PushTokenMetadataResp
 {
 	/* Header */
 	1: FDSP_MigMsgHdrType         header;
-} 
+}
 
 /* Payload for NotifyTokenSyncComplete */
 /* DEPRECATED */
@@ -1052,8 +1053,7 @@ struct FDSP_NotifyTokenSyncComplete
 	
 	/* Token id */
 	2: FDSP_Token                 token_id;
-} 
-
+}
 
 /* Payload for NotifyTokenPullComplete */
 /* DEPRECATED */
@@ -1064,7 +1064,7 @@ struct FDSP_NotifyTokenPullComplete
 	
 	/* Token id */
 	2: FDSP_Token                 token_id;
-} 
+}
 
 struct FDSP_GetObjMetadataReq {
  1: FDSP_MsgHdrType		header
@@ -1110,7 +1110,6 @@ struct FDSP_SessionReqResp {
 service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
-
 
 service FDSP_DataPathReq {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
@@ -1271,7 +1270,7 @@ service FDSP_ControlPathResp {
 
 /**
  * FDSP_MigrationPathReq is deprecated.
- */ 
+ */
 /* DEPRECATED */
 service FDSP_MigrationPathReq {
     oneway void CopyToken(1:FDSP_CopyTokenReq migrate_req)
@@ -1287,7 +1286,7 @@ service FDSP_MigrationPathReq {
 
 /**
  * FDSP_MigrationPathResp is deprecated.
- */ 
+ */
 /* DEPRECATED */
 service FDSP_MigrationPathResp {
     oneway void CopyTokenResp(1:FDSP_CopyTokenResp copytok_resp)
@@ -1296,7 +1295,6 @@ service FDSP_MigrationPathResp {
     oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
     oneway void PushTokenMetadataResp(1:FDSP_PushTokenMetadataResp push_md_resp)
 }
-
 
 service FDSP_MetaSyncReq {
     oneway void PushMetaSyncReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_req)
