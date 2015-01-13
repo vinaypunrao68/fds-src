@@ -2,7 +2,6 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
-import ast
 import argparse
 import concurrent.futures as concurrent
 import ConfigParser
