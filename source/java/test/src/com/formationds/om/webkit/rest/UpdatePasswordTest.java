@@ -5,7 +5,7 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.security.AuthenticationTokenTest;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.Lists;
 import org.junit.Before;
 import org.junit.Test;

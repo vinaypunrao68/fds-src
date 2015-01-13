@@ -4,7 +4,7 @@
 
 package com.formationds.om.helper;
 
-import com.formationds.xdi.ConfigurationApi;
+import com.formationds.util.thrift.ConfigurationApi;
 
 import java.io.Serializable;
 
@@ -35,19 +35,19 @@ public class SingletonConfigAPI
         return instance();
     }
 
-    private ConfigurationApi api;
+    private com.formationds.util.thrift.ConfigurationApi api;
 
     /**
-     * @return Returns {@link com.formationds.xdi.ConfigurationApi}
+     * @return Returns {@link com.formationds.util.thrift.ConfigurationApi}
      */
     public ConfigurationApi api() {
         return api;
     }
 
     /**
-     * @param api the {@link com.formationds.xdi.ConfigurationApi}
+     * @param api the {@link com.formationds.util.thrift.ConfigurationApi}
      */
-    public void api( final ConfigurationApi api ) {
+    public void api(final ConfigurationApi api) {
         this.api = api;
     }
 }
