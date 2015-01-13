@@ -132,6 +132,8 @@ class ObjMetaData : public serialize::Serializable {
 
     fds_bool_t isVolumeAssociated(fds_volid_t vol_id) const;
 
+    void getAssociatedVolumes(std::vector<fds_volid_t> &vols) const;
+
     void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) const;
 
     // Tiering/Physical Location update routines

@@ -383,7 +383,13 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
     if (relocateFlag &&
         fromTier == diskio::DataTier::flashTier &&
         toTier == diskio::DataTier::diskTier) {
-        return updateLocationFromFlashToDisk(objId, objMeta);
+        std::vector<fds_volid_t> vols;
+        objMeta->getAssociatedVolumes(vols);
+        /* Skip moving from flash to disk if all associated volumes are flash only */
+        if (!(volumeTbl->hasFlashOnlyVolumes(vols))) {
+            /* NOTE: Phyically moving the object should be taken care by GC */
+            return updateLocationFromFlashToDisk(objId, objMeta);
+        }
     }
 
     // make sure the object is not on destination tier already
