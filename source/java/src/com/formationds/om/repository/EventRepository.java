@@ -18,12 +18,14 @@ import com.formationds.om.repository.query.builder.CriteriaQueryBuilder;
 import javax.jdo.Query;
 import javax.persistence.EntityManager;
 import javax.persistence.criteria.Expression;
+
 import java.io.File;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -75,6 +77,7 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
             final List<Event> results;
             EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(em).searchFor(queryCriteria);
             results = tq.resultsList();
+            
             return new Events(results);
         } finally {
             em.close();
@@ -90,6 +93,7 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
             new UserEventCriteriaQueryBuilder(em).usersIn(tenantUsers)
                                                  .searchFor(queryCriteria);
             results = tq.resultsList();
+
             return new Events(results);
         } finally {
             em.close();

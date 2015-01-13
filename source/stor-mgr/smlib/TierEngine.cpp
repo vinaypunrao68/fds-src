@@ -82,6 +82,20 @@ void TierEngine::mod_startup() {
 void TierEngine::mod_shutdown() {
 }
 
+void TierEngine::disableTierMigration() {
+    // TODO(Anna) implement this when we implement tier migration
+    LOGNOTIFY << "Disable tier migration does not do anything, because "
+              << "we are not doing tier migration yet; If tier migration "
+              << "implemented, implement this method!";
+}
+
+void TierEngine::enableTierMigration() {
+    // TODO(Anna) once disbaleTierMigration() is implemented, also
+    // implement this method
+    LOGNOTIFY << "Tier migration is always enabled, implement this "
+              << " if disabling tier migration actually disables it";
+}
+
 /*
  * TODO: Make this interface take volId instead of the entire
  * vol struct. A lookup should be done internally.

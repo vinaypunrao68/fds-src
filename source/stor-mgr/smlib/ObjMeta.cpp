@@ -569,7 +569,7 @@ void ObjMetaData::extractSyncData(fpi::FDSP_MigrateObjectMetadata &md) const
 }
 
 void
-ObjMetaData::propogateMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaData)
+ObjMetaData::propagateMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaData)
 {
     fds::assign(objMetaData.objectID, obj_map.obj_id);
 

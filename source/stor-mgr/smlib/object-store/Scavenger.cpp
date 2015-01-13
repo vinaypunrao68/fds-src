@@ -34,6 +34,7 @@ ScavControl::ScavControl(const std::string &modName,
           scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
     enabled = ATOMIC_VAR_INIT(false);
+    whoDisabledMe = SM_CMD_INITIATOR_NOT_SET;
 }
 
 ScavControl::~ScavControl() {
@@ -77,7 +78,7 @@ void ScavControl::updateDiskStats()
     }
 }
 
-void
+Error
 ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
     // TODO(Anna) this method still assumes that once we discover disks
     // they never change (no disks added/removed). So we are going to populate
@@ -85,6 +86,11 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
     // this and make more dynamic
     fds_mutex::scoped_lock l(scav_lock);
     if (diskScavTbl.size() == 0) {
+        if (!diskMap) {
+            LOGERROR << "Scavenger cannot create disk scavengers without a disk map";
+            return ERR_NOT_READY;
+        }
+
         DiskIdSet hddIds = diskMap->getDiskIds(diskio::diskTier);
         DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
         // create scavengers for HDDs
@@ -117,9 +123,11 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
         */
     }
     noPersistScavStats = false;
+    return ERR_OK;
 }
 
-Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap)
+Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
+                                   SmCommandInitiator initiator)
 {
     Error err(ERR_OK);
     fds_bool_t expect = false;
@@ -127,7 +135,31 @@ Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap)
     // if this is called for the first time and diskScavTbl is empty,
     // populate diskScavTable first (before changing enabled to true,
     // so that the scavengers do not start to early)
-    createDiskScavengers(diskMap);
+    err = createDiskScavengers(diskMap);
+    if (!err.ok()) {
+        LOGERROR << "Failed to enable Scavenger " << err;
+        return err;
+    }
+
+    // check whether we can enable scavenger based on who disabled it
+    fds_bool_t initiatorUser = (initiator == SM_CMD_INITIATOR_USER);
+    if ((std::atomic_load(&enabled) == false) &&
+        (whoDisabledMe != SM_CMD_INITIATOR_NOT_SET)) {
+        // if user tries to enable scavenger and it is temporary
+        // disabled by the background process, just report an error
+        if (initiatorUser && (whoDisabledMe != SM_CMD_INITIATOR_USER)) {
+            LOGNOTIFY << "Scavenger is temporary disabled by the background process "
+                      << whoDisabledMe << ", try again later...";
+            return ERR_SM_GC_TEMP_DISABLED;
+        }
+        // if background process tries to re-enable scavenger which is
+        // disabled by the user, just ignore
+        if (!initiatorUser && (whoDisabledMe == SM_CMD_INITIATOR_USER)) {
+            LOGNORMAL << "Scavenger is disabled by the user, background processs "
+                      << " cannot re-enable it; Scavenger will remain disabled";
+            return ERR_OK;
+        }
+    }
 
     if (!std::atomic_compare_exchange_strong(&enabled, &expect, true)) {
         LOGNOTIFY << "Scavenger cycle is already enabled, nothing else to do";
@@ -146,7 +178,7 @@ Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap)
     return err;
 }
 
-void ScavControl::disableScavenger()
+void ScavControl::disableScavenger(SmCommandInitiator initiator)
 {
     fds_bool_t expect = true;
 
@@ -162,8 +194,14 @@ void ScavControl::disableScavenger()
     if (std::atomic_compare_exchange_strong(&enabled, &expect, false)) {
         LOGNOTIFY << "Disabled Scavenger; will not be able to start scavenger"
                   << " process manually as well until scavenger is enabled";
+        whoDisabledMe = initiator;
     } else {
-        LOGNOTIFY << "Scavenger was already disabled";
+        // if someone tried to disable scavenger that was not yet initialized,
+        // remember who, so that we follow the right procedure for enabling it
+        if (whoDisabledMe == SM_CMD_INITIATOR_NOT_SET) {
+            whoDisabledMe = initiator;
+        }
+        LOGNOTIFY << "Scavenger was already disabled, saved initiator " << initiator;
     }
 
     // Disable scrubber also
@@ -212,7 +250,7 @@ void ScavControl::stopScavengeProcess()
 
     LOGNORMAL << "Stop Scavenger cycle... ";
     fds_mutex::scoped_lock l(scav_lock);
-    // TODO(xxx) stop everything for now
+    // Stop GC on all the disks
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
@@ -586,13 +624,9 @@ Error DiskScavenger::startScavenge(fds_bool_t verify,
             std::atomic_exchange(&state, SCAV_STATE_IDLE);
             break;
         }
-        // TODO(Anna) commenting our isTokenInSyncMode -- need to revisit
-        // when porting back token migration
-        // if (!objStorMgr->isTokenInSyncMode(tok_id)) {
         tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData, std::bind(
                &DiskScavenger::compactionDoneCb, this,
                std::placeholders::_1, std::placeholders::_2));
-           // }
     }
 
     return err;
@@ -665,14 +699,10 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
                     finished = true;
                     break;
                 }
-                // TODO(Anna) commenting our isTokenInSyncMode -- need to revisit
-                // when porting back token migration
-                // if (!objStorMgr->isTokenInSyncMode(tok_id)) {
                 tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData,
                                      std::bind(
                                          &DiskScavenger::compactionDoneCb, this,
                                          std::placeholders::_1, std::placeholders::_2));
-                   // }
              }
         }
     } else {

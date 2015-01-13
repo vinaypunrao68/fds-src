@@ -1,6 +1,7 @@
 package com.formationds.hadoop;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.blob.Mode;
 import com.formationds.xdi.XdiClientFactory;
@@ -42,6 +43,7 @@ public class FdsFileSystem extends FileSystem {
     public static final String DOMAIN = "HDFS";
     public static final String DIRECTORY_SPECIFIER_KEY = "directory";
     public static final String LAST_MODIFIED_KEY = "last-modified";
+    public static final String CURRENT_OFFSET = "current-offset";
 
     private AmService.Iface am;
     private Path workingDirectory;
@@ -142,8 +144,6 @@ public class FdsFileSystem extends FileSystem {
 
     @Override
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
-        UserGroupInformation currentUser = UserGroupInformation.getCurrentUser();
-
         Path absolutePath = getAbsolutePath(path);
         if (!exists(absolutePath.getParent())) {
             mkdirs(absolutePath.getParent());
@@ -158,6 +158,7 @@ public class FdsFileSystem extends FileSystem {
         checkIsValidWriteTarget(absolutePath);
         return new FSDataOutputStream(FdsOutputStream.openForAppend(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize()));
     }
+
 
     // TODO: we need an FDS implementation
     @Override
@@ -277,7 +278,8 @@ public class FdsFileSystem extends FileSystem {
             BlobDescriptor bd = am.statBlob(DOMAIN, getVolume(), absolutePath.toString());
             boolean isDirectory = isDirectory(bd);
             FsPermission permission = isDirectory ? FsPermission.getDirDefault() : FsPermission.getFileDefault();
-            return new FileStatus(bd.byteCount, isDirectory, 1, getBlockSize(), getMtime(bd),
+            long byteCount = getByteCount(bd);
+            return new FileStatus(byteCount, isDirectory, 1, 2 * 1024 * 1024, getMtime(bd),
                     getMtime(bd), permission, currentUser, groupName, absolutePath);
         } catch (ApiException ex) {
             if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE) {
@@ -288,6 +290,10 @@ public class FdsFileSystem extends FileSystem {
         } catch (Exception ex) {
             throw new IOException(ex);
         }
+    }
+
+    public static long getByteCount(BlobDescriptor bd) {
+        return bd.getMetadata().containsKey(CURRENT_OFFSET) ? Long.parseLong(bd.getMetadata().get(CURRENT_OFFSET)) : bd.getByteCount();
     }
 
     private void checkIsValidWriteTarget(Path path) throws IOException {
@@ -350,13 +356,13 @@ public class FdsFileSystem extends FileSystem {
     }
 
     private List<BlobDescriptor> getAllBlobDescriptors() throws ApiException, TException {
-        return am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0);
+        return am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
     }
 
     private List<Path> getAllSubPaths(Path path, boolean includeSelf) throws IOException {
         try {
             List<Path> paths = new ArrayList<>();
-            List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0);
+            List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
             for (BlobDescriptor bd : descriptors) {
                 Path blobPath = new Path(bd.getName());
                 if (isParent(path, blobPath))
@@ -384,7 +390,7 @@ public class FdsFileSystem extends FileSystem {
     private List<Path> getPathContents(Path path) throws IOException {
         try {
             List<Path> paths = new ArrayList<>();
-            List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0);
+            List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
             for (BlobDescriptor bd : descriptors) {
                 Path name = new Path(bd.getName());
                 if (name.getParent() != null && name.getParent().equals(path)) {

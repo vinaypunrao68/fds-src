@@ -1,0 +1,9 @@
+#!/bin/bash
+#
+# Perform necessary fds-deps removal steps
+# after package is uninstalled.
+#
+
+echo "fds-deps has been uninstalled!"
+
+exit 0

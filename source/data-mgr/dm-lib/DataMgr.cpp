@@ -892,7 +892,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
-    handlers[FDS_DM_LIST_BLOBS_BY_PATTERN] = new dm::ListBlobsByPatternHandler();
+    new dm::ReloadVolumeHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1158,23 +1158,20 @@ DataMgr::ReqHandler::ReqHandler() {
 DataMgr::ReqHandler::~ReqHandler() {
 }
 
-void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
-                                            FDSP_GetVolumeBlobListReqTypePtr& blobListReq) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
 /**
  * Checks the current DMT to determine if this DM primary
  * or not for a given volume.
  */
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-    DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
-    fds_verify(nodes->getLength() > 0);
+    if (omClient->hasCommittedDMT()) {
+        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
+        fds_verify(nodes->getLength() > 0);
 
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-    return (*mySvcUuid == nodes->get(0));
+        const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
+        return (*mySvcUuid == nodes->get(0));
+    }
+    return false;
 }
 
 void

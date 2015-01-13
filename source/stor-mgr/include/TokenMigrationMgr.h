@@ -54,15 +54,18 @@ class SmTokenMigrationMgr {
      * messages from OM/SMs in the correct state...
      */
     enum MigrationState {
-        MIGR_IDLE,
-        MIGR_IN_PROGRESS,
-        MIGR_DONE,
-        MIGR_ABORTED,
+        MIGR_IDLE,         // state in after DLT close and before Start migration
+        MIGR_IN_PROGRESS,  // state between Start Migration and DLT close
+        MIGR_ABORTED       // If migration aborted due to error before DLT close
     };
 
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IN_PROGRESS);
+    }
+    inline fds_bool_t isMigrationIdle() const {
+        MigrationState curState = atomic_load(&migrState);
+        return (curState == MIGR_IDLE);
     }
 
     /**
@@ -157,6 +160,9 @@ class SmTokenMigrationMgr {
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
     fds_mutex clientLock;
+
+    /// maximum number of items in the delta set.
+    fds_uint32_t maxDeltaSetSize;
 };
 
 }  // namespace fds

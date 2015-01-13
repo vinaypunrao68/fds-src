@@ -6,10 +6,11 @@ import testsets.testcase as testcase
 
 class MockTest(testcase.FDSTestCase):
     
-    def __init__(self, parameters):
-        super(MockTest, self).__init__(parameters)
+    def __init__(self, parameters, config_file = None):
+        super(MockTest, self).__init__(parameters=parameters,
+                                       config_file=config_file)
         self.params = parameters
     
     def runTest(self):
         self.test_passed = False
-        assert self.test_passed == True
+        self.reportTestCaseResult(self.test_passed)

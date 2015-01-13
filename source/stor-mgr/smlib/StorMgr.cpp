@@ -21,6 +21,7 @@
 #include <net/net_utils.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
+#include <SMSvcHandler.h>
 
 #include "platform/platform.h"
 
@@ -105,7 +106,7 @@ void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
 
 /**
  * Storage manager member functions
- * 
+ *
  * TODO: The number of test vols, the
  * totalRate, and number of qos threads
  * are being hard coded in the initializer
@@ -763,7 +764,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
 }
 
 /*------------------------------------------------------------------------- ------------
- * FDSP Protocol internal processing 
+ * FDSP Protocol internal processing
  -------------------------------------------------------------------------------------*/
 
 Error
@@ -936,7 +937,7 @@ ObjectStorMgr::getProxyClient(ObjectID& oid,
  * @param volId
  * @param ioReq
  *
- * @return 
+ * @return
  */
 Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
@@ -965,6 +966,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
         case FDS_SM_APPLY_DELTA_SET:
+        case FDS_SM_READ_DELTA_SET:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
@@ -1155,17 +1157,43 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoCompactObjects *cobjs_req =  static_cast<SmIoCompactObjects*>(ioReq);
     fds_verify(cobjs_req != NULL);
+    const DLT* curDlt = getDLT();
+    NodeUuid myUuid = getUuid();
 
     for (fds_uint32_t i = 0; i < (cobjs_req->oid_list).size(); ++i) {
         const ObjectID& obj_id = (cobjs_req->oid_list)[i];
+        fds_bool_t objNotOwned = false;
+
+        // we will garbage collect an object even if its refct > 0
+        // if it belongs to DLT token that this SM is not responsible anymore
+        // However, migration should be idle and DLT must be closed (not just
+        // committed) -- if that does not hold, we will garbage collect this
+        // object next time.. correctness holds.
+        if (migrationMgr->isMigrationIdle() && curDlt->isClosed()) {
+            DltTokenGroupPtr nodes = curDlt->getNodes(obj_id);
+            fds_bool_t found = false;
+            for (uint i = 0; i < nodes->getLength(); ++i) {
+                if (nodes->get(i) == myUuid) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                objNotOwned = true;
+                LOGTRACE << "Will remove " << obj_id << " even if refct > 0 "
+                         << " because the object no longer owned by this SM";
+            }
+        }
 
         LOGDEBUG << "Compaction is working on object " << obj_id
                  << " on tier " << cobjs_req->tier << " verify data?"
-                 << cobjs_req->verifyData;
+                 << cobjs_req->verifyData << " notOwned? "
+                 << objNotOwned;
 
         // copy this object if not garbage, otherwise rm object db entry
         err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
-                                                   cobjs_req->verifyData);
+                                                   cobjs_req->verifyData,
+                                                   objNotOwned);
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;
@@ -1186,7 +1214,7 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoApplyObjRebalDeltaSet* rebalReq = static_cast<SmIoApplyObjRebalDeltaSet*>(ioReq);
-    fds_assert(rebalReq != NULL);
+    fds_verify(rebalReq != NULL);
 
     for (fds_uint32_t i = 0; i < (rebalReq->deltaSet).size(); ++i) {
         const fpi::CtrlObjectMetaDataPropagate& objDataMeta = (rebalReq->deltaSet)[i];
@@ -1208,6 +1236,64 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
     rebalReq->smioObjdeltaRespCb(err, rebalReq);
 
     delete rebalReq;
+}
+
+void
+ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
+{
+    Error err(ERR_OK);
+
+    SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
+    fds_verify(NULL != readDeltaSetReq);
+
+    fpi::CtrlObjectRebalanceDeltaSetPtr objDeltaSet(new fpi::CtrlObjectRebalanceDeltaSet());
+    NodeUuid destSmId = readDeltaSetReq->destinationSmId;
+    objDeltaSet->executorID = readDeltaSetReq->executorId;
+    objDeltaSet->seqNum = readDeltaSetReq->seqNum;
+    objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
+
+    for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
+        ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i];
+
+        const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
+
+        /* get the object from metadata information. */
+        boost::shared_ptr<const std::string> dataPtr =
+                objectStore->getObjectData(invalid_vol_id,
+                                       objID,
+                                       objMetaDataPtr,
+                                       err);
+        /* TODO(sean): For now, just panic. Need to know why
+         * object read failed.
+         */
+        fds_verify(err.ok());
+
+        /* Add metadata and data to the delta set */
+        fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
+        objMetaDataPtr->propagateMetaData(objMetaDataPropagate);
+        /* TODO(Sean): Can we avoid data copy and directory read
+         * to the string buffer?
+         */
+        objMetaDataPropagate.objectData = *dataPtr;
+        objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
+    }
+
+    /* Delete the delta set request */
+    delete readDeltaSetReq;
+
+    auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
+    asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
+                                 objDeltaSet);
+    asyncDeltaSetReq->setTimeoutMs(5000);
+    asyncDeltaSetReq->invoke();
+
+    // mark request as complete
+    qosCtrl->markIODone(*readDeltaSetReq, diskio::diskTier);
+
+    // notify migration executor we are done with this request
+    readDeltaSetReq->smioReadObjDeltaSetReqCb(err, readDeltaSetReq);
+
+    delete readDeltaSetReq;
 }
 
 void
@@ -1443,6 +1529,9 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_SM_APPLY_DELTA_SET:
             threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
+            break;
+        case FDS_SM_READ_DELTA_SET:
+            threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
             break;
         case FDS_SM_SYNC_APPLY_METADATA:
         {

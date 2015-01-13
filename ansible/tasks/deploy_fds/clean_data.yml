@@ -2,14 +2,6 @@
 -   name: clean_node
     shell: rm -rf {{item}}
     with_items:
-        - /dev/shm/0x*
-    tags:
-        - clean
-        - cleanshm
-
--   name: clean_node
-    shell: rm -rf {{item}}
-    with_items:
         - /fds/bin/*.core
         - /fds/bin/core
         - /fds/var/logs

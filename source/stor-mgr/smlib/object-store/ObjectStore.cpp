@@ -273,6 +273,25 @@ ObjectStore::getObject(fds_volid_t volId,
 
     return objData;
 }
+boost::shared_ptr<const std::string>
+ObjectStore::getObjectData(fds_volid_t volId,
+                       const ObjectID &objId,
+                       ObjMetaData::const_ptr objMetaData,
+                       Error& err)
+{
+    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
+
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(volId, objId, objMetaData, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data " << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+    }
+    return objData;
+}
 
 Error
 ObjectStore::deleteObject(fds_volid_t volId,
@@ -498,7 +517,8 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                                      diskio::DataTier tier,
-                                     fds_bool_t verifyData) {
+                                     fds_bool_t verifyData,
+                                     fds_bool_t notOwned) {
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     Error err(ERR_OK);
 
@@ -515,7 +535,8 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         return err;
     }
 
-    if (!TokenCompactor::isDataGarbage(*objMeta, tier)) {
+    if (!TokenCompactor::isDataGarbage(*objMeta, tier) &&
+        !notOwned) {
         // this object is valid, copy it to a current token file
         ObjMetaData::ptr updatedMeta;
         LOGDEBUG << "Will copy " << objId << " to new file on tier " << tier;
@@ -569,8 +590,9 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         // not going to copy object to new location
         LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
         // remove entry from index db if data + meta is garbage
-        if (TokenCompactor::isGarbage(*objMeta)) {
-            LOGNORMAL << "Removing metadata for " << objId;
+        if (TokenCompactor::isGarbage(*objMeta) || notOwned) {
+            LOGNORMAL << "Removing metadata for " << objId
+                      << " notOwned? " << notOwned;
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
     }
@@ -735,6 +757,23 @@ ObjectStore::snapshotMetadata(fds_token_id smTokId,
 Error
 ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     return dataStore->scavengerControlCmd(scavCmd);
+}
+
+Error
+ObjectStore::tieringControlCmd(SmTieringCmd* tierCmd) {
+    Error err(ERR_OK);
+    LOGDEBUG << "Executing tiering command " << tierCmd->command;
+    switch (tierCmd->command) {
+        case SmTieringCmd::TIERING_ENABLE:
+            tierEngine->enableTierMigration();
+            break;
+        case SmTieringCmd::TIERING_DISABLE:
+            tierEngine->disableTierMigration();
+            break;
+        default:
+            fds_panic("Unknown tiering command");
+    }
+    return err;
 }
 
 fds_uint32_t

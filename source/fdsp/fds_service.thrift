@@ -4,6 +4,7 @@
 
 include "FDSP.thrift"
 include "snapshot.thrift"
+include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol
@@ -177,7 +178,9 @@ enum  FDSPMsgTypeId {
     GetDmStatsMsgTypeId,
     GetDmStatsMsgRespTypeId,
     ListBlobsByPatternMsgTypeId,
-    ListBlobsByPatternRspMsgTypeId
+    ListBlobsByPatternRspMsgTypeId,
+    ReloadVolumeMsgTypeId,
+    ReloadVolumeRspMsgTypeId
 }
 
 /*
@@ -677,6 +680,10 @@ struct DeleteSnapshotRespMsg {
     1:i64 snapshotId
 }
 
+struct ReloadVolumeMsg {
+    1:i64 volId
+}
+
 struct CreateVolumeCloneMsg {
      1:i64 volumeId,
      2:i64 cloneId,
@@ -887,22 +894,17 @@ struct GetBlobMetaDataMsg {
 
 struct GetBucketMsg {
   //request
-  1: i64                       volume_id;
-  2: i64                       startPos;  
-  3: i64                       maxKeys;
+  1: required i64              volume_id;
+  2: i64                       startPos = 0;  
+  3: i64                       count = 10000;
+  4: string                    pattern = "";
+  5: common.BlobListOrder      orderBy = 0;
+  6: bool                      descending = false;
+}
+
+struct GetBucketRspMsg {
   //response
-  4: FDSP.BlobInfoListType     blob_info_list;
-}
-
-struct ListBlobsByPatternMsg {
-  1: i64                       volume_id;
-  2: i64                       startPos;
-  3: i64                       maxKeys;
-  4: string                    pattern;
-}
-
-struct ListBlobsByPatternRspMsg {
-  1: FDSP.BlobDescriptorListType  blobDescriptors;
+  1: required FDSP.BlobInfoListType     blob_info_list;
 }
 
 struct GetDmStatsMsg {

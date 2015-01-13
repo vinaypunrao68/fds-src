@@ -1,5 +1,6 @@
 package com.formationds.smoketest;
 
+import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -8,7 +9,6 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
-
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -35,7 +35,7 @@ import static org.junit.Assert.*;
 
 // We're just telling the unit test runner to ignore this, the class is ran SmokeTestRunner
 @Ignore
-public class SmokeTest {
+public class S3SmokeTest {
     private static final String AMAZON_DISABLE_SSL = "com.amazonaws.sdk.disableCertChecking";
     private static final String FDS_AUTH_HEADER = "FDS-Auth";
     private final static String ADMIN_USERNAME = "admin";
@@ -49,24 +49,24 @@ public class SmokeTest {
             return new Random();
         } else {
             switch (rngClassName) {
-            case "java.util.Random":
-                return new Random();
-            case "java.security.SecureRandom":
-                return new SecureRandom();
-            case "java.util.concurrent.ThreadLocalRandom":
-                throw new IllegalArgumentException(
-                        "ThreadLocalRandom is not supported - can't instantiate (must use ThreadLocalRandom.current())");
-            default:
-                try {
-                    Class<?> rngClass = Class.forName(rngClassName);
-                    return (Random) rngClass.newInstance();
-                } catch (ClassNotFoundException | InstantiationException
-                        | IllegalAccessException cnfe) {
-                    throw new IllegalStateException(
-                            "Failed to instantiate Random implementation specified by \""
-                                    + RNG_CLASS + "\"system property: "
-                                    + rngClassName, cnfe);
-                }
+                case "java.util.Random":
+                    return new Random();
+                case "java.security.SecureRandom":
+                    return new SecureRandom();
+                case "java.util.concurrent.ThreadLocalRandom":
+                    throw new IllegalArgumentException(
+                            "ThreadLocalRandom is not supported - can't instantiate (must use ThreadLocalRandom.current())");
+                default:
+                    try {
+                        Class<?> rngClass = Class.forName(rngClassName);
+                        return (Random) rngClass.newInstance();
+                    } catch (ClassNotFoundException | InstantiationException
+                            | IllegalAccessException cnfe) {
+                        throw new IllegalStateException(
+                                "Failed to instantiate Random implementation specified by \""
+                                        + RNG_CLASS + "\"system property: "
+                                        + rngClassName, cnfe);
+                    }
             }
         }
     }
@@ -85,7 +85,7 @@ public class SmokeTest {
     private final ConfigurationService.Iface config;
     private final Random rng = loadRNG();
 
-    public SmokeTest()
+    public S3SmokeTest()
             throws Exception {
         System.setProperty(AMAZON_DISABLE_SSL, "true");
         host = (String) System.getProperties()
@@ -177,7 +177,7 @@ public class SmokeTest {
             if ((fBucketExists != fAppear) && count > 0) {
                 sleep(1000);
             }
-        } while ( (fBucketExists != fAppear) && count > 0);
+        } while ((fBucketExists != fAppear) && count > 0);
         return fBucketExists == fAppear;
     }
 
@@ -223,6 +223,22 @@ public class SmokeTest {
         } finally {
             deleteBucketIgnoreErrors(adminClient, bucketName);
         }
+    }
+
+    @Test
+    public void testMissingBucketReturnsFourOfFour() {
+        String missingBucket = UUID.randomUUID().toString();
+        try {
+            userClient.listObjects(missingBucket);
+        } catch (AmazonClientException e) {
+            // Not very nice, but AmazonClientExceptions don't expose any details of the underlying HTTP transaction
+            String error = e.toString();
+            assertTrue(error.contains("404"));
+            assertTrue(error.contains("NoSuchBucket"));
+            return;
+        }
+
+        fail("Should have gotten an AmazonClientException!");
     }
 
     @Test

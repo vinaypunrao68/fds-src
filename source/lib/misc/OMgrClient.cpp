@@ -946,6 +946,12 @@ const DLT* OMgrClient::getCurrentDLT() {
     return dlt;
 }
 
+void OMgrClient::setCurrentDLTClosed() {
+    omc_lock.write_lock();
+    dltMgr->setCurrentDltClosed();
+    omc_lock.write_unlock();
+}
+
 const DLT*
 OMgrClient::getPreviousDLT() {
     omc_lock.read_lock();
@@ -1013,6 +1019,10 @@ DmtColumnPtr OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id,
 
 fds_uint64_t OMgrClient::getDMTVersion() const {
     return dmtMgr->getCommittedVersion();
+}
+
+fds_bool_t OMgrClient::hasCommittedDMT() const {
+    return dmtMgr->hasCommittedDMT();
 }
 
 }  //  namespace fds

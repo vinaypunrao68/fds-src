@@ -219,14 +219,20 @@ class ScavControl : public Module {
     /**
      * Enable means that we start running automatic scavenging
      * for disks that are in a given disk map
+     * Background task cannot enable scavenger if it was disabled
+     * by the user.
+     * TODO(Anna) allow enable scavenger only when all tasks that
+     * needed to disable it, enable it again
      */
-    Error enableScavenger(const SmDiskMap::const_ptr& disk_map);
+    Error enableScavenger(const SmDiskMap::const_ptr& disk_map,
+                          SmCommandInitiator initiator);
 
     /**
      * Stop running automatic scavenging and do not allow to
      * start scavenger process until enableScavenger() is called
+     * @param initiator who disables scavenger (user or background task)
      */
-    void disableScavenger();
+    void disableScavenger(SmCommandInitiator initiator);
 
     /**
     * Set whether the scrubber will run with scavenger or not
@@ -298,11 +304,12 @@ class ScavControl : public Module {
     void mod_shutdown();
 
   private:  // methods
-    void createDiskScavengers(const SmDiskMap::const_ptr& diskMap);
+    Error createDiskScavengers(const SmDiskMap::const_ptr& diskMap);
     Error getDiskStats(diskio::DiskStat* retStat);
 
   private:
     std::atomic<fds_bool_t> enabled;
+    SmCommandInitiator whoDisabledMe;
     fds_bool_t noPersistScavStats;
     std::atomic<fds_bool_t> verifyData;
 

@@ -168,7 +168,7 @@ def main(args):
 
     if 'test_sets' not in data:
         raise ValueError("test_sets are required in the %s file" %
-                         config.test_list)
+                         test_file)
         sys.exit(2)
     operation = Operation(data['test_sets'], args)
     operation.do_run()

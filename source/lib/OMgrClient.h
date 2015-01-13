@@ -195,6 +195,7 @@ class OMgrClient {
     fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(const ObjectID &objId);
     const DLT* getCurrentDLT();
+    void setCurrentDLTClosed();
     const DLT* getPreviousDLT();
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
     fds_uint32_t getNodeMigPort(NodeUuid uuid);
@@ -212,6 +213,7 @@ class OMgrClient {
      */
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t dmt_version);
     fds_uint64_t getDMTVersion() const;
+    fds_bool_t hasCommittedDMT() const;
     int pushPerfstatsToOM(const std::string& start_ts,
                           int stat_slot_len,
                           const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);

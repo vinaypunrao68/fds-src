@@ -46,6 +46,15 @@ class TierEngine : public Module {
 
     typedef std::unique_ptr<TierEngine> unique_ptr;
 
+    /**
+     * Enable/disable tier migration. Does not enable/disable
+     * write-back thread
+     * TODO(Anna) this does not do anything yet actually, because
+     * we do not do tier migration yet.
+     */
+    void disableTierMigration();
+    void enableTierMigration();
+
     /** Gets the threshold for considering SSDs full from
     * the tier migration policy.
     *

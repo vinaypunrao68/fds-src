@@ -438,7 +438,8 @@ void FDSP_ConfigPathReqHandler::GetVolInfo(
         vol->vol_fmt_desc_pkt(&_return);
         LOGNOTIFY << "Volume " << vol_info_req->vol_name
                   << " -- min iops " << _return.iops_min << ",max iops "
-                  << _return.iops_max << ", prio " << _return.rel_prio;
+                  << _return.iops_max << ", prio " << _return.rel_prio
+                  << " media policy " << _return.mediaPolicy;
     } else {
         LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
         FDS_ProtocolInterface::FDSP_VolumeNotFound except;
@@ -905,7 +906,9 @@ void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
         // TODO(Anna) Should we use node names or node uuids directly in
         // fdsp messages? for now getting uuid from hashing the name
         NodeUuid node_uuid(fdsp_msg->src_service_uuid.uuid);
-        Error err = domain->om_recv_migration_done(node_uuid, status_msg->DLT_version);
+        Error err = domain->om_recv_migration_done(node_uuid,
+                                                   status_msg->DLT_version,
+                                                   fdsp_msg->err_code);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "

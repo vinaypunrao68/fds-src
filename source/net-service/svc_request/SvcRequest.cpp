@@ -276,7 +276,7 @@ void SvcRequestIf::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             {
             // The who, what and result of the event
             fpi::CtrlSvcEventPtr pkt(new fpi::CtrlSvcEvent());
-            pkt->evt_src_svc_uuid = header->msg_dst_uuid;
+            pkt->evt_src_svc_uuid = header->msg_src_uuid;
             pkt->evt_code = header->msg_code;
             pkt->evt_msg_type_id  = header->msg_type_id;
 

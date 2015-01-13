@@ -73,11 +73,43 @@ class MigrationClient {
      *              sequence number isn't updated for a long time, take the
      *              node offline.
      */
-    Error migClientAddObjectSet(fpi::CtrlObjectRebalanceFilterSetPtr &filterSet);
+    Error migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet);
+
+    /**
+     * Callback from the QoS
+     */
+    void
+    migClientReadObjDeltaSetCb(const Error& error,
+                               SmIoReadObjDeltaSetReq *req);
 
   private:
+    /* Verify that set of DLT tokens belong to the same SM token.
+     */
     bool migClientVerifyDestination(fds_token_id dltToken,
                                     fds_uint64_t executorId);
+
+    /* Add object meta data to the set to be sent to QoS.
+     */
+    void migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaDataSet,
+                              fds_bool_t lastSet);
+
+    /**
+     * Return sequence number for delta set message from source SM to
+     * destination SM.
+     */
+    fds_uint64_t
+    getSeqNumDeltaSet() {
+        return seqNumDeltaSet++;
+    };
+
+    /**
+     * Reset sequence number
+     */
+    void
+    resetSeqNumDeltaSet() {
+        seqNumDeltaSet = 0UL;
+    };
+
 
     /**
      * SM token which is derived from the set of DLT tokens.
@@ -88,6 +120,11 @@ class MigrationClient {
      * bits per dlt token.
      */
     fds_uint32_t bitsPerDltToken;
+
+    /**
+     * Mutex for dltTokenIDs and filterObjectSet.
+     */
+    std::mutex filterSetLock;
 
     /**
      * Set of dlt tokens to filter against the the snapshot.
@@ -113,7 +150,7 @@ class MigrationClient {
      *             filterObjectList and snapshot, and iterate like merge sort to get
      *             unique objects.
      */
-    std::unordered_map<ObjectID, int64_t, ObjectHash> filterObjectSet;
+    std::unordered_map<ObjectID, fds_uint64_t, ObjectHash> filterObjectSet;
 
     /**
      * Maintain the message from the destination SM to determine if all
@@ -161,6 +198,17 @@ class MigrationClient {
      * Maximum number of objects to send in delta set back to the destination SM.
      */
     fds_uint32_t maxDeltaSetSize;
+
+    /**
+     * Maintain the sequence number for the delta set of object to be sent
+     * from the source SM to destination SM.
+     */
+    fds_uint64_t seqNumDeltaSet;
+
+    /**
+     * Standalone test mode.
+     */
+    fds_bool_t testMode;
 };  // class MigrationClient
 
 }  // namespace fds
