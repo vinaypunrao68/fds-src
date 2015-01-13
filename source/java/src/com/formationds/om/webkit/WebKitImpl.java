@@ -10,7 +10,6 @@ import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
-import com.formationds.om.helper.SingletonXdi;
 import com.formationds.om.webkit.rest.*;
 import com.formationds.om.webkit.rest.events.IngestEvents;
 import com.formationds.om.webkit.rest.events.QueryEvents;
@@ -29,20 +28,22 @@ import com.formationds.om.webkit.rest.snapshot.ListSnapshotsByVolumeId;
 import com.formationds.om.webkit.rest.snapshot.ListVolumeIdsForSnapshotId;
 import com.formationds.om.webkit.rest.snapshot.RestoreSnapshot;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
-import com.formationds.xdi.ConfigurationApi;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.servlet.http.HttpServletResponse;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -58,15 +59,18 @@ public class WebKitImpl {
     private final String webDir;
     private final int httpPort;
     private final int httpsPort;
+    private final Authenticator authenticator;
     private final Authorizer authorizer;
     private final SecretKey secretKey;
 
-    public WebKitImpl( final Authorizer authorizer,
+    public WebKitImpl( final Authenticator authenticator,
+                       final Authorizer authorizer,
                        final String webDir,
                        final int httpPort,
                        final int httpsPort,
                        final SecretKey secretKey ) {
 
+        this.authenticator = authenticator;
         this.authorizer = authorizer;
         this.webDir = webDir;
         this.httpPort = httpPort;
@@ -85,16 +89,19 @@ public class WebKitImpl {
         webApp.route( HttpMethod.GET, "", ( ) -> new LandingPage( webDir ) );
 
         webApp.route( HttpMethod.POST, "/api/auth/token",
-                      ( ) -> new GrantToken( SingletonXdi.instance()
+                      ( ) -> new GrantToken( SingletonConfigAPI.instance()
                                                          .api(),
+                                             authenticator,
+                                             authorizer,
                                              secretKey ) );
         webApp.route( HttpMethod.GET, "/api/auth/token",
-                      ( ) -> new GrantToken( SingletonXdi.instance()
+                      ( ) -> new GrantToken( SingletonConfigAPI.instance()
                                                          .api(),
+                                             authenticator,
+                                             authorizer,
                                              secretKey ) );
         authenticate( HttpMethod.GET, "/api/auth/currentUser",
-                      ( t ) -> new CurrentUser( SingletonXdi.instance()
-                                                            .api(),
+                      ( t ) -> new CurrentUser( authorizer,
                                                 t ) );
 
         fdsAdminOnly( HttpMethod.GET, "/api/config/services",
@@ -133,8 +140,8 @@ public class WebKitImpl {
         tenants( secretKey, authorizer );
 
         authenticate( HttpMethod.GET, "/api/config/volumes",
-                      ( t ) -> new ListVolumes( SingletonXdi.instance()
-                                                            .api(),
+                      ( t ) -> new ListVolumes( authorizer,
+                                                SingletonConfigAPI.instance().api(),
                                                 SingletonAmAPI.instance()
                                                               .api(),
                                                 legacyConfig,
@@ -149,7 +156,7 @@ public class WebKitImpl {
                       ( t ) -> new CloneVolume( configAPI,
                                                 legacyConfig ) );
         authenticate( HttpMethod.DELETE, "/api/config/volumes/:name",
-                      ( t ) -> new DeleteVolume( SingletonXdi.instance()
+                      ( t ) -> new DeleteVolume( authorizer, SingletonConfigAPI.instance()
                                                              .api(),
                                                  t ) );
         authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
@@ -230,9 +237,7 @@ public class WebKitImpl {
         HttpErrorHandler eh =
             new HttpErrorHandler(
                 new HttpAuthenticator( f,
-                                       SingletonXdi.instance()
-                                                   .api()
-                                                   .getAuthenticator() ) );
+                                       authenticator) );
         webApp.route( method, route, ( ) -> eh );
     }
 

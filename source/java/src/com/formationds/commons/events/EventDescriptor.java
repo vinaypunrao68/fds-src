@@ -10,7 +10,7 @@ import java.util.List;
  * Describes an event.  This is used in defining event metadata.  For a set of events, you can
  * define an enum that implements this interface to provide all the metadata.
  *
- * @see {@link com.formationds.xdi.ConfigurationApi} for an example usage.
+ * @see {@link com.formationds.om.OmConfigurationApi} for an example usage.
  *
  */
 public interface EventDescriptor {
