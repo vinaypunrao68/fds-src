@@ -12,6 +12,7 @@
 #include <am-platform.h>
 #include <net/net-service.h>
 #include <AccessMgr.h>
+#include "AmAsyncXdi.h"
 #include "AmAsyncDataApi.cxx"
 
 #include "boost/program_options.hpp"
@@ -143,7 +144,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            asyncDataApi = boost::make_shared<AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>>(shared_from_this());
+            asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(shared_from_this());
         }
     }
 

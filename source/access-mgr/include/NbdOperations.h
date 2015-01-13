@@ -8,15 +8,17 @@
 #include <string>
 #include <map>
 #include <utility>
+#include <unordered_map>
 
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
-#include <fds_types.h>
-#include <apis/apis_types.h>
-#include <concurrency/Mutex.h>
-#include <AmAsyncResponseApi.h>
-#include <AmAsyncDataApi.h>
+#include "fds_types.h"
+#include "concurrency/RwLock.h"
+#include "apis/apis_types.h"
+#include "concurrency/Mutex.h"
+#include "AmAsyncResponseApi.h"
+#include "AmAsyncDataApi.h"
 
 namespace fds {
 
