@@ -144,7 +144,16 @@ struct VolumeDescriptor {
 			if( optionalStatus.isPresent() ) {
 
 				status = optionalStatus.get();
-
+			}
+			
+			// if the status is null, or empty, we check the values through the AM
+			// to make sure it's not just the absence of statistical reporting
+			if ( status == null || ( status.getCurrentUsageInBytes() == 0 ) ) {
+				try {
+					status = amApi.volumeStatus("", v.getName());
+				} catch( TException e ) {
+					LOG.warn( "Getting Volume Status Failed", e );
+				}
 			}
 		}
 
