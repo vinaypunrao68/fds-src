@@ -382,7 +382,7 @@ fdsrepo :  $(fdsrepofile)
 # Keep track of where all relevant ansible files live
 # -----------------------------------------------------------------------------
 ansible_dir := $(incl_scripts)/../../../ansible
-run_ansible_playbook_local := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks
+run_ansible_playbook_local := ansible-playbook -i $(ansible_dir)/inventory/localhost -c local $(ansible_dir)/playbooks
 
 # -----------------------------------------------------------------------------
 # Setup and run ansible for devsetup dependency install / config
