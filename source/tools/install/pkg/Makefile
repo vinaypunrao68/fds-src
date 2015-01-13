@@ -31,7 +31,7 @@ package:
 ansible_dir := ../../../../ansible
 ansible_binary := /usr/local/bin/ansible-playbook
 pip_binary := /usr/bin/pip
-run_ansible_playbook_local := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks
+run_ansible_playbook_local := ansible-playbook -i $(ansible_dir)/inventory/localhost -c local $(ansible_dir)/playbooks
 
 # -----------------------------------------------------------------------------
 # Run ansible to generate packageable config files
