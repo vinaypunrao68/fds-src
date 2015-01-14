@@ -298,7 +298,8 @@ FdsProcess::sig_handler(void* param)
 void
 FdsProcess::SIGSEGVHandler(int sigNum, siginfo_t *sigInfo, void *context)
 {
-    GLOGCRITICAL << "SIGSEGV at address: " << std::hex << sigInfo->si_addr;
+    GLOGCRITICAL << "SIGSEGV at address: " << std::hex << sigInfo->si_addr
+                 << "with code " << std::dec << sigInfo->si_code;
 
     /* Since the signal handler was originally set with SA_RESETHAND,
      * the default signal handler is restore.  After the signal handler
