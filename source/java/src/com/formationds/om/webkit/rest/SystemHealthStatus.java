@@ -209,6 +209,7 @@ public class SystemHealthStatus implements RequestHandler {
 		
 		DateRange range = new DateRange();
 		range.setEnd( (new Date()).getTime() );
+		range.setStart( (new Date( 0 )).getTime() );
 		
 		MetricQueryCriteria query = queryBuilder.withContexts( volumes )
 			.withSeriesTypes( metrics )
@@ -289,6 +290,7 @@ public class SystemHealthStatus implements RequestHandler {
 	
 		DateRange range = new DateRange();
 		range.setEnd( (new Date()).getTime() );
+		range.setStart( (new Date( 0 )).getTime() );
 		
 		MetricQueryCriteria query = queryBuilder.withContexts( volumes )
 			.withSeriesType( Metrics.PBYTES )
