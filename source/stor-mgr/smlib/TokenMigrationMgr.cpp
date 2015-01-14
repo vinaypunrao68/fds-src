@@ -173,7 +173,8 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
             migrClient = MigrationClient::shared_ptr(new MigrationClient(smReqHandler,
-                                                                         executorNodeUuid));
+                                                                         executorNodeUuid,
+                                                                         bitsPerDltToken));
             migrClients[executorId] = migrClient;
         } else {
             migrClient = migrClients[executorId];
