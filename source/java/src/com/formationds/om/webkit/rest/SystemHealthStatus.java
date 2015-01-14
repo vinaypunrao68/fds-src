@@ -1,9 +1,7 @@
 package com.formationds.om.webkit.rest;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -13,9 +11,6 @@ import javax.persistence.EntityManager;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.h2.tools.ConvertTraceFile;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MgrIdType;
@@ -48,12 +43,11 @@ import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.ConfigurationApi;
 import com.formationds.util.SizeUnit;
+import com.formationds.util.thrift.ConfigurationApi;
 
 public class SystemHealthStatus implements RequestHandler {
 

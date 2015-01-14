@@ -5,18 +5,14 @@ import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.om.events.EventManager;
 import com.formationds.om.events.EventManagerTest;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
-import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.util.Configuration;
-import com.formationds.xdi.ConfigurationApi;
+import com.formationds.util.thrift.ConfigurationApi;
 import org.junit.*;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,8 +27,8 @@ import static org.mockito.Mockito.when;
 // TODO: this test is currently using data from EventManagerTest.  Use data generator once available.
 public class FirebreakHelperTest {
 
-	static final ConfigurationApi mockedConfigApi    = mock(ConfigurationApi.class);
-    static final Configuration mockedConfig    = mock(Configuration.class);
+	static final ConfigurationApi mockedConfigApi = mock(ConfigurationApi.class);
+    static final Configuration    mockedConfig    = mock(Configuration.class);
     static final AmService.Iface  mockedAMService = mock(AmService.Iface.class);
 
     @BeforeClass
@@ -47,25 +43,25 @@ public class FirebreakHelperTest {
     }
 
     @Before
-    public void before() throws Exception { 
-    } 
+    public void before() throws Exception {
+    }
 
     @After
-    public void after() throws Exception { 
-    } 
+    public void after() throws Exception {
+    }
 
     /**
      * Method: processFirebreak(final List<VolumeDatapoint> queryResults) 
-     */ 
+     */
     @Test
     @Ignore //not implemented
-    public void testProcessFirebreak() throws Exception { 
+    public void testProcessFirebreak() throws Exception {
         //TODO: Test goes here... 
-    } 
+    }
 
     /**
      * Method: findFirebreak(final List<VolumeDatapoint> datapoints) 
-     */ 
+     */
     @Test
     public void testFindFirebreak() throws Exception {
         VolumeDatapoint[][] rawdata = EventManagerTest.getTestDataSet();

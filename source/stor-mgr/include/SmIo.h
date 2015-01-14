@@ -558,5 +558,46 @@ class SmIoMoveObjsToTier: public SmIoReq {
     cbType moveObjsRespCb;
 };
 
+/**
+ * Request to apply object rebalance delta set
+ */
+class SmIoApplyObjRebalDeltaSet: public SmIoReq {
+ public:
+    typedef std::function<void (const Error&,
+                                SmIoApplyObjRebalDeltaSet *req)> cbType;
+
+  public:
+    SmIoApplyObjRebalDeltaSet(fds_uint64_t execId,
+                              fds_uint64_t seq,
+                              fds_bool_t last,
+                              fds_uint32_t qosSeq,
+                              fds_uint32_t totalCnt)
+            : executorId(execId), seqNum(seq), lastSet(last),
+            qosSeqNum(qosSeq), totalQosCount(totalCnt) {
+    };
+
+    /// MigrationExecutor ID
+    fds_uint64_t executorId;
+
+    /// sequence number of CtrlObjectRebalanceDeltaSet msg from source SM
+    fds_uint64_t seqNum;
+
+    /// 'lastSet' value of CtrlObjectRebalanceDeltaSet msg from source SM
+    fds_bool_t lastSet;
+
+    /// we are breaking down object set from CtrlObjectRebalanceDeltaSet
+    /// into one or more QoS requests with smaller delta set, we need to
+    /// track when we finish those, so that when we apply the last set
+    /// we notify token migration manager that we are done
+    fds_uint32_t qosSeqNum;
+    fds_uint32_t totalQosCount;
+
+    /// set of data/metadata to apply
+    std::vector<fpi::CtrlObjectMetaDataPropagate> deltaSet;
+
+    /// response callback
+    cbType smioObjdeltaRespCb;
+};
+
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMIO_H_

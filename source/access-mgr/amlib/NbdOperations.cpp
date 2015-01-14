@@ -8,6 +8,8 @@
 #include <string>
 #include <utility>
 
+#include "AmAsyncDataApi.cxx"
+
 namespace fds {
 
 fds_bool_t
@@ -104,7 +106,7 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
 NbdOperations::init(boost::shared_ptr<std::string> vol_name, fds_uint32_t _maxObjectSizeInBytes) {
-    amAsyncDataApi.reset(new AmAsyncDataApi(shared_from_this()));
+    amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(shared_from_this()));
     volumeName = vol_name;
     maxObjectSizeInBytes = _maxObjectSizeInBytes;
 }
@@ -177,17 +179,11 @@ NbdOperations::read(fds_uint32_t length,
         boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
         off->value = objectOff;
 
-        // we encode handle and sequence ID into request ID; handle is needed
-        // to reply back to NBD connector and sequence ID is needed to assemble
-        // all object we read back into read request from NBD connector
-        handle_type reqId(boost::make_shared<apis::RequestId>());
-        // request id is 64 bit of handle + 32 bit of sequence Id
-        reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
-
         // blob name for block?
         LOGDEBUG << "getBlob length " << iLength << " offset " << curOffset
                  << " object offset " << objectOff
-                 << " volume " << volumeName << " reqId " << reqId->id;
+                 << " volume " << volumeName << " reqId " << handle << ":" << seqId;
+        handle_type reqId{handle, seqId};
         amAsyncDataApi->getBlob(reqId,
                                 domainName,
                                 volumeName,
@@ -250,8 +246,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
         off->value = objectOff;
 
         // request id is 64 bit of handle + 32 bit of sequence Id
-        handle_type reqId(boost::make_shared<apis::RequestId>());
-        reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
+        handle_type reqId{handle, seqId};
 
         // For objects that we are only updating a part of, we need to perform
         // a Read-Modify-Write operation. To prevent a race condition we lock
@@ -265,7 +260,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
             resp->keepBufferForWrite(seqId, objectOff, objBuf);
 
             if (sector_type::QueueResult::FirstEntry ==
-                    sector_map.queue_rmw(objectOff, {handle, seqId})) {
+                    sector_map.queue_rmw(objectOff, reqId)) {
                 amAsyncDataApi->getBlob(reqId,
                                         domainName,
                                         volumeName,
@@ -279,7 +274,8 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
             // if we are here, we don't need to read this object first; will do write
             LOGDEBUG << "putBlob length " << maxObjectSizeInBytes << " offset " << curOffset
                      << " object offset " << objectOff
-                     << " volume " << volumeName << " reqId " << reqId->id;
+                     << " volume " << volumeName
+                     << " reqId " << reqId.handle << ":" << reqId.seq;
             amAsyncDataApi->updateBlobOnce(reqId,
                                            domainName,
                                            volumeName,
@@ -301,15 +297,13 @@ NbdOperations::getBlobResp(const Error &error,
                            boost::shared_ptr<std::string> buf,
                            fds_uint32_t& length) {
     NbdResponseVector* resp = NULL;
-    fds_int64_t handle = 0;
-    fds_int32_t seqId = 0;
+    fds_int64_t handle = requestId.handle;
+    fds_int32_t seqId = requestId.seq;
     fds_bool_t done = false;
-    parseRequestId(requestId, &handle, &seqId);
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
              << error << ", handle " << handle
-             << " seqId " << seqId << " ( "
-             << requestId->id << " )";
+             << " seqId " << seqId;
 
     {
         fds_mutex::scoped_lock l(respLock);
@@ -372,14 +366,12 @@ void
 NbdOperations::updateBlobResp(const Error &error,
                               handle_type& requestId) {
     NbdResponseVector* resp = NULL;
-    fds_int64_t handle = 0;
-    fds_int32_t seqId = 0;
-    parseRequestId(requestId, &handle, &seqId);
+    fds_int64_t handle = requestId.handle;
+    fds_int32_t seqId = requestId.seq;
 
     LOGDEBUG << "Reponse for updateBlobOnce, "
              << error << ", handle " << handle
-             << " seqId " << seqId << " ( "
-             << requestId->id << " )";
+             << " seqId " << seqId;
 
     {
         fds_mutex::scoped_lock l(respLock);
@@ -401,13 +393,11 @@ NbdOperations::updateBlobResp(const Error &error,
         auto e = sector_map.pop_and_delete(rmw.second);
         if (e.first) {
             LOGDEBUG << "RMW queuing: " << e.second.handle << ":" << e.second.seq;
-            handle_type reqId(boost::make_shared<apis::RequestId>());
-            reqId->id = std::to_string(e.second.handle) + ":" + std::to_string(e.second.seq);
             boost::shared_ptr<int32_t> objLength =
                 boost::make_shared<int32_t>(maxObjectSizeInBytes);
             boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
             off->value = rmw.second;
-            amAsyncDataApi->getBlob(reqId,
+            amAsyncDataApi->getBlob(e.second,
                                     domainName,
                                     volumeName,
                                     blobName,
@@ -448,23 +438,6 @@ NbdOperations::getObjectCount(fds_uint32_t length,
         ++objCount;
     }
     return objCount;
-}
-
-void
-NbdOperations::parseRequestId(handle_type& requestId,
-                              fds_int64_t* handle,
-                              fds_int32_t* seqId) {
-    std::string delim(":");
-    size_t start = 0;
-    size_t end = (requestId->id).find(delim, start);
-    fds_verify(end != std::string::npos);
-    std::string handleStr = (requestId->id).substr(start,
-                                                   end - start);
-    std::string seqIdStr = (requestId->id).substr(end + delim.size());
-
-    // return
-    *handle = std::stoll(handleStr);
-    *seqId = std::stol(seqIdStr);
 }
 
 }  // namespace fds

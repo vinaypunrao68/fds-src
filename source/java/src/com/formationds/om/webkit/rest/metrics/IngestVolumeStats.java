@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.om.webkit.rest.metrics;
@@ -7,10 +7,10 @@ package com.formationds.om.webkit.rest.metrics;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -33,20 +33,20 @@ public class IngestVolumeStats
 
   private final ConfigurationApi config;
 
-  public IngestVolumeStats( final ConfigurationApi config ) {
+  public IngestVolumeStats(final ConfigurationApi config) {
     this.config = config;
   }
 
   @Override
-  public Resource handle( Request request, Map<String, String> routeParameters )
-    throws Exception {
-    try( final Reader reader =
-           new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+  public Resource handle(Request request, Map<String, String> routeParameters)
+      throws Exception {
+    try (final Reader reader =
+             new InputStreamReader(request.getInputStream(), "UTF-8")) {
 
-      final List<VolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject( reader, TYPE );
+      final List<VolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject(reader, TYPE);
       SingletonRepositoryManager.instance().getMetricsRepository().save(volumeDatapoints);
     }
 
-    return new JsonResource( new JSONObject().put( "status", "OK" ) );
+    return new JsonResource(new JSONObject().put("status", "OK"));
   }
 }

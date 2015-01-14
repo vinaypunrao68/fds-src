@@ -31,7 +31,8 @@ const uint64_t invalidExecutorID = 0xffffffffffffffff;
 class MigrationClient {
   public:
     explicit MigrationClient(SmIoReqHandler *_dataStore,
-                             NodeUuid& _destinationSMNodeID);
+                             NodeUuid& _destinationSMNodeID,
+                             fds_uint32_t bitsPerToken);
     ~MigrationClient();
 
 
@@ -76,11 +77,17 @@ class MigrationClient {
 
   private:
     bool migClientVerifyDestination(fds_token_id dltToken,
-                                    uint64_t executorId);
+                                    fds_uint64_t executorId);
+
     /**
      * SM token which is derived from the set of DLT tokens.
      */
     fds_token_id SMTokenID;
+
+    /**
+     * bits per dlt token.
+     */
+    fds_uint32_t bitsPerDltToken;
 
     /**
      * Set of dlt tokens to filter against the the snapshot.
@@ -106,7 +113,7 @@ class MigrationClient {
      *             filterObjectList and snapshot, and iterate like merge sort to get
      *             unique objects.
      */
-    std::unordered_map<ObjectID, int32_t, ObjectHash> filterObjectSet;
+    std::unordered_map<ObjectID, int64_t, ObjectHash> filterObjectSet;
 
     /**
      * Maintain the message from the destination SM to determine if all
@@ -127,7 +134,7 @@ class MigrationClient {
      * With destination SM UUID + executor ID, we can find the
      * corresponding executor instance on the destination SM.
      */
-    uint64_t executorID;
+    fds_uint64_t executorID;
 
     /**
      * Object data store handler.  Set during the initialization.
@@ -149,6 +156,11 @@ class MigrationClient {
      * since we need to keep the pointer to the current iteration.
      */
     leveldb::Iterator *iterDB;
+
+    /**
+     * Maximum number of objects to send in delta set back to the destination SM.
+     */
+    fds_uint32_t maxDeltaSetSize;
 };  // class MigrationClient
 
 }  // namespace fds

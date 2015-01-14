@@ -8,15 +8,17 @@
 #include <string>
 #include <map>
 #include <utility>
+#include <unordered_map>
 
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
-#include <fds_types.h>
-#include <apis/apis_types.h>
-#include <concurrency/Mutex.h>
-#include <AmAsyncResponseApi.h>
-#include <AmAsyncDataApi.h>
+#include "fds_types.h"
+#include "concurrency/RwLock.h"
+#include "apis/apis_types.h"
+#include "concurrency/Mutex.h"
+#include "AmAsyncResponseApi.h"
+#include "AmAsyncDataApi.h"
 
 namespace fds {
 
@@ -220,10 +222,10 @@ struct HandleSeqPair {
 
 class NbdOperations
     :   public boost::enable_shared_from_this<NbdOperations>,
-        public AmAsyncResponseApi
+        public AmAsyncResponseApi<HandleSeqPair>
 {
-    typedef boost::shared_ptr<apis::RequestId> handle_type;
-    typedef SectorLockMap<HandleSeqPair, 1024> sector_type;
+    typedef HandleSeqPair handle_type;
+    typedef SectorLockMap<handle_type, 1024> sector_type;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
@@ -277,14 +279,11 @@ class NbdOperations
     { amAsyncDataApi.reset(); }
 
   private:
-    void parseRequestId(handle_type& requestId,
-                        fds_int64_t* handle,
-                        fds_int32_t* seqId);
     fds_uint32_t getObjectCount(fds_uint32_t length,
                                 fds_uint64_t offset);
 
     // api we've built
-    std::unique_ptr<AmAsyncDataApi> amAsyncDataApi;
+    std::unique_ptr<AmAsyncDataApi<handle_type>> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
     fds_uint32_t maxObjectSizeInBytes;
 

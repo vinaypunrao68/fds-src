@@ -1,0 +1,11 @@
+{
+	"test_sets" : {
+		"long_test" : {
+			"TestCreateMultipleBuckets" : "test_create_multiple_buckets.py",
+			"TestS3GetConn" : "TestS3IntFace.py",
+			"TestS3CrtBucket" : "TestS3IntFace.py",
+			"TestS3LoadSBLOB" : "TestS3IntFace.py",
+			"TestS3DelBucketKeys" : "TestS3IntFace.py"
+		}
+	}
+}

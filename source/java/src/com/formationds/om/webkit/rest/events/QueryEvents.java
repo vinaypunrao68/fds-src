@@ -16,7 +16,7 @@ import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.ConfigurationApi;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
@@ -67,7 +67,7 @@ public class QueryEvents implements RequestHandler {
 
     private List<Long> findTenantUserIds(long currentUser) throws TException {
         ConfigurationApi cfg = SingletonConfigAPI.instance().api();
-        Optional<Tenant> ot = cfg.get().tenantFor(currentUser);
+        Optional<Tenant> ot = cfg.tenantFor(currentUser);
         List<Long> tenantUserIds = new ArrayList<>();
         if (ot.isPresent()) {
             Tenant t = ot.get();
