@@ -1,0 +1,7 @@
+{
+	"test_sets" : {
+		"long_test" : {
+			"TestCreateMultipleBuckets" : "test_create_multiple_buckets.py"
+		}
+	}
+}

@@ -4,9 +4,6 @@ package com.formationds.nbd;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.AmService;
-import com.formationds.apis.ConfigurationService;
-import com.formationds.xdi.XdiClientFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -15,8 +12,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-
-import java.util.concurrent.ForkJoinPool;
 
 public class NbdHost {
     private int port;
