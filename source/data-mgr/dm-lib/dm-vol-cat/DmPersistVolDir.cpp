@@ -78,8 +78,7 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     ret = std::system(rmCmd.c_str());
 
     if (ret) {
-        LOGERROR << "rm command failed '" << rmCmd << "', code: '" << ret << "'";
-        return ERR_DM_RM_FAILED;
+        LOGWARN << "rm command failed '" << rmCmd << "', code: '" << ret << "'";
     }
 
     return rc;
