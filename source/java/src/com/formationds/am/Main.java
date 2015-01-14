@@ -98,14 +98,7 @@ public class Main {
         asyncAm.start();
 
         Function<AuthenticationToken, XdiAsync> factory =
-            (token) -> {
-                try {
-                    return new XdiAsync(asyncAm, bbp, token, authorizer, omConfigServiceClient);
-                } catch (Throwable wtf) {
-                    wtf.printStackTrace();
-                    throw wtf;
-                }
-            };
+            (token) -> new XdiAsync(asyncAm, bbp, token, authorizer, omConfigServiceClient);
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port", 8000);
         int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port", 8443);
