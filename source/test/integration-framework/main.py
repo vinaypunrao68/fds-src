@@ -2,7 +2,6 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
-import ast
 import argparse
 import concurrent.futures as concurrent
 import ConfigParser
@@ -20,7 +19,6 @@ import fds
 import multinode
 import testsets.test_set as test_set
 import s3
-import testsets.testcases.fdslib.BringUpCfg as bringup
 
 
 class Operation(object):
@@ -42,8 +40,8 @@ class Operation(object):
 
     def __init__(self, test_sets_list, args):
         self.test_sets = []
+        self.multicluster = None
         self.args = args
-        self.fds_node = fds.FDS()
         self.current_dir = os.path.dirname(os.path.realpath(__file__))
         self.log_dir = os.path.join(self.current_dir, config.log_dir)
         self.logger.info("Checking if the log directory exists...")
@@ -67,7 +65,7 @@ class Operation(object):
                 self.logger.info("%s already exists. Skipping." % testset_path)
                 
             self.test_sets.append(current_ts)
-    
+
     def __load_params(self):
         params = {}
         parser = ConfigParser.ConfigParser()
@@ -123,6 +121,7 @@ class Operation(object):
         all the fds processes are running.
         '''
         if self.args.test == 'single':
+            self.fds_node = fds.FDS()
             if not self.fds_node.check_status():
                 self.fds_node.start_single_node()
         elif self.args.test == 'multi':
@@ -130,15 +129,30 @@ class Operation(object):
                 if self.args.name == None:
                     raise ValueError, "A name tag must be given to the AWS" \
                                       "cluster"
-                cluster = multinode.Multinode(name=self.args.name, 
+                self.multicluster = multinode.Multinode(name=self.args.name, 
                                               instance_count=self.args.count,
                                               type=self.args.type)
-            elif self.args.type == "baremetal":
-                cluster = multinode.Multinode(type=self.args.type,
+            else:
+                # make the baremetal version the default one.
+                self.multicluster = multinode.Multinode(type=self.args.type,
                                               inventory=self.args.inventory)
         for ts in self.test_sets:
             self.logger.info("Executing Test Set: %s" % ts.name)
             self.runner.run(ts.suite)
+        
+        # After completion, assert the FDS-related processes are stopped.
+        self.do_stop()
+
+    def do_stop(self):
+        '''
+        Stop the cluster provision, whether it is a multinode AWS cluster,
+        or a single cluster instance.
+        '''
+        if self.args.test == 'single' or self.args.test is None:
+            self.fds_node.stop_single_node()
+        elif self.args.test == 'multi':
+            if self.multicluster is not None:
+                self.multicluster.destroy_cluster()
         
     def test_progress(self):
         pass
@@ -160,7 +174,13 @@ def main(args):
     --------
     None
     '''
-    with open(config.test_list, 'r') as data_file:
+    test_file = None
+    if args.config_file is None:
+        test_file = config.test_list
+    else:
+        test_file = args.config_file
+        
+    with open(test_file, 'r') as data_file:
         data = json.load(data_file)
 
     if 'test_sets' not in data:
@@ -173,24 +193,6 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Command line argument for'
                                      ' the integration framework')
-    parser.add_argument('-f', '--failfast', action='store_true',
-                        default=False,
-                        help='Define if the test should fail fast.')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        default=False,
-                        help='Define if output must be verbose.')
-    parser.add_argument('-r', '--dryrun', action='store_true',
-                         default=False,
-                         help='Define if test must be run without' \
-                         ' initial setup')
-    parser.add_argument('-d', '--sudo-password', action='store_true',
-                         default='passwd',
-                         help='Define the root password, if not' \
-                         ' specified defaults to "passwd"')
-    parser.add_argument('-i', '--install', action='store_true',
-                         default=False,
-                         help='Specify if a fresh install must be' \
-                         ' performed')
     parser.add_argument('-b', '--build', action='store_true',
                         default='nightly',
                         help='Specify if the build is local or nightly')
@@ -214,5 +216,9 @@ if __name__ == '__main__':
                         default=None,
                         help='Specify a name of the cluster, if AWS a tag ' \
                         'name must be given.')
+    parser.add_argument('-f', '--config_file',
+                        default=None,
+                        help='User can specify which config file will be ' \
+                        'used. The config file has to be .json.')
     args = parser.parse_args()
     main(args)

@@ -37,7 +37,6 @@ import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
-import com.formationds.xdi.ConfigurationApi;
 
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
@@ -306,8 +305,9 @@ public class QueryHelper {
     }
     
     /**
-     * 
-     * @param determine if the {@link List} of {@link Metrics} matches the performance breakdown definition
+     * determine if the {@link List} of {@link Metrics} matches the performance breakdown definition
+     *
+     * @param metrics
      * 
      * @return returns true if all {@link Metrics} are included in both sets
      */
@@ -397,34 +397,34 @@ public class QueryHelper {
     	
     	List<Context> contexts = query.getContexts();
     	
-    	ConfigurationApi api = SingletonConfigAPI.instance().api();
+    	com.formationds.util.thrift.ConfigurationApi api = SingletonConfigAPI.instance().api();
     	
     	// fill it with all the volumes they have access to
     	if ( contexts.isEmpty() ){
 
     		try {
-    		
+
 	    		contexts = api.listVolumes("")
 	    			.stream()
 	    			.filter( vd -> authorizer.hasAccess( token, vd.getName() ) )
 	    			.map( vd -> {
-	    				
+
 	    				String volumeId = "";
-	    				
+
 	    				try{
 	    					volumeId = String.valueOf( api.getVolumeId( vd.getName() ) );
 	    				}
 	    				catch( TException e ){
-	    					
+
 	    				}
-	    				
+
 	    				Volume volume = new VolumeBuilder().withId( volumeId ).withName( vd.getName() )
 	    					.build();
-	    				
+
 	    				return volume;
 	    			})
 	    			.collect( Collectors.toList() );
-    		
+
     		} catch ( Exception e ){
     			logger.error( "Could not gather the volumes this user has access to.", e) ;
     		}
@@ -513,7 +513,7 @@ public class QueryHelper {
      *
      * @return Returns {@link CapacityFull}
      */
-    protected CapacityFull percentageFull( final CapacityConsumed consumed,
+    public CapacityFull percentageFull( final CapacityConsumed consumed,
                                            final Double systemCapacity ) {
         final CapacityFull full = new CapacityFull();
         full.setPercentage( ( int ) Calculation.percentage( consumed.getTotal(),
@@ -524,7 +524,7 @@ public class QueryHelper {
     /**
      * @return Returns {@link CapacityFull}
      */
-    protected CapacityToFull toFull( final Series pSeries,  final Double systemCapacity ) {
+    public CapacityToFull toFull( final Series pSeries,  final Double systemCapacity ) {
         /*
          * TODO finish implementation
          * Add a non-linear regression for potentially better matching

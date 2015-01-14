@@ -300,7 +300,7 @@ void ObjMetaData::setRefCnt(fds_uint16_t refcnt) {
  *
  * @return refcnt
  */
-fds_uint16_t ObjMetaData::getRefCnt() const{
+fds_uint64_t ObjMetaData::getRefCnt() const{
     return obj_map.obj_refcnt;
 }
 
@@ -371,7 +371,7 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     }
     obj_assoc_entry_t new_association;
     new_association.vol_uuid = vol_id;
-    new_association.ref_cnt = 1;
+    new_association.ref_cnt = 1L;
     obj_map.obj_refcnt++;
     assoc_entry.push_back(new_association);
     obj_map.obj_num_assoc_entry = assoc_entry.size();
@@ -393,14 +393,14 @@ fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds
     if (it == assoc_entry.end()) return false;
 
     // found association, decrement ref counts
-    fds_verify((*it).ref_cnt > 0);
+    fds_verify((*it).ref_cnt > 0L);
     (*it).ref_cnt--;
-    if ((*it).ref_cnt == 0) {
+    if ((*it).ref_cnt == 0L) {
         assoc_entry.erase(it);
     }
     obj_map.obj_num_assoc_entry = assoc_entry.size();
     obj_map.obj_refcnt--;
-    if (obj_map.obj_refcnt == 0) {
+    if (obj_map.obj_refcnt == 0L) {
         obj_map.obj_del_time = ts;
     }
     return true;
@@ -412,7 +412,7 @@ ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (assoc_entry[i].ref_cnt > 0) {
+        if (assoc_entry[i].ref_cnt > 0L) {
             if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0) {
                 vol_refcnt[assoc_entry[i].vol_uuid] = 0;
             }
@@ -534,7 +534,7 @@ void ObjMetaData::extractSyncData(fpi::FDSP_MigrateObjectMetadata &md) const
     /* Association entries */
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (assoc_entry[i].ref_cnt > 0) {
+        if (assoc_entry[i].ref_cnt > 0L) {
             fds_assert(assoc_entry[i].vol_uuid != 0);
             fpi::FDSP_ObjectVolumeAssociation a;
             a.vol_id.uuid = assoc_entry[i].vol_uuid;
@@ -543,6 +543,32 @@ void ObjMetaData::extractSyncData(fpi::FDSP_MigrateObjectMetadata &md) const
         }
     }
 }
+
+void
+ObjMetaData::propogateMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaData)
+{
+    fds::assign(objMetaData.objectID, obj_map.obj_id);
+
+    objMetaData.objectRefCnt = getRefCnt();
+    objMetaData.objectCompressType = obj_map.compress_type;
+    objMetaData.objectCompressLen = obj_map.compress_len;
+    objMetaData.objectBlkLen = obj_map.obj_blk_len;
+    objMetaData.objectSize = getObjSize();
+    objMetaData.objectFlags = obj_map.obj_flags;
+    objMetaData.objectExpireTime = obj_map.expire_time;
+
+    fds_verify(obj_map.obj_num_assoc_entry == assoc_entry.size());
+    for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+        if (assoc_entry[i].ref_cnt > 0L) {
+            fds_verify(assoc_entry[i].vol_uuid != 0);
+            fpi::MetaDataVolumeAssoc volAssoc;
+            volAssoc.volumeAssoc = assoc_entry[i].vol_uuid;
+            volAssoc.volumeRefCnt = assoc_entry[i].ref_cnt;
+            objMetaData.objectVolumeAssoc.push_back(volAssoc);
+        }
+    }
+}
+
 
 /**
  * While sync is in progress, existin metadata prior to sync point needs

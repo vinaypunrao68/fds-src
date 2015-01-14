@@ -1,3 +1,8 @@
+#!/usr/bin/python
+# Copyright 2015 by Formation Data Systems, Inc.
+# Written by Philippe Ribeiro
+# philippe@formationds.com
+
 import os
 import subprocess
 import sys

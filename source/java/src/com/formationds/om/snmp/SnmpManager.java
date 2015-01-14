@@ -53,6 +53,7 @@ public class SnmpManager
     }
 
     private TrapSend trap = null;
+    private boolean logOnce = false;
 
     private enum DisableReason {
 
@@ -63,28 +64,37 @@ public class SnmpManager
 
     private void initialize() {
 
-            if( trap == null ) {
+        if( trap == null ) {
 
-                logger.info( "SNMP feature is enabled. Initialize SNMP components." );
+            if( !FdsFeatureToggles.SNMP.isActive() && !logOnce ) {
 
-                if( System.getProperty( TrapSend.SNMP_TARGET_KEY ) == null ) {
+                logger.info( "SNMP feature is disabled. " +
+                             "No Initialization of SNMP components." );
+                logOnce = true;
 
-                    disable( DisableReason.MISSING_CONFIG );
+                return;
+            }
 
-                } else {
+            logger.info( "SNMP feature is enabled. Initialize SNMP components." );
 
-                    try {
+            if( System.getProperty( TrapSend.SNMP_TARGET_KEY ) == null ) {
 
-                        this.trap = new TrapSend();
+                disable( DisableReason.MISSING_CONFIG );
 
-                    } catch( IOException e ) {
+            } else {
 
-                        disable( DisableReason.INITIALIZE_ERROR );
+                try {
 
-                    }
+                    this.trap = new TrapSend();
+
+                } catch( IOException e ) {
+
+                    disable( DisableReason.INITIALIZE_ERROR );
 
                 }
+
             }
+        }
     }
 
     private void disable( final DisableReason reason ) {
@@ -137,7 +147,8 @@ public class SnmpManager
                     this.trap.notify( event );
 
                 } catch( IOException e ) {
-                    e.printStackTrace();
+
+                    logger.error( e.getMessage(), e );
                 }
             }
 

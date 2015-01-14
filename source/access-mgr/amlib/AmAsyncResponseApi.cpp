@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 #include <AmAsyncResponseApi.h>
+#include "AmAsyncXdi.h"
+#include <blob/BlobTypes.h>
 
 #include <arpa/inet.h>
 #include <thrift/concurrency/ThreadManager.h>
@@ -336,5 +338,19 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
             : buf;
         XDICLIENTCALL(asyncRespClient, getBlobWithMetaResponse(requestId, buf, blobDesc));
     }
+}
+
+boost::shared_ptr<apis::BlobDescriptor>
+transform_descriptor(boost::shared_ptr<fds::BlobDescriptor> descriptor) {
+    auto retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
+    retBlobDesc->name = descriptor->getBlobName();
+    retBlobDesc->byteCount = descriptor->getBlobSize();
+
+    for (const_kv_iterator it = descriptor->kvMetaBegin();
+         it != descriptor->kvMetaEnd();
+         ++it) {
+        retBlobDesc->metadata[it->first] = it->second;
+    }
+    return retBlobDesc;
 }
 }  // namespace fds

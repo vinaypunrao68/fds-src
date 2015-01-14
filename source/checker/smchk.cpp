@@ -88,7 +88,7 @@ int SMChk::bytes_reclaimable() {
     MetadataIterator md_it(this);
     for (md_it.start(); !md_it.end(); md_it.next()) {
         boost::shared_ptr<ObjMetaData> omd = md_it.value();
-        if (omd->getRefCnt() == 0) {
+        if (omd->getRefCnt() == 0L) {
             bytes += omd->getObjSize();
         }
     }

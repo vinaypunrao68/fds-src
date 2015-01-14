@@ -5972,6 +5972,7 @@ def FlagCxx11Features(filename, clean_lines, linenum, error):
                                       'regex',
                                       'system_error',
                                      ):
+
     error(filename, linenum, 'build/c++11', 1,
           ('<%s> is an unapproved C++11 header.') % include.group(1))
 
