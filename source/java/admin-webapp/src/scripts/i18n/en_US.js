@@ -111,7 +111,28 @@ var en_US = {
         desc_dedup_ratio: 'Deduplication ratio',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
         desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.',
-        desc_time_to_full: 'until capacity is full'
+        desc_time_to_full: 'until capacity is full',
+        
+        l_services_good: 'All expected services are running properly',
+        l_services_not_good: 'Some services are not running as expected',
+        l_services_bad: 'Necessary services are not running and require attention',
+        
+        l_capacity_good: 'System capacity has adequate free space',
+        l_capacity_not_good_threshold: 'System capacity is above 80%',
+        l_capacity_not_good_rate: 'System capacity is predicated to run out in less than 30 days',
+        l_capacity_bad_threshold: 'System capacity is above 90%',
+        l_capacity_bad_rate: 'System capacity is predicted to run out in less than 1 week',
+        
+        l_firebreak_good: 'No firebreak events in the last 24 hours',
+        l_firebreak_not_good: 'Some volumes have experienced a firebreak in the last 24 hours',
+        l_firebreak_bad: 'Most volumes have experience a firebreak in the last 24 hours',
+        
+        l_excellent: 'Excellent',
+        l_good: 'Good',
+        l_acceptable: 'Acceptable',
+        l_marginal: 'Marginal',
+        l_limited: 'Limited',
+        l_unknown: 'Unknown'
     },
     inbox: {
         messages: 'Messages',

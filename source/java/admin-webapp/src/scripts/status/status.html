@@ -3,36 +3,13 @@
     <div class="tile-container">
         <div class="tile-pair">
             <div class="tile-parent" style="padding-left: 0px;">
-<!--                <div class="system-tile tile"></div>-->
                 
                 <status-tile tile-title="{{ 'status.l_health' | translate }}" calculated-data="healthStatus">
-                    
-                    <div class="coming-soon-parent">
-                        <div class="coming-soon-child" style="margin-top: 50px;">
-                            <div style="">
-                                <span style="color: white;" translate>common.coming_soon</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex" style="padding: 4px;">
-                        <span class="icon-excellent" style="font-size: 36px;color: #68C000;"></span>
-                        <span class="status-text">No limiting events have occurred in the past 24 hours.</span>
-                    </div>
-                    <div class="flex" style="padding: 4px;">
-                        <span class="icon-excellent" style="font-size: 36px;color: #68C000;"></span>
-                        <span class="status-text">All volumes have expected services running properly.</span>
-                    </div>
-                    <div class="flex" style="padding: 4px;">
-                        <span class="icon-excellent" style="font-size: 36px;color: #68C000;"></span>
-                        <span class="status-text">All service level agreements have been met for 27 days.</span>
-                    </div>
-                
+                    <health-tile data="health"></health-tile>
                 </status-tile>
 
             </div>
             <div class="tile-parent">
-<!--                <div class="capacity-tile tile"></div>-->
                 <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="capacityItems">
                     <line-chart data="capacityStats" colors="fakeCapColors" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7" limit="capacityLimit"></line-chart>
                 </status-tile>

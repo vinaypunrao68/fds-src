@@ -110,7 +110,11 @@ public class SeriesHelper {
             } else if( diff <= SECONDS_IN_30_DAYS ) {
                 logger.trace( "30 DAYS::{}", diff );
                 return thirtyDaysRollup( datapoints, epoch, query.getSeriesType(), operation );
-            } else {
+            } else if ( diff > 0 && diff > SECONDS_IN_30_DAYS ){
+            	logger.trace( "More than 30 days::{}", diff );
+            	return longTermRollup( datapoints, epoch, query.getSeriesType(), operation );
+            }
+            else {
                 throw new IllegalArgumentException(
                     "start end timestamp delta is invalid" );
             }
@@ -198,6 +202,26 @@ public class SeriesHelper {
 		
 		return series;
 	}  
+    
+    private List<Series> longTermRollup( final List<VolumeDatapoint> datapoints,
+    		final long epoch,
+    		final List<Metrics> metrics,
+    		final StatOperation operation ){
+    	
+		final List<Series> series = new ArrayList<Series>();
+		
+        /*
+         * for each volume
+         *  sum all datapoints for each day to produce one datapoint,
+         *  per volume
+         */
+		for ( Metrics metric : metrics ) {
+			// just setting it to one point per 2 days
+			series.add( generate( datapoints, epoch, metric, 2880L, 999, operation ) );
+		}
+		
+		return series;
+    }
 
     /**
      * This method will take the list and parse it down to only
