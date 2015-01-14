@@ -5,6 +5,7 @@
 package com.formationds.om.webkit;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -37,12 +38,14 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.ConfigurationApi;
+
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.servlet.http.HttpServletResponse;
+
 import java.util.function.Function;
 
 /**
@@ -250,6 +253,13 @@ public class WebKitImpl {
     private void metricsGets( ) {
         authenticate( HttpMethod.PUT, "/api/stats/volumes",
                       ( t ) -> new QueryMetrics( authorizer, t ) );
+        
+        authenticate( HttpMethod.GET,  "/api/systemhealth",
+        		( t ) -> new SystemHealthStatus(
+        				SingletonLegacyConfig.instance().api(), 
+        				SingletonConfigAPI.instance().api(), 
+        				authorizer, 
+        				t ) );
     }
 
     private void tenants( SecretKey secretKey, Authorizer authorizer ) {
