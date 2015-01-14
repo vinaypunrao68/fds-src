@@ -41,7 +41,7 @@ describe( 'Testing the modular tiering choice panels', function(){
         var buttons = $panel.find('.button');
         
         expect( $(buttons[1]).hasClass( 'selected' ) ).toBe( true );    
-        expect( $scope.mediaPolicy.value ).toBe( 'SSD_PREFERRED' );
+        expect( $scope.mediaPolicy.value ).toBe( 'HDD_ONLY' );
     });
     
     it( 'should set the media policy to SSD only', function(){
@@ -62,7 +62,7 @@ describe( 'Testing the modular tiering choice panels', function(){
         
         var buttons = $panel.find('.button');
         
-        expect( $(buttons[2]).hasClass( 'selected' ) ).toBe( true );
+        expect( $(buttons[1]).hasClass( 'selected' ) ).toBe( true );
         expect( $scope.mediaPolicy.value ).toBe( 'HDD_ONLY' );
     });
 });
