@@ -271,3 +271,7 @@ def newDisableScrubberMsg():
 def newShutdownSMMsg():
     msg = ShutdownSMMsg()
     return msg
+
+def newCtrlStartHybridTierCtrlrMsg():
+    msg = CtrlStartHybridTierCtrlrMsg()
+    return msg

@@ -208,8 +208,9 @@ class VolumeContext(Context):
         '''
         b = self.s3api.get_bucket(vol_name)
         i = 0
-        while True:
+        while i < cnt:
             for key in b.list():
+                print "Getting object#: {}".format(i)
                 print self.get(vol_name, key.name.encode('ascii','ignore'))
                 i = i + 1
                 if i >= cnt:
@@ -219,16 +220,18 @@ class VolumeContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('cnt', help= "count of objs to put", type=long, default=100)
-    def bulkput(self, vol_name, cnt):
+    @arg('seed', help= "count of objs to put", default='seed')
+    def bulkput(self, vol_name, cnt, seed):
         '''
         Does bulk put
         TODO: Make it do random put as well
         '''
         for i in xrange(0, cnt):
-            k = "key{}".format(i)
-            v = "value{}".format(i)
+            k = "key_{}_{}".format(seed, i)
+            v = "value_{}_{}".format(seed, i)
+            print "Putting object#: {}".format(i)
             print self.put(vol_name, k, v)
-            return 'Done!'
+        return 'Done!'
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     def get(self, vol_name, key):

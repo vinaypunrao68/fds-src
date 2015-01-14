@@ -138,22 +138,3 @@ class ServiceContext(Context):
             print e
             log.exception(e)
             return 'unable to get dm stats '
-
-    #--------------------------------------------------------------------------------------
-    @clicmd
-    @arg('nodeid', help= "node id",  type=long)
-    def listtierstats(self, nodeid):
-        try:
-            cntrs = ServiceMap.client(nodeid, 'sm').getCounters('*')
-            data = {}
-            data['hdd-reads'] = cntrs['hdd_reads:volume=0']
-            data['hdd-writes'] = cntrs['hdd_writes:volume=0']
-            data['ssd-reads'] = cntrs['ssd_reads:volume=0']
-            data['ssd-writes'] = cntrs['ssd_writes:volume=0']
-            data['hybrid moved'] = cntrs['movedCnt:volume=0']
-            return tabulate(data,headers=['counter', 'value'], tablefmt=self.config.getTableFormat())
-            
-        except Exception, e:
-            log.exception(e)
-            return 'unable to get volume list'
-

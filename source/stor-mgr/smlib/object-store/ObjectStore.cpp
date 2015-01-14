@@ -774,6 +774,9 @@ ObjectStore::tieringControlCmd(SmTieringCmd* tierCmd) {
         case SmTieringCmd::TIERING_DISABLE:
             tierEngine->disableTierMigration();
             break;
+        case SmTieringCmd::TIERING_START_HYBRIDCTRLR:
+            tierEngine->startHybridTierCtrlr();
+            break;
         default:
             fds_panic("Unknown tiering command");
     }

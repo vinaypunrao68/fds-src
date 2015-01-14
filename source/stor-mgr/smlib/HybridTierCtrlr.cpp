@@ -37,7 +37,7 @@ HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
     FREQUENCY = gModuleProvider->get_fds_config()->\
                        get<uint32_t>("fds.sm.tiering.hybrid.frequency");
 
-    inProgress_ = false;
+    state_ = HTC_STOPPED;
     snapRequest_.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapRequest_.smio_snap_resp_cb = std::bind(&HybridTierCtrlr::snapTokenCb,
                                               this,
@@ -45,28 +45,49 @@ HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
                                               std::placeholders::_2,
                                               std::placeholders::_3,
                                               std::placeholders::_4);
-}
-
-void HybridTierCtrlr::start()
-{
-    GLOGNOTIFY;
-
-    /* Schedule run() on timer */
-    fds_assert(runTask_.get() == nullptr);
     auto &timer = *(gModuleProvider->getTimer());
     runTask_.reset(
         new FdsTimerFunctionTask(
             timer,
             std::bind(&HybridTierCtrlr::run, this)));
-    timer.schedule(runTask_, std::chrono::seconds(FREQUENCY));
+}
+
+void HybridTierCtrlr::start(bool manual)
+{
+    GLOGNOTIFY << "manual: " << manual;
+
+    auto nextScheduleInSecs = FREQUENCY;
+
+    if (manual) {
+        if (state_ == HTC_READY || state_ == HTC_INPROGRESS) {
+            GLOGNOTIFY << "Already in progress...ignoring manual start";
+            return;
+        }
+        if (state_ == HTC_SCHEDULED) {
+            gModuleProvider->getTimer()->cancel(runTask_);
+        }
+        /* Schedule in the next 1 second */
+        nextScheduleInSecs = 1;
+    }
+
+    scheduleNextRun_(nextScheduleInSecs);
+}
+
+void HybridTierCtrlr::scheduleNextRun_(uint32_t nextRunInSeconds)
+{
+    /* Schedule run() on timer */
+    state_ = HTC_SCHEDULED;
+    gModuleProvider->getTimer()->\
+        schedule(runTask_, std::chrono::seconds(nextRunInSeconds));
 }
 
 void HybridTierCtrlr::run()
 {
     fds_assert(tokenSet_.empty() &&
                tokenItr_.get() == nullptr &&
-               inProgress_ == false);
+               state_ == HTC_SCHEDULED);
 
+    state_ = HTC_READY;
     hybridMoveTs_ = util::getTimeStampSeconds() - FREQUENCY;
     tokenSet_ = diskMap_->getSmTokens();
     threadpool_->schedule(&HybridTierCtrlr::moveToNextToken, this);
@@ -82,19 +103,17 @@ void HybridTierCtrlr::stop()
 
     GLOGNOTIFY;
 
-    fds_assert(runTask_);
     gModuleProvider->getTimer()->cancel(runTask_);
-    runTask_.reset();
 }
 
 void HybridTierCtrlr::moveToNextToken()
 {
-    if (inProgress_ == false) {
+    if (state_ == HTC_READY) {
         /* We are at first token..don't increment nextToken_ */
-        inProgress_ = true;
+        state_ = HTC_INPROGRESS;
         nextToken_ = tokenSet_.begin();
     } else {
-        fds_assert(inProgress_ == true);
+        fds_assert(state_ == HTC_INPROGRESS);
         nextToken_++;
     }
 
@@ -103,12 +122,11 @@ void HybridTierCtrlr::moveToNextToken()
         /* Start moving objects for the next token.  First we take a snap */
         snapToken();
     } else {
-        GLOGNOTIFY << "Completed processing all tokens.  Moved cnt: "
+        GLOGNOTIFY << "Completed processing all tokens.  Aggregate moved cnt: "
             << htcCntrs_.movedCnt.value() << ".  Scheduling hybrid tier work again";
         /* Completed moving objects.  Schedule the next relocation task */
-        inProgress_ = false;
         tokenSet_.clear();
-        gModuleProvider->getTimer()->schedule(runTask_, std::chrono::seconds(FREQUENCY));
+        scheduleNextRun_(FREQUENCY);
     }
 }
 

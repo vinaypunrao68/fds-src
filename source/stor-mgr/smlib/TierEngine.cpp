@@ -11,8 +11,6 @@
 
 namespace fds {
 
-uint32_t gStayInGdb = 0;
-
 TierEngine::TierEngine(const std::string &modName,
         rankPolicyType _rank_type,
         StorMgrVolumeTable* _sm_volTbl,
@@ -44,14 +42,10 @@ TierEngine::~TierEngine() {
 
 int TierEngine::mod_init(SysParams const *const param) {
     Module::mod_init(param);
-    // TODO(Rao): Remove this
-    while (gStayInGdb) {
-        sleep(10);
-    }
 
     if (gModuleProvider->get_fds_config()->\
         get<bool>("fds.sm.tiering.hybrid.enable")) {
-        hybridTierCtrlr.start();
+        hybridTierCtrlr.start(false);
     }
 
     /*
@@ -94,6 +88,12 @@ void TierEngine::enableTierMigration() {
     // implement this method
     LOGNOTIFY << "Tier migration is always enabled, implement this "
               << " if disabling tier migration actually disables it";
+}
+
+/* For manually starting hybrid tier controller */
+void TierEngine::startHybridTierCtrlr()
+{
+    hybridTierCtrlr.start(true);
 }
 
 /*

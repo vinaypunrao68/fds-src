@@ -31,9 +31,16 @@ struct HTCCounters : FdsCounters {
 * NOTE: This implementation is valid for beta-2 timeframe.
 */
 struct HybridTierCtrlr {
+    enum HTCState {
+        HTC_STOPPED,
+        HTC_SCHEDULED,
+        HTC_READY,
+        HTC_INPROGRESS
+    };
+
     HybridTierCtrlr(SmIoReqHandler* storMgr,
                     SmDiskMap::ptr diskMap);
-    void start();
+    void start(bool manual=false);
     void stop();
 
     void run();
@@ -48,6 +55,7 @@ struct HybridTierCtrlr {
                           SmIoMoveObjsToTier *req);
  protected:
     void initMoveTierRequest_();
+    void scheduleNextRun_(uint32_t nextRunInSeconds);
 
     static uint32_t BATCH_SZ;
     static uint32_t FREQUENCY;
@@ -56,7 +64,7 @@ struct HybridTierCtrlr {
     SmIoReqHandler* storMgr_;
     SmDiskMap::ptr diskMap_;
     FdsTimerTaskPtr runTask_;
-    bool inProgress_;
+    HTCState state_;
     std::set<fds_token_id> tokenSet_;
     std::set<fds_token_id>::iterator nextToken_;
     std::unique_ptr<SMTokenItr> tokenItr_;
