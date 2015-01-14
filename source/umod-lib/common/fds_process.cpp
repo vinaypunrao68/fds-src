@@ -304,8 +304,8 @@ FdsProcess::SIGSEGVHandler(int sigNum, siginfo_t *sigInfo, void *context)
     /* Since the signal handler was originally set with SA_RESETHAND,
      * the default signal handler is restore.  After the signal handler
      * completes, the thread resumes from the the faulting address that will result in
-     * another SIGSEG (most likely), and it will invoke the default SIGSEGV signal handler,
-     * whieh is to core dump.
+     * another SIGSEGV (most likely), and it will invoke the default SIGSEGV signal handler,
+     * which is to core dump.
      */
 }
 
@@ -317,7 +317,7 @@ void FdsProcess::setup_sig_handler()
 {
     /* setup a process wide signal handler for SIGSEGV.
      * For synchronous signals, handle it on the faulting thread's context.
-     * For asynchrnous signals, it's preferred to handle it bya dedicated thread
+     * For asynchrnous signals, it's preferred to handle it by a dedicated thread.
      */
     struct sigaction sigAct;
     sigAct.sa_flags = (SA_SIGINFO | SA_RESETHAND);
