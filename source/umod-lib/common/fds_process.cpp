@@ -295,38 +295,12 @@ FdsProcess::sig_handler(void* param)
     return reinterpret_cast<void*>(NULL);
 }
 
-void
-FdsProcess::SIGSEGVHandler(int sigNum, siginfo_t *sigInfo, void *context)
-{
-    GLOGCRITICAL << "SIGSEGV at address: " << std::hex << sigInfo->si_addr
-                 << " with code " << std::dec << sigInfo->si_code;
-
-    /* Since the signal handler was originally set with SA_RESETHAND,
-     * the default signal handler is restored.  After the signal handler
-     * completes, the thread resumes from the the faulting address that will result in
-     * another SIGSEGV (most likely), and it will invoke the default SIGSEGV signal handler,
-     * which is to core dump.
-     */
-}
-
 /**
  * ICE inspired way of handling signals.  This can possibly be
  * replaced by boost::asio::signal_set.  This needs to be investigated
  */
 void FdsProcess::setup_sig_handler()
 {
-    /* setup a process wide signal handler for SIGSEGV.
-     * For synchronous signals, handle it on the faulting thread's context.
-     * For asynchrnous signals, it's preferred to handle it by a dedicated thread.
-     */
-    struct sigaction sigAct;
-    sigAct.sa_flags = (SA_SIGINFO | SA_RESETHAND);
-    sigemptyset(&sigAct.sa_mask);
-    sigAct.sa_sigaction = FdsProcess::SIGSEGVHandler;
-    if (sigaction(SIGSEGV, &sigAct, NULL) == -1) {
-        LOGWARN << "SIGSEGV signal handler is not set";
-    }
-
     /*
      * We will block ctrl+c like signals in the main thread.  All
      * other threads will have signals blocked as well.  We will
