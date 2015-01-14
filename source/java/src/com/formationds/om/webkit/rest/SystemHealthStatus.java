@@ -27,6 +27,7 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.SystemHealth;
+import com.formationds.commons.model.SystemStatus;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.builder.VolumeBuilder;
@@ -34,6 +35,7 @@ import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.HealthState;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
@@ -49,6 +51,7 @@ import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.ConfigurationApi;
 import com.formationds.util.SizeUnit;
 
@@ -97,26 +100,20 @@ public class SystemHealthStatus implements RequestHandler {
                 .filter(v -> authorizer.hasAccess(token, v.getName()))
                 .collect(Collectors.toList());
 		
-        List<SystemHealth> statuses = new ArrayList<SystemHealth>();
-        
         SystemHealth serviceHealth = getServiceStatus( services );
         SystemHealth capacityHealth = getCapacityStatus( allVolumes );
         SystemHealth firebreakHealth = getFirebreakStatus( filteredVolumes );
         
-        statuses.add( serviceHealth );
-        statuses.add( capacityHealth );
-        statuses.add( firebreakHealth );
-        
         HealthState overallState = getOverallState( serviceHealth.getState(), 
         	capacityHealth.getState(), firebreakHealth.getState() );
         
-        JSONArray jsonArray = new JSONArray( statuses );
-        JSONObject rtn = new JSONObject();
+        SystemStatus systemStatus = new SystemStatus();
+        systemStatus.addStatus( serviceHealth );
+        systemStatus.addStatus( capacityHealth );
+        systemStatus.addStatus( firebreakHealth );
+        systemStatus.setOverall( overallState );
         
-        rtn.put( "overall", overallState );
-        rtn.put( "status", jsonArray );
-        
-		return new JsonResource( rtn );
+		return new TextResource( ObjectModelHelper.toJSON( systemStatus ) );
 	}
 	
 	private HealthState getOverallState( HealthState serviceState, HealthState capacityState, HealthState firebreakState ){
