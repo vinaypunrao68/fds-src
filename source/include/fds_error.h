@@ -70,6 +70,7 @@ typedef enum {
     ERR_INVALID_VOL_ID        = 47,
     ERR_DM_JOURNAL_TIME       = 48,
     ERR_DM_REPLAY_JOURNAL     = 49,
+    ERR_DM_RM_FAILED       = 50,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
