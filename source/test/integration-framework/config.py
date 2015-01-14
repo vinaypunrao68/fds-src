@@ -8,9 +8,9 @@ test_sets = "testsets"
 setup = "setup.cfg"
 
 FDS_ROOT="/root/fds-src/"
-FDS_TOOLS="/root/fds-src/source/tools"
+FDS_TOOLS="../../../source/tools/"
 FDS_CMD="sudo %s/fds %s"
-pyUnitConfig = "/root/fds-src/source/test/testsuites/BuildSmokeTest.ini"
+pyUnitConfig = "./../../source/test/testsuites/BuildSmokeTest.ini"
 
 S3_USER = 'fds_testing'
 S3_PASSWORD = 'bIEYKCPzDKtQDDBomnAKTKRA'
