@@ -223,6 +223,7 @@ public class SystemHealthStatus implements RequestHandler {
 			
 			FirebreakHelper fbh = new FirebreakHelper();
 			List<Series> series = fbh.processFirebreak( queryResults );
+			final Date now = new Date();
 			
 			long volumesWithRecentFirebreak = series.stream()
 				.filter( s -> {
@@ -231,7 +232,7 @@ public class SystemHealthStatus implements RequestHandler {
 						.filter( dp -> {
 							
 							// firebreak in the last 24hours
-							if ( dp.getY() <= TimeUnit.DAYS.toSeconds( 1 ) ){
+							if ( dp.getY() > (now.getTime() - TimeUnit.DAYS.toSeconds( 1 )) ){
 								return true;
 							}
 							

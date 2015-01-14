@@ -36,6 +36,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.healthReturned = function( data ){
         $scope.health = data;
+        $scope.healthStatus = [{ number: $filter( 'translate' )( 'status.l_' + data.overall.toLowerCase() )}];
     };
     
     $scope.activitiesReturned = function( list ){
