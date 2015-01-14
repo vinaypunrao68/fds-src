@@ -299,10 +299,10 @@ void
 FdsProcess::SIGSEGVHandler(int sigNum, siginfo_t *sigInfo, void *context)
 {
     GLOGCRITICAL << "SIGSEGV at address: " << std::hex << sigInfo->si_addr
-                 << "with code " << std::dec << sigInfo->si_code;
+                 << " with code " << std::dec << sigInfo->si_code;
 
     /* Since the signal handler was originally set with SA_RESETHAND,
-     * the default signal handler is restore.  After the signal handler
+     * the default signal handler is restored.  After the signal handler
      * completes, the thread resumes from the the faulting address that will result in
      * another SIGSEGV (most likely), and it will invoke the default SIGSEGV signal handler,
      * which is to core dump.
