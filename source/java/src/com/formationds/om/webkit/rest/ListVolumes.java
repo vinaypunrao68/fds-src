@@ -215,8 +215,7 @@ struct VolumeDescriptor {
 							.getBlockDeviceSizeInBytes() );
                     JSONObject attributes = new JSONObject()
                                                 .put("size", size.getCount())
-                                                .put("unit", size.getSizeUnit()
-																 .toString());
+                                                .put("unit", size.getSizeUnit().toString());
 					connector.put( "attributes", attributes );
 					o.put( "data_connector", connector );
 				}
@@ -242,8 +241,7 @@ struct VolumeDescriptor {
 			Size usage = Size.size( status.getCurrentUsageInBytes() );
 			JSONObject dataUsage = new JSONObject()
 			.put( "size", formatSize( usage ) )
-			.put( "unit", usage.getSizeUnit()
-					.toString() );
+			.put( "unit", usage.getSizeUnit().toString() );
 			o.put( "current_usage", dataUsage );
 		}
 
@@ -280,7 +278,7 @@ struct VolumeDescriptor {
 		try {
 			map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
 		} catch (TException e) {
-			 LOG.warn( "Could not determnie the firebreak events for volume: " + v.getId() + ":" + v.getName(), e );
+			 LOG.warn( "Could not determine the firebreak events for volume: " + v.getId() + ":" + v.getName(), e );
 		}
 		
 		return map;
