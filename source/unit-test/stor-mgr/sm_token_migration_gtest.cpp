@@ -23,6 +23,7 @@
 #include <TokenMigrationMgr.h>
 
 #include <sm_ut_utils.h>
+#include <sm_dataset.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -44,11 +45,15 @@ class SmTokenMigrationUtProc : public FdsProcess {
     }
 };
 
+typedef std::function<void (fds_uint64_t executorId,
+                            fds_token_id smToken,
+                            const Error& error)> SnapshotDoneHandler;
+
 // Test implementation of SmIoReqHandler
 class TestReqHandler: public SmIoReqHandler {
   public:
-    TestReqHandler()
-    : SmIoReqHandler() {
+    explicit TestReqHandler(SnapshotDoneHandler hdlr)
+            : SmIoReqHandler(), snapDoneHandler(hdlr), executorId(0) {
         threadPool = new fds_threadpool(1);
     }
     virtual ~TestReqHandler() {
@@ -83,8 +88,11 @@ class TestReqHandler: public SmIoReqHandler {
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq) {
         // we'll schedule a request on threadpool
         switch (ioReq->io_type) {
-                case FDS_SM_SNAPSHOT_TOKEN:
+            case FDS_SM_SNAPSHOT_TOKEN:
                 threadPool->schedule(&TestReqHandler::snapshotToken, this, ioReq);
+                break;
+            case FDS_SM_APPLY_DELTA_SET:
+                threadPool->schedule(&TestReqHandler::applyDeltaSet, this, ioReq);
                 break;
             default:
                 return ERR_INVALID_ARG;
@@ -103,6 +111,20 @@ class TestReqHandler: public SmIoReqHandler {
         leveldb::DB *db = odb->GetDB();
         options.snapshot = db->GetSnapshot();
         snapReq->smio_snap_resp_cb(ERR_OK, snapReq, options, db);
+
+        if (snapDoneHandler) {
+            snapDoneHandler(executorId++, snapReq->token_id, ERR_OK);
+        }
+    }
+
+    void applyDeltaSet(SmIoReq* ioReq) {
+        SmIoApplyObjRebalDeltaSet *rebalReq = static_cast<SmIoApplyObjRebalDeltaSet*>(ioReq);
+        GLOGNORMAL << "Apply delta set executor ID " << rebalReq->executorId
+                   << " seqNum " << rebalReq->seqNum << " lastSet " << rebalReq->lastSet
+                   << " qosSeqNum " << rebalReq->qosSeqNum << " totalQosCnt "
+                   << rebalReq->totalQosCount << " Objs to apply " << rebalReq->deltaSet.size();
+
+        rebalReq->smioObjdeltaRespCb(ERR_OK, rebalReq);
     }
 
   private:
@@ -111,12 +133,18 @@ class TestReqHandler: public SmIoReqHandler {
 
     /// SM token ID to object DB
     std::unordered_map<fds_token_id, osm::ObjectDB *> objDbs;
+
+    /// callback when snapshot is done
+    SnapshotDoneHandler snapDoneHandler;
+    fds_uint64_t executorId;
 };
 
 class SmTokenMigrationTest : public ::testing::Test {
   public:
     SmTokenMigrationTest() {
-        dataStore = new(std::nothrow) TestReqHandler();
+        dataStore = new(std::nothrow) TestReqHandler(std::bind(
+            &SmTokenMigrationTest::snapshotDoneCb, this,
+            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         tokenMigrationMgr = SmTokenMigrationMgr::unique_ptr(
                                     new(std::nothrow) SmTokenMigrationMgr(dataStore));
         migration_done = ATOMIC_VAR_INIT(false);
@@ -128,12 +156,15 @@ class SmTokenMigrationTest : public ::testing::Test {
     }
 
     void createObjectSet(fds_uint32_t numObjs);
+    void snapshotDoneCb(fds_uint64_t executorId,
+                        fds_token_id smToken,
+                        const Error& error);
 
     TestReqHandler* dataStore;
     SmTokenMigrationMgr::unique_ptr tokenMigrationMgr;
 
     // dataset for the test
-    std::vector<ObjectID> objset;
+    TestDataset testdata_;
 
     // done condition
     std::condition_variable done_cond;
@@ -143,7 +174,57 @@ class SmTokenMigrationTest : public ::testing::Test {
 
 void
 SmTokenMigrationTest::createObjectSet(fds_uint32_t numObjs) {
-    SmUtUtils::createUniqueObjectIDs(numObjs, objset);
+    testdata_.generateDataset(numObjs, 4096);
+}
+
+// callback when snapshot is done for a given SM token
+void
+SmTokenMigrationTest::snapshotDoneCb(fds_uint64_t executorId,
+                                     fds_token_id smToken,
+                                     const Error& error) {
+    // simulate receiving rebalance delta set from source SM
+    fds_uint32_t numObjs = 13;
+    LOGNOTIFY << "Simulating receiving rebalance delta set from src SM: "
+              << numObjs << " objects metadata/data in one msg";
+
+    // TODO(Anna) do different test cases, for now one hardcoded msg
+    fpi::CtrlObjectRebalanceDeltaSetPtr msg(new fpi::CtrlObjectRebalanceDeltaSet());
+    msg->executorID = executorId;
+    msg->seqNum = 0;
+    msg->lastDeltaSet = 1;
+    for (fds_uint32_t i = 0; i < numObjs; ++i) {
+        fpi::CtrlObjectMetaDataPropagate objMd;
+        ObjectID oid = testdata_.dataset_[i];
+        objMd.objectID.digest = std::string(
+            reinterpret_cast<const char*>((testdata_.dataset_)[i].GetId()),
+            (testdata_.dataset_)[i].GetLen());
+        boost::shared_ptr<std::string> data =
+                testdata_.dataset_map_[oid].getObjectData();
+        objMd.objectData = *data;
+
+        fpi::MetaDataVolumeAssoc volAssoc;
+        volAssoc.volumeAssoc = 0x12345;
+        volAssoc.volumeRefCnt = 1;
+        objMd.objectVolumeAssoc.push_back(volAssoc);
+
+        objMd.objectCompressType = 0;
+        objMd.objectCompressLen = 0;
+        objMd.objectBlkLen = 4096;
+        objMd.objectSize = data->length();
+        objMd.objectFlags = 0;
+        objMd.objectExpireTime = 0;
+
+        msg->objectToPropagate.push_back(objMd);
+    }
+
+    Error err = tokenMigrationMgr->recvRebalanceDeltaSet(msg);
+    EXPECT_TRUE(err.ok());
+
+    // check if we are done with migration...
+    if (!tokenMigrationMgr->isMigrationInProgress()) {
+        GLOGNOTIFY << "Finished migration";
+        done_cond.notify_all();
+    }
 }
 
 /**
@@ -152,8 +233,8 @@ SmTokenMigrationTest::createObjectSet(fds_uint32_t numObjs) {
  */
 TEST_F(SmTokenMigrationTest, destination) {
     Error err(ERR_OK);
-    fds_uint32_t srcSmCount = 2;
-    // createObjectSet(34);
+    fds_uint32_t srcSmCount = 1;
+    createObjectSet(34);
 
     // TODO(anna) implement this test properly; for now
     // startMigration does not do anything...

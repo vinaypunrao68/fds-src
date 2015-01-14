@@ -273,6 +273,11 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             startSmTokenMigration(it->first);
         } else {
             /// we are done migrating, reply to start migration msg from OM
+            // TODO(Anna) revisit this when doing active IO
+            MigrationState expectState = MIGR_IN_PROGRESS;
+            if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_DONE)) {
+                fds_panic("Unexpected migration executor state!");
+            }
         }
     }
 }

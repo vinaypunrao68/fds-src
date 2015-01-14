@@ -56,8 +56,14 @@ class SmTokenMigrationMgr {
     enum MigrationState {
         MIGR_IDLE,
         MIGR_IN_PROGRESS,
+        MIGR_DONE,
         MIGR_ABORTED,
     };
+
+    inline fds_bool_t isMigrationInProgress() const {
+        MigrationState curState = atomic_load(&migrState);
+        return (curState == MIGR_IN_PROGRESS);
+    }
 
     /**
      * Handles start migration message from OM.
