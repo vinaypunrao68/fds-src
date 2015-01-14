@@ -2,6 +2,7 @@ package com.formationds.om.webkit.rest;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ import FDS_ProtocolInterface.FDSP_Node_Info_Type;
 import FDS_ProtocolInterface.FDSP_NodeState;
 
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.SystemHealth;
 import com.formationds.commons.model.Volume;
@@ -205,8 +207,12 @@ public class SystemHealthStatus implements RequestHandler {
                                               	Metrics.STP_SIGMA,
 												Metrics.LTP_SIGMA );
 		
+		DateRange range = new DateRange();
+		range.setEnd( (new Date()).getTime() );
+		
 		MetricQueryCriteria query = queryBuilder.withContexts( volumes )
 			.withSeriesTypes( metrics )
+			.withRange( range )
 			.build();
 		
 		final EntityManager em = SingletonRepositoryManager.instance().getMetricsRepository().newEntityManager();
@@ -280,9 +286,13 @@ public class SystemHealthStatus implements RequestHandler {
 		
 		// query that stats to get raw capacity data
 		MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
+	
+		DateRange range = new DateRange();
+		range.setEnd( (new Date()).getTime() );
 		
 		MetricQueryCriteria query = queryBuilder.withContexts( volumes )
 			.withSeriesType( Metrics.PBYTES )
+			.withRange( range )
 			.build();
 		
 		final EntityManager em = SingletonRepositoryManager.instance().getMetricsRepository().newEntityManager();
