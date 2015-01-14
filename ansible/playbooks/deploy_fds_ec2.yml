@@ -4,7 +4,6 @@
     hosts: localhost
     gather_facts: False
     vars_files:
-    -   ../vars_files/multi_om_setup.yml
     -   ../vars_files/credentials/aws_fds_testing.yml
     -   ../vars_files/credentials/fds-deploy_rsa.yml
 
@@ -75,6 +74,8 @@
     sudo: true
     vars:
         this_is_an_ec2_node: true
+    vars_files:
+    -   ../vars_files/multi_om_setup.yml
 
     handlers:
     -   name: restart ssh
