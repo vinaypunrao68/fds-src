@@ -273,6 +273,25 @@ ObjectStore::getObject(fds_volid_t volId,
 
     return objData;
 }
+boost::shared_ptr<const std::string>
+ObjectStore::getObjectData(fds_volid_t volId,
+                       const ObjectID &objId,
+                       ObjMetaData::const_ptr objMetaData,
+                       Error& err)
+{
+    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
+
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(volId, objId, objMetaData, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data " << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+    }
+    return objData;
+}
 
 Error
 ObjectStore::deleteObject(fds_volid_t volId,
