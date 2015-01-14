@@ -17,6 +17,7 @@ extern "C" {
 #include <vector>
 
 #include "leveldb/db.h"
+#include "fdsp/fds_service_types.h"
 #include "fdsp/FDSP_types.h"
 #include "fds_volume.h"
 #include "fds_types.h"
@@ -90,6 +91,8 @@ class ObjMetaData : public serialize::Serializable {
 
     void extractSyncData(fpi::FDSP_MigrateObjectMetadata& md) const;
 
+    void propogateMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData);
+
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
     void setSyncMask();
@@ -114,7 +117,7 @@ class ObjMetaData : public serialize::Serializable {
 
     void decRefCnt();
 
-    fds_uint16_t getRefCnt() const;
+    fds_uint64_t getRefCnt() const;
 
     void copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId);
 

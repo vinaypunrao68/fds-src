@@ -1,5 +1,5 @@
-/*                                                                                                                                          
- * Copyright 2014 Formation Data Systems, Inc.                                                                                              
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 #include <vector>
@@ -154,8 +154,8 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
     return err;
 }
 
-/**                                                                                                                                             
- * Callback from object store that metadata snapshot is complete                                                                                
+/**
+ * Callback from object store that metadata snapshot is complete
  * We prepare work items with object id lists to copy/delete
  */
 void TokenCompactor::snapDoneCb(const Error& error,
@@ -387,7 +387,7 @@ fds_bool_t TokenCompactor::isGarbage(const ObjMetaData& md)
     // TODO(anna or Vinay) add other policies for checking GC
     // The first version of this method just decides based on
     // refcount -- if < 1 then garbage collect
-    if (md.getRefCnt() < 1) {
+    if (md.getRefCnt() < 1L) {
         return true;
     }
 
