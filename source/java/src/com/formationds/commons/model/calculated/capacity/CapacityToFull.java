@@ -15,6 +15,7 @@ public class CapacityToFull
   private static final long serialVersionUID = 4144617532432238800L;
 
   @SerializedName( "to_full" )
+  // value is in seconds
   private Long toFull;
 
   /**

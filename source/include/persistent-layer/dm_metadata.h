@@ -142,7 +142,7 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     meta_obj_id_t        obj_id;              /* check sum for data.         */
     fds_uint16_t         obj_blk_len;         /* var blk: 512 to 32M.        */
     fds_uint32_t         obj_size;            /* var, size in bytes */
-    fds_int16_t          obj_refcnt;          /* de-dupe refcnt.             */
+    fds_int64_t          obj_refcnt;          /* de-dupe refcnt.             */
     fds_uint16_t         obj_num_assoc_entry; /* Number association entries in the arr.*/
     fds_uint64_t         obj_create_time;     /* creation time.         */
     fds_uint64_t         obj_del_time;        /* deletion time.         */
@@ -160,7 +160,7 @@ struct __attribute__((__packed__)) meta_obj_map_v0
 
 struct __attribute__((__packed__)) obj_assoc_entry_v0 {
     fds::fds_volid_t    vol_uuid;
-    fds_int32_t         ref_cnt;
+    fds_int64_t         ref_cnt;
 };
 
 /*

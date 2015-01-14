@@ -55,8 +55,15 @@ class SmTokenMigrationMgr {
      */
     enum MigrationState {
         MIGR_IDLE,
-        MIGR_IN_PROGRESS
+        MIGR_IN_PROGRESS,
+        MIGR_DONE,
+        MIGR_ABORTED,
     };
+
+    inline fds_bool_t isMigrationInProgress() const {
+        MigrationState curState = atomic_load(&migrState);
+        return (curState == MIGR_IN_PROGRESS);
+    }
 
     /**
      * Handles start migration message from OM.
@@ -105,6 +112,16 @@ class SmTokenMigrationMgr {
                                    SmIoSnapshotObjectDB* snapRequest,
                                    leveldb::ReadOptions& options,
                                    leveldb::DB *db);
+
+    /**
+     * Callback for a migration executor that it finished migration
+     */
+    void migrationExecutorDoneCb(fds_uint64_t executorId,
+                                 fds_token_id smToken,
+                                 const Error& error);
+
+    /// enqueues snapshot message to qos
+    void startSmTokenMigration(fds_token_id smToken);
 
     /**
      * Stops migration and sends ack with error to OM

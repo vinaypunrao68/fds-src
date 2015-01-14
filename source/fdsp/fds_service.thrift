@@ -984,7 +984,7 @@ struct CtrlObjectMetaDataSync
     1: FDSP.FDS_ObjectIdType objectID
 
     /* RefCount of the object */
-    2: i32              objRefCnt
+    2: i64              objRefCnt
 
     /* TODO(Sean):
      * There can be more fields in the MetaData that should be sync'ed,
@@ -1022,10 +1022,10 @@ struct MetaDataVolumeAssoc
     1: i64 volumeAssoc  
 
     /* reference count for volume association */
-    2: i32 volumeRefCnt
+    2: i64 volumeRefCnt
 }
 
-/* Object + Data + MetaData to be propogated to the destination SM from source SM*/
+/* Object + Data + MetaData to be propogated to the destination SM from source SM */
 struct CtrlObjectMetaDataPropagate
 {
     /* Object ID */
@@ -1034,13 +1034,11 @@ struct CtrlObjectMetaDataPropagate
     /* user data */
     2: FDSP.FDSP_ObjectData  objectData
 
-    /* TODO(Sean):
-     * Is it possible that the compression type of the source and destination
-     * object is different, if we ever support this feature?
-     */
-    
     /* volume information */
-    4: list<MetaDataVolumeAssoc> objectVolumeAssoc
+    3: list<MetaDataVolumeAssoc> objectVolumeAssoc
+
+    /* object refcnt */
+    4: i64              objectRefCnt
     
     /* Compression type for this object */
     5: i32              objectCompressType
@@ -1065,7 +1063,7 @@ struct CtrlObjectRebalanceDeltaSet
 {
     /*
      * unique id of executor on the destination SM
-     /
+     */
     1: i64 executorID
 
     /* sequence number of the delta set.  It's not important to handle
@@ -1082,7 +1080,7 @@ struct CtrlObjectRebalanceDeltaSet
     /* set of objects, which consists of data + metadata, to be applied 
      * at the destination SM.
      */
-    4: list<CtrlObjectMetaDataPropagate> objectToPropogate
+    4: list<CtrlObjectMetaDataPropagate> objectToPropagate
 }
 
 #endif

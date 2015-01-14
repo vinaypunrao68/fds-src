@@ -388,6 +388,7 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
             LOGNORMAL << " connection failed and redone successfully. ";
             return (ep);
         } catch (...) {
+            LOGERROR <<  "Exception opening socket. Peer: " << peer.svc_uuid;
             return (nullptr);
         }
     } catch(const std::out_of_range &e) {

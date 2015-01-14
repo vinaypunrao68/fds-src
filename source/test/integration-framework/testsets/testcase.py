@@ -41,7 +41,7 @@ class FDSTestCase(unittest.TestCase):
         super(FDSTestCase, self).__init__()
         self.name = self.__class__.__name__
         self.result = None
-        self.test_passed = True
+        self.test_passed = False
         self.test_failure = test_failure
         if parameters:
             self.parameters = parameters
@@ -82,11 +82,7 @@ class FDSTestCase(unittest.TestCase):
         ???
         """
         FDSTestCase.reportTestCaseResult(self, self.test_passed)
-        
-        if self.parameters["pyUnit"]:
-            self.assertTrue(self.test_passed)
-        else:
-            return test_passed
+        self.assertTrue(self.test_passed)
 
     def reportTestCaseResult(self, test_passed):
         """
@@ -105,6 +101,4 @@ class FDSTestCase(unittest.TestCase):
             self.log.info("Test Case %s passed." % self.__class__.__name__)
         else:
             self.log.info("Test Case %s failed." % self.__class__.__name__)
-
-            if self.parameters["stop_on_fail"]:
-                self.test_failure = True
+            self.test_failure = True

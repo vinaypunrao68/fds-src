@@ -3,6 +3,7 @@
  */
 
 #include <map>
+#include <vector>
 
 #include <fds_process.h>
 #include <SMSvcHandler.h>
@@ -16,13 +17,16 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_uint32_t bitsPerToken,
                                      const NodeUuid& srcSmId,
                                      fds_token_id smTokId,
-                                     uint64_t id)
-        : executorId(id),
+                                     fds_uint64_t executorID,
+                                     MigrationExecutorDoneHandler doneHandler)
+        : executorId(executorID),
+          migrDoneHandler(doneHandler),
           dataStore(_dataStore),
           bitsPerDltToken(bitsPerToken),
           smTokenId(smTokId),
           sourceSmUuid(srcSmId)
 {
+    state = ATOMIC_VAR_INIT(ME_INIT);
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 }
 
@@ -32,6 +36,8 @@ MigrationExecutor::~MigrationExecutor()
 
 void
 MigrationExecutor::addDltToken(fds_token_id dltTok) {
+    MigrationExecutorState curState = atomic_load(&state);
+    fds_verify(curState == ME_INIT);
     fds_verify(dltTokens.count(dltTok) == 0);
     dltTokens.insert(dltTok);
 }
@@ -44,6 +50,13 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 {
     Error err(ERR_OK);
     ObjMetaData omd;
+
+    MigrationExecutorState expectState = ME_INIT;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_REBALANCE_START)) {
+        LOGNOTIFY << "startObjectRebalance called in non- ME_INIT state " << state;
+        return ERR_NOT_READY;
+    }
+
     LOGNORMAL << "Will send obj ids to source SM " << std::hex
               << sourceSmUuid.uuid_get_val() << std::dec << " for SM token "
               << smTokenId << " (appropriate set of DLT tokens)";
@@ -55,16 +68,16 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
     uint64_t seqId = 0;
-    for (auto tok : dltTokens) {
+    for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
-        msg->tokenId = tok;
+        msg->tokenId = dltTok;
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
-        LOGNORMAL << "Initial Set Msg: token " << tok << ", seqNum "
+        LOGNORMAL << "Initial Set Msg: token " << dltTok << ", seqNum "
                   << msg->seqNum << ", last " << msg->lastFilterSet;
-        perTokenMsgs[tok] = msg;
+        perTokenMsgs[dltTok] = msg;
     }
 
     /**
@@ -81,13 +94,21 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 
         // add object id to the thrift paired set of object ids and ref count
         omd.deserializeFrom(it->value());
-        fpi::CtrlObjectMetaDataSync omdSync;
-        omdSync.objectID.digest = it->key().ToString();
-        omdSync.objRefCnt = omd.getRefCnt();
-        LOGNORMAL << "Will add object " << id << ", dltToken " << dltTokId
-                 << " refcnt " << omdSync.objRefCnt << " to thrift msg to source SM "
-                 << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdSync);
+
+
+        fpi::CtrlObjectMetaDataSync omdFilter;
+        omdFilter.objectID.digest = it->key().ToString();
+        omdFilter.objRefCnt = omd.getRefCnt();
+
+        /* TODO(Sean):  We should add to filter object set if the ref cnt is positive (???)
+         *              Are there other checks before adding to the filter set?
+         */
+        if (omdFilter.objRefCnt > 0) {
+            LOGNORMAL << "Will add object " << id << ", dltToken " << dltTokId
+                      << " refcnt " << omdFilter.objRefCnt << " to thrift msg to source SM "
+                      << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
+        }
     }
     delete it;
 
@@ -107,14 +128,131 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         }
     }
 
+    // we sent all the messages, go to next state
+    expectState = ME_REBALANCE_START;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_APPLYING_DELTA)) {
+        // this must not happen
+        fds_panic("Unexpected migration executor state!");
+    }
+
     /**
      * TODO(Sean):  To support active IO on both the source and destination SMs,
      *              we need to keep this snapshot until initial set of objects
-     *              are relanced.  After that, we need to take another snapshot
+     *              are propagated.  After that, we need to take another snapshot
      *              to determine if active IOs have changed the state of the existing
      *              objects (i.e. ref cnt) or additional object are written.
      */
     return err;
+}
+
+Error
+MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
+    Error err(ERR_OK);
+    LOGDEBUG << "Sync Object Set " << deltaSet->objectToPropagate.size()
+             << " objects, executor ID " << deltaSet->executorID
+             << " seqNum " << deltaSet->seqNum
+             << " lastSet " << deltaSet->lastDeltaSet;
+    fds_verify((fds_uint64_t)deltaSet->executorID == executorId);
+    MigrationExecutorState curState = atomic_load(&state);
+    fds_verify(curState == ME_APPLYING_DELTA);
+
+    // if the obj data+meta list is empty, and lastDeltaSet == true,
+    // the source SM does not have any data for this SM token, finish
+    // migration
+    if ((deltaSet->objectToPropagate.size() == 0) &&
+        (deltaSet->lastDeltaSet)) {
+        handleMigrationDone(ERR_OK);
+        return ERR_OK;
+    }
+    // otherwise, we should have non-empty obj set
+    fds_verify(deltaSet->objectToPropagate.size() > 0);
+
+    // if objectToPropagate set is large, break down into smaller QoS work items
+    fds_uint32_t maxSize = 10;   // TODO(Anna) make configurable?, dynamic?, etc
+    fds_uint32_t totalCnt = deltaSet->objectToPropagate.size() / maxSize + 1;
+    fds_uint32_t qosSeqNum = 0;
+
+    std::vector<fpi::CtrlObjectMetaDataPropagate>::iterator itFirst, itLast;
+    itFirst = deltaSet->objectToPropagate.begin();
+    for (fds_uint32_t i = 0; i < totalCnt; ++i) {
+        SmIoApplyObjRebalDeltaSet* applyReq =
+                new(std::nothrow) SmIoApplyObjRebalDeltaSet(executorId,
+                                                            deltaSet->seqNum,
+                                                            deltaSet->lastDeltaSet,
+                                                            qosSeqNum,
+                                                            totalCnt);
+        fds_verify(applyReq != NULL);
+        applyReq->io_type = FDS_SM_APPLY_DELTA_SET;
+
+        if (i < (totalCnt - 1)) {
+            itLast = itFirst + maxSize;
+        } else {
+            itLast = deltaSet->objectToPropagate.end();
+        }
+        applyReq->deltaSet.assign(itFirst, itLast);
+        applyReq->smioObjdeltaRespCb = std::bind(
+            &MigrationExecutor::objDeltaAppliedCb, this,
+            std::placeholders::_1, std::placeholders::_2);
+
+        // enqueue to QoS queue
+        err = dataStore->enqueueMsg(FdsSysTaskQueueId, applyReq);
+        fds_verify(err.ok());   // TODO(Anna) need to save the work and try later
+
+        // prepare for creation of next QoS request
+        itFirst = itLast;
+        ++qosSeqNum;
+    }
+
+    return err;
+}
+
+/// callback when apply delta set QoS message got executed
+void
+MigrationExecutor::objDeltaAppliedCb(const Error& error,
+                                     SmIoApplyObjRebalDeltaSet* req) {
+    fds_verify(req != NULL);
+
+    // if we are in error state, do not do anything anymore...
+    MigrationExecutorState curState = atomic_load(&state);
+    if (curState == ME_ERROR) {
+        LOGNORMAL << "MigrationExecutor in error state, ignoring the callback";
+        return;
+    }
+
+    // beta2: if error happened, stop migration
+    if (!error.ok()) {
+        LOGERROR << "Failed to apply a set of objects " << error;
+        handleMigrationDone(error);
+        return;
+    }
+
+    // TODO(Anna) check if we are done and notify migration manager
+}
+
+void
+MigrationExecutor::handleMigrationDone(const Error& error) {
+    // check and set the state
+    if (error.ok()) {
+        MigrationExecutorState expect = ME_APPLYING_DELTA;
+        if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
+            fds_panic("Unexpected migration executor state!");
+        }
+    } else {
+        // beta2: any error will stop the whole migration process
+        // the error state, which will stop handling any other messages for
+        // this executor
+        MigrationExecutorState newState = ME_ERROR;
+        std::atomic_store(&state, newState);
+    }
+
+    LOGNOTIFY << "Migration finished for executor " << executorId << " src SM "
+              << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+              << ", SM token " << smTokenId;
+
+    // notify the requester that this executor done with migration
+    if (migrDoneHandler) {
+        migrDoneHandler(executorId, smTokenId, error);
+    }
 }
 
 }  // namespace fds

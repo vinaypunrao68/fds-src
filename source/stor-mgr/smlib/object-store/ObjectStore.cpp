@@ -343,7 +343,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
     }
 
     // if refcnt is 0, notify data store so it can remove cache entry, etc
-    if (updatedMeta->getRefCnt() < 1) {
+    if (updatedMeta->getRefCnt() < 1L) {
         err = dataStore->removeObjectData(volId, objId, updatedMeta);
     }
 
