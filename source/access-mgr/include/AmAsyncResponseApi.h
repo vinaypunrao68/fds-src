@@ -21,48 +21,57 @@ namespace fds {
 template<typename H>
 class AmAsyncResponseApi {
   public:
+    template <typename M> using sp = boost::shared_ptr<M>;
+  
     typedef H handle_type;
+    typedef Error error_type;
+    typedef uint32_t size_type;
+    typedef sp<std::string> shared_buffer_type;
+    typedef sp<apis::BlobDescriptor> shared_descriptor_type;
+    typedef sp<std::vector<apis::BlobDescriptor>> shared_descriptor_vec_type;
+    typedef sp<apis::TxDescriptor> shared_tx_ctx_type;
+    typedef sp<apis::VolumeStatus> shared_status_type;
 
-    virtual void attachVolumeResp(const Error &error,
+    virtual void attachVolumeResp(const error_type &error,
                                   handle_type& requestId) = 0;
 
-    virtual void startBlobTxResp(const Error &error,
+    virtual void startBlobTxResp(const error_type &error,
                                  handle_type& requestId,
-                                 boost::shared_ptr<apis::TxDescriptor>& txDesc) = 0;
-    virtual void abortBlobTxResp(const Error &error,
+                                 shared_tx_ctx_type& txDesc) = 0;
+    virtual void abortBlobTxResp(const error_type &error,
                                  handle_type& requestId) = 0;
-    virtual void commitBlobTxResp(const Error &error,
+    virtual void commitBlobTxResp(const error_type &error,
                                   handle_type& requestId) = 0;
 
-    virtual void updateBlobResp(const Error &error,
+    virtual void updateBlobResp(const error_type &error,
                                 handle_type& requestId) = 0;
-    virtual void updateBlobOnceResp(const Error &error,
+    virtual void updateBlobOnceResp(const error_type &error,
                                     handle_type& requestId) = 0;
-    virtual void updateMetadataResp(const Error &error,
+    virtual void updateMetadataResp(const error_type &error,
                                     handle_type& requestId) = 0;
-    virtual void deleteBlobResp(const Error &error,
+    virtual void deleteBlobResp(const error_type &error,
                                 handle_type& requestId) = 0;
 
-    virtual void statBlobResp(const Error &error,
+    virtual void statBlobResp(const error_type &error,
                               handle_type& requestId,
-                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc) = 0;
-    virtual void volumeStatusResp(const Error &error,
+                              shared_descriptor_type& blobDesc) = 0;
+    virtual void volumeStatusResp(const error_type &error,
                                   handle_type& requestId,
-                                  boost::shared_ptr<apis::VolumeStatus>& volumeStatus) = 0;
+                                  shared_status_type& volumeStatus) = 0;
     virtual void volumeContentsResp(
-        const Error &error,
+        const error_type &error,
         handle_type& requestId,
-        boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) = 0;
+        shared_descriptor_vec_type& volContents) = 0;
 
-    virtual void getBlobResp(const Error &error,
+    virtual void getBlobResp(const error_type &error,
                              handle_type& requestId,
-                             boost::shared_ptr<std::string> buf,
+                             shared_buffer_type buf,
                              fds_uint32_t& length) = 0;
-    virtual void getBlobWithMetaResp(const Error &error,
+    virtual void getBlobWithMetaResp(const error_type &error,
                                      handle_type& requestId,
-                                     boost::shared_ptr<std::string> buf,
+                                     shared_buffer_type buf,
                                      fds_uint32_t& length,
-                                     boost::shared_ptr<apis::BlobDescriptor>& blobDesc) = 0;
+                                     shared_descriptor_type& blobDesc) = 0;
 };
 
 }  // namespace fds
