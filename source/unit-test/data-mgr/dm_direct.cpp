@@ -200,7 +200,7 @@ TEST_F(DmUnitTest, ListBlobsByPattern) {
             auto listBlobsMessage = boost::make_shared<ListBlobsByPatternMsg>();
             listBlobsMessage->volume_id = dmTester->TESTVOLID;
             listBlobsMessage->startPos = 0;
-            listBlobsMessage->maxKeys = 1000 * blobNameVariations;
+            listBlobsMessage->count = 1000 * blobNameVariations;
             listBlobsMessage->pattern = blobNameTest.regex;
 
             DmIoListBlobsByPattern dmReq(listBlobsMessage);

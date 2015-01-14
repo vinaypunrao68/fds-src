@@ -224,7 +224,7 @@ std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg) {
 std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternMsg& msg) {
     std::ostringstream oss;
     oss << " ListBlobsByPatternMsg(volume_id: " << msg.volume_id
-            << ", maxKeys: " << msg.maxKeys
+            << ", maxKeys: " << msg.count
             << ", startPos: " << msg.startPos
             << ", pattern: " << msg.pattern << ")";
     return oss.str();
