@@ -176,7 +176,7 @@ randomSequenceTest()
 
 TEST(MigrationSeqNumReceiver, RandomSequence9)
 {
-    for (int testIter = 0; testIter < 9999; testIter++) {
+    for (int testIter = 0; testIter < 99; testIter++) {
         randomSequenceTest();
     }
 }

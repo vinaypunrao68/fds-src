@@ -398,6 +398,7 @@ public class FdsFileSystem extends FileSystem {
     }
 
     public Path getAbsolutePath(Path path) {
+        path = new Path(path.toString().replaceAll("#.+$", ""));
         if (!path.toString().startsWith("fds://")) {
             Path p = new Path(workingDirectory.toString(), path.toString());
             return p;

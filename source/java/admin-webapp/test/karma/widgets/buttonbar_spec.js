@@ -33,7 +33,7 @@ describe( 'Testing the button bar widget', function(){
         
         // expect the first one to be selected and colored appropriately, the others should be white
         expect( $(buttons[0]).hasClass( 'selected' ) ).toBe( true );
-        expect( $(buttons[0]).css( 'background-color' ) ).toBe( 'rgb(36, 134, 248)' );
+        expect( $(buttons[0]).css( 'background-color' ) ).toBe( 'rgb(66, 139, 202)' );
         expect( $(buttons[1]).hasClass( 'selected' ) ).toBe( false );
         expect( $(buttons[1]).css( 'background-color' ) ).toBe( 'rgb(255, 255, 255)' );
         expect( $(buttons[2]).hasClass( 'selected' ) ).toBe( false );
@@ -52,7 +52,7 @@ describe( 'Testing the button bar widget', function(){
         
         // expect the third one to be selected and colored appropriately, the others should be white
         expect( $(buttons[2]).hasClass( 'selected' ) ).toBe( true );
-        expect( $(buttons[2]).css( 'background-color' ) ).toBe( 'rgb(36, 134, 248)' );
+        expect( $(buttons[2]).css( 'background-color' ) ).toBe( 'rgb(66, 139, 202)' );
         expect( $(buttons[0]).hasClass( 'selected' ) ).toBe( false );
         expect( $(buttons[0]).css( 'background-color' ) ).toBe( 'rgb(255, 255, 255)' );
         expect( $(buttons[1]).hasClass( 'selected' ) ).toBe( false );
@@ -71,7 +71,7 @@ describe( 'Testing the button bar widget', function(){
         
         // expect the fourth one to be selected and colored appropriately, the others should be white
         expect( $(buttons[3]).hasClass( 'selected' ) ).toBe( true );
-        expect( $(buttons[3]).css( 'background-color' ) ).toBe( 'rgb(36, 134, 248)' );
+        expect( $(buttons[3]).css( 'background-color' ) ).toBe( 'rgb(66, 139, 202)' );
         expect( $(buttons[0]).hasClass( 'selected' ) ).toBe( false );
         expect( $(buttons[0]).css( 'background-color' ) ).toBe( 'rgb(255, 255, 255)' );
         expect( $(buttons[1]).hasClass( 'selected' ) ).toBe( false );
