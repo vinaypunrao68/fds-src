@@ -613,10 +613,10 @@ class SmIoApplyObjRebalDeltaSet: public SmIoReq {
     SmIoApplyObjRebalDeltaSet(fds_uint64_t execId,
                               fds_uint64_t seq,
                               fds_bool_t last,
-                              fds_uint32_t qosSeq,
-                              fds_uint32_t totalCnt)
+                              fds_uint64_t qosSeq,
+                              fds_bool_t qosLast)
             : executorId(execId), seqNum(seq), lastSet(last),
-            qosSeqNum(qosSeq), totalQosCount(totalCnt) {
+            qosSeqNum(qosSeq), qosLastSet(qosLast) {
     };
 
     /// MigrationExecutor ID
@@ -632,8 +632,8 @@ class SmIoApplyObjRebalDeltaSet: public SmIoReq {
     /// into one or more QoS requests with smaller delta set, we need to
     /// track when we finish those, so that when we apply the last set
     /// we notify token migration manager that we are done
-    fds_uint32_t qosSeqNum;
-    fds_uint32_t totalQosCount;
+    fds_uint64_t qosSeqNum;
+    fds_bool_t qosLastSet;
 
     /// set of data/metadata to apply
     std::vector<fpi::CtrlObjectMetaDataPropagate> deltaSet;
