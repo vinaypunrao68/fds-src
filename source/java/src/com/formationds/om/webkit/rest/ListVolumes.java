@@ -185,7 +185,7 @@ struct VolumeDescriptor {
 			if( volInfo != null ) {
 				o.put( "id", Long.toString( volInfo.getVolUUID() ) );
 				o.put( "priority", volInfo.getRel_prio() );
-				o.put( "sla", volInfo.getIops_min() );
+				o.put( "sla", volInfo.getIops_guarantee() );
 				o.put( "limit", volInfo.getIops_max() );
 				o.put( "commit_log_retention", volInfo.getContCommitlogRetention() );
 			}
