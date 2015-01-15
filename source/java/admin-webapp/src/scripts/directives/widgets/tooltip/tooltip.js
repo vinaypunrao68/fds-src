@@ -17,25 +17,6 @@ angular.module( 'display-widgets' ).directive( 'toolTip', function(){
             
             var parent = $element[0];
             
-            $scope.overTooltip = function( $event ){
-                
-                var screenPosition = $(parent).offset();
-                
-                var mouseX = $event.clientX;
-                var mouseY = $event.clientY;
-                var myX = screenPosition.left;
-                var myY = screenPosition.top;
-                var myX2 = parent.offsetWidth + myX;
-                var myY2 = parent.offsetWidth + myY;
-                
-                if ( mouseX >= myX && mouseX <= myX2
-                    && mouseY >= myY && mouseY <= myY2 ){
-                    return true;
-                }
-                
-                return false;
-            };
-            
             $scope.paintTooltip = function( target ){
                 
                 if ( target.clientLeft === $scope.target.clientLeft &&
