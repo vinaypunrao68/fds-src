@@ -368,8 +368,10 @@ NbdConnection::hsReq(ev::io &watcher) {
               << " offset 0x" << request.header.offset << std::dec
               << " length " << request.header.length
               << " ahead of you: " <<  resp_needed.fetch_add(1, std::memory_order_relaxed);
-        // Construct Buffer for Payload
-        request.data = boost::make_shared<std::string>(request.header.length, '\0');
+        // Construct Buffer for Write Payload
+        if (NBD_CMD_WRITE == request.header.opType) {
+            request.data = boost::make_shared<std::string>(request.header.length, '\0');
+        }
     }
 
     if (NBD_CMD_WRITE == request.header.opType) {
@@ -385,6 +387,7 @@ NbdConnection::hsReq(ev::io &watcher) {
                            request.header.offset,
                            request.header.length,
                            request.data);
+    request.data.reset();
     fds_verify(ERR_OK == err);
     return;
 }

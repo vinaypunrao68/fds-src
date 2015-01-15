@@ -176,7 +176,7 @@ function startApp() {
     done
 
     case "$appname" in
-        om|pm|all)
+        om|all)
             activate
             ;;
     esac
@@ -508,7 +508,7 @@ printBuildMode
 
 case "${CMD}" in
     start) startApp $APP
-        waitForAll
+        [[ $APP == "all" ]] && waitForAll
         statusApp $APP
         ;;
     stop) stopApp  $APP;;

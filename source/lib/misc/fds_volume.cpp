@@ -35,6 +35,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     // just fill in zeros here
     iops_min = 0;
     iops_max = 0;
+    iops_guarantee = 0;
     relativePrio = 0;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
@@ -69,6 +70,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     mediaPolicy = vdesc.mediaPolicy;
     iops_min = vdesc.iops_min;
     iops_max = vdesc.iops_max;
+    iops_guarantee = vdesc.iops_guarantee;
     relativePrio = vdesc.relativePrio;
     fSnapshot = vdesc.fSnapshot;
     srcVolumeId = vdesc.srcVolumeId;
@@ -103,6 +105,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     mediaPolicy = voldesc.mediaPolicy;
     iops_min = voldesc.iops_min;
     iops_max = voldesc.iops_max;
+    iops_guarantee = voldesc.iops_guarantee;
     relativePrio = voldesc.rel_prio;
     fSnapshot = voldesc.fSnapshot;
     srcVolumeId = voldesc.srcVolumeId;
@@ -145,6 +148,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     backupVolume = 0;
     iops_min = 0;
     iops_max = 0;
+    iops_guarantee = 0;
     fSnapshot = false;
     srcVolumeId = invalid_vol_id;
     qosQueueId = invalid_vol_id;
@@ -307,6 +311,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " backup.vol:" << vol.backupVolume
               << " iops.min:" << vol.iops_min
               << " iops.max:" << vol.iops_max
+              << " iops.guarantee:" << vol.iops_guarantee
               << " rel.prio:" << vol.relativePrio
               << " isSnapshot:" << vol.fSnapshot
               << " srcVolumeId:" << vol.srcVolumeId

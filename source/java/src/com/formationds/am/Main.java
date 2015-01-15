@@ -10,6 +10,8 @@ import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
+import com.formationds.util.thrift.OMConfigServiceClient;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
@@ -54,12 +56,6 @@ public class Main {
         byte[] keyBytes = Hex.decodeHex(platformConfig.lookup("fds.aes_key").stringValue().toCharArray());
         SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
 
-        // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
-        // I want to consolidate event management in a single process, but can't do that currently since the
-        // AM starts all of the data connectors other than the webapp driving the UI in the OM.
-//        EventRepository eventRepository = new EventRepository();
-//        EventManager.INSTANCE.initEventNotifier(eventMgrKey, (e) -> { return eventRepository.save(e) != null; });
-
         // Get the instance ID from either the config file or cmd line
         int amInstanceId = platformConfig.lookup("fds.am.instanceId").intValue();
         OptionParser parser = new OptionParser();
@@ -78,26 +74,31 @@ public class Main {
         boolean useFakeAm = platformConfig.lookup("fds.am.memory_backend").booleanValue();
         String omHost = platformConfig.lookup("fds.am.om_ip").stringValue();
         int omConfigPort = 9090;
-        int omLegacyConfigPort = platformConfig.lookup("fds.am.om_config_port").intValue();
 
         String amHost = platformConfig.lookup("fds.xdi.am_host").stringValue();
 
         AmService.Iface am = useFakeAm ? new FakeAmService() :
                 clientFactory.remoteAmService(amHost, 9988 + amInstanceId);
 
+        // TODO: at this point the XdiConfigurationApi is only used for authentication and authorization.  All other
+        // usages now go through the OMConfigServiceClient.  We may want to take another pass at refactoring
+        // the XdiConfigurationApi and FdsAuthenticator/FdsAuthorizer to use a more finely scoped interface
+        // with just the user information necessary for those operations.
         XdiConfigurationApi configCache = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
         boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
         Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
         Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
-        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
+        OMConfigServiceClient omConfigServiceClient = new OMConfigServiceRestClientImpl(secretKey, omHost);
+        Xdi xdi = new Xdi(am, omConfigServiceClient, authenticator, authorizer);
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
         AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
         AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
 
-        Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, authorizer, configCache);
+        Function<AuthenticationToken, XdiAsync> factory =
+            (token) -> new XdiAsync(asyncAm, bbp, token, authorizer, omConfigServiceClient);
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port", 8000);
         int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port", 8443);

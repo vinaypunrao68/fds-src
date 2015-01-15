@@ -74,6 +74,7 @@ class VolumeDesc : public HasState {
     // QoS settings
     double                 iops_min;
     double                 iops_max;
+    int                    iops_guarantee;
     int                    relativePrio;
     ptime                  tier_start_time;
     fds_uint32_t           tier_duration_sec;
