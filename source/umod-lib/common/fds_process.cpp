@@ -412,6 +412,13 @@ void FdsProcess::daemonize() {
         int ret;
         /* redirect std io to /dev/null */
         if ((i == STDIN_FILENO) || (i == STDOUT_FILENO) || (i == STDERR_FILENO)) {
+            /* flush before re-directing file descriptors.  flush all of them same
+             * time, because really don't need to convert fileno to filep for
+             * stdio (yeah.. laziness).
+             */
+            fflush(stdin);
+            fflush(stdout);
+            fflush(stderr);
             ret = dup2(i, devNullFd);
             if (-1 == ret) {
                 LOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
