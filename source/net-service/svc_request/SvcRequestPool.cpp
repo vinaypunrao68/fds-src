@@ -187,16 +187,16 @@ LFMQThreadpool* SvcRequestPool::getSvcWorkerThreadpool()
 
 void SvcRequestPool::dumpLFTPStats()
 {
-    std::cout << "IO threadpool stats:\n";
+    LOGDEBUG << "IO threadpool stats:\n";
     uint32_t i = 0;
     for (auto &w : svcSendTp_->workers) {
-        std::cout << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
+        LOGDEBUG << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
     }
 
-    std::cout << "Worker threadpool stats:\n";
+    LOGDEBUG << "Worker threadpool stats:\n";
     i = 0;
     for (auto &w : svcWorkerTp_->workers) {
-        std::cout << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
+        LOGDEBUG << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
     }
 }
 
