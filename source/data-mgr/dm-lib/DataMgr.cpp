@@ -1052,6 +1052,8 @@ void DataMgr::mod_enable_service() {
 
 void DataMgr::mod_shutdown()
 {
+    shuttingDown = true;
+
     LOGNORMAL;
     statStreamAggr_->mod_shutdown();
     timeVolCat_->mod_shutdown();
@@ -1326,7 +1328,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     // Set message parameters
     expReq->volId = volId;
     fds::assign(expReq->objId, objId);
-    expReq->origin_timestamp = fds::get_fds_timestamp_ms();
+    expReq->dlt_version = omClient->getDltVersion();
 
     // Make RPC call
 

@@ -268,8 +268,8 @@ def newDisableScrubberMsg():
     msg.scrubber_status = FDSP_ScrubberStatusType.FDSP_SCRUB_DISABLE
     return msg
 
-def newShutdownSMMsg():
-    msg = ShutdownSMMsg()
+def newShutdownMODMsg():
+    msg = ShutdownMODMsg()
     return msg
 
 def newCtrlStartHybridTierCtrlrMsg():

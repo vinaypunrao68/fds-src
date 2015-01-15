@@ -55,7 +55,10 @@ public class SetVolumeQosParams implements RequestHandler {
         int priority = jsonObject.getInt("priority");
         int maxIops = jsonObject.getInt("limit");
         long commit_log_retention = jsonObject.getLong( "commit_log_retention" );
-        MediaPolicy mediaPolicy = MediaPolicy.valueOf( jsonObject.getString( "mediaPolicy" ) );
+        String mediaPolicyS = jsonObject.getString( "mediaPolicy" );
+        MediaPolicy mediaPolicy = (mediaPolicyS != null && !mediaPolicyS.isEmpty() ?
+                                   MediaPolicy.valueOf( mediaPolicyS ) :
+                                   MediaPolicy.HDD_ONLY);
         
         FDSP_VolumeDescType volumeDescType = client.ListVolumes(new FDSP_MsgHdrType())
                 .stream()

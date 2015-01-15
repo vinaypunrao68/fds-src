@@ -125,7 +125,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
             SmIoAddObjRefReq *addObjRefReq);
 
     void shutdownSM(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::ShutdownSMMsg> &shutdownMsg);
+            boost::shared_ptr <fpi::ShutdownMODMsg> &shutdownMsg);
 
     void StartMigration(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlStartMigration> &startMigration);
@@ -138,14 +138,20 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
             boost::shared_ptr <fpi::CtrlNotifySMStartMigration> &migrationMsg);
 
     void startMigrationCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                          const Error &err,
-                          fds_uint64_t dltVersion);
+                          fds_uint64_t dltVersion,
+                          const Error &err);
+
+    void migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifySMAbortMigration>& abortMsg);
 
     void initiateObjectSync(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlObjectRebalanceFilterSet> &filterObjSet);
 
     void syncObjectSet(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlObjectRebalanceDeltaSet> &deltaObjSet);
+
+    void getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                      boost::shared_ptr<fpi::CtrlGetSecondRebalanceDeltaSet>& getDeltaSetMsg);
 
     /**
     * Handler for the new DMT messages

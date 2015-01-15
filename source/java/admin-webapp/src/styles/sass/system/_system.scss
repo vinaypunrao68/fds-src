@@ -1,0 +1,27 @@
+.nodecontainer {
+    
+    .state-unknown {
+        color: $text_very_light_color;
+    }
+    
+    .state-ok {
+        color: $green;
+    }
+    
+    .state-down {
+        color: $orange;
+    }
+    
+    .state-issues {
+        color: $yellow_green;
+    }
+    
+    .process-width {
+        width: 112px;
+        text-align: center;
+    }
+    
+    .process-cell {
+        padding: 0px;
+    }
+}

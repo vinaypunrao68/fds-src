@@ -469,7 +469,7 @@ class FdsCluster():
             self._cluster_package_and_install()
             self._cluster_start()
             self.pidmap.compute_pid_map()
-            time.sleep(10)
+            time.sleep(60)
 
     def init_test_once(self, test_name, nvols):
         print "initializing test for the first time:", test_name

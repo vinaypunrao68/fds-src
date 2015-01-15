@@ -33,7 +33,7 @@ SvcRequestPool::SvcRequestPool()
     gSvcRequestCntrs = new SvcRequestCounters("SvcReq", g_cntrs_mgr.get());
 
     nextAsyncReqId_ = 0;
-    finishTrackingCb_ = std::bind(&SvcRequestTracker::removeFromTracking,
+    finishTrackingCb_ = std::bind(&SvcRequestTracker::popFromTracking,
             gSvcRequestTracker, std::placeholders::_1);
 
     svcSendTp_.reset(new LFMQThreadpool(get_config<uint32_t>(

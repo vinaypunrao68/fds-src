@@ -187,7 +187,12 @@ bool SMChk::full_consistency_check() {
         objs_count++;
         // omd will auto delete when it goes out of scope
     }
+
     GLOGNORMAL << objs_count << " objects checked, " << error_count << " errors were found.\n";
+
+    // For convenience, tests will look at stdout.
+    std::cout << objs_count << " objects checked, " << error_count << " errors were found." << std::endl;
+
     if (error_count > 0) {
         GLOGNORMAL << "WARNING: " << error_count << " errors were found. "
                 << objs_count << " objects were checked. \n";

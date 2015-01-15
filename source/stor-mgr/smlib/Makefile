@@ -24,7 +24,6 @@ user_cpp          :=                   \
     TierEngine.cpp                     \
     HybridTierCtrlr.cpp		       \
     ObjMeta.cpp                        \
-    SmObjDb.cpp                        \
     SMSvcHandler.cpp                   \
     MockSMCallbacks.cpp                \
     TokenMigrationMgr.cpp              \

@@ -241,6 +241,7 @@ struct DataMgr : Module, DmIoReqHandler {
     fds_rwlock respMapMtx;
 
     FDS_VolumeQueue*  sysTaskQueue;
+    std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
 
     /*
      * Cmdline configurables

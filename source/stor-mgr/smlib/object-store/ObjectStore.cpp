@@ -522,7 +522,7 @@ Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                                      diskio::DataTier tier,
                                      fds_bool_t verifyData,
-                                     fds_bool_t notOwned) {
+                                     fds_bool_t objOwned) {
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     Error err(ERR_OK);
 
@@ -540,7 +540,7 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
     }
 
     if (!TokenCompactor::isDataGarbage(*objMeta, tier) &&
-        !notOwned) {
+        objOwned) {
         // this object is valid, copy it to a current token file
         ObjMetaData::ptr updatedMeta;
         LOGDEBUG << "Will copy " << objId << " to new file on tier " << tier;
@@ -594,9 +594,9 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         // not going to copy object to new location
         LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
         // remove entry from index db if data + meta is garbage
-        if (TokenCompactor::isGarbage(*objMeta) || notOwned) {
+        if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
             LOGNORMAL << "Removing metadata for " << objId
-                      << " notOwned? " << notOwned;
+                      << " object owned? " << objOwned;
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
     }
@@ -754,8 +754,9 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
 void
 ObjectStore::snapshotMetadata(fds_token_id smTokId,
-                              SmIoSnapshotObjectDB::CbType notifFn) {
-    metaStore->snapshot(smTokId, notifFn);
+                              SmIoSnapshotObjectDB::CbType notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
+    metaStore->snapshot(smTokId, notifFn, snapReq);
 }
 
 Error

@@ -15,11 +15,11 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
-import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
@@ -92,7 +92,7 @@ public class S3SmokeTest {
                 .getOrDefault("fds.host", "localhost");
 
         String omUrl = "https://" + host + ":7443";
-        turnLog4jOff();
+        SmokeTestRunner.turnLog4jOff();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
         String adminToken = adminUserObject.getString("token");
 
@@ -201,7 +201,7 @@ public class S3SmokeTest {
             userClient.deleteBucket(bucketName);
             testBucketNotExists(bucketName, true);
             userClient.createBucket(bucketName);
-            testBucketExists( bucketName, true );
+            testBucketExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient,
                                      bucketName);
@@ -219,7 +219,7 @@ public class S3SmokeTest {
             }
             testBucketExists(bucketName, true);
             userClient.deleteBucket(bucketName);
-            testBucketNotExists( bucketName, true );
+            testBucketNotExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient, bucketName);
         }
@@ -371,6 +371,47 @@ public class S3SmokeTest {
     }
 
     @Test
+    public void testAnonymousAccessDenied() throws Exception {
+        String key = UUID.randomUUID().toString();
+        HttpResponse response = anonymousGet(key);
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatusLine().getStatusCode());
+    }
+
+    @Test
+    public void testAnonymousListBuckets() throws Exception {
+        String url = "https://" + host + ":8443/";
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        HttpResponse response = httpClient.execute(httpGet);
+        assertEquals(403, response.getStatusLine().getStatusCode());
+    }
+
+    // Commented pending FS-835
+    // @Test
+    public void testMissingObject() throws Exception {
+        try {
+            userClient.getObject(userBucket, UUID.randomUUID().toString());
+        } catch (AmazonS3Exception e) {
+            String error = e.toString();
+            assertTrue(error.contains("Status Code: 404"));
+            return;
+        }
+
+        fail("Should have gotten an AmazonS3Exception with a 404 status code");
+    }
+
+    //@Test
+    public void testAcls() throws Exception {
+        String key = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        userClient.setObjectAcl(userBucket, key, CannedAccessControlList.PublicRead);
+        HttpResponse httpResponse = anonymousGet(key);
+        assertEquals(HttpServletResponse.SC_OK, httpResponse.getStatusLine().getStatusCode());
+        byte[] result = IOUtils.toByteArray(httpResponse.getEntity().getContent());
+        assertArrayEquals(randomBytes, result);
+    }
+
+    @Test
     public void testPutGetDelete() {
         final PutObjectResult[] last = {null};
         IntStream.range(0, count)
@@ -501,21 +542,11 @@ public class S3SmokeTest {
                 .getContent()));
     }
 
-    private void turnLog4jOff() {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "OFF, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        PropertyConfigurator.configure(properties);
-    }
-
-    private void turnLog4jOn() {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "DEBUG, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        PropertyConfigurator.configure(properties);
+    private HttpResponse anonymousGet(String key) throws Exception {
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(new byte[42]), new ObjectMetadata());
+        String url = "https://" + host + ":8443/" + userBucket + "/" + key;
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        return httpClient.execute(httpGet);
     }
 }

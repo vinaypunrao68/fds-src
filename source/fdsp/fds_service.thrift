@@ -101,6 +101,9 @@ enum  FDSPMsgTypeId {
     CtrlNotifySMStartMigrationTypeId   = 2062,
     CtrlObjectRebalanceFilterSetTypeId = 2063,
     CtrlObjectRebalanceDeltaSetTypeId  = 2064,
+    CtrlNotifySMAbortMigrationTypeId   = 2065,
+    CtrlGetSecondRebalanceDeltaSetTypeId    = 2066,
+    CtrlGetSecondRebalanceDeltaSetRspTypeId = 2067,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
@@ -132,7 +135,7 @@ enum  FDSPMsgTypeId {
 	DeleteObjectRspMsgTypeId,
     AddObjectRefMsgTypeId,
     AddObjectRefRspMsgTypeId,
-    ShutdownSMMsgTypeId,
+    ShutdownMODMsgTypeId,
 	
 
     /* DM Type Ids */
@@ -516,8 +519,8 @@ struct CtrlQueryScavengerStatus {
 struct CtrlQueryScavengerStatusResp {
 	   1: FDSP_ScavengerStatusType 	status;
 }
-/* ---------------------  ShutdownSMMsgTypeId  --------------------------- */
-struct ShutdownSMMsg {
+/* ---------------------  ShutdownMODMsgTypeId  --------------------------- */
+struct ShutdownMODMsg {
 }
 
 /* ---------------------  CtrlScavengerProgressTypeId  --------------------------- */
@@ -574,7 +577,7 @@ struct CtrlSetScrubberStatusResp {
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
-     2: i32                       dlt_version;
+     2: i64                       dlt_version;
 }
 
 /* ---------------------- CtrlNotifySMStartMigration --------------------------- */
@@ -591,6 +594,11 @@ struct CtrlNotifySMStartMigration {
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
 struct CtrlNotifyDLTClose {
      1: FDSP.FDSP_DltCloseType    dlt_close;
+}
+
+/* ---------------------  CtrlNotifySMAbortMigrationTypeId  ---------------------------- */
+struct CtrlNotifySMAbortMigration {
+     1: i64  DLT_version;
 }
 
 /* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
@@ -721,7 +729,7 @@ struct GetObjectResp {
 /* Put object request message */
 struct PutObjectMsg {
    1: i64    			volume_id;
-   2: i64                      	origin_timestamp;
+   2: i64                      	dlt_version;
    3: FDSP.FDS_ObjectIdType 	data_obj_id;
    4: i32                      	data_obj_len;
    5: binary                   	data_obj;
@@ -735,7 +743,7 @@ struct PutObjectRspMsg {
 struct  DeleteObjectMsg {
  1: i64 volId,
  2: FDSP.FDS_ObjectIdType objId, 
- 3: i64 origin_timestamp,  
+ 3: i64 dlt_version
 }
 
 /* Delete object response message */
@@ -1039,33 +1047,48 @@ struct CtrlObjectMetaDataPropagate
 {
     /* Object ID */
     1: FDSP.FDS_ObjectIdType objectID
+
+    /* If this flag is set, then the ObjectMetaDataProgate contains 
+     * different data to be applied to the destination SM.
+     *
+     * TRUE -> Only objectVolumeAssoc and objectRefCnt are pertinent fields at this point.
+     *         If true, these fields contains changes to the MetaData since the 
+     *         object was migrated to the destination SM.
+     *         objectData and other members are not set.
+     * NOTE: If TRUE, treat ref_cnt (including volume association ref_cnt) as signed int64_t.
+     *
+     * FALSE -> All MetaData fields and objectData is set.  The MetaData and objectData
+     *          can just be applied.
+     *
+     */
+    2: bool isObjectMetaDataReconcile
     
     /* user data */
-    2: FDSP.FDSP_ObjectData  objectData
+    3: FDSP.FDSP_ObjectData  objectData
 
     /* volume information */
-    3: list<MetaDataVolumeAssoc> objectVolumeAssoc
+    4: list<MetaDataVolumeAssoc> objectVolumeAssoc
 
     /* object refcnt */
-    4: i64              objectRefCnt
+    5: i64              objectRefCnt
     
     /* Compression type for this object */
-    5: i32              objectCompressType
+    6: i32              objectCompressType
 
     /* Size of data after compression */
-    6: i32              objectCompressLen
+    7: i32              objectCompressLen
 
     /* Object block size */
-    7: i32              objectBlkLen
+    8: i32              objectBlkLen
 
     /* object size */
-    8: i32              objectSize
+    9: i32              objectSize
 
     /* object flag */
-    9: i32              objectFlags
+    10: i32              objectFlags
     
     /* object expieration time */
-    10: i32              objectExpireTime    
+    11: i32              objectExpireTime    
 }
 
 struct CtrlObjectRebalanceDeltaSet
@@ -1090,6 +1113,22 @@ struct CtrlObjectRebalanceDeltaSet
      * at the destination SM.
      */
     4: list<CtrlObjectMetaDataPropagate> objectToPropagate
+}
+
+/* Message body to request Source SM to calculate and send delta set
+ * from the metadata diff betweent the first rebalance msg and now.
+ * In this second round, destination SM does not need to send filter set
+ * as it does in the first round, because there are no active IO for this
+ * token on the destination SM -- there could be active IO on the sorce SM.
+ */
+struct CtrlGetSecondRebalanceDeltaSet
+{
+    /* unique id of executor on the destination SM */
+    1: i64 executorID
+}
+
+/* Get second rebalance delta set message response */
+struct CtrlGetSecondRebalanceDeltaSetRsp {
 }
 
 #endif

@@ -63,6 +63,8 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                 fixPolicySetting();
                  $scope.$emit( 'fds::media_policy_changed' );
             });
+            
+            fixPolicySetting();
         }
     };
 });

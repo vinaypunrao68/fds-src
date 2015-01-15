@@ -30,7 +30,7 @@ class TestSet(object):
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
 
-    def __init__(self, name, test_cases=[]):
+    def __init__(self, name, test_cases=[], om_ip_address=None):
         self.name = name
         self.graph = {}
         self.lookup_table = {}
@@ -40,9 +40,10 @@ class TestSet(object):
         # create all the test cases that belong to this test set.
         for tc in test_cases:
             name = tc['name']
+            # give each test case one ip address
             if tc['depends'] == []:
                 self.execution_order.append(name)
-                self.__instantiate_module(tc)
+                self.__instantiate_module(tc, om_ip_address)
             else:
                 self.lookup_table[name] = tc
             self.graph[name] = tc['depends']
@@ -56,14 +57,24 @@ class TestSet(object):
                     if node not in self.execution_order:
                         current_tc = self.lookup_table[node]
                         self.execution_order.append(node)
-                        self.__instantiate_module(current_tc)
+                        self.__instantiate_module(current_tc, om_ip_address)
 
-    def __instantiate_module(self, test_cases):
+    def __instantiate_module(self, test_cases, om_ip_address):
         fmodule = self.__process_module(test_cases['file'])
         module = importlib.import_module("testsets.testcases.%s" % fmodule)
         my_class = getattr(module, test_cases['name'])
-        instance = my_class(parameters=test_cases['parameters'], 
-                            config_file=test_cases['config'])
+        if 'parameters' in test_cases:
+            params = test_cases['parameters']
+        else:
+            params = None
+        if 'config' in test_cases:
+            cnf = test_cases['config']
+        else:
+            cnf = None
+        instance = my_class(parameters=params, 
+                            config_file=cnf,
+                            om_ip_address=om_ip_address)
+
         self.log.info("Adding test case: %s" % test_cases['name'])
         self.log.info("Adding file name: %s" % test_cases['file'])
         self.suite.addTest(instance)

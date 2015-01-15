@@ -109,6 +109,11 @@ class OM_NodeAgent : public NodeAgent
                       boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt(const DLT *curDlt);
+    virtual Error om_send_abort_migration(fds_uint64_t dltVersion);
+    void om_send_abort_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
+                                      EPSvcRequest* req,
+                                      const Error& error,
+                                      boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
     void    om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* rpcReq,
@@ -136,6 +141,7 @@ class OM_NodeAgent : public NodeAgent
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
                                          fds_bool_t bAll);
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
+    virtual Error om_send_shutdown();
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
@@ -459,8 +465,13 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_vol_tier_audit(const fpi::FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
     virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt,
-                                      fds_bool_t sm_only = false);
+                                      fds_bool_t to_sm = true,
+                                      fds_bool_t to_dm = true,
+                                      fds_bool_t to_am = true);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
+    virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
+    virtual void om_bcast_shutdown_msg();
+
     /**
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
      */
@@ -587,6 +598,16 @@ class DltDmtUpEvt
     fpi::FDSP_MgrIdType svc_type;
 };
 
+class ShutdownEvt
+{
+ public:
+    ShutdownEvt() {}
+    std::string logString() const {
+        return "ShutdownEvt";
+    }
+};
+
+
 class OM_NodeDomainMod : public Module
 {
   public:
@@ -687,6 +708,13 @@ class OM_NodeDomainMod : public Module
                                   fds_bool_t remove_am);
 
     /**
+     * This will set domain down so that DLT and DMT state machine
+     * will not try to add/remove services and send shutdown message
+     * to all 
+     */
+    virtual Error om_shutdown_domain();
+
+    /**
      * Notification that OM received migration done message from
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
@@ -700,34 +728,39 @@ class OM_NodeDomainMod : public Module
      */
     virtual Error om_recv_dlt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
-                                          fds_uint64_t dlt_version);
+                                          fds_uint64_t dlt_version,
+                                          const Error& respError);
     /**
      * Notification that OM received DMT update response from
      * node with uuid 'uuid' for dmt version 'dmt_version'
      */
     virtual Error om_recv_dmt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
-                                          fds_uint32_t dmt_version);
+                                          fds_uint32_t dmt_version,
+                                          const Error& respError);
 
     /**
      * Notification that OM received push meta response from
      * node with uuid 'uuid'
      */
-    virtual Error om_recv_push_meta_resp(const NodeUuid& uuid);
+    virtual Error om_recv_push_meta_resp(const NodeUuid& uuid,
+                                         const Error& respError);
 
     /**
      * Notification that OM received DLT close response from
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
     virtual Error om_recv_dlt_close_resp(const NodeUuid& uuid,
-                                         fds_uint64_t dlt_version);
+                                         fds_uint64_t dlt_version,
+                                         const Error& respError);
 
     /**
      * Notification that OM received DMT close response from
      * node with uuid 'uuid' for dmt version 'dmt_version'
      */
     virtual Error om_recv_dmt_close_resp(const NodeUuid& uuid,
-                                         fds_uint64_t dmt_version);
+                                         fds_uint64_t dmt_version,
+                                         const Error& respError);
 
     /**
      * Updates cluster map membership and does DLT
@@ -759,6 +792,7 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(RegNodeEvt const &evt);
     void local_domain_event(TimeoutEvt const &evt);
     void local_domain_event(NoPersistEvt const &evt);
+    void local_domain_event(ShutdownEvt const &evt);
 
   protected:
     fds_bool_t                       om_test_mode;

@@ -16,7 +16,7 @@ def dependency_resolve(graph, start, resolved, seen):
 
 if __name__ == "__main__":
     
-    test_file = "test_list.json"
+    test_file = "fast_integration_test.json"
     with open(test_file, 'r') as data_file:
         data = json.load(data_file)
     test_set_list = data['test_sets']

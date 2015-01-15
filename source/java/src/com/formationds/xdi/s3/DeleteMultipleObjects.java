@@ -16,16 +16,15 @@ import java.util.Map;
 public class DeleteMultipleObjects implements RequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
-    private String bucketName;
 
-    public DeleteMultipleObjects(Xdi xdi, AuthenticationToken token, String bucketName) {
+    public DeleteMultipleObjects(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
-        this.bucketName = bucketName;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        String bucketName = requiredString(routeParameters, "bucket");
         StringBuffer result = new StringBuffer();
         result.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<DeleteResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">");
