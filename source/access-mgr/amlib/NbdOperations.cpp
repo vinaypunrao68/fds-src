@@ -138,13 +138,13 @@ NbdOperations::read(fds_uint32_t length,
 
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
-        fds_verify(responses.count(handle) == 0);
+        fds_assert(responses.count(handle) == 0);
         responses[handle] = resp;
     }
 
     // break down request into max obj size chunks and send to AM
     fds_uint32_t amBytesRead = 0;
-    fds_int32_t seqId = 0;
+    uint32_t seqId = 0;
     while (amBytesRead < length) {
         fds_uint64_t curOffset = offset + amBytesRead;
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
@@ -219,12 +219,12 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
 
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
-        fds_verify(responses.count(handle) == 0);
+        fds_assert(responses.count(handle) == 0);
         responses[handle] = resp;
     }
 
     size_t amBytesWritten = 0;
-    fds_int32_t seqId = 0;
+    uint32_t seqId = 0;
     while (amBytesWritten < length) {
         fds_uint64_t curOffset = offset + amBytesWritten;
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
@@ -298,8 +298,9 @@ NbdOperations::getBlobResp(const Error &error,
                            fds_uint32_t& length) {
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = requestId.handle;
-    fds_int32_t seqId = requestId.seq;
+    uint32_t seqId = requestId.seq;
     fds_bool_t done = false;
+    response_map_type::iterator it;
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
              << error << ", handle " << handle
@@ -309,13 +310,14 @@ NbdOperations::getBlobResp(const Error &error,
         fds_mutex::scoped_lock l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
-        if (responses.count(handle) == 0) {
+        it = responses.find(handle);
+        if (responses.end() == it) {
             LOGWARN << "Not waiting for response for handle " << handle
                     << ", check if we returned an error";
             return;
         }
         // get response
-        resp = responses[handle];
+        resp = it->second;
     }
 
     fds_verify(resp);
@@ -354,7 +356,7 @@ NbdOperations::getBlobResp(const Error &error,
             // nbd connector will free resp
             // remove from the wait list
             fds_mutex::scoped_lock l(respLock);
-            responses.erase(handle);
+            responses.erase(it);
         }
 
         // we are done collecting responses for this handle, notify nbd connector
@@ -367,7 +369,8 @@ NbdOperations::updateBlobResp(const Error &error,
                               handle_type& requestId) {
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = requestId.handle;
-    fds_int32_t seqId = requestId.seq;
+    uint32_t seqId = requestId.seq;
+    response_map_type::iterator it;
 
     LOGDEBUG << "Reponse for updateBlobOnce, "
              << error << ", handle " << handle
@@ -377,13 +380,14 @@ NbdOperations::updateBlobResp(const Error &error,
         fds_mutex::scoped_lock l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
-        if (responses.count(handle) == 0) {
+        it = responses.find(handle);
+        if (responses.end() == it) {
             LOGWARN << "Not waiting for response for handle " << handle
                     << ", check if we returned an error";
             return;
         }
         // get response
-        resp = responses[handle];
+        resp = it->second;
     }
 
     // Unblock other RMW on the same offset if they exist
@@ -414,7 +418,7 @@ NbdOperations::updateBlobResp(const Error &error,
             // nbd connector will free resp
             // remove from the wait list
             fds_mutex::scoped_lock l(respLock);
-            responses.erase(handle);
+            responses.erase(it);
         }
 
         // we are done collecting responses for this handle, notify nbd connector
