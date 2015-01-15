@@ -12,7 +12,7 @@ MODE=$5
 PYRO_IP="10.1.10.139"
 PYRO_PORT=47672
 
-CLUSTER=luke,han,chewie,c3po
+CLUSTER="luke,han,chewie,c3po"
 
 test_type=`echo $TAG | awk -F ":" '{print $1}'`
 mix=`echo $TAG | awk -F ":" '{print $2}'`
