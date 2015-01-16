@@ -9,14 +9,16 @@
             <table class="default">
                 <thead>
                     <th></th>
-                    <th translate>system.th_node_name</th>
-                    <th translate>system.th_site</th>
-                    <th translate>system.th_local_domain</th>
-                    <th translate>system.th_hw</th>
-                    <th translate>system.th_om</th>
-                    <th translate>system.th_sm</th>
-                    <th translate>system.th_dm</th>
-                    <th translate>system.th_am</th>
+                    <th><div translate>system.th_node_name</div></th>
+<!--
+                    <th><div translate>system.th_site</div></th>
+                    <th><div translate>system.th_local_domain</div></th>
+-->
+                    <th><div translate>system.th_hw</div></th>
+                    <th><div translate>system.th_om</div></th>
+                    <th><div translate>system.th_sm</div></th>
+                    <th><div translate>system.th_dm</div></th>
+                    <th><div translate>system.th_am</div></th>
                     <th></th>
                 </thead>
                 <tbody>
@@ -25,8 +27,10 @@
                             <span class="{{getOverallStatus( node )}}"></span>
                         </td>
                         <td>{{node.node_name}}</td>
+<!--
                         <td>{{node.site}}</td>
                         <td>{{node.domain}}</td>
+-->
 
                         <td><span class="{{getStatus( node.hw )}}"></span></td>
                         <td><span class="{{getStatus( node.om )}}"></span></td>
