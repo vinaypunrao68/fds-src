@@ -118,6 +118,9 @@ enum  FDSPMsgTypeId {
     CtrlModifyBucketTypeId             = 3004,
     CtrlPerfStatsTypeId                = 3005,
 
+    /* Svc -> OM */
+    CtrlSvcEventTypeId                 = 9000,
+
     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
     GetObjectRespTypeId 	= 10001,
@@ -627,6 +630,13 @@ struct CtrlModifyBucket {
 }
 struct CtrlPerfStats {
     1:  FDSP.FDSP_PerfstatsType     perfstats;
+}
+
+struct CtrlSvcEvent {
+    1: required FDSPMsgTypeId   msg_type_id;
+    2: required SvcUuid         msg_src_uuid;
+    3: required SvcUuid         msg_dst_uuid;
+    4: required i32         	msg_code;
 }
 
 

@@ -259,12 +259,24 @@ std::stringstream& SvcRequestIf::logSvcReqCommon_(std::stringstream &oss,
     return oss;
 }
 
+
 void SvcRequestIf::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
                                   boost::shared_ptr<std::string>& payload)
 {
     switch (header->msg_code) {
         case ERR_SVC_REQUEST_TIMEOUT:
-            DBG(GLOGDEBUG << "Request timedout");
+            {
+            // The who, what and result of the event
+            fpi::CtrlSvcEventPtr pkt(new fpi::CtrlSvcEvent());
+            pkt->msg_type_id  = header->msg_type_id;
+            pkt->msg_src_uuid = header->msg_src_uuid;
+            pkt->msg_dst_uuid = header->msg_dst_uuid;
+            pkt->msg_code     = header->msg_code;
+
+            auto req = gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+            req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlSvcEvent), pkt);
+            req->invoke();
+            }
             break;
         default:
             break;
