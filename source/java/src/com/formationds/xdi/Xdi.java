@@ -4,12 +4,12 @@
 
 package com.formationds.xdi;
 
+import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
+import com.formationds.om.webkit.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
-import com.formationds.util.thrift.OMConfigException;
-import com.formationds.util.thrift.OMConfigServiceClient;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
@@ -27,14 +27,15 @@ public class Xdi {
     private final AmService.Iface am;
     private Authenticator authenticator;
     private Authorizer authorizer;
-    private OMConfigServiceClient config;
+    private ConfigurationService.Iface config;
+    private FDSP_ConfigPathReq.Iface legacyConfig;
 
-    public Xdi(AmService.Iface am, OMConfigServiceClient config, Authenticator authenticator,
-               Authorizer authorizer) {
+    public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator, Authorizer authorizer, FDSP_ConfigPathReq.Iface legacyConfig) {
         this.am = am;
         this.config = config;
         this.authenticator = authenticator;
         this.authorizer = authorizer;
+        this.legacyConfig = legacyConfig;
     }
 
     private void attemptVolumeAccess(AuthenticationToken token, String volumeName) throws SecurityException {
@@ -43,30 +44,21 @@ public class Xdi {
         }
     }
 
-    public long createVolume(AuthenticationToken token, String domainName, String volumeName,
-                             VolumeSettings volumePolicy) throws ApiException, TException {
-
-        try {
-            config.createVolume(token, domainName, volumeName, volumePolicy, authorizer.tenantId(token));
-
-            /**
-             * allows the UI to assign a snapshot policy to a volume without having to make an
-             * extra call.
-             */
-            return config.getVolumeId(token, domainName, volumeName);
-        } catch (OMConfigException e) {
-            throw new TException("OM Client create volume failed.", e);
-        }
-
+    public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
+        config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
+        
+        // the default log retention time is 24 hours
+        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, volumePolicy.getContCommitlogRetention(), MediaPolicy.HDD_ONLY );
+        /**
+         * allows the UI to assign a snapshot policy to a volume without having to make an
+         * extra call.
+         */
+        return config.getVolumeId( volumeName );
     }
 
     public void deleteVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
         attemptVolumeAccess(token, volumeName);
-        try {
-            config.deleteVolume(token, domainName, volumeName);
-        } catch (OMConfigException e) {
-            throw new TException("OM Client delete volume failed.", e);
-        }
+        config.deleteVolume(domainName, volumeName);
     }
 
     public VolumeStatus statVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
@@ -76,22 +68,14 @@ public class Xdi {
 
     public VolumeDescriptor volumeConfiguration(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
         attemptVolumeAccess(token, volumeName);
-        try {
-            return config.statVolume(token, domainName, volumeName);
-        } catch (OMConfigException e) {
-            throw new TException("OM Client volume config request failed.", e);
-        }
+        return config.statVolume(domainName, volumeName);
     }
 
     public List<VolumeDescriptor> listVolumes(AuthenticationToken token, String domainName) throws ApiException, TException {
-        try {
-            return config.listVolumes(token, domainName)
-                         .stream()
-                         .filter(v -> authorizer.hasAccess(token, v.getName()))
-                         .collect(Collectors.toList());
-        } catch (OMConfigException e) {
-            throw new TException("OM Client listVolumes failed.", e);
-        }
+        return config.listVolumes(domainName)
+                .stream()
+                .filter(v -> authorizer.hasAccess(token, v.getName()))
+                .collect(Collectors.toList());
     }
 
     public List<BlobDescriptor> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset) throws ApiException, TException {
@@ -106,19 +90,19 @@ public class Xdi {
 
     public InputStream readStream(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
         attemptVolumeAccess(token, volumeName);
-        Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(token, domainName, volumeName, blobName);
+        Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName);
         return new FdsObjectStreamer(iterator);
     }
 
     public InputStream readStream(AuthenticationToken token, String domainName, String volumeName, String blobName, long requestOffset, long requestLength) throws Exception {
         attemptVolumeAccess(token, volumeName);
-        Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(token, domainName, volumeName, blobName, requestOffset, requestLength);
+        Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName, requestOffset, requestLength);
         return new FdsObjectStreamer(iterator);
     }
 
     public byte[] writeStream(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         attemptVolumeAccess(token, volumeName);
-        VolumeDescriptor volume = config.statVolume(token, domainName, volumeName);
+        VolumeDescriptor volume = config.statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
         metadata.putIfAbsent(LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
         return new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
@@ -139,7 +123,7 @@ public class Xdi {
 
     public String getSystemVolumeName(AuthenticationToken token) throws SecurityException {
         long tenantId = authorizer.tenantId(token);
-        return "SYSTEM_VOLUME_" + tenantId;
+        return XdiConfigurationApi.systemFolderName(tenantId);
     }
 
     public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
