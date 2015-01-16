@@ -633,10 +633,9 @@ struct CtrlPerfStats {
 }
 
 struct CtrlSvcEvent {
-    1: required FDSPMsgTypeId   msg_type_id;
-    2: required SvcUuid         msg_src_uuid;
-    3: required SvcUuid         msg_dst_uuid;
-    4: required i32         	msg_code;
+    1: required SvcUuid    evt_src_svc_uuid; // The svc uuid that this event targets
+    2: required i32        evt_code;         // The error itself
+    3: FDSPMsgTypeId       evt_msg_type_id;  // The msg that trigged this event (if any)
 }
 
 
