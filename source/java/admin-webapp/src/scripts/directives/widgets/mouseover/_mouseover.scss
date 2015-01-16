@@ -1,5 +1,5 @@
-.fds-tooltip {
-//    max-width: 75%;
+.fds-mouseover {
+    max-width: 75%;
     background-color: rgba( 255, 255, 255, 0.9 ) !important;
     color: black;
     position: absolute;
@@ -8,7 +8,7 @@
     z-index: 1000;
     
     .tooltip-body {
-        background-color: transparent;
+        background-color: rgba( 255, 255, 255, 0.9 ) !important;
     }
     
     .left-side {
