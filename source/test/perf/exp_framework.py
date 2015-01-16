@@ -276,7 +276,6 @@ class CounterServerPull:
                     try:
                         cntrs = svc_map.client(nodeid, svc).getCounters('*')
                     except:
-                        print "Counters failed for", svc
                         cntr = {}
                     for c, v in cntrs.iteritems():
                         line = node + " " + svc + " " + c + " " + str(v) + " " + str(tstamp)
