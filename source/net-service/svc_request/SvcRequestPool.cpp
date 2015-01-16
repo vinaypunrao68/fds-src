@@ -20,12 +20,15 @@ SvcRequestPool *gSvcRequestPool;
 SvcRequestCounters* gSvcRequestCntrs;
 SvcRequestTracker* gSvcRequestTracker;
 
+template<typename T>
+T SvcRequestPool::get_config(std::string const& option)
+{ return gModuleProvider->get_fds_config()->get<T>(option); }
+
 /**
  * Constructor
  */
 SvcRequestPool::SvcRequestPool()
 {
-    auto config = gModuleProvider->get_fds_config();
     gSvcRequestTracker = new SvcRequestTracker();
     gSvcRequestCntrs = new SvcRequestCounters("SvcReq", g_cntrs_mgr.get());
 
@@ -33,11 +36,11 @@ SvcRequestPool::SvcRequestPool()
     finishTrackingCb_ = std::bind(&SvcRequestTracker::removeFromTracking,
             gSvcRequestTracker, std::placeholders::_1);
 
-    svcSendTp_.reset(new LFMQThreadpool(
-            config->get<uint32_t>("fds.plat.svc.lftp.io_thread_cnt")));
-    svcWorkerTp_.reset(new LFMQThreadpool(config->get<uint32_t>(
+    svcSendTp_.reset(new LFMQThreadpool(get_config<uint32_t>(
+                "fds.plat.svc.lftp.io_thread_cnt")));
+    svcWorkerTp_.reset(new LFMQThreadpool(get_config<uint32_t>(
                 "fds.plat.svc.lftp.worker_thread_cnt")));
-    if (true == config->get<bool>("fds.plat.svc.lftp.enable")) {
+    if (true == get_config<bool>("fds.plat.svc.lftp.enable")) {
         fiu_enable("svc.use.lftp", 1, NULL, 0);
     }
 }
@@ -96,10 +99,12 @@ boost::shared_ptr<fpi::AsyncHdr> SvcRequestPool::newSvcRequestHeaderPtr(
  */
 void SvcRequestPool::asyncSvcRequestInitCommon_(SvcRequestIfPtr req)
 {
-    gSvcRequestTracker->addForTracking(req->getRequestId(), req);
+    // Initialize this once the first time it's used from the config file
+    static auto const timeout = get_config<uint32_t>("fds.plat.svc.timeout.thrift_message");
+
     req->setCompletionCb(finishTrackingCb_);
-    // TODO(Rao): Get this from config
-    req->setTimeoutMs(5000);
+    req->setTimeoutMs(timeout);
+    gSvcRequestTracker->addForTracking(req->getRequestId(), req);
 }
 
 EPSvcRequestPtr
@@ -187,16 +192,16 @@ LFMQThreadpool* SvcRequestPool::getSvcWorkerThreadpool()
 
 void SvcRequestPool::dumpLFTPStats()
 {
-    std::cout << "IO threadpool stats:\n";
+    LOGDEBUG << "IO threadpool stats:\n";
     uint32_t i = 0;
     for (auto &w : svcSendTp_->workers) {
-        std::cout << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
+        LOGDEBUG << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
     }
 
-    std::cout << "Worker threadpool stats:\n";
+    LOGDEBUG << "Worker threadpool stats:\n";
     i = 0;
     for (auto &w : svcWorkerTp_->workers) {
-        std::cout << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
+        LOGDEBUG << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
     }
 }
 
