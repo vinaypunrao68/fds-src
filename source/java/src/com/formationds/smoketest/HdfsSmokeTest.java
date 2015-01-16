@@ -1,13 +1,15 @@
-package com.formationds.hadoop;
+package com.formationds.smoketest;
 
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
 
+import org.apache.commons.compress.utils.IOUtils;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.FileSystem;
 import org.junit.After;
@@ -21,10 +23,10 @@ import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
 
-@Ignore
-public class FdsFileSystemTest {
 
-    private final int OBJECT_SIZE = 1024 * 1024 * 64;
+@Ignore
+public class HdfsSmokeTest {
+    private final int OBJECT_SIZE = 1024 * 1024 * 2;
     private FdsFileSystem fileSystem;
 
     private static boolean isIntegrationTest() {
@@ -64,6 +66,19 @@ public class FdsFileSystemTest {
         assertEquals(data2.length, status2.getLen());
         assertEquals(OBJECT_SIZE, status1.getBlockSize());
         assertEquals(fileSystem.getAbsolutePath(f1), status1.getPath());
+    }
+
+    @Test
+    public void testStatLargeFile() throws Exception {
+        Path p = new Path("/foobar.txt");
+        int size = 11 * 1024 * 1024;
+        byte[] contents = new byte[size];
+        contents[size - 1] = 42;
+        createWithContent(p, contents);
+        FileStatus st = fileSystem.getFileStatus(p);
+        assertEquals(size, (int) st.getLen());
+        byte[] result = org.apache.commons.io.IOUtils.toByteArray(fileSystem.open(p));
+        assertArrayEquals(contents, result);
     }
 
     @Test
@@ -229,16 +244,6 @@ public class FdsFileSystemTest {
         boolean result = fileSystem.delete(f, false);
         assertFalse(result);
     }
-
-    //@Before
-    // TODO: ideally we could configure these test cases to run against a real AM as part of the smoke test as well
-    public void setUpUnit() throws Exception {
-        String volumeName = "volume";
-        MemoryAmService am = new MemoryAmService();
-        am.createVolume(volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY));
-        fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
-    }
-
 
     @Test
     public void testReadLong() throws Exception {

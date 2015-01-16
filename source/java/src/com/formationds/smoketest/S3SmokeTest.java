@@ -35,7 +35,7 @@ import static org.junit.Assert.*;
 
 // We're just telling the unit test runner to ignore this, the class is ran SmokeTestRunner
 @Ignore
-public class SmokeTest {
+public class S3SmokeTest {
     private static final String AMAZON_DISABLE_SSL = "com.amazonaws.sdk.disableCertChecking";
     private static final String FDS_AUTH_HEADER = "FDS-Auth";
     private final static String ADMIN_USERNAME = "admin";
@@ -85,7 +85,7 @@ public class SmokeTest {
     private final ConfigurationService.Iface config;
     private final Random rng = loadRNG();
 
-    public SmokeTest()
+    public S3SmokeTest()
             throws Exception {
         System.setProperty(AMAZON_DISABLE_SSL, "true");
         host = (String) System.getProperties()
