@@ -60,7 +60,7 @@ struct GetBucketHandler : Handler {
                        boost::shared_ptr<fpi::GetBucketMsg>& message);
     void handleQueueItem(dmCatReq *dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::GetBucketMsg>& message,
+                        boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                         const Error &e, dmCatReq *dmRequest);
 };
 

@@ -24,7 +24,7 @@ void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     auto dmRequest = new DmIoGetBucket(message);
 
     // setup callback
-    dmRequest->cb = BIND_MSG_CALLBACK(GetBucketHandler::handleResponse, asyncHdr, message);
+    dmRequest->cb = BIND_MSG_CALLBACK(GetBucketHandler::handleResponse, asyncHdr, dmRequest->response);
 
     addToQueue(dmRequest);
 }
@@ -41,12 +41,12 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
 }
 
 void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                      boost::shared_ptr<fpi::GetBucketMsg>& message,
+                                      boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                                       const Error &e, dmCatReq *dmRequest) {
     LOGDEBUG << " volid: " << dmRequest->volId
              << " err: " << e;
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetBucketMsgTypeId, message);
+    DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetBucketRspMsgTypeId, message);
     delete dmRequest;
 }
 }  // namespace dm
