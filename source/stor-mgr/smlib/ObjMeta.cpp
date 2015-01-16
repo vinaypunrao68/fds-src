@@ -569,6 +569,29 @@ ObjMetaData::propogateMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaData)
     }
 }
 
+void
+ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData)
+{
+    // this method over-writes metadata from objMetaData
+    setRefCnt(objMetaData.objectRefCnt);
+    obj_map.compress_type = objMetaData.objectCompressType;
+    obj_map.compress_len = objMetaData.objectCompressLen;
+    obj_map.obj_blk_len = objMetaData.objectBlkLen;
+    obj_map.obj_size = objMetaData.objectSize;
+    obj_map.obj_flags = objMetaData.objectFlags;
+    obj_map.expire_time = objMetaData.objectExpireTime;
+
+    // over-write volume association
+    assoc_entry.clear();
+    for (auto volAssoc : objMetaData.objectVolumeAssoc) {
+        obj_assoc_entry_t new_association;
+        new_association.vol_uuid = volAssoc.volumeAssoc;
+        new_association.ref_cnt = volAssoc.volumeRefCnt;
+        obj_map.obj_refcnt += volAssoc.volumeRefCnt;
+        assoc_entry.push_back(new_association);
+        obj_map.obj_num_assoc_entry = assoc_entry.size();
+    }
+}
 
 /**
  * While sync is in progress, existin metadata prior to sync point needs
