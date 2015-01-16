@@ -68,7 +68,13 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
             var values = calculatedValues[i];
             
             if ( angular.isDefined( values['toFull'] ) ){
-                secondsToFull = values['toFull'];
+                
+                if ( values['toFull'] < 0 ){
+                    secondsToFull = $filter( 'translate' )( 'common.l_never' );
+                }
+                else {
+                    secondsToFull = values['toFull'];
+                }
             }
             else if ( angular.isDefined( values['ratio'] ) ){
                 dedupRatio = values['ratio'];

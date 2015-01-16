@@ -9,7 +9,7 @@ angular.module( 'statistics', ['base'] );
 
 angular.module( 'modal-utils', [] );
 
-angular.module( 'utility-directives', [] );
+angular.module( 'utility-directives', ['base'] );
 angular.module( 'display-widgets', [] );
 angular.module( 'angular-fui', [] );
 angular.module( 'form-directives', ['utility-directives', 'angular-fui']);
@@ -17,7 +17,7 @@ angular.module( 'charts', ['utility-directives'] );
 
 angular.module( 'main', ['user-management','templates-main'] );
 angular.module( 'volumes', ['volume-management','form-directives','modal-utils', 'qos'] );
-angular.module( 'system', ['node-management', 'user-management'] );
+angular.module( 'system', ['node-management', 'user-management', 'utility-directives', 'display-widgets' ] );
 angular.module( 'tenant', ['tenant-management', 'user-management', 'utility-directives', 'form-directives'] );
 angular.module( 'admin-settings', ['user-management'] );
 angular.module( 'status', ['activity-management', 'statistics', 'display-widgets', 'charts'] );
