@@ -259,6 +259,19 @@ std::stringstream& SvcRequestIf::logSvcReqCommon_(std::stringstream &oss,
     return oss;
 }
 
+void SvcRequestIf::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+                                  boost::shared_ptr<std::string>& payload)
+{
+    switch (header->msg_code) {
+        case ERR_SVC_REQUEST_TIMEOUT:
+            DBG(GLOGDEBUG << "Request timedout");
+            break;
+        default:
+            break;
+    }
+    this->handleResponseImpl(header, payload);
+}
+
 EPSvcRequest::EPSvcRequest()
     : EPSvcRequest(0, fpi::SvcUuid(), fpi::SvcUuid())
 {
@@ -418,7 +431,7 @@ void EPSvcRequest::invokeWork_()
  * @param payload
  * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
  */
-void EPSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+void EPSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
     DBG(GLOGDEBUG << logString());
@@ -646,7 +659,7 @@ void FailoverSvcRequest::invokeWork_()
  * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
  */
 // TODO(Rao): logging, invoking cb, error for each endpoint
-void FailoverSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
     DBG(GLOGDEBUG << fds::logString(*header));
@@ -763,7 +776,7 @@ bool FailoverSvcRequest::moveToNextHealthyEndpoint_()
         } else {
             /* When ep is not healthy invoke complete on associated ep request, except
              * the last ep request.  For the last unhealthy ep, complete is invoked in
-             * handleResponse()
+             * handleResponseImpl()
              */
             if (curEpIdx_ != epReqs_.size() - 1) {
                 epReqs_[curEpIdx_]->complete(epStatus);
@@ -775,7 +788,7 @@ bool FailoverSvcRequest::moveToNextHealthyEndpoint_()
 
     /* We've exhausted all the endpoints.  Decrement so that curEpIdx_ stays valid. Next
      * we will post an error to simulated an error from last endpoint.  This will get
-     * handled in handleResponse().  We do this so that user registered callbacks are
+     * handled in handleResponseImpl().  We do this so that user registered callbacks are
      * invoked.
      */
     fds_assert(curEpIdx_ == epReqs_.size());
@@ -872,8 +885,8 @@ void QuorumSvcRequest::invokeWork_()
 * @param payload
 * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
 */
-void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-                                      boost::shared_ptr<std::string>& payload)
+void QuorumSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
+                                          boost::shared_ptr<std::string>& payload)
 {
     DBG(GLOGDEBUG << logString());
 
