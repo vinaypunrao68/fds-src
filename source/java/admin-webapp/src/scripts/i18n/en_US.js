@@ -20,6 +20,7 @@ var en_US = {
         l_high: 'High',
         l_info: 'Information',
         l_low: 'Low',
+        l_never: 'Never',
         l_next: 'Next',
         l_no: 'No',
         l_none: 'None',

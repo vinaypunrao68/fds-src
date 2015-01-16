@@ -96,12 +96,15 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.capacityItems = [{number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
             {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
         
-        if ( angular.isDefined( secondsToFull ) ){
+        if ( angular.isDefined( secondsToFull ) && angular.isNumber( secondsToFull ) ){
             
             var convertedStr = $time_converter.convertToTime( secondsToFull*1000 );
             var parts = convertedStr.split( ' ' );
             $scope.capacityItems.push( {number: parseFloat( parts[0] ), description: $filter( 'translate' )( 'status.desc_time_to_full' ), suffix: parts[1].toLowerCase() } );
             $scope.capacityLimit = totalCapacity;
+        }
+        else {
+            $scope.capacityItems.push( {number: secondsToFull, description: $filter( 'translate' )( 'status.desc_time_to_full' ), suffix: '' } );
         }
     };
     
