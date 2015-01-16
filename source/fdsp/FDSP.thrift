@@ -285,22 +285,6 @@ typedef list<FDSP_BlobInfoType> BlobInfoListType
 /* A detailed list of blob stats. */
 typedef list<BlobDescriptor> BlobDescriptorListType
 
-const i64 blob_list_iterator_begin = 0
-const i64 blob_list_iterator_end = 1
-
-struct FDSP_GetVolumeBlobListReqType {
-  // take volUUID from the header
-  1: i32 max_blobs_to_return,
-  2: i64 iterator_cookie, //set to "0" the first time and store and return for successive iterations
-}
-
-struct FDSP_GetVolumeBlobListRespType {
-  1: i32 num_blobs_in_resp,
-  2: bool end_of_list, // true if there are no more blobs to return
-  3: i64 iterator_cookie, // store and return this for the next iteration.
-  4: BlobInfoListType blob_info_list, // list of blob_info structures.
-}
-
 struct FDSP_Uuid {
   1: i64          uuid,
 }
@@ -1141,7 +1125,6 @@ service FDSP_MetaDataPathReq {
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
     oneway void QueryCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
     oneway void DeleteCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
-    oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req),
 
     /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
     oneway void StatBlob(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName)
@@ -1156,7 +1139,6 @@ service FDSP_MetaDataPathResp {
     oneway void UpdateCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
     oneway void QueryCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
     oneway void DeleteCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
-    oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp),
 
     /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
     oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:BlobDescriptor blobDesc)

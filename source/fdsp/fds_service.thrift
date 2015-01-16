@@ -885,26 +885,16 @@ enum BlobListOrder {
 struct GetBucketMsg {
   //request
   1: required i64              volume_id;
-  2: i64                       startPos;  
+  2: i64                       startPos = 0;  
   3: i64                       count = 10000;
-  4: string                    pattern;
-  5: BlobListOrder             orderBy;
+  4: string                    pattern = "";
+  5: BlobListOrder             orderBy = 0;
   6: bool                      descending = false;
+}
+
+struct GetBucketRspMsg {
   //response
-  4: FDSP.BlobInfoListType     blob_info_list;
-}
-
-struct ListBlobsByPatternMsg {
-  1: required i64              volume_id;
-  2: i64                       startPos = 0;
-  3: i64                       count = 10000;
-  4: string                    pattern;
-  5: BlobListOrder             orderBy;
-  6: bool                      descending = false;
-}
-
-struct ListBlobsByPatternRspMsg {
-  1: FDSP.BlobDescriptorListType  blobDescriptors;
+  1: required FDSP.BlobInfoListType     blob_info_list;
 }
 
 struct GetDmStatsMsg {

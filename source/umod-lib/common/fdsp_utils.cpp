@@ -221,18 +221,18 @@ std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg) {
     return "GetVolumeMetaDataMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternMsg& msg) {
+std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {
     std::ostringstream oss;
-    oss << " ListBlobsByPatternMsg(volume_id: " << msg.volume_id
-            << ", maxKeys: " << msg.count
+    oss << " GetBucketMsg(volume_id: " << msg.volume_id
+            << ", count: " << msg.count
             << ", startPos: " << msg.startPos
             << ", pattern: " << msg.pattern << ")";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternRspMsg& msg) {
+std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
     std::ostringstream oss;
-    oss << " ListBlobsByPatternRspMsg(count: " << msg.blobDescriptors.size() << ")";
+    oss << " GetBucketRspMsg(count: " << msg.blob_info_list.size() << ")";
     return oss.str();
 }
 

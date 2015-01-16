@@ -14,13 +14,15 @@ namespace fds
 
 struct VolumeContentsReq: public AmRequest {
     size_t maxkeys;
+    fds_uint64_t offset;
 
     VolumeContentsReq(fds_volid_t _volid,
                       std::string& bucketName,
                       size_t const _max_keys,
+                      int64_t _offset,
                       CallbackPtr cb)
             :   AmRequest(FDS_VOLUME_CONTENTS, _volid, bucketName, "", cb),
-                maxkeys(_max_keys)
+                maxkeys(_max_keys), offset(_offset)
     {
         e2e_req_perf_ctx.type = AM_VOLUME_CONTENTS_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);

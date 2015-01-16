@@ -112,6 +112,7 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
                                                *volumeName,
                                                *count,
+                                               *offset,
                                                SHARED_DYN_CAST(Callback, handler));
     storHvisor->enqueueBlobReq(blobReq);
 

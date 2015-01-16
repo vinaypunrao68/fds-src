@@ -892,7 +892,6 @@ void DataMgr::initHandlers() {
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
-    handlers[FDS_DM_LIST_BLOBS_BY_PATTERN] = new dm::ListBlobsByPatternHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1156,12 +1155,6 @@ DataMgr::ReqHandler::ReqHandler() {
 }
 
 DataMgr::ReqHandler::~ReqHandler() {
-}
-
-void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
-                                            FDSP_GetVolumeBlobListReqTypePtr& blobListReq) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
 }
 
 /**

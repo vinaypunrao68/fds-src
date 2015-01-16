@@ -35,9 +35,9 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
 
     // do processing and set the error
     helper.err = dataMgr->timeVolCat_->queryIface()->listBlobs(dmRequest->volId,
-                                                               &request->message->blob_info_list);
+                                                               &request->response->blob_info_list);
     LOGDEBUG << " volid: " << dmRequest->volId
-             << " numblobs: " << request->message->blob_info_list.size();
+             << " numblobs: " << request->response->blob_info_list.size();
 }
 
 void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

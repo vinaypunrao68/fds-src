@@ -677,8 +677,8 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 
     GetBucketMsgPtr message = boost::make_shared<GetBucketMsg>();
     message->volume_id = amReq->io_vol_id;
-    message->startPos  = 0;
-    message->maxKeys   = static_cast<VolumeContentsReq *>(amReq)->maxkeys;
+    message->startPos  = static_cast<VolumeContentsReq *>(amReq)->offset;
+    message->count   = static_cast<VolumeContentsReq *>(amReq)->maxkeys;
 
     auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
@@ -700,11 +700,11 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
     // Return if err
     if (ERR_OK == error) {
         // using the same structure for input and output
-        auto response = MSG_DESERIALIZE(GetBucketMsg, error, payload);
+        auto response = MSG_DESERIALIZE(GetBucketRspMsg, error, payload);
 
         GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
         size_t count = response->blob_info_list.size();
-        LOGDEBUG << " volid: " << response->volume_id << " numBlobs: " << count;
+        LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " << count;
         cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>();
         cb->vecBlobs->reserve(count);
         for (size_t i = 0; i < count; ++i) {

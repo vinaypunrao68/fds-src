@@ -96,6 +96,7 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
                                                *volumeName,
                                                *count,
+                                               *offset,
                                                SHARED_DYN_CAST(Callback, callback));
     storHvisor->enqueueBlobReq(blobReq);
 }
