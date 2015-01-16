@@ -603,7 +603,7 @@ NbdBlockMod::blk_attach_vol(blk_vol_creat_t *r)
         }
         ioctl(fd, NBD_CLEAR_QUE);
         ioctl(fd, NBD_CLEAR_SOCK);
-        _exit(0);
+        exit(0);
     }
     close(fd);
     close(sp[1]);

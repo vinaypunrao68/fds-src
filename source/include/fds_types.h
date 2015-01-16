@@ -317,4 +317,15 @@ namespace fds {
     using ConstString = const std::string&;
 }  // namespace fds
 
+/**
+ * Enforce use of the some system call.
+ * We don't define everything, but a few to ensure that some system calls are not
+ * called by fds process.
+ */
+
+/* _exit() bypasses atexit handler and others systems.
+ * for this reason, enforce that we use exit.
+ */
+#define _exit    _use_exit_instead_of__exit__
+
 #endif  // SOURCE_INCLUDE_FDS_TYPES_H_
