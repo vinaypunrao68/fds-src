@@ -1181,6 +1181,35 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
 }
 
 void
+ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
+{
+    Error err(ERR_OK);
+    SmIoApplyObjRebalDeltaSet* rebalReq = static_cast<SmIoApplyObjRebalDeltaSet*>(ioReq);
+    fds_assert(rebalReq != NULL);
+
+    for (fds_uint32_t i = 0; i < (rebalReq->deltaSet).size(); ++i) {
+        const fpi::CtrlObjectMetaDataPropagate& objDataMeta = (rebalReq->deltaSet)[i];
+        ObjectID objId(ObjectID(objDataMeta.objectID.digest));
+
+        err = objectStore->applyObjectMetadataData(objId, objDataMeta);
+        if (!err.ok()) {
+            // we will stop applying object metadata/data and report error to migr mgr
+            LOGERROR << "Failed to apply object metadata/data " << objId
+                     << ", " << err;
+            break;
+        }
+    }
+
+    // mark request as complete
+    qosCtrl->markIODone(*rebalReq, diskio::diskTier);
+
+    // notify migration executor we are done with this request
+    rebalReq->smioObjdeltaRespCb(err, rebalReq);
+
+    delete rebalReq;
+}
+
+void
 ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
     Error err(ERR_OK);
     SmIoMoveObjsToTier *moveReq = static_cast<SmIoMoveObjsToTier*>(ioReq);
