@@ -19,27 +19,29 @@
                     <thead>
 <!--                        <th translate>volumes.th_performance</th>-->
 <!--                        <th><div translate>common.th_name</div></th>-->
-                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'name' ) !== -1 }">
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'name' ) !== -1 }" tool-tip text="{{ 'volumes.tt_volume_name' | translate }}">
                             <sort-helper ng-model="sortPredicate" value="name">{{ 'common.th_name' | translate }}</sort-helper>
                         </th>
+<!--
                         <th ng-class="{ 'selected' : sortPredicate.indexOf( 'application' ) !== -1 }">
                             <sort-helper ng-model="sortPredicate" value="application">{{ 'common.th_application' | translate }}</sort-helper>
                         </th>
-                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'tenant_name' ) !== -1 }">
+-->
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'tenant_name' ) !== -1 }" tool-tip text="{{ 'volumes.tt_tenant_name' | translate }}">
                             <sort-helper ng-model="sortPredicate" value="tenant_name">{{ 'common.th_tenant' | translate }}</sort-helper>                                                                             
                         </th>
-                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'data_connector.type' ) !== -1 }">
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'data_connector.type' ) !== -1 }" tool-tip text="{{ 'volumes.tt_data_connector' | translate }}">
                             <sort-helper ng-model="sortPredicate" value="data_connector.type">{{ 'common.th_data_type' | translate }}</sort-helper>
                         </th>
-                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'size' ) !== -1 }">
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'size' ) !== -1 }" tool-tip text="{{ 'volumes.tt_size' | translate }}">
                             <sort-helper ng-model="sortPredicate" value="size">{{ 'volumes.th_capacity' | translate }}</sort-helper>
                         </th>
-                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'firebreak' ) !== -1 }" width="30" style="text-align: center;">
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'firebreak' ) !== -1 }" width="30" style="text-align: center;" tool-tip text="{{ 'volumes.tt_firebreak' | translate }}">
                             <sort-helper ng-model="sortPredicate" value="firebreak">
                                 <span style="line-height: 19px;" class="icon icon-firebreak"></span>
                             </sort-helper>
                         </th>
-                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'priority' ) !== -1 }" width="30" style="text-align: center;">
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'priority' ) !== -1 }" width="30" style="text-align: center;" tool-tip text="{{ 'volumes.tt_priority' | translate }}">
                             <sort-helper ng-model="sortPredicate" value="priority">
                                 <span style="line-height: 19px;" class="icon icon-star"></span>
                             </sort-helper>
@@ -59,7 +61,7 @@
                                 {{volume.name}}
                             </td>
                             
-                            <td class="application"></td>
+<!--                            <td class="application"></td>-->
                             
                             <td class="tenant">
                                 {{ volume.tenant_name }}

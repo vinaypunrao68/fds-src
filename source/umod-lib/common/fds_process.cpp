@@ -403,10 +403,34 @@ void FdsProcess::daemonize() {
 
     /* obtain a new process group */
     setsid();
-    int ret;
-    int i;
-    for (i = getdtablesize(); i >= 0 ; --i) close(i); /* close all descriptors */
-    i = open("/dev/null", O_RDWR); ret = dup(i); ret = dup(i); /* handle standart I/O */
+
+    /* close all file descriptors.  however, redirect std file descriptors
+     * to /dev/null.
+     */
+    int devNullFd = open("/dev/null", O_RDWR);
+    for (int i = getdtablesize(); i >= 0 ; --i) {
+        int ret;
+        /* redirect std io to /dev/null */
+        if ((i == STDIN_FILENO) || (i == STDOUT_FILENO) || (i == STDERR_FILENO)) {
+            /* flush before re-directing file descriptors.  flush all of them same
+             * time, because really don't need to convert fileno to filep for
+             * stdio (yeah.. laziness).
+             */
+            fflush(stdin);
+            fflush(stdout);
+            fflush(stderr);
+            ret = dup2(i, devNullFd);
+            if (-1 == ret) {
+                LOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
+            }
+        } else {
+            ret = close(i);
+            if (-1 == ret) {
+                LOGERROR << "Error on closing old open file descriptors: errno " << errno;
+            }
+        }
+    }
+
     // umask(027); /* set newly created file permissions */
     // ignore tty signals
     signal(SIGTSTP, SIG_IGN);

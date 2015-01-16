@@ -160,6 +160,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " backup.vol.id %ld"
                               " iops.min %.3f"
                               " iops.max %.3f"
+                              " iops.guarantee %d"
                               " relative.priority %d"
                               " fsnapshot %d"
                               " parentvolumeid %ld"
@@ -186,6 +187,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.backupVolume,
                               vol.iops_min,
                               vol.iops_max,
+                              vol.iops_guarantee,
                               vol.relativePrio,
                               vol.fSnapshot,
                               vol.srcVolumeId,
@@ -335,6 +337,7 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "backup.vol.id") {vol.backupVolume = atol(value.c_str());}
             else if (key == "iops.min") {vol.iops_min = strtod (value.c_str(), NULL);}
             else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(), NULL);}
+            else if (key == "iops.guarantee") {vol.iops_guarantee = atoi (value.c_str());}
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
             else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
             else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}

@@ -111,6 +111,9 @@ fds: {
 		io_thread_cnt = 2
 		worker_thread_cnt = 2
 	    }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
 	}
     }
 
