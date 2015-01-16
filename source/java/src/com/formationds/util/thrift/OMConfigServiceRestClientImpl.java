@@ -301,10 +301,10 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
         final ClientResponse response =
             webResource().path( configUrl )
                          .path( volumesUrl )
-                         .path( volumeName )
+                         .queryParam( "name", volumeName )
                          .type( MediaType.APPLICATION_JSON_TYPE )
                          .header( FDS_AUTH_HEADER, getToken(token) )
-                         .delete( ClientResponse.class );
+                         .post( ClientResponse.class );
         isOk( response );
 
     }

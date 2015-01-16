@@ -17,7 +17,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONObject;
-import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -126,19 +125,7 @@ public class SmokeTest {
         testBucketExists(userBucket, false);
         testBucketExists(adminBucket, false);
     }
-
-// TODO: getting OM core dump in stream registration when deleting the buckets after each test.
-//    @After
-//    public void tearDown() {
-//        deleteBucketIgnoreErrors(userClient, userBucket);
-//        deleteBucketIgnoreErrors(adminClient, adminBucket);
-//    }
-
-    private void deleteBucketIgnoreErrors(AmazonS3Client client, String bucket) {
-        try { client.deleteBucket(bucket); }
-        catch (Exception ignored) {}
-    }
-
+    
     public void testBucketExists(String bucketName, boolean fProgress) {
         if (fProgress) System.out.print("    Checking bucket exists [" + bucketName + "] ");
         assertEquals("bucket [" + bucketName + "] NOT active", true, checkBucketState(bucketName, true, 10, fProgress));
@@ -195,19 +182,6 @@ public class SmokeTest {
         testBucketNotExists(bucketName, true);
         userClient.createBucket(bucketName);
         testBucketExists(bucketName, true);
-    }
-
-    @Test
-    public void testDeleteBucket() {
-        String bucketName = "test-delete-bucket";
-        try {
-            userClient.createBucket(bucketName);
-        } catch (AmazonS3Exception e) {
-            assertEquals("unknown error : " + e , 409, e.getStatusCode());
-        }
-        testBucketExists(bucketName, true);
-        userClient.deleteBucket(bucketName);
-        testBucketNotExists(bucketName, true);
     }
 
     @Test

@@ -65,7 +65,7 @@ public class Xdi {
         try {
             config.deleteVolume(token, domainName, volumeName);
         } catch (OMConfigException e) {
-            throw new TException("OM Client delete volume failed.", e);
+            throw new TException("OM Client create volume failed.", e);
         }
     }
 
