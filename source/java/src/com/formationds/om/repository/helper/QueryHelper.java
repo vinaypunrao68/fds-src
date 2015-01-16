@@ -539,12 +539,6 @@ public class QueryHelper {
     	Double secondsToFull = systemCapacity / linearRegression.getSlope();
     	
         final CapacityToFull to = new CapacityToFull();
-        
-        // if it's longer that 20 years we just say it's undeterminable
-        if ( TimeUnit.SECONDS.toDays( secondsToFull.longValue() ) > (20*365) ){
-        	secondsToFull = -1.0D;
-        }
-        
         to.setToFull( secondsToFull.longValue() );
         return to;
     }

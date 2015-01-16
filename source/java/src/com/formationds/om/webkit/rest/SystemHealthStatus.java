@@ -315,7 +315,7 @@ public class SystemHealthStatus implements RequestHandler {
 		
         Long daysToFull = TimeUnit.SECONDS.toDays( timeToFull.getToFull() );
         
-        if ( daysToFull <= 7 && daysToFull >= 0){
+        if ( daysToFull <= 7 ){
         	status.setState( HealthState.BAD );
         	status.setMessage( CAPACITY_BAD_RATE );
         }
@@ -323,7 +323,7 @@ public class SystemHealthStatus implements RequestHandler {
         	status.setState( HealthState.BAD );
         	status.setMessage( CAPACITY_BAD_THRESHOLD );
         }
-        else if ( daysToFull <= 30 && daysToFull >= 0 ){
+        else if ( daysToFull <= 30 ){
         	status.setState( HealthState.OKAY );
         	status.setMessage( CAPACITY_OKAY_RATE );
         }

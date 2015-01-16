@@ -68,13 +68,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
             var values = calculatedValues[i];
             
             if ( angular.isDefined( values['toFull'] ) ){
-                
-                if ( values['toFull'] < 0 ){
-                    secondsToFull = $filter( 'translate' )( 'common.l_never' );
-                }
-                else {
-                    secondsToFull = values['toFull'];
-                }
+                secondsToFull = values['toFull'];
             }
             else if ( angular.isDefined( values['ratio'] ) ){
                 dedupRatio = values['ratio'];
@@ -96,15 +90,26 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.capacityItems = [{number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
             {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
         
-        if ( angular.isDefined( secondsToFull ) && angular.isNumber( secondsToFull ) ){
+        if ( angular.isDefined( secondsToFull )){
             
             var convertedStr = $time_converter.convertToTime( secondsToFull*1000 );
             var parts = convertedStr.split( ' ' );
-            $scope.capacityItems.push( {number: parseFloat( parts[0] ), description: $filter( 'translate' )( 'status.desc_time_to_full' ), suffix: parts[1].toLowerCase() } );
+            
+            var fullInfo = {
+                number: parseFloat( parts[0] ), 
+                description: $filter( 'translate' )( 'status.desc_time_to_full' ), 
+                suffix: parts[1].toLowerCase() 
+            };
+            
+            // longer than 10 years
+            if ( secondsToFull > (10*365*24*60*60) ){
+                fullInfo.number = $filter( 'translate' )( 'common.l_never' );
+                fullInfo.description = '';
+                fullInfo.suffix = '';
+            }
+
+            $scope.capacityItems.push( fullInfo );
             $scope.capacityLimit = totalCapacity;
-        }
-        else {
-            $scope.capacityItems.push( {number: secondsToFull, description: $filter( 'translate' )( 'status.desc_time_to_full' ), suffix: '' } );
         }
     };
     
