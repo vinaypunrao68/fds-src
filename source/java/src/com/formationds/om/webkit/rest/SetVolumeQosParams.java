@@ -89,7 +89,7 @@ public class SetVolumeQosParams implements RequestHandler {
     	}
     	
     	FDSP_VolumeDescType volInfo = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeName, 0));
-        volInfo.setIops_min(minIops);
+        volInfo.setIops_guarantee(minIops);
         volInfo.setRel_prio(priority);
         volInfo.setIops_max(maxIops);
         volInfo.setVolPolicyId(0);

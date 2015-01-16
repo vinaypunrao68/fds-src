@@ -2,8 +2,12 @@
 -   name: deploy rendered FDS config files without code
     hosts: all
     sudo: yes
+    vars_files:
+        - ../vars_files/multi_om_setup.yml
 
     tasks:
+    -   include: ../tasks/deploy_fds/config_sanity_check.yml
+
     -   name: create safe directory for configs to be dumped to
         file: path=/root/fds_configs
             state=directory
