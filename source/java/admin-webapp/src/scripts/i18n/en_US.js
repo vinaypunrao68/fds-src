@@ -20,6 +20,7 @@ var en_US = {
         l_high: 'High',
         l_info: 'Information',
         l_low: 'Low',
+        l_never: 'Never',
         l_next: 'Next',
         l_no: 'No',
         l_none: 'None',
@@ -203,6 +204,13 @@ var en_US = {
 
         th_used_limit: 'Used/Limit',
         
+        tt_volume_name: 'Volume name',
+        tt_tenant_name: 'Tenant name',
+        tt_data_connector: 'Volume data type',
+        tt_size: 'The capacity consumed for the volume',
+        tt_firebreak: 'Firebreak status over the past 24 hours',
+        tt_priority: 'Volume priority',
+        
         view : {
             desc_dedup_suffix: 'Deduplicated',
             desc_logical_suffix: 'Logical',
@@ -296,7 +304,15 @@ var en_US = {
         th_node_name: 'Node Name',
         th_om: 'OM',
         th_site: 'Site',
-        th_sm: 'SM'
+        th_sm: 'SM',
+        th_pm: 'PM',
+        
+        tt_node_name: 'Name of the node',
+        tt_am: 'Access manager status',
+        tt_dm: 'Data manager status',
+        tt_om: 'Orchestration manager status',
+        tt_pm: 'Platform status',
+        tt_sm: 'Storage manager status'
     },
     tenants: {
         title: 'Tenants',

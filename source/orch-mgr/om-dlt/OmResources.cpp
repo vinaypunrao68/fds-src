@@ -499,14 +499,10 @@ NodeDomainFSM::GRD_EnoughNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     // first print out the nodes were are waiting for
     LOGWARN << "WARNING: OM IS NOT UP: OM is waiting for at least "
             << wait_more << " more nodes to register (!!!) out of the following:";
-    std::cout << std::endl << std::endl << "WARNING: OM IS NOT UP: OM is waiting for at"
-              << " least " << wait_more << " more nodes to register out of:" << std::endl;
     for (NodeUuidSet::const_iterator cit = src.sm_services.cbegin();
          cit != src.sm_services.cend();
          ++cit) {
         if (src.sm_up.count(*cit) == 0) {
-            std::cout << "   Node " << std::hex << (*cit).uuid_get_val()
-                      << std::dec << std::endl;
             LOGWARN << "   Node " << std::hex << (*cit).uuid_get_val()
                     << std::dec;
         }

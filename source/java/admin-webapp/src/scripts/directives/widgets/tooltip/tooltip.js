@@ -1,38 +1,21 @@
-angular.module( 'display-widgets' ).directive( 'tooltip', function(){
+angular.module( 'display-widgets' ).directive( 'toolTip', function(){
     
     return {
-        restrict: 'E',
-        transclude: true,
-        replace: true,
-        templateUrl: 'scripts/directives/widgets/tooltip/tooltip.html',
-        scope: { event: '=' },
-        controller: function( $scope, $element, $timeout, $document ){
-    
+        restrict: 'A',
+        replace: false,
+        transclude: false,
+        scope: { text: '@', bindText: '=?' },
+        controller: function( $scope, $element, $timeout, $templateCache, $compile, $document ){
+            
             $scope.show = false;
             $scope.target = {};
             $scope.top = '0px';
             $scope.left = '0px';
+            $scope.textWidth = 0;
             $scope.ignore = false;
             $scope.mousePosition = { x: 0, y: 0 };
             
-            $scope.overTooltip = function( $event ){
-                
-                var screenPosition = $( $element[0] ).offset();
-                
-                var mouseX = $event.clientX;
-                var mouseY = $event.clientY;
-                var myX = screenPosition.left;
-                var myY = screenPosition.top;
-                var myX2 = $element[0].offsetWidth + myX;
-                var myY2 = $element[0].offsetWidth + myY;
-                
-                if ( mouseX >= myX && mouseX <= myX2
-                    && mouseY >= myY && mouseY <= myY2 ){
-                    return true;
-                }
-                
-                return false;
-            };
+            var parent = $element[0];
             
             $scope.paintTooltip = function( target ){
                 
@@ -45,39 +28,44 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
                     $scope.left = /*$scope.mousePosition.x +*/ '-1000px';
                     $scope.below = true;
                     $scope.leftSide = true;
+                    
+                    // the 28 is the margin and padding included
+                    $scope.textWidth = measureText( $scope.text, 13 ).width + 28;
 
-                    var el = $( $element[0] ).children( '.tooltip-body' );
+                    var el = $($(parent).find( '.tooltip-body' )[0]);
 
                     var h = el.height();
                     var w = el.width();
 
                     // not ready to shift yet
-                    if ( h === 0 ){
+                    if ( h <= 0 ){
                         $timeout( function(){ $scope.paintTooltip( target );}, 50 );
                         return;
                     }
-                    
-                    var parentH = target.parentElement.clientHeight;
-                    var parentW = target.parentElement.clientWidth;
+                
+                    var yPad = -1*h - 34;//-1*(h+12);
+                    var xPad = -16;
                     $scope.below = false;
 
-                    var yPad = -1*(h+12);
-                    var xPad = -12;
-
-                    // shift it right
-                    if ( $scope.mousePosition.x + xPad + w > parentW ){
-                        xPad = xPad - w + 12;
+                    var o = $(parent).offset(); 
+                    
+//                    console.log( 'o.left: ' + o.left + ' o.top: ' + o.top + ' y: ' + $scope.mousePosition.y + ' x: ' + $scope.mousePosition.x );
+//                    console.log( ' w: ' + w + ' h: ' + h + ' dw: ' + $document.width() + ' dh: ' + $document.height() );
+                    
+                    // shift to the left
+                    if ( o.left + $scope.mousePosition.x + xPad + w > $document.width() ){
+                        xPad = -1*(w+24);
                         $scope.leftSide = false;
                     }
-
-                    // shift it down
-                    if ( $scope.mousePosition.y + yPad < 0 ){
-                        yPad = 10;
+                    
+                    // flip below
+                    if ( o.top + $scope.mousePosition.y + yPad < 0 ){
+                        yPad = 12;
                         $scope.below = true;
                     }
 
-                    $scope.top = ($scope.mousePosition.y + yPad) + 'px';
-                    $scope.left = ($scope.mousePosition.x + xPad) + 'px';
+                    $scope.top = ($scope.mousePosition.y + yPad ) + 'px';
+                    $scope.left = ($scope.mousePosition.x + xPad ) + 'px';
                 }
             };
             
@@ -89,14 +77,30 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
                          
             };
             
-            $element[0].parentElement.addEventListener( 'mousemove', function( $event ){
+            var mousemove = function( $event ){
                 $scope.mousePosition.x = $event.offsetX + $event.target.offsetLeft;
-                $scope.mousePosition.y = $event.offsetY + $event.target.offsetTop;
-            });
+                $scope.mousePosition.y = $event.offsetY + $event.target.offsetTop;                
+            };
             
-            $scope.$watch( 'event', function( newVal, oldVal ){
+            var mouseenter = function( $event ){
                 
-                if ( !angular.isDefined( newVal ) ){
+                if ( !angular.isDefined( $event ) ){
+                    return;
+                }
+                
+                if ( $scope.ignore === true ){
+                    return;
+                }
+                
+                $scope.show = false;
+                $scope.target = $event.target;
+
+                $scope.showTooltip( $.extend( {}, $scope.target ) );                           
+            };
+            
+            var mouseleave = function( $event ){
+              
+                if ( !angular.isDefined( $event ) ){
                     return;
                 }
                 
@@ -104,24 +108,27 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
                     return;
                 }
 
-                if ( newVal.type === 'mouseleave' ){
-
-                    // see if we're over the tooltip
-                    if ( $scope.overTooltip( newVal ) === true ){
-                        return;
-                    }
-                    
-                    $scope.show = false;
-                    $scope.target = {};
-                }
-                else if ( newVal.type === 'mouseenter' || newVal.type === 'mouseover' ){
-                    $scope.show = false;
-                    $scope.target = newVal.target;
-                    
-                    $scope.showTooltip( $.extend( {}, $scope.target ) );
-                }
+                $scope.show = false;
+                $scope.target = {};
+            };
+            
+            parent.addEventListener( 'mousemove', mousemove );
+            parent.addEventListener( 'mouseenter', mouseenter );
+            parent.addEventListener( 'mouseleave', mouseleave ); 
+            
+            var tooltip = $templateCache.get('scripts/directives/widgets/tooltip/tooltip.html');
+            var compiled = $compile( tooltip );            
+            tooltip = compiled( $scope );
+            $(parent).css( 'position', 'relative' );
+            $(parent).append( tooltip );
+            
+            $scope.$on( '$destroy', function(){
                 
+                parent.removeEventListener( 'mouseleave', mouseleave );
+                parent.removeEventListener( 'mousemove', mousemove );
+                parent.removeEventListener( 'mouseenter', mouseenter );
             });
         }
     };
+    
 });

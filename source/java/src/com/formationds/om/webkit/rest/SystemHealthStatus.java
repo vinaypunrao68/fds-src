@@ -244,7 +244,7 @@ public class SystemHealthStatus implements RequestHandler {
 			
 			Double volumePercent = ((double)volumesWithRecentFirebreak / (double)volumes.size()) * 100;
 			
-			if ( volumePercent == 0 ){
+			if ( volumesWithRecentFirebreak == 0 || volumePercent.isNaN() || volumePercent.isInfinite() ){
 				status.setState( HealthState.GOOD );
 				status.setMessage( FIREBREAK_GOOD );
 			}

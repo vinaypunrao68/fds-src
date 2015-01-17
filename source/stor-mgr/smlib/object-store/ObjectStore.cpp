@@ -547,6 +547,154 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
     return err;
 }
 
+Error
+ObjectStore::applyObjectMetadataData(const ObjectID& objId,
+                                     const fpi::CtrlObjectMetaDataPropagate& msg) {
+    // we do not expect to receive rebal message for same object id concurrently
+    // but we may do GC later while migrating, etc, so locking anyway
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
+    Error err(ERR_OK);
+    diskio::DataTier useTier = diskio::maxTier;
+    // since object can be associated with multiple volumes, we just
+    // set volume id to invalid. Here is it used only to collect perf
+    // stats and associate them with a volume; all metadata and disk
+    // accesses for token migration will be counted against volume 0
+    fds_volid_t unknownVolId = invalid_vol_id;
+
+    // We will update metadata with metadata sent to us from source SM
+    ObjMetaData::ptr updatedMeta;
+
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
+    if (err == ERR_OK) {
+        // we must not have the case if metadata exists but object data is missing
+        // token migration always applies both data and metadata first, then updates metadata
+        fds_verify(objMeta->dataPhysicallyExists());
+
+        // check if existing object corrupted
+        if (objMeta->isObjCorrupted()) {
+            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            return ERR_SM_DUP_OBJECT_CORRUPT;
+        }
+
+        // if we got data with this message, check if it matches data stored on this SM
+        if ((msg.objectData.size() != 0) &&
+            (conf_verify_data == true)) {
+            // verify data -- read object from object data store
+            // data in this msg
+            boost::shared_ptr<const std::string> objData = boost::make_shared<std::string>(
+                msg.objectData);
+            // data stored in object store
+            boost::shared_ptr<const std::string> existObjData
+                    = dataStore->getObjectData(unknownVolId, objId, objMeta, err);
+            // if we get an error, there are inconsistencies between
+            // data and metadata; assert for now
+            fds_assert(err.ok());
+
+            // check if data is the same
+            if (*existObjData != *objData) {
+                LOGCRITICAL << "Mismatch between data in object store and data received "
+                            << "from source SM for " << objId << " !!!";
+                return ERR_SM_TOK_MIGRATION_DATA_MISMATCH;
+            }
+        }
+
+        // create new object metadata for update from source SM
+        updatedMeta.reset(new ObjMetaData(objMeta));
+        // we temporary assign error duplicate to indicate that we already have metadata
+        // and data for this object, to differentiate from the case when this is the
+        // first time this SM sees this object
+        err = ERR_DUPLICATE;
+    } else {  // if (getMetadata != OK)
+        // We didn't find any metadata, make sure it was just not there and reset
+        fds_verify(err == ERR_NOT_FOUND);
+        err = ERR_OK;
+        // make sure we got object data as well in this message
+        if (msg.objectData.size() == 0) {
+            LOGERROR << "Got zero-length objectData for object " << objId
+                     << " in rebalance delta set from source SM, while this SM "
+                     << " does not have metadata/data for this object";
+            return ERR_SM_TOK_MIGRATION_NO_DATA_RECVD;
+        }
+        updatedMeta.reset(new ObjMetaData());
+        updatedMeta->initialize(objId, msg.objectData.size());
+    }
+
+    // Put data in store if we got data/metadata. We expect the data put to be atomic.
+    // If we crash after the writing the data but before writing
+    // the metadata, the orphaned object data will get cleaned up
+    // on a subsequent scavenger pass.
+    if (err.ok()) {
+        // new object in this SM, put object to data store
+        boost::shared_ptr<const std::string> objData = boost::make_shared<std::string>(
+            msg.objectData);
+
+        // we have to select tier based on volume policy with the highest tier policy
+        StorMgrVolume* selectVol = NULL;
+        for (auto volAssoc : msg.objectVolumeAssoc) {
+            fds_volid_t volId = volAssoc.volumeAssoc;
+            StorMgrVolume* vol = volumeTbl->getVolume(volId);
+            fds_assert(vol);  // SM must know about all volumes
+            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+                selectVol = vol;
+                break;   // ssd-only is highest media policy
+            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+                // we didn't find ssd-only volume yet, so potential candidate
+                // but we may see ssd-only volumes, so continue search
+                selectVol = vol;
+            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
+                if (selectVol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_HYBRID) {
+                    selectVol = vol;
+                }
+            } else if (!selectVol) {
+                selectVol = vol;
+            }
+        }
+
+        // select tier to put object
+        useTier = tierEngine->selectTier(objId, *selectVol->voldesc);
+
+        if (useTier == diskio::flashTier) {
+            fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
+                    objData->size(), tierEngine->getFlashFullThreshold());
+
+            if (!ssdSuccess) {
+                useTier = diskio::diskTier;
+            }
+        }
+
+        // put object to datastore
+        obj_phy_loc_t objPhyLoc;  // will be set by data store
+        err = dataStore->putObjectData(unknownVolId, objId, useTier, objData, objPhyLoc);
+        if (!err.ok()) {
+            LOGERROR << "Failed to write " << objId << " to obj data store "
+                     << err;
+            if (useTier == diskio::flashTier) {
+                diskMap->ssdTrackCapacityDelete(objId, objData->size());
+            }
+            return err;
+        }
+
+        // Notify tier engine of recent IO
+        tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *selectVol->voldesc, useTier);
+
+        // update physical location that we got from data store
+        updatedMeta->updatePhysLocation(&objPhyLoc);
+    }
+
+    // update metadata
+    // note that we are not updating assoc entry as with datapath put
+    // we are copying assoc entries from the msg and also copying ref count
+    updatedMeta->updateFromRebalanceDelta(msg);
+
+    // write metadata to metadata store
+    err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+
+    LOGDEBUG << "Applied object data/metadata to object store " << objId << " " << err;
+    return err;
+}
+
 void
 ObjectStore::snapshotMetadata(fds_token_id smTokId,
                               SmIoSnapshotObjectDB::CbType notifFn) {

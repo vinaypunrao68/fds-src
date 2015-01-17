@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element ){
+angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', '$authorization', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element, $authorization ){
     
     $scope.searchText = '';
     $scope.sortPredicate = '';
@@ -158,6 +158,7 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
     
     $scope.$watch( 'volumeVars.creating', function( newVal ){ if ( newVal === false ){ $volume_api.refresh(); }} );
 
+    $scope.isAllowed = $authorization.isAllowed;
     $volume_api.refresh();
 
 }]);
