@@ -979,6 +979,11 @@ VolumeInfo::vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr)
     }
     // We admitted modified policy.
     setDescription(*vdesc_ptr);
+    // store it in config db..
+    if (!gl_orch_mgr->getConfigDB()->addVolume(*vdesc_ptr)) {
+        LOGWARN << "unable to store volume info in to config db "
+                << "[" << vdesc_ptr->name << ":" <<vdesc_ptr->volUUID << "]";
+    }
     local->om_bcast_vol_modify(this);
     return err;
 }
