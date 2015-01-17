@@ -108,7 +108,7 @@ Error TimelineDB::removeOldJournalFiles(fds_volid_t volId, TimeStamp uptoTime,
     DECLARE_DB_VARS();
     Error err(ERR_OK);
     // get the latest file lesser than the upto time
-    sql = util::strformat("select starttime from journaltbl where volid=%ld and"
+    sql = util::strformat("select starttime from journaltbl where volid=%ld and "
                           "starttime <= %ld order by starttime desc limit 1",
                           uptoTime);
     TimeStamp startTime = 0;
