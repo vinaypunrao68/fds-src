@@ -353,6 +353,29 @@ function taillog() {
     esac
 }
 
+function showerrors() {
+    local apps="$@"
+    if [[ $1 == 'all' ]]; then
+        apps="am om dm sm pm"
+    fi
+    for app in ${apps}; do
+        loginfo "showing errors/warn/critical log data for : $app"
+        case "${app}" in
+            om|am|dm|sm)
+                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSROOT}/var/logs/${app}.log*.log 2>/dev/null
+                ;;
+            pm)
+                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSROOT}/var/logs/platform.log*.log 2>/dev/null
+                ;;
+            *)
+                logerror "can tail logs of only om|am|dm|sm|pm"
+                ;;
+        esac
+        echo
+    done
+}
+
+
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
         bin_dir=${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/${node}
@@ -491,7 +514,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail) ;;
+    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|error*) ;;
     *)
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -533,6 +556,9 @@ case "${CMD}" in
         ;;
     tail)
         taillog $APP
+        ;;
+    error*)
+        showerrors $APP
         ;;
     *) usage ;;
 esac
