@@ -110,6 +110,11 @@ public class SmokeTest {
                 .toString();
         userBucket = UUID.randomUUID()
                 .toString();
+
+        // print bucket names to help trace errors into the system logs.
+        System.out.println("    AdminBucket: " + adminBucket);
+        System.out.println("    UserBucket:  " + userBucket);
+
         snapBucket = "snap_" + userBucket;
         adminClient = s3Client(host, ADMIN_USERNAME, adminToken);
         userClient = s3Client(host, userName, userToken);

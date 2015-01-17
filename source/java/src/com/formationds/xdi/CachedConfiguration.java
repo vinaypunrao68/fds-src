@@ -64,7 +64,8 @@ public class CachedConfiguration {
     }
 
     public long tenantId(long userId) throws SecurityException {
-        return tenantsByUser.get(userId);
+        Long tid = tenantsByUser.get(userId);
+        return tid != null ? tid : 0;
     }
 
     public boolean hasAccess(long userId, String volumeName) {

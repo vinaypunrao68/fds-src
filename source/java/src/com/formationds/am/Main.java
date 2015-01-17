@@ -10,6 +10,10 @@ import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.util.thrift.OMConfigServiceClient;
+import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
+import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
@@ -77,8 +81,10 @@ public class Main {
 
         boolean useFakeAm = platformConfig.lookup("fds.am.memory_backend").booleanValue();
         String omHost = platformConfig.lookup("fds.am.om_ip").stringValue();
+        Integer omHttpPort = platformConfig.defaultInt("fds.om.http_port", 7777);
+        Integer omHttpsPort = platformConfig.defaultInt("fds.om.http_port", 7443);
+
         int omConfigPort = 9090;
-        int omLegacyConfigPort = platformConfig.lookup("fds.am.om_config_port").intValue();
 
         String amHost = platformConfig.lookup("fds.xdi.am_host").stringValue();
 
@@ -90,14 +96,30 @@ public class Main {
         Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
         Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
-        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
+        // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
+        // This will result XDI create/delete Volume requests to redirect to the OM REST Client.
+        // At this time all other requests continue to go through the XdiConfigurationApi (though
+        // we may need to modify it so other requests are intercepted and redirected through OM REST
+        // client in the future)
+        OMConfigServiceClient omConfigServiceRestClient =
+            new OMConfigServiceRestClientImpl(secretKey, "http", omHost, omHttpPort );
+        ConfigurationApi omCachedConfigProxy =
+            OMConfigurationServiceProxy.newOMConfigProxy( omConfigServiceRestClient,
+                                                          configCache);
+
+        Xdi xdi = new Xdi(am, omCachedConfigProxy, authenticator, authorizer);
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
         AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
         AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
 
-        Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, authorizer, configCache);
+        // TODO: should XdiAsync use omCachedConfigProxy too?
+        Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm,
+                                                                                  bbp,
+                                                                                  token,
+                                                                                  authorizer,
+                                                                                  configCache);
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port", 8000);
         int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port", 8443);

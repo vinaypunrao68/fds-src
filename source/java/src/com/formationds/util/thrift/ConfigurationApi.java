@@ -17,7 +17,8 @@ import java.util.Optional;
 /**
  * additional possibly-cached configuration read operations.
  */
-// TODO: may want to move this out of thrift utils and abstract from the thrift ConfigurationService
+// TODO: may want to move this out of thrift utils and abstract from the thrift
+// ConfigurationService
 public interface ConfigurationApi extends ConfigurationService.Iface {
 
     /**

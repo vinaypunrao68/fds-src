@@ -1,10 +1,12 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
 
 package com.formationds.om.webkit.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+import com.formationds.apis.ApiException;
+import com.formationds.apis.ErrorCode;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
@@ -65,7 +67,7 @@ public class CreateVolume
 
   @Override
   public Resource handle( Request request, Map<String, String> routeParameters )
-    throws Exception {
+      throws Exception {
 
       Volume volume;
       long volumeId = -1;
@@ -132,13 +134,29 @@ public class CreateVolume
       settings.setContCommitlogRetention( volume.getCommit_log_retention() );
 
       try {
-          configApi.createVolume( domainName,
-                                  volume.getName(),
-                                  settings,
-                                  authorizer.tenantId( token ) );
-      } catch( TException | SecurityException e ) {
+          configApi.createVolume(domainName,
+                                 volume.getName(),
+                                 settings,
+                                 authorizer.tenantId(token));
+      } catch( ApiException e ) {
 
-        logger.error( "CREATE::FAILED::" + e.getMessage(), e );
+          if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
+              volumeId = configApi.getVolumeId( volume.getName() );
+              if( volumeId > 0 ) {
+                  volume.setId(String.valueOf(volumeId));
+              }
+              return new TextResource(volume.toJSON());
+          }
+
+          logger.error( "CREATE::FAILED::" + e.getMessage(), e );
+
+          // allow dispatcher to handle
+          throw e;
+      } catch (TException | SecurityException se) {
+          logger.error( "CREATE::FAILED::" + se.getMessage(), se );
+
+          // allow dispatcher to handle
+          throw se;
       }
 
       volumeId = configApi.getVolumeId( volume.getName() );
@@ -160,38 +178,50 @@ public class CreateVolume
                */
               final List<String> volumeNames = new ArrayList<>();
 
+              // NOTE: at one point we were seeing OM core dumps when re-registering
+              // volumes for stats, so tried skipping the deregistration here and
+              // only registering the new volume.
+              // I am no longer seeing the OM core dumps so uncommenting this.
+              // TODO: revisit this.  Stats stream registration handling needs to be reworked and made sane.
               configApi.getStreamRegistrations( unused_argument )
                        .stream()
-                       .forEach( ( stream ) -> {
-                           volumeNames.addAll( stream.getVolume_names() );
+                       .forEach((stream) -> {
+                           volumeNames.addAll(stream.getVolume_names());
                            try {
-                               configApi.deregisterStream( stream.getId() );
-                           } catch( TException e ) {
-                               logger.error( "Failed to de-register volumes " +
-                                                 stream.getVolume_names() +
-                                                 " reason: " + e.getMessage() );
-                               logger.trace( "Failed to de-register volumes " +
-                                                 stream.getVolume_names(), e );
+                               logger.debug("De-registering stat stream {} for volumes: {}",
+                                            stream.getId(),
+                                            stream.getVolume_names());
+
+                               configApi.deregisterStream(stream.getId());
+                           } catch (TException e) {
+                               logger.error("Failed to de-register volumes " +
+                                            stream.getVolume_names() +
+                                            " reason: " + e.getMessage());
+                               logger.trace("Failed to de-register volumes " +
+                                            stream.getVolume_names(), e);
                            }
-                       } );
+                       });
+
               // first volume will never be registered
               if( !volumeNames.contains( volume.getName() ) ) {
                   volumeNames.add( volume.getName() );
               }
 
-              logger.trace( "registering {} for metadata streaming...",
-                            volumeNames );
-              try {
-                  configApi.registerStream( URL,
-                                            METHOD,
-                                            volumeNames,
-                                            FREQUENCY.intValue(),
-                                            DURATION.intValue() );
-              } catch( TException e ) {
-                  logger.error( "Failed to re-register volumes " +
-                                    volumeNames + " reason: " + e.getMessage() );
-                  logger.trace( "Failed to re-register volumes " +
-                                    volumeNames, e );
+              if (!volumeNames.isEmpty()) {
+                  try {
+                      logger.trace("registering {} for metadata streaming...",
+                                   volumeNames);
+                      configApi.registerStream(URL,
+                                               METHOD,
+                                               volumeNames,
+                                               FREQUENCY.intValue(),
+                                               DURATION.intValue());
+                  } catch (TException e) {
+                      logger.error("Failed to re-register volumes " +
+                                   volumeNames + " reason: " + e.getMessage());
+                      logger.trace("Failed to re-register volumes " +
+                                   volumeNames, e);
+                  }
               }
           }
 

@@ -3,6 +3,7 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.Xdi;
@@ -62,9 +63,12 @@ public class S3Endpoint {
         webApp.route(method, route, () -> (r, rp) -> {
             try {
                 AuthenticationToken token = new S3Authenticator(xdi, secretKey).authenticate(r);
+                AuthenticatedRequestContext.begin(token);
                 return errorHandler.apply(token).handle(r, rp);
             } catch (SecurityException e) {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", r.getRequestURI());
+            } finally {
+                AuthenticatedRequestContext.complete();
             }
         });
     }
