@@ -475,7 +475,8 @@ struct FDSP_VolumeDescType {
   26: common.ResourceState              state,
   27: i64                        contCommitlogRetention,
   28: i64                        timelineTime,
-  29: i64                        createTime
+  29: i64                        createTime,
+  30: i32                    iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed*/
 }
 
 struct FDSP_CreateDomainType {
