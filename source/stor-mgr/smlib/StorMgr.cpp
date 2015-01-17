@@ -964,6 +964,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
+        case FDS_SM_APPLY_DELTA_SET:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
@@ -1436,6 +1437,9 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
             threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
+            break;
+        case FDS_SM_APPLY_DELTA_SET:
+            threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
             break;
         case FDS_SM_SYNC_APPLY_METADATA:
         {
