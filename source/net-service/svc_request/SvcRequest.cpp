@@ -263,6 +263,12 @@ std::stringstream& SvcRequestIf::logSvcReqCommon_(std::stringstream &oss,
 void SvcRequestIf::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
                                   boost::shared_ptr<std::string>& payload)
 {
+    this->handleResponseImpl(header, payload);
+
+    // Don't cause a feedback loop if Om is down.
+    if (fpi::CtrlSvcEventTypeId == header->msg_type_id) {
+        return;
+    }
     switch (header->msg_code) {
         case ERR_SVC_REQUEST_TIMEOUT:
             {
@@ -280,7 +286,6 @@ void SvcRequestIf::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         default:
             break;
     }
-    this->handleResponseImpl(header, payload);
 }
 
 EPSvcRequest::EPSvcRequest()

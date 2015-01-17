@@ -149,7 +149,7 @@ void
 OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlSvcEvent> &msg)
 {
-    LOGDEBUG << " received " << msg->evt_msg_type_id
+    LOGDEBUG << " received " << msg->evt_code
              << " from:" << msg->evt_src_svc_uuid.svc_uuid;
 }
 
