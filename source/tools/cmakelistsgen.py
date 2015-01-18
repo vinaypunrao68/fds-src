@@ -1,19 +1,24 @@
+#!/usr/bin/python
+# This script is for generating CMakeLists.txt file for use with CLion.
 import argh
 import os
 import subprocess
 
 base_path = '../..'
 
-# src directories to index
+# src directories to index.  We look for .cpp, .c, .hpp files here.
+# Add more directories to look for source files if you need to.
 src_index_dirs = [
     'thrift-0.9.0/lib/cpp/src/thrift',
     'leveldb-1.15.0',
     'gmock-1.7.0',
     'source']
 
-# include directories to index
+# include directories to index.  Script uses this list for finding include folders.
+# Add more folders to look for 'include' directory here if you need to.
 include_index_dirs = [
-    'thrift-0.9.0',
+    # thrift is intentionally skipped to avoid including unnecessarey includes.
+    # It's added to include_list.  See below
     'leveldb-1.15.0',
     'gmock-1.7.0',
     'source']
@@ -23,9 +28,9 @@ include_index_dirs = [
 src_list = []
 
 # list of include directories with respect to base_path separated by new lines.
-# These will be populate by the script.  Add your custom ones here
+# These will be populate by the script.  Add your custom include directories here.
 include_list = [
-    'thrift-0.9.0/lib/cpp/src/thrift',
+    'thrift-0.9.0/lib/cpp/src',
     'source']
 
 def main():
@@ -35,10 +40,10 @@ def main():
     os.chdir(base_path)
     print 'current working directory: {}'.format(os.getcwd())
 
-    # find all sources
+    # find all sources.  Source are *.cpp, *.c, *.hpp
     for d in src_index_dirs:
         print 'Indexing src dir: {}'.format(d)
-        result = subprocess.check_output(['find', d , '-name', '*.c', '-or', '-name', '*.cpp'])
+        result = subprocess.check_output(['find', d , '-name', '*.c', '-or', '-name', '*.cpp', '-or', '-name', '*.hpp'])
         src_list += result.split()
 
     # get all the includes
