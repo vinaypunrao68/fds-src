@@ -67,6 +67,10 @@ enum  FDSPMsgTypeId {
     NodeEventTypeId                    = 1012,
     NodeWorkItemTypeId                 = 1013,
     PhaseSyncTypeId                    = 1014,
+    UpdateSvcMapMsgTypeId              = 1015,
+    GetSvcMapMsgTypeId                 = 1016,
+    GetSvcMapRespMsgTypeId             = 1017,
+
 
     /* Volume messages; common for AM, DM, SM. */
     CtrlNotifyVolAddTypeId             = 2020,
@@ -288,6 +292,21 @@ struct SvcInfo {
     3: required FDSP.FDSP_MgrIdType      svc_type,
     4: required ServiceStatus            svc_status,
     5: required string                   svc_auto_name,
+    6: i32                               incarnationNo;
+}
+
+/* Message to sent to update the service information */
+struct UpdateSvcMapMsg {
+    1: required list<SvcInfo>       updates;
+}
+
+/* Request for getting the service map */
+struct GetSvcMapMsg {
+}
+
+/* Reponse for GetSvcMap request */
+struct GetSvcMapRespMsg {
+    1: required list<SvcInfo>       svcMap;
 }
 
 /**
