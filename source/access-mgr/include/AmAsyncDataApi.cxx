@@ -23,6 +23,11 @@ namespace fds {
 extern boost::shared_ptr<apis::BlobDescriptor>
     transform_descriptor(boost::shared_ptr<BlobDescriptor> descriptor);
 
+template<typename T, typename C>
+boost::shared_ptr<AsyncResponseHandler<T, C>>
+create_async_handler(C&& c)
+{ return boost::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
+
 template<typename H>
 AmAsyncDataApi<H>::AmAsyncDataApi(response_ptr response_api)
 : responseApi(response_api)
@@ -49,8 +54,7 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
         p->attachVolumeResp(e, requestId);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<AttachCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<AttachCallback>(std::move(closure));
     storHvisor->enqueueAttachReq(*volumeName,
                                  SHARED_DYN_CAST(Callback, callback));
 }
@@ -71,8 +75,7 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
         p->volumeStatusResp(e, requestId, volume_status);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<GetVolumeMetaDataCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<GetVolumeMetaDataCallback>(std::move(closure));
     AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
                                                   *volumeName,
                                                   SHARED_DYN_CAST(Callback, callback));
@@ -94,8 +97,7 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
         p->volumeContentsResp(e, requestId, cb->vecBlobs);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<GetBucketCallback, 
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<GetBucketCallback>(std::move(closure));
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
                                                *volumeName,
                                                *count,
@@ -122,8 +124,7 @@ void AmAsyncDataApi<H>::statBlob(H& requestId,
         p->statBlobResp(e, requestId, retBlobDesc);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<StatBlobCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<StatBlobCallback>(std::move(closure));
     AmRequest *blobReq = new StatBlobReq(invalid_vol_id,
                                          *volumeName,
                                          *blobName,
@@ -145,8 +146,7 @@ void AmAsyncDataApi<H>::startBlobTx(H& requestId,
         p->startBlobTxResp(e, requestId, txDesc);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<StartBlobTxCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<StartBlobTxCallback>(std::move(closure));
     AmRequest *blobReq = new StartBlobTxReq(invalid_vol_id,
                                             *volumeName,
                                             *blobName,
@@ -171,8 +171,7 @@ void AmAsyncDataApi<H>::commitBlobTx(H& requestId,
         p->commitBlobTxResp(e, requestId);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<CommitBlobTxCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<CommitBlobTxCallback>(std::move(closure));
     AmRequest *blobReq = new CommitBlobTxReq(invalid_vol_id,
                                              *volumeName,
                                              *blobName,
@@ -197,8 +196,7 @@ void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
         p->abortBlobTxResp(e, requestId);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<AbortBlobTxCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<AbortBlobTxCallback>(std::move(closure));
     AmRequest *blobReq = new AbortBlobTxReq(invalid_vol_id,
                                             *volumeName,
                                             *blobName,
@@ -223,8 +221,7 @@ void AmAsyncDataApi<H>::getBlob(H& requestId,
         p->getBlobResp(e, requestId, cb->returnBuffer, cb->returnSize);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<GetObjectCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<GetObjectCallback>(std::move(closure));
     AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
                                        *volumeName,
                                        *blobName,
@@ -256,8 +253,7 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
                                          retBlobDesc);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<GetObjectWithMetadataCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<GetObjectWithMetadataCallback>(std::move(closure));
     GetBlobReq *blobReq= new GetBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
@@ -281,8 +277,7 @@ void AmAsyncDataApi<H>::updateMetadata(H& requestId,
         p->updateMetadataResp(e, requestId);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<UpdateMetadataCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<UpdateMetadataCallback>(std::move(closure));
     boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
     LOGDEBUG << "received updateMetadata cmd";
     fpi::FDSP_MetaDataPair metaPair;
@@ -324,8 +319,7 @@ void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
         p->updateBlobResp(e, requestId);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<UpdateBlobCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
@@ -363,8 +357,7 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
         p->updateBlobResp(e, requestId);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<UpdateBlobCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
@@ -394,8 +387,7 @@ void AmAsyncDataApi<H>::deleteBlob(H& requestId,
         p->deleteBlobResp(e, requestId);
     };
 
-    auto callback = boost::make_shared<AsyncResponseHandler<DeleteBlobCallback,
-                                                            decltype(closure)>>(closure);
+    auto callback = create_async_handler<DeleteBlobCallback>(std::move(closure));
     AmRequest *blobReq = new DeleteBlobReq(invalid_vol_id,
                                            *blobName,
                                            *volumeName,

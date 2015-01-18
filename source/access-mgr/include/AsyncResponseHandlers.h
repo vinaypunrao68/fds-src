@@ -16,8 +16,8 @@ struct AsyncResponseHandler :   public ResponseHandler,
 {
     typedef C proc_type;
 
-    explicit AsyncResponseHandler(proc_type& _proc_func)
-        : proc_func(_proc_func)
+    explicit AsyncResponseHandler(proc_type&& _proc_func)
+        : proc_func(std::forward<proc_type>(_proc_func))
     { type = HandlerType::IMMEDIATE; }
 
     void process()
