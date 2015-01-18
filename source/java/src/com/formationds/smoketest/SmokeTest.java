@@ -130,7 +130,22 @@ public class SmokeTest {
         testBucketExists(userBucket, false);
         testBucketExists(adminBucket, false);
     }
-    
+
+
+    // TODO: getting OM core dump in stream registration when deleting the buckets after each test.
+    // After removing the stream re-registration for all volumes when a volume is created in OM,
+    // now seeing an SM core dump in deleteObject (FS-730), so leaving commented out.
+    //    @After
+    //    public void tearDown() {
+    //        deleteBucketIgnoreErrors(userClient, userBucket);
+    //        deleteBucketIgnoreErrors(adminClient, adminBucket);
+    //    }
+    //
+    private void deleteBucketIgnoreErrors(AmazonS3Client client, String bucket) {
+        try { client.deleteBucket(bucket); }
+        catch (Exception ignored) {}
+    }
+
     public void testBucketExists(String bucketName, boolean fProgress) {
         if (fProgress) System.out.print("    Checking bucket exists [" + bucketName + "] ");
         assertEquals("bucket [" + bucketName + "] NOT active", true, checkBucketState(bucketName, true, 10, fProgress));
@@ -174,19 +189,41 @@ public class SmokeTest {
         }
     }
 
-    // @Test
+    //@Test
     public void testRecreateVolume() {
-        String bucketName = "test-recreate-bucket";
+        String bucketName = "test-recreate-bucket-"+userBucket;
         try {
+            try {
+                userClient.createBucket(bucketName);
+            } catch (AmazonS3Exception e) {
+                assertEquals("unknown error : " + e, 409, e.getStatusCode());
+            }
+            testBucketExists(bucketName, true);
+            userClient.deleteBucket(bucketName);
+            testBucketNotExists(bucketName, true);
             userClient.createBucket(bucketName);
-        } catch (AmazonS3Exception e) {
-            assertEquals("unknown error : " + e , 409, e.getStatusCode());
+            testBucketExists(bucketName, true);
+        } finally {
+            deleteBucketIgnoreErrors(adminClient,
+                                     bucketName);
         }
-        testBucketExists(bucketName, true);
-        userClient.deleteBucket(bucketName);
-        testBucketNotExists(bucketName, true);
-        userClient.createBucket(bucketName);
-        testBucketExists(bucketName, true);
+    }
+
+    @Test
+    public void testDeleteBucket() {
+        String bucketName = "test-delete-bucket-" + userBucket;
+        try {
+            try {
+                userClient.createBucket(bucketName);
+            } catch (AmazonS3Exception e) {
+                assertEquals("unknown error : " + e, 409, e.getStatusCode());
+            }
+            testBucketExists(bucketName, true);
+            userClient.deleteBucket(bucketName);
+            testBucketNotExists(bucketName, true);
+        } finally {
+            deleteBucketIgnoreErrors(adminClient, bucketName);
+        }
     }
 
     @Test
