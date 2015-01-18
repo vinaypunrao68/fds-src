@@ -1,4 +1,4 @@
-#! /bin/bash 
+#! /bin/bash
 usage() {
 cat << EOF
 Usage:
@@ -42,7 +42,7 @@ E() {
 }
 
 inventory="${1}"
-deploy_source="$2"
+deploy_source="${2}"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 ansible_base_dir="$( cd "${script_dir}/.." && pwd -P)"
 playbooks="${ansible_base_dir}/playbooks"
@@ -79,7 +79,7 @@ check_inventory() {
     fi
 
     D "Inventory File ${inventory} exists, continuing" 
-    ansible_args="${ansible_args} -i $inventory"
+    ansible_args="${ansible_args} -i ${inventory}"
 }
 
 check_auth() {
