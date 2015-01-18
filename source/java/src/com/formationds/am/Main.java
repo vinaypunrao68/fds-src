@@ -82,7 +82,7 @@ public class Main {
         boolean useFakeAm = platformConfig.lookup("fds.am.memory_backend").booleanValue();
         String omHost = platformConfig.lookup("fds.am.om_ip").stringValue();
         Integer omHttpPort = platformConfig.defaultInt("fds.om.http_port", 7777);
-        Integer omHttpsPort = platformConfig.defaultInt("fds.om.http_port", 7443);
+        Integer omHttpsPort = platformConfig.defaultInt("fds.om.https_port", 7443);
 
         int omConfigPort = 9090;
 
