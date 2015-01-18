@@ -62,7 +62,6 @@ namespace fds
 
         mod_intern = dep_mods;
         Platform::mod_init(param);
-        gSvcRequestPool = new SvcRequestPool();
         FdsConfigAccessor    conf(g_fdsprocess->get_conf_helper());
 
         disk_ctrl        = DiskPlatModule::dsk_plat_singleton();

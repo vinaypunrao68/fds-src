@@ -55,6 +55,8 @@ NetMgr::ep_get_task_executor() {
 int
 NetMgr::mod_init(SysParams const *const p)
 {
+    gSvcRequestPool = new SvcRequestPool();
+
     static Module *ep_mgr_mods[] = {
         gl_EpShmPlatLib,
         gl_NetPlatSvc,
