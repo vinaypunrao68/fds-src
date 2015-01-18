@@ -11,7 +11,7 @@ ${0##/*} ../foo/bar/inventories/cody-local-nodes local
 EOF
 }
 
-if [ $# -lt 2 ]; then 
+if [ $# -lt 2 ]; then
     usage
     exit 1
 fi
@@ -70,7 +70,7 @@ check_inventory() {
 
     if [[ ! ${inventory} =~ / ]]; then
         inventory=${ansible_base_dir}/inventory/${inventory}
-    fi    
+    fi
 
     [ -f ${inventory} ] || inventory_is_missing=1
 
@@ -78,7 +78,7 @@ check_inventory() {
         E "Inventory file ${inventory} does not exist."
     fi
 
-    D "Inventory File ${inventory} exists, continuing" 
+    D "Inventory File ${inventory} exists, continuing"
     ansible_args="${ansible_args} -i ${inventory}"
 }
 
