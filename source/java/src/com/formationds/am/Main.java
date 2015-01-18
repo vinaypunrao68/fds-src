@@ -37,8 +37,6 @@ import java.util.function.Function;
 public class Main {
     public static final int AM_BASE_RESPONSE_PORT = 9876;
     private static Logger LOG = Logger.getLogger(Main.class);
-    // key for managing the singleton EventManager.
-    private final Object eventMgrKey = new Object();
     private Configuration configuration;
 
     public static void main(String[] args) {
@@ -57,12 +55,6 @@ public class Main {
         ParsedConfig platformConfig = configuration.getPlatformConfig();
         byte[] keyBytes = Hex.decodeHex(platformConfig.lookup("fds.aes_key").stringValue().toCharArray());
         SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
-
-        // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
-        // I want to consolidate event management in a single process, but can't do that currently since the
-        // AM starts all of the data connectors other than the webapp driving the UI in the OM.
-//        EventRepository eventRepository = new EventRepository();
-//        EventManager.INSTANCE.initEventNotifier(eventMgrKey, (e) -> { return eventRepository.save(e) != null; });
 
         // Get the instance ID from either the config file or cmd line
         int amInstanceId = platformConfig.lookup("fds.am.instanceId").intValue();
@@ -91,7 +83,10 @@ public class Main {
         AmService.Iface am = useFakeAm ? new FakeAmService() :
                 clientFactory.remoteAmService(amHost, 9988 + amInstanceId);
 
-        XdiConfigurationApi configCache = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
+        XdiConfigurationApi configCache = new XdiConfigurationApi(clientFactory.remoteOmService(omHost,
+                                                                                                omConfigPort));
+        configCache.startCacheUpdaterThread();
+
         boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
         Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
         Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
@@ -129,7 +124,11 @@ public class Main {
         HttpConfiguration httpConfiguration = new HttpConfiguration(s3HttpPort, "0.0.0.0");
         HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort, configuration);
 
-        new Thread(() -> new S3Endpoint(xdi, factory, secretKey, httpsConfiguration, httpConfiguration).start(), "S3 service thread").start();
+        new Thread(() -> new S3Endpoint(xdi,
+                                        factory,
+                                        secretKey,
+                                        httpsConfiguration,
+                                        httpConfiguration).start(), "S3 service thread").start();
 
         startStreamingServer(8999 + amInstanceId, configCache);
 
