@@ -18,7 +18,7 @@ function message
 function check_xunit_failures
 {
 	message "Checking xunit output for failure"
-	grep -e 'failures="[1-9]"' `find source/cit/ -name '*.xml'`
+	grep -e 'failures="[1-9].*"' `find source/cit/ -name '*.xml'`
 	if [[ $? -eq 0 ]] ; then
 		echo "XUNIT FAILURES FOUND..."
 		EXIT=97
@@ -28,7 +28,7 @@ function check_xunit_failures
 function check_xunit_errors
 {
 	message "Checking xunit output for errors"
-	grep -e 'errors="[1-9]"' `find source/cit/ -name '*.xml'`
+	grep -e 'errors="[1-9].*"' `find source/cit/ -name '*.xml'`
 	if [[ $? -eq 0 ]] ; then
 		echo "XUNIT ERRORS FOUND..."
 		EXIT=97
