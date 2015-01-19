@@ -29,6 +29,8 @@ namespace FDS_ProtocolInterface {
 namespace FDS_ProtocolInterface {
 class PlatNetSvcClient;
 using PlatNetSvcClientPtr = boost::shared_ptr<PlatNetSvcClient>;
+class PlatNetSvcProcessor;
+using PlatNetSvcProcessorPtr = boost::shared_ptr<PlatNetSvcProcessor>;
 }
 namespace fpi = FDS_ProtocolInterface;
 
@@ -39,6 +41,7 @@ namespace tt  = apache::thrift::transport;
 namespace tp  = apache::thrift::protocol;
 
 class fds_mutex;
+struct SvcServer;
 struct SvcHandle;
 using SvcHandlePtr = boost::shared_ptr<SvcHandle>;
 using StringPtr = boost::shared_ptr<std::string>;
@@ -53,7 +56,7 @@ struct SvcUuidHash {
 * @brief Overall manager class for service layer
 */
 struct SvcMgr : public Module {
-    SvcMgr();
+    explicit SvcMgr(fpi::PlatNetSvcProcessorPtr processor);
     virtual ~SvcMgr();
 
     /* Module overrides */
@@ -98,12 +101,12 @@ struct SvcMgr : public Module {
     */
     bool getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) const;
 
-    /* This lock protects both svcMap_ and svcHandleMap_.  Both svcMap_ and svcHandleMap_ are
-     * typically used together
-     */
+    /* This lock protects svcHandleMap_ */
     fds_mutex svcHandleMapLock_;
     /* Map of service handles */
     std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash> svcHandleMap_;
+    /* Server that accepts service layer messages */
+    boost::shared_ptr<SvcServer> svcServer_;
 };
 
 /**

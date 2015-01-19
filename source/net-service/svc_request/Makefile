@@ -8,7 +8,8 @@ user_cpp         := \
 	SvcServer.cpp \
 	SvcRequestTracker.cpp \
 	SvcRequestPool.cpp \
-	SvcRequest.cpp
+	SvcRequest.cpp \
+	SvcProcess.cpp
 
 
 user_ar_libs     := fds-svc-request

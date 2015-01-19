@@ -109,6 +109,8 @@ fds: {
         }
         /* Service layer stanza */
         svc: {
+	    uuid = 10000
+	    port = 10000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -122,6 +124,19 @@ fds: {
     }
 
     dm: {
+        svc: {
+	    uuid = 10002
+	    port = 12000
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
 
         qos: {
@@ -205,6 +220,19 @@ fds: {
     }
 
     sm: {
+        svc: {
+	    uuid = 10001
+	    port = 12000
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
 
         /* process id */
@@ -333,6 +361,19 @@ fds: {
     }
 
     am: {
+        svc: {
+	    uuid = 10003
+	    port = 13000
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
 
         log_severity = "{{ am_log_severity }}"

@@ -13,14 +13,20 @@
 #include <fdsp_utils.h>
 #include <fds_module_provider.h>
 #include <net/SvcRequestPool.h>
+#include <net/SvcServer.h>
 #include <net/SvcMgr.h>
 
 namespace fds {
-SvcMgr::SvcMgr()
+SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor)
     : Module("SvcMgr")
 {
+    /* Create the server */
+    int port = gModuleProvider->get_conf_helper().get<int>("svc.port");
+    svcServer_ = boost::make_shared<SvcServer>(port, processor);
+
     // TODO(Rao): Don't make this global
     gSvcRequestPool = new SvcRequestPool();
+
 }
 
 SvcMgr::~SvcMgr()
