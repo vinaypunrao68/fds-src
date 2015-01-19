@@ -5,6 +5,10 @@
 #include <string>
 #include <sstream>
 #include <concurrency/Mutex.h>
+#include <arpa/inet.h>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <fdsp/PlatNetSvc.h>
+#include <net/fdssocket.h>
 #include <net/SvcMgr.h>
 #include <fdsp/fds_service_types.h>
 
@@ -78,7 +82,7 @@ void SvcMgr::sendAsyncSvcRequest(const fpi::SvcUuid &svcUuid,
         if (!getSvcHandle_(svcUuid, svcHandle)) {
             GLOGWARN << "Svc handle for svcuuid: " << svcUuid.svc_uuid << " not found";
             fds_panic("handle not found");
-            // TODO(Rao): Post an error, if it's tracked message
+            // TODO(Rao): Post an error, if it's a tracked message
             return;
         }
     }
@@ -104,9 +108,32 @@ SvcHandle::~SvcHandle()
 void SvcHandle::sendAsyncSvcRequest(fpi::AsyncHdrPtr &header,
                                     StringPtr &payload)
 {
-    fds_scoped_lock lock(lock_);
-    // TODO(Rao): Impl
-    fds_panic("Not impl");
+    bool bSendFailed = false;
+    do {
+        fds_scoped_lock lock(lock_);
+        if (isSvcDown_()) {
+            bSendFailed = true;
+            break;
+        }
+        try {
+            if (!svcClient_) {
+                allocSvcClient_();
+            }
+        } catch (std::exception &e) {
+            GLOGWARN << "Failed to send.  Excepction: " << e.what() << ".  "  << header;
+            bSendFailed = true;
+            markSvcDown_();
+        } catch (...) {
+            GLOGWARN << "Failed to send.  Unknown excepction." << header;
+            bSendFailed = true;
+            markSvcDown_();
+        }
+    } while (false);
+
+    if (bSendFailed) {
+        // TODO(Rao):  Post error
+        fds_panic("unimplemented");
+    }
 }
 
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
@@ -117,13 +144,13 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     if (svcInfo_.incarnationNo < newInfo.incarnationNo) {
         /* Update to new incaration information.  Invalidate the old rpc client */
         svcInfo_ = newInfo;
-        rpcClient_.reset();
+        svcClient_.reset();
         GLOGDEBUG << "Operation: update to new incarnation";
     } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
                newInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
         /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
         svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE; 
-        rpcClient_.reset();
+        svcClient_.reset();
         GLOGDEBUG << "Operation: set current incarnation as down";
     } else {
         GLOGDEBUG << "Operation: not applied";
@@ -145,6 +172,31 @@ std::string SvcHandle::logString(const fpi::SvcInfo &info)
         << " port: " << info.svc_port << " incarnation: " << info.incarnationNo
         << " status: " << info.svc_status;
     return ss.str();
+}
+
+void SvcHandle::allocSvcClient_()
+{
+    /* NOTE: Assumes this function is invoked under lock */
+    auto sock = bo::make_shared<net::Socket>(svcInfo_.ip, svcInfo_.svc_port);
+    auto trans = bo::make_shared<tt::TFramedTransport>(sock);
+    auto proto = bo::make_shared<tp::TBinaryProtocol>(trans);
+    svcClient_ = bo::make_shared<fpi::PlatNetSvcClient>(proto);
+    /* This may throw an exception.  Caller is expected to handle the exception */
+    sock->open();
+}
+
+bool SvcHandle::isSvcDown_() const
+{
+    /* NOTE: Assumes this function is invoked under lock */
+    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE;
+}
+
+void SvcHandle::markSvcDown_()
+{
+    /* NOTE: Assumes this function is invoked under lock */
+    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE;
+    svcClient_.reset();
+    GLOGDEBUG << logString();
 }
 
 }  // namespace fds

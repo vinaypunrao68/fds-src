@@ -26,6 +26,10 @@ namespace FDS_ProtocolInterface {
     using AsyncHdrPtr = boost::shared_ptr<AsyncHdr>;
 }  // namespace FDS_ProtocolInterface
 #endif
+namespace FDS_ProtocolInterface {
+class PlatNetSvcClient;
+using PlatNetSvcClientPtr = boost::shared_ptr<PlatNetSvcClient>;
+}
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
@@ -87,6 +91,7 @@ struct SvcMgr : public Module {
     * @return  True if handle is found
     */
     bool getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) const;
+
     /* This lock protects both svcMap_ and svcHandleMap_.  Both svcMap_ and svcHandleMap_ are
      * typically used together
      */
@@ -110,13 +115,17 @@ struct SvcHandle {
     std::string logString();
 
     static std::string logString(const fpi::SvcInfo &info);
+
  protected:
+    void allocSvcClient_();
+    bool isSvcDown_() const;
+    void markSvcDown_();
     /* Lock for protecting svcInfo_ and rpcClient_ */
     fds_mutex lock_;
     /* Service information */
     fpi::SvcInfo svcInfo_;
     /* Rpc client.  Typcially this is PlatNetSvcClient */
-    boost::shared_ptr<void> rpcClient_;
+    fpi::PlatNetSvcClientPtr svcClient_;
 };
 
 }  // namespace fds
