@@ -353,10 +353,10 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     LOGDEBUG << "Executing scavenger command " << scavCmd->command;
     switch (scavCmd->command) {
         case SmScavengerCmd::SCAV_ENABLE:
-            err = scavenger->enableScavenger(smDiskMap);
+            err = scavenger->enableScavenger(smDiskMap, scavCmd->initiator);
             break;
         case SmScavengerCmd::SCAV_DISABLE:
-            scavenger->disableScavenger();
+            scavenger->disableScavenger(scavCmd->initiator);
             break;
         case SmScavengerCmd::SCAV_START:
             scavenger->startScavengeProcess();

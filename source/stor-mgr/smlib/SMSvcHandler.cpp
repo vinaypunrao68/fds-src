@@ -70,18 +70,37 @@ void
 SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                 boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
 {
-    LOGDEBUG << "Received new migration init message";
+    LOGDEBUG << "Received Start Migration";
+
+    // first disable GC and Tier Migration
+    // Note that after disabling GC, GC work in QoS queue will still
+    // finish... however, there is no correctness issue if we are running
+    // GC job along with token migration, we just want to reduce the amount
+    // of system work we do at the same time (for now, we should be able
+    // to make it work running fully in parallel in the future).
+    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_DISABLE,
+                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_DISABLE);
+    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+
+    // start migration
+
+    startMigrationCb(asyncHdr, ERR_OK, migrationMsg->DLT_version);
+}
+
+void
+SMSvcHandler::startMigrationCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                               const Error &err,
+                               fds_uint64_t dltVersion)
+{
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
     fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
-    msg->status.DLT_version = migrationMsg->DLT_version;
+    msg->status.DLT_version = dltVersion;
     msg->status.context = 0;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyMigrationStatus), *msg);
-
-    // TODO(xxx): We need to be sure to unpack the source -> token list
-    // pairs correctly.
-    // Source will be an i64, and tokenids within each list will be i32s
-    // because Thrift has no notion of unsigned ints. These will need to
-    // be cast back to the unsigned equivalents
 }
 
 /**
@@ -94,6 +113,21 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     Error err(ERR_OK);
     LOGDEBUG << "Initiate Object Sync";
+
+    // first disable GC and Tier Migration. If this SM is also a destination and
+    // we already disabled GC and Tier Migration, disabling them again is a noop
+    // Note that after disabling GC, GC work in QoS queue will still
+    // finish... however, there is no correctness issue if we are running
+    // GC job along with token migration, we just want to reduce the amount
+    // of system work we do at the same time (for now, we should be able
+    // to make it work running fully in parallel in the future).
+    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_DISABLE,
+                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_DISABLE);
+    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+
+    // tell migration mgr to start object rebalance
     const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
     fds_verify(dlt != NULL);
     err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
@@ -682,7 +716,7 @@ SMSvcHandler::NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     Error err(ERR_OK);
     LOGNORMAL << " receive scavenger cmd " << msg->scavenger.cmd;
-    SmScavengerActionCmd scavCmd(msg->scavenger.cmd);
+    SmScavengerActionCmd scavCmd(msg->scavenger.cmd, SM_CMD_INITIATOR_USER);
     err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
 
     hdr->msg_code = 0;
@@ -715,26 +749,23 @@ void
 SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt)
 {
-    MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
-    close_req->sync_close_ts = get_fds_timestamp_ms();
+    LOGNOTIFY << "Receiving DLT Close";
 
-    FdsActorRequestPtr close_far(new FdsActorRequest(
-            FAR_ID(MigSvcSyncCloseReq), close_req));
+    // re-enable GC and Tier Migration
+    // If this SM did not receive start migration or rebalance
+    // message and GC and TierMigration were not disabled, this operation
+    // will be a noop
+    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
+                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
+    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 
-    objStorMgr->migrationSvc_->send_actor_request(close_far);
+    // TODO(Anna) notify token migration manager
 
-    GLOGNORMAL << "Received ioclose. Time: " << close_req->sync_close_ts;
-
-    /* It's possible no tokens were migrated.  In this we case we simulate
-     * MIGRATION_OP_COMPLETE.
-     */
-    if (objStorMgr->tok_migrated_for_dlt_ == false) {
-        LOGNORMAL << "Token migration complete";
-        LOGNORMAL << objStorMgr->migrationSvc_->mig_cntrs.toString();
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-        objStorMgr->tok_migrated_for_dlt_ = false;
-    }
-    // sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+    // send response
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+    objStorMgr->tok_migrated_for_dlt_ = false;
 }
 
 // NotifyDMTUpdate

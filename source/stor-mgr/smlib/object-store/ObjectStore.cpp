@@ -697,6 +697,23 @@ ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     return dataStore->scavengerControlCmd(scavCmd);
 }
 
+Error
+ObjectStore::tieringControlCmd(SmTieringCmd* tierCmd) {
+    Error err(ERR_OK);
+    LOGDEBUG << "Executing tiering command " << tierCmd->command;
+    switch (tierCmd->command) {
+        case SmTieringCmd::TIERING_ENABLE:
+            tierEngine->enableTierMigration();
+            break;
+        case SmTieringCmd::TIERING_DISABLE:
+            tierEngine->disableTierMigration();
+            break;
+        default:
+            fds_panic("Unknown tiering command");
+    }
+    return err;
+}
+
 fds_uint32_t
 ObjectStore::getDiskCount() const {
     return diskMap->getTotalDisks();
