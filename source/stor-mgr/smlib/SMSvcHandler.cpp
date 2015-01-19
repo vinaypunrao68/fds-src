@@ -564,8 +564,8 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                            boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg)
 {
     Error err;
-    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     VolumeDesc vdbc(vol_msg->vol_desc), * vdb = &vdbc;
+    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     GLOGNOTIFY << "Received modify for vol "
                << "[" << std::hex << volumeId << std::dec << ", "
                << vdb->getName() << "]";
