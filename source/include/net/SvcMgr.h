@@ -79,6 +79,12 @@ struct SvcMgr : public Module {
     */
     void sendAsyncSvcRequest(const fpi::SvcUuid &svcUuid,
                              fpi::AsyncHdrPtr &header, StringPtr &payload);
+    /**
+    * @brief For posting errors when we fail to send on service handle
+    *
+    * @param header
+    */
+    void postSvcSendError(fpi::AsyncHdrPtr &header);
 
  protected:
     /**

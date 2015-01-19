@@ -9,17 +9,23 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/fdssocket.h>
-#include <net/SvcMgr.h>
 #include <fdsp/fds_service_types.h>
+#include <fdsp_utils.h>
+#include <fds_module_provider.h>
+#include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 
 namespace fds {
 SvcMgr::SvcMgr()
     : Module("SvcMgr")
 {
+    // TODO(Rao): Don't make this global
+    gSvcRequestPool = new SvcRequestPool();
 }
 
 SvcMgr::~SvcMgr()
 {
+    delete gSvcRequestPool;
 }
 
 int SvcMgr::mod_init(SysParams const *const p)
@@ -77,16 +83,26 @@ void SvcMgr::sendAsyncSvcRequest(const fpi::SvcUuid &svcUuid,
                                  StringPtr &payload)
 {
     SvcHandlePtr svcHandle;
-    {
+    do {
         fds_scoped_lock lock(svcHandleMapLock_);
         if (!getSvcHandle_(svcUuid, svcHandle)) {
             GLOGWARN << "Svc handle for svcuuid: " << svcUuid.svc_uuid << " not found";
-            fds_panic("handle not found");
-            // TODO(Rao): Post an error, if it's a tracked message
-            return;
+            break;
         }
+    } while (false);
+
+    if (svcHandle) {
+        svcHandle->sendAsyncSvcRequest(header, payload);
+    } else {
+        postSvcSendError(header);
     }
-    svcHandle->sendAsyncSvcRequest(header, payload);
+}
+
+void SvcMgr::postSvcSendError(fpi::AsyncHdrPtr &header)
+{
+    swapAsyncHdr(header);
+    header->msg_code = ERR_SVC_REQUEST_INVOCATION;
+    gSvcRequestPool->postError(header);
 }
 
 SvcHandle::SvcHandle()
@@ -131,8 +147,7 @@ void SvcHandle::sendAsyncSvcRequest(fpi::AsyncHdrPtr &header,
     } while (false);
 
     if (bSendFailed) {
-        // TODO(Rao):  Post error
-        fds_panic("unimplemented");
+        gModuleProvider->getSvcMgr()->postSvcSendError(header);
     }
 }
 
