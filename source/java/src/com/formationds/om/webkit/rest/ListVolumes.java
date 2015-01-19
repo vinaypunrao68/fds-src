@@ -6,10 +6,12 @@ package com.formationds.om.webkit.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
+import FDS_ProtocolInterface.FDSP_MediaPolicy;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
 
 import com.formationds.apis.AmService;
+import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.Tenant;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeStatus;
@@ -20,6 +22,7 @@ import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.MediaPolicyConverter;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
@@ -35,6 +38,7 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
@@ -185,6 +189,10 @@ struct VolumeDescriptor {
 				o.put( "priority", volInfo.getRel_prio() );
 				o.put( "sla", volInfo.getIops_guarantee() );
 				o.put( "limit", volInfo.getIops_max() );
+				
+				MediaPolicy policy = MediaPolicyConverter.convertToMediaPolicy( volInfo.getMediaPolicy() );
+				o.put( "mediaPolicy", policy.name() );
+				
 				o.put( "commit_log_retention", volInfo.getContCommitlogRetention() );
 			}
 
@@ -206,7 +214,7 @@ struct VolumeDescriptor {
 					o.put( "data_connector", connector );
 				}
 
-				o.put( "mediaPolicy", v.getPolicy().getMediaPolicy().name() );
+//				o.put( "mediaPolicy", v.getPolicy().getMediaPolicy().name() );
 			}
 			
 			JSONObject fbObject = new JSONObject();

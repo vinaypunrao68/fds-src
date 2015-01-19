@@ -13,6 +13,7 @@ import FDS_ProtocolInterface.FDSP_VolumeDescType;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.om.helper.MediaPolicyConverter;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
@@ -82,11 +83,7 @@ public class SetVolumeQosParams implements RequestHandler {
     public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, int minIops, int priority, int maxIops, long logRetention, MediaPolicy mediaPolicy ) throws org.apache.thrift.TException {
         
     	// converting the com.formationds.api.MediaPolicy to the FDSP version
-    	FDSP_MediaPolicy fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD;
-    	
-    	if ( mediaPolicy != null && mediaPolicy.equals( MediaPolicy.SSD_ONLY ) ){
-    		fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD;
-    	}
+    	FDSP_MediaPolicy fdspMediaPolicy = MediaPolicyConverter.convertToFDSPMediaPolicy( mediaPolicy );
     	
     	FDSP_VolumeDescType volInfo = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeName, 0));
         volInfo.setIops_guarantee(minIops);
