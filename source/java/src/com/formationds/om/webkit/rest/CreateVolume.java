@@ -172,61 +172,6 @@ public class CreateVolume
                                            volume.getCommit_log_retention(),
                                            volume.getMediaPolicy() );
 
-          if( FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
-              /**
-               * there has to be a better way!
-               */
-              final List<String> volumeNames = new ArrayList<>();
-
-              // NOTE: at one point we were seeing OM core dumps when re-registering
-              // volumes for stats, so tried skipping the deregistration here and
-              // only registering the new volume.
-              // I am no longer seeing the OM core dumps so uncommenting this.
-              // TODO: revisit this.  Stats stream registration handling needs to be reworked and made sane.
-              configApi.getStreamRegistrations( unused_argument )
-                       .stream()
-                       .forEach( ( stream ) -> {
-                           volumeNames.addAll( stream.getVolume_names() );
-                           try {
-                               if ( logger.isDebugEnabled() ) {
-                                   logger.debug( "De-registering stat stream {} for volumes: {}",
-                                                 stream.getId(),
-                                                 stream.getVolume_names() );
-                               }
-
-                               configApi.deregisterStream( stream.getId() );
-                           } catch ( TException e ) {
-                               logger.error( "Failed to de-register volumes " +
-                                             stream.getVolume_names() +
-                                             " reason: " + e.getMessage() );
-                               logger.trace( "Failed to de-register volumes " +
-                                             stream.getVolume_names(), e );
-                           }
-                       } );
-
-              // first volume will never be registered
-              if ( !volumeNames.contains( volume.getName() ) ) {
-                  volumeNames.add( volume.getName() );
-              }
-
-              if ( !volumeNames.isEmpty() ) {
-                  try {
-                      logger.trace( "registering {} for metadata streaming...",
-                                    volumeNames );
-                      configApi.registerStream( URL,
-                                                METHOD,
-                                                volumeNames,
-                                                FREQUENCY.intValue(),
-                                                DURATION.intValue() );
-                  } catch ( TException e ) {
-                      logger.error( "Failed to re-register volumes " +
-                                    volumeNames + " reason: " + e.getMessage() );
-                      logger.trace( "Failed to re-register volumes " +
-                                    volumeNames, e );
-                  }
-              }
-          }
-
           return new TextResource( volume.toJSON() );
       }
 

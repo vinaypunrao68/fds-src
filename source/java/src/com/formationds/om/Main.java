@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
@@ -34,8 +34,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-
-import static com.formationds.om.events.EventManager.INSTANCE;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger( Main.class );
@@ -75,7 +73,7 @@ public class Main {
         logger.trace( "FDS-ROOT: " + System.getProperty( "fds-root" ) );
 
         logger.trace("Starting native OM");
-        NativeOm.startOm(args);
+        NativeOm.startOm( args );
 
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
@@ -96,24 +94,25 @@ public class Main {
         // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
         // alternatively, we could initialize it with an empty event notifier or disabled flag and not log the
         // initial first-time bootstrap of the admin user as an event.
-        logger.trace("Initializing repository event notifier.");
-        INSTANCE.initEventNotifier(
-            eventMgrKey,
-            ( e ) -> {
+        logger.trace( "Initializing repository event notifier." );
+        EventManager.INSTANCE
+                    .initEventNotifier(
+                                        eventMgrKey,
+                                        ( e ) -> {
 
-                SnmpManager.instance().notify( e );
+                                            SnmpManager.instance().notify( e );
 
-                return ( SingletonRepositoryManager.instance()
-                                                   .getEventRepository()
-                                                   .save( e ) != null );
-            }
-        );
+                                            return (SingletonRepositoryManager.instance()
+                                                                              .getEventRepository()
+                                                                              .save( e ) != null);
+                                        }
+                    );
 
         if(FdsFeatureToggles.FIREBREAK_EVENT.isActive()) {
 
             logger.trace("Firebreak events feature is enabled.  Initializing repository firebreak callback.");
             // initialize the firebreak event listener (callback from repository persist)
-            INSTANCE.initEventListeners();
+            EventManager.INSTANCE.initEventListeners();
 
         } else {
 
@@ -135,12 +134,17 @@ public class Main {
         String omHost = "localhost";
         int omPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
         String webDir = platformConfig.defaultString( "fds.om.web_dir",
-                                          "../lib/admin-webapp" );
+                                                      "../lib/admin-webapp" );
 
         FDSP_ConfigPathReq.Iface legacyConfigClient = ConfigServiceClientFactory.newLegacyConfigService(omHost, omPort)
                                                                                 .getClient();
         SingletonLegacyConfig.instance()
                              .api( legacyConfigClient );
+
+
+        // create and start the statistics stream registration handler to manage stat
+        // stream register/deregister requests
+        configCache.startStatStreamRegistrationHandler();
 
         byte[] keyBytes = Hex.decodeHex( platformConfig.lookup( "fds.aes_key" )
                                                        .stringValue()
