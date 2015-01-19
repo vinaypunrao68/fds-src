@@ -31,6 +31,8 @@ class PlatNetSvcClient;
 using PlatNetSvcClientPtr = boost::shared_ptr<PlatNetSvcClient>;
 class PlatNetSvcProcessor;
 using PlatNetSvcProcessorPtr = boost::shared_ptr<PlatNetSvcProcessor>;
+class OMSvcClient;
+using OMSvcClientPtr = boost::shared_ptr<OMSvcClient>;
 }
 namespace fpi = FDS_ProtocolInterface;
 
@@ -89,6 +91,30 @@ struct SvcMgr : public Module {
     */
     void postSvcSendError(fpi::AsyncHdrPtr &header);
 
+    /**
+    * @brief Returns svc base uuid
+    */
+    fpi::SvcUuid getSvcUuid() const;
+
+    /**
+    * @brief Return svc port
+    */
+    int getSvcPort() const;
+
+    /**
+    * @brief Constructs new client against OM and returns it.  This call will block until
+    * connection aginst OM succeeds.
+    * Client can cache the returned OM rpc handle.  Client is responsible for handling
+    * disconnects and reconnects.  Service layer will not do this for you.  If you use
+    * svc handle async interfaces service layer will handle disconnects/reconnects.
+    * Primary use case for this call is during registration with OM.  All other interactions
+    * with OM should go through sendAsyncSvcRequest()
+    * NOTE: This call always creates brand new connection against OM.
+    *
+    * @return OMSvcClient
+    */
+    fpi::OMSvcClientPtr getNewOMSvcClient() const;
+
  protected:
     /**
     * @brief For getting service handle.
@@ -107,6 +133,10 @@ struct SvcMgr : public Module {
     std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash> svcHandleMap_;
     /* Server that accepts service layer messages */
     boost::shared_ptr<SvcServer> svcServer_;
+    /* Service base uuid */
+    fpi::SvcUuid svcUuid_;
+    /* Service port */
+    int port_;
 };
 
 /**

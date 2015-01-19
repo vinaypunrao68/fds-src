@@ -21,8 +21,9 @@ SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor)
     : Module("SvcMgr")
 {
     /* Create the server */
-    int port = gModuleProvider->get_conf_helper().get<int>("svc.port");
-    svcServer_ = boost::make_shared<SvcServer>(port, processor);
+    svcUuid_.svc_uuid= gModuleProvider->get_conf_helper().get<int64_t>("svc.uuid");
+    port_ = gModuleProvider->get_conf_helper().get<int>("svc.port");
+    svcServer_ = boost::make_shared<SvcServer>(port_, processor);
 
     // TODO(Rao): Don't make this global
     gSvcRequestPool = new SvcRequestPool();
@@ -37,6 +38,9 @@ SvcMgr::~SvcMgr()
 int SvcMgr::mod_init(SysParams const *const p)
 {
     GLOGNOTIFY;
+
+    svcServer_->start();
+
     return 0;
 }
 
@@ -109,6 +113,23 @@ void SvcMgr::postSvcSendError(fpi::AsyncHdrPtr &header)
     swapAsyncHdr(header);
     header->msg_code = ERR_SVC_REQUEST_INVOCATION;
     gSvcRequestPool->postError(header);
+}
+
+fpi::SvcUuid SvcMgr::getSvcUuid() const
+{
+    return svcUuid_;
+}
+
+int SvcMgr::getSvcPort() const
+{
+    return port_;
+}
+
+fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
+{
+    // TODO(Rao): return om client
+    fds_panic("Not implemented");
+    return nullptr;
 }
 
 SvcHandle::SvcHandle()
