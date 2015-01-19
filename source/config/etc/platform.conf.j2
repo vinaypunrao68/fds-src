@@ -216,6 +216,9 @@ fds: {
         objectstore: {
             /* Size of the hashed task synchronizer */
             synchronizer_size = 100
+            faults: {
+                fail_writes = 0.0
+            }
         }
         cache: {
             /* Default max number of data cache entries */
