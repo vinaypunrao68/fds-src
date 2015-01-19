@@ -70,6 +70,7 @@ public class HdfsSmokeTest {
         contents[size - 1] = 42;
         createWithContent(p, contents);
         FileStatus st = fileSystem.getFileStatus(p);
+        System.out.println(st.getBlockSize());
         assertEquals(size, (int) st.getLen());
         byte[] result = org.apache.commons.io.IOUtils.toByteArray(fileSystem.open(p));
         assertArrayEquals(contents, result);
