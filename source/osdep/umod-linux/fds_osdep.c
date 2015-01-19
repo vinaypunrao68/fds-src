@@ -11,6 +11,7 @@
 #include <fds_assert.h>
 #include <shared/fds_types.h>
 #include <syslog.h>
+#include <stdlib.h>
 
 #define STACK_TRACE_SIZE             (32)
 
