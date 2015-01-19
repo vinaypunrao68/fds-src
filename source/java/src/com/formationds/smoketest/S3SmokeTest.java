@@ -1,6 +1,8 @@
 package com.formationds.smoketest;
 
+import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.redshift.model.BucketNotFoundException;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
@@ -49,24 +51,24 @@ public class S3SmokeTest {
             return new Random();
         } else {
             switch (rngClassName) {
-            case "java.util.Random":
-                return new Random();
-            case "java.security.SecureRandom":
-                return new SecureRandom();
-            case "java.util.concurrent.ThreadLocalRandom":
-                throw new IllegalArgumentException(
-                        "ThreadLocalRandom is not supported - can't instantiate (must use ThreadLocalRandom.current())");
-            default:
-                try {
-                    Class<?> rngClass = Class.forName(rngClassName);
-                    return (Random) rngClass.newInstance();
-                } catch (ClassNotFoundException | InstantiationException
-                        | IllegalAccessException cnfe) {
-                    throw new IllegalStateException(
-                            "Failed to instantiate Random implementation specified by \""
-                                    + RNG_CLASS + "\"system property: "
-                                    + rngClassName, cnfe);
-                }
+                case "java.util.Random":
+                    return new Random();
+                case "java.security.SecureRandom":
+                    return new SecureRandom();
+                case "java.util.concurrent.ThreadLocalRandom":
+                    throw new IllegalArgumentException(
+                            "ThreadLocalRandom is not supported - can't instantiate (must use ThreadLocalRandom.current())");
+                default:
+                    try {
+                        Class<?> rngClass = Class.forName(rngClassName);
+                        return (Random) rngClass.newInstance();
+                    } catch (ClassNotFoundException | InstantiationException
+                            | IllegalAccessException cnfe) {
+                        throw new IllegalStateException(
+                                "Failed to instantiate Random implementation specified by \""
+                                        + RNG_CLASS + "\"system property: "
+                                        + rngClassName, cnfe);
+                    }
             }
         }
     }
@@ -177,7 +179,7 @@ public class S3SmokeTest {
             if ((fBucketExists != fAppear) && count > 0) {
                 sleep(1000);
             }
-        } while ( (fBucketExists != fAppear) && count > 0);
+        } while ((fBucketExists != fAppear) && count > 0);
         return fBucketExists == fAppear;
     }
 
@@ -223,6 +225,12 @@ public class S3SmokeTest {
         } finally {
             deleteBucketIgnoreErrors(adminClient, bucketName);
         }
+    }
+
+    @Test(expected = BucketNotFoundException.class)
+    public void testMissingBucketReturnsFourOfFour() {
+        String missingBucket = UUID.randomUUID().toString();
+        userClient.listObjects(missingBucket);
     }
 
     @Test
