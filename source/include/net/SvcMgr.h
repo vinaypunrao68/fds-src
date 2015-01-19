@@ -118,7 +118,7 @@ struct SvcHandle {
 
     void updateSvcHandle(const fpi::SvcInfo &newInfo);
 
-    std::string logString();
+    std::string logString() const;
 
     static std::string logString(const fpi::SvcInfo &info);
 

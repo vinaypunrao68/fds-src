@@ -174,7 +174,7 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     GLOGDEBUG << "After update: " << logString();
 }
 
-std::string SvcHandle::logString()
+std::string SvcHandle::logString() const
 {
     /* NOTE: not protected by lock */
     return logString(svcInfo_);
