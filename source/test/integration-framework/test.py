@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Command line argument for'
                                                  ' the integration framework')
     parser.add_argument('-u', '--inventory', help='add an inventory')
-    parser.add_argument('-t', '--type', default='baremetal', help='aws or baremetal')
+    parser.add_argument('-t', '--type', default='integration-framework-cluster',
+                        help='aws or baremetal')
     args = parser.parse_args()
     main(args)
