@@ -137,7 +137,6 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
             return (new Date( ms )).toLocaleDateString();
         }
         
-        value = value.toFixed( 2 );
         var str = value + ' ';
         
         switch( unit ){
