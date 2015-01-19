@@ -16,6 +16,9 @@
 #include <syslog.h>
 #include <execinfo.h>
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 namespace fds {
 
 /* Processwide globals from fds_process.h */
@@ -159,6 +162,30 @@ void FdsProcess::init(int argc, char *argv[],
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
+
+    /* detect the core file size limit and print to log */
+    struct rlimit crlim;
+    int ret = getrlimit(RLIMIT_CORE, &crlim);
+    if (-1 == ret) {
+        LOGERROR << "getrlimit(RLIMIT_CORE) failed with errno " << errno;
+    } else {
+        LOGNOTIFY << "current rlimit(RLIMIT_CORE): soft limit " << crlim.rlim_cur
+                  << ", hard limit " << crlim.rlim_max;
+        if ((crlim.rlim_cur != RLIM_INFINITY) ||
+            (crlim.rlim_max != RLIM_INFINITY)) {
+
+            struct rlimit newcrlim;
+            newcrlim.rlim_cur = RLIM_INFINITY;
+            newcrlim.rlim_max = RLIM_INFINITY;
+            int ret = setrlimit(RLIMIT_CORE, &newcrlim);
+            if (-1 == ret) {
+                LOGERROR << "setrlimit(RLIMIT_CORE) failed with errno " << errno;
+            } else {
+                LOGNOTIFY << "rlimit(RLIMIT_CORE) is set to infinity";
+            }
+        }
+    }
+
 }
 
 FdsProcess::~FdsProcess()
@@ -340,7 +367,7 @@ FdsProcess::atExitHandler()
         symbolString += symStrings[i];
     }
 
-    syslog(LOG_NOTICE, "Exiting...%s", symbolString.c_str());
+    syslog(LOG_NOTICE, "FDS_PROC Exiting...%s", symbolString.c_str());
 }
 
 void
@@ -425,9 +452,9 @@ void FdsProcess::daemonize() {
             }
         } else {
             ret = close(i);
-            if (-1 == ret) {
-                LOGERROR << "Error on closing old open file descriptors: errno " << errno;
-            }
+            /* intentionally ignoring return value. some file descriptor may not be
+             * open for closing.  not all entries in the dtable is populated.
+             */
         }
     }
 

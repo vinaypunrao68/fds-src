@@ -46,6 +46,10 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
     PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlPerfStats> &msg);
 
+    virtual void
+    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlSvcEvent> &msg);
+
   protected:
     OM_NodeDomainMod         *om_mod;
 };

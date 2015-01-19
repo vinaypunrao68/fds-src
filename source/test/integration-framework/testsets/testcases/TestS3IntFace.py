@@ -665,12 +665,6 @@ class TestS3DelBucketKeys(testcase.FDSTestCase):
                 self.log.error("Unexpected keys remaining in bucket: %s" %
                                key.name)
                 return False
-            s3.conn.delete_bucket('fds_test_bucket_01')
-            if s3.conn.lookup('fds_test_bucket_01') != None:
-                self.log.error("Unexpected bucket: fds_test_bucket_01")
-                return False
-
-            s3.bucket1 = None
             return True
 
 
