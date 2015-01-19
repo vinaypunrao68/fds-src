@@ -57,7 +57,7 @@ class SmScavengerCmd {
 class SmScavengerActionCmd: public SmScavengerCmd {
   public:
     explicit SmScavengerActionCmd(const fpi::FDSP_ScavengerCmd& cmd,
-                         SmCommandInitiator who) : initiator(who) {
+                         SmCommandInitiator who) {
         switch (cmd) {
             case fpi::FDSP_SCAVENGER_ENABLE:
                 command = SCAV_ENABLE;
@@ -74,6 +74,7 @@ class SmScavengerActionCmd: public SmScavengerCmd {
             default:
                 fds_panic("Unknown scavenger command");
         }
+        initiator = who;
     }
 };
 
@@ -143,10 +144,10 @@ class SmTieringCmd {
   public:
     enum CommandType {
         TIERING_ENABLE,
-        TIERING_DISABLE
+        TIERING_DISABLE,
         TIERING_CMD_NOT_SET
     };
-    SmScavengerCmd() : command(TIERING_CMD_NOT_SET) {}
+    SmTieringCmd() : command(TIERING_CMD_NOT_SET) {}
     explicit SmTieringCmd(CommandType cmd) : command(cmd) {}
 
     CommandType command;

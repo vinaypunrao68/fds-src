@@ -70,6 +70,7 @@ void
 SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                 boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
 {
+    Error err(ERR_OK);
     LOGDEBUG << "Received Start Migration";
 
     // first disable GC and Tier Migration
@@ -81,13 +82,34 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_DISABLE,
                                  SM_CMD_INITIATOR_TOKEN_MIGRATION);
     err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    if (!err.ok()) {
+        LOGERROR << "Failed to disable Scavenger; failing token migration";
+        startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
+        return;
+    }
 
     SmTieringCmd tierCmd(SmTieringCmd::TIERING_DISABLE);
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+    if (!err.ok()) {
+        LOGERROR << "Failed to disable Tier Migration; failing token migration";
+        startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
+        return;
+    }
 
     // start migration
+    const DLT* dlt = objStorMgr->getDLT();
+    if (dlt != NULL) {
+        // err = objStorMgr->migrationMgr->startMigration(migrationMsg,
+        //                                                dlt->getNumBitsForToken());
+    } else {
+        LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "
+                 << " called on addition of the first set of SMs to the domain";
+        err = ERR_INVALID_DLT;
+    }
 
-    startMigrationCb(asyncHdr, ERR_OK, migrationMsg->DLT_version);
+    // TODO(Anna) for now callig callback right away, because start migration
+    // not called yet; do cb only on error normally
+    startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
 }
 
 void
@@ -757,11 +779,12 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // will be a noop
     SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
                                  SM_CMD_INITIATOR_TOKEN_MIGRATION);
-    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
     SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 
-    // TODO(Anna) notify token migration manager
+    // notify token migration manager
+    err = objStorMgr->migrationMgr->handleDltClose();
 
     // send response
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
