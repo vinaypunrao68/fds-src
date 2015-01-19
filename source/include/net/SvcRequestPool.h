@@ -58,6 +58,9 @@ class SvcRequestPool {
  protected:
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);
 
+    template<typename T>
+    T get_config(std::string const& option);
+
     /* align it to 64, so atomic doesn't share with cacheline with other
      * vars.  This is to prevent false-sharing and cache ping-pong.
      */

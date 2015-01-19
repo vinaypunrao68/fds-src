@@ -29,8 +29,6 @@ namespace fds
         rpc = na_owner->node_svc_rpc(&eph);
         rpc->notifyNodeInfo(ret, *msg, true);
 
-        std::cout << "Got " << ret.size() << " elements back" << std::endl;
-
         net_plat = NetPlatform::nplat_singleton(); \
 
         for (auto it = ret.cbegin(); it != ret.cend(); it++)

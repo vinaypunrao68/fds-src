@@ -233,8 +233,8 @@ struct SvcRequestIf {
 
     virtual void invoke2() = 0;
 
-    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) = 0;
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload);
 
     virtual void complete(const Error& error);
 
@@ -302,6 +302,11 @@ struct SvcRequestIf {
     SvcRequestCompletionCb completionCb_;
     /* Minor version */
     int minor_version;
+
+ private:
+    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) = 0;
+
 };
 typedef boost::shared_ptr<SvcRequestIf> SvcRequestIfPtr;
 
@@ -336,9 +341,6 @@ struct EPSvcRequest : SvcRequestIf {
 
     virtual void invoke2() override;
 
-    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
-
     virtual std::string logString() override;
 
     fpi::SvcUuid getPeerEpId() const;
@@ -355,6 +357,11 @@ struct EPSvcRequest : SvcRequestIf {
 
     friend class FailoverSvcRequest;
     friend class QuorumSvcRequest;
+
+ private:
+    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
+
 };
 typedef boost::shared_ptr<EPSvcRequest> EPSvcRequestPtr;
 
@@ -402,9 +409,6 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
 
     virtual void invoke2() override;
 
-    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
-
     virtual std::string logString() override;
 
     void onResponseCb(FailoverSvcRequestRespCb cb);
@@ -419,6 +423,10 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
 
     /* Response callback */
     FailoverSvcRequestRespCb respCb_;
+
+ private:
+    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
 };
 typedef boost::shared_ptr<FailoverSvcRequest> FailoverSvcRequestPtr;
 
@@ -444,9 +452,6 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
 
     virtual void invoke2() override;
 
-    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
-
     virtual std::string logString() override;
 
     void setQuorumCnt(const uint32_t cnt);
@@ -460,6 +465,11 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
     uint32_t errorAckd_;
     uint32_t quorumCnt_;
     QuorumSvcRequestRespCb respCb_;
+
+ private:
+    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
+
 };
 typedef boost::shared_ptr<QuorumSvcRequest> QuorumSvcRequestPtr;
 }  // namespace fds
