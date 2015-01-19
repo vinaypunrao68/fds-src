@@ -23,8 +23,7 @@ struct GetBlobReq: public AmRequest {
                const std::string& _blob_name,
                CallbackPtr cb,
                fds_uint64_t _blob_offset,
-               fds_uint64_t _data_len,
-               char* _data_buf = nullptr);
+               fds_uint64_t _data_len);
 
     ~GetBlobReq();
 };
