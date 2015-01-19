@@ -102,6 +102,14 @@ struct SvcMgr : public Module {
     int getSvcPort() const;
 
     /**
+    * @brief Return om ip, port
+    *
+    * @param omIp
+    * @param port
+    */
+    void getOmIPPort(std::string &omIp, int &port);
+
+    /**
     * @brief Constructs new client against OM and returns it.  This call will block until
     * connection aginst OM succeeds.
     * Client can cache the returned OM rpc handle.  Client is responsible for handling
@@ -115,6 +123,20 @@ struct SvcMgr : public Module {
     */
     fpi::OMSvcClientPtr getNewOMSvcClient() const;
 
+    /**
+    * @brief allocates thrift rpc client
+    *
+    * @tparam T
+    * @param ip
+    * @param port
+    * @param blockOnConnect - if set, will block until connection succeeds
+    *
+    * @return 
+    */
+    template<class T>
+    static boost::shared_ptr<T> allocRpcClient(const std::string ip,
+                                               const int &port,
+                                               const bool &blockOnConnect = false);
  protected:
     /**
     * @brief For getting service handle.
@@ -131,13 +153,29 @@ struct SvcMgr : public Module {
     fds_mutex svcHandleMapLock_;
     /* Map of service handles */
     std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash> svcHandleMap_;
+
     /* Server that accepts service layer messages */
     boost::shared_ptr<SvcServer> svcServer_;
+
+    /* OM details */
+    std::string omIp_;
+    int omPort_;
+    fpi::SvcUuid omSvcUuid_;
+
     /* Service base uuid */
     fpi::SvcUuid svcUuid_;
     /* Service port */
     int port_;
 };
+template<>
+boost::shared_ptr<fpi::PlatNetSvcClient> SvcMgr::allocRpcClient(
+    const std::string ip,
+    const int &port,
+    const bool &blockOnConnect);
+template<>
+boost::shared_ptr<fpi::OMSvcClient> SvcMgr::allocRpcClient(const std::string ip,
+                                                                  const int &port,
+                                                                  const bool &blockOnConnect);
 
 /**
 * @brief Wrapper around service information and service rpc client.
@@ -156,7 +194,6 @@ struct SvcHandle {
     static std::string logString(const fpi::SvcInfo &info);
 
  protected:
-    void allocSvcClient_();
     bool isSvcDown_() const;
     void markSvcDown_();
     /* Lock for protecting svcInfo_ and rpcClient_ */

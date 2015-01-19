@@ -58,7 +58,7 @@ NetMgr::ep_get_task_executor() {
 int
 NetMgr::mod_init(SysParams const *const p)
 {
-    svcMgr = new SvcMgr();
+    svcMgr = new SvcMgr(nullptr);
     static Module *ep_mgr_mods[] = {
         svcMgr,
         gl_EpShmPlatLib,

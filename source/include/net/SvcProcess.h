@@ -1,8 +1,8 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_SVCPROCESS_H_
-#define SOURCE_INCLUDE_SVCPROCESS_H_
+#ifndef SOURCE_INCLUDE_NET_SVCPROCESS_H_
+#define SOURCE_INCLUDE_NET_SVCPROCESS_H_
 
 #include <boost/shared_ptr.hpp>
 
@@ -83,4 +83,4 @@ struct SvcProcess : FdsProcess {
     boost::shared_ptr<SvcMgr> svcMgr_;
 };
 }  // namespace fds
-#endif  // SOURCE_INCLUDE_SVCPROCESS_H_
+#endif  // SOURCE_INCLUDE_NET_SVCPROCESS_H_
