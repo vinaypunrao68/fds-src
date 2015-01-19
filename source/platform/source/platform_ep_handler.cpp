@@ -172,7 +172,7 @@ namespace fds
 
             local = Platform::platf_singleton()->plf_node_inventory();
             local->dc_foreach_pm(&info);
-            std::cout << "Sent back " << info.rs_iter_count() << std::endl;
+            LOGNORMAL << "Sent back " << info.rs_iter_count() << std::endl;
         }
     }
 

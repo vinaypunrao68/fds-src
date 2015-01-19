@@ -143,7 +143,6 @@ namespace fds
             }
         }else {
             LOGNOTIFY << "Auto start services is off, wait for manual start...";
-            std::cout << "Auto start services is off, wait for manual start..." << std::endl;
         }
     }
 

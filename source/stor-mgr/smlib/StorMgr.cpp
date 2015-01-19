@@ -964,6 +964,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
+        case FDS_SM_APPLY_DELTA_SET:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
@@ -1178,6 +1179,35 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
 
     delete cobjs_req;
+}
+
+void
+ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
+{
+    Error err(ERR_OK);
+    SmIoApplyObjRebalDeltaSet* rebalReq = static_cast<SmIoApplyObjRebalDeltaSet*>(ioReq);
+    fds_assert(rebalReq != NULL);
+
+    for (fds_uint32_t i = 0; i < (rebalReq->deltaSet).size(); ++i) {
+        const fpi::CtrlObjectMetaDataPropagate& objDataMeta = (rebalReq->deltaSet)[i];
+        ObjectID objId(ObjectID(objDataMeta.objectID.digest));
+
+        err = objectStore->applyObjectMetadataData(objId, objDataMeta);
+        if (!err.ok()) {
+            // we will stop applying object metadata/data and report error to migr mgr
+            LOGERROR << "Failed to apply object metadata/data " << objId
+                     << ", " << err;
+            break;
+        }
+    }
+
+    // mark request as complete
+    qosCtrl->markIODone(*rebalReq, diskio::diskTier);
+
+    // notify migration executor we are done with this request
+    rebalReq->smioObjdeltaRespCb(err, rebalReq);
+
+    delete rebalReq;
 }
 
 void
@@ -1407,6 +1437,9 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
             threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
+            break;
+        case FDS_SM_APPLY_DELTA_SET:
+            threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
             break;
         case FDS_SM_SYNC_APPLY_METADATA:
         {

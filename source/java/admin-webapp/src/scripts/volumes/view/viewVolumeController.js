@@ -158,7 +158,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         var now = new Date();
         
         capacityQuery = StatQueryFilter.create( [$scope.volume], 
-            [StatQueryFilter.LOGICAL_CAPACITY, StatQueryFilter.PHYSICAL_CAPACITY], 
+            [StatQueryFilter.PHYSICAL_CAPACITY,StatQueryFilter.LOGICAL_CAPACITY], 
             Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
         
@@ -213,7 +213,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.qos.capacity = $scope.thisVolume.sla;
         $scope.qos.limit = $scope.thisVolume.limit;
         $scope.qos.priority = $scope.thisVolume.priority;
-//        $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
+        $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
     };
     
     // when we get shown, get all the snapshots and policies.  THen do the chugging
@@ -302,7 +302,8 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         var temp = $scope.thisVolume;
         
-        if( !angular.isDefined( $scope.thisVolume.id ) ){
+        if( !angular.isDefined( $scope.thisVolume.mediaPolicy ) ||
+          !angular.isDefined( $scope.thisVolume.id ) ){
             return;
         }
         

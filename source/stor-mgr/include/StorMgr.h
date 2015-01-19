@@ -339,6 +339,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void readObjectMetadataInternal(SmIoReq* ioReq);
      void compactObjectsInternal(SmIoReq* ioReq);
      void moveTierObjectsInternal(SmIoReq* ioReq);
+     void applyRebalanceDeltaSet(SmIoReq* ioReq);
 
      void handleDltUpdate();
 
