@@ -14,6 +14,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -95,11 +96,18 @@ public class Configuration {
 
     private void initJaas(File fdsRoot) {
         try {
-            Path jaasConfig = Paths.get(fdsRoot.getCanonicalPath(), "etc", "auth.conf");
-            URL configUrl = jaasConfig.toFile().toURL();
-            System.setProperty("java.security.auth.login.config", configUrl.toExternalForm());
-        } catch (IOException e) {
+
+            Path jaasConfig = Paths.get( fdsRoot.getCanonicalPath(),
+                                         "etc",
+                                         "auth.conf" );
+            URL configUrl = jaasConfig.toFile().toURI().toURL();
+            System.setProperty( "java.security.auth.login.config",
+                                configUrl.toExternalForm() );
+
+        } catch( IOException e ) {
+
             throw new RuntimeException(e);
+
         }
     }
 
@@ -108,8 +116,10 @@ public class Configuration {
     }
 
     public ParsedConfig getPlatformConfig() {
+
         Path path = Paths.get(getFdsRoot(), "etc", "platform.conf");
         return getParserFacade(path);
+
     }
 
     /**
@@ -118,15 +128,21 @@ public class Configuration {
      */
     @Deprecated
     public ParsedConfig getDemoConfig() {
-        Path path = Paths.get(getFdsRoot(), "etc", "demo.conf");
+
+        Path path = Paths.get( getFdsRoot(), "etc", "demo.conf" );
         return getParserFacade(path);
+
     }
 
-    private ParsedConfig getParserFacade(Path path) {
+    private ParsedConfig getParserFacade( final Path path ) {
         try {
+
             return new ParsedConfig(Files.newInputStream(path));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+        } catch( ParseException | IOException e ) {
+
+            throw new RuntimeException( e );
+
         }
     }
 }
