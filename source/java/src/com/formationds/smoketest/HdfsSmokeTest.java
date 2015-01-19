@@ -1,15 +1,9 @@
 package com.formationds.smoketest;
 
-import com.formationds.apis.AmService;
-import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.MediaPolicy;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
+import com.formationds.apis.*;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
-
-import org.apache.commons.compress.utils.IOUtils;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.FileSystem;
 import org.junit.After;
@@ -277,8 +271,11 @@ public class HdfsSmokeTest {
     @Before
     public void setUpIntegration() throws Exception {
         XdiClientFactory xdiCf = new XdiClientFactory();
-        ConfigurationService.Iface cs = xdiCf.remoteOmService("localhost", 9090);
-        AmService.Iface am = xdiCf.remoteAmService("localhost", 9988);
+        String host = (String) System.getProperties()
+                .getOrDefault("fds.host", "localhost");
+
+        ConfigurationService.Iface cs = xdiCf.remoteOmService(host, 9090);
+        AmService.Iface am = xdiCf.remoteAmService(host, 9988);
 
         String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
         String userName = "hdfs-user-" + UUID.randomUUID().toString();
