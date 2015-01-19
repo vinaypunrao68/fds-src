@@ -53,7 +53,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
         long start = System.currentTimeMillis();
         try {
             if (logger.isTraceEnabled()) {
-                logger.trace(String.format("CONFIGPROXY::START: %s(%s)",
+                logger.trace(String.format("CONFIGPROXY::START:  %s(%s)",
                                            method.getName(),
                                            Arrays.toString(args)));
             }
@@ -107,7 +107,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
             }
         } finally {
             if (logger.isTraceEnabled()) {
-                logger.trace(String.format("CONFIGPROXY::COMPLETED: %s(%s) in %s ms",
+                logger.trace(String.format("CONFIGPROXY::COMPLETE: %s(%s) in %s ms",
                                            method.getName(),
                                            Arrays.toString(args),
                                            System.currentTimeMillis() - start));
@@ -116,22 +116,54 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
     }
 
     private void doCreateVolume(Object... args) throws OMConfigException {
-        AuthenticationToken token = AuthenticatedRequestContext.getToken();
-        String domain = (String)args[0];
-        String name = (String)args[1];
-        VolumeSettings volumeSettings = (VolumeSettings)args[2];
-        long tenantId = (Long)args[3];
-        omConfigServiceClient.createVolume(token,
-                                           domain,
-                                           name,
-                                           volumeSettings,
-                                           tenantId);
+        if (logger.isTraceEnabled()) {
+            logger.trace(String.format("CONFIGPROXY::HTTP::%9s %s(%s)",
+                                       "START:",
+                                       "createVolume",
+                                       Arrays.toString(args)));
+        }
+
+        try {
+            AuthenticationToken token = AuthenticatedRequestContext.getToken();
+            String domain = (String) args[0];
+            String name = (String) args[1];
+            VolumeSettings volumeSettings = (VolumeSettings) args[2];
+            long tenantId = (Long) args[3];
+            omConfigServiceClient.createVolume( token,
+                                                domain,
+                                                name,
+                                                volumeSettings,
+                                                tenantId );
+        } finally {
+            if (logger.isTraceEnabled()) {
+                logger.trace(String.format("CONFIGPROXY::HTTP::%9s %s(%s)",
+                                           "COMPLETE:",
+                                           "createVolume",
+                                           Arrays.toString(args)));
+            }
+        }
     }
 
     private void doDeleteVolume(Object... args) throws OMConfigException {
-        AuthenticationToken token = AuthenticatedRequestContext.getToken();
-        String domain = (String)args[0];
-        String name = (String)args[1];
-        omConfigServiceClient.deleteVolume(token, domain, name);
+        if (logger.isTraceEnabled()) {
+            logger.trace(String.format("CONFIGPROXY::HTTP::%9s %s(%s)",
+                                       "START:",
+                                       "deleteVolume",
+                                       Arrays.toString(args)));
+        }
+
+        try {
+            AuthenticationToken token = AuthenticatedRequestContext.getToken();
+            String domain = (String)args[0];
+            String name = (String)args[1];
+            omConfigServiceClient.deleteVolume(token, domain, name);
+        } finally {
+            if (logger.isTraceEnabled()) {
+                logger.trace(String.format( "CONFIGPROXY::HTTP::%9s %s(%s)",
+                                            "COMPLETE:",
+                                            "deleteVolume",
+                                            Arrays.toString(args)));
+            }
+        }
     }
 }
