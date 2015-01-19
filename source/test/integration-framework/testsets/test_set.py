@@ -12,7 +12,6 @@ import config
 import graph
 import testcase
 import testcases
-from symbol import parameters
 
 
 class TestSet(object):
@@ -63,7 +62,8 @@ class TestSet(object):
         fmodule = self.__process_module(test_cases['file'])
         module = importlib.import_module("testsets.testcases.%s" % fmodule)
         my_class = getattr(module, test_cases['name'])
-        instance = my_class(parameters=None)
+        instance = my_class(parameters=test_cases['parameters'], 
+                            config_file=test_cases['config'])
         self.log.info("Adding test case: %s" % test_cases['name'])
         self.log.info("Adding file name: %s" % test_cases['file'])
         self.suite.addTest(instance)
