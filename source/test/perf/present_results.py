@@ -355,10 +355,6 @@ if __name__ == "__main__":
                 # print indices, [iops[i] for i in indices]
                 indices = [i for i, x in enumerate(conns) if x == 100]
                 iops_100 = max([iops_get_mean[i] for i in indices])
-                print indices
-                print [conns[i] for i in indices]
-                print [threads[i] for i in indices]
-                print [outstanding[i] for i in indices]
                 index = iops_get_mean.index(iops_100)
                 assert index in indices
                 lat_100 = lat[index]

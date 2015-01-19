@@ -90,11 +90,25 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.capacityItems = [{number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
             {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
         
-        if ( angular.isDefined( secondsToFull ) ){
+        if ( angular.isDefined( secondsToFull )){
             
             var convertedStr = $time_converter.convertToTime( secondsToFull*1000 );
             var parts = convertedStr.split( ' ' );
-            $scope.capacityItems.push( {number: parseFloat( parts[0] ), description: $filter( 'translate' )( 'status.desc_time_to_full' ), suffix: parts[1].toLowerCase() } );
+            
+            var fullInfo = {
+                number: parseFloat( parts[0] ), 
+                description: $filter( 'translate' )( 'status.desc_time_to_full' ), 
+                suffix: parts[1].toLowerCase() 
+            };
+            
+            // longer than 10 years
+            if ( secondsToFull > (10*365*24*60*60) ){
+                fullInfo.number = $filter( 'translate' )( 'common.l_never' );
+                fullInfo.description = '';
+                fullInfo.suffix = '';
+            }
+
+            $scope.capacityItems.push( fullInfo );
             $scope.capacityLimit = totalCapacity;
         }
     };

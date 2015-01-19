@@ -2,6 +2,7 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
 
     $scope.addingnode = false;
     $scope.nodes = $node_service.nodes;
+    $scope.sortPredicate = 'node_name';
 
     $scope.addNode = function(){
         $scope.systemVars.next( 'addNode' );

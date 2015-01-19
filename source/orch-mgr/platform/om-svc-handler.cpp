@@ -34,6 +34,7 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDeleteBucket, DeleteBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
 }
 
 // om_svc_state_chg
@@ -142,6 +143,14 @@ OmSvcHandler::    PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     extern OrchMgr *gl_orch_mgr;
     gl_orch_mgr->NotifyPerfstats(hdr, &msg->perfstats);
+}
+
+void
+OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlSvcEvent> &msg)
+{
+    LOGDEBUG << " received " << msg->evt_code
+             << " from:" << msg->evt_src_svc_uuid.svc_uuid;
 }
 
 }  //  namespace fds

@@ -1,56 +1,60 @@
 <div ng-controller="systemController">
 
-    <div class="col-xs-12 node-list front-page">
-        <div class="header">
-            <span class="light-print" translate>system.l_nodes</span>
-            <a data-href="/nodes/new" class="pull-right" ng-click="addNode()" translate>system.l_add_node</a>
+    <!-- Real stuff -->
+    <div class="nodecontainer">
+
+        <div class="nodes">
+            <span>{{name}}</span>
+            <span class="header pull-left" style="margin-right: 24px;" translate>system.l_nodes</span>
+            <fui-input style="width: 350px;" class="form-control pull-left" ng-model="searchText" placeholder="{{ 'common.l_search' | translate }}" icon-class="icon-search tall-icon-fix"></fui-input>
+
+            <a ng-click="addNode()" class="add_node pull-right btn btn-primary" translate>system.l_add_node</a>
         </div>
-        <div class="nodes-container table-container">
+        
+        <!-- actual table -->
+        <div class="table-container">
             <table class="default">
                 <thead>
-                    <th></th>
-                    <th translate>system.th_node_name</th>
-                    <th translate>system.th_site</th>
-                    <th translate>system.th_local_domain</th>
-                    <th translate>system.th_hw</th>
-                    <th translate>system.th_om</th>
-                    <th translate>system.th_sm</th>
-                    <th translate>system.th_dm</th>
-                    <th translate>system.th_am</th>
+                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'node_name' ) !== -1 }" tool-tip text="{{ 'system.tt_node_name' | translate }}">
+                        <sort-helper ng-model="sortPredicate" value="node_name">{{ 'system.th_node_name' | translate }}</sort-helper>
+                    </th>
+<!--
+                    <th><div translate>system.th_site</div></th>
+                    <th><div translate>system.th_local_domain</div></th>
+-->
+                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'am' ) !== -1 && sortPredicate.length < 4 }" tool-tip text="{{ 'system.tt_am' | translate }}">
+                        <sort-helper ng-model="sortPredicate" value="am">{{ 'system.th_am' | translate }}</sort-helper>
+                    </th>
+                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'hw' ) !== -1 }" tool-tip text="{{ 'system.tt_pm' | translate }}">
+                        <sort-helper ng-model="sortPredicate" value="hw">{{ 'system.th_pm' | translate }}</sort-helper>
+                    </th>
+                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'om' ) !== -1 }" tool-tip text="{{ 'system.tt_om' | translate }}">
+                        <sort-helper ng-model="sortPredicate" value="om">{{ 'system.th_om' | translate }}</sort-helper>
+                    </th>
+                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'sm' ) !== -1 }" tool-tip text="{{ 'system.tt_sm' | translate }}">
+                        <sort-helper ng-model="sortPredicate" value="sm">{{ 'system.th_sm' | translate }}</sort-helper>
+                    </th>
+                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'dm' ) !== -1 }" tool-tip text="{{ 'system.tt_dm' | translate }}">
+                        <sort-helper ng-model="sortPredicate" value="dm">{{ 'system.th_dm' | translate }}</sort-helper>
+                    </th>
+
                     <th></th>
                 </thead>
                 <tbody>
-                    <tr ng-repeat="node in nodes" class="node-item" >
-                        <td>
-                            <span class="{{getOverallStatus( node )}}"></span>
-                        </td>
+                    <tr ng-repeat="node in nodes | filter:searchText | orderBy:sortPredicate:reverse" class="node-item" >
                         <td>{{node.node_name}}</td>
+<!--
                         <td>{{node.site}}</td>
                         <td>{{node.domain}}</td>
-
+-->
+                        <td><span class="{{getStatus( node.am )}}"></span></td>
                         <td><span class="{{getStatus( node.hw )}}"></span></td>
                         <td><span class="{{getStatus( node.om )}}"></span></td>
                         <td><span class="{{getStatus( node.sm )}}"></span></td>
                         <td><span class="{{getStatus( node.dm )}}"></span></td>
-                        <td><span class="{{getStatus( node.am )}}"></span></td>
-                    </tr>
-                                        <tr ng-repeat="node in nodes" class="node-item" >
-                        <td>
-                            <span class="{{getOverallStatus( node )}}"></span>
-                        </td>
-                        <td>{{node.node_name}}</td>
-                        <td>{{node.site}}</td>
-                        <td>{{node.domain}}</td>
-
-                        <td><span class="{{getStatus( node.hw )}}"></span></td>
-                        <td><span class="{{getStatus( node.om )}}"></span></td>
-                        <td><span class="{{getStatus( node.sm )}}"></span></td>
-                        <td><span class="{{getStatus( node.dm )}}"></span></td>
-                        <td><span class="{{getStatus( node.am )}}"></span></td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </div>
-
 </div>
