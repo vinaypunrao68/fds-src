@@ -76,5 +76,7 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual void notify_node_event(fpi::AsyncHdrPtr &hdr, fpi::NodeEventPtr &m);
 };
 
+using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_PLATNETSVCHANDLER_H_

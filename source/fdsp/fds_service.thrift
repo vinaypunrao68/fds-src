@@ -279,8 +279,7 @@ struct NodeInfoMsgList {
 enum ServiceStatus {
     SVC_STATUS_INVALID      = 0x0000,
     SVC_STATUS_ACTIVE       = 0x0001,
-    SVC_STATUS_INACTIVE     = 0x0002,
-    SVC_STATUS_IN_ERR       = 0x0004
+    SVC_STATUS_INACTIVE     = 0x0002
 }
 
 /**
@@ -292,7 +291,10 @@ struct SvcInfo {
     3: required FDSP.FDSP_MgrIdType      svc_type,
     4: required ServiceStatus            svc_status,
     5: required string                   svc_auto_name,
-    6: i32                               incarnationNo;
+    // TODO(Rao): We should make these required.  They aren't made required as of this writing
+    // because it can break existing code.
+    6: string				 ip;
+    7: i32                               incarnationNo;
 }
 
 /* Message to sent to update the service information */
