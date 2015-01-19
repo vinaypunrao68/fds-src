@@ -284,6 +284,7 @@ TEST_F(DmUnitTest, GetBucket) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
     auto message = SvcMsgFactory::newGetBucketMsg(dmTester->TESTVOLID, 0);
+    message->pattern = ".*test.*";
     auto dmRequest = new DmIoGetBucket(message);
 
     dmRequest->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);

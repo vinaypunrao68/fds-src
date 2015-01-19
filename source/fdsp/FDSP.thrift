@@ -276,7 +276,6 @@ struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId
 struct FDSP_BlobInfoType{
   1: string blob_name,
   2: i64 blob_size,
-  3: i32 mime_type,
   4: required map<string, string> metadata
 }
 
