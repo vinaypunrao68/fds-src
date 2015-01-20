@@ -21,32 +21,31 @@ fds: {
     /* Feature toggles, use "common:" for features that propogate across components */
     feature_toggle: {
         common: {
-            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
 
-            java_is_fussy_an_entry_must_exist_here = true
+            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
         }
         plat: {
+
             use_disk_hints = {{ ft_platform_use_disk_hints }}
             force_simulation_mode = {{ ft_platform_force_simulation_mode }}
-
-            java_is_fussy_an_entry_must_exist_here = true
         }
         dm: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         sm: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         am: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         om: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
+
 {% if om_ip_count != empty_om_list %}
 {% set hosts = groups[group_names[0]] %}
 {% for i in range(om_ip_count|int) %}
@@ -55,8 +54,6 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
-
-        java_is_fussy_an_entry_must_exist_here = true
     }
 
     plat: {
