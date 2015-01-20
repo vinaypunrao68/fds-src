@@ -30,6 +30,16 @@ public class ListObjects implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
+
+        // [FS-745] We must return 404 if the bucket doesn't exist, regardless of authentication status.
+        // Amazon S3 treats the existence (or non-existence) of a bucket as a public resource.
+        // XDI implements the Brewer-Nash model for volumes, so we need to bypass authorization for this
+        // Tested in S3SmokeTest.testMissingBucketReturnsFourOfFour.
+
+        if (!xdi.volumeExists(S3Endpoint.FDS_S3, bucket)) {
+            return new S3Failure(S3Failure.ErrorCode.NoSuchBucket, "No such bucket", bucket);
+        }
+
         List<BlobDescriptor> contents = xdi.volumeContents(token, S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
 
         XmlElement result = new XmlElement("ListBucketResult")

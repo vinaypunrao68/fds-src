@@ -2,7 +2,6 @@ package com.formationds.smoketest;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.redshift.model.BucketNotFoundException;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
@@ -10,7 +9,6 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
-
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -227,10 +225,20 @@ public class S3SmokeTest {
         }
     }
 
-    @Test(expected = BucketNotFoundException.class)
+    @Test
     public void testMissingBucketReturnsFourOfFour() {
         String missingBucket = UUID.randomUUID().toString();
-        userClient.listObjects(missingBucket);
+        try {
+            userClient.listObjects(missingBucket);
+        } catch (AmazonClientException e) {
+            // Not very nice, but AmazonClientExceptions don't expose any details of the underlying HTTP transaction
+            String error = e.toString();
+            assertTrue(error.contains("404"));
+            assertTrue(error.contains("NoSuchBucket"));
+            return;
+        }
+
+        fail("Should have gotten an AmazonClientException!");
     }
 
     @Test
