@@ -592,7 +592,6 @@ set(SOURCE_FILES
     source/access-mgr/amlib/handlers/responsehandler.cpp
     source/access-mgr/amlib/AccessMgr.cpp
     source/access-mgr/amlib/am-tx-mgr.cpp
-    source/access-mgr/amlib/AmAsyncDataApi.cpp
     source/access-mgr/amlib/AmAsyncResponseApi.cpp
     source/access-mgr/amlib/AmAsyncService.cpp
     source/access-mgr/amlib/AmCache.cpp
