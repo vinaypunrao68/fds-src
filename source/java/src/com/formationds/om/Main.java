@@ -12,8 +12,8 @@ import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
-import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.snmp.TrapSend;
 import com.formationds.om.webkit.WebKitImpl;
 import com.formationds.security.Authenticator;
@@ -80,18 +80,6 @@ public class Main {
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
 
-        Assignment snmpTarget;
-        try {
-
-            snmpTarget = platformConfig.lookup( TrapSend.SNMP_TARGET_KEY );
-            System.setProperty( TrapSend.SNMP_TARGET_KEY,
-                                snmpTarget.stringValue() );
-
-        } catch( RuntimeException e ) {
-
-            logger.error( e.getMessage() );
-
-        }
 
         // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
         // alternatively, we could initialize it with an empty event notifier or disabled flag and not log the
@@ -101,7 +89,18 @@ public class Main {
             eventMgrKey,
             ( e ) -> {
 
-                SnmpManager.instance().notify( e );
+                Assignment snmpTarget =
+                    platformConfig.lookup( TrapSend.SNMP_TARGET_KEY );
+                if( snmpTarget.getValue().isPresent() ) {
+                    System.setProperty( TrapSend.SNMP_TARGET_KEY,
+                                        snmpTarget.stringValue() );
+                    SnmpManager.instance()
+                               .notify( e );
+                } else {
+                    SnmpManager.instance()
+                               .disable( SnmpManager.DisableReason
+                                             .MISSING_CONFIG );
+                }
 
                 return ( SingletonRepositoryManager.instance()
                                                    .getEventRepository()

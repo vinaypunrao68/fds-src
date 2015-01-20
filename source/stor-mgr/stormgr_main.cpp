@@ -28,6 +28,12 @@ class SMMain : public PlatformProcess
             nullptr
         };
 
+         /* Before calling init, close all file descriptors.  Later, we may daemonize the
+         * process, in which case we may be closing all existing file descriptors while
+         * threads may access the file descriptor.
+         */
+        closeAllFDs();
+
         /* Init platform process */
         init(argc, argv, "fds.sm.", "sm.log", &gl_SmPlatform, smVec);
 
