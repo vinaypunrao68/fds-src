@@ -33,7 +33,7 @@ class DltTimeoutEvt
   public:
     DltTimeoutEvt() {}
     std::string logString() const {
-        return "DltWaitingEvt";
+        return "DltTimeoutEvt";
     }
 };
 

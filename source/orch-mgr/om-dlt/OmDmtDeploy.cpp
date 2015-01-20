@@ -40,7 +40,14 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
 
         virtual void runTimerTask() override;
     };
+    class WaitingTimerTask: public FdsTimerTask {
+      public:
+        explicit WaitingTimerTask(FdsTimer &timer)  // NOLINT
+                : FdsTimerTask(timer) {}
+        ~WaitingTimerTask() {}
 
+        virtual void runTimerTask() override;
+    };
     /**
      * OM DMT Deployment states.
      */
@@ -55,6 +62,32 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGDEBUG << "DST_Idle. Evt: " << e.logString();
         }
+    };
+    struct DST_Waiting : public msm::front::state<>
+    {
+        DST_Waiting() : waitingTimer(new FdsTimer()),
+                        waitingTimerTask(
+                                new WaitingTimerTask(*waitingTimer)) {}
+
+        ~DST_Waiting() {
+            waitingTimer->destroy();
+        }
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+        }
+
+        /**
+        * timer to retry re-compute DLT
+        */
+        FdsTimerPtr waitingTimer;
+        FdsTimerTaskPtr waitingTimerTask;
     };
     struct DST_Compute : public msm::front::state<>
     {
@@ -204,6 +237,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_Waiting
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     /**
      * Guard conditions.
      */
@@ -245,10 +283,12 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     // +------------------+----------------+-------------+---------------+--------------+
     // | Start            | Event          | Next        | Action        | Guard        |
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Idle    , DmtDeployEvt   , DST_Compute , DACT_Start   , GRD_DplyStart >,
-    msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_BcastAM , DACT_Commit  ,  msf::none  >,
+    msf::Row< DST_Idle    , DmtDeployEvt   , DST_Waiting , DACT_Waiting  , GRD_DplyStart>,
+    msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_BcastAM , DACT_Commit   ,   msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Compute , DmtVolAckEvt   , DST_Commit  , DACT_Compute, GRD_DmtCompute >,
+    msf::Row< DST_Waiting , DmtTimeoutEvt  , DST_Compute , DACT_Start    ,  msf::none   >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_Compute , DmtVolAckEvt   , DST_Commit  , DACT_Compute  ,GRD_DmtCompute>,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Commit , DmtPushMetaAckEvt, DST_BcastAM, DACT_Commit   , GRD_Commit   >,
     // +------------------+----------------+-------------+---------------+--------------+
@@ -313,6 +353,13 @@ OM_DMTMod::dmt_deploy_curr_state()
 //
 void
 OM_DMTMod::dmt_deploy_event(DmtDeployEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dmt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DMTMod::dmt_deploy_event(DmtTimeoutEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
     dmt_dply_fsm->process_event(evt);
@@ -386,6 +433,12 @@ void DmtDplyFSM::RetryTimerTask::runTimerTask()
     LOGNOTIFY << "Retry to re-compute DMT";
     domain->om_dmt_update_cluster();
 }
+void DmtDplyFSM::WaitingTimerTask::runTimerTask()
+{
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    LOGNOTIFY << "DmtWaitingFSM: moving from waiting state to compute state";
+    domain->om_dmt_waiting_timeout();
+}
 
 /** 
  * GRD_DplyStart
@@ -426,7 +479,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    DmtDeployEvt dplyEvt = (DmtDeployEvt)evt;
+    // DmtDeployEvt dplyEvt = (DmtDeployEvt)evt;
 
     // if we have any volumes, send volumes to DMs that are added to cluster map
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -446,6 +499,21 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     }
     LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
              << " DMs to acks volume notify";
+}
+
+/* DACT_Waiting
+ * ------------
+ * Waiting to allow for additional nodes to join/leave before recomputing DMT.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DmtDplyFSM::DACT_Waiting::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst) {
+    LOGDEBUG << "DACT_Waiting: entering wait state.";
+    if (!dst.waitingTimer->schedule(dst.waitingTimerTask,
+            std::chrono::seconds(60))) {
+        LOGWARN << "DACT_DmtWaiting: failed to start retry timer!!!"
+                    << " DM additions/deletions may be pending for long time!";
+    }
 }
 
 /** 

@@ -1090,6 +1090,15 @@ OM_NodeDomainMod::om_dmt_update_cluster() {
     // in case there are no vol acks to wait
     dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }
+void
+OM_NodeDomainMod::om_dmt_waiting_timeout() {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+
+    dmtMod->dmt_deploy_event(DmtTimeoutEvt());
+    // in case there are no vol acks to wait
+    dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+}
 
 
 /**
