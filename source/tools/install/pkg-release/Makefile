@@ -7,7 +7,6 @@ all: clean generate-config-files package
 clean:
 	@sudo rm -f *.deb
 	@sudo rm -rf tmppkg-*
-	@sudo rm -f ../../package/fds-pkghelper/*.deb
 	@sudo rm -f ../../../config/etc/*.conf ../../../test/formation.conf
 
 package: 
