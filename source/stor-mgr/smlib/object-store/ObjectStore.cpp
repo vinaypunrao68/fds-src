@@ -715,8 +715,9 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
 void
 ObjectStore::snapshotMetadata(fds_token_id smTokId,
-                              SmIoSnapshotObjectDB::CbType notifFn) {
-    metaStore->snapshot(smTokId, notifFn);
+                              SmIoSnapshotObjectDB::CbType notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
+    metaStore->snapshot(smTokId, notifFn, snapReq);
 }
 
 Error

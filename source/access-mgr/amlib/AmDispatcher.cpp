@@ -434,6 +434,7 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
         cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {
+        cb->returnSize = 0;
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
             << amReq->blob_offset << " Error: " << error;
     }

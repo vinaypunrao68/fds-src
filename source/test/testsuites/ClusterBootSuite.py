@@ -20,6 +20,7 @@ import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
+import testcases.TestMgt
 import NodeWaitSuite
 
 
@@ -47,7 +48,7 @@ def suiteConstruction():
     suite.addTest(testcases.TestFDSModMgt.TestPMWait())
 
     # Give the nodes some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     # Activate the cluster.
     suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
@@ -60,7 +61,7 @@ def suiteConstruction():
     suite.addTest(nodeUpSuite)
 
     # Give the nodes some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     return suite
 

@@ -45,11 +45,13 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
 
     // TODO(Anna) we are disabling migration for now since it is not fully
     // integrated, so calling callback right away
+
     if (cb) {
         LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
         cb(ERR_OK);
         return err;
     }
+
 
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
@@ -174,10 +176,10 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
                                           const fpi::SvcUuid &executorSmUuid,
                                           fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
-    LOGDEBUG << "Object Rebalance Initial Set executor SM Id " << std::hex
-             << executorSmUuid.svc_uuid << std::dec << " executor ID "
-             << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
-             << " last " << rebalSetMsg->lastFilterSet;
+    LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
+               << executorSmUuid.svc_uuid << std::dec << " executor ID "
+               << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
+               << " last " << rebalSetMsg->lastFilterSet;
 
     // If this SM is just a source and does not get Start Migration from OM
     // make sure that we set the migration state in progress
@@ -199,9 +201,9 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         if (migrClients.count(executorId) == 0) {
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
-            migrClient = MigrationClient::shared_ptr(new MigrationClient(smReqHandler,
-                                                                         executorNodeUuid,
-                                                                         bitsPerDltToken));
+            migrClient.reset(new MigrationClient(smReqHandler,
+                                                 executorNodeUuid,
+                                                 bitsPerDltToken));
             migrClients[executorId] = migrClient;
         } else {
             migrClient = migrClients[executorId];
@@ -219,7 +221,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
 Error
 SmTokenMigrationMgr::startObjectRebalanceResp() {
     Error err(ERR_OK);
-    LOGDEBUG << "";
+    LOGMIGRATE << "";
     return err;
 }
 
@@ -232,7 +234,7 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
     fds_uint64_t executorId = deltaSet->executorID;
 
     // if we receive this in IDLE or ABORTED state, just ignore
-    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+    if (atomic_load(&migrState) != MIGR_IN_PROGRESS) {
         LOGWARN << "Migration NOT in progress anymore, assuming was aborted!";
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
@@ -257,7 +259,7 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
 Error
 SmTokenMigrationMgr::rebalanceDeltaSetResp() {
     Error err(ERR_OK);
-    LOGDEBUG << "";
+    LOGMIGRATE << "";
     return err;
 }
 
@@ -307,7 +309,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         } else {
             // we are done migrating, reply to start migration msg from OM
             omStartMigrCb(ERR_OK);
-            omStartMigrCb = NULL;  // we replied, so 
+            omStartMigrCb = NULL;  // we replied, so
 
             // TODO(Anna) revisit this when doing active IO -- we will have
             // to do the second snapshot
@@ -330,7 +332,7 @@ SmTokenMigrationMgr::handleDltClose() {
         LOGNOTIFY << "DLT Close called in non- in progress state " << migrState;
         return ERR_OK;  // this is ok
     }
-    LOGDEBUG << "";
+    LOGMIGRATE << "";
     return err;
 }
 

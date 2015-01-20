@@ -23,7 +23,6 @@ user_cpp          :=                   \
     TierMigration.cpp                  \
     TierEngine.cpp                     \
     ObjMeta.cpp                        \
-    SmObjDb.cpp                        \
     SMSvcHandler.cpp                   \
     MockSMCallbacks.cpp                \
     TokenMigrationMgr.cpp              \

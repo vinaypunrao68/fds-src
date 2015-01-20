@@ -193,47 +193,55 @@ constexpr char NbdConnection::fourKayZeros[];
 
 bool
 NbdConnection::write_response() {
-    fds_verify(response);
-    fds_verify(total_blocks <= IOV_MAX);
+    fds_assert(response);
+    fds_assert(total_blocks <= IOV_MAX);
+
+    // Figure out which block we left off on
     size_t current_block = 0ull;
-    if (write_offset > 0)
-    {  // Figure out which block we left off on
+    iovec old_block = response[0];
+    if (write_offset > 0) {
         size_t written = write_offset;
 
         while (written >= response[current_block].iov_len)
             written -= response[current_block++].iov_len;
 
-        // Adjust the io vector so we don't re-write the same data
-        response[current_block].iov_base = reinterpret_cast<uint8_t*>(
-            response[current_block].iov_base) + written;
+        // Adjust the block so we don't re-write the same data
+        old_block = response[current_block];
+        response[current_block].iov_base =
+            reinterpret_cast<uint8_t*>(response[current_block].iov_base) + written;
         response[current_block].iov_len -= written;
     }
 
+    // Do the write
     ssize_t nwritten = writev(ioWatcher->fd,
                               response.get() + current_block,
                               total_blocks - current_block);
-    if (nwritten < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-            LOGERROR << "Socket write error: [" << strerror(errno) << "]";
-        switch (errno) {
-            case EINVAL: fds_verify(false);  // Indicates logic bug
-                         break;
-            case EBADF:
-            case EPIPE: throw connection_closed;
-                        break;
-        }
-        return false;
-    } else if (nwritten == 0) {
-        return false;
-    }
-    write_offset += nwritten;
 
-    ssize_t to_write = 0;
-    for (; current_block < total_blocks; ++current_block)
+    // Calculate amount we should have written so we can verify the return value
+    ssize_t to_write = response[current_block].iov_len;
+    // Return the block back to original in case we have to repeat
+    response[current_block++] = old_block;
+    for (; current_block < total_blocks; ++current_block){
         to_write += response[current_block].iov_len;
+    }
 
+    // Check return value
     if (to_write != nwritten) {
-        LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
+        if (nwritten < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK)
+                { LOGERROR << "Socket write error: [" << strerror(errno) << "]"; }
+            switch (errno) {
+            case EINVAL:   // Indicates logic bug
+                LOGERROR << "Write vector bug";
+                fds_assert(false);
+            case EBADF:
+            case EPIPE:
+                throw connection_closed;
+            }
+        } else {
+            LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
+            write_offset += nwritten;
+        }
         return false;
     }
     total_blocks = 0;
@@ -256,7 +264,7 @@ NbdConnection::hsPreInit(ev::io &watcher) {
         // is good enough for a unique_ptr (no custom deleter needed).
         write_offset = 0;
         total_blocks = std::extent<decltype(vectors)>::value;
-        response = decltype(response)(new iovec[total_blocks]);
+        response = resp_vector_type(new iovec[total_blocks]);
         memcpy(response.get(), vectors, sizeof(vectors));
     }
 
@@ -278,7 +286,7 @@ NbdConnection::hsPostInit(ev::io &watcher) {
     if (nread < 0) {
         LOGERROR << "Socket read error";
     } else {
-        fds_verify(0 == ack);
+        ensure(0 == ack);
         LOGTRACE << "Received " << nread << " byte ack " << ack;
     }
 }
@@ -288,13 +296,13 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     if (attach.header_off >= 0) {
         if (!get_message_header(watcher.fd, attach))
             return false;
-        fds_verify(0 == memcmp(NBD_MAGIC, attach.header.magic, sizeof(NBD_MAGIC)));
+        ensure(0 == memcmp(NBD_MAGIC, attach.header.magic, sizeof(NBD_MAGIC)));
         attach.header.optSpec = ntohl(attach.header.optSpec);
-        fds_verify(NBD_OPT_EXPORT == attach.header.optSpec);
+        ensure(NBD_OPT_EXPORT == attach.header.optSpec);
         attach.header.length = ntohl(attach.header.length);
 
         // Just for sanities sake and protect against bad data
-        fds_verify(attach.data.size() >= static_cast<size_t>(attach.header.length));
+        ensure(attach.data.size() >= static_cast<size_t>(attach.header.length));
     }
     if (!get_message_payload(watcher.fd, attach))
         return false;
@@ -338,7 +346,7 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
     if (!response) {
         write_offset = 0;
         total_blocks = std::extent<decltype(vectors)>::value;
-        response = decltype(response)(new iovec[total_blocks]);
+        response = resp_vector_type(new iovec[total_blocks]);
         memcpy(response.get(), vectors, sizeof(vectors));
         response[0].iov_base = &volume_size;
     }
@@ -358,7 +366,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     if (request.header_off >= 0) {
         if (!get_message_header(watcher.fd, request))
             return;
-        fds_verify(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
+        ensure(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
         request.header.opType = ntohl(request.header.opType);
         request.header.offset = __builtin_bswap64(request.header.offset);
         request.header.length = ntohl(request.header.length);
@@ -388,7 +396,7 @@ NbdConnection::hsReq(ev::io &watcher) {
                            request.header.length,
                            request.data);
     request.data.reset();
-    fds_verify(ERR_OK == err);
+    ensure(ERR_OK == err);
     return;
 }
 
@@ -399,7 +407,7 @@ NbdConnection::hsReply(ev::io &watcher) {
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
-        response = decltype(response)(new iovec[kMaxChunks + 3]);
+        response = resp_vector_type(new iovec[kMaxChunks + 3]);
         response[0].iov_base = to_iovec(NBD_RESPONSE_MAGIC);
         response[0].iov_len = sizeof(NBD_RESPONSE_MAGIC);
         response[1].iov_base = to_iovec(&error_ok); response[1].iov_len = sizeof(error_ok);
@@ -414,7 +422,7 @@ NbdConnection::hsReply(ev::io &watcher) {
             // Iterate and send each ready response
             if (!readyHandles.empty()) {
                 UturnPair rep;
-                fds_verify(readyHandles.pop(rep));
+                ensure(readyHandles.pop(rep));
 
                 response[2].iov_base = &rep.handle; response[2].iov_len = sizeof(rep.handle);
 
@@ -422,7 +430,7 @@ NbdConnection::hsReply(ev::io &watcher) {
                 fds_int32_t opType = rep.opType;
                 if (NBD_CMD_READ == opType) {
                     // TODO(Andrew): Remove this verify and handle sub-4K
-                    fds_verify((length % 4096) == 0);
+                    ensure((length % 4096) == 0);
                     total_blocks += length / 4096;
                 }
 
@@ -436,7 +444,7 @@ NbdConnection::hsReply(ev::io &watcher) {
         // no uturn
         if (!readyResponses.empty()) {
             NbdResponseVector* resp = NULL;
-            fds_verify(readyResponses.pop(resp));
+            ensure(readyResponses.pop(resp));
             current_response.reset(resp);
 
             response[2].iov_base = &current_response->handle;
@@ -640,11 +648,12 @@ bool get_message_header(int fd, M& message) {
         if (errno != EAGAIN && errno != EWOULDBLOCK)
             LOGERROR << "Socket read error: [" << strerror(errno) << "]";
         switch (errno) {
-            case EINVAL: fds_verify(false);  // Indicates logic bug
-                         break;
-            case EBADF:
-            case EPIPE: throw NbdConnection::connection_closed;
-                        break;
+        case EINVAL:
+            LOGERROR << "Read vector bug";
+            fds_assert(false);
+        case EBADF:
+        case EPIPE:
+            throw NbdConnection::connection_closed;
         }
         return false;
     } else if (0 == nread) {
@@ -684,11 +693,12 @@ bool get_message_payload(int fd, M& message) {
         if (errno != EAGAIN && errno != EWOULDBLOCK)
             LOGERROR << "Socket read error: [" << strerror(errno) << "]";
         switch (errno) {
-            case EINVAL: fds_assert(false);  // Indicates logic bug
-                         break;
-            case EBADF:
-            case EPIPE: throw NbdConnection::connection_closed;
-                        break;
+        case EINVAL:
+            LOGERROR << "Read vector bug";
+            fds_assert(false);
+        case EBADF:
+        case EPIPE:
+            throw NbdConnection::connection_closed;
         }
         return false;
     } else if (0 == nread) {
