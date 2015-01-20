@@ -1,4 +1,4 @@
-package: fds-platform
+package: fds-platform-debug
 version: 0.6.0
 description: all fds components
 
