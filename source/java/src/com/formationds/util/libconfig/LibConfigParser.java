@@ -60,7 +60,7 @@ public class LibConfigParser extends Parser {
 	@Override public String[] getTokenNames() { return LibConfigParser.tokenNames; }
 	@Override public String getGrammarFileName()
 	{
-		return "/home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g";
+		return "LibConfig.g";
 	}
 
 
