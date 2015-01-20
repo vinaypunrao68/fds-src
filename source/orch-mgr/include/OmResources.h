@@ -710,6 +710,7 @@ class OM_NodeDomainMod : public Module
      */
     virtual void om_dmt_update_cluster();
     virtual void om_dlt_update_cluster();
+    virtual void om_dlt_waiting_timeout();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
 
     /**

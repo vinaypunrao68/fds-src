@@ -1111,6 +1111,19 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
     dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
 }
 
+// Called when DLT state machine waiting ends
+void
+OM_NodeDomainMod::om_dlt_waiting_timeout() {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+    dltMod->dlt_deploy_event(DltTimeoutEvt());
+
+    const DLT* dlt = dp->getCommitedDlt();
+    fds_uint64_t dlt_version = (dlt == NULL) ? 0 : dlt->getVersion();
+    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
+}
+
 // Called when OM receives notification that the rebalance is
 // done on node with uuid 'uuid'.
 Error
