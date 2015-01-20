@@ -1,5 +1,5 @@
 ---
--   name: set a fact
+-   name: set varaible build defined in inventory file (release or debug)
     set_fact:
         build: "{{ fds_build if fds_build is defined else 'debug' }}"
 
