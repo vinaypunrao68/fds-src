@@ -78,7 +78,7 @@ void ScavControl::updateDiskStats()
     }
 }
 
-void
+Error
 ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
     // TODO(Anna) this method still assumes that once we discover disks
     // they never change (no disks added/removed). So we are going to populate
@@ -86,6 +86,11 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
     // this and make more dynamic
     fds_mutex::scoped_lock l(scav_lock);
     if (diskScavTbl.size() == 0) {
+        if (!diskMap) {
+            LOGERROR << "Scavenger cannot create disk scavengers without a disk map";
+            return ERR_NOT_READY;
+        }
+
         DiskIdSet hddIds = diskMap->getDiskIds(diskio::diskTier);
         DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
         // create scavengers for HDDs
@@ -118,6 +123,7 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
         */
     }
     noPersistScavStats = false;
+    return ERR_OK;
 }
 
 Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
@@ -125,6 +131,15 @@ Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
 {
     Error err(ERR_OK);
     fds_bool_t expect = false;
+
+    // if this is called for the first time and diskScavTbl is empty,
+    // populate diskScavTable first (before changing enabled to true,
+    // so that the scavengers do not start to early)
+    err = createDiskScavengers(diskMap);
+    if (!err.ok()) {
+        LOGERROR << "Failed to enable Scavenger " << err;
+        return err;
+    }
 
     // check whether we can enable scavenger based on who disabled it
     fds_bool_t initiatorUser = (initiator == SM_CMD_INITIATOR_USER);
@@ -145,11 +160,6 @@ Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
             return ERR_OK;
         }
     }
-
-    // if this is called for the first time and diskScavTbl is empty,
-    // populate diskScavTable first (before changing enabled to true,
-    // so that the scavengers do not start to early)
-    createDiskScavengers(diskMap);
 
     if (!std::atomic_compare_exchange_strong(&enabled, &expect, true)) {
         LOGNOTIFY << "Scavenger cycle is already enabled, nothing else to do";
@@ -186,7 +196,12 @@ void ScavControl::disableScavenger(SmCommandInitiator initiator)
                   << " process manually as well until scavenger is enabled";
         whoDisabledMe = initiator;
     } else {
-        LOGNOTIFY << "Scavenger was already disabled";
+        // if someone tried to disable scavenger that was not yet initialized,
+        // remember who, so that we follow the right procedure for enabling it
+        if (whoDisabledMe == SM_CMD_INITIATOR_NOT_SET) {
+            whoDisabledMe = initiator;
+        }
+        LOGNOTIFY << "Scavenger was already disabled, saved initiator " << initiator;
     }
 
     // Disable scrubber also
