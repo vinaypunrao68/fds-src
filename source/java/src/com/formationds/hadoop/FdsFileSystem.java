@@ -278,7 +278,7 @@ public class FdsFileSystem extends FileSystem {
             boolean isDirectory = isDirectory(bd);
             FsPermission permission = isDirectory ? FsPermission.getDirDefault() : FsPermission.getFileDefault();
             long byteCount = getByteCount(bd);
-            return new FileStatus(byteCount, isDirectory, 1, 128 * 1024 * 1024, getMtime(bd),
+            return new FileStatus(byteCount, isDirectory, 1, 2 * 1024 * 1024, getMtime(bd),
                     getMtime(bd), permission, currentUser, groupName, absolutePath);
         } catch (ApiException ex) {
             if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE) {
