@@ -78,8 +78,6 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
             EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(em).searchFor(queryCriteria);
             results = tq.resultsList();
             
-            // TODO: Allow this to be dynamically configurable by the REST call
-            Collections.reverse( results );
             return new Events(results);
         } finally {
             em.close();
@@ -95,8 +93,7 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
             new UserEventCriteriaQueryBuilder(em).usersIn(tenantUsers)
                                                  .searchFor(queryCriteria);
             results = tq.resultsList();
-            // TODO: Allow this to be dynamically configurable by the REST call
-            Collections.reverse( results );
+
             return new Events(results);
         } finally {
             em.close();
