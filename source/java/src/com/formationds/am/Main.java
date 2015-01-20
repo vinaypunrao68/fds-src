@@ -111,17 +111,21 @@ public class Main {
 
         XdiClientFactory clientFactory = new XdiClientFactory(amResponsePort);
 
-        boolean useFakeAm = platformConfig.lookup("fds.am.memory_backend").booleanValue();
-        String omHost = platformConfig.defaultString("fds.am.om_ip", "localhost");
-        Integer omHttpPort = platformConfig.defaultInt("fds.om.http_port", 7777);
+        String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
+        boolean useFakeAm   = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
+        String  omHost      = platformConfig.defaultString("fds.am.om_ip", "localhost");
+        Integer omHttpPort  = platformConfig.defaultInt("fds.om.http_port", 7777);
         Integer omHttpsPort = platformConfig.defaultInt("fds.om.https_port", 7443);
 
+        // TODO: this needs to be configurable in platform.conf
         int omConfigPort = 9090;
 
-        String amHost = platformConfig.lookup("fds.xdi.am_host").stringValue();
+        // TODO: the base service port needs to configurable in platform.conf
+        int amServicePortBase = 9988;
+        int amServicePort = amServicePortBase + amInstanceId;
 
         AmService.Iface am = useFakeAm ? new FakeAmService() :
-                clientFactory.remoteAmService(amHost, 9988 + amInstanceId);
+                clientFactory.remoteAmService(amHost, amServicePort);
 
         // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
         // This will result XDI create/delete Volume requests to redirect to the OM REST Client.
@@ -140,8 +144,8 @@ public class Main {
         // TODO: make cache update check configurable.
         // The config cache has been modified so that it captures all events that come through
         // the XDI apis.  However, it does not capture events that go direct through the
-        // OM REST Client directly (i.e. UI or curl commands to OM Java web address), so we
-        // still need to monitor the config service cache and update on version changes.
+        // OM REST Client (i.e. UI or curl commands to OM Java web address), so we
+        // still need to monitor the config service and update the cache on version changes.
         // The other alternative is to modify all of the XDI config cache methods to do a
         // refresh on cache miss.
         long configCacheUpdateIntervalMillis = 10000;

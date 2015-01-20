@@ -115,35 +115,49 @@ public class Main {
 
         }
 
+        // TODO: should there be an OM property for the am host?
+        String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
+
+        // TODO: Should OM have a specific AM instance id configuration? how does OM handle multi-AM?
+        int amInstanceId = platformConfig.defaultInt( "fds.am.instanceId", 0 );
+
+        // TODO: the base service port needs to configurable in platform.conf
+        int amServicePortBase = 9988;
+        int amServicePort = amServicePortBase + amInstanceId;
+
+        // TODO: this needs to be configurable in platform.conf
+        int omConfigPort = 9090;
+
         ThriftClientFactory<ConfigurationService.Iface> configApiFactory =
-            ConfigServiceClientFactory.newConfigService("localhost", 9090);
+            ConfigServiceClientFactory.newConfigService("localhost", omConfigPort);
 
         final OmConfigurationApi configCache = new OmConfigurationApi(configApiFactory);
         SingletonConfigAPI.instance().api( configCache );
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
 
-        AmService.Iface amService = AmServiceClientFactory.newAmService("localhost", 9988).getClient();
+        AmService.Iface amService = AmServiceClientFactory.newAmService(amHost, amServicePort).getClient();
         SingletonAmAPI.instance().api( amService );
 
         String omHost = "localhost";
-        int omPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
+        int omLegacyConfigPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
         String webDir = platformConfig.defaultString( "fds.om.web_dir",
                                                       "../lib/admin-webapp" );
 
-        FDSP_ConfigPathReq.Iface legacyConfigClient = ConfigServiceClientFactory.newLegacyConfigService(omHost, omPort)
-                                                                                .getClient();
+        FDSP_ConfigPathReq.Iface legacyConfigClient =
+            ConfigServiceClientFactory.newLegacyConfigService(omHost,
+                                                              omLegacyConfigPort)
+                                      .getClient();
+
         SingletonLegacyConfig.instance()
                              .api( legacyConfigClient );
 
 
-        // create and start the statistics stream registration handler to manage stat
-        // stream register/deregister requests
-        configCache.startStatStreamRegistrationHandler();
-
-        byte[] keyBytes = Hex.decodeHex( platformConfig.lookup( "fds.aes_key" )
-                                                       .stringValue()
-                                                       .toCharArray() );
+        char[] aesKey = platformConfig.defaultString( "fds.aes_key", "" ).toCharArray();
+        if (aesKey.length == 0) {
+            throw new RuntimeException( "The required configuration key 'fds.aes.key' was not found." );
+        }
+        byte[] keyBytes = Hex.decodeHex( aesKey );
         SecretKey secretKey = new SecretKeySpec( keyBytes, "AES" );
 
         final boolean enforceAuthentication = platformConfig.defaultBoolean( "fds.authentication", true );
@@ -158,6 +172,11 @@ public class Main {
 
         int httpPort = platformConfig.defaultInt( "fds.om.http_port", 7777 );
         int httpsPort = platformConfig.defaultInt( "fds.om.https_port", 7443 );
+
+        // TODO: pass om host/port (or url) to stat stream registration handler
+        // create and start the statistics stream registration handler to manage stat
+        // stream register/deregister requests
+        configCache.startStatStreamRegistrationHandler();
 
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
