@@ -1,10 +1,14 @@
 ---
--   name: copy local fds-platform to host
+-   name: set varaible build defined in inventory file (release or debug)
+    set_fact:
+        build: "{{ fds_build if fds_build is defined else 'debug' }}"
+
+-   name: copy local fds-platform-{{ build }} to host
     when: deploy_artifact == "local"
     copy: src={{ item }}
       dest=/root/fds-platform.deb
     with_fileglob:
-      - '../../../source/tools/install/pkg/fds-platform*.deb'
+      - '../../../source/tools/install/pkg-{{ build }}/fds-platform-{{ build }}*.deb'
     tags:
       - install-local
 
