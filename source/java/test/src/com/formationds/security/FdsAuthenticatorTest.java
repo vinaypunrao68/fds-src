@@ -8,6 +8,7 @@ import org.junit.Test;
 
 import javax.security.auth.login.LoginException;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -28,7 +29,6 @@ public class FdsAuthenticatorTest {
         config = mock(ConfigurationApi.class);
         authenticator = new FdsAuthenticator(config,
                                               AuthenticationTokenTest.SECRET_KEY);
-
     }
 
     @Test(expected = LoginException.class)
@@ -76,15 +76,20 @@ public class FdsAuthenticatorTest {
     public void testResolveToken() throws Exception {
         String secret = "secret";
         AuthenticationToken token = new AuthenticationToken(USER_ID, secret);
-        when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(new User(USER_ID, "james", "doesntMatter", secret, false)));
+        User user = new User( USER_ID, "james", "doesntMatter", secret, false );
+        final ArrayList<User> users = Lists.newArrayList( user );
+        when(config.getUser( USER_ID ) ).thenReturn( user );
+        when( config.allUsers( anyLong() ) ).thenReturn( users );
         AuthenticationToken result = authenticator.resolveToken(token.signature(AuthenticationTokenTest.SECRET_KEY));
         assertEquals(token, result);
     }
 
     @Test
     public void testReissueToken() throws Exception {
-        when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(
-                new User(USER_ID, "james", "whatever", "oldSecret", false)));
+        User user = new User( USER_ID, "james", "whatever", "oldSecret", false );
+        final ArrayList<User> users = Lists.newArrayList( user );
+        when(config.getUser( USER_ID ) ).thenReturn( user );
+        when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList( user ) );
         AuthenticationToken token = authenticator.reissueToken(USER_ID);
         verify(config, times(1)).updateUser(eq(USER_ID), eq("james"), eq("whatever"), not(eq("oldSecret")), eq(false));
     }

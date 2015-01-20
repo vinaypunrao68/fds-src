@@ -3,6 +3,7 @@ package com.formationds.util.libconfig;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -21,8 +22,25 @@ public class ParsedConfigTest {
     public void defaultValue() throws Exception {
         ParsedConfig adapter = new ParsedConfig(input);
         assertEquals(3, adapter.defaultInt("fds.poop", 3));
-        assertEquals(3, adapter.defaultInt("fds.panda", 3));
         assertEquals(42, adapter.defaultInt("fds.hello", 3));
+    }
+
+    @Test
+    public void testEmptyGroup() throws Exception {
+
+        ParsedConfig config = new ParsedConfig( input );
+
+        final Assignment pandaAssignment = config.lookup( "fds.panda" );
+        Assert.assertTrue( pandaAssignment.booleanValue() );
+
+        final Assignment omAssignment = config.lookup( "fds.emptyGroup" );
+        Assert.assertEquals( omAssignment.stringValue(),
+                             "[ emptyGroup not set ]" );
+
+        final Assignment omSnmp = config.lookup( "fds.om.snmp" );
+        Assert.assertEquals( omSnmp.stringValue(),
+                             "[ fds.om.snmp not set ]" );
+
     }
 
     @Test(expected = RuntimeException.class)
@@ -34,11 +52,13 @@ public class ParsedConfigTest {
             "fds: {\n" +
             "    foo=\"bar\"\n" +
             "    hello=42\n" +
-            "    panda=true;\n" +
             "    /* This is a comment */\n" +
             "    om: {\n" +
             "       more=\"yes\"\n" +
             "    }\n" +
+            "    emptyGroup: {\n" +
+            "    }\n" +
+            "    panda=true;\n" +
             "}";
 }
 

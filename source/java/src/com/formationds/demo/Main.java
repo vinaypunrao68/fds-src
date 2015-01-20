@@ -14,29 +14,41 @@ import org.joda.time.Duration;
 
 public class Main {
     public static final String DEMO_DOMAIN = "demo";
-    public static final String[] VOLUMES = new String[]{"fdspanda", "fdslemur", "fdsfrog", "fdsmuskrat"};
+    public static final String[] VOLUMES =
+        new String[] {
+            "fdspanda",
+            "fdslemur",
+            "fdsfrog",
+            "fdsmuskrat"
+        };
 
     public static void main(String[] args) throws Exception {
+
         ParsedConfig demoConfig = new Configuration("demo", args).getDemoConfig();
         new Main().start(demoConfig);
+
     }
 
     public void start(ParsedConfig d) throws Exception {
+
         DemoConfig demoConfig = new DemoConfig(
-                d.lookup("fds.demo.am_host").stringValue(),
-                d.lookup("fds.demo.swift_port").intValue(),
-                d.lookup("fds.demo.s3_port").intValue(),
+                d.defaultString("fds.demo.am_host", "localhost" ),
+                d.defaultInt( "fds.demo.swift_port", 9999 ),
+                d.defaultInt( "fds.demo.s3_port", 8000 ),
                 new BasicAWSCredentials(
-                        d.lookup("fds.demo.aws_id").stringValue(),
-                        d.lookup("fds.demo.aws_secret").stringValue()
-                ),
+                        d.defaultString( "fds.demo.aws_id",
+                                         "AKIAINOGA4D75YX26VXQ" ),
+                        d.defaultString( "fds.demo.aws_secret",
+                                         "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" ) ),
                 VOLUMES
         );
 
-        DemoState state = new RealDemoState(Duration.standardSeconds(30), demoConfig);
+        DemoState state = new RealDemoState( Duration.standardSeconds(30),
+                                             demoConfig);
 
-        String webDir = d.lookup("fds.demo.web_dir").stringValue();
-        int webappPort = d.lookup("fds.demo.webapp_port").intValue();
+        String webDir = d.defaultString( "fds.demo.web_dir",
+                                         "../Build/linux-x86_64.debug/lib/demo/" );
+        int webappPort = d.defaultInt( "fds.demo.webapp_port", 8888 );
 
         WebApp webApp = new WebApp(webDir);
         webApp.route(HttpMethod.GET, "/", () -> new LandingPage(webDir));
