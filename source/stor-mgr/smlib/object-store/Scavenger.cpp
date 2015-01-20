@@ -128,7 +128,8 @@ Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
 
     // check whether we can enable scavenger based on who disabled it
     fds_bool_t initiatorUser = (initiator == SM_CMD_INITIATOR_USER);
-    if (std::atomic_load(&enabled) == false) {
+    if ((std::atomic_load(&enabled) == false) &&
+        (whoDisabledMe != SM_CMD_INITIATOR_NOT_SET)) {
         // if user tries to enable scavenger and it is temporary
         // disabled by the background process, just report an error
         if (initiatorUser && (whoDisabledMe != SM_CMD_INITIATOR_USER)) {
