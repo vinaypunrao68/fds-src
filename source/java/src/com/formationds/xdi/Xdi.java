@@ -42,7 +42,7 @@ public class Xdi {
     }
 
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
-        config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
+        config.createVolume( domainName, volumeName, volumePolicy, authorizer.tenantId( token ) );
 
         /**
          * allows the UI to assign a snapshot policy to a volume without having to make an
@@ -51,9 +51,13 @@ public class Xdi {
         return config.getVolumeId( volumeName );
     }
 
+    // TODO: this is ignoring case where volume doesn't exist.  s3 apis may require the return of a
+    // specific error code indicating the bucket does not exist.
     public void deleteVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
-        attemptVolumeAccess(token, volumeName);
-        config.deleteVolume(domainName, volumeName);
+        if ( config.statVolume( domainName, volumeName ) != null ) {
+            attemptVolumeAccess( token, volumeName );
+            config.deleteVolume( domainName, volumeName );
+        }
     }
 
     public VolumeStatus statVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {

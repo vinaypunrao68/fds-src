@@ -67,7 +67,7 @@ public class Main {
         }
 
         int amResponsePort = AM_BASE_RESPONSE_PORT + amInstanceId;
-        System.out.println("My instance id " + amInstanceId);
+        System.out.println( "My instance id " + amInstanceId );
 
         XdiClientFactory clientFactory = new XdiClientFactory(amResponsePort);
 
@@ -83,14 +83,6 @@ public class Main {
         AmService.Iface am = useFakeAm ? new FakeAmService() :
                 clientFactory.remoteAmService(amHost, 9988 + amInstanceId);
 
-        XdiConfigurationApi configCache = new XdiConfigurationApi(clientFactory.remoteOmService(omHost,
-                                                                                                omConfigPort));
-        configCache.startCacheUpdaterThread();
-
-        boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
-        Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
-        Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
-
         // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
         // This will result XDI create/delete Volume requests to redirect to the OM REST Client.
         // At this time all other requests continue to go through the XdiConfigurationApi (though
@@ -100,13 +92,37 @@ public class Main {
             new OMConfigServiceRestClientImpl(secretKey, "http", omHost, omHttpPort );
         ConfigurationApi omCachedConfigProxy =
             OMConfigurationServiceProxy.newOMConfigProxy( omConfigServiceRestClient,
-                                                          configCache);
+                                                          clientFactory.remoteOmService( omHost,
+                                                                                         omConfigPort ) );
 
-        Xdi xdi = new Xdi(am, omCachedConfigProxy, authenticator, authorizer);
+        XdiConfigurationApi configCache = new XdiConfigurationApi( omCachedConfigProxy );
+
+        // TODO: make cache update check configurable.
+        // The config cache has been modified so that it captures all events that come through
+        // the XDI apis.  However, it does not capture events that go direct through the
+        // OM REST Client directly (i.e. UI or curl commands to OM Java web address), so we
+        // still need to monitor the config service cache and update on version changes.
+        // The other alternative is to modify all of the XDI config cache methods to do a
+        // refresh on cache miss.
+        long configCacheUpdateIntervalMillis = 10000;
+        configCache.startCacheUpdaterThread(configCacheUpdateIntervalMillis);
+
+        boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
+        Authenticator authenticator = enforceAuth ?
+                                      new FdsAuthenticator(configCache, secretKey) :
+                                      new NullAuthenticator();
+        Authorizer authorizer = enforceAuth ?
+                                new FdsAuthorizer(configCache) :
+                                new DumbAuthorizer();
+
+
+        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer);
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
         AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
-        AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amResponsePort);
+        AsyncAm asyncAm = useFakeAm ?
+                          new FakeAsyncAm() :
+                          new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
 
         // TODO: should XdiAsync use omCachedConfigProxy too?

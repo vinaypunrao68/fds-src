@@ -12,18 +12,19 @@ import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 // TODO: authorize here
-public class XdiConfigurationApi implements ConfigurationApi, ConfigurationService.Iface, Supplier<CachedConfiguration> {
+public class XdiConfigurationApi implements ConfigurationApi {
+    public static final String SYSTEM_VOLUME_PREFIX = "SYSTEM_VOLUME_";
+
     private static final Logger LOG = Logger.getLogger(XdiConfigurationApi.class);
     private static final long   KEY = 0;
     private final ConfigurationService.Iface                   config;
     private final ConcurrentHashMap<Long, CachedConfiguration> map;
+    private Updater updater = null;
 
     public XdiConfigurationApi(ConfigurationService.Iface config) throws Exception {
         this.config = config;
@@ -38,12 +39,29 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
         } );
     }
 
-    public void startCacheUpdaterThread() {
-        new Thread(new Updater()).start();
+    /**
+     * Start the cache updater thread
+     */
+    public void startCacheUpdaterThread(long intervalMS) {
+        updater = new Updater( intervalMS );
+        new Thread(updater).start();
     }
 
+    /**
+     * Stop the cache updater thread
+     */
+    public void stopCacheUpdaterThread() {
+        updater.shutdown();
+    }
+
+    /**
+     *
+     * @param tenantId
+     *
+     * @return the system volume name for the specified tenant.
+     */
     public static String systemFolderName(long tenantId) {
-        return "SYSTEM_VOLUME_" + tenantId;
+        return SYSTEM_VOLUME_PREFIX + tenantId;
     }
 
     public long createSnapshotPolicy(final String name, final String recurrence, final long retention, final long timelineTime)
@@ -59,38 +77,57 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     }
 
     @Override
-    public Collection<User> listUsers() {
-        return fillCacheMaybe().users();
-    }
-
-    @Override
     public Optional<Tenant> tenantFor(long userId) {
         return fillCacheMaybe().tenantFor(userId);
     }
 
     @Override
     public Long tenantId(long userId) throws SecurityException {
-        return fillCacheMaybe().tenantId(userId);
+        Long tid = fillCacheMaybe().tenantId( userId );
+        if (tid == null) {
+            getCache().loadTenants();
+            tid = getCache().tenantId( userId );
+        }
+        return tid;
     }
 
     @Override
     public User getUser(long userId) {
-        return fillCacheMaybe().usersById()
-                               .get(userId);
+        User user = fillCacheMaybe().getUser( userId );
+        if (user == null) {
+            getCache().loadUsers();
+            user = getCache().getUser( userId );
+        }
+        return user;
     }
 
     @Override
     public User getUser(String login) {
-        return fillCacheMaybe().usersByName().get(login);
+        User user = fillCacheMaybe().getUser( login );
+        if (user == null) {
+            getCache().loadUsers();
+            user = getCache().getUser( login );
+        }
+        return user;
     }
 
     @Override
     public long createTenant(String identifier)
             throws ApiException, TException {
         long tenantId = config.createTenant(identifier);
+
         VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY);
-        config.createVolume(S3Endpoint.FDS_S3, systemFolderName(tenantId), volumeSettings, tenantId);
-        dropCache();
+        String sysvolName = systemFolderName( tenantId );
+        config.createVolume( S3Endpoint.FDS_S3, sysvolName, volumeSettings, tenantId );
+
+        // TODO: need better API for accessing a specific tenant
+        Optional<Tenant> found = config.listTenants( 0 )
+                                       .stream()
+                                       .filter( (t) -> {return t.getId() == tenantId;} )
+                                       .findFirst();
+        if ( found.isPresent() ) {
+            getCache().addTenant( found.get() );
+        } // TODO: else something is very wrong...
         return tenantId;
     }
 
@@ -104,22 +141,24 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public long createUser(String identifier, String passwordHash, String secret, boolean isFdsAdmin)
             throws ApiException, TException {
         long userId = config.createUser(identifier, passwordHash, secret, isFdsAdmin);
-        dropCache();
+        // TODO: need api to retrieve a specific user by id or login
+        config.allUsers( 0 ).stream().forEach( getCache()::addUser );
         return userId;
     }
 
     @Override
     public void assignUserToTenant(long userId, long tenantId)
             throws ApiException, TException {
-        config.assignUserToTenant(userId, tenantId);
-        dropCache();
+        config.assignUserToTenant( userId, tenantId );
+
+        getCache().addTenantUser( tenantId, userId );
     }
 
     @Override
     public void revokeUserFromTenant(long userId, long tenantId)
             throws ApiException, TException {
-        config.revokeUserFromTenant(userId, tenantId);
-        dropCache();
+        config.revokeUserFromTenant( userId, tenantId );
+        getCache().removeTenantUser( tenantId, userId );
     }
 
     @Override
@@ -128,7 +167,6 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
         CachedConfiguration cached = fillCacheMaybe();
         return Lists.newArrayList(cached.users());
     }
-
 
     @Override
     public List<User> listUsersForTenant(long tenantId)
@@ -139,8 +177,10 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     @Override
     public void updateUser(long userId, String identifier, String passwordHash, String secret, boolean isFdsAdmin)
             throws ApiException, TException {
-        config.updateUser(userId, identifier, passwordHash, secret, isFdsAdmin);
-        dropCache();
+        config.updateUser( userId, identifier, passwordHash, secret, isFdsAdmin );
+
+        // TODO: need a config api to get a specific user (and have updateUser return the updated user)
+        config.allUsers( 0 ).stream().forEach( getCache()::addUser );
     }
 
     @Override
@@ -152,24 +192,35 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     @Override
     public void createVolume(String domainName, String volumeName, VolumeSettings volumeSettings, long tenantId)
             throws ApiException, TException {
-        config.createVolume(domainName, volumeName, volumeSettings, tenantId);
-        dropCache();
+        config.createVolume( domainName, volumeName, volumeSettings, tenantId );
 
         VolumeType vt = volumeSettings.getVolumeType();
         long maxSize = (VolumeType.BLOCK.equals(vt) ?
                                 volumeSettings.getBlockDeviceSizeInBytes() :
                                 volumeSettings.getMaxObjectSizeInBytes());
+
+        VolumeDescriptor newVol = config.statVolume( domainName, volumeName );
+
+        getCache().addVolume( newVol );
     }
 
     @Override
     public long getVolumeId(String volumeName)
             throws ApiException, org.apache.thrift.TException {
-        return config.getVolumeId(volumeName);
+        VolumeDescriptor vol = fillCacheMaybe().getVolume( "", volumeName );
+        if (vol != null) {
+            return vol.getVolId();
+        }
+        return config.getVolumeId( volumeName );
     }
 
     @Override
     public String getVolumeName(long volumeId)
             throws ApiException, org.apache.thrift.TException {
+        VolumeDescriptor vol = fillCacheMaybe().getVolume( volumeId );
+        if (vol != null) {
+            return vol.getName();
+        }
         return config.getVolumeName(volumeId);
     }
 
@@ -177,33 +228,38 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public void deleteVolume(String domainName, String volumeName)
             throws ApiException, TException {
         config.deleteVolume(domainName, volumeName);
-        dropCache();
+        getCache().removeVolume( domainName, volumeName );
     }
 
     @Override
     public VolumeDescriptor statVolume(String domainName, String volumeName)
             throws ApiException, TException {
-        return fillCacheMaybe().volumesByName()
-                .get(volumeName);
+        VolumeDescriptor volumeDescriptor = fillCacheMaybe().getVolume( domainName, volumeName );
+        if (volumeDescriptor == null) {
+            volumeDescriptor = config.statVolume( domainName, volumeName );
+            if (volumeDescriptor != null) {
+                getCache().addVolume( volumeDescriptor );
+            }
+        }
+        return volumeDescriptor;
     }
 
     @Override
     public List<VolumeDescriptor> listVolumes(String domainName)
             throws ApiException, TException {
-        return Lists.newArrayList(fillCacheMaybe().volumesByName()
-                .values());
+        return fillCacheMaybe().getVolumes();
     }
 
     @Override
     public int registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds)
             throws TException {
-        return config.registerStream(url, http_method, volume_names, sample_freq_seconds, duration_seconds);
+        return config.registerStream( url, http_method, volume_names, sample_freq_seconds, duration_seconds );
     }
 
     @Override
     public List<StreamingRegistrationMsg> getStreamRegistrations(int ignore)
             throws TException {
-        return config.getStreamRegistrations(ignore);
+        return config.getStreamRegistrations( ignore );
     }
 
     @Override
@@ -215,7 +271,7 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     @Override
     public long createSnapshotPolicy(com.formationds.apis.SnapshotPolicy policy)
             throws ApiException, org.apache.thrift.TException {
-        long l = config.createSnapshotPolicy(policy);
+        long l = config.createSnapshotPolicy( policy );
         // TODO: is the value returned the new policy id?
         return l;
     }
@@ -257,7 +313,7 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     @Override
     public List<Long> listVolumesForSnapshotPolicy(long policyId)
             throws ApiException, org.apache.thrift.TException {
-        return config.listVolumesForSnapshotPolicy(policyId);
+        return config.listVolumesForSnapshotPolicy( policyId );
     }
 
     @Override
@@ -283,16 +339,21 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName, long timelineTime)
             throws org.apache.thrift.TException {
         long clonedVolumeId = config.cloneVolume(volumeId, fdsp_PolicyInfoId, clonedVolumeName, timelineTime);
-        if (clonedVolumeId <= 0) {
-            clonedVolumeId = config.getVolumeId(clonedVolumeName);
-        }
-        dropCache();
 
-        return clonedVolumeId;
+        VolumeDescriptor clonedVol = config.statVolume( "", clonedVolumeName );
+        if (clonedVol.getVolId() != clonedVolumeId) {
+            // houston, we have a problem.
+            throw new IllegalStateException( "Cloned volume id returned from clone " +
+                                             "command does not match cloned volume descriptor." );
+        }
+
+        // update the cache with the new volume
+        getCache().addVolume( clonedVol );
+
+        return clonedVol.getVolId();
     }
 
-    @Override
-    public CachedConfiguration get() {
+    public CachedConfiguration getCache() {
         return fillCacheMaybe();
     }
 
@@ -302,38 +363,55 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     }
 
     private CachedConfiguration fillCacheMaybe() {
-        return map.computeIfAbsent(KEY, k -> {
+        return map.computeIfAbsent( KEY, k -> {
             try {
-                return new CachedConfiguration(config);
-            } catch (Exception e) {
-                LOG.error("Error refreshing configuration", e);
-                throw new RuntimeException(e);
+                return new CachedConfiguration( config );
+            } catch ( Exception e ) {
+                LOG.error( "Error refreshing configuration", e );
+                throw new RuntimeException( e );
             }
-        });
+        } );
     }
-
 
     private class Updater
             implements Runnable {
+
+        private final long intervalMS;
+        private transient boolean stopRequested = false;
+
+        Updater(long intervalMS) {
+            this.intervalMS = intervalMS;
+        }
+
+        synchronized void shutdown() {
+            stopRequested = true;
+            notifyAll();
+        }
+
         @Override
         public void run() {
             // do an initial wait
             try { Thread.sleep( 10000 ); }
             catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
 
-            while (true) {
+            while (!stopRequested) {
                 try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                }
-                map.compute(KEY, (k, v) -> {
-                    try {
-                        return obtainConfig(v);
-                    } catch (Exception e) {
-                        LOG.error("Error refreshing cache", e);
-                        return v;
+                    synchronized ( this ) {
+                        wait( intervalMS );
+                        if (stopRequested)
+                            break;
                     }
-                });
+                    map.compute(KEY, (k, v) -> {
+                        try {
+                            return obtainConfig(v);
+                        } catch (Exception e) {
+                            LOG.error("Error refreshing cache", e);
+                            return v;
+                        }
+                    });
+                } catch (InterruptedException e) {
+                    // ignore and recheck loop
+                }
             }
         }
 

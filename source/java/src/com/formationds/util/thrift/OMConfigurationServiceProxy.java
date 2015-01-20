@@ -3,12 +3,14 @@
  */
 package com.formationds.util.thrift;
 
+import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.apache.log4j.Logger;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
@@ -24,48 +26,47 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
     private static final Logger logger = Logger.getLogger(OMConfigurationServiceProxy.class);
 
     /**
-     *
      * @param omConfigServiceClient
      * @param configApi
      * @return
      */
     public static ConfigurationApi newOMConfigProxy(OMConfigServiceClient omConfigServiceClient,
-                                                    ConfigurationApi configApi) {
+                                                    ConfigurationService.Iface configApi) {
         return (ConfigurationApi) Proxy.newProxyInstance(OMConfigurationServiceProxy.class.getClassLoader(),
                                               new Class<?>[] {ConfigurationApi.class},
                                               new OMConfigurationServiceProxy(omConfigServiceClient,
                                                                               configApi));
     }
 
-    private final ConfigurationApi configurationApi;
-    private OMConfigServiceClient omConfigServiceClient;
+    private final ConfigurationService.Iface  configurationService;
+    private       OMConfigServiceClient omConfigServiceClient;
 
     private OMConfigurationServiceProxy( OMConfigServiceClient omConfigServiceClient,
-                                         ConfigurationApi configurationApi) {
+                                         ConfigurationService.Iface configurationApi ) {
 
-        this.configurationApi = configurationApi;
+        this.configurationService = configurationApi;
         this.omConfigServiceClient = omConfigServiceClient;
     }
 
     @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    public Object invoke( Object proxy, Method method, Object[] args ) throws Throwable {
 
         long start = System.currentTimeMillis();
         try {
-            if (logger.isTraceEnabled()) {
-                logger.trace(String.format("CONFIGPROXY::START:  %s(%s)",
-                                           method.getName(),
-                                           Arrays.toString(args)));
+            if ( logger.isTraceEnabled() ) {
+                logger.trace( String.format( "CONFIGPROXY::START:  %s(%s)",
+                                             method.getName(),
+                                             Arrays.toString( args ) ) );
             }
-            switch (method.getName()) {
+            switch ( method.getName() ) {
 
                 // METHODS That should be redirected to the OM Rest API
                 case "createVolume":
-                    doCreateVolume(args);
+                    doCreateVolume( args );
                     return null;
 
                 case "deleteVolume":
-                    doDeleteVolume(args);
+                    doDeleteVolume( args );
                     return null;
 
                 // METHODS that are supported by OM Rest Client, but we are allowing
@@ -103,7 +104,20 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
                 case "listVolumesForSnapshotPolicy":
                 case "listSnapshots":
                 default:
-                    return method.invoke(configurationApi, args);
+                    return method.invoke( configurationService, args );
+            }
+        } catch (Throwable t) {
+            if (logger.isTraceEnabled()) {
+                logger.trace(String.format("CONFIGPROXY::FAILED: %s(%s): %s",
+                                           method.getName(),
+                                           Arrays.toString(args),
+                                           t.getMessage()));
+            }
+
+            if ( t instanceof InvocationTargetException ) {
+                throw ((InvocationTargetException) t).getTargetException();
+            } else {
+                throw t;
             }
         } finally {
             if (logger.isTraceEnabled()) {
@@ -117,7 +131,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
 
     private void doCreateVolume(Object... args) throws OMConfigException {
         if (logger.isTraceEnabled()) {
-            logger.trace(String.format("CONFIGPROXY::HTTP::%9s %s(%s)",
+            logger.trace(String.format("CONFIGPROXY::HTTP::%-9s %s(%s)",
                                        "START:",
                                        "createVolume",
                                        Arrays.toString(args)));
@@ -136,7 +150,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
                                                 tenantId );
         } finally {
             if (logger.isTraceEnabled()) {
-                logger.trace(String.format("CONFIGPROXY::HTTP::%9s %s(%s)",
+                logger.trace(String.format("CONFIGPROXY::HTTP::%-9s %s(%s)",
                                            "COMPLETE:",
                                            "createVolume",
                                            Arrays.toString(args)));
@@ -146,7 +160,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
 
     private void doDeleteVolume(Object... args) throws OMConfigException {
         if (logger.isTraceEnabled()) {
-            logger.trace(String.format("CONFIGPROXY::HTTP::%9s %s(%s)",
+            logger.trace(String.format("CONFIGPROXY::HTTP::%-9s %s(%s)",
                                        "START:",
                                        "deleteVolume",
                                        Arrays.toString(args)));
@@ -159,7 +173,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
             omConfigServiceClient.deleteVolume(token, domain, name);
         } finally {
             if (logger.isTraceEnabled()) {
-                logger.trace(String.format( "CONFIGPROXY::HTTP::%9s %s(%s)",
+                logger.trace(String.format( "CONFIGPROXY::HTTP::%-9s %s(%s)",
                                             "COMPLETE:",
                                             "deleteVolume",
                                             Arrays.toString(args)));
