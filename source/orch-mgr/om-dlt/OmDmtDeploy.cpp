@@ -510,7 +510,7 @@ void
 DmtDplyFSM::DACT_Waiting::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst) {
     LOGDEBUG << "DACT_Waiting: entering wait state.";
     if (!dst.waitingTimer->schedule(dst.waitingTimerTask,
-            std::chrono::seconds(60))) {
+            std::chrono::seconds(1))) {
         LOGWARN << "DACT_DmtWaiting: failed to start retry timer!!!"
                     << " DM additions/deletions may be pending for long time!";
     }
