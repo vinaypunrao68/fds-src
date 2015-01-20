@@ -4,12 +4,11 @@
 
 package com.formationds.xdi;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
-import com.formationds.om.webkit.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
+import com.formationds.util.thrift.ConfigurationApi;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
@@ -27,15 +26,13 @@ public class Xdi {
     private final AmService.Iface am;
     private Authenticator authenticator;
     private Authorizer authorizer;
-    private ConfigurationService.Iface config;
-    private FDSP_ConfigPathReq.Iface legacyConfig;
+    private ConfigurationApi config;
 
-    public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator, Authorizer authorizer, FDSP_ConfigPathReq.Iface legacyConfig) {
+    public Xdi(AmService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer) {
         this.am = am;
         this.config = config;
         this.authenticator = authenticator;
         this.authorizer = authorizer;
-        this.legacyConfig = legacyConfig;
     }
 
     private void attemptVolumeAccess(AuthenticationToken token, String volumeName) throws SecurityException {
@@ -45,10 +42,8 @@ public class Xdi {
     }
 
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
-        config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
-        
-        // the default log retention time is 24 hours
-        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, volumePolicy.getContCommitlogRetention(), MediaPolicy.HDD_ONLY );
+        config.createVolume( domainName, volumeName, volumePolicy, authorizer.tenantId( token ) );
+
         /**
          * allows the UI to assign a snapshot policy to a volume without having to make an
          * extra call.
@@ -56,9 +51,13 @@ public class Xdi {
         return config.getVolumeId( volumeName );
     }
 
+    // TODO: this is ignoring case where volume doesn't exist.  s3 apis may require the return of a
+    // specific error code indicating the bucket does not exist.
     public void deleteVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
-        attemptVolumeAccess(token, volumeName);
-        config.deleteVolume(domainName, volumeName);
+        if ( config.statVolume( domainName, volumeName ) != null ) {
+            attemptVolumeAccess( token, volumeName );
+            config.deleteVolume( domainName, volumeName );
+        }
     }
 
     public VolumeStatus statVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
