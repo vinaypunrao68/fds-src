@@ -13,6 +13,11 @@
 #include <net/net_utils.h>
 
 #include <unistd.h>
+#include <syslog.h>
+#include <execinfo.h>
+
+#include <sys/time.h>
+#include <sys/resource.h>
 
 namespace fds {
 
@@ -97,11 +102,15 @@ void FdsProcess::init(int argc, char *argv[],
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
+    /* setup atexit handler */
+    setupAtExitHandler();
+
     /* Setup module vectors and config */
     mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
     fdsroot      = mod_vectors_->get_sys_params()->fds_root;
     proc_root    = new FdsRootDir(fdsroot);
     proc_thrp    = NULL;
+    proc_id = argv[0];
 
     if (def_cfg_file != "") {
         cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
@@ -119,7 +128,6 @@ void FdsProcess::init(int argc, char *argv[],
                                    proc_root->dir_fds_logs());
         }
         /* Process wide counters setup */
-        std::string proc_id = argv[0];
         if (conf_helper_.exists("id")) {
             proc_id = conf_helper_.get<std::string>("id");
         }
@@ -154,6 +162,30 @@ void FdsProcess::init(int argc, char *argv[],
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
+
+    /* detect the core file size limit and print to log */
+    struct rlimit crlim;
+    int ret = getrlimit(RLIMIT_CORE, &crlim);
+    if (-1 == ret) {
+        LOGERROR << "getrlimit(RLIMIT_CORE) failed with errno " << errno;
+    } else {
+        LOGNOTIFY << "current rlimit(RLIMIT_CORE): soft limit " << crlim.rlim_cur
+                  << ", hard limit " << crlim.rlim_max;
+        if ((crlim.rlim_cur != RLIM_INFINITY) ||
+            (crlim.rlim_max != RLIM_INFINITY)) {
+
+            struct rlimit newcrlim;
+            newcrlim.rlim_cur = RLIM_INFINITY;
+            newcrlim.rlim_max = RLIM_INFINITY;
+            int ret = setrlimit(RLIMIT_CORE, &newcrlim);
+            if (-1 == ret) {
+                LOGERROR << "setrlimit(RLIMIT_CORE) failed with errno " << errno;
+            } else {
+                LOGNOTIFY << "rlimit(RLIMIT_CORE) is set to infinity";
+            }
+        }
+    }
+
 }
 
 FdsProcess::~FdsProcess()
@@ -295,38 +327,12 @@ FdsProcess::sig_handler(void* param)
     return reinterpret_cast<void*>(NULL);
 }
 
-void
-FdsProcess::SIGSEGVHandler(int sigNum, siginfo_t *sigInfo, void *context)
-{
-    GLOGCRITICAL << "SIGSEGV at address: " << std::hex << sigInfo->si_addr
-                 << " with code " << std::dec << sigInfo->si_code;
-
-    /* Since the signal handler was originally set with SA_RESETHAND,
-     * the default signal handler is restored.  After the signal handler
-     * completes, the thread resumes from the the faulting address that will result in
-     * another SIGSEGV (most likely), and it will invoke the default SIGSEGV signal handler,
-     * which is to core dump.
-     */
-}
-
 /**
  * ICE inspired way of handling signals.  This can possibly be
  * replaced by boost::asio::signal_set.  This needs to be investigated
  */
 void FdsProcess::setup_sig_handler()
 {
-    /* setup a process wide signal handler for SIGSEGV.
-     * For synchronous signals, handle it on the faulting thread's context.
-     * For asynchrnous signals, it's preferred to handle it by a dedicated thread.
-     */
-    struct sigaction sigAct;
-    sigAct.sa_flags = (SA_SIGINFO | SA_RESETHAND);
-    sigemptyset(&sigAct.sa_mask);
-    sigAct.sa_sigaction = FdsProcess::SIGSEGVHandler;
-    if (sigaction(SIGSEGV, &sigAct, NULL) == -1) {
-        LOGWARN << "SIGSEGV signal handler is not set";
-    }
-
     /*
      * We will block ctrl+c like signals in the main thread.  All
      * other threads will have signals blocked as well.  We will
@@ -344,6 +350,30 @@ void FdsProcess::setup_sig_handler()
     // Joinable thread
     rc = pthread_create(&sig_tid_, 0, FdsProcess::sig_handler, 0);
     fds_assert(rc == 0);
+}
+
+void
+FdsProcess::atExitHandler()
+{
+#define maxStackSize 128
+    void *stackBuffer[maxStackSize];
+    char **symStrings;
+
+    size_t symSize = backtrace(stackBuffer, maxStackSize);
+    symStrings = backtrace_symbols(stackBuffer, symSize);
+
+    std::string symbolString;
+    for (size_t i = 0; i < symSize; ++i) {
+        symbolString += symStrings[i];
+    }
+
+    syslog(LOG_NOTICE, "FDS_PROC Exiting...%s", symbolString.c_str());
+}
+
+void
+FdsProcess::setupAtExitHandler()
+{
+    atexit(FdsProcess::atExitHandler);
 }
 
 void FdsProcess::setup_cntrs_mgr(const std::string &mgr_id)
@@ -382,28 +412,63 @@ void FdsProcess::interrupt_cb(int signum)
     mod_vectors_->mod_shutdown();
 }
 
+void
+FdsProcess::closeAllFDs()
+{
+    /* close all file descriptors.  however, redirect std file descriptors
+     * to /dev/null.
+     */
+    int devNullFd = open("/dev/null", O_RDWR);
+    for (int i = getdtablesize(); i >= 0 ; --i) {
+        int ret;
+        /* redirect std io to /dev/null */
+        if ((i == STDIN_FILENO) || (i == STDOUT_FILENO) || (i == STDERR_FILENO)) {
+            /* flush before re-directing file descriptors.  flush all of them same
+             * time, because really don't need to convert fileno to filep for
+             * stdio (yeah.. laziness).
+             */
+            fflush(stdin);
+            fflush(stdout);
+            fflush(stderr);
+            ret = dup2(i, devNullFd);
+            if (-1 == ret) {
+                LOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
+            }
+        } else {
+            ret = close(i);
+            /* intentionally ignoring return value. some file descriptor may not be
+             * open for closing.  not all entries in the dtable is populated.
+             */
+        }
+    }
+}
+
 void FdsProcess::daemonize() {
     // adapted from http://www.enderunix.org/docs/eng/daemon.php
 
-    if (getppid() == 1) return; /* already a daemon */
+    if (getppid() == 1) {
+        /* already a daemon */
+        return;
+    }
+
+    /* fork a process */
     int childpid = fork();
     if (childpid < 0) {
+        /* fork failed */
         LOGERROR << "error forking for daemonize : " << errno;
         exit(1);
     }
     if (childpid > 0) {
+        /* parent process */
         LOGNORMAL << "forked successfully : child pid : " << childpid;
         exit(0);
     }
 
-    // The actual daemon .
+    /* child process */
 
     /* obtain a new process group */
     setsid();
-    int ret;
-    int i;
-    for (i = getdtablesize(); i >= 0 ; --i) close(i); /* close all descriptors */
-    i = open("/dev/null", O_RDWR); ret = dup(i); ret = dup(i); /* handle standart I/O */
+
     // umask(027); /* set newly created file permissions */
     // ignore tty signals
     signal(SIGTSTP, SIG_IGN);

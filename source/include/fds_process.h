@@ -138,6 +138,8 @@ class FdsProcess : public boost::noncopyable,
 
     void daemonize();
 
+    void closeAllFDs();
+
     /**
      * Handler function for Ctrl+c like signals.  Default implementation
      * just calls exit(0).
@@ -187,7 +189,7 @@ class FdsProcess : public boost::noncopyable,
  protected:
     // static members/methods
     static void* sig_handler(void* param);
-    static void SIGSEGVHandler(int sigNum, siginfo_t *sigInfo, void *context);
+    static void atExitHandler();
 
  protected:
     virtual void setup_config(int argc, char *argv[],
@@ -198,7 +200,7 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_cntrs_mgr(const std::string &mgr_id);
     virtual void setup_timer_service();
     virtual void setup_graphite();
-
+    virtual void setupAtExitHandler();
 
     /* Signal handler thread */
     pthread_t sig_tid_;
@@ -230,6 +232,9 @@ class FdsProcess : public boost::noncopyable,
 
     /* Process wide thread pool. */
     fds_threadpool *proc_thrp;
+
+    /* Name of proc */
+    std::string proc_id;
 };
 
 }  // namespace fds

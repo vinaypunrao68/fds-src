@@ -292,7 +292,7 @@ meta_obj_map_t*   ObjMetaData::getObjMap() {
  *
  * @param refcnt
  */
-void ObjMetaData::setRefCnt(fds_uint16_t refcnt) {
+void ObjMetaData::setRefCnt(fds_uint64_t refcnt) {
     obj_map.obj_refcnt = refcnt;
 }
 
@@ -569,6 +569,41 @@ ObjMetaData::propogateMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaData)
     }
 }
 
+void
+ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData)
+{
+    // this method over-writes metadata from objMetaData
+
+    // TODO(Anna) revisit applying refcount for migration when we
+    // implement IO forwarding from the source SM
+    // because we may already start receiving forwarded IO, so it is
+    // not just over-writing refcount
+    setRefCnt(objMetaData.objectRefCnt);
+
+    // below fields ok to be over-written
+    obj_map.compress_type = objMetaData.objectCompressType;
+    obj_map.compress_len = objMetaData.objectCompressLen;
+    obj_map.obj_blk_len = objMetaData.objectBlkLen;
+    obj_map.obj_size = objMetaData.objectSize;
+    obj_map.expire_time = objMetaData.objectExpireTime;
+
+    // TODO(Anna) do not over-write if data corrupted flag set
+    // unless we got the data from source SM and can recover...
+    obj_map.obj_flags = objMetaData.objectFlags;
+
+    // over-write volume association
+    // TODO(Anna) revisit this when we implement IO forwarding from
+    // source SM, because we may already start receiving forwarded IO,
+    // so we may have associations that source SM does not know about
+    assoc_entry.clear();
+    for (auto volAssoc : objMetaData.objectVolumeAssoc) {
+        obj_assoc_entry_t new_association;
+        new_association.vol_uuid = volAssoc.volumeAssoc;
+        new_association.ref_cnt = volAssoc.volumeRefCnt;
+        assoc_entry.push_back(new_association);
+        obj_map.obj_num_assoc_entry = assoc_entry.size();
+    }
+}
 
 /**
  * While sync is in progress, existin metadata prior to sync point needs

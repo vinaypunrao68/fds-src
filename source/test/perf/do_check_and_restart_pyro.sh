@@ -1,16 +1,16 @@
 #!/bin/bash
 
-check=`bash pyroadm.sh -c | grep all | awk '{print $2}'`
+check=`python pyroadm.py -c | grep all | awk '{print $2}'`
 
 echo "is Pyro4 up? $check"
 
 if [ $check -eq 0 ]; then
      echo "starting pyro4"
-     ./pyroadm.sh -d
+     python pyroadm.py -d
      while [  $check -eq 0 ]; do
-         ./pyroadm.sh -s
+         python pyroadm.py -s
          sleep 1
-         check=`bash pyroadm.sh -c | grep all | awk '{print $2}'`
+         check=`python pyroadm.py -c | grep all | awk '{print $2}'`
      done 
 fi
 
