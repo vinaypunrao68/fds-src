@@ -16,6 +16,7 @@ public class SmokeTestRunner {
     public static void main(String[] args) throws Exception {
         Lists.newArrayList(HdfsSmokeTest.class, S3SmokeTest.class)
                 .forEach(k -> runTest(k));
+        System.out.println("Smoke tests done.");
         System.exit(0);
     }
 
