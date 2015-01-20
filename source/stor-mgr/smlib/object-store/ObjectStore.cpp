@@ -4,6 +4,9 @@
 
 #include <string>
 #include <map>
+#include <fiu-control.h>
+#include <fiu-local.h>
+
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
@@ -79,6 +82,8 @@ Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData) {
+    fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
+
     PerfContext objWaitCtx(SM_PUT_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
@@ -716,6 +721,12 @@ ObjectStore::mod_init(SysParams const *const p) {
     };
     mod_intern = objStoreDepMods;
     Module::mod_init(p);
+
+    // Conditionally enable write faults at the given rate
+    float write_failure_rate = g_fdsprocess->get_fds_config()->get<float>("fds.sm.objectstore.faults.fail_writes", 0.0f);
+    if (write_failure_rate != 0.0f) {
+        fiu_enable_random("sm.objectstore.faults.putObject", 1, nullptr, 0, write_failure_rate);
+    }
 
     conf_verify_data = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.data_verify");
     taskSyncSize =

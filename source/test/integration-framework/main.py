@@ -65,23 +65,6 @@ class Operation(object):
                 self.logger.info("%s already exists. Skipping." % testset_path)
                 
             self.test_sets.append(current_ts)
-
-    def __load_params(self):
-        params = {}
-        parser = ConfigParser.ConfigParser()
-        parser.read(config.setup)
-        sections = parser.sections()
-        for section in sections:
-            options = parser.options(section)
-            for option in options:
-                try:
-                    params[option] = parser.get(section, option)
-                    if params[option] == -1:
-                        self.logger.info("skipping: %s" % option)
-                except:
-                    self.logger.info("Exception on %s!" % option)
-                    params[option] = None
-        return params
     
     def do_work(self, max_workers=5):
         '''

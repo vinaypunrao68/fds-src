@@ -1,0 +1,17 @@
+[system-nodes]
+10.2.10.200
+10.2.10.201
+10.2.10.202
+10.2.10.203
+
+[system-nodes:vars]
+ansible_ssh_user=ubuntu
+ansible_ssh_pass=ubuntu
+cluster_location=fre
+deploy_artifact=nightly
+fds_default_nic=eth0
+fds_om_host=10.2.10.200
+fds_metrics_enabled=false
+fds_metricsdb_ip=192.168.2.1
+fds_ssh_user=root
+fds_ssh_password=passwd

@@ -80,6 +80,9 @@ fds: {
         /* Don't spawn any service daemon */
         auto_start_services = true
 
+        /* Disk types, hints file.  Relative to fds-root */
+        disk_hints_path_file = "dev/disk-hints.conf"
+
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
         graphite: {
@@ -97,24 +100,24 @@ fds: {
             max_thread  = 10
         }
         /* Internal testing related info */
-	testing: {
-	    /* overwrite node capabilities from this config */
-	    manual_nodecap = true
-	    disk_iops_max  = 100000
-	    disk_iops_min  = 60000
-	}
-	/* Service layer stanza */
-	svc: {
-	    lftp: {
-		/* Enable lockfree threadpool optimizations or not */
-	        enable = {{ svc_plat_lftp_enable }}
-		io_thread_cnt = 2
-		worker_thread_cnt = 2
-	    }
+        testing: {
+            /* overwrite node capabilities from this config */
+            manual_nodecap = true
+            disk_iops_max  = 100000
+            disk_iops_min  = 60000
+        }
+        /* Service layer stanza */
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
             timeout: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
-	}
+        }
     }
 
     dm: {
@@ -216,6 +219,9 @@ fds: {
         objectstore: {
             /* Size of the hashed task synchronizer */
             synchronizer_size = 100
+            faults: {
+                fail_writes = 0.0
+            }
         }
         cache: {
             /* Default max number of data cache entries */
@@ -333,7 +339,7 @@ fds: {
         cache: {
             /* Default max data entries in a volume's AM cache */
             max_data_entries =  {{ am_cache_max_data_entries }}
-	    /* Default max entries in a volume's AM cache */
+            /* Default max entries in a volume's AM cache */
             max_metadata_entries =  {{ am_cache_max_metadata_entries }}
             /* Default max staged entries in a volume's tx descriptor */
             tx_max_staged_entries = 10
@@ -451,7 +457,7 @@ fds: {
     }
 
     xdi: {
-	am_host = "{{ am_host }}"
+        am_host = "{{ am_host }}"
     }
 }
 {% endblock %}
