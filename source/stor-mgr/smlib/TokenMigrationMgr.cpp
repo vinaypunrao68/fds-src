@@ -41,9 +41,6 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         return err;
     }
 
-    // TODO(Sean:)  Need to disable GarbageCollection here, before
-    //              we can proceed with migration.
-
     // we need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
@@ -294,7 +291,7 @@ SmTokenMigrationMgr::handleDltClose() {
     // for now, to make sure we can handle another migration...
     MigrationState expectState = MIGR_IN_PROGRESS;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
-        LOGNOTIFY << "startMigration called in non- in progress state " << migrState;
+        LOGNOTIFY << "DLT Close called in non- in progress state " << migrState;
         return ERR_OK;  // this is ok
     }
     LOGDEBUG << "";
