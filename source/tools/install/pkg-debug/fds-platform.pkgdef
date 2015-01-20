@@ -1,5 +1,5 @@
-package: fds-platform-debug
-version: 0.6.0
+package: fds-platform
+version: 0.6.0-debug
 description: all fds components
 
 replaces:

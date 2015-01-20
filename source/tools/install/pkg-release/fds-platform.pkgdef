@@ -1,5 +1,5 @@
-package: fds-platform-release
-version: 0.6.0
+package: fds-platform
+version: 0.6.0-release
 description: all fds components
 
 replaces:
