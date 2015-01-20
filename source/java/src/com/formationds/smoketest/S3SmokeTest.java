@@ -242,22 +242,6 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void testMissingBucketReturnsFourOfFour() {
-        String missingBucket = UUID.randomUUID().toString();
-        try {
-            userClient.listObjects(missingBucket);
-        } catch (AmazonClientException e) {
-            // Not very nice, but AmazonClientExceptions don't expose any details of the underlying HTTP transaction
-            String error = e.toString();
-            assertTrue(error.contains("404"));
-            assertTrue(error.contains("NoSuchBucket"));
-            return;
-        }
-
-        fail("Should have gotten an AmazonClientException!");
-    }
-
-    @Test
     public void testLargeMultipartUpload() {
         String key = UUID.randomUUID()
                 .toString();
