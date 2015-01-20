@@ -6,6 +6,7 @@ package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
+import com.formationds.protocol.*;
 import com.formationds.om.webkit.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
@@ -78,9 +79,9 @@ public class Xdi {
                 .collect(Collectors.toList());
     }
 
-    public List<BlobDescriptor> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset) throws ApiException, TException {
+    public List<BlobDescriptor> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
         attemptVolumeAccess(token, volumeName);
-        return am.volumeContents(domainName, volumeName, count, offset);
+        return am.volumeContents(domainName, volumeName, count, offset, pattern, orderBy, descending);
     }
 
     public BlobDescriptor statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {

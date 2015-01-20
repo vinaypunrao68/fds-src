@@ -678,7 +678,10 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
     GetBucketMsgPtr message = boost::make_shared<GetBucketMsg>();
     message->volume_id = amReq->io_vol_id;
     message->startPos  = static_cast<VolumeContentsReq *>(amReq)->offset;
-    message->count   = static_cast<VolumeContentsReq *>(amReq)->maxkeys;
+    message->count   = static_cast<VolumeContentsReq *>(amReq)->count;
+    message->pattern = static_cast<VolumeContentsReq *>(amReq)->pattern;
+    message->orderBy = static_cast<VolumeContentsReq *>(amReq)->orderBy;
+    message->descending = static_cast<VolumeContentsReq *>(amReq)->descending;
 
     auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(

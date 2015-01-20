@@ -1,6 +1,7 @@
 package com.formationds.hadoop;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.blob.Mode;
 import com.formationds.xdi.XdiClientFactory;
@@ -350,13 +351,13 @@ public class FdsFileSystem extends FileSystem {
     }
 
     private List<BlobDescriptor> getAllBlobDescriptors() throws ApiException, TException {
-        return am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0);
+        return am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
     }
 
     private List<Path> getAllSubPaths(Path path, boolean includeSelf) throws IOException {
         try {
             List<Path> paths = new ArrayList<>();
-            List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0);
+            List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
             for (BlobDescriptor bd : descriptors) {
                 Path blobPath = new Path(bd.getName());
                 if (isParent(path, blobPath))
@@ -384,7 +385,7 @@ public class FdsFileSystem extends FileSystem {
     private List<Path> getPathContents(Path path) throws IOException {
         try {
             List<Path> paths = new ArrayList<>();
-            List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0);
+            List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
             for (BlobDescriptor bd : descriptors) {
                 Path name = new Path(bd.getName());
                 if (name.getParent() != null && name.getParent().equals(path)) {

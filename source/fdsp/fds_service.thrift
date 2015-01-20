@@ -4,6 +4,7 @@
 
 include "FDSP.thrift"
 include "snapshot.thrift"
+include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol
@@ -885,19 +886,13 @@ struct GetBlobMetaDataMsg {
   5: FDSP.FDSP_MetaDataList    metaDataList;
 }
 
-enum BlobListOrder {
-    UNSPECIFIED = 0,
-    LEXICOGRAPHIC = 1,
-    BLOBSIZE = 2
-}
-
 struct GetBucketMsg {
   //request
   1: required i64              volume_id;
   2: i64                       startPos = 0;  
   3: i64                       count = 10000;
   4: string                    pattern = "";
-  5: BlobListOrder             orderBy = 0;
+  5: common.BlobListOrder      orderBy = 0;
   6: bool                      descending = false;
 }
 

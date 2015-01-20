@@ -98,7 +98,10 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
                           const std::string& domainName,
                           const std::string& volumeName,
                           const int32_t count,
-                          const int64_t offset) {
+                          const int64_t offset,
+                          const std::string& pattern,
+                          const fpi::BlobListOrder orderBy,
+                          const bool descending) {
     fds_panic("You shouldn't be here.");
 }
 
@@ -107,12 +110,18 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
                           boost::shared_ptr<std::string>& domainName,
                           boost::shared_ptr<std::string>& volumeName,
                           boost::shared_ptr<int32_t>& count,
-                          boost::shared_ptr<int64_t>& offset) {
+                          boost::shared_ptr<int64_t>& offset,
+                          boost::shared_ptr<std::string>& pattern,
+                          boost::shared_ptr<fpi::BlobListOrder>& orderBy,
+                          boost::shared_ptr<bool>& descending) {
     ListBucketResponseHandler::ptr handler(new ListBucketResponseHandler(_return));
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
                                                *volumeName,
                                                *count,
                                                *offset,
+                                               *pattern,
+                                               *orderBy,
+                                               *descending,
                                                SHARED_DYN_CAST(Callback, handler));
     storHvisor->enqueueBlobReq(blobReq);
 

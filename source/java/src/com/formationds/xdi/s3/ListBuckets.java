@@ -13,7 +13,7 @@ import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 
-import FDS_ProtocolInterface.ResourceState;
+import com.formationds.protocol.ResourceState;
 
 import java.util.Date;
 import java.util.List;

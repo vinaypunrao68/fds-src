@@ -7,7 +7,7 @@
 
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
-namespace java FDS_ProtocolInterface
+namespace java com.formationds.protocol
 
 enum ResourceState {
   Unknown,
@@ -17,6 +17,12 @@ enum ResourceState {
   Offline, /* resource is offline - will come back later */
   MarkedForDeletion, /* resource will be deleted soon. */
   Deleted, /* resource is gone now and will not come back*/
+}
+
+enum BlobListOrder {
+    UNSPECIFIED = 0,
+    LEXICOGRAPHIC,
+    BLOBSIZE
 }
 
 #endif
