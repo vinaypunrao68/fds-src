@@ -116,7 +116,7 @@ class Operation(object):
                                               instance_count=self.args.count,
                                               type=self.args.type)
             else:
-                # make the baremetal version the default one.
+                # make the integration-framework-cluster version the default one
                 self.multicluster = multinode.Multinode(type=self.args.type,
                                               inventory=self.args.inventory)
         for ts in self.test_sets:
@@ -186,7 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--type',
                         default='baremetal',
                         help='Specify if the cluster will be created using' \
-                        ' AWS or baremetal instances.')
+                        ' AWS or local instances.')
     parser.add_argument('-u', '--inventory',
                         default=None,
                         help='Define if user wants to use a different' \

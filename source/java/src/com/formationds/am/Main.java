@@ -17,6 +17,10 @@ import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.Assignment;
 import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.util.thrift.OMConfigServiceClient;
+import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
+import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
@@ -74,12 +78,6 @@ public class Main {
 
         SecretKey secretKey = new SecretKeySpec( keyBytes, "AES" );
 
-        // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
-        // I want to consolidate event management in a single process, but can't do that currently since the
-        // AM starts all of the data connectors other than the webapp driving the UI in the OM.
-//        EventRepository eventRepository = new EventRepository();
-//        EventManager.INSTANCE.initEventNotifier(eventMgrKey, (e) -> { return eventRepository.save(e) != null; });
-
         // Get the instance ID from either the config file or cmd line
         final Assignment amInstance = platformConfig.lookup("fds.am.instanceId");
         int amInstanceId;
@@ -109,42 +107,73 @@ public class Main {
 
         int amResponsePort = AM_BASE_RESPONSE_PORT + amInstanceId;
         LOG.debug( "My instance id " + amInstanceId +
-                       " port " + amResponsePort );
+                   " port " + amResponsePort );
 
         XdiClientFactory clientFactory = new XdiClientFactory(amResponsePort);
 
-        final boolean useFakeAm =
-            platformConfig.defaultBoolean( "fds.am.memory_backend", false );
-        final String omHost =
-            platformConfig.defaultString( "fds.am.om_ip", "localhost" );
-        // TODO should we make this configurable?
-        final int omConfigPort = 9090;
-        int omLegacyConfigPort =
-            platformConfig.defaultInt( "fds.am.om_config_port", 8903 );
+        String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
+        boolean useFakeAm   = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
+        String  omHost      = platformConfig.defaultString("fds.am.om_ip", "localhost");
+        Integer omHttpPort  = platformConfig.defaultInt("fds.om.http_port", 7777);
+        Integer omHttpsPort = platformConfig.defaultInt("fds.om.https_port", 7443);
 
-        final String amHost =
-            platformConfig.defaultString( "fds.xdi.am_host", "localhost" );
-        final int amServicePort =
-            platformConfig.defaultInt( "fds.am.om_ip_port", 9988 );
+        // TODO: this needs to be configurable in platform.conf
+        int omConfigPort = 9090;
 
-        AmService.Iface am =
-            useFakeAm ? new FakeAmService()
-                      : clientFactory.remoteAmService( amHost,
-                                                       amServicePort + amInstanceId );
+        // TODO: the base service port needs to configurable in platform.conf
+        int amServicePortBase = 9988;
+        int amServicePort = amServicePortBase + amInstanceId;
 
-        XdiConfigurationApi configCache = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
-        boolean enforceAuth = platformConfig.defaultBoolean( "fds.authentication", false );
-        Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
-        Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
+        AmService.Iface am = useFakeAm ? new FakeAmService() :
+                clientFactory.remoteAmService(amHost, amServicePort);
 
-        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
+        // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
+        // This will result XDI create/delete Volume requests to redirect to the OM REST Client.
+        // At this time all other requests continue to go through the XdiConfigurationApi (though
+        // we may need to modify it so other requests are intercepted and redirected through OM REST
+        // client in the future)
+        OMConfigServiceClient omConfigServiceRestClient =
+            new OMConfigServiceRestClientImpl(secretKey, "http", omHost, omHttpPort );
+        ConfigurationApi omCachedConfigProxy =
+            OMConfigurationServiceProxy.newOMConfigProxy( omConfigServiceRestClient,
+                                                          clientFactory.remoteOmService( omHost,
+                                                                                         omConfigPort ) );
+
+        XdiConfigurationApi configCache = new XdiConfigurationApi( omCachedConfigProxy );
+
+        // TODO: make cache update check configurable.
+        // The config cache has been modified so that it captures all events that come through
+        // the XDI apis.  However, it does not capture events that go direct through the
+        // OM REST Client (i.e. UI or curl commands to OM Java web address), so we
+        // still need to monitor the config service and update the cache on version changes.
+        // The other alternative is to modify all of the XDI config cache methods to do a
+        // refresh on cache miss.
+        long configCacheUpdateIntervalMillis = 10000;
+        configCache.startCacheUpdaterThread(configCacheUpdateIntervalMillis);
+
+        boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
+        Authenticator authenticator = enforceAuth ?
+                                      new FdsAuthenticator(configCache, secretKey) :
+                                      new NullAuthenticator();
+        Authorizer authorizer = enforceAuth ?
+                                new FdsAuthorizer(configCache) :
+                                new DumbAuthorizer();
+
+        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer);
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
         AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
-        AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amResponsePort);
+        AsyncAm asyncAm = useFakeAm ?
+                          new FakeAsyncAm() :
+                          new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
 
-        Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, authorizer, configCache);
+        // TODO: should XdiAsync use omCachedConfigProxy too?
+        Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm,
+                                                                                  bbp,
+                                                                                  token,
+                                                                                  authorizer,
+                                                                                  configCache);
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port", 8000);
         int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port", 8443);
@@ -155,7 +184,11 @@ public class Main {
         HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort,
                                                                        configuration );
 
-        new Thread(() -> new S3Endpoint(xdi, factory, secretKey, httpsConfiguration, httpConfiguration).start(), "S3 service thread").start();
+        new Thread(() -> new S3Endpoint(xdi,
+                                        factory,
+                                        secretKey,
+                                        httpsConfiguration,
+                                        httpConfiguration).start(), "S3 service thread").start();
 
         startStreamingServer(8999 + amInstanceId, configCache);
 

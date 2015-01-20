@@ -90,42 +90,61 @@ public class SmokeTest {
         System.setProperty(AMAZON_DISABLE_SSL, "true");
         host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
+
         String omUrl = "https://" + host + ":7443";
         turnLog4jOff();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
         String adminToken = adminUserObject.getString("token");
 
-        String tenantName = UUID.randomUUID()
-                .toString();
+        String tenantName = UUID.randomUUID().toString();
         long tenantId = doPost(omUrl + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
 
-        userName = UUID.randomUUID()
-                .toString();
-        String password = UUID.randomUUID()
-                .toString();
+        userName = UUID.randomUUID().toString();
+        String password = UUID.randomUUID().toString();
+
         long userId = doPost(omUrl + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
-        userToken = getObject(omUrl + "/api/system/token/" + userId, adminToken).getString("token");
+        userToken = getObject( omUrl + "/api/system/token/" + userId, adminToken ).getString( "token" );
         doPut(omUrl + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
-        adminBucket = UUID.randomUUID()
-                .toString();
-        userBucket = UUID.randomUUID()
-                .toString();
-        snapBucket = "snap_" + userBucket;
+
         adminClient = s3Client(host, ADMIN_USERNAME, adminToken);
         userClient = s3Client(host, userName, userToken);
+
+        adminBucket = "admin-" + UUID.randomUUID().toString();
+        userBucket = "user-" + UUID.randomUUID().toString();
+        snapBucket = "snap_" + userBucket;
+
+        // print bucket names to help trace errors into the system logs.
+        System.out.println("    Creating AdminBucket: " + adminBucket);
         adminClient.createBucket(adminBucket);
+
+        System.out.println("    Creating UserBucket:  " + userBucket);
         userClient.createBucket(userBucket);
+
         randomBytes = new byte[4096];
         rng.nextBytes(randomBytes);
         prefix = UUID.randomUUID()
                 .toString();
         count = 10;
         config = new XdiClientFactory().remoteOmService(host, 9090);
-        
+
         testBucketExists(userBucket, false);
         testBucketExists(adminBucket, false);
     }
-    
+
+    // TODO: getting OM core dump in stream registration when deleting the buckets after each test.
+    // After removing the stream re-registration for all volumes when a volume is created in OM,
+    // now seeing an SM core dump in deleteObject (FS-730), so leaving commented out.
+    //    @After
+    //    public void tearDown() {
+    //        deleteBucketIgnoreErrors(adminClient, userBucket);
+    //        deleteBucketIgnoreErrors(adminClient, adminBucket);
+    //    }
+    //
+    private void deleteBucketIgnoreErrors(AmazonS3Client client, String bucket) {
+        try { client.deleteBucket(bucket); }
+        catch (Exception ignored) {}
+    }
+
     public void testBucketExists(String bucketName, boolean fProgress) {
         if (fProgress) System.out.print("    Checking bucket exists [" + bucketName + "] ");
         assertEquals("bucket [" + bucketName + "] NOT active", true, checkBucketState(bucketName, true, 10, fProgress));
@@ -169,19 +188,41 @@ public class SmokeTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRecreateVolume() {
-        String bucketName = "test-recreate-bucket";
+        String bucketName = "test-recreate-bucket-"+userBucket;
         try {
+            try {
+                userClient.createBucket(bucketName);
+            } catch (AmazonS3Exception e) {
+                assertEquals("unknown error : " + e, 409, e.getStatusCode());
+            }
+            testBucketExists(bucketName, true);
+            userClient.deleteBucket(bucketName);
+            testBucketNotExists(bucketName, true);
             userClient.createBucket(bucketName);
-        } catch (AmazonS3Exception e) {
-            assertEquals("unknown error : " + e , 409, e.getStatusCode());
+            testBucketExists( bucketName, true );
+        } finally {
+            deleteBucketIgnoreErrors(adminClient,
+                                     bucketName);
         }
-        testBucketExists(bucketName, true);
-        userClient.deleteBucket(bucketName);
-        testBucketNotExists(bucketName, true);
-        userClient.createBucket(bucketName);
-        testBucketExists(bucketName, true);
+    }
+
+    @Test
+    public void testDeleteBucket() {
+        String bucketName = "test-delete-bucket-" + userBucket;
+        try {
+            try {
+                userClient.createBucket(bucketName);
+            } catch (AmazonS3Exception e) {
+                assertEquals("unknown error : " + e, 409, e.getStatusCode());
+            }
+            testBucketExists(bucketName, true);
+            userClient.deleteBucket(bucketName);
+            testBucketNotExists( bucketName, true );
+        } finally {
+            deleteBucketIgnoreErrors(adminClient, bucketName);
+        }
     }
 
     @Test

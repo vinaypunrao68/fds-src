@@ -42,9 +42,8 @@ public class S3Authenticator {
 
     private AuthenticationComponents resolveFdsCredentials(String header) {
         String pattern = "AWS {0}:{1}";
-        Object[] parsed = new Object[0];
         try {
-            parsed = new MessageFormat(pattern).parse(header);
+            Object[] parsed = new MessageFormat(pattern).parse(header);
             String principal = (String) parsed[0];
             AuthenticationToken fdsToken = xdi.getAuthenticator().currentToken(principal);
             return new AuthenticationComponents(principal, fdsToken);

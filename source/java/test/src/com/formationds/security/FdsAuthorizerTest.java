@@ -28,7 +28,6 @@ public class FdsAuthorizerTest {
     @Before
     public void setUp() throws Exception {
         cachedConfig = mock(ConfigurationApi.class);
-        when(cachedConfig.listUsers()).thenReturn(Lists.newArrayList(USER));
         when(cachedConfig.getUser(eq(USER_ID))).thenReturn(USER);
         when(cachedConfig.allUsers(0)).thenReturn(Lists.newArrayList(USER));
         when(cachedConfig.tenantId(eq(USER_ID))).thenReturn(tenantId);

@@ -21,32 +21,31 @@ fds: {
     /* Feature toggles, use "common:" for features that propogate across components */
     feature_toggle: {
         common: {
-            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
 
-            java_is_fussy_an_entry_must_exist_here = true
+            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
         }
         plat: {
+
             use_disk_hints = {{ ft_platform_use_disk_hints }}
             force_simulation_mode = {{ ft_platform_force_simulation_mode }}
-
-            java_is_fussy_an_entry_must_exist_here = true
         }
         dm: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         sm: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         am: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         om: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
+
 {% if om_ip_count != empty_om_list %}
 {% set hosts = groups[group_names[0]] %}
 {% for i in range(om_ip_count|int) %}
@@ -55,8 +54,6 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
-
-        java_is_fussy_an_entry_must_exist_here = true
     }
 
     plat: {
@@ -80,6 +77,9 @@ fds: {
         /* Don't spawn any service daemon */
         auto_start_services = true
 
+        /* Disk types, hints file.  Relative to fds-root */
+        disk_hints_path_file = "dev/disk-hints.conf"
+
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
         graphite: {
@@ -97,24 +97,24 @@ fds: {
             max_thread  = 10
         }
         /* Internal testing related info */
-	testing: {
-	    /* overwrite node capabilities from this config */
-	    manual_nodecap = true
-	    disk_iops_max  = 100000
-	    disk_iops_min  = 60000
-	}
-	/* Service layer stanza */
-	svc: {
-	    lftp: {
-		/* Enable lockfree threadpool optimizations or not */
-	        enable = {{ svc_plat_lftp_enable }}
-		io_thread_cnt = 2
-		worker_thread_cnt = 2
-	    }
+        testing: {
+            /* overwrite node capabilities from this config */
+            manual_nodecap = true
+            disk_iops_max  = 100000
+            disk_iops_min  = 60000
+        }
+        /* Service layer stanza */
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
             timeout: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
-	}
+        }
     }
 
     dm: {
@@ -216,6 +216,9 @@ fds: {
         objectstore: {
             /* Size of the hashed task synchronizer */
             synchronizer_size = 100
+            faults: {
+                fail_writes = 0.0
+            }
         }
         cache: {
             /* Default max number of data cache entries */
@@ -333,7 +336,7 @@ fds: {
         cache: {
             /* Default max data entries in a volume's AM cache */
             max_data_entries =  {{ am_cache_max_data_entries }}
-	    /* Default max entries in a volume's AM cache */
+            /* Default max entries in a volume's AM cache */
             max_metadata_entries =  {{ am_cache_max_metadata_entries }}
             /* Default max staged entries in a volume's tx descriptor */
             tx_max_staged_entries = 10
@@ -451,7 +454,7 @@ fds: {
     }
 
     xdi: {
-	am_host = "{{ am_host }}"
+        am_host = "{{ am_host }}"
     }
 }
 {% endblock %}

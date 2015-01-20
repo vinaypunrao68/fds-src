@@ -19,7 +19,7 @@
     tags:
         - post-install
 
--   name: render formation.conf
+-   name: render deploy_formation.conf
     template:
         src=../../source/test/formation.conf.j2
         dest=/fds/sbin/deploy_formation.conf
