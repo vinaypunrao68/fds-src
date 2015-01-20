@@ -25,6 +25,9 @@ public class MediaPolicyConverter {
 			case FDSP_MEDIA_POLICY_SSD:
 				mediaPolicy = MediaPolicy.SSD_ONLY;
 				break;
+			case FDSP_MEDIA_POLICY_HYBRID:
+				mediaPolicy = MediaPolicy.HYBRID_ONLY;
+				break;
 			default:
 				mediaPolicy = MediaPolicy.HDD_ONLY;
 				break;
@@ -43,6 +46,9 @@ public class MediaPolicyConverter {
 				break;
 			case SSD_ONLY:
 				fdspPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD;
+				break;
+			case HYBRID_ONLY:
+				fdspPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HYBRID;
 				break;
 			default: 
 				fdspPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_UNSET;
