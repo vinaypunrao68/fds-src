@@ -34,6 +34,7 @@ ScavControl::ScavControl(const std::string &modName,
           scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
     enabled = ATOMIC_VAR_INIT(false);
+    whoDisabledMe = SM_CMD_INITIATOR_NOT_SET;
 }
 
 ScavControl::~ScavControl() {
@@ -119,10 +120,31 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
     noPersistScavStats = false;
 }
 
-Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap)
+Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
+                                   SmCommandInitiator initiator)
 {
     Error err(ERR_OK);
     fds_bool_t expect = false;
+
+    // check whether we can enable scavenger based on who disabled it
+    fds_bool_t initiatorUser = (initiator == SM_CMD_INITIATOR_USER);
+    if ((std::atomic_load(&enabled) == false) &&
+        (whoDisabledMe != SM_CMD_INITIATOR_NOT_SET)) {
+        // if user tries to enable scavenger and it is temporary
+        // disabled by the background process, just report an error
+        if (initiatorUser && (whoDisabledMe != SM_CMD_INITIATOR_USER)) {
+            LOGNOTIFY << "Scavenger is temporary disabled by the background process "
+                      << whoDisabledMe << ", try again later...";
+            return ERR_SM_GC_TEMP_DISABLED;
+        }
+        // if background process tries to re-enable scavenger which is
+        // disabled by the user, just ignore
+        if (!initiatorUser && (whoDisabledMe == SM_CMD_INITIATOR_USER)) {
+            LOGNORMAL << "Scavenger is disabled by the user, background processs "
+                      << " cannot re-enable it; Scavenger will remain disabled";
+            return ERR_OK;
+        }
+    }
 
     // if this is called for the first time and diskScavTbl is empty,
     // populate diskScavTable first (before changing enabled to true,
@@ -146,7 +168,7 @@ Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap)
     return err;
 }
 
-void ScavControl::disableScavenger()
+void ScavControl::disableScavenger(SmCommandInitiator initiator)
 {
     fds_bool_t expect = true;
 
@@ -162,6 +184,7 @@ void ScavControl::disableScavenger()
     if (std::atomic_compare_exchange_strong(&enabled, &expect, false)) {
         LOGNOTIFY << "Disabled Scavenger; will not be able to start scavenger"
                   << " process manually as well until scavenger is enabled";
+        whoDisabledMe = initiator;
     } else {
         LOGNOTIFY << "Scavenger was already disabled";
     }
@@ -212,7 +235,7 @@ void ScavControl::stopScavengeProcess()
 
     LOGNORMAL << "Stop Scavenger cycle... ";
     fds_mutex::scoped_lock l(scav_lock);
-    // TODO(xxx) stop everything for now
+    // Stop GC on all the disks
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
@@ -586,13 +609,9 @@ Error DiskScavenger::startScavenge(fds_bool_t verify,
             std::atomic_exchange(&state, SCAV_STATE_IDLE);
             break;
         }
-        // TODO(Anna) commenting our isTokenInSyncMode -- need to revisit
-        // when porting back token migration
-        // if (!objStorMgr->isTokenInSyncMode(tok_id)) {
         tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData, std::bind(
                &DiskScavenger::compactionDoneCb, this,
                std::placeholders::_1, std::placeholders::_2));
-           // }
     }
 
     return err;
@@ -665,14 +684,10 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
                     finished = true;
                     break;
                 }
-                // TODO(Anna) commenting our isTokenInSyncMode -- need to revisit
-                // when porting back token migration
-                // if (!objStorMgr->isTokenInSyncMode(tok_id)) {
                 tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData,
                                      std::bind(
                                          &DiskScavenger::compactionDoneCb, this,
                                          std::placeholders::_1, std::placeholders::_2));
-                   // }
              }
         }
     } else {
