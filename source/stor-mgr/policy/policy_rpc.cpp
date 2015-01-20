@@ -101,11 +101,18 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
         desc->tier_duration_sec = 0;
         desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_HDD;
     }
-    LOGNORMAL << "Recv tier Policy Request, ";
-    LOGNORMAL << "Vol uuid " << tier->tier_vol_uuid;
-    LOGNORMAL << ", tier media " << tier->tier_media;
-    LOGNORMAL << ", tier media pct " << tier->tier_media_pct;
-    LOGNORMAL << ", tier duration " << tier->tier_interval_sec;
+    LOGNOTIFY  << "Vol uuid " << tier->tier_vol_uuid << "tier media " << tier->tier_media
+         << "tier media pct " << tier->tier_media_pct
+         << "tier duration " << tier->tier_interval_sec;
+    #if 0 
+    using std::cout;
+    using std::endl;
+    cout << "Recv tier Policy Request" << endl;
+    cout << "Vol uuid " << tier->tier_vol_uuid << endl;
+    cout << "tier media " << tier->tier_media << endl;
+    cout << "tier media pct " << tier->tier_media_pct << endl;
+    cout << "tier duration " << tier->tier_interval_sec << endl;
+    #endif
 }
 
 void
