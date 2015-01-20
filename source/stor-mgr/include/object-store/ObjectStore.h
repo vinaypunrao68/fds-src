@@ -135,6 +135,22 @@ class ObjectStore : public Module, public boost::noncopyable {
 
 
     /**
+     * Apply Object metadata/data from source SM
+     * Object metadata and data may already exist, so may only
+     * need to apply newest metadata. The metadata is overwritten with
+     * the fields in the msg; the assumption here is that there is no
+     * active IO on this SM for this object while the SM applying data
+     * and metadata. This assumption is verified by TokenMigrationMgr
+     * and MigrationExecutor.
+     * @param objId object ID for which to apply data and metadata
+     * @param msg thrift message from source SM containing data and
+     *        metadata to apply
+     * @return success or error
+     */
+    Error applyObjectMetadataData(const ObjectID& objId,
+                                  const fpi::CtrlObjectMetaDataPropagate& msg);
+
+    /**
      * Make a snapshot of metadata of given SM token and
      * calls notifFn method
      */
@@ -149,6 +165,7 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
+    Error tieringControlCmd(SmTieringCmd* tierCmd);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

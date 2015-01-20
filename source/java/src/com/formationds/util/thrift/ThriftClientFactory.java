@@ -11,8 +11,12 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocolException;
 import org.apache.thrift.transport.TTransportException;
 
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Arrays;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 
 /**
@@ -88,48 +92,139 @@ public class ThriftClientFactory<IF> {
 
         }
     }
+
     /**
-     * Build a remote proxy for invoking a thrift service Api.  Calls to the remote proxy
-     * service interface will borrow a connection from the underlying pool, execute the
-     * requested service method, and the connection will immediately return back to the pool.
+     * Invocation handler for proxying ThriftClient execution requests.
      * <p/>
-     * The pool is created with client connection factory that ensures new connections are
-     * created and added to the pool as needed.
+     * Adds retry handling for up to 100 retries or exhausting the client pool
      *
-     * @param klass
-     * @param pool
-     * @param host
-     * @param port
      * @param <T>
-     *
-     * @return a remote proxy to the interface specified by klass
      */
-    protected static <T> T buildRemoteProxy(Class<T> klass,
-                                            KeyedObjectPool<ConnectionSpecification, ThriftClientConnection<T>> pool,
-                                            String host,
-                                            int port) {
-        @SuppressWarnings("unchecked")
-        T result = (T) Proxy.newProxyInstance(klass.getClassLoader(), new Class[] {klass},
-                                              (proxy, method, args) -> {
-                                                  ConnectionSpecification spec =
-                                                      new ConnectionSpecification(host, port);
-                                                  ThriftClientConnection<T> cnx = pool.borrowObject(spec);
-                                                  T client = cnx.getClient();
-                                                  try {
-                                                      return method.invoke(client, args);
-                                                  } catch (InvocationTargetException e) {
-                                                      if (e.getCause() instanceof TTransportException ||
-                                                          e.getCause() instanceof TProtocolException) {
-                                                          pool.invalidateObject(spec, cnx);
-                                                          cnx = null;
-                                                      }
-                                                      throw e.getCause();
-                                                  } finally {
-                                                      if (cnx != null)
-                                                          pool.returnObject(spec, cnx);
-                                                  }
-                                              });
-        return result;
+    private static class ThriftClientProxy<T> implements InvocationHandler
+    {
+        /**
+         * Build a remote proxy for invoking a thrift service Api.  Calls to the remote proxy
+         * service interface will borrow a connection from the underlying pool, execute the
+         * requested service method, and the connection will immediately return back to the pool.
+         * <p/>
+         * The pool is created with client connection factory that ensures new connections are
+         * created and added to the pool as needed.
+         *
+         * @param klass
+         * @param pool
+         * @param host
+         * @param port
+         * @param <T>
+         *
+         * @return a remote proxy to the interface specified by klass
+         */
+         static <T> T buildRemoteProxy( Class<T> klass,
+                                        KeyedObjectPool<ConnectionSpecification,
+                                                        ThriftClientConnection<T>> pool,
+                                        String host,
+                                        int port)
+         {
+            @SuppressWarnings("unchecked")
+            T result = (T) Proxy.newProxyInstance( klass.getClassLoader(),
+                                                   new Class[] { klass },
+                                                   new ThriftClientProxy( host, port, pool ) );
+            return result;
+        }
+
+        private final String host;
+        private final Integer port;
+        private final KeyedObjectPool<ConnectionSpecification,
+                                      ThriftClientConnection<T>> pool;
+
+        private ThriftClientProxy( String host,
+                                   Integer port,
+                                   KeyedObjectPool<ConnectionSpecification,
+                                                   ThriftClientConnection<T>> pool )
+        {
+            this.host = host;
+            this.port = port;
+            this.pool = pool;
+        }
+
+        @Override
+        public Object invoke( Object proxy,
+                              Method method,
+                              Object[] args ) throws Throwable
+        {
+            ConnectionSpecification spec =
+                new ConnectionSpecification( host, port );
+
+            Throwable err = null;
+            try
+            {
+                // TODO: make retry configurable
+                int attempts = 0;
+                int maxRetries = 100;
+                while ( attempts++ < maxRetries )
+                {
+                    ThriftClientConnection<T> cnx = pool.borrowObject( spec );
+                    T client = cnx.getClient();
+                    try
+                    {
+                        return method.invoke( client, args );
+                    }
+                    catch ( InvocationTargetException e )
+                    {
+                        Throwable cause = e.getCause();
+                        if ( cause instanceof TTransportException ||
+                             cause instanceof TProtocolException )
+                        {
+                            pool.invalidateObject( spec, cnx );
+                            cnx = null;
+
+                            // if this is the first attempt, capture the error
+                            // for reporting if retry attempts fail
+                            if ( err != null )
+                            {
+                                err = cause;
+                            }
+
+                            // sleep for a moment before retrying
+                            // TODO: add min/max wait and randomize waits between them (and make configurable)
+                            Thread.sleep( 1000 );
+
+                            // retry
+                            continue;
+                        }
+                        else
+                        {
+                            // for other non-connection related exceptions, no need to
+                            // retry.  Just rethrow the cause
+                            throw e.getCause();
+                        }
+                    }
+                    finally
+                    {
+                        if ( cnx != null )
+                        {
+                            pool.returnObject( spec, cnx );
+                        }
+                    }
+                }
+            }
+            catch ( NoSuchElementException poolExhausted )
+            {
+                LOG.error( "Failed to execute request before exhausting the client connection pool.",
+                           poolExhausted );
+                throw new IllegalStateException( "Failed to execute request " +
+                                                 method.getName() +
+                                                 "(" + Arrays.toString( args ) + ")", err );
+            }
+
+            if ( err != null )
+            {
+                throw err;
+            }
+            else
+            {
+                return null;
+            }
+        }
     }
 
     private final GenericKeyedObjectPoolConfig config;
@@ -170,7 +265,10 @@ public class ThriftClientFactory<IF> {
      */
     protected IF buildRemoteProxy(String host,
                                   int port) {
-        return (IF) buildRemoteProxy(getThriftServiceIFaceClass(), getClientPool(), host, port);
+        return (IF) ThriftClientProxy.buildRemoteProxy( getThriftServiceIFaceClass(),
+                                                        getClientPool(),
+                                                        host,
+                                                        port );
     }
 
     /**

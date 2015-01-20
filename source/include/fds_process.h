@@ -138,6 +138,8 @@ class FdsProcess : public boost::noncopyable,
 
     void daemonize();
 
+    void closeAllFDs();
+
     /**
      * Handler function for Ctrl+c like signals.  Default implementation
      * just calls exit(0).

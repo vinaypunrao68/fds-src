@@ -92,6 +92,7 @@ class ObjMetaData : public serialize::Serializable {
     void extractSyncData(fpi::FDSP_MigrateObjectMetadata& md) const;
 
     void propogateMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData);
+    void updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
 
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
@@ -111,7 +112,7 @@ class ObjMetaData : public serialize::Serializable {
     const obj_phy_loc_t* getObjPhyLoc(diskio::DataTier tier) const;
     meta_obj_map_t*   getObjMap();
 
-    void setRefCnt(fds_uint16_t refcnt);
+    void setRefCnt(fds_uint64_t refcnt);
 
     void incRefCnt();
 

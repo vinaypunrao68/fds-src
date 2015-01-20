@@ -91,7 +91,7 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
     }
 
     // we enable scavenger by default
-    err = scavenger->enableScavenger(diskMap);
+    err = scavenger->enableScavenger(diskMap, SM_CMD_INITIATOR_USER);
     if (!err.ok()) {
         LOGERROR << "Failed to start Scavenger " << err;
     }
@@ -353,10 +353,10 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     LOGDEBUG << "Executing scavenger command " << scavCmd->command;
     switch (scavCmd->command) {
         case SmScavengerCmd::SCAV_ENABLE:
-            err = scavenger->enableScavenger(smDiskMap);
+            err = scavenger->enableScavenger(smDiskMap, scavCmd->initiator);
             break;
         case SmScavengerCmd::SCAV_DISABLE:
-            scavenger->disableScavenger();
+            scavenger->disableScavenger(scavCmd->initiator);
             break;
         case SmScavengerCmd::SCAV_START:
             scavenger->startScavengeProcess();

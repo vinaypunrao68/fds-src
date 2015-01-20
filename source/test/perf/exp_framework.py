@@ -276,7 +276,6 @@ class CounterServerPull:
                     try:
                         cntrs = svc_map.client(nodeid, svc).getCounters('*')
                     except:
-                        print "Counters failed for", svc
                         cntr = {}
                     for c, v in cntrs.iteritems():
                         line = node + " " + svc + " " + c + " " + str(v) + " " + str(tstamp)
@@ -340,7 +339,7 @@ class AgentsPidMap:
             self.pid_map[n] = {}
 
     def compute_pid_map(self):
-        if self.options.local == True:
+        if self.options.single_node == True:
             output = subprocess.check_output(self.options.remote_fds_root + "/source/tools/fds status  | egrep '(pm|om|dm|sm|am|xdi)'| awk '{print $1, $4}'", shell = True)  # FIXME: path
             for l in output.split('\n'):
                 if len(l.split()) > 0:
@@ -351,8 +350,12 @@ class AgentsPidMap:
                         pid = int(t2)
                         self.pid_map[self.options.main_node][agent] = pid
         else:
-            cmd = self.options.local_fds_root + "/source/test/fds-tool.py -f " + self.options.local_fds_root + "/source/fdstool.cfg -s"
+            cwd = os.getcwd()
+            os.chdir("/fds/sbin")
+            cmd = "./fds-tool.py -f formation.conf -s"
             output = subprocess.check_output(shlex.split(cmd))
+            print output
+            os.chdir(cwd)
             agents_strings ={ "om" : "com\.formationds\.om\.Main",
                 "xdi" : "com\.formationds\.am\.Main",
                 "am" : "bare_am",
@@ -386,8 +389,49 @@ class FdsCluster():
         self.pidmap = AgentsPidMap(self.options)
         self.local = self.options.myip == self.options.nodes[self.options.main_node]
         self.local_test = self.options.myip == self.options.test_node or self.options.test_node == None
+
     def get_pidmap(self):
         return self.pidmap.get_map()
+
+    def _cluster_package_and_install(self):
+        cwd = os.getcwd()
+        os.chdir(self.local_fds_root + "/source/tools")
+        output = self._loc_exec("bash cluster_setup.sh " +
+                                reduce(lambda x,y : x + "," + y, self.options.nodes.keys()) +
+                                " " + self.options.nodes[self.options.main_node])
+        print output
+        os.chdir(cwd)
+
+
+    def _cluster_config_create(self):
+        config = tempfile.NamedTemporaryFile(mode="w", prefix="clusterconfig", delete=False)
+        config.write("[user]\n")
+        config.write("user_name = root\n")
+        config.write("password = passwd\n")
+        am_node = None
+        for i,node in enumerate(self.options.nodes.keys()):
+            config.write("[node" + str(i+1) + "]\n")
+            if node == self.options.main_node:
+                config.write("om = true\n")
+                am_node = "node" + str(i+1)
+            else:
+                config.write("om = false\n")
+            config.write("ip = " + self.options.nodes[node] + "\n")
+            config.write("fds_root = /fds\n")
+        config.write("[sh1]\n")
+        config.write("blk = false\n")
+        config.write("fds_node = " + am_node + "\n")
+        config.close()
+        print "Cluster config:", config.name
+        shutil.move(config.name, "/fds/formation.conf")
+
+    def _cluster_start(self):
+        cwd = os.getcwd()
+        os.chdir("/fds/sbin")
+        cmd = "./fds-tool.py -f formation.conf -c -d -u"
+        output = self._loc_exec(cmd)
+        print output
+        os.chdir(cwd)
 
     def restart(self):
         print "starting FDS"
@@ -417,9 +461,13 @@ class FdsCluster():
                 print output
                 cnt += 1
         else:
-            cmd = self.local_fds_root + "/source/test/fds-tool.py -f " + self.local_fds_root + "/source/fdstool.cfg -c -d -u"
-            output = self._loc_exec(cmd)
-            print output
+            # This need to do more: i) package ii) distribute iii) install iv) create cluster config v) start
+            # OM IP in config files platform and orm_mgr
+            # core files path
+
+            self._cluster_config_create()
+            self._cluster_package_and_install()
+            self._cluster_start()
             self.pidmap.compute_pid_map()
             time.sleep(10)
 
