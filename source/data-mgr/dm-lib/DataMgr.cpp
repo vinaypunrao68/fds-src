@@ -1052,6 +1052,8 @@ void DataMgr::mod_enable_service() {
 
 void DataMgr::mod_shutdown()
 {
+    shuttingDown = true;
+
     LOGNORMAL;
     statStreamAggr_->mod_shutdown();
     timeVolCat_->mod_shutdown();
