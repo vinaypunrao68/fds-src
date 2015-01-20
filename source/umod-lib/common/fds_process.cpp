@@ -412,25 +412,9 @@ void FdsProcess::interrupt_cb(int signum)
     mod_vectors_->mod_shutdown();
 }
 
-void FdsProcess::daemonize() {
-    // adapted from http://www.enderunix.org/docs/eng/daemon.php
-
-    if (getppid() == 1) return; /* already a daemon */
-    int childpid = fork();
-    if (childpid < 0) {
-        LOGERROR << "error forking for daemonize : " << errno;
-        exit(1);
-    }
-    if (childpid > 0) {
-        LOGNORMAL << "forked successfully : child pid : " << childpid;
-        exit(0);
-    }
-
-    // The actual daemon .
-
-    /* obtain a new process group */
-    setsid();
-
+void
+FdsProcess::closeAllFDs()
+{
     /* close all file descriptors.  however, redirect std file descriptors
      * to /dev/null.
      */
@@ -457,6 +441,33 @@ void FdsProcess::daemonize() {
              */
         }
     }
+}
+
+void FdsProcess::daemonize() {
+    // adapted from http://www.enderunix.org/docs/eng/daemon.php
+
+    if (getppid() == 1) {
+        /* already a daemon */
+        return;
+    }
+
+    /* fork a process */
+    int childpid = fork();
+    if (childpid < 0) {
+        /* fork failed */
+        LOGERROR << "error forking for daemonize : " << errno;
+        exit(1);
+    }
+    if (childpid > 0) {
+        /* parent process */
+        LOGNORMAL << "forked successfully : child pid : " << childpid;
+        exit(0);
+    }
+
+    /* child process */
+
+    /* obtain a new process group */
+    setsid();
 
     // umask(027); /* set newly created file permissions */
     // ignore tty signals

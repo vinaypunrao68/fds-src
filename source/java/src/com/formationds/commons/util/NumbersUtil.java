@@ -6,6 +6,8 @@ package com.formationds.commons.util;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.text.DecimalFormatSymbols;
+
 /**
  * @author ptinius
  */
@@ -72,5 +74,42 @@ public class NumbersUtil {
     final String separator ) {
     return StringUtils.join( numbers.toArray( new Long[ numbers.size() ] ),
                              separator );
+  }
+
+  public static boolean isStringNumeric( String str ) {
+
+    final DecimalFormatSymbols currentLocaleSymbols =
+        DecimalFormatSymbols.getInstance();
+    final char localeMinusSign = currentLocaleSymbols.getMinusSign();
+
+    if( !Character.isDigit( str.charAt( 0 ) ) &&
+        str.charAt( 0 ) != localeMinusSign ) {
+
+      return false;
+
+    }
+
+    boolean isDecimalSeparatorFound = false;
+    final char localeDecimalSeparator =
+        currentLocaleSymbols.getDecimalSeparator();
+
+    for( char c : str.substring( 1 )
+                     .toCharArray() ) {
+
+      if( !Character.isDigit( c ) ) {
+
+        if( c == localeDecimalSeparator && !isDecimalSeparatorFound ) {
+
+          isDecimalSeparatorFound = true;
+          continue;
+
+        }
+
+        return false;
+
+      }
+    }
+
+    return true;
   }
 }

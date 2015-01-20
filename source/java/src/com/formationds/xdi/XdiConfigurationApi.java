@@ -5,9 +5,6 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
-import com.formationds.commons.events.*;
-import com.formationds.om.events.EventManager;
-import com.formationds.security.AuthenticationToken;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
@@ -15,89 +12,57 @@ import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 // TODO: authorize here
-public class XdiConfigurationApi implements ConfigurationApi, ConfigurationService.Iface, Supplier<CachedConfiguration> {
+public class XdiConfigurationApi implements ConfigurationApi {
+    public static final String SYSTEM_VOLUME_PREFIX = "SYSTEM_VOLUME_";
+
     private static final Logger LOG = Logger.getLogger(XdiConfigurationApi.class);
     private static final long   KEY = 0;
     private final ConfigurationService.Iface                   config;
     private final ConcurrentHashMap<Long, CachedConfiguration> map;
+    private Updater updater = null;
 
     public XdiConfigurationApi(ConfigurationService.Iface config) throws Exception {
         this.config = config;
         map = new ConcurrentHashMap<>();
-        map.compute(KEY, (k, v) -> {
+        map.compute( KEY, ( k, v ) -> {
             try {
-                return new CachedConfiguration(config);
-            } catch (Exception e) {
-                LOG.error("Unable to load configuration", e);
-                throw new RuntimeException(e);
+                return new CachedConfiguration( config );
+            } catch ( Exception e ) {
+                LOG.error( "Unable to load configuration", e );
+                throw new RuntimeException( e );
             }
-        });
-        new Thread(new Updater()).start();
+        } );
     }
 
+    /**
+     * Start the cache updater thread
+     */
+    public void startCacheUpdaterThread(long intervalMS) {
+        updater = new Updater( intervalMS );
+        new Thread(updater).start();
+    }
+
+    /**
+     * Stop the cache updater thread
+     */
+    public void stopCacheUpdaterThread() {
+        updater.shutdown();
+    }
+
+    /**
+     *
+     * @param tenantId
+     *
+     * @return the system volume name for the specified tenant.
+     */
     public static String systemFolderName(long tenantId) {
-        return "SYSTEM_VOLUME_" + tenantId;
+        return SYSTEM_VOLUME_PREFIX + tenantId;
     }
-
-    enum ConfigEvent implements EventDescriptor {
-
-        CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {0}", "identifier"),
-        CREATE_USER(EventCategory.SYSTEM, "Created user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
-      UPDATE_USER(EventCategory.SYSTEM, "Updated user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
-      ASSIGN_USER_TENANT(EventCategory.SYSTEM, "Assigned user {0} to tenant {1}", "userId", "tenantId"),
-      REVOKE_USER_TENANT(EventCategory.SYSTEM, "Revoked user {0} from tenant {1}", "userId", "tenantId"),
-      CREATE_VOLUME(EventCategory.VOLUMES, "Created volume: domain={0}; name={1}; tenantId={2}; type={3}; size={4}",
-                    "domainName", "volumeName", "tenantId", "volumeType", "maxSize" ),
-      DELETE_VOLUME(EventCategory.VOLUMES, "Deleted volume: domain={0}; name={1}", "domainName", "volumeName"),
-      CREATE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Created snapshot policy {0} {1} {2}; id={3}",
-                             "name", "recurrence", "retention", "id" ),
-      DELETE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Deleted snapshot policy: id={0}", "id"),
-      ATTACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Attached snapshot policy {0} to volume id {1}",
-                             "policyId", "volumeId"),
-      DETACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Detached snapshot policy {0} from volume id {1}",
-                             "policyId", "volumeId"),
-      CREATE_SNAPSHOT(EventCategory.VOLUMES, "Created snapshot {0} of volume {1}.  Retention time = {2}",
-                      "snapshotName", "volumeId", "retentionTime"),
-
-      CLONE_VOLUME(EventCategory.VOLUMES, "Cloned volume {0} with policy id {1}; clone name={2}; Cloned volume Id = {3}",
-                   "volumeId", "policyId", "clonedVolumeName", "clonedVolumeId" ),
-      RESTORE_CLONE(EventCategory.VOLUMES, "Restored cloned volume {0} with snapshot id {1}", "volumeId", "snapshotId");
-
-      private final EventType type;
-      private final EventCategory category;
-      private final EventSeverity severity;
-      private final String defaultMessage;
-      private final List<String> argNames;
-
-      private ConfigEvent(EventCategory category, String defaultMessage, String... argNames) {
-          this(EventType.USER_ACTIVITY, category, EventSeverity.CONFIG, defaultMessage, argNames);
-      }
-      private ConfigEvent(EventType type, EventCategory category, EventSeverity severity,
-                          String defaultMessage, String... argNames) {
-          this.type = type;
-          this.category = category;
-          this.severity = severity;
-          this.defaultMessage = defaultMessage;
-          this.argNames = (argNames != null ? Arrays.asList(argNames) : new ArrayList<String>(0));
-      }
-
-      public String key()               { return name(); }
-      public List<String> argNames()    { return argNames; }
-      public EventType type()           { return type;  }
-      public EventCategory category()   { return category; }
-      public EventSeverity severity()   { return severity; }
-      public String defaultMessage()    { return defaultMessage; }
-
-  }
 
     public long createSnapshotPolicy(final String name, final String recurrence, final long retention, final long timelineTime)
             throws TException {
@@ -112,39 +77,57 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     }
 
     @Override
-    public Collection<User> listUsers() {
-        return fillCacheMaybe().users();
-    }
-
-    @Override
     public Optional<Tenant> tenantFor(long userId) {
         return fillCacheMaybe().tenantFor(userId);
     }
 
     @Override
     public Long tenantId(long userId) throws SecurityException {
-        return fillCacheMaybe().tenantId(userId);
+        Long tid = fillCacheMaybe().tenantId( userId );
+        if (tid == null) {
+            getCache().loadTenants();
+            tid = getCache().tenantId( userId );
+        }
+        return tid;
     }
 
     @Override
     public User getUser(long userId) {
-        return fillCacheMaybe().usersById()
-                               .get(userId);
+        User user = fillCacheMaybe().getUser( userId );
+        if (user == null) {
+            getCache().loadUsers();
+            user = getCache().getUser( userId );
+        }
+        return user;
     }
 
     @Override
     public User getUser(String login) {
-        return fillCacheMaybe().usersByName().get(login);
+        User user = fillCacheMaybe().getUser( login );
+        if (user == null) {
+            getCache().loadUsers();
+            user = getCache().getUser( login );
+        }
+        return user;
     }
 
     @Override
     public long createTenant(String identifier)
             throws ApiException, TException {
         long tenantId = config.createTenant(identifier);
+
         VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY);
-        config.createVolume(S3Endpoint.FDS_S3, systemFolderName(tenantId), volumeSettings, tenantId);
-        dropCache();
-        EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
+        String sysvolName = systemFolderName( tenantId );
+        config.createVolume( S3Endpoint.FDS_S3, sysvolName, volumeSettings, tenantId );
+
+        // TODO: need better API for accessing a specific tenant
+        Optional<Tenant> found = config.listTenants( 0 )
+                                       .stream()
+                                       .filter( (t) -> {return t.getId() == tenantId;} )
+                                       .findFirst();
+        if ( found.isPresent() ) {
+            getCache().addTenant( found.get() );
+        } // TODO: else something is very wrong...
         return tenantId;
     }
 
@@ -158,25 +141,24 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public long createUser(String identifier, String passwordHash, String secret, boolean isFdsAdmin)
             throws ApiException, TException {
         long userId = config.createUser(identifier, passwordHash, secret, isFdsAdmin);
-        dropCache();
-        EventManager.notifyEvent(ConfigEvent.CREATE_USER, identifier, isFdsAdmin, userId);
+        // TODO: need api to retrieve a specific user by id or login
+        config.allUsers( 0 ).stream().forEach( getCache()::addUser );
         return userId;
     }
 
     @Override
     public void assignUserToTenant(long userId, long tenantId)
             throws ApiException, TException {
-        config.assignUserToTenant(userId, tenantId);
-        dropCache();
-        EventManager.notifyEvent(ConfigEvent.ASSIGN_USER_TENANT, userId, tenantId);
+        config.assignUserToTenant( userId, tenantId );
+
+        getCache().addTenantUser( tenantId, userId );
     }
 
     @Override
     public void revokeUserFromTenant(long userId, long tenantId)
             throws ApiException, TException {
-        config.revokeUserFromTenant(userId, tenantId);
-        dropCache();
-        EventManager.notifyEvent(ConfigEvent.REVOKE_USER_TENANT, userId, tenantId);
+        config.revokeUserFromTenant( userId, tenantId );
+        getCache().removeTenantUser( tenantId, userId );
     }
 
     @Override
@@ -185,7 +167,6 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
         CachedConfiguration cached = fillCacheMaybe();
         return Lists.newArrayList(cached.users());
     }
-
 
     @Override
     public List<User> listUsersForTenant(long tenantId)
@@ -196,9 +177,10 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     @Override
     public void updateUser(long userId, String identifier, String passwordHash, String secret, boolean isFdsAdmin)
             throws ApiException, TException {
-        config.updateUser(userId, identifier, passwordHash, secret, isFdsAdmin);
-        dropCache();
-        EventManager.notifyEvent(ConfigEvent.UPDATE_USER, identifier, isFdsAdmin, userId);
+        config.updateUser( userId, identifier, passwordHash, secret, isFdsAdmin );
+
+        // TODO: need a config api to get a specific user (and have updateUser return the updated user)
+        config.allUsers( 0 ).stream().forEach( getCache()::addUser );
     }
 
     @Override
@@ -210,27 +192,35 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     @Override
     public void createVolume(String domainName, String volumeName, VolumeSettings volumeSettings, long tenantId)
             throws ApiException, TException {
-        config.createVolume(domainName, volumeName, volumeSettings, tenantId);
-        dropCache();
+        config.createVolume( domainName, volumeName, volumeSettings, tenantId );
 
         VolumeType vt = volumeSettings.getVolumeType();
         long maxSize = (VolumeType.BLOCK.equals(vt) ?
                                 volumeSettings.getBlockDeviceSizeInBytes() :
                                 volumeSettings.getMaxObjectSizeInBytes());
-        EventManager.notifyEvent(ConfigEvent.CREATE_VOLUME, domainName, volumeName, tenantId,
-                                 vt.name(),
-                                 maxSize);
+
+        VolumeDescriptor newVol = config.statVolume( domainName, volumeName );
+
+        getCache().addVolume( newVol );
     }
 
     @Override
     public long getVolumeId(String volumeName)
             throws ApiException, org.apache.thrift.TException {
-        return config.getVolumeId(volumeName);
+        VolumeDescriptor vol = fillCacheMaybe().getVolume( "", volumeName );
+        if (vol != null) {
+            return vol.getVolId();
+        }
+        return config.getVolumeId( volumeName );
     }
 
     @Override
     public String getVolumeName(long volumeId)
             throws ApiException, org.apache.thrift.TException {
+        VolumeDescriptor vol = fillCacheMaybe().getVolume( volumeId );
+        if (vol != null) {
+            return vol.getName();
+        }
         return config.getVolumeName(volumeId);
     }
 
@@ -238,34 +228,38 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public void deleteVolume(String domainName, String volumeName)
             throws ApiException, TException {
         config.deleteVolume(domainName, volumeName);
-        dropCache();
-        EventManager.notifyEvent(ConfigEvent.DELETE_VOLUME, domainName, volumeName);
+        getCache().removeVolume( domainName, volumeName );
     }
 
     @Override
     public VolumeDescriptor statVolume(String domainName, String volumeName)
             throws ApiException, TException {
-        return fillCacheMaybe().volumesByName()
-                .get(volumeName);
+        VolumeDescriptor volumeDescriptor = fillCacheMaybe().getVolume( domainName, volumeName );
+        if (volumeDescriptor == null) {
+            volumeDescriptor = config.statVolume( domainName, volumeName );
+            if (volumeDescriptor != null) {
+                getCache().addVolume( volumeDescriptor );
+            }
+        }
+        return volumeDescriptor;
     }
 
     @Override
     public List<VolumeDescriptor> listVolumes(String domainName)
             throws ApiException, TException {
-        return Lists.newArrayList(fillCacheMaybe().volumesByName()
-                .values());
+        return fillCacheMaybe().getVolumes();
     }
 
     @Override
     public int registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds)
             throws TException {
-        return config.registerStream(url, http_method, volume_names, sample_freq_seconds, duration_seconds);
+        return config.registerStream( url, http_method, volume_names, sample_freq_seconds, duration_seconds );
     }
 
     @Override
     public List<StreamingRegistrationMsg> getStreamRegistrations(int ignore)
             throws TException {
-        return config.getStreamRegistrations(ignore);
+        return config.getStreamRegistrations( ignore );
     }
 
     @Override
@@ -277,10 +271,8 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     @Override
     public long createSnapshotPolicy(com.formationds.apis.SnapshotPolicy policy)
             throws ApiException, org.apache.thrift.TException {
-        long l = config.createSnapshotPolicy(policy);
+        long l = config.createSnapshotPolicy( policy );
         // TODO: is the value returned the new policy id?
-        EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT_POLICY, policy.getPolicyName(), policy.getRecurrenceRule(),
-                                 policy.getRetentionTimeSeconds(), l);
         return l;
     }
 
@@ -296,7 +288,6 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public void deleteSnapshotPolicy(long id)
             throws ApiException, org.apache.thrift.TException {
         config.deleteSnapshotPolicy(id);
-        EventManager.notifyEvent(ConfigEvent.DELETE_SNAPSHOT_POLICY, id);
     }
 
     // TODO need deleteSnapshotForVolume Iface call.
@@ -305,7 +296,6 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public void attachSnapshotPolicy(long volumeId, long policyId)
             throws ApiException, org.apache.thrift.TException {
         config.attachSnapshotPolicy(volumeId, policyId);
-        EventManager.notifyEvent(ConfigEvent.ATTACH_SNAPSHOT_POLICY, policyId, volumeId);
     }
 
     @Override
@@ -318,13 +308,12 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public void detachSnapshotPolicy(long volumeId, long policyId)
             throws ApiException, org.apache.thrift.TException {
         config.detachSnapshotPolicy(volumeId, policyId);
-        EventManager.notifyEvent(ConfigEvent.DETACH_SNAPSHOT_POLICY, policyId, volumeId);
     }
 
     @Override
     public List<Long> listVolumesForSnapshotPolicy(long policyId)
             throws ApiException, org.apache.thrift.TException {
-        return config.listVolumesForSnapshotPolicy(policyId);
+        return config.listVolumesForSnapshotPolicy( policyId );
     }
 
     @Override
@@ -332,7 +321,6 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
             throws ApiException, TException {
         config.createSnapshot(volumeId, snapshotName, retentionTime, timelineTime);
         // TODO: is there a generated snapshot id?
-        EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT, snapshotName, volumeId, retentionTime);
     }
 
     @Override
@@ -345,24 +333,27 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     public void restoreClone(long volumeId, long snapshotId)
             throws ApiException, org.apache.thrift.TException {
         config.restoreClone(volumeId, snapshotId);
-        EventManager.notifyEvent(ConfigEvent.RESTORE_CLONE, volumeId, snapshotId);
     }
 
     @Override
     public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName, long timelineTime)
             throws org.apache.thrift.TException {
         long clonedVolumeId = config.cloneVolume(volumeId, fdsp_PolicyInfoId, clonedVolumeName, timelineTime);
-        if (clonedVolumeId <= 0) {
-            clonedVolumeId = config.getVolumeId(clonedVolumeName);
-        }
-        dropCache();
 
-        EventManager.notifyEvent(ConfigEvent.CLONE_VOLUME, volumeId, fdsp_PolicyInfoId, clonedVolumeName, clonedVolumeId);
-        return clonedVolumeId;
+        VolumeDescriptor clonedVol = config.statVolume( "", clonedVolumeName );
+        if (clonedVol.getVolId() != clonedVolumeId) {
+            // houston, we have a problem.
+            throw new IllegalStateException( "Cloned volume id returned from clone " +
+                                             "command does not match cloned volume descriptor." );
+        }
+
+        // update the cache with the new volume
+        getCache().addVolume( clonedVol );
+
+        return clonedVol.getVolId();
     }
 
-    @Override
-    public CachedConfiguration get() {
+    public CachedConfiguration getCache() {
         return fillCacheMaybe();
     }
 
@@ -372,34 +363,55 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
     }
 
     private CachedConfiguration fillCacheMaybe() {
-        return map.computeIfAbsent(KEY, k -> {
+        return map.computeIfAbsent( KEY, k -> {
             try {
-                return new CachedConfiguration(config);
-            } catch (Exception e) {
-                LOG.error("Error refreshing configuration", e);
-                throw new RuntimeException(e);
+                return new CachedConfiguration( config );
+            } catch ( Exception e ) {
+                LOG.error( "Error refreshing configuration", e );
+                throw new RuntimeException( e );
             }
-        });
+        } );
     }
-
 
     private class Updater
             implements Runnable {
+
+        private final long intervalMS;
+        private transient boolean stopRequested = false;
+
+        Updater(long intervalMS) {
+            this.intervalMS = intervalMS;
+        }
+
+        synchronized void shutdown() {
+            stopRequested = true;
+            notifyAll();
+        }
+
         @Override
         public void run() {
-            while (true) {
+            // do an initial wait
+            try { Thread.sleep( 10000 ); }
+            catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+
+            while (!stopRequested) {
                 try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                }
-                map.compute(KEY, (k, v) -> {
-                    try {
-                        return obtainConfig(v);
-                    } catch (Exception e) {
-                        LOG.error("Error refreshing cache", e);
-                        return v;
+                    synchronized ( this ) {
+                        wait( intervalMS );
+                        if (stopRequested)
+                            break;
                     }
-                });
+                    map.compute(KEY, (k, v) -> {
+                        try {
+                            return obtainConfig(v);
+                        } catch (Exception e) {
+                            LOG.error("Error refreshing cache", e);
+                            return v;
+                        }
+                    });
+                } catch (InterruptedException e) {
+                    // ignore and recheck loop
+                }
             }
         }
 

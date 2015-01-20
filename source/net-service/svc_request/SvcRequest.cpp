@@ -270,6 +270,8 @@ void SvcRequestIf::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         return;
     }
     switch (header->msg_code) {
+        case ERR_DISK_WRITE_FAILED:
+        case ERR_DISK_READ_FAILED:
         case ERR_SVC_REQUEST_TIMEOUT:
             {
             // The who, what and result of the event

@@ -1,7 +1,7 @@
-package com.formationds.security;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
+package com.formationds.security;
 
 import com.formationds.apis.User;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -63,19 +63,11 @@ public class FdsAuthenticator implements Authenticator {
 
     @Override
     public AuthenticationToken reissueToken(long userId) throws LoginException {
-        User user;
-        try {
+        User user = cache.getUser( userId );
 
-            user = cache.allUsers(0).stream()
-                    .filter(u -> u.getId() == userId)
-                    .findFirst()
-                    .orElseThrow( LoginException::new );
-
-        } catch (TException e) {
-
-            LOG.error("Error loading configuration", e);
-            throw new LoginException();
-
+        if ( user == null ) {
+            LOG.error("User " + userId + " not found." );
+            throw new LoginException( );
         }
 
         String newSecret = UUID.randomUUID().toString();
@@ -103,19 +95,17 @@ public class FdsAuthenticator implements Authenticator {
 
         long userId = token.getUserId();
         String secret = token.getSecret();
-        long count = 0;
-        try {
-            count = cache.allUsers(0).stream()
-                    .filter(u -> u.getId() == userId)
-                    .filter(u -> u.getSecret().equals(secret))
-                    .count();
-        } catch (TException e) {
-            LOG.error("Error reading configuration", e);
-            throw new LoginException();
+
+        User user = cache.getUser( userId );
+
+        if ( user == null ) {
+            LOG.error("User " + userId + " not found." );
+            throw new LoginException( );
         }
 
-        if (count == 0) {
-            throw new LoginException();
+        if (!user.getSecret().equals( secret )) {
+            LOG.error("Authentication failed for user " + userId + "(" + user.getIdentifier() + ") not found." );
+            throw new LoginException( );
         }
 
         return token;

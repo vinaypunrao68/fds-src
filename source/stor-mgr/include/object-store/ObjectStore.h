@@ -165,6 +165,7 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
+    Error tieringControlCmd(SmTieringCmd* tierCmd);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

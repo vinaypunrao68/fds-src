@@ -65,23 +65,6 @@ class Operation(object):
                 self.logger.info("%s already exists. Skipping." % testset_path)
                 
             self.test_sets.append(current_ts)
-
-    def __load_params(self):
-        params = {}
-        parser = ConfigParser.ConfigParser()
-        parser.read(config.setup)
-        sections = parser.sections()
-        for section in sections:
-            options = parser.options(section)
-            for option in options:
-                try:
-                    params[option] = parser.get(section, option)
-                    if params[option] == -1:
-                        self.logger.info("skipping: %s" % option)
-                except:
-                    self.logger.info("Exception on %s!" % option)
-                    params[option] = None
-        return params
     
     def do_work(self, max_workers=5):
         '''
@@ -133,7 +116,7 @@ class Operation(object):
                                               instance_count=self.args.count,
                                               type=self.args.type)
             else:
-                # make the baremetal version the default one.
+                # make the integration-framework-cluster version the default one
                 self.multicluster = multinode.Multinode(type=self.args.type,
                                               inventory=self.args.inventory)
         for ts in self.test_sets:
@@ -203,7 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--type',
                         default='baremetal',
                         help='Specify if the cluster will be created using' \
-                        ' AWS or baremetal instances.')
+                        ' AWS or local instances.')
     parser.add_argument('-u', '--inventory',
                         default=None,
                         help='Define if user wants to use a different' \

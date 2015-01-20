@@ -1,15 +1,19 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
-#include "./configdbtool.h"
 #include <string>
 #include <vector>
 #include <utility>
 #include <map>
+
+#include "configdbtool.h"
+#include "platform/node_data.h"
+
 #define LINE std::cout << "  "
 #define ERRORLINE LINE << Color::Red    << "[error] : " << Color::End
 #define WARNLINE  LINE << Color::Yellow << "[warn ] : " << Color::End
 #define REGISTERCMD(c, fn) registerCommand(c, (CmdCallBack)&ConfigDBTool::cmd##fn);
+
 using PAIR = std::pair<std::string, std::string>;
 
 #define PRINTSTREAM(x) {                        \

@@ -11,11 +11,11 @@ using redis::Reply;
 KVStore::KVStore(const std::string& host,
                    uint port,
                    uint poolsize) : r(host, port, poolsize) {
-    LOGNORMAL << "instantiating configdb";
+    LOGNORMAL << "instantiating kvstore";
 }
 
 KVStore::~KVStore() {
-    LOGNORMAL << "destroying configdb";
+    LOGNORMAL << "destroying kvstore";
 }
 
 bool KVStore::isConnected() {

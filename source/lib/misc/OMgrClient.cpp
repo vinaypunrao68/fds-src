@@ -1015,4 +1015,8 @@ fds_uint64_t OMgrClient::getDMTVersion() const {
     return dmtMgr->getCommittedVersion();
 }
 
+fds_bool_t OMgrClient::hasCommittedDMT() const {
+    return dmtMgr->hasCommittedDMT();
+}
+
 }  //  namespace fds
