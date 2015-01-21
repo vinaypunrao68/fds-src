@@ -18,6 +18,11 @@
 
 namespace fds {
 
+template<typename T>
+static
+T get_config(std::string const& option, T&& default_value)
+{ return gModuleProvider->get_fds_config()->get<T>(option, default_value); }
+
 OmSvcHandler::~OmSvcHandler() {}
 
 OmSvcHandler::OmSvcHandler()
@@ -41,8 +46,10 @@ OmSvcHandler::OmSvcHandler()
         LOGERROR << std::hex << svc << std::dec
                  << "Saw too many timeout events [" << events << "]";
     };
+    size_t time_window = get_config("fds.om.svc_event_threshold.timeout.window", 15);
+    size_t threshold = get_config("fds.om.svc_event_threshold.timeout.threshold", 2);
     std::unique_ptr<TrackerBase<int64_t>>
-        tracker(new TrackerMap<decltype(cb), int64_t, std::chrono::minutes>(cb, 15, 2));
+        tracker(new TrackerMap<decltype(cb), int64_t, std::chrono::minutes>(cb, time_window, threshold));
     event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT, std::move(tracker));
 }
 
