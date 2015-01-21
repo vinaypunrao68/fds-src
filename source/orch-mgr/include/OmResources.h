@@ -632,6 +632,19 @@ class OM_NodeDomainMod : public Module
     inline OM_AmAgent::pointer om_am_agent(const NodeUuid &uuid) {
         return om_locDomain->om_am_agent(uuid);
     }
+    inline OM_NodeAgent::pointer om_all_agent(const NodeUuid &uuid) {
+        switch (uuid.uuid_get_val() & 0x0F) {
+        case FDSP_STOR_HVISOR:
+            return om_am_agent(uuid);
+        case FDSP_STOR_MGR:
+            return om_sm_agent(uuid);
+        case FDSP_DATA_MGR:
+            return om_dm_agent(uuid);
+        default:
+            break;
+        }
+        return OM_NodeAgent::pointer(nullptr);
+    }
 
     /**
      * Read persistent state from config db and see if we

@@ -55,13 +55,8 @@ void OmSvcHandler::init_svc_event_handlers() {
     auto domain = OM_NodeDomainMod::om_local_domain();
     auto cb = [domain](NodeUuid svc, size_t events) -> void {
         LOGERROR << std::hex << svc << " saw too many timeout events [" << events << "]";
-        OM_NodeAgent::pointer agent = domain->om_sm_agent(svc);
-        if (!agent) {
-            agent = domain->om_dm_agent(svc);
-        }
-        if (!agent) {
-            agent = domain->om_am_agent(svc);
-        }
+        OM_NodeAgent::pointer agent = domain->om_all_agent(svc);
+
         if (agent) {
             agent->set_node_state(FDS_Node_Down);
         } else {
