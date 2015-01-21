@@ -27,7 +27,6 @@ for record in content_json['children']:
 
         deb_dict[deb_name].sort(key=lambda deb: int(deb.split('-')[3].split('.')[0]))
 
-print deb_dict
 for deb_name in deb_dict.keys():
     if len(deb_dict[deb_name]) > artifacts_to_keep:
         for artifact in deb_dict[deb_name][:-artifacts_to_keep]:
