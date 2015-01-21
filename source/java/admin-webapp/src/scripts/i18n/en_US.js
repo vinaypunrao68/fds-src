@@ -229,7 +229,8 @@ var en_US = {
             l_ssd_only: 'Flash Only',
             l_disk_only: 'Disk Only',
             l_ssd_preferred: 'Flash Preferred',
-            l_disk_preferred: 'Disk Preferred'
+            l_disk_preferred: 'Disk Preferred',
+            l_hybrid: 'Hybrid'
         },
         
         snapshot: {
