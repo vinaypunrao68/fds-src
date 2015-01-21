@@ -254,13 +254,15 @@ class TestFDSPkgInst(TestCase.FDSTestCase):
 # This class contains attributes and methods to test
 # deleting an FDS installation.
 class TestFDSDeleteInstDir(TestCase.FDSTestCase):
-    def __init__(self, parameters = None):
+    def __init__(self, parameters = None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     @unittest.expectedFailure
@@ -311,6 +313,10 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            # If we were passed a specific node, use it and get it.
+            if self.passedNode is not None:
+                n = self.passedNode
+
             fds_dir = n.nd_conf_dict['fds_root']
 
             # Check to see if the FDS root directory is already there.
@@ -328,6 +334,10 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
             else:
                 self.log.warn("FDS installation directory, %s, nonexistent on node %s." %
                               (fds_dir, n.nd_conf_dict['node-name']))
+
+            if self.passedNode is not None:
+                # We're done with the specified node. Get out.
+                break
 
         return True
 

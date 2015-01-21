@@ -147,8 +147,55 @@ def suiteConstruction():
                     log.error("Node not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
+            elif action == "remove":
+                # Remove the node from its cluster.
+                found = False
+                for node in scenario.cfg_sect_nodes:
+                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
+                        found = True
+                        suite.addTest(testcases.TestFDSSysMgt.TestNodeRemoveServices(node=node))
+                        break
+
+                if found:
+                    # Give the cluster some time to reinitialize if requested.
+                    if 'delay_wait' in scenario.nd_conf_dict:
+                        suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                                 reason="to allow cluster " + script + " to reinitialize"))
+                else:
+                    log.error("Node not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
             elif action == "shutdown":
-                pass
+                # Shutdown the node.
+                found = False
+                for node in scenario.cfg_sect_nodes:
+                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
+                        found = True
+                        suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown(node=node))
+                        break
+
+                if found:
+                    # Give the cluster some time to reinitialize if requested.
+                    if 'delay_wait' in scenario.nd_conf_dict:
+                        suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                                 reason="to allow cluster " + script + " to reinitialize"))
+                else:
+                    log.error("Node not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
+            elif action == "cleaninst":
+                # Clean up the installation area build during bootup.
+                found = False
+                for node in scenario.cfg_sect_nodes:
+                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
+                        found = True
+                        suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
+                        break
+
+                if not found:
+                    log.error("Node not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
             else:
                 log.error("Unrecognized node action '%s' for scenario %s" %
                           (action, scenario.nd_conf_dict['scenario-name']))
