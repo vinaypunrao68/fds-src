@@ -6,21 +6,23 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
         replace: true,
         scope: { globalVars: '=?'},
         templateUrl: 'scripts/directives/widgets/slidewindowstack/slidewindowstack.html',
-        controller: function( $scope, $element, $timeout ){
+        controller: function( $scope, $element, $interval ){
             
             $scope.slides = [];
             $scope.currentStack = [];
             $scope.totalHeight = 40;
+            var checkBack = undefined;
             
             var setTotalHeight = function(){
                 var slide = $scope.currentStack[ $scope.globalVars.index ];
                 $scope.totalHeight = slide.$element.find( '.ng-scope' ).height();
                 
-                if ( !angular.isDefined( $scope.totalHeight ) || $scope.totalHeight === null || $scope.totalHeight === 0 ){
-                    $timeout( setTotalHeight, 100 );
+                if ( (!angular.isDefined( $scope.totalHeight ) || $scope.totalHeight === null || $scope.totalHeight === 0) &&
+                   !angular.isDefined( checkBack ) ){
+                    checkBack = $interval( setTotalHeight, 100 );
                 }
                 else {
-                    $timeout( setTotalHeight, 500 );
+                    $interval.cancel( checkBack );
                 }
             };
             

@@ -54,6 +54,11 @@ var en_US = {
         l_years_ago: 'years ago',
         l_seconds_ago: 'seconds ago',
         
+        l_minute_ago: 'minute ago',
+        l_hour_ago: 'hour ago',
+        l_week_ago: 'week ago',
+        l_second_ago: 'second ago',
+        
         l_months: 'Months',
         l_days: 'Days',
         l_hours: 'Hours',
@@ -224,7 +229,8 @@ var en_US = {
             l_ssd_only: 'Flash Only',
             l_disk_only: 'Disk Only',
             l_ssd_preferred: 'Flash Preferred',
-            l_disk_preferred: 'Disk Preferred'
+            l_disk_preferred: 'Disk Preferred',
+            l_hybrid: 'Hybrid'
         },
         
         snapshot: {

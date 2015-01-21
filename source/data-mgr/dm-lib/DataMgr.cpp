@@ -1163,11 +1163,14 @@ DataMgr::ReqHandler::~ReqHandler() {
  */
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-    DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
-    fds_verify(nodes->getLength() > 0);
+    if (omClient->hasCommittedDMT()) {
+        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
+        fds_verify(nodes->getLength() > 0);
 
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-    return (*mySvcUuid == nodes->get(0));
+        const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
+        return (*mySvcUuid == nodes->get(0));
+    }
+    return false;
 }
 
 void

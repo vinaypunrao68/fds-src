@@ -6,7 +6,8 @@ namespace java com.formationds.apis
 
 enum MediaPolicy {
 	 SSD_ONLY = 0,
-	 HDD_ONLY = 1
+	 HDD_ONLY = 1,
+	 HYBRID_ONLY = 3
 }
 
 enum VolumeType {

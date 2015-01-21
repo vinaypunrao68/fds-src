@@ -76,7 +76,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         *  Because the tiering option is not present yet, we will set it to the default here
         *
         **/
-        volume.mediaPolicy = 'HDD_ONLY';
+//        volume.mediaPolicy = 'HDD_ONLY';
         
         /**
         * Because this is a shim the API does not yet have business
@@ -143,7 +143,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.commit_log_retention = $scope.timelinePolicies.continuous;
         volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
-//        volume.mediaPolicy = $scope.mediaPolicy.value;
+        volume.mediaPolicy = $scope.mediaPolicy.value;
         
         if ( !angular.isDefined( volume.name ) || volume.name === '' ){
             
