@@ -1,5 +1,5 @@
 package: fds-platform
-version: 0.6.0-release
+version: 0.6.0
 description: all fds components
 
 replaces:
@@ -33,38 +33,38 @@ files:
     - dest: /fds/bin
       dest-is-dir: True
       src:
-        - ../../../Build/linux-x86_64.release/bin/libaccessmgr.so
-        - ../../../Build/linux-x86_64.release/bin/AMAgent
-        - ../../../Build/linux-x86_64.release/bin/bare_am
+        - ../../../Build/linux-x86_64.debug/bin/libaccessmgr.so
+        - ../../../Build/linux-x86_64.debug/bin/AMAgent
+        - ../../../Build/linux-x86_64.debug/bin/bare_am
 
     #########
     # fds-cli
     - dest: /fds/bin/fdscli
-      src: ../../../Build/linux-x86_64.release/bin/fdscli
+      src: ../../../Build/linux-x86_64.debug/bin/fdscli
 
     ##########
     # data-mgr
     - dest: /fds/bin
       dest-is-dir: True
       src:
-        - ../../../Build/linux-x86_64.release/bin/DataMgr
-        - ../../../Build/linux-x86_64.release/bin/dm_checker
+        - ../../../Build/linux-x86_64.debug/bin/DataMgr
+        - ../../../Build/linux-x86_64.debug/bin/dm_checker
 
     ##########
     # orch-mgr
     - dest: /fds/bin
       dest-is-dir: True
       src:
-        - ../../../Build/linux-x86_64.release/bin/liborchmgr.so
-        - ../../../Build/linux-x86_64.release/bin/orchMgr
+        - ../../../Build/linux-x86_64.debug/bin/liborchmgr.so
+        - ../../../Build/linux-x86_64.debug/bin/orchMgr
 
     - dest: /fds/lib/java
-      src: "`find ../../../Build/linux-x86_64.release/lib/java`"
-      tree-base: ../../../Build/linux-x86_64.release/lib/java
+      src: "`find ../../../Build/linux-x86_64.debug/lib/java`"
+      tree-base: ../../../Build/linux-x86_64.debug/lib/java
 
     - dest: /fds/lib/admin-webapp
-      src: "`find ../../../Build/linux-x86_64.release/lib/admin-webapp`"
-      tree-base: ../../../Build/linux-x86_64.release/lib/admin-webapp
+      src: "`find ../../../Build/linux-x86_64.debug/lib/admin-webapp`"
+      tree-base: ../../../Build/linux-x86_64.debug/lib/admin-webapp
 
     - dest: /fds/etc/ssl/dev
       src:
@@ -77,7 +77,7 @@ files:
     # platform-mgr
     - dest: /fds/bin
       dest-is-dir: True
-      src: ../../../Build/linux-x86_64.release/bin/platformd
+      src: ../../../Build/linux-x86_64.debug/bin/platformd
 
     #############
     # python-libs
@@ -93,14 +93,14 @@ files:
     - dest: /fds/bin
       dest-is-dir: True
       src:
-        - ../../../Build/linux-x86_64.release/bin/StorMgr
-        - ../../../Build/linux-x86_64.release/bin/smchk
+        - ../../../Build/linux-x86_64.debug/bin/StorMgr
+        - ../../../Build/linux-x86_64.debug/bin/smchk
 
     ###########
     # fds-tools
     - dest: /fds/sbin
       src:
-        - ../../../Build/linux-x86_64.release/bin/configdbtool
+        - ../../../Build/linux-x86_64.debug/bin/configdbtool
         - ../../redis.sh
         - ../../../test/fds-tool.py
         - ../../../test/fdsadmin
