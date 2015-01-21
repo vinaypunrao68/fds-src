@@ -1,0 +1,173 @@
+/*
+ * Copyright 2013-2014 Formation Data Systems, Inc.
+ */
+
+#ifndef SOURCE_ORCH_MGR_INCLUDE_OMEVENTTRACKER_H_
+#define SOURCE_ORCH_MGR_INCLUDE_OMEVENTTRACKER_H_
+
+#include <atomic>
+#include <chrono>
+#include <map>
+#include <memory>
+#include <string>
+#include <unordered_map>
+
+namespace fds
+{
+
+struct TrackerBase {
+    TrackerBase() = default;
+    TrackerBase(TrackerBase const&) = default;
+    TrackerBase& operator=(TrackerBase const&) = default;
+    virtual ~TrackerBase() = default;
+
+    virtual void poke() = 0;
+    virtual TrackerBase* clone() = 0;
+};
+
+template <typename Callback, size_t ticks, typename Duration = std::chrono::seconds>
+struct TrackerMap : public TrackerBase {
+    static constexpr size_t tick_limit = ticks;
+
+    template<typename T>
+    using unique            = std::unique_ptr<T>;
+    using callback_type     = Callback;
+    using duration_type     = Duration;
+    using type              = TrackerMap<callback_type, tick_limit, duration_type>;
+    using count_type        = std::atomic_size_t;
+    using clock_type        = std::chrono::system_clock;
+    using time_point_type   = std::chrono::time_point<clock_type, duration_type>;
+    using bucket_type       = std::map<time_point_type, unique<count_type>>;
+
+    TrackerMap(callback_type& c, size_t _threshold) :
+        callback(c), counters(), threshold(_threshold)
+    {}
+
+    TrackerMap(callback_type&& c, size_t _threshold) :
+        callback(std::move(c)), counters(), threshold(_threshold)
+    {}
+
+    TrackerMap(TrackerMap const& rhs) :
+        callback(rhs.callback), counters(), threshold(rhs.threshold) {
+    }
+
+    TrackerMap& operator=(TrackerMap const&) = delete;
+    ~TrackerMap() = default;
+
+    void poke() override
+    {
+        static auto const window = duration_type(tick_limit);
+        auto now = std::chrono::time_point_cast<duration_type>(clock_type::now());
+
+        // We don't care about anything that happened prior to this timepoint.
+        auto window_start = now - window;
+
+        // Remove any counters that are older than the number of ticks in our
+        // window.
+        auto it = counters.lower_bound(window_start);
+        if (counters.end() != it) {
+            counters.erase(counters.begin(), it);
+        }
+
+        // Get the bucket for this timepoint.
+        it = counters.find(now);
+        if (counters.end() == it) {
+            unique<count_type> counter(new count_type(0));
+            auto r = counters.insert(std::make_pair(std::move(now), std::move(counter)));
+            if (!r.second) {
+                LOGERROR << " failed to poke event tracker";
+                return;
+            }
+            it = r.first;
+        }
+        // Increment the count.
+        it->second->fetch_add(1, std::memory_order_release);
+
+        // Tally up the number of events and call the callback if the threshold
+        // is reached.
+        size_t events = 0;
+        for (auto& c : counters) {
+            events += c.second->load(std::memory_order_consume);
+        }
+
+        if (events >= threshold) {
+            callback(events);
+        }
+    }
+
+    virtual type* clone() override
+    { return new type(*this); }
+
+ private:
+    callback_type   callback;
+    bucket_type     counters;
+    size_t          threshold;
+};
+
+
+template <typename K, typename E>
+class EventTracker {
+    using event_type  = E;
+    using service_key_type  = K;
+    template<typename T>
+    using unique            = std::unique_ptr<T>;
+    using tracker_type      = TrackerBase;
+    using event_map_type    = std::unordered_map<event_type, unique<tracker_type>>;
+    using service_map_type  = std::unordered_map<service_key_type, unique<event_map_type>>;
+
+ public:
+    EventTracker() = default;
+    ~EventTracker() = default;
+
+    EventTracker(EventTracker const& rhs) = delete;
+    EventTracker& operator=(EventTracker const& rhs) = delete;
+
+    bool register_event(event_type const event, unique<tracker_type>&& tracker) {
+        return registered_events.insert(std::make_pair(std::move(event), std::move(tracker))).second;
+    }
+
+    void feed_event(event_type const event, service_key_type service) {
+        auto it = service_map.find(service);
+        if (service_map.end() == it) {
+            // Add a new service
+            unique<event_map_type> new_map(new event_map_type);
+            for (auto& p : registered_events) {
+                unique<tracker_type> tracker(p.second->clone());
+                new_map->insert(std::make_pair(p.first, std::move(tracker)));
+            }
+            auto r = service_map.insert(std::make_pair(service, std::move(new_map)));
+            if (!r.second) {
+                LOGERROR << " failed to register event tracker for: " << service;
+                return;
+            }
+            it = r.first;
+        }
+
+        auto track_it = it->second->find(event);
+        if (it->second->end() == track_it) {
+            // Need to add a tracker for this service, copy it from
+            // the registered list
+            try {
+                unique<tracker_type> tracker(registered_events.at(event)->clone());
+                auto r = it->second->insert(std::make_pair(event, std::move(tracker)));
+                if (!r.second) {
+                    LOGERROR << " failed to register event tracker for: " << service;
+                    return;
+                }
+                track_it = r.first;
+            } catch (std::out_of_range& e) {
+                LOGERROR << " tried to track an unregistered event: " << event;
+                return;
+            }
+        }
+
+        // We've got it, POKE
+        track_it->second->poke();
+    }
+
+ private:
+    service_map_type    service_map;
+    event_map_type      registered_events;
+};
+}  // namespace fds
+#endif  // SOURCE_ORCH_MGR_INCLUDE_OMEVENTTRACKER_H_

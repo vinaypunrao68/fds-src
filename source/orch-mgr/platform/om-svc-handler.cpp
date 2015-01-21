@@ -35,6 +35,14 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
+
+    // Register event trackers
+    auto cb = [](size_t events) -> void {
+        LOGERROR << "Saw too many timeout events";
+    };
+    std::unique_ptr<TrackerBase>
+        tracker(new TrackerMap<decltype(cb), 15, std::chrono::minutes>(cb, 2));
+    event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT, std::move(tracker));
 }
 
 // om_svc_state_chg
@@ -151,6 +159,7 @@ OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     LOGDEBUG << " received " << msg->evt_code
              << " from:" << msg->evt_src_svc_uuid.svc_uuid;
+    event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
 }
 
 }  //  namespace fds

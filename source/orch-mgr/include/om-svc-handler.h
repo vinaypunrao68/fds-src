@@ -7,6 +7,7 @@
 #include <OmResources.h>
 #include <fdsp/fds_service_types.h>
 #include <net/PlatNetSvcHandler.h>
+#include <OmEventTracker.h>
 
 namespace fds {
 
@@ -52,6 +53,7 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
 
   protected:
     OM_NodeDomainMod         *om_mod;
+    EventTracker<int64_t, int32_t> event_tracker;
 };
 
 }  // namespace fds
