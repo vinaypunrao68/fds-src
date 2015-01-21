@@ -52,30 +52,40 @@ OmSvcHandler::OmSvcHandler()
 // Right now all handlers are using the same callable which will down the
 // service that is responsible. This can be changed easily.
 void OmSvcHandler::init_svc_event_handlers() {
-    auto cb = [](int64_t svc, size_t events) -> void {
-        LOGERROR << std::hex << svc << std::dec
-                 << "Saw too many timeout events [" << events << "]";
-        // TODO(bszmyd): Wed 21 Jan 2015 09:13:36 AM PST
-        // Down this service
+    auto domain = OM_NodeDomainMod::om_local_domain();
+    auto cb = [domain](NodeUuid svc, size_t events) -> void {
+        LOGERROR << std::hex << svc << " saw too many timeout events [" << events << "]";
+        OM_NodeAgent::pointer agent = domain->om_sm_agent(svc);
+        if (!agent) {
+            agent = domain->om_dm_agent(svc);
+        }
+        if (!agent) {
+            agent = domain->om_am_agent(svc);
+        }
+        if (agent) {
+            agent->set_node_state(FDS_Node_Down);
+        } else {
+            LOGERROR << "unknown service: " << svc;
+        }
     };
 
     // Timeout handler (2 within 15 minutes will trigger)
     size_t time_window = get_config("fds.om.svc_event_threshold.timeout.window", 15);
     size_t threshold = get_config("fds.om.svc_event_threshold.timeout.threshold", 2);
-    std::unique_ptr<TrackerBase<int64_t>>
-        tracker(new TrackerMap<decltype(cb), int64_t, std::chrono::minutes>(cb, time_window, threshold));
+    std::unique_ptr<TrackerBase<NodeUuid>>
+        tracker(new TrackerMap<decltype(cb), NodeUuid, std::chrono::minutes>(cb, time_window, threshold));
     event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT, std::move(tracker));
 
     // DiskWrite handler (1 within 24 hours will trigger)
     time_window = get_config("fds.om.svc_event_threshold.disk.write_fail.window", 24);
     threshold = get_config("fds.om.svc_event_threshold.disk.write_fail.threshold", 1);
-    tracker.reset(new TrackerMap<decltype(cb), int64_t, std::chrono::hours>(cb, time_window, threshold));
+    tracker.reset(new TrackerMap<decltype(cb), NodeUuid, std::chrono::hours>(cb, time_window, threshold));
     event_tracker.register_event(ERR_DISK_WRITE_FAILED, std::move(tracker));
 
     // DiskRead handler (1 within 24 hours will trigger)
     time_window = get_config("fds.om.svc_event_threshold.disk.read_fail.window", 24);
     threshold = get_config("fds.om.svc_event_threshold.disk.read_fail.threshold", 1);
-    tracker.reset(new TrackerMap<decltype(cb), int64_t, std::chrono::hours>(cb, time_window, threshold));
+    tracker.reset(new TrackerMap<decltype(cb), NodeUuid, std::chrono::hours>(cb, time_window, threshold));
     event_tracker.register_event(ERR_DISK_READ_FAILED, std::move(tracker));
 }
 
@@ -192,7 +202,7 @@ OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlSvcEvent> &msg)
 {
     LOGDEBUG << " received " << msg->evt_code
-             << " from:" << msg->evt_src_svc_uuid.svc_uuid;
+             << " from:" << std::hex << msg->evt_src_svc_uuid.svc_uuid << std::dec;
     event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
 }
 
