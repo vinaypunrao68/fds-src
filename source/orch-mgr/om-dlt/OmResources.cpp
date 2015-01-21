@@ -1086,6 +1086,15 @@ OM_NodeDomainMod::om_dmt_update_cluster() {
     // in case there are no vol acks to wait
     dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }
+void
+OM_NodeDomainMod::om_dmt_waiting_timeout() {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+
+    dmtMod->dmt_deploy_event(DmtTimeoutEvt());
+    // in case there are no vol acks to wait
+    dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+}
 
 
 /**
@@ -1102,6 +1111,19 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 
     // in case there was no DLT to send and we can
     // go to rebalances state, send event to check that
+    const DLT* dlt = dp->getCommitedDlt();
+    fds_uint64_t dlt_version = (dlt == NULL) ? 0 : dlt->getVersion();
+    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
+}
+
+// Called when DLT state machine waiting ends
+void
+OM_NodeDomainMod::om_dlt_waiting_timeout() {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+    dltMod->dlt_deploy_event(DltTimeoutEvt());
+
     const DLT* dlt = dp->getCommitedDlt();
     fds_uint64_t dlt_version = (dlt == NULL) ? 0 : dlt->getVersion();
     dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
