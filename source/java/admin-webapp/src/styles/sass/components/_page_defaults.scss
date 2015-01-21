@@ -1,9 +1,10 @@
 $page-padding: 0px;
 
 .header {
-    color: black;
+    color: $default_text_color;
     font-weight: normal;
-    font-size: 1.6em;
+    font-size: 20px;
+    line-height: 27px;
     //  margin: 0 0 7px 10px;
 }
 
