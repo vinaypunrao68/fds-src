@@ -17,16 +17,7 @@ import shlex
 import is_fds_up
 sys.path.append('../fdslib')
 sys.path.append('../fdslib/pyfdsp')
-sys.path.append('../fdslib/pyfdsp/fds_service')
-sys.path.append('../../tools/fdsconsole/contexts')
-sys.path.append('../../tools/fdsconsole')
-sys.path.append('../../tools')
 from SvcHandle import SvcMap
-
-def get_myip():
-    cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
-    #return subprocess.check_output(shlex.split(cmd))
-    return subprocess.check_output(cmd, shell = True).rstrip("\n")
 
 # FIXME: need a class for this
 def get_node_from_ip(nodes, node_ip):
@@ -89,16 +80,8 @@ class RemoteExecutor:
         print "Starting remote executor on ", node
         self.options = options
         self.local = self.options.myip == self.options.nodes[self.options.main_node]
-        # assert self.local == False, "RemoteExecutor must be remote. Please, fix the local case"
-        if not self.local == False:
-            print "RemoteExecutor must be remote. Please, fix the local case"
         self.node = node
         ns_table = Pyro4.locateNS(host = options.ns_ip, port = options.ns_port).list()
-        if options.local == False and (options.force_cmd_server or not node + ".executor" in ns_table):
-            print "Forcing start of cmd-server.py on", self.node
-            assert options.ns_ip is not None and options.ns_port is not None
-            self.start_cmd_server(self.node)
-            time.sleep(5)
         if options.local == False:
             self.executor = Pyro4.Proxy(ns_table[node + ".executor"])
             try:
@@ -109,17 +92,6 @@ class RemoteExecutor:
                 time.sleep(5)
         else:
             self.proc_map = {}
-
-    def start_cmd_server(self, nodename):
-        assert self.options.local is False
-        #ssh_exec(node_ip,"ps aux|grep cmd-server.py| grep -v grep|wc -l")
-        print "bringing up cmd server on", nodename
-        node_ip = self.options.nodes[nodename]
-        assert os.path.exists(self.options.local_fds_root + "/source/test/perf/cmd-server.py")
-        transfer_file(node_ip, self.options.local_fds_root + "/source/test/perf/cmd-server.py", "/root/cmd-server.py", "put")
-        ssh_exec(node_ip, "python cmd-server.py --node-name %s --name-server-ip %s --name-server-port %d --server-ip %s 2>&1 > cmd-server.log &"
-                    % (nodename, self.options.ns_ip, self.options.ns_port, node_ip,))
-        print "done"
 
     def execute(self, cmd):
         if self.options.local == False:

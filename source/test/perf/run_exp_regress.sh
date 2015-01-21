@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# ./run_exp_regress.sh $WORKSPACE $TEST_IP s3:get:amcache0
+# ./run_exp_regress.sh $WORKSPACE $TEST_NODE s3:get:amcache0
 
 WORKSPACE=$1
-TEST_IP=$2
+TEST_NODE=$2
 TAG=$3
 TEST_JSON=$4
 MODE=$5
 
 
-PYRO_IP="10.1.10.139"
+PYRO_HOST="han"
 PYRO_PORT=47672
 
 CLUSTER="luke,han,chewie,c3po"
@@ -26,16 +26,16 @@ TEST_DIR=/regress/test-$RANDOM
 
 
 if [ "$MODE" = "multi" ] ; then
-    if [ "$TEST_IP" = "local" ] ; then
-        ./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-multi -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $CLUSTER
+    if [ "$TEST_NODE" = "local" ] ; then
+        ./run_experiment.py -n $PYRO_HOST -p $PYRO_PORT -m $HOSTNAME -M local-multi -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $CLUSTER
     else
-        ./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-multi -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_IP -D $WORKSPACE --fds-nodes $CLUSTER
+        ./run_experiment.py -n $PYRO_HOST -p $PYRO_PORT -m $HOSTNAME -M local-multi -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_NODE -D $WORKSPACE --fds-nodes $CLUSTER
     fi
 else
-    if [ "$TEST_IP" = "local" ] ; then
-        ./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $HOSTNAME
+    if [ "$TEST_NODE" = "local" ] ; then
+        ./run_experiment.py -n $PYRO_HOST -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $HOSTNAME
     else
-        ./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_IP -D $WORKSPACE --fds-nodes $HOSTNAME
+        ./run_experiment.py -n $PYRO_HOST -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_NODE -D $WORKSPACE --fds-nodes $HOSTNAME
     fi
 fi
 

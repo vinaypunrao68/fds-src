@@ -4,6 +4,8 @@ from exp_framework import *
 import json
 from tests import TestList
 from optparse import OptionParser
+import  perf_framework_utils as utils
+
 # FIXME: import only what you use
 # TODO: better configuration
 # TODO: need to streamline the options
@@ -62,22 +64,13 @@ def main():
     options.local_fds_root = options.fds_directory
     print "FDS local root:", options.local_fds_root
     print "FDS remote root:", options.remote_fds_root
+
     # FDS nodes
-    NODES = {
-        "node1" : "10.1.10.16",
-        "node2" : "10.1.10.17",
-        "node3" : "10.1.10.18",
-        "tiefighter" : "10.1.10.102",
-        "luke" : "10.1.10.222",
-        "han" : "10.1.10.139",
-        "chewie" : "10.1.10.80",
-        "c3po" : "10.1.10.221",
-    }
     options.nodes = {}
     for n in options.fds_nodes.split(","):
-        options.nodes[n] = NODES[n]
+        options.nodes[n] = utils.get_ip(n)
     print "FDS nodes: ", options.nodes    
-    options.myip = get_myip()
+    options.myip = utils.get_my_ip()
     print "My IP:", options.myip
 
     if "single" in options.mode:
