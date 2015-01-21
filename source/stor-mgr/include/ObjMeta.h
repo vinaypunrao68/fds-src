@@ -91,7 +91,7 @@ class ObjMetaData : public serialize::Serializable {
 
     void extractSyncData(fpi::FDSP_MigrateObjectMetadata& md) const;
 
-    void propogateMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData);
+    void propagateMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData);
     void updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
 
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);

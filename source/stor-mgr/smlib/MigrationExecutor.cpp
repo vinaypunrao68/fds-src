@@ -168,7 +168,8 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
     fds_verify(deltaSet->objectToPropagate.size() > 0);
 
     // if objectToPropagate set is large, break down into smaller QoS work items
-    fds_uint32_t maxSize = 10;   // TODO(Anna) make configurable?, dynamic?, etc
+    // TODO(Anna) make configurable?, dynamic?, etc
+    fds_uint32_t maxSize = 10;
     fds_uint32_t totalCnt = deltaSet->objectToPropagate.size() / maxSize + 1;
     fds_uint32_t qosSeqNum = 0;
 

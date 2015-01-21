@@ -87,6 +87,14 @@ class DmtVolAckEvt
 
     NodeUuid dm_uuid;
 };
+class DmtTimeoutEvt
+{
+  public:
+    DmtTimeoutEvt() {}
+    std::string logString() const {
+      return "DmtTimeoutEvt";
+    }
+};
 /**
  * Main vector to initialize the DMT module.
  */
@@ -110,6 +118,7 @@ class OM_DMTMod : public Module
     void dmt_deploy_event(DmtCloseOkEvt const &evt);
     void dmt_deploy_event(DmtVolAckEvt const &evt);
     void dmt_deploy_event(DmtLoadedDbEvt const &evt);
+    void dmt_deploy_event(DmtTimeoutEvt const &evt);
 
     /**
      * Module methods
