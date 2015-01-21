@@ -85,9 +85,8 @@ class ServiceContext(Context):
     @arg('volname', help='-volume name')
     def listblobstat(self, volname):
         try:
-            
             #process.setup_logger()
-	    # import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             dmClient = self.config.platform;
 
             dmUuids = dmClient.svcMap.svcUuids('dm')
@@ -98,28 +97,13 @@ class ServiceContext(Context):
             dmClient.sendAsyncSvcReq(dmUuids[0], getblobmeta, cb)
 
             if not cb.wait():
-		print 'async volume meta request failed'
+                print 'async volume meta request failed'
 
-    	    data = []
-	    data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
-	    data += [("size",cb.payload.volume_meta_data.size)]
-	    data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
-	    print tabulate(data, tablefmt=self.config.getTableFormat())
-
-
-            getblobmsg = FdspUtils.newGetBucketMsg(volId, 0, 0);
-            listcb = WaitedCallback();
-            dmClient.sendAsyncSvcReq(dmUuids[0], getblobmsg, listcb)
-
-            if not listcb.wait():
-		print 'async listblob request failed'
-
-	    #import pdb; pdb.set_trace()
-            blobs = listcb.payload.blob_info_list;
-            blobs.sort(key=attrgetter('blob_name'))
-            return tabulate([(x.blob_name, x.blob_size, x.mime_type) for x in blobs],headers=
-                 ['blobname', 'blobsize', 'blobtype'], tablefmt=self.config.getTableFormat())
-
+            data = []
+            data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
+            data += [("size",cb.payload.volume_meta_data.size)]
+            data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
+            return tabulate(data, tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return 'unable to get volume meta list'
@@ -154,37 +138,3 @@ class ServiceContext(Context):
             print e
             log.exception(e)
             return 'unable to get dm stats '
-
-    #--------------------------------------------------------------------------------------
-    @clicmd
-    @arg('volname', help='-volume name')
-    @arg('pattern', help='-blob name pattern for search')
-    @arg('maxkeys', help= "-max number for results", nargs='?' , type=long, default=1000)
-    @arg('startpos', help= "-starting  position of the blob list", nargs='?' , type=long, default=0)
-    def listblobsbypattern(self, volname, pattern, maxkeys, startpos):
-        try:
-            
-            #process.setup_logger()
-	    # import pdb; pdb.set_trace()
-            dmClient = self.config.platform;
-
-            dmUuids = dmClient.svcMap.svcUuids('dm')
-            volId = dmClient.svcMap.omConfig().getVolumeId(volname)
-
-            getbloblist = FdspUtils.newListBlobsByPatternMsg(volId, startpos, maxkeys, pattern);
-            cb = WaitedCallback();
-            dmClient.sendAsyncSvcReq(dmUuids[0], getbloblist, cb)
-
-            if not cb.wait():
-		print 'async listblob request failed'
-
-	    #import pdb; pdb.set_trace()
-            blobs = cb.payload.blobDescriptors;
-            blobs.sort(key=attrgetter('name'))
-            return tabulate([(x.name, x.byteCount) for x in blobs],headers=
-                 ['name', 'size'], tablefmt=self.config.getTableFormat())
-
-        except Exception, e:
-            log.exception(e)
-            return 'unable to get blob list based on pattern '
-
