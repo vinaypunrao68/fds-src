@@ -4,6 +4,7 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.util.ChunkingInputStream;
 import org.apache.thrift.TException;
 import org.junit.Test;
@@ -58,7 +59,7 @@ public class StreamWriterTest {
         }
 
         @Override
-        public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws ApiException, TException {
+        public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
             return null;
         }
 
