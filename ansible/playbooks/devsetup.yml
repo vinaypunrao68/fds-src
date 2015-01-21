@@ -89,7 +89,7 @@
         - oracle-java8-installer
         - npm
         - nodejs-legacy
-        - ruby
+        - ruby1.9.1-full
         - ruby-sass
         - python-concurrent.futures
         - python-paramiko
@@ -126,7 +126,14 @@
         - psutil
 
     - name: install perl modules
-      cpanm: name=JSON mirror=http://cpan.mirror.vexxhost.com notest=true
+      cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
+      with_items:
+        - JSON
+
+    - name: install ruby gems
+      gem: name={{ item }} state=present 
+      with_items:
+        - bundler
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
