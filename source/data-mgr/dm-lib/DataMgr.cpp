@@ -893,6 +893,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
     handlers[FDS_DM_LIST_BLOBS_BY_PATTERN] = new dm::ListBlobsByPatternHandler();
+    new dm::ReloadVolumeHandler();
 }
 
 DataMgr::~DataMgr()

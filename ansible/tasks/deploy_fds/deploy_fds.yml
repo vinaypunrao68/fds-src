@@ -3,7 +3,9 @@
 
 - include: stop_fds.yml
 
-- include: clean_fds.yml
+- include: clean_shared_mem.yml
+
+- include: clean_data.yml
   when: clean_fds is defined and clean_fds == "yes"
 
 - include: install_deps.yml

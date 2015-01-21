@@ -722,7 +722,9 @@ class OM_NodeDomainMod : public Module
      * Updates cluster map membership and does DLT
      */
     virtual void om_dmt_update_cluster();
+    virtual void om_dmt_waiting_timeout();
     virtual void om_dlt_update_cluster();
+    virtual void om_dlt_waiting_timeout();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
 
     /**

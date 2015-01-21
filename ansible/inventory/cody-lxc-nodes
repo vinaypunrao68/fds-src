@@ -2,6 +2,7 @@
 10.2.10.19[0:3]
 
 [cody-lxc-nodes:vars]
+clean_fds=yes
 ansible_ssh_user=ubuntu
 ansible_ssh_pass=ubuntu
 cluster_location=bld
