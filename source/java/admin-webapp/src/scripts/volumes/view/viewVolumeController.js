@@ -4,6 +4,8 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         return $filter( 'translate' )( key );
     };
     
+    $scope.disableTiering = true;
+    
     $scope.snapshots = [];
     $scope.snapshotPolicies = [];
     $scope.timelinePolicies = [];
