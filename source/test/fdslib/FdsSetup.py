@@ -263,6 +263,10 @@ class FdsLocalEnv(FdsEnv):
                         continue
                     else:
                         prompt, colon, line = line.partition(":")
+                if 'log4j:WARN' in line:
+                    continue
+                if 'Content is not allowed in prolog.' in line:
+                    continue
                 log.warn("[%s Error] %s" % (self.env_host, line))
                 if status == 0:
                     status = -1

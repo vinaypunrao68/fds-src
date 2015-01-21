@@ -43,7 +43,8 @@ public class S3Failure extends XmlResource {
         InternalError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR),
         ServiceUnavailable(HttpServletResponse.SC_SERVICE_UNAVAILABLE),
         BucketAlreadyExists(HttpServletResponse.SC_CONFLICT),
-        BucketNotEmpty(HttpServletResponse.SC_CONFLICT);
+        BucketNotEmpty(HttpServletResponse.SC_CONFLICT),
+        NoSuchBucket(HttpServletResponse.SC_NOT_FOUND);
 
         private int httpStatus;
 
