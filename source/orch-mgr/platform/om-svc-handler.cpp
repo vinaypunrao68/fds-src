@@ -37,11 +37,12 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
 
     // Register event trackers
-    auto cb = [](size_t events) -> void {
-        LOGERROR << "Saw too many timeout events";
+    auto cb = [](int64_t svc, size_t events) -> void {
+        LOGERROR << std::hex << svc << std::dec
+                 << "Saw too many timeout events [" << events << "]";
     };
-    std::unique_ptr<TrackerBase>
-        tracker(new TrackerMap<decltype(cb), 15, std::chrono::minutes>(cb, 2));
+    std::unique_ptr<TrackerBase<int64_t>>
+        tracker(new TrackerMap<decltype(cb), int64_t, 15, std::chrono::minutes>(cb, 2));
     event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT, std::move(tracker));
 }
 

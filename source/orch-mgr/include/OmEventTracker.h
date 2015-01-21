@@ -15,25 +15,32 @@
 namespace fds
 {
 
+template <typename Service>
 struct TrackerBase {
     TrackerBase() = default;
     TrackerBase(TrackerBase const&) = default;
     TrackerBase& operator=(TrackerBase const&) = default;
     virtual ~TrackerBase() = default;
 
+    void setService(Service _service)
+    { service = _service; }
+
     virtual void poke() = 0;
     virtual TrackerBase* clone() = 0;
+
+    Service service;
 };
 
-template <typename Callback, size_t ticks, typename Duration = std::chrono::seconds>
-struct TrackerMap : public TrackerBase {
+template <typename Callback, typename Service, size_t ticks, typename Duration = std::chrono::seconds>
+struct TrackerMap : public TrackerBase<Service> {
     static constexpr size_t tick_limit = ticks;
 
     template<typename T>
     using unique            = std::unique_ptr<T>;
     using callback_type     = Callback;
     using duration_type     = Duration;
-    using type              = TrackerMap<callback_type, tick_limit, duration_type>;
+    using service_type      = Service;
+    using type              = TrackerMap<callback_type, service_type, tick_limit, duration_type>;
     using count_type        = std::atomic_size_t;
     using clock_type        = std::chrono::system_clock;
     using time_point_type   = std::chrono::time_point<clock_type, duration_type>;
@@ -91,7 +98,7 @@ struct TrackerMap : public TrackerBase {
         }
 
         if (events >= threshold) {
-            callback(events);
+            callback(this->service, events);
         }
     }
 
@@ -111,7 +118,7 @@ class EventTracker {
     using service_key_type  = K;
     template<typename T>
     using unique            = std::unique_ptr<T>;
-    using tracker_type      = TrackerBase;
+    using tracker_type      = TrackerBase<service_key_type>;
     using event_map_type    = std::unordered_map<event_type, unique<tracker_type>>;
     using service_map_type  = std::unordered_map<service_key_type, unique<event_map_type>>;
 
@@ -133,6 +140,7 @@ class EventTracker {
             unique<event_map_type> new_map(new event_map_type);
             for (auto& p : registered_events) {
                 unique<tracker_type> tracker(p.second->clone());
+                tracker->setService(service);
                 new_map->insert(std::make_pair(p.first, std::move(tracker)));
             }
             auto r = service_map.insert(std::make_pair(service, std::move(new_map)));
@@ -149,6 +157,7 @@ class EventTracker {
             // the registered list
             try {
                 unique<tracker_type> tracker(registered_events.at(event)->clone());
+                tracker->setService(service);
                 auto r = it->second->insert(std::make_pair(event, std::move(tracker)));
                 if (!r.second) {
                     LOGERROR << " failed to register event tracker for: " << service;
