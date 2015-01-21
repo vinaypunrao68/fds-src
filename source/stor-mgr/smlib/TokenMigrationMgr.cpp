@@ -41,7 +41,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         return err;
     }
 
-    // we need to do migration, switch to 'in progress' state
+    // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
         LOGNOTIFY << "startMigration called in non-idle state " << migrState;
@@ -162,6 +162,17 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
              << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
              << " last " << rebalSetMsg->lastFilterSet;
 
+    // If this SM is just a source and does not get Start Migration from OM
+    // make sure that we set the migration state in progress
+    MigrationState curState = atomic_load(&migrState);
+    if (curState == MIGR_ABORTED) {
+        // Something happened, for now stopping migration on any error
+        LOGWARN << "Migration was already aborted, not going to handle object rebalance msg";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+    MigrationState newState = MIGR_IN_PROGRESS;
+    atomic_store(&migrState, newState);
+
     MigrationClient::shared_ptr migrClient;
     int64_t executorId = rebalSetMsg->executorID;
     {
@@ -270,11 +281,8 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             startSmTokenMigration(it->first);
         } else {
             /// we are done migrating, reply to start migration msg from OM
+            // TODO(Anna) reply to start migration msg here
             // TODO(Anna) revisit this when doing active IO
-            MigrationState expectState = MIGR_IN_PROGRESS;
-            if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_DONE)) {
-                fds_panic("Unexpected migration executor state!");
-            }
         }
     }
 }
