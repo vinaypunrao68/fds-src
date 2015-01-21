@@ -42,7 +42,7 @@ OmSvcHandler::OmSvcHandler()
                  << "Saw too many timeout events [" << events << "]";
     };
     std::unique_ptr<TrackerBase<int64_t>>
-        tracker(new TrackerMap<decltype(cb), int64_t, 15, std::chrono::minutes>(cb, 2));
+        tracker(new TrackerMap<decltype(cb), int64_t, std::chrono::minutes>(cb, 15, 2));
     event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT, std::move(tracker));
 }
 

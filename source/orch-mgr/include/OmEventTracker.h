@@ -31,31 +31,30 @@ struct TrackerBase {
     Service service;
 };
 
-template <typename Callback, typename Service, size_t ticks, typename Duration = std::chrono::seconds>
+template <typename Callback, typename Service, typename Duration = std::chrono::seconds>
 struct TrackerMap : public TrackerBase<Service> {
-    static constexpr size_t tick_limit = ticks;
 
     template<typename T>
     using unique            = std::unique_ptr<T>;
     using callback_type     = Callback;
     using duration_type     = Duration;
     using service_type      = Service;
-    using type              = TrackerMap<callback_type, service_type, tick_limit, duration_type>;
+    using type              = TrackerMap<callback_type, service_type, duration_type>;
     using count_type        = std::atomic_size_t;
     using clock_type        = std::chrono::system_clock;
     using time_point_type   = std::chrono::time_point<clock_type, duration_type>;
     using bucket_type       = std::map<time_point_type, unique<count_type>>;
 
-    TrackerMap(callback_type& c, size_t _threshold) :
-        callback(c), counters(), threshold(_threshold)
+    TrackerMap(callback_type& c, size_t _ticks, size_t _threshold) :
+        callback(c), counters(), tick_window(_ticks), threshold(_threshold)
     {}
 
-    TrackerMap(callback_type&& c, size_t _threshold) :
-        callback(std::move(c)), counters(), threshold(_threshold)
+    TrackerMap(callback_type&& c, size_t _ticks, size_t _threshold) :
+        callback(std::move(c)), counters(), tick_window(_ticks), threshold(_threshold)
     {}
 
     TrackerMap(TrackerMap const& rhs) :
-        callback(rhs.callback), counters(), threshold(rhs.threshold) {
+        callback(rhs.callback), counters(), tick_window(rhs.tick_window), threshold(rhs.threshold) {
     }
 
     TrackerMap& operator=(TrackerMap const&) = delete;
@@ -63,7 +62,7 @@ struct TrackerMap : public TrackerBase<Service> {
 
     void poke() override
     {
-        static auto const window = duration_type(tick_limit);
+        auto const window = duration_type(tick_window);
         auto now = std::chrono::time_point_cast<duration_type>(clock_type::now());
 
         // We don't care about anything that happened prior to this timepoint.
@@ -108,7 +107,8 @@ struct TrackerMap : public TrackerBase<Service> {
  private:
     callback_type   callback;
     bucket_type     counters;
-    size_t          threshold;
+    size_t const    tick_window;
+    size_t const    threshold;
 };
 
 
