@@ -5,7 +5,7 @@
 # This test suite dynamically constructs itself (that is,
 # identifies the test cases from which a suite is derived)
 # from "scenario" sections in the provided FDS
-# configuration file. Therefore, that test cases that it
+# configuration file. Therefore, those test cases that it
 # runs are completely determined by the FDS configuration
 # file.
 #
@@ -28,6 +28,13 @@ import re
 
 
 def str_to_obj(astr):
+    """
+    Using the provided string, locate the Python
+    object so identified. For our purposes in the System
+    Test framework, we wish to resolve a particular method
+    from its qualified string name.
+    """
+
     log = logging.getLogger("str_to_obj")
 
     log.info('Resolving %s.' % astr)
@@ -49,8 +56,8 @@ def str_to_obj(astr):
 
 def suiteConstruction():
     """
-    Construct the ordered set of test cases that comprise this
-    test suite.
+    Construct the ordered set of test cases that comprise the
+    test suite defined by the input FDS scenario config file.
     """
     suite = unittest.TestSuite()
 
@@ -335,6 +342,7 @@ def suiteConstruction():
                       (script, scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
+        # Currently unsupported FDS scenario config file scenarios.
         #elif re.match('\[fdscli.*\]', script) != None:
         #    # Execute the FDS console commands.
         #    for s in scenario.cfg_sect_cli:
@@ -355,47 +363,6 @@ def suiteConstruction():
         #    if wait == 'true':
         #        p1.wait()
 
-    # Give the nodes some time to initialize.
-    #suite.addTest(testcases.TestFDSSysMgt.TestWait())
-
-    # Verify that the OM log indicates successful DMT migration to this point.
-    #suite.addTest(testcases.TestFDSSysMgt.TestInitial1NodeDMTMigration())
-
-    # Now bring up transient nodes.
-    #suite.addTest(testcases.TestFDSModMgt.TestPMForTransientBringUp())
-    #suite.addTest(testcases.TestFDSModMgt.TestPMForTransientWait())
-
-    # Give the transient PMs some time to initialize.
-    #suite.addTest(testcases.TestFDSSysMgt.TestWait())
-
-    # Activate the cluster to include the transient nodes.
-    #suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
-
-    # Check that *all* nodes are up.
-    #suite.addTest(nodeUpSuite)
-    #transientNodeUpSuite = TransientNodeWaitSuite.suiteConstruction()
-    #suite.addTest(transientNodeUpSuite)
-
-    # Give the transient nodes some time to initialize.
-    #suite.addTest(testcases.TestFDSSysMgt.TestWait())
-
-    # Verify that the OM log indicates successful DMT migration to this point.
-    #suite.addTest(testcases.TestFDSSysMgt.TestTransientAddNodeDMTMigration())
-
-    # Remove the services of the transient nodes.
-    #suite.addTest(testcases.TestFDSSysMgt.TestTransientRemoveService())
-
-    # Give the OM some time to manage the node removal.
-    #suite.addTest(testcases.TestFDSSysMgt.TestWait())
-
-    # Verify that the OM log indicates successful DMT migration to this point.
-    #suite.addTest(testcases.TestFDSSysMgt.TestTransientRemoveNodeDMTMigration())
-
-    # Since out cluster is all on one machine, this will actually shutdown the cluster.
-    #suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
-
-    # Cleanup FDS installation directory.
-    #suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
 
     return suite
 
