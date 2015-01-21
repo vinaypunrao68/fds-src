@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 by Formations Data Systems, Inc.
+ * Copyright 2013-2015 by Formations Data Systems, Inc.
  */
 #include <string>
 #include <vector>
@@ -18,6 +18,11 @@
 
 namespace fds {
 
+template<typename T>
+static
+T get_config(std::string const& option, T&& default_value)
+{ return gModuleProvider->get_fds_config()->get<T>(option, default_value); }
+
 OmSvcHandler::~OmSvcHandler() {}
 
 OmSvcHandler::OmSvcHandler()
@@ -35,6 +40,43 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
+
+    // TODO(bszmyd): Tue 20 Jan 2015 10:24:45 PM PST
+    // This isn't probably where this should go, but for now it doesn't make
+    // sense anymore for it to go anywhere else. When then dependencies are
+    // better determined we should move this.
+    // Register event trackers
+    init_svc_event_handlers();
+}
+
+// Right now all handlers are using the same callable which will down the
+// service that is responsible. This can be changed easily.
+void OmSvcHandler::init_svc_event_handlers() {
+    auto cb = [](int64_t svc, size_t events) -> void {
+        LOGERROR << std::hex << svc << std::dec
+                 << "Saw too many timeout events [" << events << "]";
+        // TODO(bszmyd): Wed 21 Jan 2015 09:13:36 AM PST
+        // Down this service
+    };
+
+    // Timeout handler (2 within 15 minutes will trigger)
+    size_t time_window = get_config("fds.om.svc_event_threshold.timeout.window", 15);
+    size_t threshold = get_config("fds.om.svc_event_threshold.timeout.threshold", 2);
+    std::unique_ptr<TrackerBase<int64_t>>
+        tracker(new TrackerMap<decltype(cb), int64_t, std::chrono::minutes>(cb, time_window, threshold));
+    event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT, std::move(tracker));
+
+    // DiskWrite handler (1 within 24 hours will trigger)
+    time_window = get_config("fds.om.svc_event_threshold.disk.write_fail.window", 24);
+    threshold = get_config("fds.om.svc_event_threshold.disk.write_fail.threshold", 1);
+    tracker.reset(new TrackerMap<decltype(cb), int64_t, std::chrono::hours>(cb, time_window, threshold));
+    event_tracker.register_event(ERR_DISK_WRITE_FAILED, std::move(tracker));
+
+    // DiskRead handler (1 within 24 hours will trigger)
+    time_window = get_config("fds.om.svc_event_threshold.disk.read_fail.window", 24);
+    threshold = get_config("fds.om.svc_event_threshold.disk.read_fail.threshold", 1);
+    tracker.reset(new TrackerMap<decltype(cb), int64_t, std::chrono::hours>(cb, time_window, threshold));
+    event_tracker.register_event(ERR_DISK_READ_FAILED, std::move(tracker));
 }
 
 // om_svc_state_chg
@@ -151,6 +193,7 @@ OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     LOGDEBUG << " received " << msg->evt_code
              << " from:" << msg->evt_src_svc_uuid.svc_uuid;
+    event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
 }
 
 }  //  namespace fds
