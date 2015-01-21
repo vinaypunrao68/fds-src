@@ -892,6 +892,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
+    new dm::ReloadVolumeHandler();
 }
 
 DataMgr::~DataMgr()

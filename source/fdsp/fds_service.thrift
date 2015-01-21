@@ -178,7 +178,9 @@ enum  FDSPMsgTypeId {
     GetDmStatsMsgTypeId,
     GetDmStatsMsgRespTypeId,
     ListBlobsByPatternMsgTypeId,
-    ListBlobsByPatternRspMsgTypeId
+    ListBlobsByPatternRspMsgTypeId,
+    ReloadVolumeMsgTypeId,
+    ReloadVolumeRspMsgTypeId
 }
 
 /*
@@ -676,6 +678,10 @@ struct DeleteSnapshotMsg {
 
 struct DeleteSnapshotRespMsg {
     1:i64 snapshotId
+}
+
+struct ReloadVolumeMsg {
+    1:i64 volId
 }
 
 struct CreateVolumeCloneMsg {
