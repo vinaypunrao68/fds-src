@@ -91,9 +91,16 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
     }
 
     // we enable scavenger by default
-    err = scavenger->enableScavenger(diskMap);
+    err = scavenger->enableScavenger(diskMap, SM_CMD_INITIATOR_USER);
     if (!err.ok()) {
-        LOGERROR << "Failed to start Scavenger " << err;
+        if (err == ERR_SM_GC_TEMP_DISABLED) {
+            LOGWARN << "Failed to start scavenger because a background "
+                    << "process requires scavenger not run; Scavenger will "
+                    << "enabled when the background process finishes";
+            err = ERR_OK;   // ok, scavenger will be enabled later
+        } else {
+            LOGERROR << "Failed to start Scavenger " << err;
+        }
     }
     return err;
 }
@@ -343,20 +350,13 @@ ObjectPersistData::getSmTokenStats(fds_token_id smTokId,
 Error
 ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     Error err(ERR_OK);
-    // if we did not get disk map, we are not ready to process
-    // scavenger commands
-    if (!smDiskMap) {
-        LOGERROR << "Not ready to execute scavenger command";
-        return ERR_NOT_READY;
-    }
-
     LOGDEBUG << "Executing scavenger command " << scavCmd->command;
     switch (scavCmd->command) {
         case SmScavengerCmd::SCAV_ENABLE:
-            err = scavenger->enableScavenger(smDiskMap);
+            err = scavenger->enableScavenger(smDiskMap, scavCmd->initiator);
             break;
         case SmScavengerCmd::SCAV_DISABLE:
-            scavenger->disableScavenger();
+            scavenger->disableScavenger(scavCmd->initiator);
             break;
         case SmScavengerCmd::SCAV_START:
             scavenger->startScavengeProcess();

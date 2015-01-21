@@ -64,8 +64,6 @@ std::ostream& operator<< (std::ostream& out,
     out << "seqNum: " << seqNumRecv.seqNum << std::endl;
     out << "lastSeqNum: " << seqNumRecv.lastSeqNum << std::endl;
 
-    std::cout << "set size: " << seqNumRecv.seqNumList.size() << std::endl;
-
     for (auto cit = seqNumRecv.seqNumList.begin();
          cit != seqNumRecv.seqNumList.end();
          ++cit) {

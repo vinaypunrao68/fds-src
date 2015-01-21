@@ -89,12 +89,9 @@ public class ListVolumes implements RequestHandler {
                                                 SingletonConfigAPI.instance().api().listTenants(0).stream()
                                                                   .filter((t) -> {
 
-                                                                      if (t.getId() == v.getTenantId()) {
-                                                                          return true;
-                                                                      }
+																	  return t.getId() == v.getTenantId();
 
-                                                                      return false;
-                                                                  })
+																  })
                                                                   .collect(Collectors.toList());
 
                                             String tenantName = "";
@@ -171,7 +168,8 @@ struct VolumeDescriptor {
 
 		// getting firebreak information
 		Volume volume = new VolumeBuilder().withId( Long.toString( volInfo.getVolUUID() ) )
-				.withName( v.getName() ).build();
+										   .withName( v.getName() )
+										   .build();
 
 		final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( volume );
 
@@ -207,15 +205,16 @@ struct VolumeDescriptor {
 				// TODO: update UI to use the policy object above and remove the duplicate data
 				if (v.getPolicy().getVolumeType() != null &&
 					v.getPolicy().getVolumeType().equals( VolumeType.OBJECT ) ) {
-					o.put( "data_connector", new JSONObject().put("type", "object" )
-							.put("api", "S3, Swift") );
+					o.put( "data_connector",
+						   new JSONObject().put( "type", "object" )
+										   .put( "api", "S3, Swift" ) );
 				} else {
 					JSONObject connector = new JSONObject().put( "type", "block" );
 					Size size = Size.size( v.getPolicy()
-							.getBlockDeviceSizeInBytes() );
+											.getBlockDeviceSizeInBytes() );
                     JSONObject attributes = new JSONObject()
-                                                .put("size", size.getCount())
-                                                .put("unit", size.getSizeUnit().toString());
+                                                .put( "size", size.getCount() )
+                                                .put( "unit", size.getSizeUnit().toString() );
 					connector.put( "attributes", attributes );
 					o.put( "data_connector", connector );
 				}
@@ -255,7 +254,7 @@ struct VolumeDescriptor {
 	 * @return
 	 */
 	private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ){
-		
+
 		MetricQueryCriteria query = new MetricQueryCriteria();      
 		DateRange range = new DateRange();
 		range.setEnd( new Date().getTime() );
@@ -271,16 +270,16 @@ struct VolumeDescriptor {
 			new MetricCriteriaQueryBuilder( repo.newEntityManager() ) 
 				.searchFor( query )
 				.resultsList();
-		
+
 		FirebreakHelper fbh = new FirebreakHelper();
 		EnumMap<FirebreakType, VolumeDatapointPair> map = null;
-		
+
 		try {
 			map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
 		} catch (TException e) {
 			 LOG.warn( "Could not determine the firebreak events for volume: " + v.getId() + ":" + v.getName(), e );
 		}
-		
+
 		return map;
 	}
 

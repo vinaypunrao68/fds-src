@@ -29,8 +29,7 @@ public class S3Authenticator {
 
         String candidateHeader = request.getHeader("Authorization");
         AuthenticationComponents authenticationComponents = resolveFdsCredentials(candidateHeader);
-        AWSCredentials basicAWSCredentials = new BasicAWSCredentials(authenticationComponents.principalName,
-                                                                     authenticationComponents.fdsToken.signature(secretKey));
+        AWSCredentials basicAWSCredentials = new BasicAWSCredentials(authenticationComponents.principalName, authenticationComponents.fdsToken.signature(secretKey));
 
         String requestHash = S3SignatureGenerator.hash(request, basicAWSCredentials);
 
@@ -43,9 +42,8 @@ public class S3Authenticator {
 
     private AuthenticationComponents resolveFdsCredentials(String header) {
         String pattern = "AWS {0}:{1}";
-        Object[] parsed = new Object[0];
         try {
-            parsed = new MessageFormat(pattern).parse(header);
+            Object[] parsed = new MessageFormat(pattern).parse(header);
             String principal = (String) parsed[0];
             AuthenticationToken fdsToken = xdi.getAuthenticator().currentToken(principal);
             return new AuthenticationComponents(principal, fdsToken);

@@ -16,6 +16,9 @@
 #include <syslog.h>
 #include <execinfo.h>
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 namespace fds {
 
 /* Processwide globals from fds_process.h */
@@ -159,6 +162,30 @@ void FdsProcess::init(int argc, char *argv[],
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
+
+    /* detect the core file size limit and print to log */
+    struct rlimit crlim;
+    int ret = getrlimit(RLIMIT_CORE, &crlim);
+    if (-1 == ret) {
+        LOGERROR << "getrlimit(RLIMIT_CORE) failed with errno " << errno;
+    } else {
+        LOGNOTIFY << "current rlimit(RLIMIT_CORE): soft limit " << crlim.rlim_cur
+                  << ", hard limit " << crlim.rlim_max;
+        if ((crlim.rlim_cur != RLIM_INFINITY) ||
+            (crlim.rlim_max != RLIM_INFINITY)) {
+
+            struct rlimit newcrlim;
+            newcrlim.rlim_cur = RLIM_INFINITY;
+            newcrlim.rlim_max = RLIM_INFINITY;
+            int ret = setrlimit(RLIMIT_CORE, &newcrlim);
+            if (-1 == ret) {
+                LOGERROR << "setrlimit(RLIMIT_CORE) failed with errno " << errno;
+            } else {
+                LOGNOTIFY << "rlimit(RLIMIT_CORE) is set to infinity";
+            }
+        }
+    }
+
 }
 
 FdsProcess::~FdsProcess()
@@ -340,7 +367,7 @@ FdsProcess::atExitHandler()
         symbolString += symStrings[i];
     }
 
-    syslog(LOG_NOTICE, "Exiting...%s", symbolString.c_str());
+    syslog(LOG_NOTICE, "FDS_PROC Exiting...%s", symbolString.c_str());
 }
 
 void
@@ -385,28 +412,63 @@ void FdsProcess::interrupt_cb(int signum)
     mod_vectors_->mod_shutdown();
 }
 
+void
+FdsProcess::closeAllFDs()
+{
+    /* close all file descriptors.  however, redirect std file descriptors
+     * to /dev/null.
+     */
+    int devNullFd = open("/dev/null", O_RDWR);
+    for (int i = getdtablesize(); i >= 0 ; --i) {
+        int ret;
+        /* redirect std io to /dev/null */
+        if ((i == STDIN_FILENO) || (i == STDOUT_FILENO) || (i == STDERR_FILENO)) {
+            /* flush before re-directing file descriptors.  flush all of them same
+             * time, because really don't need to convert fileno to filep for
+             * stdio (yeah.. laziness).
+             */
+            fflush(stdin);
+            fflush(stdout);
+            fflush(stderr);
+            ret = dup2(i, devNullFd);
+            if (-1 == ret) {
+                LOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
+            }
+        } else {
+            ret = close(i);
+            /* intentionally ignoring return value. some file descriptor may not be
+             * open for closing.  not all entries in the dtable is populated.
+             */
+        }
+    }
+}
+
 void FdsProcess::daemonize() {
     // adapted from http://www.enderunix.org/docs/eng/daemon.php
 
-    if (getppid() == 1) return; /* already a daemon */
+    if (getppid() == 1) {
+        /* already a daemon */
+        return;
+    }
+
+    /* fork a process */
     int childpid = fork();
     if (childpid < 0) {
+        /* fork failed */
         LOGERROR << "error forking for daemonize : " << errno;
         exit(1);
     }
     if (childpid > 0) {
+        /* parent process */
         LOGNORMAL << "forked successfully : child pid : " << childpid;
         exit(0);
     }
 
-    // The actual daemon .
+    /* child process */
 
     /* obtain a new process group */
     setsid();
-    int ret;
-    int i;
-    for (i = getdtablesize(); i >= 0 ; --i) close(i); /* close all descriptors */
-    i = open("/dev/null", O_RDWR); ret = dup(i); ret = dup(i); /* handle standart I/O */
+
     // umask(027); /* set newly created file permissions */
     // ignore tty signals
     signal(SIGTSTP, SIG_IGN);

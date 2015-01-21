@@ -212,6 +212,7 @@ class OMgrClient {
      */
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t dmt_version);
     fds_uint64_t getDMTVersion() const;
+    fds_bool_t hasCommittedDMT() const;
     int pushPerfstatsToOM(const std::string& start_ts,
                           int stat_slot_len,
                           const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);

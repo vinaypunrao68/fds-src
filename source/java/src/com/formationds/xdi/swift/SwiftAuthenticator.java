@@ -3,6 +3,7 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.RequestHandler;
@@ -37,9 +38,13 @@ public class SwiftAuthenticator implements RequestHandler {
 
         try {
             AuthenticationToken token = authenticator.resolveToken(tokenHeader);
+            AuthenticatedRequestContext.begin(token);
             return f.apply(token).handle(request, routeParameters);
         } catch (LoginException exception) {
             return new TextResource(HttpServletResponse.SC_UNAUTHORIZED, "");
+        }
+        finally {
+            AuthenticatedRequestContext.complete();
         }
     }
 }

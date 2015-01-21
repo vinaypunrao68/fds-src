@@ -14,8 +14,6 @@ import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.blob.Mode;
-import com.formationds.util.thrift.OMConfigException;
-import com.formationds.util.thrift.OMConfigServiceClient;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.io.ByteBufferPool;
@@ -37,14 +35,14 @@ public class XdiAsync {
     private AsyncAm asyncAm;
     private ByteBufferPool bufferPool;
     private Authorizer authorizer;
-    private OMConfigServiceClient  configurationApi;
+    private XdiConfigurationApi    configurationApi;
     private AsyncRequestStatistics statistics;
 
     public XdiAsync(AsyncAm asyncAm,
                     ByteBufferPool bufferPool,
                     AuthenticationToken token,
                     Authorizer authorizer,
-                    OMConfigServiceClient configurationApi) {
+                    XdiConfigurationApi configurationApi) {
         this.asyncAm = new AuthorizedAsyncAm(token, authorizer, asyncAm);
         this.bufferPool = bufferPool;
         this.token = token;
@@ -234,12 +232,10 @@ public class XdiAsync {
     public CompletableFuture<VolumeDescriptor> statVolume(String domain, String volume) {
         CompletableFuture<VolumeDescriptor> cf = new CompletableFuture<>();
         try {
-            VolumeDescriptor volumeDescriptor = configurationApi.statVolume(token, domain, volume);
+            VolumeDescriptor volumeDescriptor = configurationApi.statVolume(domain, volume);
             cf.complete(volumeDescriptor);
-        } catch (OMConfigException e) {
-            // Wrap in a thrift TException in an attempt to maintain backward compatibility
-            TException te = new TException(e.getMessage(), e);
-            cf.completeExceptionally(te);
+        } catch (TException e) {
+            cf.completeExceptionally(e);
         }
 
         return cf;

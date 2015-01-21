@@ -1,13 +1,11 @@
 /*
- * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
-
 package com.formationds.util.thrift;
 
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
 import com.formationds.commons.model.AuthenticatedUser;
 import com.formationds.commons.model.Connector;
 import com.formationds.commons.model.ConnectorAttributes;
@@ -18,7 +16,6 @@ import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.ConnectorType;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
 import com.formationds.util.SizeUnit;
 import com.google.common.base.Preconditions;
 import com.google.common.net.HostAndPort;
@@ -28,6 +25,7 @@ import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.uri.UriBuilderImpl;
+import org.apache.commons.httpclient.protocol.Protocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,55 +33,14 @@ import javax.crypto.SecretKey;
 import javax.ws.rs.core.MediaType;
 import java.lang.reflect.Type;
 import java.net.URI;
-import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
  * @author ptinius
  */
 public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
-
-// STAND-A-LONE TEST
-// NOT WORKING... needs SecretKey and AuthenticationToken.
-//    public static void main( String[] args )
-//        throws OMConfigException {
-//
-//        final OMConfigServiceRestClientImpl impl =
-//            new OMConfigServiceRestClientImpl( null, "10.211.55.9" );
-//
-//        final String domainName = "";
-//        final String objectVolumeName = "TestVolume_object";
-//        final String blockVolumeName = "TestVolume_block";
-//        final VolumeSettings blockSettings = new VolumeSettings( );
-//        blockSettings.setVolumeType( VolumeType.BLOCK );
-//        blockSettings.setBlockDeviceSizeInBytes( Integer.MAX_VALUE );
-//        blockSettings.setBlockDeviceSizeInBytesIsSet( true );
-//        blockSettings.setContCommitlogRetention( Instant.now().getEpochSecond() );
-//        blockSettings.setContCommitlogRetentionIsSet( true );
-//        blockSettings.setMaxObjectSizeInBytesIsSet( false );
-//
-//        final VolumeSettings objectSettings = new VolumeSettings( );
-//        objectSettings.setVolumeType( VolumeType.OBJECT );
-//        objectSettings.setBlockDeviceSizeInBytesIsSet( false );
-//        objectSettings.setContCommitlogRetention( Instant.now().getEpochSecond() );
-//        objectSettings.setContCommitlogRetentionIsSet( true );
-//        objectSettings.setMaxObjectSizeInBytes( Integer.MAX_VALUE );
-//        objectSettings.setMaxObjectSizeInBytesIsSet( true );
-//
-//        AuthenticatedUser authUser = impl.login("admin", "admin");
-//  TODO: how to convert AuthenticatedUser's token to an AuthenticationToken?
-//  alternative might be to change the API to take the token string which is part of the
-//  authUser.
-//        impl.createVolume( token, impl.domainName, blockVolumeName, blockSettings, 0 );
-//        impl.createVolume( token, domainName, objectVolumeName, objectSettings, 0 );
-//        System.out.println( impl.listVolumes( domainName ) );
-//        System.out.println( "VolumeId::" + impl.getVolumeId( domainName,
-//                                                             blockVolumeName ) );
-//        System.out.println( "VolumeStats::" + impl.statVolume( domainName,
-//                                                               objectVolumeName ) );
-//
-//    }
 
     private static final Logger logger =
         LoggerFactory.getLogger( OMConfigServiceRestClientImpl.class);
@@ -99,23 +56,13 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
 
     private static final String FDS_AUTH_HEADER = "FDS-Auth";
 
-    private String token = null;
-    private final HostAndPort host;
-    private final String      protocol;
-    private Client      client      = null;
-    private WebResource webResource = null;
+    private final String protocol;
+    private final String host;
+    private final Integer httpPort;
+    private Client       client      = null;
+    private WebResource  webResource = null;
+
     private final SecretKey key;
-
-    /**
-     * Create a rest client connection to the specified host, using the default OM port and
-     * default protocol
-     *
-     * @param host
-     */
-    public OMConfigServiceRestClientImpl(final SecretKey key, final String host) {
-
-        this(key, DEF_PROTOCOL, HostAndPort.fromParts(host, DEF_OM_PORT));
-    }
 
     /**
      * Create a rest client connection using the specified protocol and host ant port.
@@ -125,12 +72,14 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
      */
     public OMConfigServiceRestClientImpl(final SecretKey key,
                                          final String protocol,
-                                         final HostAndPort host) {
+                                         final String host,
+                                         final Integer port) {
         super();
 
         this.key = key;
-        this.host = host;
         this.protocol = protocol;
+        this.host = host;
+        this.httpPort = port;
     }
 
     private Client client() {
@@ -149,8 +98,8 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
 
             final URI uri =
                 new UriBuilderImpl().scheme(protocol)
-                                    .host(host.getHostText())
-                                    .port(host.getPortOrDefault(DEF_OM_PORT))
+                                    .host(host)
+                                    .port(httpPort != null ? httpPort : DEF_OM_PORT)
                                     .path(DEF_API_PATH)
                                     .build();
 
@@ -275,23 +224,20 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
     public long getVolumeId(AuthenticationToken token, final String notUsedDomainName, final String volumeName)
         throws OMConfigException {
 
-        final List<VolumeDescriptor> volumes = listVolumes(token, notUsedDomainName );
-
-        final Optional<VolumeDescriptor> optional =
-            volumes.stream()
-                   .filter( ( v ) -> v.getName()
-                                      .equalsIgnoreCase( volumeName ) )
-                   .findFirst();
-
-        if( optional.isPresent() ) {
-
-            return optional.get().getVolId();
-
+        try {
+            VolumeDescriptor volumeDescriptor = statVolume(token,
+                                                           notUsedDomainName,
+                                                           volumeName);
+            if (volumeDescriptor != null) {
+                return volumeDescriptor.getVolId();
+            } else {
+                return 0;
+            }
+        } catch (OMConfigException oce) {
+            // volume does not exist.
+            logger.debug(oce.getMessage());
+            return 0;
         }
-
-        throw new OMConfigException( "The specific volume ( " +
-                              volumeName +
-                              " ) does not exists." );
     }
 
     @Override
@@ -299,9 +245,9 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
         throws OMConfigException {
 
         final ClientResponse response =
-            webResource().path( configUrl )
+            webResource().path(configUrl)
                          .path( volumesUrl )
-                         .path( volumeName )
+                         .path(volumeName)
                          .type( MediaType.APPLICATION_JSON_TYPE )
                          .header( FDS_AUTH_HEADER, getToken(token) )
                          .delete( ClientResponse.class );
@@ -327,22 +273,36 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
 
         }
 
-        throw new OMConfigException( "The specific volume ( " +
-                                  volumeName +
-                                  " ) does not exists." );
+        // or is not accessible by the user associated with the request
+        logger.debug("The specified volume ( " +
+                     volumeName +
+                     " ) does not exist.");
 
+        // TODO: remove
+        if (logger.isTraceEnabled()) {
+            logger.trace("Volume " +
+                         volumeName +
+                         " either does not exist or is not accessible by userid: " +
+                         token.getUserId() );
+        }
+
+        // maintain consistency with previous implementation of XDI ConfigurationApi
+        // and return null instead of throwing exception
+        return null;
     }
 
     private void isOk( final ClientResponse response )
         throws OMConfigException {
-        logger.error( "ISOK::RESPONSE::" + response.toString() );
         if( !response.getClientResponseStatus()
                      .equals( ClientResponse.Status.OK ) ) {
 
-            logger.error( response.toString() );
+            logger.error( "ISOK::RESPONSE::" + response.toString() );
 
             throw new OMConfigException( response.toString() );
 
+        } else {
+
+            logger.debug( "ISOK::RESPONSE::" + response.toString() );
         }
     }
 

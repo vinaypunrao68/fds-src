@@ -647,6 +647,9 @@ bool get_message_header(int fd, M& message) {
                         break;
         }
         return false;
+    } else if (0 == nread) {
+        LOGNORMAL << "Client disconnected";
+        throw NbdConnection::connection_closed;
     } else if (nread < to_read) {
         LOGTRACE << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.header_off += nread;
@@ -688,6 +691,9 @@ bool get_message_payload(int fd, M& message) {
                         break;
         }
         return false;
+    } else if (0 == nread) {
+        LOGNORMAL << "Client disconnected";
+        throw NbdConnection::connection_closed;
     } else if (nread < to_read) {
         LOGTRACE << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.data_off += nread;

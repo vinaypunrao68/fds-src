@@ -17,7 +17,8 @@ import java.util.Optional;
 /**
  * additional possibly-cached configuration read operations.
  */
-// TODO: may want to move this out of thrift utils and abstract from the thrift ConfigurationService
+// TODO: may want to move this out of thrift utils and abstract from the thrift
+// ConfigurationService
 public interface ConfigurationApi extends ConfigurationService.Iface {
 
     /**
@@ -43,12 +44,6 @@ public interface ConfigurationApi extends ConfigurationService.Iface {
 
     /**
      *
-     * @return a list of all users
-     */
-    Collection<User> listUsers();
-
-    /**
-     *
      * @param userId
      * @return the tenant that the specified user belongs to
      */
@@ -57,11 +52,10 @@ public interface ConfigurationApi extends ConfigurationService.Iface {
     /**
      *
      * @param userId
-     * @return the tenant id that the user belongs to.
      *
-     * @throws SecurityException
+     * @return the tenant id that the user belongs to or null if it does not exist.
      */
-    Long tenantId(long userId) throws SecurityException;
+    Long tenantId(long userId);
 
     User getUser(long userId);
 

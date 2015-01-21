@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
-
 package com.formationds.util.thrift;
 
 import com.formationds.apis.VolumeDescriptor;
@@ -41,8 +40,8 @@ public interface OMConfigServiceClient {
      *
      * @param token
      * @param domainName
-     * @return
-     * @throws OMConfigException
+     * @return the list of volumes
+     * @throws OMConfigException on authentication or communication error
      */
     List<VolumeDescriptor> listVolumes(AuthenticationToken token, String domainName) throws OMConfigException;
 
@@ -51,8 +50,10 @@ public interface OMConfigServiceClient {
      * @param token
      * @param domainName
      * @param volumeName
-     * @return
-     * @throws OMConfigException
+     *
+     * @return the volume id if it exists, 0 if the volume does not exist.
+     *
+     * @throws OMConfigException if authentication fails or a communication error occurs.
      */
     long getVolumeId(AuthenticationToken token, String domainName, String volumeName) throws OMConfigException;
 
@@ -68,8 +69,8 @@ public interface OMConfigServiceClient {
      * @param token
      * @param domainName
      * @param volumeName
-     * @return
-     * @throws OMConfigException
+     * @return the VolumeDescriptor for the requested volume; null of a non-existent volume
+     * @throws OMConfigException if authentication fails or a communication error occurs.
      */
     VolumeDescriptor statVolume(AuthenticationToken token, String domainName, String volumeName) throws OMConfigException;
 }
