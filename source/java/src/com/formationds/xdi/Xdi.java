@@ -42,7 +42,15 @@ public class Xdi {
     }
 
     public boolean volumeExists(String domainName, String volumeName) throws ApiException, TException {
-        return config.statVolume(domainName, volumeName) != null;
+        try {
+            return (config.statVolume(domainName, volumeName) != null);
+        } catch (ApiException e) {
+            if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
+                return false;
+            } else {
+                throw e;
+            }
+        }
     }
 
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
