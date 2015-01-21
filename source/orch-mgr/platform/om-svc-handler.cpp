@@ -46,15 +46,37 @@ OmSvcHandler::OmSvcHandler()
     // sense anymore for it to go anywhere else. When then dependencies are
     // better determined we should move this.
     // Register event trackers
+    init_svc_event_handlers();
+}
+
+// Right now all handlers are using the same callable which will down the
+// service that is responsible. This can be changed easily.
+void OmSvcHandler::init_svc_event_handlers() {
     auto cb = [](int64_t svc, size_t events) -> void {
         LOGERROR << std::hex << svc << std::dec
                  << "Saw too many timeout events [" << events << "]";
+        // TODO(bszmyd): Wed 21 Jan 2015 09:13:36 AM PST
+        // Down this service
     };
+
+    // Timeout handler (2 within 15 minutes will trigger)
     size_t time_window = get_config("fds.om.svc_event_threshold.timeout.window", 15);
     size_t threshold = get_config("fds.om.svc_event_threshold.timeout.threshold", 2);
     std::unique_ptr<TrackerBase<int64_t>>
         tracker(new TrackerMap<decltype(cb), int64_t, std::chrono::minutes>(cb, time_window, threshold));
     event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT, std::move(tracker));
+
+    // DiskWrite handler (1 within 24 hours will trigger)
+    time_window = get_config("fds.om.svc_event_threshold.disk.write_fail.window", 24);
+    threshold = get_config("fds.om.svc_event_threshold.disk.write_fail.threshold", 1);
+    tracker.reset(new TrackerMap<decltype(cb), int64_t, std::chrono::hours>(cb, time_window, threshold));
+    event_tracker.register_event(ERR_DISK_WRITE_FAILED, std::move(tracker));
+
+    // DiskRead handler (1 within 24 hours will trigger)
+    time_window = get_config("fds.om.svc_event_threshold.disk.read_fail.window", 24);
+    threshold = get_config("fds.om.svc_event_threshold.disk.read_fail.threshold", 1);
+    tracker.reset(new TrackerMap<decltype(cb), int64_t, std::chrono::hours>(cb, time_window, threshold));
+    event_tracker.register_event(ERR_DISK_READ_FAILED, std::move(tracker));
 }
 
 // om_svc_state_chg

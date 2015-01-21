@@ -54,6 +54,9 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
   protected:
     OM_NodeDomainMod         *om_mod;
     EventTracker<int64_t, int32_t> event_tracker;
+
+  private:
+    void init_svc_event_handlers();
 };
 
 }  // namespace fds
