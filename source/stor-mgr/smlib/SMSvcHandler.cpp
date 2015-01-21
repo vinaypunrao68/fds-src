@@ -620,8 +620,8 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                            boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg)
 {
     Error err;
-    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     VolumeDesc vdbc(vol_msg->vol_desc), * vdb = &vdbc;
+    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     GLOGNOTIFY << "Received modify for vol "
                << "[" << std::hex << volumeId << std::dec << ", "
                << vdb->getName() << "]";
@@ -629,8 +629,10 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
     fds_assert(vol != NULL);
     if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
-        GLOGWARN << "Modify volume requested to modify media policy "
-                 << "- Not supported yet! Not modifying media policy";
+        MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
+        fdp::FDSP_TierPolicyPtr tp(new FDSP_TierPolicy());
+        tp->tier_media_pct = vdb->mediaPolicy;
+        objStorMgr->omc_srv_pol->serv_recvTierPolicyReq(tp);
     }
 
     vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
