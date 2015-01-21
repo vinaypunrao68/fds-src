@@ -60,6 +60,16 @@ def are_dir_trees_equal(dir1, dir2, logDiff=False):
     """
     log = logging.getLogger('TestFDSSysVerify' + '.' + 'are_dir_trees_equal')
 
+    if not os.path.exists(dir1):
+        if logDiff:
+            log.error("Directory %s does not exist (or maybe no permissions to read it)." % (dir1))
+        return False
+
+    if not os.path.exists(dir2):
+        if logDiff:
+            log.error("Directory %s does not exist (or maybe no permissions to read it)." % (dir2))
+        return False
+
     dirs_cmp = filecmp.dircmp(dir1, dir2)
 
     if len(dirs_cmp.left_only) > 0:
