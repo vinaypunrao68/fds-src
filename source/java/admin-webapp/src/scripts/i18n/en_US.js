@@ -54,6 +54,11 @@ var en_US = {
         l_years_ago: 'years ago',
         l_seconds_ago: 'seconds ago',
         
+        l_minute_ago: 'minute ago',
+        l_hour_ago: 'hour ago',
+        l_week_ago: 'week ago',
+        l_second_ago: 'second ago',
+        
         l_months: 'Months',
         l_days: 'Days',
         l_hours: 'Hours',
