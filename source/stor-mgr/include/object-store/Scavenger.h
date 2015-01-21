@@ -304,7 +304,7 @@ class ScavControl : public Module {
     void mod_shutdown();
 
   private:  // methods
-    void createDiskScavengers(const SmDiskMap::const_ptr& diskMap);
+    Error createDiskScavengers(const SmDiskMap::const_ptr& diskMap);
     Error getDiskStats(diskio::DiskStat* retStat);
 
   private:
