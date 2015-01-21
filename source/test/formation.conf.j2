@@ -14,7 +14,7 @@ password        = {{ ssh_password }}
 #
 
 {% for host in groups[group_names[0]] %}
-{% if hostvars[host]['node_num'] is defined %}
+{% if node_num is defined %}
 [node{{ hostvars[host]['node_num'] }}] 
 {% else %}
 [node01] 
@@ -32,7 +32,7 @@ fds_root        = /fds
 [sh1]
 # Client uses blk services
 blk             = false
-{% if hostvars[om_host]['node_num'] is defined %}
+{% if node_num is defined %}
 fds_node        = node{{ hostvars[om_host]['node_num'] }}
 {% else %}
 fds_node        = node01
