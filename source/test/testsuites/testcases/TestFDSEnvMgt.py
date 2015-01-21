@@ -17,13 +17,16 @@ import time
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
 class TestFDSCreateInstDir(TestCase.FDSTestCase):
-    def __init__(self, parameters = None):
+    def __init__(self, parameters=None, node=None, nodeID=-1):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
+        self.nodeID = nodeID
 
 
     def runTest(self):
@@ -76,6 +79,12 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
         instanceId = 0
         amn = amnodes[instanceId]
         for n in nodes:
+            # If we were passed a node, use it and get out. Otherwise,
+            # we spin through all defined nodes setting them up.
+            if self.passedNode is not None:
+                n = self.passedNode
+                assert(self.nodeID >= 0)
+
             if not n.nd_agent.env_install:
                 fds_dir = n.nd_conf_dict['fds_root']
 
@@ -130,6 +139,10 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
 
                 status = n.nd_agent.exec_wait('rm %s/platform.conf ' % dest_config_dir)
 
+                # Fix up the platform config file for this node.
+                if self.passedNode is not None:
+                    instanceId = self.nodeID
+
                 # Obtain these defaults from platform.conf.
                 s3_http_port = 8000 + instanceId
                 s3_https_port = 8443 + instanceId
@@ -150,6 +163,10 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                 if status != 0:
                     self.log.error("FDS platform configuration file modification failed.")
                     return False
+                elif self.passedNode is not None:
+                    # If we were passed a specific node, just take care
+                    # of that one and exit.
+                    return True
 
                 # Bump instanceID if necessary.
                 if amn.nd_conf_dict['fds_node'] == n.nd_conf_dict['node-name']:
@@ -318,13 +335,15 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # restarting Redis to a "clean" state.
 class TestRestartRedisClean(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestRestartRedisClean, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -372,7 +391,13 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
         else:
             sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
-        n = fdscfg.rt_om_node
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
         self.log.info("Restart Redis clean on %s." %n.nd_conf_dict['node-name'])
 
         status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)

@@ -19,6 +19,8 @@ import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
+import testcases.TestFDSSysVerify
+import testcases.TestMgt
 import NodeWaitSuite
 import TransientNodeWaitSuite
 
@@ -47,7 +49,7 @@ def suiteConstruction():
     suite.addTest(testcases.TestFDSModMgt.TestPMWait())
 
     # Give the nodes some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     # Activate the cluster.
     suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
@@ -60,17 +62,17 @@ def suiteConstruction():
     suite.addTest(nodeUpSuite)
 
     # Give the nodes some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     # Verify that the OM log indicates successful DMT migration to this point.
-    suite.addTest(testcases.TestFDSSysMgt.TestInitial1NodeDMTMigration())
+    suite.addTest(testcases.TestFDSSysVerify.TestInitial1NodeDMTMigration())
 
     # Now bring up transient nodes.
     suite.addTest(testcases.TestFDSModMgt.TestPMForTransientBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestPMForTransientWait())
 
     # Give the transient PMs some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     # Activate the cluster to include the transient nodes.
     suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
@@ -81,19 +83,19 @@ def suiteConstruction():
     suite.addTest(transientNodeUpSuite)
 
     # Give the transient nodes some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     # Verify that the OM log indicates successful DMT migration to this point.
-    suite.addTest(testcases.TestFDSSysMgt.TestTransientAddNodeDMTMigration())
+    suite.addTest(testcases.TestFDSSysVerify.TestTransientAddNodeDMTMigration())
 
     # Remove the services of the transient nodes.
     suite.addTest(testcases.TestFDSSysMgt.TestTransientRemoveService())
 
     # Give the OM some time to manage the node removal.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     # Verify that the OM log indicates successful DMT migration to this point.
-    suite.addTest(testcases.TestFDSSysMgt.TestTransientRemoveNodeDMTMigration())
+    suite.addTest(testcases.TestFDSSysVerify.TestTransientRemoveNodeDMTMigration())
 
     # Since out cluster is all on one machine, this will actually shutdown the cluster.
     suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())

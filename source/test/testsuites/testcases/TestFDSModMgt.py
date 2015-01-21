@@ -82,7 +82,7 @@ def modWait(mod, node, forShutdown = False):
             # We've got a list of process IDs for the component of interest.
             # We need to make sure that among them is the one for the node of interest.
             for pid in shlex.split(stdout):
-                cmd2 = "ps -w %s" % pid
+                cmd2 = "ps -w --no-headers %s" % pid
                 status, stdout2 = node.nd_agent.exec_wait(cmd2, return_stdin=True)
 
                 if len(stdout2) > 0:
@@ -211,13 +211,15 @@ class TestDMBringUp(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # waiting for a Data Manager (DM) module to start.
 class TestDMWait(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestDMWait, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -266,15 +268,22 @@ class TestDMWait(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            # Skip the DM for transient nodes. Those are handled by TestDMForTransientWait()
-            if n.nd_transient:
-                self.log.info("Skipping DM on transient node %s." %n.nd_conf_dict['node-name'])
-                continue
+            # If we were passed a node, check that one and exit.
+            if self.passedNode is not None:
+                n = self.passedNode
+            else:
+                # Skip the DM for transient nodes. Those are handled by TestDMForTransientWait()
+                if n.nd_transient:
+                    self.log.info("Skipping DM on transient node %s." %n.nd_conf_dict['node-name'])
+                    continue
 
             self.log.info("Wait for DM on %s." %n.nd_conf_dict['node-name'])
 
             if not modWait("DataMgr", n):
                 return False
+
+            if self.passedNode is not None:
+                break
 
         return True
 
@@ -401,7 +410,7 @@ class TestDMVerifyShutdown(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            self.log.info("Verify the DM on %s is shutdon." %n.nd_conf_dict['node-name'])
+            self.log.info("Verify the DM on %s is shutdown." %n.nd_conf_dict['node-name'])
 
             if not modWait("DataMgr", n, forShutdown=True):
                 return False
@@ -559,13 +568,15 @@ class TestSMBringUp(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # waiting for a Storage Manager (SM) module to start.
 class TestSMWait(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestSMWait, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -614,15 +625,22 @@ class TestSMWait(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            # Skip the SM for transient nodes. Those are handled by TestSMForTransientWait()
-            if n.nd_transient:
-                self.log.info("Skipping SM on transient node %s." %n.nd_conf_dict['node-name'])
-                continue
+            # If we were passed a node, check that one and exit.
+            if self.passedNode is not None:
+                n = self.passedNode
+            else:
+                # Skip the SM for transient nodes. Those are handled by TestSMForTransientWait()
+                if n.nd_transient:
+                    self.log.info("Skipping SM on transient node %s." %n.nd_conf_dict['node-name'])
+                    continue
 
             self.log.info("Wait for SM on %s." %n.nd_conf_dict['node-name'])
 
             if not modWait("StorMgr", n):
                 return False
+
+            if self.passedNode is not None:
+                break
 
         return True
 
@@ -831,13 +849,15 @@ class TestSMForTransientWait(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # bringing up a Platform Manager (PM) component.
 class TestPMBringUp(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestPMBringUp, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -884,15 +904,20 @@ class TestPMBringUp(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            # Skip the PM for the OM's node. That one is handled by TestPMForOMBringUp()
-            if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
-                self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
-                continue
+            # If we were passed a node, use it and get out. Otherwise,
+            # we spin through in defined node setting it up.
+            if self.passedNode is not None:
+                n = self.passedNode
+            else:
+                # Skip the PM for the OM's node. That one is handled by TestPMForOMBringUp()
+                if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
+                    self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
+                    continue
 
-            # Skip transient nodes. These are handled by TestPMForTransientBringUp()
-            if n.nd_transient:
-                self.log.info("Skipping transient node PM on %s." %n.nd_conf_dict['node-name'])
-                continue
+                # Skip transient nodes. These are handled by TestPMForTransientBringUp()
+                if n.nd_transient:
+                    self.log.info("Skipping transient node PM on %s." %n.nd_conf_dict['node-name'])
+                    continue
 
             self.log.info("Start PM on %s." %n.nd_conf_dict['node-name'])
 
@@ -901,6 +926,10 @@ class TestPMBringUp(TestCase.FDSTestCase):
             if status != 0:
                 self.log.error("PM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
+            elif self.passedNode is not None:
+                # If we were passed a specific node, just install
+                # that one and exit.
+                return True
 
         return True
 
@@ -908,13 +937,15 @@ class TestPMBringUp(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # waiting for a Platform Manager (PM) module to start.
 class TestPMWait(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestPMWait, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -964,20 +995,29 @@ class TestPMWait(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            # Skip the PM for the OM's node. That one is handled by TestPMForOMWait()
-            if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
-                self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
-                continue
+            # If we were passed a node, use it and get out. Otherwise,
+            # we spin through all defined nodes setting them up.
+            if self.passedNode is not None:
+                n = self.passedNode
+            else:
+                # Skip the PM for the OM's node. That one is handled by TestPMForOMWait()
+                if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
+                    self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
+                    continue
 
-            # Skip the PM for transient nodes. Those are handled by TestPMForTransientWait()
-            if n.nd_transient:
-                self.log.info("Skipping PM on transient node %s." %n.nd_conf_dict['node-name'])
-                continue
+                # Skip the PM for transient nodes. Those are handled by TestPMForTransientWait()
+                if n.nd_transient:
+                    self.log.info("Skipping PM on transient node %s." %n.nd_conf_dict['node-name'])
+                    continue
 
             self.log.info("Wait for PM on %s." %n.nd_conf_dict['node-name'])
 
             if not modWait("platformd", n):
                 return False
+            elif self.passedNode is not None:
+                # If we were passed a specific node, just take care
+                # of that one and exit.
+                return True
 
         return True
 
@@ -1280,14 +1320,14 @@ class TestPMForTransientWait(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # shutting down a Platform Manager (PM) module.
-class TestPMShutDown(TestCase.FDSTestCase):
+class TestPMForTransientShutDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMShutDown, self).__init__(parameters)
+        super(TestPMForTransientShutDown, self).__init__(parameters)
 
 
     def runTest(self):
@@ -1301,7 +1341,7 @@ class TestPMShutDown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_PMShutDown():
+            if not self.test_PMForTransientShutDown():
                 test_passed = False
         except Exception as inst:
             self.log.error("PM module shutdown caused exception:")
@@ -1318,7 +1358,7 @@ class TestPMShutDown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_PMShutDown(self):
+    def test_PMForTransientShutDown(self):
         """
         Test Case:
         Attempt to shutdown the PM module(s)
@@ -1350,14 +1390,14 @@ class TestPMShutDown(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # whether a Platform Manager (PM) module has shutdown .
-class TestPMVerifyShutdown(TestCase.FDSTestCase):
+class TestPMForTransientVerifyShutdown(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMVerifyShutdown, self).__init__(parameters)
+        super(TestPMForTransientVerifyShutdown, self).__init__(parameters)
 
 
     def runTest(self):
@@ -1378,7 +1418,7 @@ class TestPMVerifyShutdown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_PMVerifyShutdown():
+            if not self.test_PMForTransientVerifyShutdown():
                 test_passed = False
         except Exception as inst:
             self.log.error("Verify a PM module is shutdown caused exception:")
@@ -1395,7 +1435,7 @@ class TestPMVerifyShutdown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_PMVerifyShutdown(self):
+    def test_PMForTransientVerifyShutdown(self):
         """
         Test Case:
         Verify the PM module(s) are shutdown
@@ -1490,13 +1530,15 @@ class TestPMForOMBringUp(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # waiting for the Platform Manager (PM) module for the OM node to start.
 class TestPMForOMWait(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestPMForOMWait, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -1539,15 +1581,25 @@ class TestPMForOMWait(TestCase.FDSTestCase):
         Test Case:
         Wait for the PM module on the OM node to start
         """
-
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        om_node = fdscfg.rt_om_node
 
-        self.log.info("Wait for PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
+        # If a list of nodes were passed, make sure it includes
+        # the OM's node. If not, do not check this PM.
+        if self.passedNode is not None:
+            om_node = None
+            if self.passedNode.nd_conf_dict['node-name'] == fdscfg.rt_om_node.nd_conf_dict['node-name']:
+                om_node = fdscfg.rt_om_node
+        else:
+            om_node = fdscfg.rt_om_node
 
-        if not modWait("platformd", om_node):
-            return False
+        if om_node is not None:
+            self.log.info("Wait for PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
+
+            if not modWait("platformd", om_node):
+                return False
+        else:
+            self.log.warn("PM on non-OM node, %s, not to be checked." % self.passedNode.nd_conf_dict['node-name'])
 
         return True
 
@@ -1684,13 +1736,15 @@ class TestPMForOMVerifyShutdown(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # bringing up an Orchestration Manager (OM) module.
 class TestOMBringUp(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestOMBringUp, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -1732,7 +1786,13 @@ class TestOMBringUp(TestCase.FDSTestCase):
 
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
-        om_node = fdscfg.rt_om_node
+
+        # If we were passed a node, use it. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            om_node = self.passedNode
+        else:
+            om_node = fdscfg.rt_om_node
 
         self.log.info("Start OM on %s." % om_node.nd_conf_dict['node-name'])
 
@@ -1748,13 +1808,15 @@ class TestOMBringUp(TestCase.FDSTestCase):
 # This class contains the attributes and methods to wait
 # for the Orchestration Manager (OM) module to become active.
 class TestOMWait(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestOMWait, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -1794,9 +1856,21 @@ class TestOMWait(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        self.log.info("Wait for OM on %s." % fdscfg.rt_om_node.nd_conf_dict['node-name'])
+        # If we were passed a node and it is not the OM node
+        # captured during config parsing, just exit.
+        if self.passedNode is not None:
+            om_node = None
+            if self.passedNode.nd_conf_dict['node-name'] == fdscfg.rt_om_node.nd_conf_dict['node-name']:
+                om_node = self.passedNode
+        else:
+            om_node = fdscfg.rt_om_node
 
-        return modWait("orchMgr", fdscfg.rt_om_node)
+        if om_node is not None:
+            self.log.info("Wait for OM on %s." % om_node.nd_conf_dict['node-name'])
+
+            return modWait("orchMgr", om_node)
+        else:
+            return True
 
 
 # This class contains the attributes and methods to test
@@ -1926,13 +2000,15 @@ class TestOMVerifyShutdown(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # bringing up an Access Manager (AM) component on non-transient nodes.
 class TestAMBringup(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, am=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestAMBringup, self).__init__(parameters)
+
+        self.passedAm = am
 
 
     def runTest(self):
@@ -1973,30 +2049,38 @@ class TestAMBringup(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        nodes = fdscfg.rt_get_obj('cfg_am')
+        amNodes = fdscfg.rt_get_obj('cfg_am')
 
         instanceId = 0
-        for n in nodes:
-            # Skip the AM for transient nodes. Those are handled by TestAMForTransientBringUp()
-            if n.nd_am_node.nd_transient:
-                self.log.info("Skipping AM on transient node %s." %n.nd_conf_dict['fds_node'])
-                continue
+        for am in amNodes:
+            # If we were passed an AM node, use it and get out. Otherwise,
+            # we boot all AMs we have.
+            if self.passedAm is not None:
+                am = self.passedAm
+            else:
+                # Skip the AM for transient nodes. Those are handled by TestAMForTransientBringUp()
+                if am.nd_am_node.nd_transient:
+                    self.log.info("Skipping AM on transient node %s." %am.nd_conf_dict['fds_node'])
+                    continue
 
-            self.log.info("Start AM on %s." % n.nd_conf_dict['fds_node'])
+            self.log.info("Start AM on %s." % am.nd_conf_dict['fds_node'])
 
-            port = n.nd_am_node.nd_conf_dict['fds_port']
-            fds_dir = n.nd_am_node.nd_conf_dict['fds_root']
+            port = am.nd_am_node.nd_conf_dict['fds_port']
+            fds_dir = am.nd_am_node.nd_conf_dict['fds_root']
 
             # The AMAgent script expected to be invoked from the bin directory in which resides.
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> ./am.%s.out &) \"' %
+            status = am.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> ./am.%s.out &) \"' %
                                                      (fds_dir, instanceId, port))
             os.chdir(cur_dir)
 
             if status != 0:
-                self.log.error("AM on %s returned status %d." % (n.nd_conf_dict['fds_node'], status))
+                self.log.error("AM on %s returned status %d." % (am.nd_conf_dict['fds_node'], status))
                 return False
+            elif self.passedAm is not None:
+                # We were passed a specific AM so get out now.
+                return True
 
             instanceId = instanceId + 1
 
@@ -2006,13 +2090,15 @@ class TestAMBringup(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # waiting for an Access Manager (AM) module to start.
 class TestAMWait(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestAMWait, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -2061,15 +2147,24 @@ class TestAMWait(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_get_obj('cfg_am')
         for n in nodes:
-            # Skip the AM for transient nodes. Those are handled by TestAMForTransientWait()
-            if n.nd_am_node.nd_transient:
-                self.log.info("Skipping AM on transient node %s." %n.nd_conf_dict['fds_node'])
-                continue
+            # If we were passed a node, check that one and exit.
+            if self.passedNode is not None:
+                # But only check it if it should have an AM.
+                if self.passedNode.nd_conf_dict['node-name'] != n.nd_conf_dict['fds_node']:
+                    continue
+            else:
+                # Skip the AM for transient nodes. Those are handled by TestAMForTransientWait()
+                if n.nd_am_node.nd_transient:
+                    self.log.info("Skipping AM on transient node %s." % n.nd_conf_dict['fds_node'])
+                    continue
 
             self.log.info("Wait for AM on %s." % n.nd_conf_dict['fds_node'])
 
             if not modWait("AMAgent", n.nd_am_node):
                 return False
+
+            if self.passedNode is not None:
+                break
 
         return True
 
