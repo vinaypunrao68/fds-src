@@ -41,6 +41,10 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
 
+    // TODO(bszmyd): Tue 20 Jan 2015 10:24:45 PM PST
+    // This isn't probably where this should go, but for now it doesn't make
+    // sense anymore for it to go anywhere else. When then dependencies are
+    // better determined we should move this.
     // Register event trackers
     auto cb = [](int64_t svc, size_t events) -> void {
         LOGERROR << std::hex << svc << std::dec

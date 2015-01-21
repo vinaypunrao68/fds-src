@@ -5,7 +5,6 @@
 #ifndef SOURCE_ORCH_MGR_INCLUDE_OMEVENTTRACKER_H_
 #define SOURCE_ORCH_MGR_INCLUDE_OMEVENTTRACKER_H_
 
-#include <atomic>
 #include <chrono>
 #include <map>
 #include <memory>
@@ -40,10 +39,10 @@ struct TrackerMap : public TrackerBase<Service> {
     using duration_type     = Duration;
     using service_type      = Service;
     using type              = TrackerMap<callback_type, service_type, duration_type>;
-    using count_type        = std::atomic_size_t;
+    using count_type        = size_t;
     using clock_type        = std::chrono::system_clock;
     using time_point_type   = std::chrono::time_point<clock_type, duration_type>;
-    using bucket_type       = std::map<time_point_type, unique<count_type>>;
+    using bucket_type       = std::map<time_point_type, count_type>;
 
     TrackerMap(callback_type& c, size_t _ticks, size_t _threshold) :
         callback(c), counters(), tick_window(_ticks), threshold(_threshold)
@@ -76,8 +75,7 @@ struct TrackerMap : public TrackerBase<Service> {
         // Get the bucket for this timepoint.
         it = counters.find(now);
         if (counters.end() == it) {
-            unique<count_type> counter(new count_type(0));
-            auto r = counters.insert(std::make_pair(std::move(now), std::move(counter)));
+            auto r = counters.insert(std::make_pair(std::move(now), 0u));
             if (!r.second) {
                 LOGERROR << " failed to poke event tracker";
                 return;
@@ -85,13 +83,13 @@ struct TrackerMap : public TrackerBase<Service> {
             it = r.first;
         }
         // Increment the count.
-        it->second->fetch_add(1, std::memory_order_release);
+        ++it->second;
 
         // Tally up the number of events and call the callback if the threshold
         // is reached.
         size_t events = 0;
         for (auto& c : counters) {
-            events += c.second->load(std::memory_order_consume);
+            events += c.second;
         }
 
         if (events >= threshold) {
@@ -131,48 +129,54 @@ class EventTracker {
         return registered_events.insert(std::make_pair(std::move(event), std::move(tracker))).second;
     }
 
+    // Right now this whole method is protected by a single mutex. This was the
+    // easiest option, and unless it causes too much contention is the easiest
+    // to verify.
     void feed_event(event_type const event, service_key_type service) {
-        auto it = service_map.find(service);
-        if (service_map.end() == it) {
-            // Add a new service
-            unique<event_map_type> new_map(new event_map_type);
-            for (auto& p : registered_events) {
-                unique<tracker_type> tracker(p.second->clone());
-                tracker->setService(service);
-                new_map->insert(std::make_pair(p.first, std::move(tracker)));
-            }
-            auto r = service_map.insert(std::make_pair(service, std::move(new_map)));
-            if (!r.second) {
-                LOGERROR << " failed to register event tracker for: " << service;
-                return;
-            }
-            it = r.first;
-        }
-
-        auto track_it = it->second->find(event);
-        if (it->second->end() == track_it) {
-            // Need to add a tracker for this service, copy it from
-            // the registered list
-            try {
-                unique<tracker_type> tracker(registered_events.at(event)->clone());
-                tracker->setService(service);
-                auto r = it->second->insert(std::make_pair(event, std::move(tracker)));
+        {
+            auto guard = WriteGuard(service_map_lock);
+            auto it = service_map.find(service);
+            if (service_map.end() == it) {
+                // Add a new service
+                unique<event_map_type> new_map(new event_map_type);
+                for (auto& p : registered_events) {
+                    unique<tracker_type> tracker(p.second->clone());
+                    tracker->setService(service);
+                    new_map->insert(std::make_pair(p.first, std::move(tracker)));
+                }
+                auto r = service_map.insert(std::make_pair(service, std::move(new_map)));
                 if (!r.second) {
                     LOGERROR << " failed to register event tracker for: " << service;
                     return;
                 }
-                track_it = r.first;
-            } catch (std::out_of_range& e) {
-                LOGERROR << " tried to track an unregistered event: " << event;
-                return;
+                it = r.first;
             }
-        }
 
-        // We've got it, POKE
-        track_it->second->poke();
+            auto track_it = it->second->find(event);
+            if (it->second->end() == track_it) {
+                // Need to add a tracker for this service, copy it from
+                // the registered list
+                try {
+                    unique<tracker_type> tracker(registered_events.at(event)->clone());
+                    tracker->setService(service);
+                    auto r = it->second->insert(std::make_pair(event, std::move(tracker)));
+                    if (!r.second) {
+                        LOGERROR << " failed to register event tracker for: " << service;
+                        return;
+                    }
+                    track_it = r.first;
+                } catch (std::out_of_range& e) {
+                    LOGERROR << " tried to track an unregistered event: " << event;
+                    return;
+                }
+            }
+            // We've got it, POKE
+            track_it->second->poke();
+        }
     }
 
  private:
+    fds_rwlock          service_map_lock;
     service_map_type    service_map;
     event_map_type      registered_events;
 };
