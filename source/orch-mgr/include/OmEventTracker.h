@@ -71,9 +71,7 @@ struct TrackerMap : public TrackerBase<Service> {
         // Remove any counters that are older than the number of ticks in our
         // window.
         auto it = counters.lower_bound(window_start);
-        if (counters.end() != it) {
-            counters.erase(counters.begin(), it);
-        }
+        counters.erase(counters.begin(), it);
 
         // Get the bucket for this timepoint.
         it = counters.find(now);
