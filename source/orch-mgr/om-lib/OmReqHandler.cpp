@@ -438,7 +438,8 @@ void FDSP_ConfigPathReqHandler::GetVolInfo(
         vol->vol_fmt_desc_pkt(&_return);
         LOGNOTIFY << "Volume " << vol_info_req->vol_name
                   << " -- min iops " << _return.iops_min << ",max iops "
-                  << _return.iops_max << ", prio " << _return.rel_prio;
+                  << _return.iops_max << ", prio " << _return.rel_prio
+                  << " media policy " << _return.mediaPolicy;
     } else {
         LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
         FDS_ProtocolInterface::FDSP_VolumeNotFound except;
