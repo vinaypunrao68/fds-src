@@ -175,7 +175,7 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
         << "  create_time " << objMd.obj_map.obj_create_time
         << "  del_time " << objMd.obj_map.obj_del_time
         << "  mod_time " << objMd.obj_map.assoc_mod_time
-        << "  flags " << std::hex << objMd.obj_map.obj_flags << std::dec
+        << "  flags " << std::hex << (fds_uint16_t)objMd.obj_map.obj_flags << std::dec
         << std::endl;
     for (fds_uint32_t i = 0; i < MAX_PHY_LOC_MAP; i++) {
         out << "Object MetaData: "

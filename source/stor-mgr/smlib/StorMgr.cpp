@@ -1170,8 +1170,8 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
         if (migrationMgr->isMigrationIdle() && curDlt->isClosed()) {
             DltTokenGroupPtr nodes = curDlt->getNodes(obj_id);
             fds_bool_t found = false;
-            for (uint i = 0; i < nodes->getLength(); i++) {
-                if (nodes->get(i) != myUuid) {
+            for (uint i = 0; i < nodes->getLength(); ++i) {
+                if (nodes->get(i) == myUuid) {
                     found = true;
                     break;
                 }

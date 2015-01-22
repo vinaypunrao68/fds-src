@@ -704,7 +704,7 @@ void DLTManager::setCurrentDltClosed() {
 
     // because curPtr is const pointer, we are searching again...
     std::vector<DLT*>::const_iterator iter;
-    for (iter = dltList.begin(); iter != dltList.end(); iter++) {
+    for (iter = dltList.begin(); iter != dltList.end(); ++iter) {
         if (curVersion == (*iter)->version) {
             (*iter)->setClosed();
             break;

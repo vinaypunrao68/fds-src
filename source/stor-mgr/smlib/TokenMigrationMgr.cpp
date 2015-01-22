@@ -164,14 +164,16 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
 
     // If this SM is just a source and does not get Start Migration from OM
     // make sure that we set the migration state in progress
-    MigrationState curState = atomic_load(&migrState);
-    if (curState == MIGR_ABORTED) {
-        // Something happened, for now stopping migration on any error
-        LOGWARN << "Migration was already aborted, not going to handle object rebalance msg";
-        return ERR_SM_TOK_MIGRATION_ABORTED;
+    MigrationState expectState = MIGR_IDLE;
+    if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
+        // check if migration was aborted
+        if (atomic_load(&migrState) == MIGR_ABORTED) {
+            // Something happened, for now stopping migration on any error
+            LOGWARN << "Migration was already aborted, not going to handle object rebalance msg";
+            return ERR_SM_TOK_MIGRATION_ABORTED;
+        }
+        // else was already in progress
     }
-    MigrationState newState = MIGR_IN_PROGRESS;
-    atomic_store(&migrState, newState);
 
     MigrationClient::shared_ptr migrClient;
     int64_t executorId = rebalSetMsg->executorID;
