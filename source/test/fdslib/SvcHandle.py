@@ -164,6 +164,21 @@ class SvcMap(object):
                                                  ip = n.node_addr,
                                                  port = s.svc_port)
 
+    def __node_status(self, val):
+        if val == 0:
+            return 'Up'
+        elif val == 1:
+            return 'Down'
+        elif val == 2:
+            return 'Removed'
+        elif val == 3:
+            return 'Discovered'
+        elif val == 4:
+            return 'Starting Migration'
+        else:
+            'Error'
+
+
     def list(self):
         """
         Returns service list in format [nodeid:svctype, ip, port]
@@ -173,7 +188,7 @@ class SvcMap(object):
             nodeid = n.node_base_uuid.svc_uuid
             for s in n.node_svc_list:
                 svc = self.toSvcTypeStr(s.svc_type)
-                l.append([n.node_base_uuid.svc_uuid, svc, n.node_addr, s.svc_port])
+                l.append([n.node_base_uuid.svc_uuid, svc, n.node_addr, s.svc_port, self.__node_status(n.node_state)])
         return l
 
     def svcUuid(self, nodeid, svc):
