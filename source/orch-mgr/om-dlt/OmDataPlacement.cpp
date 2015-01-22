@@ -261,7 +261,7 @@ void DataPlacement::startMigrationResp(NodeUuid uuid,
     Error err(ERR_OK);
     try {
         LOGNOTIFY << "Received migration done notification from node "
-                  << std::hex << uuid << std::dec << " " << err;
+                  << std::hex << uuid << std::dec << " " << error;
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 

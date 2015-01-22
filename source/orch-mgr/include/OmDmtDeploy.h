@@ -96,9 +96,8 @@ class DmtTimeoutEvt
     }
 };
 
-class DmtErrorFoundEvt
+struct DmtErrorFoundEvt
 {
-public:
     DmtErrorFoundEvt(const NodeUuid& svc_uuid,
                      const Error& err)
             : svcUuid(svc_uuid), error(err) {

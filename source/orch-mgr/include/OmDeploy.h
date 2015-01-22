@@ -83,9 +83,8 @@ class DltCloseOkEvt
     }
 };
 
-class DltErrorFoundEvt
+struct DltErrorFoundEvt
 {
-  public:
     DltErrorFoundEvt(const NodeUuid& svc_uuid,
                      const Error& err)
             : svcUuid(svc_uuid), error(err) {

@@ -1176,7 +1176,8 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
         ClusterMap* cm = om->om_clusmap_mod();
         dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
     } else {
-        LOGNOTIFY << "Received migration error, will notify DLT state machine";
+        LOGNOTIFY << "Received migration error " << migrError
+                  << " will notify DLT state machine";
         dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, migrError));
     }
 
