@@ -175,13 +175,22 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt) {
         err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, sm_toks);
         LOGDEBUG << "Loaded superblock " << err << " " << *superblock;
     } else {
-        // TODO(Anna) before beta, we are supporting 4-node cluster, so
-        // expecting no changes in SM owned tokens; will have to handle this
-        // properly by 1.0
-        // so make sure token ownership did not change
+        // TODO(Anna) implement updating sm tokens in superblock when
+        // SM token ownership changes; for now it is correct if SM loses
+        // tokens but superblock still thinks we have them (GC maybe less
+        // efficient, but still correct). However, we will still assert if
+        // SM gains tokens...
+        // make sure that new SM tokens are subset of what superblock thinks
+        // are SM's owned tokens
         SmTokenSet ownToks = superblock->getSmOwnedTokens();
-        fds_verify(ownToks == sm_toks);
-        LOGNOTIFY << "No change in SM tokens or disk map";
+        fds_bool_t newToksSubsetOfOldToks = std::includes(ownToks.begin(),
+                                                          ownToks.end(),
+                                                          sm_toks.begin(),
+                                                          sm_toks.end());
+        fds_verify(newToksSubsetOfOldToks);
+        LOGNOTIFY << "New SM tokens are same or a subset of old SM tokens "
+                  << "owned by this SM. # of previous SM tokens "
+                  << ownToks.size() << ", # of new SM tokens " << sm_toks.size();
         return ERR_DUPLICATE;  // to indicate we already set disk map/superblock
     }
 

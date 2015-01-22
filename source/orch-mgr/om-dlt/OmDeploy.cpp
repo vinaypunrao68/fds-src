@@ -405,6 +405,13 @@ OM_DLTMod::dlt_deploy_event(DltTimeoutEvt const &evt)
     dlt_dply_fsm->process_event(evt);
 }
 
+void
+OM_DLTMod::dlt_deploy_event(DltErrorFoundEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dlt_dply_fsm->process_event(evt);
+}
+
 // --------------------------------------------------------------------------------------
 // OM DLT Deployment FSM Implementation
 // --------------------------------------------------------------------------------------
@@ -644,6 +651,7 @@ DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     ClusterMap* cm = om->om_clusmap_mod();
 
     Error err = dp->beginRebalance();
+    // TODO(Anna) go to error state and start from beginning
     fds_verify(err == ERR_OK);
 
     // if we did not send msg to any SMs, go to next state

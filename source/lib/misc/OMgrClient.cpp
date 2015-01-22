@@ -946,6 +946,12 @@ const DLT* OMgrClient::getCurrentDLT() {
     return dlt;
 }
 
+void OMgrClient::setCurrentDLTClosed() {
+    omc_lock.write_lock();
+    dltMgr->setCurrentDltClosed();
+    omc_lock.write_unlock();
+}
+
 const DLT*
 OMgrClient::getPreviousDLT() {
     omc_lock.read_lock();

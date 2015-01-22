@@ -1129,11 +1129,22 @@ OM_NodeDomainMod::om_dlt_waiting_timeout() {
     dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
 }
 
+void
+OM_NodeDomainMod::om_service_down(const Error& error,
+                                  const NodeUuid& svcUuid) {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    dltMod->dlt_deploy_event(DltErrorFoundEvt(svcUuid, error));
+    dmtMod->dmt_deploy_event(DmtErrorFoundEvt(svcUuid, error));
+}
+
 // Called when OM receives notification that the rebalance is
 // done on node with uuid 'uuid'.
 Error
 OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
-                                         fds_uint64_t dlt_version) {
+                                         fds_uint64_t dlt_version,
+                                         const Error& migrError) {
     LOGDEBUG << "Receiving migration done...";
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
@@ -1141,11 +1152,9 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     DataPlacement *dp = om->om_dataplace_mod();
     OM_SmAgent::pointer agent = om_sm_agent(uuid);
     if (agent == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::error)
-                << "OM: Received migration done event from unknown node "
-                << ": uuid " << uuid.uuid_get_val();
-        err = Error(ERR_NOT_FOUND);
-        return err;
+        LOGERROR << "OM: Received migration done event from unknown node "
+                 << ": uuid " << uuid.uuid_get_val();
+        return ERR_NOT_FOUND;
     }
 
     // for now we shouldn't move to new dlt version until
@@ -1154,17 +1163,23 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
     fds_verify(cur_dlt_ver == dlt_version);
 
-    // Set node's state to 'node_up'
-    agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+    if (migrError.ok()) {
+        // Set node's state to 'node_up'
+        agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
-    // update node's dlt version so we don't send this dlt again
-    agent->set_node_dlt_version(dlt_version);
+        // update node's dlt version so we don't send this dlt again
+        agent->set_node_dlt_version(dlt_version);
 
-    // 'rebal ok' event, once all nodes sent migration done
-    // notification, the state machine will commit the DLT
-    // to other nodes.
-    ClusterMap* cm = om->om_clusmap_mod();
-    dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
+        // 'rebal ok' event, once all nodes sent migration done
+        // notification, the state machine will commit the DLT
+        // to other nodes.
+        ClusterMap* cm = om->om_clusmap_mod();
+        dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
+    } else {
+        LOGNOTIFY << "Received migration error " << migrError
+                  << " will notify DLT state machine";
+        dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, migrError));
+    }
 
     return err;
 }

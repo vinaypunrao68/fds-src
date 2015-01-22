@@ -592,7 +592,7 @@ class SmIoReadObjDeltaSetReq: public SmIoReq {
 
     // Set of Object MetaData to be used to read objects and form
     // CtrlObjectRebalanceDeltaSet
-    std::vector<ObjMetaData> deltaSet;
+    std::vector<ObjMetaData::ptr> deltaSet;
 
     // Response callback for batch object read.
     cbType smioReadObjDeltaSetReqCb;

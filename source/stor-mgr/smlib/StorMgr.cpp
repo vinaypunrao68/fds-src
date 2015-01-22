@@ -1157,17 +1157,43 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoCompactObjects *cobjs_req =  static_cast<SmIoCompactObjects*>(ioReq);
     fds_verify(cobjs_req != NULL);
+    const DLT* curDlt = getDLT();
+    NodeUuid myUuid = getUuid();
 
     for (fds_uint32_t i = 0; i < (cobjs_req->oid_list).size(); ++i) {
         const ObjectID& obj_id = (cobjs_req->oid_list)[i];
+        fds_bool_t objNotOwned = false;
+
+        // we will garbage collect an object even if its refct > 0
+        // if it belongs to DLT token that this SM is not responsible anymore
+        // However, migration should be idle and DLT must be closed (not just
+        // committed) -- if that does not hold, we will garbage collect this
+        // object next time.. correctness holds.
+        if (migrationMgr->isMigrationIdle() && curDlt->isClosed()) {
+            DltTokenGroupPtr nodes = curDlt->getNodes(obj_id);
+            fds_bool_t found = false;
+            for (uint i = 0; i < nodes->getLength(); ++i) {
+                if (nodes->get(i) == myUuid) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                objNotOwned = true;
+                LOGTRACE << "Will remove " << obj_id << " even if refct > 0 "
+                         << " because the object no longer owned by this SM";
+            }
+        }
 
         LOGDEBUG << "Compaction is working on object " << obj_id
                  << " on tier " << cobjs_req->tier << " verify data?"
-                 << cobjs_req->verifyData;
+                 << cobjs_req->verifyData << " notOwned? "
+                 << objNotOwned;
 
         // copy this object if not garbage, otherwise rm object db entry
         err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
-                                                   cobjs_req->verifyData);
+                                                   cobjs_req->verifyData,
+                                                   objNotOwned);
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;
@@ -1227,27 +1253,33 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
-        ObjMetaData &objMetaData = (readDeltaSetReq->deltaSet)[i];
-        ObjectID objID(objMetaData.obj_map.obj_id.metaDigest);
+        ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i];
 
-        boost::shared_ptr<const std::string> dataPtr;
-#if 0
-        // TODO(Sean):  Need to expose objectStore to ObjectStorMgr
+        const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
+
+        /* get the object from metadata information. */
         boost::shared_ptr<const std::string> dataPtr =
                 objectStore->getObjectData(invalid_vol_id,
-                                           objID,
-                                           objMetaData,
-                                           err);
-#endif
+                                       objID,
+                                       objMetaDataPtr,
+                                       err);
+        /* TODO(sean): For now, just panic. Need to know why
+         * object read failed.
+         */
         fds_verify(err.ok());
 
+        /* Add metadata and data to the delta set */
         fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
-        objMetaData.propagateMetaData(objMetaDataPropagate);
-
+        objMetaDataPtr->propagateMetaData(objMetaDataPropagate);
+        /* TODO(Sean): Can we avoid data copy and directory read
+         * to the string buffer?
+         */
         objMetaDataPropagate.objectData = *dataPtr;
-
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
     }
+
+    /* Delete the delta set request */
+    delete readDeltaSetReq;
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
     asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),

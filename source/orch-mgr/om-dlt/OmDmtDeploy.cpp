@@ -400,6 +400,13 @@ OM_DMTMod::dmt_deploy_event(DmtLoadedDbEvt const &evt)
     dmt_dply_fsm->process_event(evt);
 }
 
+void
+OM_DMTMod::dmt_deploy_event(DmtErrorFoundEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dmt_dply_fsm->process_event(evt);
+}
+
 // --------------------------------------------------------------------------------------
 // OM DMT Deployment FSM Implementation
 // --------------------------------------------------------------------------------------

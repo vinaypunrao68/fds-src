@@ -73,11 +73,7 @@ struct TrackerMap : public TrackerBase<Service> {
         it = counters.find(now);
         if (counters.end() == it) {
             auto r = counters.insert(std::make_pair(std::move(now), 0u));
-            if (!r.second) {
-                LOGERROR << " failed to poke event tracker";
-                return;
-            }
-            it = r.first;
+            it = r.first; // If insert fails, element existed
         }
         // Increment the count.
         ++it->second;
@@ -105,15 +101,17 @@ struct TrackerMap : public TrackerBase<Service> {
 };
 
 
-template <typename K, typename E>
+template <typename K, typename E, typename HK = std::hash<K>, typename HE = std::hash<E>>
 class EventTracker {
     using event_type  = E;
+    using event_hash_type = HE;
     using service_key_type  = K;
+    using service_hash_type = HK;
     template<typename T>
     using unique            = std::unique_ptr<T>;
     using tracker_type      = TrackerBase<service_key_type>;
-    using event_map_type    = std::unordered_map<event_type, unique<tracker_type>>;
-    using service_map_type  = std::unordered_map<service_key_type, unique<event_map_type>>;
+    using event_map_type    = std::unordered_map<event_type, unique<tracker_type>, event_hash_type>;
+    using service_map_type  = std::unordered_map<service_key_type, unique<event_map_type>, service_hash_type>;
 
  public:
     EventTracker() = default;
@@ -142,11 +140,7 @@ class EventTracker {
                     new_map->insert(std::make_pair(p.first, std::move(tracker)));
                 }
                 auto r = service_map.insert(std::make_pair(service, std::move(new_map)));
-                if (!r.second) {
-                    LOGERROR << " failed to register event tracker for: " << service;
-                    return;
-                }
-                it = r.first;
+                it = r.first; // If insert fails, element existed
             }
 
             auto track_it = it->second->find(event);
@@ -157,11 +151,7 @@ class EventTracker {
                     unique<tracker_type> tracker(registered_events.at(event)->clone());
                     tracker->service = service;
                     auto r = it->second->insert(std::make_pair(event, std::move(tracker)));
-                    if (!r.second) {
-                        LOGERROR << " failed to register event tracker for: " << service;
-                        return;
-                    }
-                    track_it = r.first;
+                    track_it = r.first; // If insert fails, element existed
                 } catch (std::out_of_range& e) {
                     LOGERROR << " tried to track an unregistered event: " << event;
                     return;
