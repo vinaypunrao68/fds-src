@@ -258,19 +258,19 @@ void DataPlacement::startMigrationResp(NodeUuid uuid,
         EPSvcRequest* svcReq,
         const Error& error,
         boost::shared_ptr<std::string> payload) {
-    LOGDEBUG << "Received cb response for startMigration";
+    Error err(ERR_OK);
     try {
         LOGNOTIFY << "Received migration done notification from node "
-                    << std::hex << uuid << std::dec;
+                  << std::hex << uuid << std::dec << " " << err;
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        LOGDEBUG << "Domain set";
 
         fpi::CtrlNotifyMigrationStatusPtr status =
                 net::ep_deserialize<fpi::CtrlNotifyMigrationStatus>(
                 const_cast<Error&>(error), payload);
-        LOGDEBUG << "Deserialize complete";
-        Error err = domain->om_recv_migration_done(uuid, status->status.DLT_version);
+        err = domain->om_recv_migration_done(uuid,
+                                             status->status.DLT_version,
+                                             error);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "

@@ -667,6 +667,16 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
+
+    /**
+     * Notification that service is down to DLT and DMT state machines
+     * @param error timeout error or other error returned by the service
+     * @param svcUuid service that is down
+     */
+    virtual void
+    om_service_down(const Error& error,
+                    const NodeUuid& svcUuid);
+
     /**
      * Unregister the node matching uuid from the domain manager.
      */
@@ -681,7 +691,8 @@ class OM_NodeDomainMod : public Module
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
     virtual Error om_recv_migration_done(const NodeUuid& uuid,
-                                         fds_uint64_t dlt_version);
+                                         fds_uint64_t dlt_version,
+                                         const Error& migrError);
 
     /**
      * Notification that OM received DLT update response from
