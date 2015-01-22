@@ -71,7 +71,7 @@ void OmSvcHandler::init_svc_event_handlers() {
     struct cb {
        void operator()(NodeUuid svc, size_t events) const {
            auto domain = OM_NodeDomainMod::om_local_domain();
-           LOGERROR << std::hex << svc << " saw too many events [" << events << "]";
+           LOGERROR << std::hex << svc << " saw too many " << error << " events [" << events << "]";
            OM_NodeAgent::pointer agent = domain->om_all_agent(svc);
 
            if (agent) {

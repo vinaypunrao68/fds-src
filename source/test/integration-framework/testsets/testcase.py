@@ -101,6 +101,7 @@ class FDSTestCase(unittest.TestCase):
         --------
         None
         """
+        self.assertTrue(test_passed)
         if test_passed:
             self.log.info("Test Case %s passed." % self.__class__.__name__)
         else:

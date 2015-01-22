@@ -1,6 +1,7 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.util.async.AsyncRequestStatistics;
@@ -74,7 +75,7 @@ public class RealAsyncAm implements AsyncAm {
     @Override
     public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset) {
         return scheduleAsync(rid -> {
-            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset);
+            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset, "", BlobListOrder.UNSPECIFIED, false);
         });
     }
 
