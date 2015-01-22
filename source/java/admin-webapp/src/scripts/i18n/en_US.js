@@ -25,6 +25,8 @@ var en_US = {
         l_no: 'No',
         l_none: 'None',
         l_ok: 'OK',
+        l_on: 'On',
+        l_off: 'Off',
         l_required: 'Required',
         l_save: 'Save',
         l_search: 'Search',
