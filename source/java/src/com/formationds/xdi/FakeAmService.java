@@ -4,6 +4,7 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
+import com.formationds.protocol.*;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
@@ -28,7 +29,7 @@ public class FakeAmService implements AmService.Iface {
     }
 
     @Override
-    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws ApiException, TException {
+    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
         return Collections.emptyList();
     }
 

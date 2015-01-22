@@ -360,6 +360,7 @@ Error DmVolumeDirectory::listBlobs(fds_volid_t volId, fpi::BlobInfoListType* bin
         fpi::FDSP_BlobInfoType binfo;
         binfo.blob_name = it.desc.blob_name;
         binfo.blob_size = it.desc.blob_size;
+        binfo.metadata = it.meta_list;
         binfoList->push_back(binfo);
     }
     return rc;

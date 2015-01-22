@@ -108,7 +108,6 @@ set(SOURCE_FILES
 ./data-mgr/dm-lib/handlers/getbuckethandler.cpp
 ./data-mgr/dm-lib/handlers/getdmstatshandler.cpp
 ./data-mgr/dm-lib/handlers/getvolumemetadatahandler.cpp
-./data-mgr/dm-lib/handlers/listblobsbypatternhandler.cpp
 ./data-mgr/dm-lib/handlers/querycataloghandler.cpp
 ./data-mgr/dm-lib/handlers/setblobmetadatahandler.cpp
 ./data-mgr/dm-lib/handlers/startblobtxhandler.cpp

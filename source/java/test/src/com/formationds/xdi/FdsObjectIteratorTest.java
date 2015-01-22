@@ -4,6 +4,8 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ResourceState;
 import com.google.common.collect.Maps;
 import org.junit.Test;
 
@@ -13,7 +15,6 @@ import java.util.Iterator;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import FDS_ProtocolInterface.ResourceState;
 public class FdsObjectIteratorTest {
     @Test
     public void testIterator() throws Exception {

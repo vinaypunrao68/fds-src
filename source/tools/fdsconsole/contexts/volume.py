@@ -3,9 +3,12 @@ import  fdslib.pyfdsp.apis as apis
 from apis import ttypes
 from apis.ttypes import ApiException
 from common.ttypes import ResourceState
+from platformservice import *
 
 import md5
 import os
+import FdspUtils 
+
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
@@ -119,6 +122,46 @@ class VolumeContext(Context):
         return 'delete volume failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('volname', help='-volume name')
+    @arg('pattern', help='-blob name pattern for search', nargs='?', default='')
+    @arg('count', help= "-max number for results", nargs='?' , type=long, default=1000)
+    @arg('startpos', help= "-starting index of the blob list", nargs='?' , type=long, default=0)
+    @arg('orderby', help= "-order by BLOBNAME or BLOBSIZE", nargs='?', default='UNSPECIFIED')
+    @arg('descending', help="-display in descending order", nargs='?')
+    def listblobs(self, volname, pattern, count, startpos, orderby, descending):
+        try:
+            dmClient = self.config.platform;
+
+            dmUuids = dmClient.svcMap.svcUuids('dm')
+            volId = dmClient.svcMap.omConfig().getVolumeId(volname)
+
+            getblobmsg = FdspUtils.newGetBucketMsg(volId, startpos, count);
+            getblobmsg.pattern = pattern;
+            if orderby == 'BLOBNAME':
+                getblobmsg.orderBy = 1;
+            elif orderby == 'BLOBSIZE':
+                getblobmsg.orderBy = 2;
+            else:
+                getblobmsg.orderBy = 0;
+            getblobmsg.descending = descending;
+            listcb = WaitedCallback();
+            dmClient.sendAsyncSvcReq(dmUuids[0], getblobmsg, listcb)
+
+            if not listcb.wait():
+                print 'async listblob request failed'
+
+            #import pdb; pdb.set_trace()
+            blobs = listcb.payload.blob_info_list;
+            # blobs.sort(key=attrgetter('blob_name'))
+            return tabulate([(x.blob_name, x.blob_size) for x in blobs],headers=
+                 ['blobname', 'blobsize'], tablefmt=self.config.getTableFormat())
+
+        except Exception, e:
+            log.exception(e)
+            return 'unable to get volume meta list'
+
+    #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('value', help='value' , nargs='?')
     def put(self, vol_name, key, value):
@@ -204,3 +247,4 @@ class VolumeContext(Context):
         except Exception, e:
             log.exception(e)
             return 'get {} failed on volume: {}'.format(key, vol_name)
+

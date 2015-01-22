@@ -282,30 +282,6 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
     }
 
 
-    void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg,
-                               const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
-        fds_assert(0);
-    }
-
-    void GetVolumeBlobListResp(boost::shared_ptr<FDSP_MsgHdrType>& fds_msg,  // NOLINT
-                       boost::shared_ptr<FDSP_GetVolumeBlobListRespType>& blob_list_rsp) {
-        fds_verify(fds_msg->result == FDS_ProtocolInterface::FDSP_ERR_OK ||
-                   !"volume ID not exist on DM");
-
-        // Need to handle end_of_list and iterator_cookie
-        fds_assert(resp_vector != nullptr);
-        *resp_vector = blob_list_rsp->blob_info_list;
-        BlobInfoListType *vec = &blob_list_rsp->blob_info_list;
-        for (uint i = 0; i < vec->size(); i++) {
-            // std::cout << *it << std::endl;
-            FDSP_BlobInfoType &elm = vec->at(i);
-            // std::cout << "found name " << elm.blob_name <<  std::endl;
-            // std::cout << "found size " << elm.blob_size <<  std::endl;
-        }
-
-        get_resp_monitor_->done();
-    }
-
  private:
     // XXX: list of blobs in volume goes here
     BlobInfoListType *resp_vector;
@@ -406,58 +382,7 @@ void LevelDBChecker::list_bucket(const NodeUuid &dm_node_id,
                                   const fds_volid_t vol_id,
                                   const std::string vol_name)
 {
-    auto md_session = get_metadatapath_session(dm_node_id);
-
-    /* get blobs for volume with DM */
-    FDSP_MsgHdrTypePtr      msg_hdr(new FDSP_MsgHdrType);
-    msg_hdr->msg_code        = FDSP_MSG_GET_VOL_BLOB_LIST_REQ;
-    msg_hdr->msg_id          = 1;
-    msg_hdr->major_ver       = 0xa5;
-    msg_hdr->minor_ver       = 0x5a;
-    msg_hdr->num_objects     = 1;
-    msg_hdr->frag_len        = 0;
-    msg_hdr->frag_num        = 0;
-    msg_hdr->tennant_id      = 0;
-    msg_hdr->local_domain_id = 0;
-    msg_hdr->local_domain_id = 0;
-    msg_hdr->req_cookie      = 0;
-    msg_hdr->glob_volume_id  = vol_id;
-    // msg_hdr->src_ip_lo_addr  = SRC_IP;
-    msg_hdr->dst_id          = FDSP_DATA_MGR;
-    msg_hdr->err_code        = ERR_OK;
-    msg_hdr->src_port        = 0;
-    // msg_hdr->src_node_name   = storHvisor->myIp;
-    msg_hdr->src_node_name   = "myipaddr";
-    // msg_hdr->bucket_name    = blobReq->getBlobName();
-    msg_hdr->bucket_name     = vol_name;
-    msg_hdr->session_uuid    = md_session->getSessionId();
-
-    /* format request */
-    FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr get_bucket_list_req(
-            new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType);
-
-    boost::shared_ptr<FDSP_MetaDataPathReqClient> client = md_session->getClient();
-    fds_assert(client != NULL);
-
-    /* response buffer */
-    get_resp_monitor_.reset(1);
-
-    // XXX: md_resp_handler_->blob_list = NULL;
-    md_resp_handler_->get_resp_monitor_ = &get_resp_monitor_;
-    md_resp_handler_->resp_vector = &resp_vector;
-    // md_resp_handler_->resp_obj_list = &resp_obj_list;
-
-    client->GetVolumeBlobList(msg_hdr, get_bucket_list_req);
-
-    /* wait for blob list response */
-    get_resp_monitor_.await();
-
-    // md_resp_handler_->blob_list = nullptr;
-    md_resp_handler_->get_resp_monitor_ = nullptr;
-    md_resp_handler_->resp_vector = nullptr;
-
-    // std::cout << "list bucket recv a response" << std::endl;
-
+    // TODO(xxx): return list of blobs
     return;  // resp_vector;
 }
 
