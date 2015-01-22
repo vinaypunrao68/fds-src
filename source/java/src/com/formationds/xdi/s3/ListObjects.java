@@ -5,6 +5,7 @@ package com.formationds.xdi.s3;
 
 import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.RequestHandler;
@@ -40,7 +41,7 @@ public class ListObjects implements RequestHandler {
             return new S3Failure(S3Failure.ErrorCode.NoSuchBucket, "No such bucket", bucket);
         }
 
-        List<BlobDescriptor> contents = xdi.volumeContents(token, S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
+        List<BlobDescriptor> contents = xdi.volumeContents(token, S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
 
         XmlElement result = new XmlElement("ListBucketResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")

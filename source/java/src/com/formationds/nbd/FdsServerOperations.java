@@ -3,6 +3,7 @@ package com.formationds.nbd;/*
  */
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobListOrder;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.log4j.Logger;
@@ -71,7 +72,7 @@ public class FdsServerOperations implements NbdServerOperations {
             if(!volumeExists)
                 return false;
 
-            boolean blobExists = am.volumeContents(FDS, exportName, 1, 0).stream().anyMatch(bd -> bd.getName().equals(BLOCK_DEV_NAME));
+            boolean blobExists = am.volumeContents(FDS, exportName, 1, 0, "", BlobListOrder.UNSPECIFIED, false).stream().anyMatch(bd -> bd.getName().equals(BLOCK_DEV_NAME));
             // do an initial write to create the blob in FDS
             if(!blobExists) {
                 ByteBuf buf = Unpooled.buffer(4096);

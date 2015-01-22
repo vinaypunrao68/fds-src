@@ -4,6 +4,7 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
+import com.formationds.protocol.*;
 import com.formationds.util.blob.Mode;
 import org.apache.thrift.TException;
 
@@ -168,7 +169,7 @@ public class MemoryAmService implements AmService.Iface {
     }
 
     @Override
-    public List<BlobDescriptor> volumeContents(String domain, String volume, int count, long offset) throws ApiException, TException {
+    public List<BlobDescriptor> volumeContents(String domain, String volume, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
         return getVolume(volume).blobMap.entrySet().stream()
                 .sorted((i, j) -> i.getKey().compareTo(j.getKey()))
                 .skip(offset)

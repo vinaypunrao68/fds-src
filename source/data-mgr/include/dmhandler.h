@@ -60,7 +60,7 @@ struct GetBucketHandler : Handler {
                        boost::shared_ptr<fpi::GetBucketMsg>& message);
     void handleQueueItem(dmCatReq *dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::GetBucketMsg>& message,
+                        boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                         const Error &e, dmCatReq *dmRequest);
 };
 
@@ -201,16 +201,6 @@ struct GetVolumeMetaDataHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
-struct ListBlobsByPatternHandler : Handler {
-    ListBlobsByPatternHandler();
-    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::ListBlobsByPatternMsg>& message);
-    void handleQueueItem(dmCatReq* dmRequest);
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::ListBlobsByPatternMsg>& message,
-                        Error const& e, dmCatReq* dmRequest);
-};
-
 struct ReloadVolumeHandler : Handler {
     ReloadVolumeHandler();
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -220,7 +210,6 @@ struct ReloadVolumeHandler : Handler {
                         boost::shared_ptr<fpi::ReloadVolumeMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
-
 
 }  // namespace dm
 }  // namespace fds
