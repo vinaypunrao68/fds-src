@@ -15,7 +15,11 @@ import com.formationds.apis.MediaPolicy;
 public class MediaPolicyConverter {
 
 	public static MediaPolicy convertToMediaPolicy( final FDSP_MediaPolicy fdspPolicy ){
-		
+
+		if (fdspPolicy == null) {
+			return MediaPolicy.HDD_ONLY;
+		}
+
 		MediaPolicy mediaPolicy;
 		
 		switch( fdspPolicy ){
@@ -37,7 +41,11 @@ public class MediaPolicyConverter {
 	}
 	
 	public static FDSP_MediaPolicy convertToFDSPMediaPolicy( final MediaPolicy mediaPolicy ){
-		
+
+		if (mediaPolicy == null) {
+			return FDSP_MediaPolicy.FDSP_MEDIA_POLICY_UNSET;
+		}
+
 		FDSP_MediaPolicy fdspPolicy;
 		
 		switch( mediaPolicy ){
