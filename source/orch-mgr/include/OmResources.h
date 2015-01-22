@@ -632,6 +632,19 @@ class OM_NodeDomainMod : public Module
     inline OM_AmAgent::pointer om_am_agent(const NodeUuid &uuid) {
         return om_locDomain->om_am_agent(uuid);
     }
+    inline OM_NodeAgent::pointer om_all_agent(const NodeUuid &uuid) {
+        switch (uuid.uuid_get_val() & 0x0F) {
+        case FDSP_STOR_HVISOR:
+            return om_am_agent(uuid);
+        case FDSP_STOR_MGR:
+            return om_sm_agent(uuid);
+        case FDSP_DATA_MGR:
+            return om_dm_agent(uuid);
+        default:
+            break;
+        }
+        return OM_NodeAgent::pointer(nullptr);
+    }
 
     /**
      * Read persistent state from config db and see if we
@@ -654,6 +667,16 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
+
+    /**
+     * Notification that service is down to DLT and DMT state machines
+     * @param error timeout error or other error returned by the service
+     * @param svcUuid service that is down
+     */
+    virtual void
+    om_service_down(const Error& error,
+                    const NodeUuid& svcUuid);
+
     /**
      * Unregister the node matching uuid from the domain manager.
      */
@@ -668,7 +691,8 @@ class OM_NodeDomainMod : public Module
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
     virtual Error om_recv_migration_done(const NodeUuid& uuid,
-                                         fds_uint64_t dlt_version);
+                                         fds_uint64_t dlt_version,
+                                         const Error& migrError);
 
     /**
      * Notification that OM received DLT update response from

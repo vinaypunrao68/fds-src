@@ -95,6 +95,22 @@ class DmtTimeoutEvt
       return "DmtTimeoutEvt";
     }
 };
+
+struct DmtErrorFoundEvt
+{
+    DmtErrorFoundEvt(const NodeUuid& svc_uuid,
+                     const Error& err)
+            : svcUuid(svc_uuid), error(err) {
+    }
+
+    std::string logString() const {
+        return "DmtErrorFoundEvt";
+    }
+
+    NodeUuid svcUuid;  // service uuid where error happened
+    Error error;
+};
+
 /**
  * Main vector to initialize the DMT module.
  */
@@ -119,6 +135,7 @@ class OM_DMTMod : public Module
     void dmt_deploy_event(DmtVolAckEvt const &evt);
     void dmt_deploy_event(DmtLoadedDbEvt const &evt);
     void dmt_deploy_event(DmtTimeoutEvt const &evt);
+    void dmt_deploy_event(DmtErrorFoundEvt const &evt);
 
     /**
      * Module methods

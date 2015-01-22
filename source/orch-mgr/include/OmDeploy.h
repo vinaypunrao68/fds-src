@@ -83,6 +83,21 @@ class DltCloseOkEvt
     }
 };
 
+struct DltErrorFoundEvt
+{
+    DltErrorFoundEvt(const NodeUuid& svc_uuid,
+                     const Error& err)
+            : svcUuid(svc_uuid), error(err) {
+    }
+
+    std::string logString() const {
+        return "DltErrorFoundEvt";
+    }
+
+    NodeUuid svcUuid;  // service uuid where error happened
+    Error error;
+};
+
 /**
  * Main vector to initialize the DLT module.
  */
@@ -106,6 +121,7 @@ class OM_DLTMod : public Module
     void dlt_deploy_event(DltCloseOkEvt const &evt);
     void dlt_deploy_event(DltLoadedDbEvt const &evt);
     void dlt_deploy_event(DltTimeoutEvt const &evt);
+    void dlt_deploy_event(DltErrorFoundEvt const &evt);
 
     /**
      * Module methods

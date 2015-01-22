@@ -103,6 +103,9 @@ namespace fds {
         fds_uint32_t getWidth() const;  /**< Gets num bits used */
         fds_uint32_t getNumBitsForToken() const;  /**< Gets num bits used */
         fds_uint32_t getNumTokens() const;  /** Gets total num of tokens */
+        fds_bool_t isClosed() const;
+
+        void setClosed();
 
         void getTokenObjectRange(const fds_token_id &token,
                 ObjectID &begin, ObjectID &end) const;
@@ -145,6 +148,7 @@ namespace fds {
 
         fds_uint64_t version;    /**< OM DLT version */
         util::TimeStamp    timestamp;  /**< Time OM created DLT */
+        fds_bool_t   closed;     /**< true if DLT is closed, not only commited */
         fds_uint32_t numBitsForToken;      /**< numTokens = 2^numBitsForToken */
         fds_uint32_t numTokens;  /**< Expanded version of width */
         fds_uint32_t depth;      /**< Depth of each token group */
@@ -205,6 +209,7 @@ namespace fds {
 
         // Make the specific version as the current
         void setCurrent(fds_uint64_t version);
+        void setCurrentDltClosed();
 
         // get all the Nodes for a token/objid
         // NOTE:: from the current dlt!!!
