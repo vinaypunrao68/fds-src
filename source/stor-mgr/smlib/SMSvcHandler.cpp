@@ -774,6 +774,10 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt)
 {
     LOGNOTIFY << "Receiving DLT Close";
+    // Set closed flag for the DLT. We use it for garbage collecting
+    // DLT tokens that are no longer belong to this SM. We want to make
+    // sure we garbage collect only when DLT is closed
+    objStorMgr->omClient->setCurrentDLTClosed();
 
     // re-enable GC and Tier Migration
     // If this SM did not receive start migration or rebalance

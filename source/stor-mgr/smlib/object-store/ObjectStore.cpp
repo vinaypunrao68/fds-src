@@ -463,7 +463,8 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                                      diskio::DataTier tier,
-                                     fds_bool_t verifyData) {
+                                     fds_bool_t verifyData,
+                                     fds_bool_t notOwned) {
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     Error err(ERR_OK);
 
@@ -480,7 +481,8 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         return err;
     }
 
-    if (!TokenCompactor::isDataGarbage(*objMeta, tier)) {
+    if (!TokenCompactor::isDataGarbage(*objMeta, tier) &&
+        !notOwned) {
         // this object is valid, copy it to a current token file
         ObjMetaData::ptr updatedMeta;
         LOGDEBUG << "Will copy " << objId << " to new file on tier " << tier;
@@ -534,8 +536,9 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         // not going to copy object to new location
         LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
         // remove entry from index db if data + meta is garbage
-        if (TokenCompactor::isGarbage(*objMeta)) {
-            LOGNORMAL << "Removing metadata for " << objId;
+        if (TokenCompactor::isGarbage(*objMeta) || notOwned) {
+            LOGNORMAL << "Removing metadata for " << objId
+                      << " notOwned? " << notOwned;
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
     }
