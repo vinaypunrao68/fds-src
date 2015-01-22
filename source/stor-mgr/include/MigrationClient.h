@@ -90,8 +90,7 @@ class MigrationClient {
 
     /* Add object meta data to the set to be sent to QoS.
      */
-    void migClientAddMetaData(ObjMetaData& objMetaData,
-                              fds_bool_t setObjMetaData,
+    void migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaDataSet,
                               fds_bool_t lastSet);
 
     /**
@@ -201,21 +200,10 @@ class MigrationClient {
     fds_uint32_t maxDeltaSetSize;
 
     /**
-     * Current size of the delta set.  When it reaches maxDeltSetSize, we send the
-     * message to QoS.
-     */
-    fds_uint32_t currDeltaSetSize;
-
-    /**
      * Maintain the sequence number for the delta set of object to be sent
      * from the source SM to destination SM.
      */
     fds_uint64_t seqNumDeltaSet;
-
-    /**
-     * deltaSetBatch.
-     */
-    SmIoReadObjDeltaSetReq *readDeltaSetReq;
 
     /**
      * Standalone test mode.

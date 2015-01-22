@@ -1253,27 +1253,33 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
-        ObjMetaData &objMetaData = (readDeltaSetReq->deltaSet)[i];
-        ObjectID objID(objMetaData.obj_map.obj_id.metaDigest);
+        ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i];
 
-        boost::shared_ptr<const std::string> dataPtr;
-#if 0
-        // TODO(Sean):  Need to expose objectStore to ObjectStorMgr
+        const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
+
+        /* get the object from metadata information. */
         boost::shared_ptr<const std::string> dataPtr =
                 objectStore->getObjectData(invalid_vol_id,
-                                           objID,
-                                           objMetaData,
-                                           err);
-#endif
+                                       objID,
+                                       objMetaDataPtr,
+                                       err);
+        /* TODO(sean): For now, just panic. Need to know why
+         * object read failed.
+         */
         fds_verify(err.ok());
 
+        /* Add metadata and data to the delta set */
         fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
-        objMetaData.propagateMetaData(objMetaDataPropagate);
-
+        objMetaDataPtr->propagateMetaData(objMetaDataPropagate);
+        /* TODO(Sean): Can we avoid data copy and directory read
+         * to the string buffer?
+         */
         objMetaDataPropagate.objectData = *dataPtr;
-
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
     }
+
+    /* Delete the delta set request */
+    delete readDeltaSetReq;
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
     asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
