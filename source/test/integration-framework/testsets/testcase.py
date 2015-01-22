@@ -2,6 +2,7 @@
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+from __future__ import print_function
 import logging
 import sys
 import traceback
@@ -10,7 +11,8 @@ import unittest
 import config
 import config_parser
 import s3
-import testsets.testcases.fdslib.TestUtils as TestUtils 
+import testsets.testcases.fdslib.TestUtils as TestUtils
+
 
 class FDSTestCase(unittest.TestCase):
 
@@ -101,9 +103,14 @@ class FDSTestCase(unittest.TestCase):
         --------
         None
         """
-        self.assertTrue(test_passed)
-        if test_passed:
-            self.log.info("Test Case %s passed." % self.__class__.__name__)
-        else:
-            self.log.info("Test Case %s failed." % self.__class__.__name__)
-            self.test_failure = True
+        try:
+            if test_passed:
+                self.log.info("Test Case %s passed." % self.__class__.__name__)
+            else:
+                msg = "Test Case %s failed." % self.__class__.__name__
+                self.log.exception(msg)
+                raise AssertionError(msg)
+        except:
+            exit(1)
+        
+            
