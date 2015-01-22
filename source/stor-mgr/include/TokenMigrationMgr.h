@@ -77,6 +77,11 @@ class SmTokenMigrationMgr {
                          fds_uint32_t bitsPerDltToken);
 
     /**
+     * Handles message from OM to abort migration
+     */
+    Error abortMigration();
+
+    /**
      * Handle start object rebalance from destination SM
      */
     Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,

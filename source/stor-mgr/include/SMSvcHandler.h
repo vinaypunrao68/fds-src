@@ -138,6 +138,9 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
                           const Error &err,
                           fds_uint64_t dltVersion);
 
+    void migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifySMAbortMigration>& abortMsg);
+
     void initiateObjectSync(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlObjectRebalanceFilterSet> &filterObjSet);
 

@@ -112,6 +112,10 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
                                                leveldb::ReadOptions& options,
                                                leveldb::DB *db) {
     Error err(ERR_OK);
+    if (atomic_load(&migrState) == MIGR_ABORTED) {
+        LOGNORMAL << "Migration was aborted, ignoring migration task";
+        return;
+    }
 
     // must match sm token id that is currently in progress
     fds_verify(snapRequest->token_id == smTokenInProgress);
@@ -145,8 +149,10 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
         abortMigration(err);
     }
 
-    // TODO(Anna) start snapshot of the next SM token when we finish
-    // migration of all DLT tokens belonging to this SM token
+    // At this point this SM (destination) sent rebalance set msgs to source SMs
+    // We are waiting for response(s) from source SMs to continue with migration
+    // or we will get abort migration from OM if we don't get response from SM
+    // because it is down (SL will timeout on these requests and send msg to OM)
 }
 
 /**
@@ -213,6 +219,12 @@ Error
 SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
     Error err(ERR_OK);
     fds_uint64_t executorId = deltaSet->executorID;
+
+    // if we receive this in IDLE or ABORTED state, just ignore
+    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+        LOGWARN << "Migration NOT in progress anymore, assuming was aborted!";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     // since we are doing one SM token at a time, search for executor in deltaSet
     fds_bool_t found = false;
@@ -308,17 +320,34 @@ SmTokenMigrationMgr::handleDltClose() {
     return err;
 }
 
+/**
+ * Handles message from OM to abort migration
+ */
+Error
+SmTokenMigrationMgr::abortMigration() {
+    Error err(ERR_OK);
+    LOGNOTIFY << "Will abort token migration per OM request";
+    abortMigration(ERR_OK);
+    return err;
+}
+
+/// local method that actually aborts migration
 void
 SmTokenMigrationMgr::abortMigration(const Error& error) {
     LOGNOTIFY << "Aborting token migration " << error;
-    if (atomic_load(&migrState) == MIGR_ABORTED) {
-        LOGNOTIFY << "Migration already aborted, nothing else to do";
-        return;
-    }
 
-    // set state to 'aborted'
-    MigrationState newState = MIGR_ABORTED;
-    atomic_store(&migrState, newState);
+    // set migration state to aborted
+    MigrationState expectState = MIGR_IN_PROGRESS;
+    if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_ABORTED)) {
+        MigrationState curState = atomic_load(&migrState);
+        if (curState == MIGR_IDLE) {
+            // nothing to do, migration was not in progress
+            LOGNOTIFY << "Migration was idle, nothing to abort";
+        } else if (curState == MIGR_ABORTED) {
+            LOGNOTIFY << "Migration already aborted, nothing else to do";
+        }
+        return;  // this is ok
+    }
 
     // TODO(Anna) depending on current state, send ack with error to OM
     // and do any necessary cleanup here...

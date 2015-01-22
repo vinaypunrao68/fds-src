@@ -412,6 +412,13 @@ OM_DLTMod::dlt_deploy_event(DltErrorFoundEvt const &evt)
     dlt_dply_fsm->process_event(evt);
 }
 
+void
+OM_DLTMod::dlt_deploy_event(DltAbortMigrationAckEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dlt_dply_fsm->process_event(evt);
+}
+
 // --------------------------------------------------------------------------------------
 // OM DLT Deployment FSM Implementation
 // --------------------------------------------------------------------------------------
