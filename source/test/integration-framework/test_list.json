@@ -42,6 +42,14 @@
 					"parameters" : [],
 					"depends" : ["TestS3DelBucketKeys"],
 					"config" : "setup.cfg"
+				},
+				{
+					"name" : "MockTest",
+					"file" : "mock_test.py",
+					"parameters" : [],
+					"depends" : [],
+					"config" : ""
+				
 				}
 		]
 	}
