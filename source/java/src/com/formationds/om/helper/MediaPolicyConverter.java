@@ -16,7 +16,7 @@ public class MediaPolicyConverter {
 
 	public static MediaPolicy convertToMediaPolicy( final FDSP_MediaPolicy fdspPolicy ){
 
-		if (fdspPolicy == null) {
+		if ( fdspPolicy == null ) {
 			return MediaPolicy.HDD_ONLY;
 		}
 
@@ -42,7 +42,7 @@ public class MediaPolicyConverter {
 	
 	public static FDSP_MediaPolicy convertToFDSPMediaPolicy( final MediaPolicy mediaPolicy ){
 
-		if (mediaPolicy == null) {
+		if ( mediaPolicy == null ) {
 			return FDSP_MediaPolicy.FDSP_MEDIA_POLICY_UNSET;
 		}
 
