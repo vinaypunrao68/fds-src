@@ -16,11 +16,11 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
 
         switch( state ){
             case $node_service.FDS_NODE_UP:
-                return 'fui-check-inverted-2';
+                return 'icon-excellent state-ok';
             case $node_service.FDS_NODE_DOWN:
-                return 'fui-cross error-color';
+                return 'icon-issues state-down';
             default:
-                return 'fui-radio-unchecked';
+                return 'icon-nothing state-unknown';
         }
     };
 

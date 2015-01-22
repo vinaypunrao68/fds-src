@@ -301,7 +301,7 @@ var en_US = {
     },
     system: {
         title: 'System',
-        l_add_node: 'Add a Node',
+        l_add_node: 'Add Node',
         l_nodes: 'Nodes',
         th_am: 'AM',
         th_dm: 'DM',
