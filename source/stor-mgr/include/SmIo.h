@@ -18,6 +18,7 @@
 #include <fds_volume.h>
 #include <leveldb/db.h>
 #include <persistent-layer/dm_io.h>
+#include <ObjMeta.h>
 
 using FDS_ProtocolInterface::FDSP_DeleteObjTypePtr;
 using FDS_ProtocolInterface::FDSP_GetObjTypePtr;
@@ -557,6 +558,48 @@ class SmIoMoveObjsToTier: public SmIoReq {
     /// response callback
     cbType moveObjsRespCb;
 };
+
+/**
+ * Request to read delta set from set of meta data.
+ */
+class SmIoReadObjDeltaSetReq: public SmIoReq {
+  public:
+    typedef std::function<void (const Error&,
+                                SmIoReadObjDeltaSetReq *req)> cbType;
+  public:
+    SmIoReadObjDeltaSetReq(const NodeUuid& destSmId,
+                           fds_uint64_t execId,
+                           fds_uint64_t seq,
+                           fds_bool_t last)
+        : destinationSmId(destSmId),
+          executorId(execId),
+          seqNum(seq),
+          lastSet(last)
+    {
+    };
+
+    // Node ID of the destination SM.
+    NodeUuid destinationSmId;
+
+    // ID of the executor from the source SM, which requested the delta set.
+    fds_uint64_t executorId;
+
+    // Sequence number to indicate all messages are received on the destionation SM.
+    fds_uint64_t seqNum;
+
+    // last set of the current transaction between source and destination SM.
+    fds_bool_t lastSet;
+
+    // Set of Object MetaData to be used to read objects and form
+    // CtrlObjectRebalanceDeltaSet
+    std::vector<ObjMetaData> deltaSet;
+
+    // Response callback for batch object read.
+    cbType smioReadObjDeltaSetReqCb;
+};  // SmIoReadObjDelta
+
+typedef boost::shared_ptr<SmIoReadObjDeltaSetReq> SmIoReadObjDeltaSetReqSharedPtr;
+typedef std::unique_ptr<SmIoReadObjDeltaSetReq> SmIoReadObjDeltaSetReqUniquePtr;
 
 /**
  * Request to apply object rebalance delta set

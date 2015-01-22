@@ -191,7 +191,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         }
     }
     // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
-    migrClient->migClientAddObjectSet(rebalSetMsg);
+    migrClient->migClientAddObjToFilterSet(rebalSetMsg);
     return err;
 }
 

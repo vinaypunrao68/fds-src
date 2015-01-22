@@ -92,8 +92,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      CommonModuleProviderIf *modProvider_;
      /*
-      * glocal dedupe  stats  counter 
-      */ 
+      * glocal dedupe  stats  counter
+      */
 
      std::atomic<fds_uint64_t> dedupeByteCnt;
 
@@ -347,6 +347,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void compactObjectsInternal(SmIoReq* ioReq);
      void moveTierObjectsInternal(SmIoReq* ioReq);
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
+     void readObjDeltaSet(SmIoReq* ioReq);
 
      void handleDltUpdate();
 

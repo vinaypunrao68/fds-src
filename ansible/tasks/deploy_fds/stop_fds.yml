@@ -6,6 +6,22 @@
     tags:
         - shutdown
 
+-   stat: path=/etc/init/{{item}}.conf
+    register: init_stat
+    with_items:
+        - platformd
+        - orchmgr
+        - amagent
+        - fdsactivate
+    tags:
+        - shutdown
+
+-   fail: msg="{{item.invocation.module_args}} does not exist! This is most likely due to a prior failed deployment attempt. Please manually uninstall fds-platform on your target hosts and try again."
+    when: not item.stat.exists
+    with_items: init_stat.results
+    tags:
+        - shutdown
+
 -   name: stop_platformd
     service: name={{ item }} state=stopped
     when: fds_installed|success

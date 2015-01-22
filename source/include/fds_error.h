@@ -246,6 +246,11 @@ class Error {
     friend bool operator!= (const Error& lhs, const Error& rhs);
 };
 
+struct ErrorHash {
+    size_t operator()(const Error& e) const
+    { return e.GetErrno(); }
+};
+
 inline std::string Error::GetErrstr() const {
     if (_errno <= ERR_INVALID_DMT) return fds_errstrs[_errno];
     return std::string("Error no: ") + std::to_string(_errno);
