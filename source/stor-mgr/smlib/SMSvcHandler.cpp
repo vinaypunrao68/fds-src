@@ -118,6 +118,7 @@ SMSvcHandler::startMigrationCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                fds_uint64_t dltVersion)
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
 
     fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
     msg->status.DLT_version = dltVersion;

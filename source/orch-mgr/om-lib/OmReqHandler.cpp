@@ -906,7 +906,9 @@ void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
         // TODO(Anna) Should we use node names or node uuids directly in
         // fdsp messages? for now getting uuid from hashing the name
         NodeUuid node_uuid(fdsp_msg->src_service_uuid.uuid);
-        Error err = domain->om_recv_migration_done(node_uuid, status_msg->DLT_version);
+        Error err = domain->om_recv_migration_done(node_uuid,
+                                                   status_msg->DLT_version,
+                                                   fdsp_msg->err_code);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
