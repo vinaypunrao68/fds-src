@@ -99,6 +99,11 @@ class FDSServices(object):
                                                 VolumeType.BLOCK,
                                                 volume['size'] * (1024 ** 3),
                                                 0), # cont Commit Log Retention, wtf?
+                                                    # ^ this is the duration to keep full
+                                                    #   transaction replay logs. You can
+                                                    #   create a new snapshot at any time
+                                                    #   from now until the end of commit
+                                                    #   log retention.
                                  0) # Tenant ID, default to admin
         except ApiException as ex:
             if ex.errorCode != 3:
