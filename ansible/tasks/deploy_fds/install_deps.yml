@@ -12,7 +12,7 @@
 
 -   name: install_limits_conf
     template:
-        src=../templates/fds_limits.conf
+        src=../templates/deploy_fds/fds_limits.conf
         dest=/etc/security/limits.conf
         owner=root
         group=root
