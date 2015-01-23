@@ -158,7 +158,7 @@ class MigrationClient {
      * destination SM is asynchronous, the client can receive them
      * out of order.  This is to ensure that all messages are received.
      */
-    MigrationSeqNumReceiver seqNumFilterSet;
+    MigrationSeqNum seqNumFilterSet;
 
     /**
      * destination SM node ID.  This is the SM Node ID that's requesting the
