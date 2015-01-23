@@ -3,7 +3,9 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.*;
+import com.formationds.apis.AmService;
+import com.formationds.apis.BlobDescriptor;
+import com.formationds.apis.ObjectOffset;
 import org.apache.thrift.TException;
 
 import java.io.IOException;
@@ -23,12 +25,14 @@ public class FdsOutputStream extends OutputStream {
     private ByteBuffer currentBuffer;
     private boolean isDirty;
     private boolean isClosed;
+    private OwnerGroupInfo ownerGroupInfo;
 
-    FdsOutputStream(AmService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
-        this(objectSize, domain, volume, blobName, am, 0, ByteBuffer.allocate(objectSize), false, false);
+    FdsOutputStream(AmService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo ownerGroupInfo) throws IOException {
+        this(objectSize, domain, volume, blobName, am, 0, ByteBuffer.allocate(objectSize), false, false, ownerGroupInfo);
     }
 
-    private FdsOutputStream(int objectSize, String domain, String volume, String blobName, AmService.Iface am, long currentOffset, ByteBuffer currentBuffer, boolean isDirty, boolean isClosed) {
+    private FdsOutputStream(int objectSize, String domain, String volume, String blobName, AmService.Iface am,
+                            long currentOffset, ByteBuffer currentBuffer, boolean isDirty, boolean isClosed, OwnerGroupInfo ownerGroupInfo) {
         this.objectSize = objectSize;
         this.domain = domain;
         this.volume = volume;
@@ -38,37 +42,40 @@ public class FdsOutputStream extends OutputStream {
         this.currentBuffer = currentBuffer;
         this.isDirty = isDirty;
         this.isClosed = isClosed;
+        this.ownerGroupInfo = ownerGroupInfo;
     }
 
     public static FdsOutputStream openForAppend(AmService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
         try {
             BlobDescriptor bd = am.statBlob(domain, volume, blobName);
-            long byteCount = FdsFileSystem.getByteCount(bd);
+            OwnerGroupInfo owner = new OwnerGroupInfo(bd);
+            long byteCount = bd.getByteCount();
             ObjectOffset objectOffset = getObjectOffset(byteCount, objectSize);
             int length = (int) byteCount % objectSize;
             ByteBuffer lastObject = am.getBlob(domain, volume, blobName, length, objectOffset);
             ByteBuffer currentBuffer = ByteBuffer.allocate(objectSize);
             currentBuffer.put(lastObject);
-            return new FdsOutputStream(objectSize, domain, volume, blobName, am, byteCount, currentBuffer, false, false);
+            return new FdsOutputStream(objectSize, domain, volume, blobName, am, byteCount, currentBuffer, false, false, owner);
         } catch (TException e) {
             throw new IOException(e);
         }
     }
 
 
-    public static FdsOutputStream openNew(AmService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
+    public static FdsOutputStream openNew(AmService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo owner) throws IOException {
         try {
-            am.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata(0));
-            return new FdsOutputStream(am, domain, volume, blobName, objectSize);
+            am.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata(owner));
+            return new FdsOutputStream(am, domain, volume, blobName, objectSize, owner);
         } catch (TException e) {
             throw new IOException(e);
         }
     }
 
-    private static Map<String, String> makeMetadata(long currentOffset) {
+    private static Map<String, String> makeMetadata(OwnerGroupInfo ownerGroupInfo) {
         HashMap<String, String> md = new HashMap<>();
         md.put(FdsFileSystem.LAST_MODIFIED_KEY, Long.toString(Calendar.getInstance().getTimeInMillis()));
-        md.put(FdsFileSystem.CURRENT_OFFSET, Long.toString(currentOffset));
+        md.put(FdsFileSystem.CREATED_BY_USER, ownerGroupInfo.getOwner());
+        md.put(FdsFileSystem.CREATED_BY_GROUP, ownerGroupInfo.getGroup());
         return md;
     }
 
@@ -84,7 +91,7 @@ public class FdsOutputStream extends OutputStream {
             currentBuffer.flip();
 
             try {
-                am.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(currentOffset));
+                am.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo));
             } catch (TException e) {
                 isClosed = true;
                 throw new IOException(e);
