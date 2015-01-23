@@ -1,0 +1,44 @@
+/*
+ * Copyright 2015 Formation Data Systems, Inc.
+ */
+
+#include <dmchk.h>
+
+namespace fds {
+
+DmChecker::DmChecker(int argc,
+                     char *argv[],
+                     const std::string & config,
+                     const std::string & basePath,
+                     Module *vec[],
+                     const std::string &moduleName,
+                     fds_volid_t volumeUuid)
+        : FdsProcess(argc, argv, config, basePath, vec) {
+    volCat = boost::make_shared<DM_CATALOG_TYPE>(moduleName.c_str());
+    volDesc = boost::make_shared<VolumeDesc>(std::to_string(volumeUuid), volumeUuid);
+    volDesc->maxObjSizeInBytes = 2 * 1024 * 1024;
+
+    Error err = volCat->addCatalog(*volDesc);
+    fds_verify(err.ok());
+    err = volCat->activateCatalog(volDesc->volUUID);
+    fds_verify(err.ok());
+}
+
+void
+DmChecker::listBlobs() {
+    fpi::BlobInfoListType blobInfoList;
+    Error err = volCat->listBlobs(volDesc->volUUID, &blobInfoList);
+    if (!err.ok()) {
+        LOGNORMAL << "Unable to list blobs for volume " << volDesc->volUUID;
+        return;
+    }
+
+    fds_uint32_t counter = 0;
+    for (const auto &it : blobInfoList) {
+        std::cout << "Blob " << counter++ << ": " << it.blob_name
+                  << ", " << it.blob_size << " bytes" << std::endl;
+    }
+    std::cout << "Listed all " << counter << " blobs" << std::endl;
+}
+
+}  // namespace fds
