@@ -207,10 +207,39 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         FdsTimerTaskPtr tryAgainTimerTask;
     };
 
+    struct DltAllOk: public msm::front::state<>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DltAllOk. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DltAllOk. Evt: " << e.logString();
+        }
+    };
+    /**
+     * DltErrorMode interrupts
+     * Will resume when end_error is generated
+     */
+    struct DltErrorMode : public msm::front::interrupt_state<DltEndErrorEvt>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DltErrorMode. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DltErrorMode. Evt: " << e.logString();
+        }
+    };
+
     /**
      * Define the initial state.
      */
-    typedef DST_Idle initial_state;
+    typedef mpl::vector<DST_Idle, DltAllOk> initial_state;
     struct MyInitEvent {
         std::string logString() const {
             return "MyInitEvent";
@@ -256,6 +285,17 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_Error
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_EndError
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+
     /**
      * Guard conditions.
      */
@@ -305,7 +345,10 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Commit  , DltCommitOkEvt , DST_Close   , DACT_Close    , GRD_DltCommit>,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Close   , DltCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_DltClose >
+    msf::Row< DST_Close   , DltCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_DltClose >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DltAllOk    , DltErrorFoundEvt, DltErrorMode, DACT_Error   , msf::none    >,
+    msf::Row< DltErrorMode, DltEndErrorEvt , DltAllOk    , DACT_EndError , msf::none    >
     // +------------------+----------------+-------------+---------------+--------------+
     >{};  // NOLINT
 
@@ -844,5 +887,28 @@ DltDplyFSM::GRD_DltCommit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
     return b_ret;
 }
+
+// DACT_Error
+// -----------
+// Handles error during DLT propagation
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "FSM DACT_Error ";
+}
+
+// DACT_EndError
+// -----------
+// End of error state
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "FSM DACT_EndError ";
+}
+
 
 }  // namespace fds

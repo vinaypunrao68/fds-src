@@ -368,7 +368,8 @@ OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* re
 {
     LOGNOTIFY << "OM received response for NotifyDltUpdate from node "
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
-              <<" with version " << msg->dlt_version << " " << error;
+              << " node type " << rs_get_uuid().uuid_get_type()
+              << " with DLT version " << msg->dlt_version << " " << error;
 
     // notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();

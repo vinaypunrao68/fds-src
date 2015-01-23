@@ -1201,8 +1201,11 @@ OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid,
     LOGNOTIFY << "TEST: Finished sleeping, will process push meta ack";
 #endif
 
-    dmtMod->dmt_deploy_event(DmtPushMetaAckEvt(uuid));
-
+    if (respError.ok()) {
+        dmtMod->dmt_deploy_event(DmtPushMetaAckEvt(uuid));
+    } else {
+        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
+    }
     return err;
 }
 
@@ -1226,8 +1229,16 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
         return ERR_NOT_FOUND;
     }
 
-    dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
-
+    // if this is timeout and not DM, we should not stop migration,
+    // node is probably down... In current implementation, we will stop
+    // migration if DM is down, because this could be DM that is source
+    // for migration.
+    if (respError.ok() ||
+        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_STOR_MGR))) {
+        dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
+    } else {
+        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
+    }
     return err;
 }
 
@@ -1243,8 +1254,11 @@ OM_NodeDomainMod::om_recv_dmt_close_resp(const NodeUuid& uuid,
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     // tell state machine that we received ack for close
-    dmtMod->dmt_deploy_event(DmtCloseOkEvt(dmt_version));
-
+    if (respError.ok()) {
+        dmtMod->dmt_deploy_event(DmtCloseOkEvt(dmt_version));
+    } else {
+        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
+    }
     return err;
 }
 
@@ -1279,12 +1293,21 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
         return err;
     }
 
-    // set node's confirmed dlt version to this version
-    agent->set_node_dlt_version(dlt_version);
+    // if this is timeout and not SM, we should not stop migration,
+    // node is probably down... In current implementation, we will stop
+    // migration if SM is down, because this could be SM that is source
+    // for migration.
+    if (respError.ok() ||
+        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_STOR_MGR))) {
+        // set node's confirmed dlt version to this version
+        agent->set_node_dlt_version(dlt_version);
 
-    // commit ok event, will transition to next state when
-    // when all 'up' nodes acked this dlt commit
-    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, uuid));
+        // commit ok event, will transition to next state when
+        // when all 'up' nodes acked this dlt commit
+        dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, uuid));
+    } else {
+        dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
+    }
 
     return err;
 }
@@ -1311,7 +1334,11 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     fds_verify(cur_dlt_ver == dlt_version);
 
     // tell state machine that we received ack for close
-    dltMod->dlt_deploy_event(DltCloseOkEvt());
+    if (respError.ok()) {
+        dltMod->dlt_deploy_event(DltCloseOkEvt());
+    } else {
+        dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
+    }
 
     return err;
 }
