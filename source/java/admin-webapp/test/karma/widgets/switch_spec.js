@@ -59,11 +59,10 @@ describe( 'Switch button functionality', function(){
     
     it( 'should show the veil when disabled', function(){
         
-        $scope.disabled = true;
+        $scope.disabledState = true;
         $scope.$apply();
         
         var veil = $switch.find( '.veil' );
-        
         expect( $(veil).hasClass( 'ng-hide' ) ).toBe( false );
     });
 });
