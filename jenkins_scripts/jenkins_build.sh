@@ -56,7 +56,14 @@ function build_fds
     make devsetup
 
     message "BUILDING FORMATION PLATFORM"
-    jenkins_scripts/build_fds.py
+		if [ ${BUILD_TYPE} -eq 'release' ] ; then
+			echo "*** BUILD_TYPE: RELEASE ***"
+			jenkins_scripts/build_fds.py -r
+		else
+			echo "*** BUILD_TYPE: DEBUG ***"
+			jenkins_scripts/build_fds.py
+		fi
+
 }
 
 function cache_report
