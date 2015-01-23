@@ -73,21 +73,21 @@
     tags:
         - install-deps
 
--   name: add LOCAL fds nightly platform repo
-    when: deploy_artifact == "nightly" and cluster_location is defined
-    apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform nightly"
-        state=present
-        update_cache=yes
-    tags:
-      - install-deps
+#-   name: add LOCAL fds nightly platform repo
+#    when: deploy_artifact == "nightly" and cluster_location is defined
+#    apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform nightly"
+#        state=present
+#        update_cache=yes
+#    tags:
+#      - install-deps
 
--   name: add Artifactory fds nightly platform repo
-    when: deploy_artifact == "nightly" and cluster_location is not defined
-    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
-        state=present
-        update_cache=yes
-    tags:
-      - install-deps
+#-   name: add Artifactory fds nightly platform repo
+#    when: deploy_artifact == "nightly" and cluster_location is not defined
+#    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
+#        state=present
+#        update_cache=yes
+#    tags:
+#      - install-deps
 
 #-   name: add Artifactory repo for third party packages
 #    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
@@ -126,15 +126,15 @@
         - install-deps
 
 
--   name: install omnibus fds-deps package
-    apt: name={{item}}
-        force=yes
-        state=present
-        update_cache=yes
-    with_items:
-        - fds-deps
-    tags:
-        - install-deps
+#-   name: install omnibus fds-deps package
+#    apt: name={{item}}
+#        force=yes
+#        state=present
+#        update_cache=yes
+#    with_items:
+#        - fds-deps
+#    tags:
+#        - install-deps
 
 #-   name: install needed pip modules
 #    pip: name={{item.name}} version={{item.version}}
