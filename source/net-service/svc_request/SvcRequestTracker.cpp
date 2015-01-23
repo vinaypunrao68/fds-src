@@ -27,20 +27,22 @@ bool SvcRequestTracker::addForTracking(const SvcRequestId& id,
 }
 
 /**
- * Remove the request from tracking
+ * Pop the request from tracking
  * @param id
  */
-bool SvcRequestTracker::removeFromTracking(const SvcRequestId& id)
+SvcRequestIfPtr
+SvcRequestTracker::popFromTracking(const SvcRequestId& id)
 {
     DBG(GLOGDEBUG << "Req Id: " << id);
 
     fds_scoped_lock l(svcReqMaplock_);
     auto itr = svcReqMap_.find(id);
     if (itr != svcReqMap_.end()) {
+        auto r = itr->second;
         svcReqMap_.erase(itr);
-        return true;
+        return r;
     }
-    return false;
+    return nullptr;
 }
 
 /**
