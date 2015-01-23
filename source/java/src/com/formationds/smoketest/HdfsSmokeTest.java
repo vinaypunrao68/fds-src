@@ -74,6 +74,12 @@ public class HdfsSmokeTest {
     }
 
     @Test
+    public void testDeleteInexistentFile() throws Exception {
+        Path f = new Path("/foo");
+        assertFalse(fileSystem.delete(f, false));
+    }
+
+    @Test
     public void testPermissions() throws Exception {
         Path f = new Path("/foo");
         touch(f);
@@ -306,12 +312,6 @@ public class HdfsSmokeTest {
         }
     }
 
-    @Test(expected = FileNotFoundException.class)
-    public void deleteNonExistentFile() throws Exception {
-        Path f = new Path("/bar.txt");
-        fileSystem.delete(f, false);
-    }
-
     @Test
     public void testReadLong() throws Exception {
         Path path = new Path("/" + UUID.randomUUID().toString());
@@ -324,7 +324,6 @@ public class HdfsSmokeTest {
         IntStream.range(0, 100)
                 .parallel()
                 .forEach(i -> doSomeReads(path));
-        ;
     }
 
     private void doSomeReads(Path path) {
