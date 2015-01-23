@@ -25,6 +25,8 @@ var en_US = {
         l_no: 'No',
         l_none: 'None',
         l_ok: 'OK',
+        l_on: 'On',
+        l_off: 'Off',
         l_required: 'Required',
         l_save: 'Save',
         l_search: 'Search',
@@ -301,7 +303,7 @@ var en_US = {
     },
     system: {
         title: 'System',
-        l_add_node: 'Add a Node',
+        l_add_node: 'Add Node',
         l_nodes: 'Nodes',
         th_am: 'AM',
         th_dm: 'DM',

@@ -1,0 +1,14 @@
+.nodecontainer {
+    
+    .state-unknown {
+        color: $text_very_light_color;
+    }
+    
+    .state-ok {
+        color: $green;
+    }
+    
+    .state-down {
+        color: $orange;
+    }
+}
