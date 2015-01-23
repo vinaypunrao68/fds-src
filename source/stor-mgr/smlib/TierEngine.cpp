@@ -11,7 +11,7 @@
 
 namespace fds {
 
-uint32_t gStayInGdb = 1;
+uint32_t gStayInGdb = 0;
 
 TierEngine::TierEngine(const std::string &modName,
         rankPolicyType _rank_type,

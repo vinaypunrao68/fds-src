@@ -5,16 +5,17 @@
 #include <string>
 #include <PerfTrace.h>
 #include <SmCtrl.h>
+#include <fds_module_provider.h>
 #include <object-store/ObjectDataStore.h>
 
 namespace fds {
 
 ObjectDataStoreCounters::ObjectDataStoreCounters(const std::string &id)
-    : FdsCounters(id, gModuleProvider ? (gModuleProvider->get_cntrs_mgr().get() : nullptr)),
+    : FdsCounters(id, gModuleProvider ? gModuleProvider->get_cntrs_mgr().get() : nullptr),
     ssd_reads("ssd_reads", this),
     ssd_writes("ssd_writes", this),
-    disk_reads("hdd_reads", this),
-    disk_writes("hdd_writes", this)
+    hdd_reads("hdd_reads", this),
+    hdd_writes("hdd_writes", this)
 {
 }
   

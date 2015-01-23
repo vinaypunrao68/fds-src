@@ -21,7 +21,7 @@ class FdsTimerTask;
 typedef boost::shared_ptr<FdsTimerTask> FdsTimerTaskPtr;
 
 struct HTCCounters : FdsCounters {
-    HTCCounters(const std::string &id, FdsCountersMgr *mgr);
+    explicit HTCCounters(const std::string &id);
 
     NumericCounter movedCnt;
 };

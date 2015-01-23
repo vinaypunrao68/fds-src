@@ -18,12 +18,12 @@ namespace fds {
 class SmScavengerCmd;
 
 struct ObjectDataStoreCounters : FdsCounters {
-    ObjectDataStoreCounters(const std::string &id, FdsCountersMgr *mgr);
+    explicit ObjectDataStoreCounters(const std::string &id);
 
     NumericCounter ssd_reads;
     NumericCounter ssd_writes;
-    NumericCounter disk_reads;
-    NumericCounter disk_writes;
+    NumericCounter hdd_reads;
+    NumericCounter hdd_writes;
 };
 
 /**

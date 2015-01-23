@@ -14,7 +14,7 @@ uint32_t HybridTierCtrlr::BATCH_SZ = 1024;
 uint32_t HybridTierCtrlr::FREQUENCY = 10;
 
 HTCCounters::HTCCounters(const std::string &id)
-    : FdsCounters(id, gModuleProvider ? (gModuleProvider->get_cntrs_mgr().get() : nullptr)),
+    : FdsCounters(id, gModuleProvider ? gModuleProvider->get_cntrs_mgr().get() : nullptr),
     movedCnt("movedCnt", this)
 {
 }
