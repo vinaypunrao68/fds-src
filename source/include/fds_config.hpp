@@ -75,7 +75,6 @@ public:
             }
         }
         config_.readFile(config_file.c_str());
-        std::cout << "Config read from file: " << config_file << std::endl;
 
         /* Override config read from with command line params */
         for (auto o : parsed.options) {
