@@ -130,11 +130,6 @@ DataPlacement::beginRebalance() {
     Error err(ERR_OK);
     fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
 
-    // FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
-    //        new FDS_ProtocolInterface::FDSP_MsgHdrType());
-    // FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
-    //        new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
-
     placementMutex->lock();
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
@@ -237,12 +232,12 @@ DataPlacement::beginRebalance() {
         om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,
                 std::placeholders::_1, std::placeholders::_2,
                 std::placeholders::_3));
+        // really long timeout for migration = 10 hours
+        om_req->setTimeoutMs(10*60*60*1000);
         om_req->invoke();
 
-
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Sending the DLT migration request to node 0x"
-                << std::hex << uuid.uuid_get_val() << std::dec;
+        LOGNOTIFY << "Sending the DLT migration request to node 0x"
+                  << std::hex << uuid.uuid_get_val() << std::dec;
     }
     placementMutex->unlock();
 
