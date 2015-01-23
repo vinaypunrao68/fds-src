@@ -98,6 +98,14 @@ struct DltErrorFoundEvt
     Error error;
 };
 
+struct DltEndErrorEvt
+{
+    DltEndErrorEvt() {}
+    std::string logString() const {
+        return "DltEndErrorEvt";
+    }
+};
+
 struct DltAbortMigrationAckEvt
 {
     explicit DltAbortMigrationAckEvt(const NodeUuid& uuid)
