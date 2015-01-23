@@ -55,12 +55,11 @@ function build_fds
     message "RUNNING DEVSETUP"
     make devsetup
 
-    message "BUILDING FORMATION PLATFORM"
 		if [ ${BUILD_TYPE} == 'release' ] ; then
-			echo "*** BUILD_TYPE: RELEASE ***"
+      message "BUILDING FORMATION PLATFORM - BUILD_TYPE: release"
 			jenkins_scripts/build_fds.py -r
 		else
-			echo "*** BUILD_TYPE: DEBUG ***"
+      message "BUILDING FORMATION PLATFORM - BUILD_TYPE: debug"
 			jenkins_scripts/build_fds.py
 		fi
 
