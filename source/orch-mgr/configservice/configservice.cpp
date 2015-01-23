@@ -243,14 +243,16 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         LOGDEBUG << "just Active volumes";
         volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec, VolumeInfo::pointer vol) { //NOLINT
-                LOGDEBUG << (vol->vol_get_properties()->isSnapshot()?"snapshot":"volume")
+                LOGDEBUG << (vol->vol_get_properties()->isSnapshot()
+                            ? "snapshot" : "volume")
                          << " - " << vol->vol_get_name()
                          << ":" << vol->vol_get_properties()->getStateName();
-                VolumeDescriptor volDescriptor;
-                // if (vol->vol_get_properties()->isStateActive()) {
-                convert::getVolumeDescriptor(volDescriptor, vol);
-                vec.push_back(volDescriptor);
-                // }
+
+                if (!vol->vol_get_properties()->isSnapshot()) {
+                    VolumeDescriptor volDescriptor;
+                    convert::getVolumeDescriptor(volDescriptor, vol);
+                    vec.push_back(volDescriptor);
+                }
             });
     }
 
