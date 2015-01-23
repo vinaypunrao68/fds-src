@@ -31,6 +31,11 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
         return ERR_NOT_FOUND;
     }
 
+    // Get rsync username and passwd
+    FdsConfigAccessor migrationConf(g_fdsprocess->get_fds_config(), "fds.dm.migration.");   
+    rsyncUser   = migrationConf.get<std::string>("rsync_username");
+    rsyncPasswd = migrationConf.get<std::string>("rsync_password");
+
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     std::string snapDir = root->dir_user_repo_dm() + getVolIdStr() + "/"
             + std::to_string(dmUuid.uuid_get_val()) + std::string("-tmpXXXXXX");
@@ -50,8 +55,8 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(dmUuid);
     DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
     const std::string destDir = dm->get_node_root() + "user-repo/dm-names/" + getVolIdStr() + "/";
-    const std::string rsyncCmd = "sshpass -p passwd rsync -r " + snapDir + " root@" +
-            destIP + ":" + destDir;
+    const std::string rsyncCmd = "sshpass -p " + rsyncPasswd + " rsync -r " + snapDir +
+            " " + rsyncUser + "@" + destIP + ":" + destDir;
 
     // make local copy of catalog
     std::string rmCmd = "rm -rf " + snapDir;

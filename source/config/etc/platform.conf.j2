@@ -148,6 +148,13 @@ fds: {
            default_max_entries = 200
         }
 
+        migration: {
+            /* Rsync username to use during migration */
+            rsync_username = "root"
+            /* Rsync password to use during migration */
+	    rsync_password = "passwd"
+        }
+
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
         graphite: {
