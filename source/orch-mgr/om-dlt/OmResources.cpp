@@ -1651,6 +1651,11 @@ OM_ControlRespHandler::NotifyDMTUpdateResp(
               << " for DLT version " << dmt_resp->DMT_version
               << " " << respError;
 
+    // ok to receive ERR_CATSYNC_NOT_PROGRESS error
+    if (respError == ERR_CATSYNC_NOT_PROGRESS) {
+        respError = ERR_OK;
+    }
+
     // notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);

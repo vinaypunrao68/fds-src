@@ -10,6 +10,7 @@ namespace fds {
 
 SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
+          omStartMigrCb(NULL),
           clientLock("Migration Client Map Lock") {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextExecutorId = ATOMIC_VAR_INIT(0);
@@ -33,11 +34,20 @@ SmTokenMigrationMgr::~SmTokenMigrationMgr() {
  */
 Error
 SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+                                    OmStartMigrationCbType cb,
                                     fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
     // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
         LOGWARN << "We received empty migrations message from OM, nothing to do";
+        return err;
+    }
+
+    // TODO(Anna) we are disabling migration for now since it is not fully
+    // integrated, so calling callback right away
+    if (cb) {
+        LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
+        cb(ERR_OK);
         return err;
     }
 
@@ -47,6 +57,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         LOGNOTIFY << "startMigration called in non-idle state " << migrState;
         return ERR_NOT_READY;
     }
+    omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
 
     // create migration executors for each <SM token, source SM> pair
     for (auto migrGroup : migrationMsg->migrations) {
@@ -294,9 +305,12 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // we have more SM tokens to migrate
             startSmTokenMigration(it->first);
         } else {
-            /// we are done migrating, reply to start migration msg from OM
-            // TODO(Anna) reply to start migration msg here
-            // TODO(Anna) revisit this when doing active IO
+            // we are done migrating, reply to start migration msg from OM
+            omStartMigrCb(ERR_OK);
+            omStartMigrCb = NULL;  // we replied, so 
+
+            // TODO(Anna) revisit this when doing active IO -- we will have
+            // to do the second snapshot
         }
     }
 }
@@ -327,7 +341,7 @@ Error
 SmTokenMigrationMgr::abortMigration() {
     Error err(ERR_OK);
     LOGNOTIFY << "Will abort token migration per OM request";
-    abortMigration(ERR_OK);
+    abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
     return err;
 }
 
@@ -349,8 +363,11 @@ SmTokenMigrationMgr::abortMigration(const Error& error) {
         return;  // this is ok
     }
 
-    // TODO(Anna) depending on current state, send ack with error to OM
-    // and do any necessary cleanup here...
+    // if we need to ack Start  Migration from OM, we will have a cb to reply to
+    if (omStartMigrCb) {
+        omStartMigrCb(error);
+        omStartMigrCb = NULL;
+    }
 
     migrExecutors.clear();
 }

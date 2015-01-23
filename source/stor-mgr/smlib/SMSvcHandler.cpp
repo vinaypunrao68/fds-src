@@ -85,7 +85,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
     if (!err.ok()) {
         LOGERROR << "Failed to disable Scavenger; failing token migration";
-        startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
+        startMigrationCb(asyncHdr, migrationMsg->DLT_version, err);
         return;
     }
 
@@ -93,30 +93,30 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
     if (!err.ok()) {
         LOGERROR << "Failed to disable Tier Migration; failing token migration";
-        startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
+        startMigrationCb(asyncHdr, migrationMsg->DLT_version, err);
         return;
     }
 
     // start migration
     const DLT* dlt = objStorMgr->getDLT();
     if (dlt != NULL) {
-        // err = objStorMgr->migrationMgr->startMigration(migrationMsg,
-        //                                                dlt->getNumBitsForToken());
+        err = objStorMgr->migrationMgr->startMigration(migrationMsg,
+                                                       std::bind(
+                                                           &SMSvcHandler::startMigrationCb, this,
+                                                           asyncHdr, migrationMsg->DLT_version,
+                                                           std::placeholders::_1),
+                                                       dlt->getNumBitsForToken());
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "
                  << " called on addition of the first set of SMs to the domain";
-        err = ERR_INVALID_DLT;
+        startMigrationCb(asyncHdr, migrationMsg->DLT_version, ERR_INVALID_DLT);
     }
-
-    // TODO(Anna) for now callig callback right away, because start migration
-    // not called yet; do cb only on error normally
-    startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
 }
 
 void
 SMSvcHandler::startMigrationCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                               const Error &err,
-                               fds_uint64_t dltVersion)
+                               fds_uint64_t dltVersion,
+                               const Error& err)
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
