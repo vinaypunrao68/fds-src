@@ -100,6 +100,7 @@ enum  FDSPMsgTypeId {
     CtrlNotifySMStartMigrationTypeId   = 2062,
     CtrlObjectRebalanceFilterSetTypeId = 2063,
     CtrlObjectRebalanceDeltaSetTypeId  = 2064,
+    CtrlNotifySMAbortMigrationTypeId   = 2065,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
@@ -585,6 +586,11 @@ struct CtrlNotifySMStartMigration {
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
 struct CtrlNotifyDLTClose {
      1: FDSP.FDSP_DltCloseType    dlt_close;
+}
+
+/* ---------------------  CtrlNotifySMAbortMigrationTypeId  ---------------------------- */
+struct CtrlNotifySMAbortMigration {
+     1: i64  DLT_version;
 }
 
 /* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */

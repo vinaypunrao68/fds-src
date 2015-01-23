@@ -14,10 +14,11 @@ class ServiceContext(Context):
     def list(self):
         try:
             services = ServiceMap.list()
-            return tabulate(services, headers=['nodeid','service','ip','port'], tablefmt=self.config.getTableFormat())
+            return tabulate(services, headers=['nodeid','service','ip','port', 'status'],
+                            tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
-            return 'unable to get volume list'
+            return 'unable to get service list'
 
     #--------------------------------------------------------------------------------------
     @clicmd
