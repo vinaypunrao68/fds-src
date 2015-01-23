@@ -148,12 +148,14 @@ namespace fds
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
     {
-        auto    asyncReq =
+        // If we timed out we don't want the real response coming in behind us
+        auto    asyncReq = header->msg_code == ERR_SVC_REQUEST_TIMEOUT ?
+            gSvcRequestTracker->popFromTracking(static_cast<SvcRequestId>(header->msg_src_id)) :
             gSvcRequestTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
 
         if (!asyncReq)
         {
-            GLOGWARN << logString(*header) << " Request doesn't exist";
+            GLOGWARN << logString(*header) << " Request doesn't exist (timed out?)";
             return;
         }
 
