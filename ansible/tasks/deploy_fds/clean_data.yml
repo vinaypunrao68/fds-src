@@ -4,6 +4,7 @@
     with_items:
         - /fds/bin/*.core
         - /fds/bin/core
+        - /fds/var/db
         - /fds/var/logs
         - /fds/var/stats
         - /corefiles/*.core
