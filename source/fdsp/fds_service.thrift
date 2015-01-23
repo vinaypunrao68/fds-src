@@ -4,6 +4,7 @@
 
 include "FDSP.thrift"
 include "snapshot.thrift"
+include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol
@@ -99,6 +100,7 @@ enum  FDSPMsgTypeId {
     CtrlNotifySMStartMigrationTypeId   = 2062,
     CtrlObjectRebalanceFilterSetTypeId = 2063,
     CtrlObjectRebalanceDeltaSetTypeId  = 2064,
+    CtrlNotifySMAbortMigrationTypeId   = 2065,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
@@ -586,6 +588,11 @@ struct CtrlNotifyDLTClose {
      1: FDSP.FDSP_DltCloseType    dlt_close;
 }
 
+/* ---------------------  CtrlNotifySMAbortMigrationTypeId  ---------------------------- */
+struct CtrlNotifySMAbortMigration {
+     1: i64  DLT_version;
+}
+
 /* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
 struct CtrlNotifyPushDMT {
      1: FDSP.FDSP_PushMeta        dmt_push;
@@ -893,22 +900,17 @@ struct GetBlobMetaDataMsg {
 
 struct GetBucketMsg {
   //request
-  1: i64                       volume_id;
-  2: i64                       startPos;  
-  3: i64                       maxKeys;
+  1: required i64              volume_id;
+  2: i64                       startPos = 0;  
+  3: i64                       count = 10000;
+  4: string                    pattern = "";
+  5: common.BlobListOrder      orderBy = 0;
+  6: bool                      descending = false;
+}
+
+struct GetBucketRspMsg {
   //response
-  4: FDSP.BlobInfoListType     blob_info_list;
-}
-
-struct ListBlobsByPatternMsg {
-  1: i64                       volume_id;
-  2: i64                       startPos;
-  3: i64                       maxKeys;
-  4: string                    pattern;
-}
-
-struct ListBlobsByPatternRspMsg {
-  1: FDSP.BlobDescriptorListType  blobDescriptors;
+  1: required FDSP.BlobInfoListType     blob_info_list;
 }
 
 struct GetDmStatsMsg {

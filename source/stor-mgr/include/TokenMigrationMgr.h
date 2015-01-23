@@ -12,6 +12,11 @@
 
 namespace fds {
 
+/**
+ * Callback for Migration Start Ack
+ */
+typedef std::function<void (const Error&)> OmStartMigrationCbType;
+
 /*
  * Class responsible for migrating tokens between SMs
  * For each migration process, it creates migrationExecutors
@@ -74,7 +79,13 @@ class SmTokenMigrationMgr {
      * which initiate token migration
      */
     Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+                         OmStartMigrationCbType cb,
                          fds_uint32_t bitsPerDltToken);
+
+    /**
+     * Handles message from OM to abort migration
+     */
+    Error abortMigration();
 
     /**
      * Handle start object rebalance from destination SM
@@ -135,6 +146,9 @@ class SmTokenMigrationMgr {
     std::atomic<MigrationState> migrState;
     /// next ID to assign to a migration executor
     std::atomic<fds_uint64_t> nextExecutorId;
+
+    /// callback to svc handler to ack back to OM for Start Migration
+    OmStartMigrationCbType omStartMigrCb;
 
     /// SM token token that is currently in progress of migrating
     /// TODO(Anna) make it more general if we want to migrate several

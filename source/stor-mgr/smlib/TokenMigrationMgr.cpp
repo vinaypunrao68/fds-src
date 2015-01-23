@@ -10,6 +10,7 @@ namespace fds {
 
 SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
+          omStartMigrCb(NULL),
           clientLock("Migration Client Map Lock") {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextExecutorId = ATOMIC_VAR_INIT(0);
@@ -33,11 +34,20 @@ SmTokenMigrationMgr::~SmTokenMigrationMgr() {
  */
 Error
 SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+                                    OmStartMigrationCbType cb,
                                     fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
     // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
         LOGWARN << "We received empty migrations message from OM, nothing to do";
+        return err;
+    }
+
+    // TODO(Anna) we are disabling migration for now since it is not fully
+    // integrated, so calling callback right away
+    if (cb) {
+        LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
+        cb(ERR_OK);
         return err;
     }
 
@@ -47,6 +57,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         LOGNOTIFY << "startMigration called in non-idle state " << migrState;
         return ERR_NOT_READY;
     }
+    omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
 
     // create migration executors for each <SM token, source SM> pair
     for (auto migrGroup : migrationMsg->migrations) {
@@ -112,6 +123,10 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
                                                leveldb::ReadOptions& options,
                                                leveldb::DB *db) {
     Error err(ERR_OK);
+    if (atomic_load(&migrState) == MIGR_ABORTED) {
+        LOGNORMAL << "Migration was aborted, ignoring migration task";
+        return;
+    }
 
     // must match sm token id that is currently in progress
     fds_verify(snapRequest->token_id == smTokenInProgress);
@@ -145,8 +160,10 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
         abortMigration(err);
     }
 
-    // TODO(Anna) start snapshot of the next SM token when we finish
-    // migration of all DLT tokens belonging to this SM token
+    // At this point this SM (destination) sent rebalance set msgs to source SMs
+    // We are waiting for response(s) from source SMs to continue with migration
+    // or we will get abort migration from OM if we don't get response from SM
+    // because it is down (SL will timeout on these requests and send msg to OM)
 }
 
 /**
@@ -213,6 +230,12 @@ Error
 SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
     Error err(ERR_OK);
     fds_uint64_t executorId = deltaSet->executorID;
+
+    // if we receive this in IDLE or ABORTED state, just ignore
+    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+        LOGWARN << "Migration NOT in progress anymore, assuming was aborted!";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     // since we are doing one SM token at a time, search for executor in deltaSet
     fds_bool_t found = false;
@@ -282,9 +305,12 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // we have more SM tokens to migrate
             startSmTokenMigration(it->first);
         } else {
-            /// we are done migrating, reply to start migration msg from OM
-            // TODO(Anna) reply to start migration msg here
-            // TODO(Anna) revisit this when doing active IO
+            // we are done migrating, reply to start migration msg from OM
+            omStartMigrCb(ERR_OK);
+            omStartMigrCb = NULL;  // we replied, so 
+
+            // TODO(Anna) revisit this when doing active IO -- we will have
+            // to do the second snapshot
         }
     }
 }
@@ -308,20 +334,40 @@ SmTokenMigrationMgr::handleDltClose() {
     return err;
 }
 
+/**
+ * Handles message from OM to abort migration
+ */
+Error
+SmTokenMigrationMgr::abortMigration() {
+    Error err(ERR_OK);
+    LOGNOTIFY << "Will abort token migration per OM request";
+    abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
+    return err;
+}
+
+/// local method that actually aborts migration
 void
 SmTokenMigrationMgr::abortMigration(const Error& error) {
     LOGNOTIFY << "Aborting token migration " << error;
-    if (atomic_load(&migrState) == MIGR_ABORTED) {
-        LOGNOTIFY << "Migration already aborted, nothing else to do";
-        return;
+
+    // set migration state to aborted
+    MigrationState expectState = MIGR_IN_PROGRESS;
+    if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_ABORTED)) {
+        MigrationState curState = atomic_load(&migrState);
+        if (curState == MIGR_IDLE) {
+            // nothing to do, migration was not in progress
+            LOGNOTIFY << "Migration was idle, nothing to abort";
+        } else if (curState == MIGR_ABORTED) {
+            LOGNOTIFY << "Migration already aborted, nothing else to do";
+        }
+        return;  // this is ok
     }
 
-    // set state to 'aborted'
-    MigrationState newState = MIGR_ABORTED;
-    atomic_store(&migrState, newState);
-
-    // TODO(Anna) depending on current state, send ack with error to OM
-    // and do any necessary cleanup here...
+    // if we need to ack Start  Migration from OM, we will have a cb to reply to
+    if (omStartMigrCb) {
+        omStartMigrCb(error);
+        omStartMigrCb = NULL;
+    }
 
     migrExecutors.clear();
 }

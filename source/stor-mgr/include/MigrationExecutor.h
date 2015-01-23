@@ -117,7 +117,7 @@ class MigrationExecutor {
      * Maintain messages from the source SM, so we don't lose it.  Each async message
      * from source SM has a unique sequence number.
      */
-    MigrationSeqNumReceiver seqNumDeltaSet;
+    MigrationDoubleSeqNum seqNumDeltaSet;
 
     /// true if standalone (no rpc sent)
     fds_bool_t testMode;

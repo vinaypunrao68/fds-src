@@ -633,8 +633,11 @@ struct DmIoGetSysStats : dmCatReq {
 
 struct DmIoGetBucket : dmCatReq {
     boost::shared_ptr<fpi::GetBucketMsg> message;
+    boost::shared_ptr<fpi::GetBucketRspMsg> response;
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)
-            : message(message) , dmCatReq(message->volume_id, "", "", 0, FDS_LIST_BLOB) {}
+            : message(message),
+              response(new fpi::GetBucketRspMsg()),
+              dmCatReq(message->volume_id, "", "", 0, FDS_LIST_BLOB) {}
 };
 
 struct DmIoDeleteBlob: dmCatReq {
@@ -646,19 +649,6 @@ struct DmIoDeleteBlob: dmCatReq {
                                           message->blob_version,
                                           FDS_DELETE_BLOB) {
     }
-};
-
-struct DmIoListBlobsByPattern : dmCatReq {
-    boost::shared_ptr<fpi::ListBlobsByPatternMsg> message;
-    boost::shared_ptr<fpi::ListBlobsByPatternRspMsg> response;
-    explicit DmIoListBlobsByPattern(boost::shared_ptr<fpi::ListBlobsByPatternMsg> message)
-            : message(message),
-              response(new fpi::ListBlobsByPatternRspMsg()),
-              dmCatReq(message->volume_id,
-                       "",
-                       "",
-                       0,
-                       FDS_DM_LIST_BLOBS_BY_PATTERN) {}
 };
 
 }  // namespace fds

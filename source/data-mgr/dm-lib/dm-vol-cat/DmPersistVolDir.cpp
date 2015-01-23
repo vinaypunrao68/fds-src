@@ -32,14 +32,14 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     }
 
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string snapDir = root->dir_user_repo_snap()
+    std::string snapDir = root->dir_user_repo_dm() + getVolIdStr() + "/"
             + std::to_string(dmUuid.uuid_get_val()) + std::string("-tmpXXXXXX");
     // FdsRootDir::fds_mkdir(snapDir.c_str());
 
     char* tempdir = mkdtemp(const_cast<char*>(snapDir.c_str()));
 
     if (!tempdir) {
-        LOGERROR << "unable to create a temp dir";
+        LOGERROR << "unable to create a temp dir with error " << errno;
         return ERR_NOT_FOUND;
     }
 
@@ -49,7 +49,7 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
 
     NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(dmUuid);
     DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
-    const std::string destDir = dm->get_node_root() + "user-repo/dm-names/";
+    const std::string destDir = dm->get_node_root() + "user-repo/dm-names/" + getVolIdStr() + "/";
     const std::string rsyncCmd = "sshpass -p passwd rsync -r " + snapDir + " root@" +
             destIP + ":" + destDir;
 

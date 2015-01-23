@@ -15,7 +15,6 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
-import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -92,7 +91,7 @@ public class S3SmokeTest {
                 .getOrDefault("fds.host", "localhost");
 
         String omUrl = "https://" + host + ":7443";
-        turnLog4jOff();
+        SmokeTestRunner.turnLog4jOn();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
         String adminToken = adminUserObject.getString("token");
 
@@ -501,21 +500,4 @@ public class S3SmokeTest {
                 .getContent()));
     }
 
-    private void turnLog4jOff() {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "OFF, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        PropertyConfigurator.configure(properties);
-    }
-
-    private void turnLog4jOn() {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "DEBUG, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        PropertyConfigurator.configure(properties);
-    }
 }
