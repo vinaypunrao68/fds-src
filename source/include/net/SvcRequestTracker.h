@@ -18,7 +18,7 @@ namespace fds {
 class SvcRequestTracker {
  public:
     bool addForTracking(const SvcRequestId& id, SvcRequestIfPtr req);
-    bool removeFromTracking(const SvcRequestId& id);
+    SvcRequestIfPtr popFromTracking(const SvcRequestId& id);
     SvcRequestIfPtr getSvcRequest(const SvcRequestId &id);
 
  protected:
