@@ -38,6 +38,41 @@ public class HdfsSmokeTest {
         fileSystem.mkdirs(p);
     }
 
+    // @Test
+    public void testHdfsPerformance() throws Exception {
+        Path path = new Path("/foo.bin");
+        FSDataOutputStream outputStream = fileSystem.create(path);
+        byte[] buf = new byte[OBJECT_SIZE];
+        long then = System.currentTimeMillis();
+        int objectCount = 200;
+        for (int i = 0; i < objectCount; i++) {
+            outputStream.write(buf);
+        }
+        outputStream.flush();
+        outputStream.close();
+        long elapsed = System.currentTimeMillis() - then;
+        double throughputInMB = 1000 * (objectCount * 2) / (double) elapsed;
+        double fourKBlocksInOneMB = OBJECT_SIZE / 4096d;
+
+        System.out.println("Wrote " + objectCount + " objects in " + elapsed + "ms ");
+        System.out.println("Write throughput: " + throughputInMB + " mB/s ");
+        System.out.println("Write equivalent: " + throughputInMB * fourKBlocksInOneMB + " IOPs");
+
+        FSDataInputStream input = fileSystem.open(path);
+        then = System.currentTimeMillis();
+        int readCount = 0;
+        for (int i = input.read(buf); i != -1; i = input.read(buf)) {
+            readCount++;
+        }
+        elapsed = System.currentTimeMillis() - then;
+        throughputInMB = 1000 * (readCount * 2) / (double) elapsed;
+
+        System.out.println("Read " + readCount + " objects in " + elapsed + "ms ");
+        System.out.println("Read throughput: " + throughputInMB + " mB/s ");
+        System.out.println("Read equivalent: " + throughputInMB * fourKBlocksInOneMB + " IOPs");
+
+    }
+
     @Test
     public void testPermissions() throws Exception {
         Path f = new Path("/foo");
