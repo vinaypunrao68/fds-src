@@ -18,7 +18,6 @@
 #include "util/Log.h"
 #include "StorMgrVolumes.h"
 #include "persistent-layer/dm_io.h"
-#include "fds_migration.h"
 #include "hash/md5.h"
 
 #include "fds_qos.h"
@@ -43,7 +42,6 @@
 #include "platform/typedefs.h"
 
 // #include "NetSession.h"
-#include "kvstore/tokenstatedb.h"
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>
@@ -110,16 +108,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      boost::shared_ptr<netSessionTbl> nst_;
      boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
      netDataPathServerSession *datapath_session_;
-
-     /** Cluster communication manager */
-     ClusterCommMgrPtr clust_comm_mgr_;
-
-     /** Migrations related */
-     FdsMigrationSvcPtr migrationSvc_;
-
-     /** Token state db */
-     kvstore::TokenStateDBPtr tokenStateDb_;
-
 
      /* To indicate whether tokens were migrated or not for the dlt. Based on this
       * flag we simulate sync/io close notification to OM.  We shouldn't need this
@@ -351,28 +339,17 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      void handleDltUpdate();
 
-     static void nodeEventOmHandler(int node_id,
-                                    unsigned int node_ip_addr,
-                                    int node_state,
-                                    fds_uint32_t node_port,
-                                    FDS_ProtocolInterface::FDSP_MgrIdType node_type);
      static Error volEventOmHandler(fds::fds_volid_t volume_id,
                                     fds::VolumeDesc *vdb,
                                     int vol_action,
                                     FDSP_NotifyVolFlag vol_flag,
                                     FDSP_ResultType resut);
-     static void migrationEventOmHandler(bool dlt_type);
-     static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
-                                      const std::string& session_uuid);
-     void migrationSvcResponseCb(const Error& err, const MigrationStatus& status);
 
      virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();
      TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
-     TVIRTUAL kvstore::TokenStateDBPtr getTokenStateDb();
-     TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId);
 
      Error putTokenObjects(const fds_token_id &token,
                            FDSP_MigrateObjectList &obj_list);

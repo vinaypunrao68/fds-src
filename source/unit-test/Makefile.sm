@@ -15,7 +15,6 @@ user_fds_so_libs  +=
 user_fds_ar_libs  +=  \
     fds-test \
     fds-smlib \
-    fds-migrations \
     fds-am-engine \
     fds-odb \
     fds-sm-plat \

@@ -19,7 +19,6 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-smlib\
-    fds-migrations\
     fds-am-engine \
     fds-am-plat \
     fds-dsk-mgnt \

@@ -388,6 +388,11 @@ DataPlacement::getCommitedDlt() const {
     return commitedDlt;
 }
 
+const DLT*
+DataPlacement::getTargetDlt() const {
+    return newDlt;
+}
+
 fds_uint64_t
 DataPlacement::getLatestDltVersion() const {
     if (newDlt) {
