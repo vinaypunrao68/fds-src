@@ -82,27 +82,32 @@ SMChkDriver::SMChkDriver(int argc, char *argv[],
 
 int SMChkDriver::run() {
     checker = new SMChk(sm_count, smDiskMap, smObjStore, smMdDb);
+    bool success = false;
     switch (cmd) {
         case RunFunc::FULL_CHECK:
-            checker->full_consistency_check();
+            success = checker->full_consistency_check();
             break;
         case RunFunc::PRINT_MD:
             checker->list_metadata();
+            success = true;
             break;
         case RunFunc::PRINT_PATH_BY_TOK:
             checker->list_path_by_token();
+            success = true;
             break;
         case RunFunc::PRINT_TOK_BY_PATH:
             checker->list_token_by_path();
+            success = true;
             break;
         case RunFunc::CALC_BYTES_RECLAIMABLE:
             checker->bytes_reclaimable();
+            success = true;
             break;
         default:
-            checker->full_consistency_check();
+            success = checker->full_consistency_check();
             break;
     }
-    return 0;
+    return (int)success;
 }
 }  // namespace fds
 
@@ -132,6 +137,6 @@ main(int argc, char** argv) {
 
     fds::SMChkDriver smChk(argc, &new_argv[0], "platform.conf", "fds.sm.",
             vec, smDiskMap, smObjStore);
-    smChk.main();
-    return 0;
+    int ret = smChk.main();
+    return ret;
 }

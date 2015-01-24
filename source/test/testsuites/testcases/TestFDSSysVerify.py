@@ -401,6 +401,68 @@ class TestVerifyStaticDMTMigration(TestCase.FDSTestCase):
             return False
 
 
+# This class contains the attributes and methods to test
+# the consistency of SM It requires that the cluster be shut down.
+class TestVerifySMConsistency(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(TestVerifySMConsistency, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_VerifySMConsistency():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("SM consistency checking caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_VerifySMConsistency(self):
+        """
+        Test Case:
+        Attempt to run the the .../bin/smchk utility to confirm SM consistency.
+
+        WARNING: This implementation assumes that the cluster is down.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
+        fds_dir = om_node.nd_conf_dict['fds_root']
+
+        self.log.info("Check SM consistency.")
+
+        status = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --full-check > %s/smchk.out 2>&1 &) \"' %
+                                      (bin_dir, fds_dir, log_dir))
+
+        if status != 0:
+            self.log.error("SM consistency checking using node %s returned status %d." %
+                           (om_node.nd_conf_dict['fds_node'], status))
+            return False
+
+        return True
+
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
     unittest.main()

@@ -338,6 +338,8 @@ def suiteConstruction():
                 else:
                     log.error("Volume not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
+            elif action == "delete":
+                pass
             else:
                 log.error("Unrecognized node action '%s' for scenario %s" %
                           (action, scenario.nd_conf_dict['scenario-name']))
