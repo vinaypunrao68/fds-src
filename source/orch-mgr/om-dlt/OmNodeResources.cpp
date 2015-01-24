@@ -296,6 +296,11 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
         LOGNORMAL << "No current DLT to send to " << get_node_name();
         return Error(ERR_NOT_FOUND);
     }
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send dlt to node we know is down... "
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
 
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDLTUpdatePtr msg(new fpi::CtrlNotifyDLTUpdate());
@@ -326,6 +331,11 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
 Error
 OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     Error err(ERR_OK);
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send dlt close to service we know is down... "
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDLTClosePtr msg(new fpi::CtrlNotifyDLTClose());
