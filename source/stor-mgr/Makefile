@@ -19,7 +19,6 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-smlib \
-    fds-migrations \
     fds-svc-request \
     fds-net-svc \
     fds-qos-lib \
@@ -32,7 +31,6 @@ user_fds_ar_libs  :=                   \
     fds-odb \
     fds-vpolicy \
     fds-hash \
-    fds-migrations \
     fds-net-svc \
     fds-xdi
 
