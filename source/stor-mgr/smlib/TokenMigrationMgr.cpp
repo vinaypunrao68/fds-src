@@ -45,11 +45,13 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
 
     // TODO(Anna) we are disabling migration for now since it is not fully
     // integrated, so calling callback right away
+#if 0
     if (cb) {
         LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
         cb(ERR_OK);
         return err;
     }
+#endif
 
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
@@ -307,7 +309,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         } else {
             // we are done migrating, reply to start migration msg from OM
             omStartMigrCb(ERR_OK);
-            omStartMigrCb = NULL;  // we replied, so 
+            omStartMigrCb = NULL;  // we replied, so
 
             // TODO(Anna) revisit this when doing active IO -- we will have
             // to do the second snapshot

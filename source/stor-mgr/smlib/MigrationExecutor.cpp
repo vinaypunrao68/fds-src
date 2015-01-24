@@ -149,7 +149,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 Error
 MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
     Error err(ERR_OK);
-    LOGDEBUG << "Sync Object Set " << deltaSet->objectToPropagate.size()
+    LOGDEBUG << "Sync Delta Object Set " << deltaSet->objectToPropagate.size()
              << " objects, executor ID " << deltaSet->executorID
              << " seqNum " << deltaSet->seqNum
              << " lastSet " << deltaSet->lastDeltaSet;
@@ -195,6 +195,11 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         applyReq->smioObjdeltaRespCb = std::bind(
             &MigrationExecutor::objDeltaAppliedCb, this,
             std::placeholders::_1, std::placeholders::_2);
+
+        LOGDEBUG << "Enqueue QoS Delta Set: "
+                 << " qosSeq=" << applyReq->qosSeqNum
+                 << " qosLastSet=" << applyReq->qosLastSet
+                 << " size of qos set=" << applyReq->deltaSet.size();
 
         // enqueue to QoS queue
         err = dataStore->enqueueMsg(FdsSysTaskQueueId, applyReq);

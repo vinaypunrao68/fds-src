@@ -94,7 +94,7 @@ namespace fds {
     }
 
    /*
-    * bit mask. this will help to boost the performance 
+    * bit mask. this will help to boost the performance
     */
 
     fds_uint64_t ObjectID::getTokenBits(fds_uint32_t numBits) const {
@@ -266,6 +266,12 @@ uint32_t ObjectID::read(serialize::Deserializer* d) {
 
     std::ostream& operator<<(std::ostream& out, const ObjectID& oid) {
       return out << "Object ID: " << ObjectID::ToHex(oid);
+    }
+
+    boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
+                                                const ObjectID& oid)
+    {
+        return out << "ObjectID=" << ObjectID::ToHex(oid);
     }
 
     fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
