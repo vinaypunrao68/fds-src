@@ -286,7 +286,7 @@ OM_NodeAgent::om_send_abort_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr ms
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
-    dltMod->dlt_deploy_event(DltAbortMigrationAckEvt(node_uuid));
+    dltMod->dlt_deploy_event(DltRecoverAckEvt(true));
 }
 
 Error
@@ -1788,10 +1788,16 @@ om_send_dlt(const DLT* curDlt, NodeAgent::pointer agent)
 // ------------
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_dlt(const DLT* curDlt, fds_bool_t sm_only)
+OM_NodeContainer::om_bcast_dlt(const DLT* curDlt,
+                               fds_bool_t to_sm,
+                               fds_bool_t to_dm,
+                               fds_bool_t to_am)
 {
     fds_uint32_t count = 0;
-    count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+    if (to_sm) {
+        count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+        LOGDEBUG << "Sent dlt to SM nodes successfully";
+    }
 
 #ifdef LLIU_WORK_IN_PROGRESS
     //   the following is to test for PM to receive dlt
@@ -1799,12 +1805,14 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt, fds_bool_t sm_only)
     dc_pm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
 #endif
 
-    if (sm_only) {
-        return count;
+    if (to_dm) {
+        count += dc_dm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+        LOGDEBUG << "Sent dlt to DM nodes successfully";
     }
-
-    count += dc_dm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
-    count += dc_am_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+    if (to_am) {
+        count += dc_am_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+        LOGDEBUG << "Sent dlt to AM nodes successfully";
+    }
 
     LOGDEBUG << "Sent dlt to " << count << " nodes successfully";
     return count;

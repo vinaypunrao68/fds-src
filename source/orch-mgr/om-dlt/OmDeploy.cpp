@@ -223,8 +223,11 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
      * DltErrorMode interrupts
      * Will resume when end_error is generated
      */
-    struct DltErrorMode : public msm::front::interrupt_state<DltEndErrorEvt>
+    struct DltErrorMode
+            : public msm::front::interrupt_state<mpl::vector<DltEndErrorEvt, DltRecoverAckEvt>>
     {
+        DltErrorMode() : abortMigrAcksToWait(0), commitDltAcksToWait(0) {}
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -234,6 +237,9 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGDEBUG << "DltErrorMode. Evt: " << e.logString();
         }
+
+        fds_uint32_t abortMigrAcksToWait;
+        fds_uint32_t commitDltAcksToWait;
     };
 
     /**
@@ -295,6 +301,16 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_ChkEndErr
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_RecoverDone
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
 
     /**
      * Guard conditions.
@@ -336,19 +352,26 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     msf::Row< DST_Idle    , DltLoadedDbEvt , DST_Commit  , DACT_Commit   , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Waiting , DltTimeoutEvt  , DST_SendDlts, DACT_Compute  , msf::none    >,
+    msf::Row< DST_Waiting , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_SendDlts, msf::none      , DST_WaitSync, DACT_SendDlts , msf::none    >,
+    msf::Row< DST_SendDlts, DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_WaitSync, DltCommitOkEvt , DST_Rebal   , DACT_Rebalance, GRD_DltSync  >,
+    msf::Row< DST_WaitSync, DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Rebal   , DltRebalOkEvt  , DST_Commit  , DACT_Commit   , GRD_DltRebal >,
+    msf::Row< DST_Rebal   , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Commit  , DltCommitOkEvt , DST_Close   , DACT_Close    , GRD_DltCommit>,
+    msf::Row< DST_Commit  , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Close   , DltCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_DltClose >,
+    msf::Row< DST_Close   , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DltAllOk    , DltErrorFoundEvt, DltErrorMode, DACT_Error   , msf::none    >,
-    msf::Row< DltErrorMode, DltEndErrorEvt , DltAllOk    , DACT_EndError , msf::none    >
+    msf::Row< DltErrorMode, DltEndErrorEvt , DltAllOk    , DACT_EndError , msf::none    >,
+    msf::Row< DltErrorMode, DltRecoverAckEvt, DltErrorMode, DACT_ChkEndErr, msf::none    >
     // +------------------+----------------+-------------+---------------+--------------+
     >{};  // NOLINT
 
@@ -456,7 +479,7 @@ OM_DLTMod::dlt_deploy_event(DltErrorFoundEvt const &evt)
 }
 
 void
-OM_DLTMod::dlt_deploy_event(DltAbortMigrationAckEvt const &evt)
+OM_DLTMod::dlt_deploy_event(DltRecoverAckEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
     dlt_dply_fsm->process_event(evt);
@@ -727,12 +750,14 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     ClusterMap* cm = om->om_clusmap_mod();
     fds_verify((dp != NULL) && (cm != NULL));
 
+    // We commit DLT as an 'official' version
+    // but not yet persist it in redis nor reset pending services
+    // in cluster map -- we do that on DLT close, just before
+    // going to persistent state.. If shutdown happens between commit
+    // and close, we will redo the migration
+
     // commit as an 'official' version in the data placement engine
     dp->commitDlt();
-
-    // reset pending nodes in cluster map, since they are already
-    // present in the DLT
-    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
     // Send new DLT to each node in the cluster map
     // the new DLT now is committed DLT
@@ -811,9 +836,17 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     LOGDEBUG << "DltFSM DACT_UpdDone";
     OM_Module *om = OM_Module::om_singleton();
     ClusterMap* cm = om->om_clusmap_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(cm != NULL);
     LOGNOTIFY << "OM deployed DLT with "
               << cm->getNumMembers(fpi::FDSP_STOR_MGR) << " nodes";
+
+    // persist commited DLT
+    dp->persistCommitedTargetDlt();
+
+    // reset pending nodes in cluster map, since they are already
+    // present in the DLT
+    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
     if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
                                      std::chrono::seconds(1))) {
@@ -897,6 +930,58 @@ void
 DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "FSM DACT_Error ";
+
+    // if we did not even have target DLT computed, nothing to recover,
+    // go back all ok / IDLE state
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+    fds_verify(dp != NULL);
+    if (dp->hasNoTargetDlt()) {
+        LOGNOTIFY << "No target DLT commited/commited, nothing to recover";
+        fsm.process_event(DltEndErrorEvt());
+    } else {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
+
+        // revert to previously commited DLT locally in OM
+        dp->undoTargetDltCommit();
+
+        // we already computed target DLT, so most likely sent start migration msg
+        // send abort migration to SMs first, so that we can restart migratino later
+        // (otherwise SMs will be left in bad state)
+        LOGNOTIFY << "Already computed or commited target DLT, will send abort migration msg "
+                  << " for target DLT version " << dp->getTargetDltVersion();
+        fds_uint32_t abortCnt = dom_ctrl->om_bcast_sm_migration_abort(dp->getCommitedDltVersion());
+        LOGNOTIFY << "Sent abort migration msgs to " << abortCnt << " SMs";
+        dst.abortMigrAcksToWait = 0;
+        if (abortCnt > 0) {
+            dst.abortMigrAcksToWait = abortCnt;
+        }
+
+        // we are going to wait for acks so that we do not go to idle/all ok state too soon
+        // but we are going to ignore ack errors/timeouts; so we will revert data placement
+        // and persistent state right now, without waiting for abort migration acks and send
+        // DLT commit for previously commited DLT to AMs (SM will revert to previous DLT as
+        // part of processing Abort Migration Msg)
+
+        // send dlt commit to AMs and DMs if target was commited
+        fds_uint32_t commitCnt = 0;
+        if (!dp->hasNonCommitedTarget()) {
+            // has target DLT (see the first if) and it is commited
+            commitCnt = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), false, true, true);
+            dst.commitDltAcksToWait = 0;
+            if (commitCnt > 0) {
+                dst.commitDltAcksToWait = commitCnt;
+            }
+        }
+
+        // see if we already recovered or need to wait for acks
+        if ((abortCnt < 1) || (commitCnt < 1)) {
+            // we already recovered :)
+            LOGNOTIFY << "No services that need abort migration or previously committed DLT";
+            fsm.process_event(DltEndErrorEvt());
+        }
+    }
 }
 
 // DACT_EndError
@@ -908,6 +993,42 @@ void
 DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "FSM DACT_EndError ";
+}
+
+// DACT_ChkEndErr
+// -----------
+// Start recover from error state
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    DltRecoverAckEvt recoverAckEvt = (DltRecoverAckEvt)evt;
+    LOGDEBUG << "FSM DACT_ChkEndErr ack for abort migration? " << recoverAckEvt.ackForAbort;
+
+    if (recoverAckEvt.ackForAbort) {
+        fds_verify(src.abortMigrAcksToWait > 0);
+        --src.abortMigrAcksToWait;
+    } else {
+        fds_verify(src.commitDltAcksToWait > 0);
+        --src.commitDltAcksToWait;
+    }
+
+    if (src.commitDltAcksToWait == 0 && src.abortMigrAcksToWait == 0) {
+        LOGNOTIFY << "Receivied all acks for abort migration and revert DLT";
+        fsm.process_event(DltEndErrorEvt());
+    }
+}
+
+// DACT_RecoverDone
+// -----------
+// Finished recovering from error state
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_RecoverDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "FSM DACT_RecoverDone ";
 }
 
 

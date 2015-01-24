@@ -546,7 +546,7 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     dp->commitDlt();
 
     // broadcast DLT to SMs only (so they know the diff when we update the DLT)
-    dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true);
+    dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true, false, false);
 
     // at this point there should be no pending add/rm nodes in cluster map
     fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
@@ -1308,6 +1308,10 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
     } else {
         dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
     }
+
+    // in case dlt is in error mode, also send recover ack, since OM sends
+    // dlt commit for previously commited DLT as part of recovery
+    dltMod->dlt_deploy_event(DltRecoverAckEvt(false));
 
     return err;
 }

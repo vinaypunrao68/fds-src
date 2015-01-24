@@ -106,18 +106,17 @@ struct DltEndErrorEvt
     }
 };
 
-struct DltAbortMigrationAckEvt
+struct DltRecoverAckEvt
 {
-    explicit DltAbortMigrationAckEvt(const NodeUuid& uuid)
-    : sm_uuid(uuid) {}
+    explicit DltRecoverAckEvt(fds_bool_t abortAck)
+    : ackForAbort(abortAck) {}
 
     std::string logString() const {
-        return "DltAbortMigrationAckEvt";
+        return "DltRecoverAckEvt";
     }
 
-    NodeUuid sm_uuid;
+    fds_bool_t ackForAbort;  // otherwise dlt commit ack
 };
-
 
 /**
  * Main vector to initialize the DLT module.
@@ -143,7 +142,7 @@ class OM_DLTMod : public Module
     void dlt_deploy_event(DltLoadedDbEvt const &evt);
     void dlt_deploy_event(DltTimeoutEvt const &evt);
     void dlt_deploy_event(DltErrorFoundEvt const &evt);
-    void dlt_deploy_event(DltAbortMigrationAckEvt const &evt);
+    void dlt_deploy_event(DltRecoverAckEvt const &evt);
 
     /**
      * Module methods
