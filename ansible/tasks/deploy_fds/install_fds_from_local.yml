@@ -12,32 +12,17 @@
     tags:
       - install-local
 
--   name: copy local fds-deps.deb to host
-    when: deploy_artifact == "local"
-    copy: src={{ item }}
-      dest=/root/fds-deps.deb
-    with_fileglob:
-      - '../../playbooks/resources/fds-deps_*.deb'
-    tags:
-      - install-local
-
 -   name: install fds platfrom from local debs
     when: deploy_artifact == "local"
     apt: deb="/root/fds-platform.deb"
     tags:
       - install-local
 
--   name: install fds deps from local debs
+-   name: delete local debs from /root/ to avoid conflicts
+    file: path=/root/{{ item }}
+        state=absent
+    with_fileglob:
+      - 'fds-platform.deb'
     when: deploy_artifact == "local"
-    apt: deb="/root/fds-deps.deb"
     tags:
       - install-local
-
-#-   name: delete local debs from /root/ to avoid conflicts
-#    when: deploy_artifact == "local"
-#    file: path=/root/{{ item }}
-#        state=absent
-#    with_fileglob:
-#      - 'fds-*.deb'
-#    tags:
-#      - install-local

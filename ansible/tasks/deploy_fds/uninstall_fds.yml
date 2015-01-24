@@ -1,10 +1,7 @@
 ---
 -   name: uninstall fds
-    apt: name={{item}}
+    apt: name=fds-platform
         state=absent
         purge=yes
-    with_items:
-      - fds-platform
-      - fds-deps
     tags:
         - uninstall

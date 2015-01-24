@@ -30,28 +30,6 @@
     tags:
         - install-deps
 
-#-   name: ensure_os_packages_installed
-#    apt: name={{item}} state=present update_cache=yes
-#    with_items:
-#        - libevent-dev
-#        - parted
-#        - gdb
-#        - tar
-#        - libboost-log1.55.0
-#        - libboost-program-options1.55.0
-#        - libboost-timer1.55.0
-#        - libboost-thread1.55.0
-#        - libboost-regex1.55.0
-#        - libboost-date-time1.55.0
-#        - libleveldb-dev
-#        - libpcrecpp0
-#        - google-perftools
-#        - gcc
-#        - python-dev
-#        - python-pycurl
-#    tags:
-#        - install-deps
-
 -   name: add local mirrors to /etc/hosts
     lineinfile: dest=/etc/hosts
         line="{{item}}"
@@ -73,29 +51,29 @@
     tags:
         - install-deps
 
-#-   name: add LOCAL fds nightly platform repo
-#    when: deploy_artifact == "nightly" and cluster_location is defined
-#    apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform nightly"
-#        state=present
-#        update_cache=yes
-#    tags:
-#      - install-deps
+-   name: add LOCAL fds nightly platform repo
+    when: deploy_artifact == "nightly" and cluster_location is defined
+    apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform nightly"
+        state=present
+        update_cache=yes
+    tags:
+      - install-deps
 
-#-   name: add Artifactory fds nightly platform repo
-#    when: deploy_artifact == "nightly" and cluster_location is not defined
-#    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
-#        state=present
-#        update_cache=yes
-#    tags:
-#      - install-deps
+-   name: add Artifactory fds nightly platform repo
+    when: deploy_artifact == "nightly" and cluster_location is not defined
+    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
+        state=present
+        update_cache=yes
+    tags:
+      - install-deps
 
-#-   name: add Artifactory repo for third party packages
-#    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
-#        state=present
-#        update_cache=yes
-#    when: cluster_location is not defined
-#    tags:
-#        - install-deps
+-   name: add Artifactory repo for third party packages
+    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
+        state=present
+        update_cache=yes
+    when: cluster_location is not defined
+    tags:
+        - install-deps
 
 -   name: install third party deps from artifactory repo
     apt: name={{item}}
@@ -104,43 +82,47 @@
         update_cache=yes
         default_release=fds
     with_items:
-#        - libpcre3
-#        - "libconfig++9"
-#        - libev4
-#        - libreadline5
-#        - libcryptopp-dev
-#        - xfsprogs
-#        - libjemalloc1
-#        - redis-tools
-#        - redis-server
-#        - java-common
         - oracle-java8-jdk
-#        - libical1
-#        - libhiredis0.10
-#        - python-setuptools
-#        - python-colorama
-#        - python-distlib
-#        - python-html5lib
-#        - python-pip
     tags:
         - install-deps
 
+-   name: uninstall fds-deps
+    apt: name=fds-deps
+        state=absent
+        purge=yes
+    tags:
+        - uninstall
 
-#-   name: install omnibus fds-deps package
-#    apt: name={{item}}
-#        force=yes
-#        state=present
-#        update_cache=yes
-#    with_items:
-#        - fds-deps
-#    tags:
-#        - install-deps
+-   name: install fds-deps package
+    apt: name=fds-deps
+        force=yes
+        state=present
+        update_cache=yes
+    when: deploy_artifact == 'nightly'
+    tags:
+        - install-deps
 
-#-   name: install needed pip modules
-#    pip: name={{item.name}} version={{item.version}}
-#    with_items:
-#        - { name: 'paramiko', version: '1.15.1' }
-#        - { name: 'scp', version: '0.8.0' }
-#        - { name: 'boto', version: '2.34.0' }
-#    tags:
-#        - install-deps
+-   name: copy local fds-deps.deb to host
+    when: deploy_artifact == "local"
+    copy: src={{ item }}
+      dest=/root/fds-deps.deb
+    with_fileglob:
+      - '../../playbooks/resources/fds-deps_*.deb'
+    when: deploy_artifact == 'local'
+    tags:
+      - install-local
+
+-   name: install fds deps from local debs
+    apt: deb="/root/fds-deps.deb"
+    when: deploy_artifact == "local"
+    tags:
+      - install-local
+
+-   name: delete local debs from /root/ to avoid conflict
+    file: path=/root/{{ item }}
+        state=absent
+    with_fileglob:
+      - 'fds-deps.deb'
+    when: deploy_artifact == "local"
+    tags:
+      - install-local
