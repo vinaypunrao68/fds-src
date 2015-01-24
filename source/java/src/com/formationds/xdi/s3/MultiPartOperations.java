@@ -5,6 +5,7 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.ApiException;
 import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.xdi.Xdi;
 import org.apache.thrift.TException;
@@ -35,7 +36,7 @@ class MultiPartOperations {
 
         // TODO: read this in chunks
         String systemVolume = xdi.getSystemVolumeName(token);
-        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0);
+        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
         for(BlobDescriptor bd : blobDescriptors) {
             Matcher match = p.matcher(bd.getName());
             if(match.matches()) {
@@ -54,7 +55,7 @@ class MultiPartOperations {
 
         // TODO: read this in chunks
         String systemVolume = xdi.getSystemVolumeName(token);
-        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0);
+        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
         for(BlobDescriptor bd : blobDescriptors) {
             Matcher match = p.matcher(bd.getName());
             if(match.matches()) {

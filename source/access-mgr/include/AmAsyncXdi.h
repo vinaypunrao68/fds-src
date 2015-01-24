@@ -143,8 +143,8 @@ struct AmAsyncXdiRequest
     { api_type::updateBlobOnce(requestId, domainName, volumeName, blobName, blobMode, bytes, length, objectOffset, metadata); }   // NOLINT
     void updateMetadata(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc, api_type::shared_meta_type& metadata)  // NOLINT
     { api_type::updateMetadata(requestId, domainName, volumeName, blobName, txDesc, metadata); }
-    void volumeContents(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_int_type& count, api_type::shared_size_type& offset)  // NOLINT
-    { api_type::volumeContents(requestId, domainName, volumeName, count, offset); }
+    void volumeContents(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_int_type& count, api_type::shared_size_type& offset, api_type::shared_string_type& pattern, boost::shared_ptr<fpi::BlobListOrder>& orderBy, api_type::shared_bool_type& descending)  // NOLINT
+    { api_type::volumeContents(requestId, domainName, volumeName, count, offset, pattern, orderBy, descending); }
     void volumeStatus(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
     { api_type::volumeStatus(requestId, domainName, volumeName); }
 
@@ -176,7 +176,7 @@ struct AmAsyncXdiRequest
     { you_should_not_be_here(); }
     void updateBlobOnce(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const int32_t blobMode, const std::string& bytes, const int32_t length, const apis::ObjectOffset& objectOffset, const std::map<std::string, std::string> & metadata)  // NOLINT
     { you_should_not_be_here(); }
-    void volumeContents(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const int32_t count, const int64_t offset)  // NOLINT
+    void volumeContents(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const int32_t count, const int64_t offset, const std::string& pattern, const fpi::BlobListOrder orderBy, const bool descending)  // NOLINT
     { you_should_not_be_here(); }
     void volumeStatus(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName)  // NOLINT
     { you_should_not_be_here(); }

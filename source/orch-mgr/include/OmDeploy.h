@@ -28,6 +28,15 @@ class DltComputeEvt
     }
 };
 
+class DltTimeoutEvt
+{
+  public:
+    DltTimeoutEvt() {}
+    std::string logString() const {
+        return "DltTimeoutEvt";
+    }
+};
+
 class DltLoadedDbEvt
 {
   public:
@@ -74,6 +83,34 @@ class DltCloseOkEvt
     }
 };
 
+struct DltErrorFoundEvt
+{
+    DltErrorFoundEvt(const NodeUuid& svc_uuid,
+                     const Error& err)
+            : svcUuid(svc_uuid), error(err) {
+    }
+
+    std::string logString() const {
+        return "DltErrorFoundEvt";
+    }
+
+    NodeUuid svcUuid;  // service uuid where error happened
+    Error error;
+};
+
+struct DltAbortMigrationAckEvt
+{
+    explicit DltAbortMigrationAckEvt(const NodeUuid& uuid)
+    : sm_uuid(uuid) {}
+
+    std::string logString() const {
+        return "DltAbortMigrationAckEvt";
+    }
+
+    NodeUuid sm_uuid;
+};
+
+
 /**
  * Main vector to initialize the DLT module.
  */
@@ -96,6 +133,9 @@ class OM_DLTMod : public Module
     void dlt_deploy_event(DltCommitOkEvt const &evt);
     void dlt_deploy_event(DltCloseOkEvt const &evt);
     void dlt_deploy_event(DltLoadedDbEvt const &evt);
+    void dlt_deploy_event(DltTimeoutEvt const &evt);
+    void dlt_deploy_event(DltErrorFoundEvt const &evt);
+    void dlt_deploy_event(DltAbortMigrationAckEvt const &evt);
 
     /**
      * Module methods

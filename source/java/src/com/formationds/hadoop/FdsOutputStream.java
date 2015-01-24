@@ -3,9 +3,9 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.*;
-import com.formationds.util.blob.Mode;
-import com.formationds.xdi.FdsObjectFrame;
+import com.formationds.apis.AmService;
+import com.formationds.apis.BlobDescriptor;
+import com.formationds.apis.ObjectOffset;
 import org.apache.thrift.TException;
 
 import java.io.IOException;
@@ -22,130 +22,107 @@ public class FdsOutputStream extends OutputStream {
     private final String blobName;
     private AmService.Iface am;
     private long currentOffset;
-
-    private long currentObject;
     private ByteBuffer currentBuffer;
     private boolean isDirty;
+    private boolean isClosed;
+    private OwnerGroupInfo ownerGroupInfo;
 
-    private FdsOutputStream(AmService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
-        this.am = am;
+    FdsOutputStream(AmService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo ownerGroupInfo) throws IOException {
+        this(objectSize, domain, volume, blobName, am, 0, ByteBuffer.allocate(objectSize), false, false, ownerGroupInfo);
+    }
+
+    private FdsOutputStream(int objectSize, String domain, String volume, String blobName, AmService.Iface am,
+                            long currentOffset, ByteBuffer currentBuffer, boolean isDirty, boolean isClosed, OwnerGroupInfo ownerGroupInfo) {
+        this.objectSize = objectSize;
         this.domain = domain;
         this.volume = volume;
         this.blobName = blobName;
-        this.currentOffset = 0L;
-        this.objectSize = objectSize;
-    }
-
-    public static FdsOutputStream openNew(AmService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
-        FdsOutputStream fdsOutputStream = new FdsOutputStream(am, domain, volume, blobName, objectSize);
-        try {
-            am.updateBlobOnce(domain, volume, blobName, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata());
-            return fdsOutputStream;
-        } catch (Exception ex) {
-            throw new IOException(ex);
-        }
+        this.am = am;
+        this.currentOffset = currentOffset;
+        this.currentBuffer = currentBuffer;
+        this.isDirty = isDirty;
+        this.isClosed = isClosed;
+        this.ownerGroupInfo = ownerGroupInfo;
     }
 
     public static FdsOutputStream openForAppend(AmService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
-        FdsOutputStream fdsOutputStream = new FdsOutputStream(am, domain, volume, blobName, objectSize);
         try {
             BlobDescriptor bd = am.statBlob(domain, volume, blobName);
-            fdsOutputStream.currentOffset = bd.getByteCount();
-            return fdsOutputStream;
-        } catch (Exception ex) {
-            throw new IOException(ex);
-        }
-    }
-
-    private static Map<String, String> makeMetadata() {
-        HashMap<String, String> md = new HashMap<>();
-        md.put(FdsFileSystem.LAST_MODIFIED_KEY, Long.toString(Calendar.getInstance().getTimeInMillis()));
-        return md;
-    }
-
-    public void flush() throws IOException {
-        try {
-            if (currentBuffer != null && isDirty) {
-                Map<String, String> metadata = makeMetadata();
-
-                int position = currentBuffer.position();
-
-                if (currentBuffer.remaining() == 0) {
-                    currentBuffer.flip();
-                    am.updateBlobOnce(domain, volume, blobName, Mode.TRUNCATE.getValue(), currentBuffer, currentBuffer.limit(), new ObjectOffset(currentObject), metadata);
-                } else {
-                    // read-update-write
-                    ByteBuffer existing = null;
-                    try {
-                        existing = am.getBlob(domain, volume, blobName, objectSize, new ObjectOffset(currentObject));
-                    } catch (ApiException ex) {
-                        if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
-                            existing = ByteBuffer.allocate(0);
-                        else
-                            throw ex;
-                    }
-                    if (existing.limit() > currentBuffer.limit()) {
-                        existing.position(currentBuffer.limit());
-                        currentBuffer.position(currentBuffer.limit());
-                        currentBuffer.limit(existing.limit());
-                        currentBuffer.put(existing);
-                    }
-                    currentBuffer.flip();
-                    am.updateBlobOnce(domain, volume, blobName, Mode.TRUNCATE.getValue(), currentBuffer, currentBuffer.limit(), new ObjectOffset(currentObject), metadata);
-                }
-
-                currentBuffer.position(position);
-                currentBuffer.limit(currentBuffer.capacity());
-                isDirty = false;
-            }
-        } catch (Exception e) {
+            OwnerGroupInfo owner = new OwnerGroupInfo(bd);
+            long byteCount = bd.getByteCount();
+            ObjectOffset objectOffset = getObjectOffset(byteCount, objectSize);
+            int length = (int) byteCount % objectSize;
+            ByteBuffer lastObject = am.getBlob(domain, volume, blobName, length, objectOffset);
+            ByteBuffer currentBuffer = ByteBuffer.allocate(objectSize);
+            currentBuffer.put(lastObject);
+            return new FdsOutputStream(objectSize, domain, volume, blobName, am, byteCount, currentBuffer, false, false, owner);
+        } catch (TException e) {
             throw new IOException(e);
         }
     }
 
-    private ByteBuffer getBuffer() throws IOException {
-        FdsObjectFrame frame = FdsObjectFrame.firstFrame(currentOffset, 1, objectSize);
-        if (frame.objectOffset != currentObject || currentBuffer == null) {
-            flush();
 
-            currentObject = frame.objectOffset;
-            currentBuffer = ByteBuffer.allocate(objectSize);
-            if (frame.internalOffset > 0) {
-                try {
-                    ByteBuffer buffer = am.getBlob(domain, volume, blobName, frame.internalOffset, new ObjectOffset(currentObject));
-                    currentBuffer.put(buffer);
-                } catch (TException ex) {
-                    if (!(ex instanceof ApiException) || ((ApiException) ex).errorCode == ErrorCode.MISSING_RESOURCE) {
-                        throw new IOException(ex);
-                    }
-                }
+    public static FdsOutputStream openNew(AmService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo owner) throws IOException {
+        try {
+            am.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata(owner));
+            return new FdsOutputStream(am, domain, volume, blobName, objectSize, owner);
+        } catch (TException e) {
+            throw new IOException(e);
+        }
+    }
+
+    private static Map<String, String> makeMetadata(OwnerGroupInfo ownerGroupInfo) {
+        HashMap<String, String> md = new HashMap<>();
+        md.put(FdsFileSystem.LAST_MODIFIED_KEY, Long.toString(Calendar.getInstance().getTimeInMillis()));
+        md.put(FdsFileSystem.CREATED_BY_USER, ownerGroupInfo.getOwner());
+        md.put(FdsFileSystem.CREATED_BY_GROUP, ownerGroupInfo.getGroup());
+        return md;
+    }
+
+
+    @Override
+    public void flush() throws IOException {
+        if (isClosed) {
+            throw new IOException("Stream was closed");
+        }
+
+        if (isDirty) {
+            ObjectOffset objectOffset = getObjectOffset(currentOffset - 1, objectSize);
+            currentBuffer.flip();
+
+            try {
+                am.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo));
+            } catch (TException e) {
+                isClosed = true;
+                throw new IOException(e);
             }
 
             isDirty = false;
+            currentBuffer.position(0);
+            currentBuffer.limit(objectSize);
         }
-        currentBuffer.position(frame.internalOffset);
-        return currentBuffer;
     }
 
-    @Override
-    public void write(int b) throws IOException {
-        getBuffer().put((byte) (b % 256));
-        isDirty = true;
-        currentOffset++;
+    private static ObjectOffset getObjectOffset(long atOffset, int objectSize) {
+        return new ObjectOffset((long) Math.floor(((double)atOffset) / ((double) objectSize)));
     }
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        int written = 0;
-        while (written < len) {
-            ByteBuffer buffer = getBuffer();
-            int writeSize = Math.min(buffer.remaining(), len - written);
-            buffer.put(b, off + written, writeSize);
-            written += writeSize;
-            currentOffset += writeSize;
-            isDirty = true;
+        for (int i = off; i < len; i++) {
+            write(b[i]);
         }
-        flush();
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+        if (! (currentBuffer.position() < objectSize)) {
+            flush();
+        }
+        currentBuffer.put((byte) b);
+        isDirty = true;
+        currentOffset++;
+        isDirty = true;
     }
 
     @Override
@@ -155,7 +132,11 @@ public class FdsOutputStream extends OutputStream {
 
     @Override
     public void close() throws IOException {
+        if (isClosed) {
+            return;
+        }
         flush();
         super.close();
+        isClosed = true;
     }
 }

@@ -92,8 +92,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      CommonModuleProviderIf *modProvider_;
      /*
-      * glocal dedupe  stats  counter 
-      */ 
+      * glocal dedupe  stats  counter
+      */
 
      std::atomic<fds_uint64_t> dedupeByteCnt;
 
@@ -221,12 +221,19 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
      SysParams *sysParams;
 
+     /**
+      * should be just enough to make sure system task makes progress
+      */
      inline fds_uint32_t getSysTaskIopsMin() {
-         return totalRate/10;  // 10% of total rate
+         return 10;
      }
 
+     /**
+      * We should not care about max iops -- if there is no other work
+      * in SM, we should be ok to take all available bandwidth
+      */
      inline fds_uint32_t getSysTaskIopsMax() {
-         return totalRate/5;  // 20% of total rate
+         return 0;
      }
 
      inline fds_uint32_t getSysTaskPri() {
@@ -340,6 +347,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void compactObjectsInternal(SmIoReq* ioReq);
      void moveTierObjectsInternal(SmIoReq* ioReq);
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
+     void readObjDeltaSet(SmIoReq* ioReq);
 
      void handleDltUpdate();
 

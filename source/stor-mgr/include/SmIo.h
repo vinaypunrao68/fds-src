@@ -18,6 +18,7 @@
 #include <fds_volume.h>
 #include <leveldb/db.h>
 #include <persistent-layer/dm_io.h>
+#include <ObjMeta.h>
 
 using FDS_ProtocolInterface::FDSP_DeleteObjTypePtr;
 using FDS_ProtocolInterface::FDSP_GetObjTypePtr;
@@ -559,6 +560,48 @@ class SmIoMoveObjsToTier: public SmIoReq {
 };
 
 /**
+ * Request to read delta set from set of meta data.
+ */
+class SmIoReadObjDeltaSetReq: public SmIoReq {
+  public:
+    typedef std::function<void (const Error&,
+                                SmIoReadObjDeltaSetReq *req)> cbType;
+  public:
+    SmIoReadObjDeltaSetReq(const NodeUuid& destSmId,
+                           fds_uint64_t execId,
+                           fds_uint64_t seq,
+                           fds_bool_t last)
+        : destinationSmId(destSmId),
+          executorId(execId),
+          seqNum(seq),
+          lastSet(last)
+    {
+    };
+
+    // Node ID of the destination SM.
+    NodeUuid destinationSmId;
+
+    // ID of the executor from the source SM, which requested the delta set.
+    fds_uint64_t executorId;
+
+    // Sequence number to indicate all messages are received on the destionation SM.
+    fds_uint64_t seqNum;
+
+    // last set of the current transaction between source and destination SM.
+    fds_bool_t lastSet;
+
+    // Set of Object MetaData to be used to read objects and form
+    // CtrlObjectRebalanceDeltaSet
+    std::vector<ObjMetaData::ptr> deltaSet;
+
+    // Response callback for batch object read.
+    cbType smioReadObjDeltaSetReqCb;
+};  // SmIoReadObjDelta
+
+typedef boost::shared_ptr<SmIoReadObjDeltaSetReq> SmIoReadObjDeltaSetReqSharedPtr;
+typedef std::unique_ptr<SmIoReadObjDeltaSetReq> SmIoReadObjDeltaSetReqUniquePtr;
+
+/**
  * Request to apply object rebalance delta set
  */
 class SmIoApplyObjRebalDeltaSet: public SmIoReq {
@@ -570,10 +613,10 @@ class SmIoApplyObjRebalDeltaSet: public SmIoReq {
     SmIoApplyObjRebalDeltaSet(fds_uint64_t execId,
                               fds_uint64_t seq,
                               fds_bool_t last,
-                              fds_uint32_t qosSeq,
-                              fds_uint32_t totalCnt)
+                              fds_uint64_t qosSeq,
+                              fds_bool_t qosLast)
             : executorId(execId), seqNum(seq), lastSet(last),
-            qosSeqNum(qosSeq), totalQosCount(totalCnt) {
+            qosSeqNum(qosSeq), qosLastSet(qosLast) {
     };
 
     /// MigrationExecutor ID
@@ -589,8 +632,8 @@ class SmIoApplyObjRebalDeltaSet: public SmIoReq {
     /// into one or more QoS requests with smaller delta set, we need to
     /// track when we finish those, so that when we apply the last set
     /// we notify token migration manager that we are done
-    fds_uint32_t qosSeqNum;
-    fds_uint32_t totalQosCount;
+    fds_uint64_t qosSeqNum;
+    fds_bool_t qosLastSet;
 
     /// set of data/metadata to apply
     std::vector<fpi::CtrlObjectMetaDataPropagate> deltaSet;

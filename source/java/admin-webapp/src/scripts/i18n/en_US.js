@@ -25,6 +25,8 @@ var en_US = {
         l_no: 'No',
         l_none: 'None',
         l_ok: 'OK',
+        l_on: 'On',
+        l_off: 'Off',
         l_required: 'Required',
         l_save: 'Save',
         l_search: 'Search',
@@ -53,6 +55,11 @@ var en_US = {
         l_weeks_ago: 'weeks ago',
         l_years_ago: 'years ago',
         l_seconds_ago: 'seconds ago',
+        
+        l_minute_ago: 'minute ago',
+        l_hour_ago: 'hour ago',
+        l_week_ago: 'week ago',
+        l_second_ago: 'second ago',
         
         l_months: 'Months',
         l_days: 'Days',
@@ -224,7 +231,8 @@ var en_US = {
             l_ssd_only: 'Flash Only',
             l_disk_only: 'Disk Only',
             l_ssd_preferred: 'Flash Preferred',
-            l_disk_preferred: 'Disk Preferred'
+            l_disk_preferred: 'Disk Preferred',
+            l_hybrid: 'Hybrid'
         },
         
         snapshot: {
@@ -295,7 +303,7 @@ var en_US = {
     },
     system: {
         title: 'System',
-        l_add_node: 'Add a Node',
+        l_add_node: 'Add Node',
         l_nodes: 'Nodes',
         th_am: 'AM',
         th_dm: 'DM',

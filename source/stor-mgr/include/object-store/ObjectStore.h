@@ -99,6 +99,10 @@ class ObjectStore : public Module, public boost::noncopyable {
                                                    const ObjectID &objId,
                                                    diskio::DataTier& usedTier,
                                                    Error& err);
+    boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
+                                                   const ObjectID &objId,
+                                                   ObjMetaData::const_ptr objMetaData,
+                                                   Error& err);
 
     /**
      * Deletes a specific object. The object is marked as deleted,
@@ -128,10 +132,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * If given object still valid (refcount > 0), copies the object
      * to new file from the file that is being garbage collected
+     * @param notOwned true if object is not owned by this SM anymore
+     * and can be garbage collected even if refcnt > 0
      */
     Error copyObjectToNewLocation(const ObjectID& objId,
                                   diskio::DataTier tier,
-                                  fds_bool_t verifyData);
+                                  fds_bool_t verifyData,
+                                  fds_bool_t notOwned);
 
 
     /**
@@ -149,6 +156,10 @@ class ObjectStore : public Module, public boost::noncopyable {
      */
     Error applyObjectMetadataData(const ObjectID& objId,
                                   const fpi::CtrlObjectMetaDataPropagate& msg);
+
+    /**
+     * Read data from given object metadata.
+     */
 
     /**
      * Make a snapshot of metadata of given SM token and

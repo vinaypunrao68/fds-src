@@ -1,10 +1,11 @@
 [bld-nightly-nodes]
-10.2.10.79 fds_node=node01
-10.2.10.80 fds_node=node02
-10.2.10.81 fds_node=node03
-10.2.10.82 fds_node=node04
+10.2.10.79
+10.2.10.80
+10.2.10.81
+10.2.10.82
 
 [bld-nightly-nodes:vars]
+clean_fds=yes
 deploy_artifact=nightly
 fds_default_nic=eth0
 fds_om_host=10.2.10.79

@@ -19,7 +19,7 @@
             </div>
             <div class="volume-settings-panel">
                 <div class="volume-option form-group">
-                    <input type="text" class="volume-name form-control" size="32" placeholder="Enter Volume Name" ng-model="volumeName">
+                    <fui-input type="text" class="volume-name skinny" size="32" placeholder="Enter Volume Name" ng-model="volumeName"></fui-input>
                 </div>
             </div>
         </section>
@@ -27,11 +27,9 @@
         <section>
             <connector-panel ng-model="dataConnector"></connector-panel>
         </section>
-<!--
         <section>
             <tiering-panel ng-model="mediaPolicy"></tiering-policy-panel>
         </section>        
--->
         <section>
             <qos-panel ng-model="qos" save-only="true"></qos-panel>
         </section>
@@ -47,9 +45,9 @@
     </div>
 
     <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;">
-        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">
+        <button class="btn btn-primary skinny" style="display: inline-block;" ng-click="save()">
             <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
         </button>
-        <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
+        <button class="btn btn-secondary cancel-creation skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
     </div>
 </div>

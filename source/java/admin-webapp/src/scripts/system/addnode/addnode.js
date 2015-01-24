@@ -1,6 +1,9 @@
-angular.module( 'node-management' ).controller( 'addNodeController', ['$scope','$node_service', function( $scope, $node_service ){
+angular.module( 'node-management' ).controller( 'addNodeController', ['$scope','$node_service', '$filter', function( $scope, $node_service, $filter ){
 
     $scope.checkState = 'partial';
+    
+    $scope.onText = ($filter( 'translate' )( 'common.l_on' )).toUpperCase();
+    $scope.offText = ($filter( 'translate' )( 'common.l_off' )).toUpperCase();
 
     $scope.detachedNodes = [];
 

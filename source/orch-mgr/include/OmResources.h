@@ -109,6 +109,11 @@ class OM_NodeAgent : public NodeAgent
                       boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt(const DLT *curDlt);
+    virtual Error om_send_abort_migration(fds_uint64_t dltVersion);
+    void om_send_abort_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
+                                      EPSvcRequest* req,
+                                      const Error& error,
+                                      boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
     void    om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* rpcReq,
@@ -461,6 +466,8 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt,
                                       fds_bool_t sm_only = false);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
+    virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
+
     /**
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
      */
@@ -632,6 +639,19 @@ class OM_NodeDomainMod : public Module
     inline OM_AmAgent::pointer om_am_agent(const NodeUuid &uuid) {
         return om_locDomain->om_am_agent(uuid);
     }
+    inline OM_NodeAgent::pointer om_all_agent(const NodeUuid &uuid) {
+        switch (uuid.uuid_get_val() & 0x0F) {
+        case FDSP_STOR_HVISOR:
+            return om_am_agent(uuid);
+        case FDSP_STOR_MGR:
+            return om_sm_agent(uuid);
+        case FDSP_DATA_MGR:
+            return om_dm_agent(uuid);
+        default:
+            break;
+        }
+        return OM_NodeAgent::pointer(nullptr);
+    }
 
     /**
      * Read persistent state from config db and see if we
@@ -654,6 +674,16 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
+
+    /**
+     * Notification that service is down to DLT and DMT state machines
+     * @param error timeout error or other error returned by the service
+     * @param svcUuid service that is down
+     */
+    virtual void
+    om_service_down(const Error& error,
+                    const NodeUuid& svcUuid);
+
     /**
      * Unregister the node matching uuid from the domain manager.
      */
@@ -668,7 +698,8 @@ class OM_NodeDomainMod : public Module
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
     virtual Error om_recv_migration_done(const NodeUuid& uuid,
-                                         fds_uint64_t dlt_version);
+                                         fds_uint64_t dlt_version,
+                                         const Error& migrError);
 
     /**
      * Notification that OM received DLT update response from
@@ -676,40 +707,47 @@ class OM_NodeDomainMod : public Module
      */
     virtual Error om_recv_dlt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
-                                          fds_uint64_t dlt_version);
+                                          fds_uint64_t dlt_version,
+                                          const Error& respError);
     /**
      * Notification that OM received DMT update response from
      * node with uuid 'uuid' for dmt version 'dmt_version'
      */
     virtual Error om_recv_dmt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
-                                          fds_uint32_t dmt_version);
+                                          fds_uint32_t dmt_version,
+                                          const Error& respError);
 
     /**
      * Notification that OM received push meta response from
      * node with uuid 'uuid'
      */
-    virtual Error om_recv_push_meta_resp(const NodeUuid& uuid);
+    virtual Error om_recv_push_meta_resp(const NodeUuid& uuid,
+                                         const Error& respError);
 
     /**
      * Notification that OM received DLT close response from
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
     virtual Error om_recv_dlt_close_resp(const NodeUuid& uuid,
-                                         fds_uint64_t dlt_version);
+                                         fds_uint64_t dlt_version,
+                                         const Error& respError);
 
     /**
      * Notification that OM received DMT close response from
      * node with uuid 'uuid' for dmt version 'dmt_version'
      */
     virtual Error om_recv_dmt_close_resp(const NodeUuid& uuid,
-                                         fds_uint64_t dmt_version);
+                                         fds_uint64_t dmt_version,
+                                         const Error& respError);
 
     /**
      * Updates cluster map membership and does DLT
      */
     virtual void om_dmt_update_cluster();
+    virtual void om_dmt_waiting_timeout();
     virtual void om_dlt_update_cluster();
+    virtual void om_dlt_waiting_timeout();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
 
     /**

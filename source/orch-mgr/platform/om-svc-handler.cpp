@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 by Formations Data Systems, Inc.
+ * Copyright 2013-2015 by Formations Data Systems, Inc.
  */
 #include <string>
 #include <vector>
@@ -18,6 +18,23 @@
 
 namespace fds {
 
+template<typename T>
+static T
+get_config(std::string const& option, T const& default_value)
+{ return gModuleProvider->get_fds_config()->get<T>(option, default_value); }
+
+template <typename T, typename Cb>
+static std::unique_ptr<TrackerBase<NodeUuid>>
+create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_t = 0) {
+    static std::string const svc_event_prefix("fds.om.svc_event_threshold.");
+
+    size_t window = get_config(svc_event_prefix + event + ".window", d_w);
+    size_t threshold = get_config(svc_event_prefix + event + ".threshold", d_t);
+
+    return std::unique_ptr<TrackerBase<NodeUuid>>
+        (new TrackerMap<Cb, NodeUuid, T>(std::forward<Cb>(cb), window, threshold));
+}
+
 OmSvcHandler::~OmSvcHandler() {}
 
 OmSvcHandler::OmSvcHandler()
@@ -35,6 +52,52 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
+
+    // TODO(bszmyd): Tue 20 Jan 2015 10:24:45 PM PST
+    // This isn't probably where this should go, but for now it doesn't make
+    // sense anymore for it to go anywhere else. When then dependencies are
+    // better determined we should move this.
+    // Register event trackers
+    init_svc_event_handlers();
+}
+
+// Right now all handlers are using the same callable which will down the
+// service that is responsible. This can be changed easily.
+void OmSvcHandler::init_svc_event_handlers() {
+
+    // callable for EventTracker. Changed from an anonymous function so I could
+    // bind different errors to the same logic and retain the error for
+    // om_service_down call.
+    struct cb {
+       void operator()(NodeUuid svc, size_t events) const {
+           auto domain = OM_NodeDomainMod::om_local_domain();
+           LOGERROR << std::hex << svc << " saw too many " << error << " events [" << events << "]";
+           OM_NodeAgent::pointer agent = domain->om_all_agent(svc);
+
+           if (agent) {
+               agent->set_node_state(FDS_Node_Down);
+               domain->om_service_down(error, svc);
+           } else {
+               LOGERROR << "unknown service: " << svc;
+           }
+       }
+       Error               error;
+    };
+
+    // Timeout handler (2 within 15 minutes will trigger)
+    event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT,
+                                 create_tracker<std::chrono::minutes>(cb{ERR_SVC_REQUEST_TIMEOUT},
+                                                                      "timeout", 15, 2));
+
+    // DiskWrite handler (1 within 24 hours will trigger)
+    event_tracker.register_event(ERR_DISK_WRITE_FAILED,
+                                 create_tracker<std::chrono::hours>(cb{ERR_DISK_WRITE_FAILED},
+                                                                    "disk.write_fail", 24, 1));
+
+    // DiskRead handler (1 within 24 hours will trigger)
+    event_tracker.register_event(ERR_DISK_READ_FAILED,
+                                 create_tracker<std::chrono::hours>(cb{ERR_DISK_READ_FAILED},
+                                                                    "disk.read_fail", 24, 1));
 }
 
 // om_svc_state_chg
@@ -150,7 +213,8 @@ OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlSvcEvent> &msg)
 {
     LOGDEBUG << " received " << msg->evt_code
-             << " from:" << msg->evt_src_svc_uuid.svc_uuid;
+             << " from:" << std::hex << msg->evt_src_svc_uuid.svc_uuid << std::dec;
+    event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
 }
 
 }  //  namespace fds

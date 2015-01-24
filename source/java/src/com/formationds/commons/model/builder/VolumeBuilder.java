@@ -4,6 +4,7 @@
 
 package com.formationds.commons.model.builder;
 
+import com.formationds.apis.MediaPolicy;
 import com.formationds.commons.model.Connector;
 import com.formationds.commons.model.Usage;
 import com.formationds.commons.model.Volume;
@@ -21,6 +22,7 @@ public class VolumeBuilder {
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
+  private MediaPolicy mediaPolicy;
 
   /**
    * default constructor
@@ -108,6 +110,11 @@ public class VolumeBuilder {
     return this;
   }
 
+  public VolumeBuilder withMediaPolicy( MediaPolicy policy ) {
+    this.mediaPolicy = mediaPolicy;
+    return this;
+  }
+
   /**
    * @return Returns {@link com.formationds.commons.model.Volume}
    */
@@ -135,6 +142,7 @@ public class VolumeBuilder {
     volume.setData_connector( data_connector );
     volume.setCurrent_usage( current_usage );
     volume.setCommit_log_retention( commitLogRetentnion );
+    volume.setMediaPolicy( mediaPolicy );
     return volume;
   }
 }
