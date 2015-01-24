@@ -91,7 +91,7 @@ public class S3SmokeTest {
                 .getOrDefault("fds.host", "localhost");
 
         String omUrl = "https://" + host + ":7443";
-        SmokeTestRunner.turnLog4jOn();
+        SmokeTestRunner.turnLog4jOff();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
         String adminToken = adminUserObject.getString("token");
 
