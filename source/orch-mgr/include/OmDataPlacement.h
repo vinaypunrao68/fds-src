@@ -504,6 +504,7 @@ namespace fds {
          * until the new DLT is commited.
          */
         const DLT *getCommitedDlt() const;
+        const DLT *getTargetDlt() const;
 
         /**
          * Get version of the most recent DLT -- either new DLT

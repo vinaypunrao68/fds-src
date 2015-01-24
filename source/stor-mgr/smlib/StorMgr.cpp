@@ -206,14 +206,6 @@ void ObjectStorMgr::mod_startup()
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
-    /* Token state db */
-    tokenStateDb_.reset(new kvstore::TokenStateDB());
-    // TODO(Rao): token state db population should be done based on
-    // om events.  For now hardcoding
-    for (fds_token_id tok = 0; tok < 256; tok++) {
-        tokenStateDb_->addToken(tok);
-    }
-
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
         /* Set up FDSP RPC endpoints */
@@ -280,20 +272,11 @@ void ObjectStorMgr::mod_startup()
          * Register/boostrap from OM
          */
         omClient->initialize();
-        omClient->registerEventHandlerForNodeEvents(
-            (node_event_handler_t)nodeEventOmHandler);
-        omClient->registerEventHandlerForMigrateEvents(
-            (migration_event_handler_t)migrationEventOmHandler);
-        omClient->registerEventHandlerForDltCloseEvents(
-            (dltclose_event_handler_t) dltcloseEventHandler);
         omClient->omc_srv_pol = &sg_SMVolPolicyServ;
         omClient->startAcceptingControlMessages();
         omClient->registerNodeWithOM(modProvider_->get_plf_manager());
 
-        clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
-
         omc_srv_pol = &sg_SMVolPolicyServ;
-        setup_migration_svc(obj_dir);
     }
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
@@ -399,7 +382,6 @@ void ObjectStorMgr::mod_shutdown()
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
         return;  // no migration or netsession
     }
-    migrationSvc_->mod_shutdown();
     nst_->endAllSessions();
     nst_.reset();
 }
@@ -421,19 +403,6 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
         node_name,
         FDSP_STOR_HVISOR,
         datapath_handler_);
-}
-
-void ObjectStorMgr::setup_migration_svc(const std::string& obj_dir)
-{
-    migrationSvc_.reset(new FdsMigrationSvc(this,
-                                            FdsConfigAccessor(modProvider_->get_fds_config(),
-                                                              "fds.sm.migration."),
-                                            obj_dir,
-                                            GetLog(),
-                                            nst_,
-                                            clust_comm_mgr_,
-                                            tokenStateDb_));
-    migrationSvc_->mod_startup();
 }
 
 int ObjectStorMgr::run()
@@ -509,73 +478,6 @@ fds_token_id ObjectStorMgr::getTokenId(const ObjectID& objId) {
     return omClient->getCurrentDLT()->getToken(objId);
 }
 
-kvstore::TokenStateDBPtr ObjectStorMgr::getTokenStateDb()
-{
-    return tokenStateDb_;
-}
-
-bool ObjectStorMgr::isTokenInSyncMode(const fds_token_id &tokId) {
-    kvstore::TokenStateInfo::State state;
-    tokenStateDb_->getTokenState(tokId, state);
-    return (state == kvstore::TokenStateInfo::SYNCING ||
-            state == kvstore::TokenStateInfo::PULL_REMAINING);
-}
-
-void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
-{
-    auto curDlt = objStorMgr->omClient->getCurrentDLT();
-    auto prevDlt = objStorMgr->omClient->getPreviousDLT();
-    std::set<fds_token_id> tokens =
-            DLT::token_diff(objStorMgr->getUuid(), curDlt, prevDlt);
-    // TODO(Rao): hack to not exercise migration code path.  Once
-    // we enable multinode enable this code path
-    tokens.clear();
-    prevDlt = curDlt;
-    ////////////////////////////////////////////////////////////
-
-    GLOGNORMAL << " tokens to copy size: " << tokens.size();
-
-    if (tokens.size() > 0) {
-        for (auto t : tokens) {
-            /* This says we own the token, but don't have any data for it */
-            objStorMgr->getTokenStateDb()->\
-                    setTokenState(t, kvstore::TokenStateInfo::UNINITIALIZED);
-        }
-        objStorMgr->tok_migrated_for_dlt_ = true;
-        /* Issue bulk copy request */
-        MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
-        copy_req->tokens = tokens;
-        // Send migration request to migration service
-        copy_req->migsvc_resp_cb = std::bind(
-            &ObjectStorMgr::migrationSvcResponseCb,
-            objStorMgr,
-            std::placeholders::_1,
-            std::placeholders::_2);
-        FdsActorRequestPtr copy_far(new FdsActorRequest(
-            FAR_ID(MigSvcBulkCopyTokensReq), copy_req));
-        objStorMgr->migrationSvc_->send_actor_request(copy_far);
-    } else {
-        /* Nothing to migrate case */
-        if (curDlt == prevDlt) {
-            /* This is the first node.  Set all tokens owned by this node to
-             * healthy.
-             * TODO(Rao): This is hacky.  We need a better way to test first
-             * node case.
-             */
-            GLOGDEBUG << "No dlt change.  Nothing to migrate.  Setting all tokens in"
-                    " current dlt to healthy";
-            auto tokens = curDlt->getTokens(objStorMgr->getUuid());
-            for (auto t : tokens) {
-                /* This says we own the token, but don't have any data for it */
-                objStorMgr->getTokenStateDb()->\
-                        setTokenState(t, kvstore::TokenStateInfo::HEALTHY);
-            }
-        }
-        objStorMgr->tok_migrated_for_dlt_ = false;
-        objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
-    }
-}
-
 void ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
@@ -586,79 +488,6 @@ void ObjectStorMgr::handleDltUpdate() {
     if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
         LOGDEBUG << "Received DLT update that has removed this node.";
         // TODO(brian): Not sure if this is where we should kill scavenger or not
-    }
-}
-
-void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
-        const std::string& session_uuid)
-{
-    #if 0
-    fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
-    objStorMgr->cached_dlt_close_.first = session_uuid;
-    objStorMgr->cached_dlt_close_.second = dlt_close;
-
-    MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
-    close_req->sync_close_ts = get_fds_timestamp_ms();
-
-    FdsActorRequestPtr close_far(new FdsActorRequest(
-            FAR_ID(MigSvcSyncCloseReq), close_req));
-
-    objStorMgr->migrationSvc_->send_actor_request(close_far);
-
-    GLOGNORMAL << "Received ioclose. Time: " << close_req->sync_close_ts;
-
-    /* It's possible no tokens were migrated.  In this we case we simulate
-     * MIGRATION_OP_COMPLETE.
-     */
-    if (objStorMgr->tok_migrated_for_dlt_ == false) {
-        objStorMgr->migrationSvcResponseCb(ERR_OK, MIGRATION_OP_COMPLETE);
-    }
-
-    // Check to see if we should be shutting down
-    const DLT * currentDlt = objStorMgr->getDLT();
-    if (currentDlt->getTokens(objStorMgr->getUuid()).empty()) {
-        delete objStorMgr;
-    }
-    #endif
-}
-
-void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
-        const MigrationStatus& status) {
-    if (status == TOKEN_COPY_COMPLETE) {
-        LOGNORMAL << "Token copy complete";
-        omClient->sendMigrationStatusToOM(err);
-    } else if (status == MIGRATION_OP_COMPLETE) {
-        LOGNORMAL << "Token migration complete";
-        LOGNORMAL << migrationSvc_->mig_cntrs.toString();
-
-        // omClient->sendDLTCloseAckToOM();
-
-        objStorMgr->tok_migrated_for_dlt_ = false;
-    }
-}
-
-void ObjectStorMgr::nodeEventOmHandler(int node_id,
-                                       unsigned int node_ip_addr,
-                                       int node_state,
-                                       fds_uint32_t node_port,
-                                       FDS_ProtocolInterface::FDSP_MgrIdType node_type)
-{
-    GLOGDEBUG << "ObjectStorMgr - Node event Handler " << node_id
-              << " Node IP Address " <<  node_ip_addr;
-    switch (node_state) {
-        case FDS_Node_Up :
-            GLOGNOTIFY << "ObjectStorMgr - Node UP event NodeId "
-                       << node_id << " Node IP Address " <<  node_ip_addr;
-            break;
-        case FDS_Node_Down:
-        case FDS_Node_Rmvd:
-            GLOGNOTIFY << " ObjectStorMgr - Node Down event NodeId: "
-                       << node_id << " node IP addr" << node_ip_addr;
-            break;
-        case FDS_Start_Migration:
-            GLOGNOTIFY << " ObjectStorMgr - Start Migration  event NodeId: "
-                       << node_id << " node IP addr" << node_ip_addr;
-            break;
     }
 }
 
@@ -1033,60 +862,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
     FDSP_MigrateObjectList &objList = putTokReq->obj_list;
-    fds_panic("need to be ported to new SM org");
-
-    for (auto obj : objList) {
-        ObjectID objId(obj.meta_data.object_id.digest);
-
-        ObjMetaData objMetadata;
-        // err = smObjDb->get(objId, objMetadata);
-        if (err != ERR_OK && err != ERR_NOT_FOUND) {
-            fds_assert(!"ObjMetadata read failed");
-            LOGERROR << "Failed to write the object: " << objId;
-            break;
-        }
-
-        err = ERR_OK;
-
-        /* Apply metadata */
-        objMetadata.apply(obj.meta_data);
-
-        /* Update token healthy timestamp
-         * TODO(Rao):  Ideally this code belongs in SmObjDb::put()
-         */
-        getTokenStateDb()->updateHealthyTS(putTokReq->token_id,
-                objMetadata.getModificationTs());
-
-
-        LOGDEBUG << objMetadata.logString();
-
-        if (objMetadata.dataPhysicallyExists()) {
-            /* write metadata */
-            // smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
-            /* No need to write the object data.  It already exits */
-            continue;
-        }
-
-        /* Moving the data to not incur copy penalty */
-        DBG(std::string temp_data = obj.data);
-        ObjectBuf objData;
-        *(objData.data) = std::move(obj.data);
-        fds_assert(temp_data == *(objData.data));
-        obj.data.clear();
-
-        /* write data to storage tier */
-        obj_phy_loc_t phys_loc;
-        fds_panic("need to port back to new SM org");
-        // err = writeObjectDataToTier(objId, objData, diskio::diskTier, phys_loc);
-        if (err != ERR_OK) {
-            LOGERROR << "Failed to write the object: " << objId;
-            break;
-        }
-
-        /* write the metadata */
-        objMetadata.updatePhysLocation(&phys_loc);
-        // smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
-    }
+    fds_panic("deprecated");
 
     /* Mark the request as complete */
     qosCtrl->markIODone(*putTokReq,
@@ -1124,7 +900,8 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
 
     objectStore->snapshotMetadata(snapReq->token_id,
-                                  snapReq->smio_snap_resp_cb);
+                                  snapReq->smio_snap_resp_cb,
+                                  snapReq);
 
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
@@ -1245,6 +1022,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
     fds_verify(NULL != readDeltaSetReq);
+    LOGDEBUG << "Will read " << (readDeltaSetReq->deltaSet).size() << " objects";
 
     fpi::CtrlObjectRebalanceDeltaSetPtr objDeltaSet(new fpi::CtrlObjectRebalanceDeltaSet());
     NodeUuid destSmId = readDeltaSetReq->destinationSmId;
@@ -1278,9 +1056,6 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
     }
 
-    /* Delete the delta set request */
-    delete readDeltaSetReq;
-
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
     asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
                                  objDeltaSet);
@@ -1293,6 +1068,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     // notify migration executor we are done with this request
     readDeltaSetReq->smioReadObjDeltaSetReqCb(err, readDeltaSetReq);
 
+    /* Delete the delta set request */
     delete readDeltaSetReq;
 }
 

@@ -654,7 +654,6 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
     fds_assert(vol != NULL);
     if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
-        MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
         fdp::FDSP_TierPolicyPtr tp(new FDSP_TierPolicy());
         tp->tier_media_pct = vdb->mediaPolicy;
         objStorMgr->omc_srv_pol->serv_recvTierPolicyReq(tp);

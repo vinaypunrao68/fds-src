@@ -673,10 +673,10 @@ DltDplyFSM::DACT_SendDlts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
              cit != addedNodes.cend();
              ++cit) {
             OM_SmAgent::pointer sm_agent = domain->om_sm_agent(*cit);
-            Error ret = sm_agent->om_send_dlt(dp->getCommitedDlt());
+            Error ret = sm_agent->om_send_dlt(dp->getTargetDlt());
             if (ret.ok()) {
                 dst.sm_to_wait.insert(*cit);
-                LOGDEBUG << "DACT_SendDlts: sent commited DLT to SM "
+                LOGDEBUG << "DACT_SendDlts: sent target DLT to SM "
                          << sm_agent->get_node_name() << ":" << std::hex
                          << (*cit).uuid_get_val() << std::dec;
             }

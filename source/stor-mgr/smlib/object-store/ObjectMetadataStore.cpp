@@ -116,12 +116,13 @@ ObjectMetadataStore::removeObjectMetadata(fds_volid_t volId,
 
 void
 ObjectMetadataStore::snapshot(fds_token_id smTokId,
-                              SmIoSnapshotObjectDB::CbType notifFn) {
+                              SmIoSnapshotObjectDB::CbType notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
     Error err(ERR_OK);
     leveldb::DB *db;
     leveldb::ReadOptions options;
     metaDb_->snapshot(smTokId, db, options);
-    notifFn(err, NULL, options, db);
+    notifFn(err, snapReq, options, db);
 }
 
 }  // namespace fds

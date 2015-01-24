@@ -36,7 +36,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
     SMTokenID = SMTokenInvalidID;
     executorID = invalidExecutorID;
 
-    maxDeltaSetSize = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.max_delta_set");
+    maxDeltaSetSize = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.max_delta_set_size");
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 }
 
@@ -103,10 +103,10 @@ MigrationClient::migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaData
     readDeltaSetReq->deltaSet.assign(itFirst, itLast);
 
     LOGDEBUG << "QoS Enqueu with ReadObjDelta..."
-             << "seqNum=" << readDeltaSetReq->seqNum
-             << "executorID=" << readDeltaSetReq->executorId
-             << "DeltSetSize=" << readDeltaSetReq->deltaSet.size()
-             << "lastSet=" << lastSet ? "TRUE" : "FALSE";
+             << " seqNum=" << readDeltaSetReq->seqNum
+             << " executorID=" << readDeltaSetReq->executorId
+             << " DeltSetSize=" << readDeltaSetReq->deltaSet.size()
+             << " lastSet=" << lastSet ? "TRUE" : "FALSE";
 
     /* enqueue to QoS queue */
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, readDeltaSetReq);
@@ -277,6 +277,9 @@ MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr
     fds_uint64_t executorId = filterSet->executorID;
     bool completeSet = false;
     Error err(ERR_OK);
+
+    LOGDEBUG << "seqNum " << curSeqNum << " DLT token " << dltToken
+             << " executorId " << executorId;
 
     filterSetLock.lock();
 

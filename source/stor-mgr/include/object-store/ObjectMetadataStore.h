@@ -72,7 +72,8 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      * calls notifFn method
      */
     void snapshot(fds_token_id smTokId,
-                  SmIoSnapshotObjectDB::CbType notifFn);
+                  SmIoSnapshotObjectDB::CbType notifFn,
+                  SmIoSnapshotObjectDB* snapReq);
 
     /**
      * Module methods
