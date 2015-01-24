@@ -378,6 +378,7 @@ namespace fds {
          */
         DLT *commitedDlt;
         DLT *newDlt;
+        DLT *prevDlt;   /// to easily revert
 
         /**
          * Set of node uuids that are rebalancing 
@@ -451,6 +452,23 @@ namespace fds {
         Error updateMembers(const NodeList &addNodes,
                             const NodeList &rmNodes);
 
+
+        /**
+         * Returns true if there is no target DLT computed or committed
+         * as official version (but not to persistent store)
+         */
+        fds_bool_t hasNoTargetDlt() const;
+        /**
+         * Returns true if there is target DLT computed, but not yet commited
+         * as official version
+         */
+        fds_bool_t hasNonCommitedTarget() const;
+        /**
+         * Returns true if there is target DLT that is commited as official
+         * version but not persisted yet
+         */
+        fds_bool_t hasCommitedNotPersistedTarget() const;
+
         /**
          * Reruns DLT computation.
          */
@@ -464,11 +482,20 @@ namespace fds {
         Error beginRebalance();
 
         /**
-         * Commits the current DLT as an 'official'
-         * copy. The commit stores the DLT to the
-         * permanent DLT history
+         * Commits the current DLT as an 'official' copy
          */
         void commitDlt();
+
+        /**
+         * Stores commited DLT to the permanent DLT history
+         */
+        void persistCommitedTargetDlt();
+
+        /**
+         * Restores cached commited DLT from persistent store
+         * and resets target DLT in persistent store
+         */
+        void undoTargetDltCommit();
 
         /**
          * Returns the current commited version of the DLT.
@@ -485,6 +512,7 @@ namespace fds {
          */
         fds_uint64_t getLatestDltVersion() const;
         fds_uint64_t getCommitedDltVersion() const;
+        fds_uint64_t getTargetDltVersion() const;
 
         /**
          * Returns the current version of the cluster map.
