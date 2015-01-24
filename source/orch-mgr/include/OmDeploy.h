@@ -108,14 +108,18 @@ struct DltEndErrorEvt
 
 struct DltRecoverAckEvt
 {
-    explicit DltRecoverAckEvt(fds_bool_t abortAck)
-    : ackForAbort(abortAck) {}
+    DltRecoverAckEvt(fds_bool_t abortAck,
+                     const NodeUuid& uuid,
+                     const Error& err)
+    : ackForAbort(abortAck), svcUuid(uuid), ackError(err) {}
 
     std::string logString() const {
         return "DltRecoverAckEvt";
     }
 
     fds_bool_t ackForAbort;  // otherwise dlt commit ack
+    NodeUuid svcUuid;
+    Error ackError;
 };
 
 /**

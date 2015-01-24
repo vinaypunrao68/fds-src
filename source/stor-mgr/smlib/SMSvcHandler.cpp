@@ -139,7 +139,9 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->migrationMgr->abortMigration();
 
     // revert to DLT version provided in abort message
-    objStorMgr->omClient->getDltManager()->setCurrent(abortMsg->DLT_version);
+    if (abortMsg->DLT_version > 0) {
+        objStorMgr->omClient->getDltManager()->setCurrent(abortMsg->DLT_version);
+    }
 
     // send response
     fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());

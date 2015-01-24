@@ -261,7 +261,7 @@ OM_NodeAgent::om_send_abort_migration(fds_uint64_t dltVersion) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_migration_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
-    om_req->setTimeoutMs(20000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     LOGNORMAL << "OM: Send abort migration (DLT version " << dltVersion
@@ -286,7 +286,7 @@ OM_NodeAgent::om_send_abort_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr ms
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
-    dltMod->dlt_deploy_event(DltRecoverAckEvt(true));
+    dltMod->dlt_deploy_event(DltRecoverAckEvt(true, node_uuid, error));
 }
 
 Error

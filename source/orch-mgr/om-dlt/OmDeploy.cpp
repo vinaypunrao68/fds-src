@@ -937,7 +937,7 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(dp != NULL);
     if (dp->hasNoTargetDlt()) {
-        LOGNOTIFY << "No target DLT commited/commited, nothing to recover";
+        LOGNORMAL << "No target DLT computed/commited, nothing to recover";
         fsm.process_event(DltEndErrorEvt());
     } else {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
@@ -949,10 +949,10 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // we already computed target DLT, so most likely sent start migration msg
         // send abort migration to SMs first, so that we can restart migratino later
         // (otherwise SMs will be left in bad state)
-        LOGNOTIFY << "Already computed or commited target DLT, will send abort migration msg "
+        LOGNORMAL << "Already computed or commited target DLT, will send abort migration msg "
                   << " for target DLT version " << dp->getTargetDltVersion();
         fds_uint32_t abortCnt = dom_ctrl->om_bcast_sm_migration_abort(dp->getCommitedDltVersion());
-        LOGNOTIFY << "Sent abort migration msgs to " << abortCnt << " SMs";
+        LOGNORMAL << "Sent abort migration msgs to " << abortCnt << " SMs";
         dst.abortMigrAcksToWait = 0;
         if (abortCnt > 0) {
             dst.abortMigrAcksToWait = abortCnt;
@@ -973,12 +973,13 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
             if (commitCnt > 0) {
                 dst.commitDltAcksToWait = commitCnt;
             }
+            LOGNORMAL << "Sent dlt commit to " << commitCnt << " nodes, will wait for resp";
         }
 
         // see if we already recovered or need to wait for acks
-        if ((abortCnt < 1) || (commitCnt < 1)) {
+        if ((abortCnt < 1) && (commitCnt < 1)) {
             // we already recovered :)
-            LOGNOTIFY << "No services that need abort migration or previously committed DLT";
+            LOGNORMAL << "No services that need abort migration or previously committed DLT";
             fsm.process_event(DltEndErrorEvt());
         }
     }
@@ -1004,14 +1005,40 @@ void
 DltDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     DltRecoverAckEvt recoverAckEvt = (DltRecoverAckEvt)evt;
-    LOGDEBUG << "FSM DACT_ChkEndErr ack for abort migration? " << recoverAckEvt.ackForAbort;
+    FdspNodeType node_type = recoverAckEvt.svcUuid.uuid_get_type();
+    LOGDEBUG << "FSM DACT_ChkEndErr ack for abort migration? " << recoverAckEvt.ackForAbort
+             << " node type " << node_type << " " << recoverAckEvt.ackError;
+
+    // if we got SL timeout for one of the nodes we were trying to add to DLT
+    // most likely that node is down.. for now mark as down..
+    if ((node_type == fpi::FDSP_STOR_MGR) && 
+        (recoverAckEvt.ackError == ERR_SVC_REQUEST_TIMEOUT)) {
+        OM_Module *om = OM_Module::om_singleton();
+        ClusterMap* cm = om->om_clusmap_mod();
+        NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
+        for (NodeUuidSet::const_iterator cit = addedNodes.cbegin();
+             cit != addedNodes.cend();
+             ++cit) {
+            if (*cit == recoverAckEvt.svcUuid) {
+                LOGWARN << "Looks like SM that we tried to add to DLT is down, "
+                        << " setting it's state to down: node uuid " << std::hex
+                        << recoverAckEvt.svcUuid.uuid_get_val() << std::dec;
+                OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+                OM_SmAgent::pointer sm_agent = domain->om_sm_agent(recoverAckEvt.svcUuid);
+                sm_agent->set_node_state(fpi::FDS_Node_Down);
+                cm->rmPendingAddedService(fpi::FDSP_STOR_MGR, recoverAckEvt.svcUuid);
+                break;
+            }
+        }
+    }
 
     if (recoverAckEvt.ackForAbort) {
         fds_verify(src.abortMigrAcksToWait > 0);
         --src.abortMigrAcksToWait;
     } else {
-        fds_verify(src.commitDltAcksToWait > 0);
-        --src.commitDltAcksToWait;
+        if (src.commitDltAcksToWait > 0) {
+            --src.commitDltAcksToWait;
+        }
     }
 
     if (src.commitDltAcksToWait == 0 && src.abortMigrAcksToWait == 0) {
