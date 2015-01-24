@@ -273,7 +273,6 @@ AmProcessor::getBlob(AmRequest *amReq) {
     // If we need to return metadata, check the cache
     Error err = ERR_OK;
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
-    fds_bool_t foundBlobDesc = false;
     if (blobReq->get_metadata) {
         BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(volId,
                                                                         amReq->getBlobName(),
@@ -281,14 +280,14 @@ AmProcessor::getBlob(AmRequest *amReq) {
         if (ERR_OK == err) {
             LOGTRACE << "Found cached blob descriptor for " << std::hex
                      << volId << std::dec << " blob " << amReq->getBlobName();
-            foundBlobDesc = true;
+            blobReq->metadata_cached = true;
             auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
             // Fill in the data here
             cb->blobDesc = cachedBlobDesc;
         }
     } else {
         // If we don't need to return metadata just continue like we found it
-        foundBlobDesc = true;
+        blobReq->metadata_cached = true;
     }
 
     // Check cache for object ID
@@ -297,7 +296,8 @@ AmProcessor::getBlob(AmRequest *amReq) {
                                                           amReq->blob_offset,
                                                           err);
     // ObjectID was found in the cache
-    if ((ERR_OK == err) && (true == foundBlobDesc)) {
+    if ((ERR_OK == err) && (true == blobReq->metadata_cached)) {
+        blobReq->oid_cached = true;
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
         // fds_verify(*objectId != NullObjectID);
@@ -400,6 +400,20 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
         amCache->putObject(amReq->io_vol_id,
                            amReq->obj_id,
                            cb->returnBuffer);
+        auto blobReq = static_cast<GetBlobReq*>(amReq);
+        if (!blobReq->oid_cached) {
+            amCache->putOffset(amReq->io_vol_id,
+                               BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
+                               boost::make_shared<ObjectID>(amReq->obj_id));
+        }
+
+        if (static_cast<GetBlobReq*>(amReq)->get_metadata && !blobReq->metadata_cached) {
+            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            if (cb->blobDesc)
+                amCache->putBlobDescriptor(amReq->io_vol_id,
+                                           amReq->getBlobName(),
+                                           cb->blobDesc);
+        }
     }
 
     delete amReq;
@@ -410,18 +424,6 @@ AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
     if (error == ERR_OK) {
         amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
         amDispatcher->dispatchGetObject(amReq);
-
-        amCache->putOffset(amReq->io_vol_id,
-                           BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
-                           boost::make_shared<ObjectID>(amReq->obj_id));
-
-        if (static_cast<GetBlobReq*>(amReq)->get_metadata) {
-            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
-            if (cb->blobDesc)
-                amCache->putBlobDescriptor(amReq->io_vol_id,
-                                           amReq->getBlobName(),
-                                           cb->blobDesc);
-        }
     } else {
         respond_and_delete(amReq, error);
     }
