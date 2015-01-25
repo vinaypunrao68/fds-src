@@ -268,11 +268,6 @@ uint32_t ObjectID::read(serialize::Deserializer* d) {
       return out << "Object ID: " << ObjectID::ToHex(oid);
     }
 
-    boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
-                                                const ObjectID& oid)
-    {
-        return out << "ObjectID=" << ObjectID::ToHex(oid);
-    }
 
     fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
       unsigned int n1, n2, n3, n4;
