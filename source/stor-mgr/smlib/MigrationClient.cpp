@@ -72,6 +72,7 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                                             SmIoReadObjDeltaSetReq *req)
 {
     fds_verify(NULL != req);
+    LOGMIGRATE << "";
 }
 
 void
@@ -94,7 +95,7 @@ MigrationClient::migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaData
                                 std::placeholders::_1,
                                 std::placeholders::_2);
 
-    LOGDEBUG << "Allocating new ReadObjDelta with seqNum "
+    LOGMIGRATE << "Allocating new ReadObjDelta with seqNum "
              << readDeltaSetReq->seqNum;
 
     std::vector<ObjMetaData::ptr>::iterator itFirst, itLast;
@@ -102,7 +103,7 @@ MigrationClient::migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaData
     itLast = objMetaDataSet.end();
     readDeltaSetReq->deltaSet.assign(itFirst, itLast);
 
-    LOGDEBUG << "QoS Enqueu with ReadObjDelta..."
+    LOGMIGRATE << "QoS Enqueu with ReadObjDelta..."
              << " seqNum=" << readDeltaSetReq->seqNum
              << " executorID=" << readDeltaSetReq->executorId
              << " DeltSetSize=" << readDeltaSetReq->deltaSet.size()
@@ -180,7 +181,7 @@ MigrationClient::migClientSnapshotCB(const Error& error,
              *        accordingly on the destination SM.
              */
             if (!objMetaDataPtr->isObjCorrupted()) {
-                LOGDEBUG << "Selecting object" << objMetaDataPtr->logString();
+                LOGMIGRATE << "Selecting object" << objMetaDataPtr->logString();
                 objMetaDataSet.push_back(objMetaDataPtr);
             } else {
                 LOGERROR << "CORRUPTION: Skipping object ID " << objId;
@@ -220,7 +221,7 @@ MigrationClient::migClientSnapshotCB(const Error& error,
                  *        accordingly on the destination SM.
                  */
                 if (!objMetaDataPtr->isObjCorrupted()) {
-                    LOGDEBUG << "Selecting object" << objMetaDataPtr->logString();
+                    LOGMIGRATE << "Selecting object" << objMetaDataPtr->logString();
                     objMetaDataSet.push_back(objMetaDataPtr);
                 } else {
                     LOGERROR << "CORRUPTION: Skipping object ID " << objId;
@@ -255,7 +256,7 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
      */
     fds_token_id derivedSMTokenID = SmDiskMap::smTokenId(dltToken);
 
-    LOGDEBUG << "Dest SM: " << destSMNodeID << ", "
+    LOGMIGRATE << "Dest SM: " << std::hex << destSMNodeID.uuid_get_val() << std::dec << ", "
              << "DLT Token: " << dltToken << ", "
              << "SM Token: " << derivedSMTokenID << ", "
              << "ExecutorID: " << executorId;
@@ -299,7 +300,7 @@ MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr
     bool completeSet = false;
     Error err(ERR_OK);
 
-    LOGDEBUG << "seqNum " << curSeqNum << " DLT token " << dltToken
+    LOGMIGRATE << "seqNum " << curSeqNum << " DLT token " << dltToken
              << " executorId " << executorId;
 
     filterSetLock.lock();
@@ -334,7 +335,7 @@ MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr
         /* All filter objects sets from the destination SM is received.
          * Safe to snapshot.
          */
-        LOGDEBUG << "Received complete FilterSet with last seqNum=" << filterSet->seqNum;
+        LOGMIGRATE << "Received complete FilterSet with last seqNum=" << filterSet->seqNum;
         err = migClientSnapshotMetaData();
         if (!err.ok()) {
             return err;
