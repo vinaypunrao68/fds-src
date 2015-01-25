@@ -193,47 +193,55 @@ constexpr char NbdConnection::fourKayZeros[];
 
 bool
 NbdConnection::write_response() {
-    fds_verify(response);
-    fds_verify(total_blocks <= IOV_MAX);
+    fds_assert(response);
+    fds_assert(total_blocks <= IOV_MAX);
+
+    // Figure out which block we left off on
     size_t current_block = 0ull;
-    if (write_offset > 0)
-    {  // Figure out which block we left off on
+    iovec old_block = response[0];
+    if (write_offset > 0) {
         size_t written = write_offset;
 
         while (written >= response[current_block].iov_len)
             written -= response[current_block++].iov_len;
 
-        // Adjust the io vector so we don't re-write the same data
-        response[current_block].iov_base = reinterpret_cast<uint8_t*>(
-            response[current_block].iov_base) + written;
+        // Adjust the block so we don't re-write the same data
+        old_block = response[current_block];
+        response[current_block].iov_base =
+            reinterpret_cast<uint8_t*>(response[current_block].iov_base) + written;
         response[current_block].iov_len -= written;
     }
 
+    // Do the write
     ssize_t nwritten = writev(ioWatcher->fd,
                               response.get() + current_block,
                               total_blocks - current_block);
-    if (nwritten < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-            LOGERROR << "Socket write error: [" << strerror(errno) << "]";
-        switch (errno) {
-            case EINVAL: fds_verify(false);  // Indicates logic bug
-                         break;
-            case EBADF:
-            case EPIPE: throw connection_closed;
-                        break;
-        }
-        return false;
-    } else if (nwritten == 0) {
-        return false;
-    }
-    write_offset += nwritten;
 
-    ssize_t to_write = 0;
-    for (; current_block < total_blocks; ++current_block)
+    // Calculate amount we should have written so we can verify the return value
+    ssize_t to_write = response[current_block].iov_len;
+    // Return the block back to original in case we have to repeat
+    response[current_block++] = old_block;
+    for (; current_block < total_blocks; ++current_block){
         to_write += response[current_block].iov_len;
+    }
 
+    // Check return value
     if (to_write != nwritten) {
-        LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
+        if (nwritten < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK)
+                { LOGERROR << "Socket write error: [" << strerror(errno) << "]"; }
+            switch (errno) {
+            case EINVAL:   // Indicates logic bug
+                LOGERROR << "Write vector bug";
+                fds_assert(false);
+            case EBADF:
+            case EPIPE:
+                throw connection_closed;
+            }
+        } else {
+            LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
+            write_offset += nwritten;
+        }
         return false;
     }
     total_blocks = 0;
@@ -256,7 +264,7 @@ NbdConnection::hsPreInit(ev::io &watcher) {
         // is good enough for a unique_ptr (no custom deleter needed).
         write_offset = 0;
         total_blocks = std::extent<decltype(vectors)>::value;
-        response = decltype(response)(new iovec[total_blocks]);
+        response = resp_vector_type(new iovec[total_blocks]);
         memcpy(response.get(), vectors, sizeof(vectors));
     }
 
@@ -338,7 +346,7 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
     if (!response) {
         write_offset = 0;
         total_blocks = std::extent<decltype(vectors)>::value;
-        response = decltype(response)(new iovec[total_blocks]);
+        response = resp_vector_type(new iovec[total_blocks]);
         memcpy(response.get(), vectors, sizeof(vectors));
         response[0].iov_base = &volume_size;
     }
@@ -399,7 +407,7 @@ NbdConnection::hsReply(ev::io &watcher) {
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
-        response = decltype(response)(new iovec[kMaxChunks + 3]);
+        response = resp_vector_type(new iovec[kMaxChunks + 3]);
         response[0].iov_base = to_iovec(NBD_RESPONSE_MAGIC);
         response[0].iov_len = sizeof(NBD_RESPONSE_MAGIC);
         response[1].iov_base = to_iovec(&error_ok); response[1].iov_len = sizeof(error_ok);

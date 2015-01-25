@@ -70,6 +70,10 @@ class NbdConnector {
 
 class NbdConnection : public NbdOperationsResponseIface {
  public:
+    template<typename T>
+    using unique = std::unique_ptr<T>;
+    using resp_vector_type = unique<iovec[]>;
+
     enum Errors {
         connection_closed,
         shutdown_requested,
@@ -91,7 +95,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     message<attach_header, std::array<char, 1024>> attach;
     message<request_header, boost::shared_ptr<std::string>> request;
 
-    std::unique_ptr<iovec[]> response;
+    resp_vector_type response;
     size_t total_blocks;
     ssize_t write_offset;
 
