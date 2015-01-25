@@ -993,9 +993,19 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
     SmIoApplyObjRebalDeltaSet* rebalReq = static_cast<SmIoApplyObjRebalDeltaSet*>(ioReq);
     fds_verify(rebalReq != NULL);
 
+    LOGDEBUG << "Applying Delta Set:"
+             << " executorID=" << rebalReq->executorId
+             << " seqNum=" << rebalReq->seqNum
+             << " lastSet=" << rebalReq->lastSet
+             << " qosSeqNum=" << rebalReq->qosSeqNum
+             << " qosLastSet=" << rebalReq->qosLastSet
+             << " delta set size=" << rebalReq->deltaSet.size();
+
     for (fds_uint32_t i = 0; i < (rebalReq->deltaSet).size(); ++i) {
         const fpi::CtrlObjectMetaDataPropagate& objDataMeta = (rebalReq->deltaSet)[i];
         ObjectID objId(ObjectID(objDataMeta.objectID.digest));
+
+        LOGDEBUG << "Applying DeltaSet element: " << objId;
 
         err = objectStore->applyObjectMetadataData(objId, objDataMeta);
         if (!err.ok()) {
@@ -1022,7 +1032,13 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
     fds_verify(NULL != readDeltaSetReq);
-    LOGDEBUG << "Will read " << (readDeltaSetReq->deltaSet).size() << " objects";
+
+    LOGDEBUG << "Filling DeltaSet:"
+             << " destinationSmId " << readDeltaSetReq->destinationSmId
+             << " executorID=" << readDeltaSetReq->executorId
+             << " seqNum=" << readDeltaSetReq->seqNum
+             << " lastSet=" << readDeltaSetReq->lastSet
+             << " delta set size=" << readDeltaSetReq->deltaSet.size();
 
     fpi::CtrlObjectRebalanceDeltaSetPtr objDeltaSet(new fpi::CtrlObjectRebalanceDeltaSet());
     NodeUuid destSmId = readDeltaSetReq->destinationSmId;
@@ -1054,6 +1070,8 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
          */
         objMetaDataPropagate.objectData = *dataPtr;
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
+
+        LOGDEBUG << "Adding DeltaSet element: " << objID;
     }
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());

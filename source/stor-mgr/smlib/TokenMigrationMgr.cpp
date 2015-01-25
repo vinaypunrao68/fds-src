@@ -307,7 +307,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         } else {
             // we are done migrating, reply to start migration msg from OM
             omStartMigrCb(ERR_OK);
-            omStartMigrCb = NULL;  // we replied, so 
+            omStartMigrCb = NULL;  // we replied, so
 
             // TODO(Anna) revisit this when doing active IO -- we will have
             // to do the second snapshot
