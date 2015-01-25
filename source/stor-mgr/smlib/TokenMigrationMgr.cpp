@@ -45,11 +45,13 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
 
     // TODO(Anna) we are disabling migration for now since it is not fully
     // integrated, so calling callback right away
+#if 0
     if (cb) {
         LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
         cb(ERR_OK);
         return err;
     }
+#endif
 
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
@@ -174,7 +176,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
                                           const fpi::SvcUuid &executorSmUuid,
                                           fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
-    LOGDEBUG << "Object Rebalance Initial Set executor SM Id " << std::hex
+    LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
              << executorSmUuid.svc_uuid << std::dec << " executor ID "
              << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
              << " last " << rebalSetMsg->lastFilterSet;
@@ -219,7 +221,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
 Error
 SmTokenMigrationMgr::startObjectRebalanceResp() {
     Error err(ERR_OK);
-    LOGDEBUG << "";
+    LOGMIGRATE << "";
     return err;
 }
 
@@ -257,7 +259,7 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
 Error
 SmTokenMigrationMgr::rebalanceDeltaSetResp() {
     Error err(ERR_OK);
-    LOGDEBUG << "";
+    LOGMIGRATE << "";
     return err;
 }
 
@@ -330,7 +332,7 @@ SmTokenMigrationMgr::handleDltClose() {
         LOGNOTIFY << "DLT Close called in non- in progress state " << migrState;
         return ERR_OK;  // this is ok
     }
-    LOGDEBUG << "";
+    LOGMIGRATE << "";
     return err;
 }
 
