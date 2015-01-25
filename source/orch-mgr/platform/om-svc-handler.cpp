@@ -214,6 +214,14 @@ OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     LOGDEBUG << " received " << msg->evt_code
              << " from:" << std::hex << msg->evt_src_svc_uuid.svc_uuid << std::dec;
+
+    // XXX(bszmyd): Thu 22 Jan 2015 12:42:27 PM PST
+    // Ignore timeouts from Om. These happen due to one-way messages
+    // that cause Svc to timeout the request; e.g. TestBucket and SvcEvent
+    if (gl_OmUuid == msg->evt_src_svc_uuid.svc_uuid &&
+        ERR_SVC_REQUEST_TIMEOUT == msg->evt_code) {
+        return;
+    }
     event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
 }
 
