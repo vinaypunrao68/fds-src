@@ -689,11 +689,14 @@ std::vector<fds_uint64_t> DLTManager::getDltVersions() const{
     return vecVersions;
 }
 
-void DLTManager::setCurrent(fds_uint64_t version) {
-    LOGNOTIFY <<" setting the current dlt to version: " <<version;
+Error DLTManager::setCurrent(fds_uint64_t version) {
+    LOGNOTIFY << "Setting the current dlt to version: " <<version;
     const DLT* pdlt = getDLT(version);
-    fds_verify(pdlt != NULL);
+    if (pdlt == NULL) {
+        return ERR_NOT_FOUND;
+    }
     curPtr = pdlt;
+    return ERR_OK;
 }
 
 void DLTManager::setCurrentDltClosed() {
