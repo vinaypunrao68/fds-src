@@ -285,9 +285,6 @@ AmProcessor::getBlob(AmRequest *amReq) {
             // Fill in the data here
             cb->blobDesc = cachedBlobDesc;
         }
-    } else {
-        // If we don't need to return metadata just continue like we found it
-        blobReq->metadata_cached = true;
     }
 
     // Check cache for object ID
@@ -296,7 +293,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
                                                           amReq->blob_offset,
                                                           err);
     // ObjectID was found in the cache
-    if ((ERR_OK == err) && (true == blobReq->metadata_cached)) {
+    if ((ERR_OK == err) && (blobReq->metadata_cached == blobReq->get_metadata)) {
         blobReq->oid_cached = true;
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
