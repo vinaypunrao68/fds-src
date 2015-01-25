@@ -121,8 +121,8 @@ class TestReqHandler: public SmIoReqHandler {
         SmIoApplyObjRebalDeltaSet *rebalReq = static_cast<SmIoApplyObjRebalDeltaSet*>(ioReq);
         GLOGNORMAL << "Apply delta set executor ID " << rebalReq->executorId
                    << " seqNum " << rebalReq->seqNum << " lastSet " << rebalReq->lastSet
-                   << " qosSeqNum " << rebalReq->qosSeqNum << " totalQosCnt "
-                   << rebalReq->totalQosCount << " Objs to apply " << rebalReq->deltaSet.size();
+                   << " qosSeqNum " << rebalReq->qosSeqNum << " qosLastSet "
+                   << rebalReq->qosLastSet << " Objs to apply " << rebalReq->deltaSet.size();
 
         rebalReq->smioObjdeltaRespCb(ERR_OK, rebalReq);
     }

@@ -221,7 +221,13 @@ public class FdsFileSystem extends FileSystem {
     @Override
     public boolean delete(Path path, boolean recursive) throws IOException {
         Path absolutePath = getAbsolutePath(path);
-        FileStatus status = getFileStatus(path);
+        FileStatus status = null;
+        try {
+            status = getFileStatus(path);
+        } catch (FileNotFoundException e) {
+            return false;
+        }
+
         try {
             if (status.isDirectory()) {
                 if (!recursive)

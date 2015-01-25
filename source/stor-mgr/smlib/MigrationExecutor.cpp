@@ -182,7 +182,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                                                             deltaSet->seqNum,
                                                             deltaSet->lastDeltaSet,
                                                             qosSeqNum,
-                                                            totalCnt);
+                                                            (qosSeqNum == (totalCnt - 1)));
         fds_verify(applyReq != NULL);
         applyReq->io_type = FDS_SM_APPLY_DELTA_SET;
 
@@ -224,6 +224,16 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     // beta2: if error happened, stop migration
     if (!error.ok()) {
         LOGERROR << "Failed to apply a set of objects " << error;
+        handleMigrationDone(error);
+        return;
+    }
+
+    bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
+                                                                   req->lastSet,
+                                                                   req->qosSeqNum,
+                                                                   req->qosLastSet);
+    if (completeDeltaSetReceived) {
+        LOGNORMAL << "All DeltaSet and QoS requests accounted for executor " << req->executorId;
         handleMigrationDone(error);
         return;
     }
