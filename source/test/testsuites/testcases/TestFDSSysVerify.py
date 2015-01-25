@@ -301,10 +301,10 @@ class TestTransientRemoveNodeDMTMigration(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # whether there occurred successful DM Static migration
-# between two nodes.
-class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
+# between two nodes using directory/file comparisons.
+class TestVerifyDMStaticMigration_byFileCompare(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node1=None, node2=None, volume=None):
-        super(TestVerifyDMStaticMigration, self).__init__(parameters)
+        super(TestVerifyDMStaticMigration_byFileCompare, self).__init__(parameters)
 
         self.passedNode1 = node1
         self.passedNode2 = node2
@@ -322,7 +322,7 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_VerifyDMStaticMigration():
+            if not self.test_VerifyDMStaticMigration_byFileCompare():
                 test_passed = False
         except Exception as inst:
             self.log.error("DM Static migration verification caused exception:")
@@ -339,7 +339,7 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_VerifyDMStaticMigration(self):
+    def test_VerifyDMStaticMigration_byFileCompare(self):
         """
         Test Case:
         Verify whether DM Static migration successfully occurred
@@ -392,7 +392,7 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
         fds_dir2 = n2.nd_conf_dict['fds_root']
         dm_names_dir2 = fds_dir2 + "/user-repo/dm-names/" + v.nd_conf_dict['id']
 
-        # Some of these message will have been logged before for other reasons, so account for them.
+        # Compare the DM directories and files between the two nodes for the given volume.
         if are_dir_trees_equal(dm_names_dir1, dm_names_dir2, True):  # Log differences.
             self.log.info("Equal DM Names directories %s and %s." % (dm_names_dir1, dm_names_dir2))
             return True
@@ -400,6 +400,131 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
             self.log.error("Unequal DM Names directories %s and %s." % (dm_names_dir1, dm_names_dir2))
             return False
 
+
+# This class contains the attributes and methods to test
+# whether there occurred successful DM Static migration
+# between two nodes using the DM Check utility.
+class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node1=None, node2=None, volume=None):
+        super(TestVerifyDMStaticMigration, self).__init__(parameters)
+
+        self.passedNode1 = node1
+        self.passedNode2 = node2
+        self.passedVolume = volume
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_VerifyDMStaticMigration():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("DM Static Migration checking caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_VerifyDMStaticMigration(self):
+        """
+        Test Case:
+        Verify whether DM Static migration successfully occurred
+        by comparing the output of the DM Check utility run for each node.
+        """
+
+        # Verify input.
+        if (self.passedNode1 is None) or (self.passedNode2 is None) or (self.passedVolume is None):
+            self.log.error("Test case construction requires parameters node1, node2 and volume.")
+            raise
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
+
+        # Locate our two nodes.
+        nodes = fdscfg.rt_obj.cfg_nodes
+        n1 = None
+        n2 = None
+        for n in nodes:
+            if self.passedNode1 == n.nd_conf_dict['node-name']:
+                n1 = n
+            if self.passedNode2 == n.nd_conf_dict['node-name']:
+                n2 = n
+
+            if (n1 is not None) and (n2 is not None):
+                break
+
+        if n1 is None:
+            self.log.error("Node not found for %s." % self.passedNode1)
+            raise
+        if n2 is None:
+            self.log.error("Node not found for %s." % self.passedNode2)
+            raise
+
+        # Locate our volume.
+        volumes = fdscfg.rt_get_obj('cfg_volumes')
+        v = None
+        for volume in volumes:
+            if self.passedVolume == volume.nd_conf_dict['vol-name']:
+                v = volume
+
+        if v is None:
+            self.log.error("Volume not found for %s." % self.passedVolume)
+            raise
+
+        fds_dir1 = n1.nd_conf_dict['fds_root']
+
+        fds_dir2 = n2.nd_conf_dict['fds_root']
+
+        # Capture stdout from dmchk for node1.
+        #
+        # Parameter return_std_in is set to return stdout. ... Don't ask me!
+        status, stdout1 = n1.nd_agent.exec_wait(
+            'bash -c \"(nohup %s/dmchk --fds-root=%s -l %s > %s/dmchk.%s.out 2>&1 &) \"' %
+            (bin_dir, fds_dir1, log_dir, n1.nd_conf_dict['node-name'], v.nd_conf_dict['id']), return_stdin=True)
+
+        if status != 0:
+            self.log.error("DM Static Migration checking using node %s returned status %d." %
+                           (n1.nd_conf_dict['fds_node'], status))
+            return False
+
+        # Now capture stdout from dmchk for node2.
+        status, stdout2 = n1.nd_agent.exec_wait(
+            'bash -c \"(nohup %s/dmchk --fds-root=%s -l %s > %s/dmchk.%s.out 2>&1 &) \"' %
+            (bin_dir, fds_dir2, log_dir, n2.nd_conf_dict['node-name'], v.nd_conf_dict['id']), return_stdin=True)
+
+        if status != 0:
+            self.log.error("DM Static Migration checking using node %s returned status %d." %
+                           (n2.nd_conf_dict['fds_node'], status))
+            return False
+
+        # Let's compare.
+        if stdout1 != stdout2:
+            self.log.error("DM Static Migration checking showed differences.")
+            self.log.error("Node %s shows %s" %
+                           (n1.nd_conf_dict['fds_node'], stdout1))
+            self.log.error("Node %s shows %s" %
+                           (n2.nd_conf_dict['fds_node'], stdout2))
+            return False
+
+        return True
 
 # This class contains the attributes and methods to test
 # the consistency of SM It requires that the cluster be shut down.
