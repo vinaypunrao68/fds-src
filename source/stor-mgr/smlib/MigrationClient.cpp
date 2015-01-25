@@ -36,7 +36,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
     SMTokenID = SMTokenInvalidID;
     executorID = invalidExecutorID;
 
-    maxDeltaSetSize = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.max_delta_set");
+    maxDeltaSetSize = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.max_delta_set_size");
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 }
 
@@ -103,10 +103,10 @@ MigrationClient::migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaData
     readDeltaSetReq->deltaSet.assign(itFirst, itLast);
 
     LOGDEBUG << "QoS Enqueu with ReadObjDelta..."
-             << "seqNum=" << readDeltaSetReq->seqNum
-             << "executorID=" << readDeltaSetReq->executorId
-             << "DeltSetSize=" << readDeltaSetReq->deltaSet.size()
-             << "lastSet=" << lastSet ? "TRUE" : "FALSE";
+             << " seqNum=" << readDeltaSetReq->seqNum
+             << " executorID=" << readDeltaSetReq->executorId
+             << " DeltSetSize=" << readDeltaSetReq->deltaSet.size()
+             << " lastSet=" << lastSet ? "TRUE" : "FALSE";
 
     /* enqueue to QoS queue */
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, readDeltaSetReq);
@@ -166,12 +166,21 @@ MigrationClient::migClientSnapshotCB(const Error& error,
             /* Get metadata associated with the object. */
             objMetaDataPtr->deserializeFrom(iterDB->value());
 
+#ifdef DEBUG
+            {
+                ObjectID objIdDebug(std::string((const char *)(objMetaDataPtr->obj_map.obj_id.metaDigest),
+                                    sizeof(objMetaDataPtr->obj_map.obj_id.metaDigest)));
+                fds_assert(objId == objIdDebug);
+            }
+#endif
+
             /* Note:  we have to deal with snapshot metadata, not from the disk
              *        state later.  With active IO, we need to look at if
              *        active IOs have change the metadat state, and change
              *        accordingly on the destination SM.
              */
             if (!objMetaDataPtr->isObjCorrupted()) {
+                LOGDEBUG << "Selecting object" << objMetaDataPtr->logString();
                 objMetaDataSet.push_back(objMetaDataPtr);
             } else {
                 LOGERROR << "CORRUPTION: Skipping object ID " << objId;
@@ -187,8 +196,19 @@ MigrationClient::migClientSnapshotCB(const Error& error,
             ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
             objMetaDataPtr->deserializeFrom(iterDB->value());
 
+#ifdef DEBUG
+            {
+                ObjectID objIdDebug(std::string((const char *)(objMetaDataPtr->obj_map.obj_id.metaDigest),
+                                    sizeof(objMetaDataPtr->obj_map.obj_id.metaDigest)));
+                fds_assert(objId == objIdDebug);
+            }
+#endif
+
             /* compare the refcnt of the filteredObject and object in the
              * leveldb snapshot.
+             */
+            /* TODO(Sean): Do we need to also check the volume association when filtering
+             *             in the future?
              */
             if (objMetaDataPtr->getRefCnt() != objectIdFiltered->second) {
                 /* add to the set of objec IDs to be sent to the QoS.
@@ -200,6 +220,7 @@ MigrationClient::migClientSnapshotCB(const Error& error,
                  *        accordingly on the destination SM.
                  */
                 if (!objMetaDataPtr->isObjCorrupted()) {
+                    LOGDEBUG << "Selecting object" << objMetaDataPtr->logString();
                     objMetaDataSet.push_back(objMetaDataPtr);
                 } else {
                     LOGERROR << "CORRUPTION: Skipping object ID " << objId;
@@ -278,6 +299,9 @@ MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr
     bool completeSet = false;
     Error err(ERR_OK);
 
+    LOGDEBUG << "seqNum " << curSeqNum << " DLT token " << dltToken
+             << " executorId " << executorId;
+
     filterSetLock.lock();
 
     /* Verify message destination.
@@ -310,6 +334,7 @@ MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr
         /* All filter objects sets from the destination SM is received.
          * Safe to snapshot.
          */
+        LOGDEBUG << "Received complete FilterSet with last seqNum=" << filterSet->seqNum;
         err = migClientSnapshotMetaData();
         if (!err.ok()) {
             return err;

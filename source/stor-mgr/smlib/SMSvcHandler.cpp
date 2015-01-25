@@ -132,10 +132,16 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                             CtrlNotifySMAbortMigrationPtr& abortMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Received Abort Migration for DLT " << abortMsg->DLT_version;
+    LOGDEBUG << "Received Abort Migration, will revert to previously "
+             << " commited DLT version " << abortMsg->DLT_version;
 
     // tell migration mgr to abort migration
     err = objStorMgr->migrationMgr->abortMigration();
+
+    // revert to DLT version provided in abort message
+    if (abortMsg->DLT_version > 0) {
+        objStorMgr->omClient->getDltManager()->setCurrent(abortMsg->DLT_version);
+    }
 
     // send response
     fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
@@ -648,7 +654,6 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
     fds_assert(vol != NULL);
     if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
-        MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
         fdp::FDSP_TierPolicyPtr tp(new FDSP_TierPolicy());
         tp->tier_media_pct = vdb->mediaPolicy;
         objStorMgr->omc_srv_pol->serv_recvTierPolicyReq(tp);

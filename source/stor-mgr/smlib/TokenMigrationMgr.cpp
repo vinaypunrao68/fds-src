@@ -199,9 +199,9 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         if (migrClients.count(executorId) == 0) {
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
-            migrClient = MigrationClient::shared_ptr(new MigrationClient(smReqHandler,
-                                                                         executorNodeUuid,
-                                                                         bitsPerDltToken));
+            migrClient.reset(new MigrationClient(smReqHandler,
+                                                 executorNodeUuid,
+                                                 bitsPerDltToken));
             migrClients[executorId] = migrClient;
         } else {
             migrClient = migrClients[executorId];
@@ -232,7 +232,7 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
     fds_uint64_t executorId = deltaSet->executorID;
 
     // if we receive this in IDLE or ABORTED state, just ignore
-    if (atomic_load(&migrState) == MIGR_IN_PROGRESS) {
+    if (atomic_load(&migrState) != MIGR_IN_PROGRESS) {
         LOGWARN << "Migration NOT in progress anymore, assuming was aborted!";
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
@@ -307,7 +307,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         } else {
             // we are done migrating, reply to start migration msg from OM
             omStartMigrCb(ERR_OK);
-            omStartMigrCb = NULL;  // we replied, so 
+            omStartMigrCb = NULL;  // we replied, so
 
             // TODO(Anna) revisit this when doing active IO -- we will have
             // to do the second snapshot

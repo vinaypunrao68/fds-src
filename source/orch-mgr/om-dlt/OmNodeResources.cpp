@@ -261,7 +261,7 @@ OM_NodeAgent::om_send_abort_migration(fds_uint64_t dltVersion) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_migration_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
-    om_req->setTimeoutMs(20000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     LOGNORMAL << "OM: Send abort migration (DLT version " << dltVersion
@@ -286,7 +286,7 @@ OM_NodeAgent::om_send_abort_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr ms
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
-    dltMod->dlt_deploy_event(DltAbortMigrationAckEvt(node_uuid));
+    dltMod->dlt_deploy_event(DltRecoverAckEvt(true, node_uuid, error));
 }
 
 Error
@@ -295,6 +295,11 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     if (curDlt == NULL) {
         LOGNORMAL << "No current DLT to send to " << get_node_name();
         return Error(ERR_NOT_FOUND);
+    }
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send dlt to node we know is down... "
+                  << get_node_name();
+        return ERR_NOT_FOUND;
     }
 
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
@@ -326,6 +331,11 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
 Error
 OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     Error err(ERR_OK);
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send dlt close to service we know is down... "
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDLTClosePtr msg(new fpi::CtrlNotifyDLTClose());
@@ -368,7 +378,8 @@ OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* re
 {
     LOGNOTIFY << "OM received response for NotifyDltUpdate from node "
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
-              <<" with version " << msg->dlt_version << " " << error;
+              << " node type " << rs_get_uuid().uuid_get_type()
+              << " with DLT version " << msg->dlt_version << " " << error;
 
     // notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
@@ -1787,10 +1798,16 @@ om_send_dlt(const DLT* curDlt, NodeAgent::pointer agent)
 // ------------
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_dlt(const DLT* curDlt, fds_bool_t sm_only)
+OM_NodeContainer::om_bcast_dlt(const DLT* curDlt,
+                               fds_bool_t to_sm,
+                               fds_bool_t to_dm,
+                               fds_bool_t to_am)
 {
     fds_uint32_t count = 0;
-    count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+    if (to_sm) {
+        count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+        LOGDEBUG << "Sent dlt to SM nodes successfully";
+    }
 
 #ifdef LLIU_WORK_IN_PROGRESS
     //   the following is to test for PM to receive dlt
@@ -1798,12 +1815,14 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt, fds_bool_t sm_only)
     dc_pm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
 #endif
 
-    if (sm_only) {
-        return count;
+    if (to_dm) {
+        count += dc_dm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+        LOGDEBUG << "Sent dlt to DM nodes successfully";
     }
-
-    count += dc_dm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
-    count += dc_am_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+    if (to_am) {
+        count += dc_am_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+        LOGDEBUG << "Sent dlt to AM nodes successfully";
+    }
 
     LOGDEBUG << "Sent dlt to " << count << " nodes successfully";
     return count;

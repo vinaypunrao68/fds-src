@@ -464,7 +464,9 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_vol_tier_audit(const fpi::FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
     virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt,
-                                      fds_bool_t sm_only = false);
+                                      fds_bool_t to_sm = true,
+                                      fds_bool_t to_dm = true,
+                                      fds_bool_t to_am = true);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
     virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
 

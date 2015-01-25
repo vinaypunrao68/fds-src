@@ -3,7 +3,7 @@ user_target       := exe
 user_std_libs     := true
 user_rtime_env    := user
 speedup           = -j $(threads)
-user_build_dir    := smlib policy include migrations platform
+user_build_dir    := smlib policy include platform
 
 # TODO: avoid include across components, put in include dir instead.
 #
@@ -19,7 +19,6 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-smlib \
-    fds-migrations \
     fds-svc-request \
     fds-net-svc \
     fds-qos-lib \
@@ -32,7 +31,6 @@ user_fds_ar_libs  :=                   \
     fds-odb \
     fds-vpolicy \
     fds-hash \
-    fds-migrations \
     fds-net-svc \
     fds-xdi
 
