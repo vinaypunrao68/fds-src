@@ -20,6 +20,8 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,34 +66,35 @@ public class ListServices
                 if( service.isPresent() ) {
 
                     logger.debug( service.toString() );
+                    final String ipv6Addr =
+                        ipAddr2String( info.getIp_hi_addr() )
+                            .orElse( String.valueOf( info.getIp_hi_addr() ) );
+                    final String ipv4Addr =
+                        ipAddr2String( info.getIp_lo_addr() )
+                            .orElse( String.valueOf( info.getIp_lo_addr() ) );
                     if( nodeUUID == null ) {
 
                         nodeUUID = info.getNode_uuid();
                         if( !clusterMap.containsKey( nodeUUID ) ) {
                             clusterMap.put( nodeUUID,
                                             Node.uuid( nodeUUID )
-                                                .ipV6address(
-                                                    String.valueOf(
-                                                        info.getIp_hi_addr() ) )
-                                                .ipV4address(
-                                                    String.valueOf(
-                                                        info.getIp_lo_addr() ) )
+                                                .ipV6address( ipv6Addr )
+                                                .ipV4address( ipv4Addr )
                                                 .state( NodeState.UP )
+                                                .name( ipv4Addr )
                                                 .build() );
                         }
                     } else if( !nodeUUID.equals( info.getNode_uuid() ) ) {
 
                         if( !clusterMap.containsKey( nodeUUID ) ) {
 
+
                             clusterMap.put( nodeUUID,
                                             Node.uuid( nodeUUID )
-                                                .ipV6address(
-                                                    String.valueOf(
-                                                        info.getIp_hi_addr() ) )
-                                                .ipV4address(
-                                                    String.valueOf(
-                                                        info.getIp_lo_addr() ) )
+                                                .ipV6address( ipv6Addr )
+                                                .ipV4address( ipv4Addr )
                                                 .state( NodeState.UP )
+                                                .name( ipv4Addr )
                                                 .build() );
                         }
 
@@ -124,6 +127,34 @@ public class ListServices
         domain.getNodes().addAll( clusterMap.values() );
 
         return new TextResource( ObjectModelHelper.toJSON( domain ) );
+    }
+
+    protected Optional<String> ipAddr2String( final Long ipAddr ) {
+
+        try {
+
+            return Optional.of( InetAddress.getByAddress( htonl( ipAddr ) )
+                                           .getHostAddress() );
+
+        } catch( UnknownHostException e ) {
+
+            logger.error( "Failed to convert " + ipAddr + " its it IPv4 address", e );
+        }
+
+        return Optional.empty();
+    }
+
+    private byte[] htonl( long x )
+    {
+        byte[] res = new byte[4];
+        for( int i = 0; i < 4; i++ ) {
+
+            res[i] = ( new Long( x >>> 24 ) ).byteValue( );
+            x <<= 8;
+
+        }
+
+        return res;
     }
 
     static enum ListService {
