@@ -198,6 +198,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("activate-services", po::value<std::string>(),
              "Activate nodes: activate-services <domain> -k <domain-id> -w <node-uuid>"
              "[ -e \"am,dm,sm\" ]")
+            ("list-services", "List Services")
             ("remove-services", po::value<std::string>(),
              "Remove services: remove-services <node_name> "
              "[ -e \"am,dm,sm\" ]")
@@ -489,6 +490,35 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_id = vm["domain-id"].as<int>();
 
         NETWORKCHECK(cfgPrx->CreateDomain(msg_hdr, domainData));
+
+    }  else if (vm.count("list-services")) {
+
+        LOGNOTIFY << " List services ";
+
+        std::vector<FDS_ProtocolInterface::FDSP_Node_Info_Type> vec;
+        NETWORKCHECK(cfgPrx->ListServices(vec, msg_hdr));
+
+        for (fds_uint32_t i = 0; i < vec.size(); ++i) {
+
+            cout << "Node UUID " << std::hex << vec[i].node_uuid << std::dec
+                 << std::endl
+                 << "\tState " << vec[i].node_state << std::endl
+                 << "\tType " << vec[i].node_type << std::endl
+                 << "\tName " << vec[i].node_name << std::endl
+                 << "\tUUID " << std::hex << vec[i].service_uuid << std::dec
+                 << std::endl
+                 << "\tIPv6 " << netSession::ipAddr2String(vec[i].ip_hi_addr)
+                 << std::endl
+                 << "\tIPv4 " << netSession::ipAddr2String(vec[i].ip_lo_addr)
+                 << std::endl
+                 << "\tControl Port " << vec[i].control_port << std::endl
+                 << "\tData Port " << vec[i].data_port << std::endl
+                 << "\tMigration Port " << vec[i].migration_port << std::endl
+                 << "\tMetasync Port " << vec[i].metasync_port << std::endl
+                 << "\tNode Root " << vec[i].node_root << std::endl
+                 << std::endl;
+        }
+
     }  else if (vm.count("remove-services")) {
         LOGNOTIFY << " Remove services ";
         LOGNOTIFY << vm["remove-services"].as<std::string>() << "- node name";

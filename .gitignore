@@ -10,6 +10,7 @@
 *.sw?
 cscope.*
 tags
+tags.lst
 core
 *.orig
 *.pyc
@@ -42,6 +43,7 @@ source/unit-test/svc-layer/svc_constants.cpp
 source/unit-test/svc-layer/svc_constants.h
 source/unit-test/svc-layer/svc_types.cpp
 source/unit-test/svc-layer/svc_types.h
+source/unit-test/svc-layer/java_client/target/
 /source/orch_mgr/java/gen-java/*
 /source/orch_mgr/java/target/*
 /source/java/target
