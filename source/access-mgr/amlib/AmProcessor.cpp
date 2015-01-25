@@ -407,7 +407,7 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
                                boost::make_shared<ObjectID>(amReq->obj_id));
         }
 
-        if (static_cast<GetBlobReq*>(amReq)->get_metadata && !blobReq->metadata_cached) {
+        if (!blobReq->metadata_cached && blobReq->get_metadata) {
             auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
             if (cb->blobDesc)
                 amCache->putBlobDescriptor(amReq->io_vol_id,
