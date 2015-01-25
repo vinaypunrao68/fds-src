@@ -208,7 +208,7 @@ namespace fds {
         std::vector<fds_uint64_t> getDltVersions() const;
 
         // Make the specific version as the current
-        void setCurrent(fds_uint64_t version);
+        Error setCurrent(fds_uint64_t version);
         void setCurrentDltClosed();
 
         // get all the Nodes for a token/objid

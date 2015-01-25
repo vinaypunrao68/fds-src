@@ -158,11 +158,19 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
     fds_verify(curState == ME_APPLYING_DELTA);
 
     // if the obj data+meta list is empty, and lastDeltaSet == true,
-    // the source SM does not have any data for this SM token, finish
-    // migration
+    // nothing to apply, but have to check if we are done with migration
     if ((deltaSet->objectToPropagate.size() == 0) &&
         (deltaSet->lastDeltaSet)) {
-        handleMigrationDone(ERR_OK);
+        bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(deltaSet->seqNum,
+                                                                       deltaSet->lastDeltaSet,
+                                                                       0,
+                                                                       true);
+        if (completeDeltaSetReceived) {
+            LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
+                      << executorId;
+            handleMigrationDone(ERR_OK);
+        }
+        // we will get more delta sets for this executor (out-of-order)
         return ERR_OK;
     }
     // otherwise, we should have non-empty obj set
