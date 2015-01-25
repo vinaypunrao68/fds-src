@@ -12,6 +12,11 @@
 
 namespace fds {
 
+/**
+ * Callback for Migration Start Ack
+ */
+typedef std::function<void (const Error&)> OmStartMigrationCbType;
+
 /*
  * Class responsible for migrating tokens between SMs
  * For each migration process, it creates migrationExecutors
@@ -54,15 +59,18 @@ class SmTokenMigrationMgr {
      * messages from OM/SMs in the correct state...
      */
     enum MigrationState {
-        MIGR_IDLE,
-        MIGR_IN_PROGRESS,
-        MIGR_DONE,
-        MIGR_ABORTED,
+        MIGR_IDLE,         // state in after DLT close and before Start migration
+        MIGR_IN_PROGRESS,  // state between Start Migration and DLT close
+        MIGR_ABORTED       // If migration aborted due to error before DLT close
     };
 
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IN_PROGRESS);
+    }
+    inline fds_bool_t isMigrationIdle() const {
+        MigrationState curState = atomic_load(&migrState);
+        return (curState == MIGR_IDLE);
     }
 
     /**
@@ -71,7 +79,13 @@ class SmTokenMigrationMgr {
      * which initiate token migration
      */
     Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+                         OmStartMigrationCbType cb,
                          fds_uint32_t bitsPerDltToken);
+
+    /**
+     * Handles message from OM to abort migration
+     */
+    Error abortMigration();
 
     /**
      * Handle start object rebalance from destination SM
@@ -133,6 +147,9 @@ class SmTokenMigrationMgr {
     /// next ID to assign to a migration executor
     std::atomic<fds_uint64_t> nextExecutorId;
 
+    /// callback to svc handler to ack back to OM for Start Migration
+    OmStartMigrationCbType omStartMigrCb;
+
     /// SM token token that is currently in progress of migrating
     /// TODO(Anna) make it more general if we want to migrate several
     /// tokens at a time
@@ -157,6 +174,9 @@ class SmTokenMigrationMgr {
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
     fds_mutex clientLock;
+
+    /// maximum number of items in the delta set.
+    fds_uint32_t maxDeltaSetSize;
 };
 
 }  // namespace fds

@@ -60,6 +60,7 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMAbortMigration, migrationAbort);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
 
@@ -84,7 +85,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
     if (!err.ok()) {
         LOGERROR << "Failed to disable Scavenger; failing token migration";
-        startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
+        startMigrationCb(asyncHdr, migrationMsg->DLT_version, err);
         return;
     }
 
@@ -92,37 +93,55 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
     if (!err.ok()) {
         LOGERROR << "Failed to disable Tier Migration; failing token migration";
-        startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
+        startMigrationCb(asyncHdr, migrationMsg->DLT_version, err);
         return;
     }
 
     // start migration
     const DLT* dlt = objStorMgr->getDLT();
     if (dlt != NULL) {
-        // err = objStorMgr->migrationMgr->startMigration(migrationMsg,
-        //                                                dlt->getNumBitsForToken());
+        err = objStorMgr->migrationMgr->startMigration(migrationMsg,
+                                                       std::bind(
+                                                           &SMSvcHandler::startMigrationCb, this,
+                                                           asyncHdr, migrationMsg->DLT_version,
+                                                           std::placeholders::_1),
+                                                       dlt->getNumBitsForToken());
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "
                  << " called on addition of the first set of SMs to the domain";
-        err = ERR_INVALID_DLT;
+        startMigrationCb(asyncHdr, migrationMsg->DLT_version, ERR_INVALID_DLT);
     }
-
-    // TODO(Anna) for now callig callback right away, because start migration
-    // not called yet; do cb only on error normally
-    startMigrationCb(asyncHdr, err, migrationMsg->DLT_version);
 }
 
 void
 SMSvcHandler::startMigrationCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                               const Error &err,
-                               fds_uint64_t dltVersion)
+                               fds_uint64_t dltVersion,
+                               const Error& err)
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
 
     fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
     msg->status.DLT_version = dltVersion;
     msg->status.context = 0;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyMigrationStatus), *msg);
+}
+
+void
+SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                            CtrlNotifySMAbortMigrationPtr& abortMsg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << "Received Abort Migration for DLT " << abortMsg->DLT_version;
+
+    // tell migration mgr to abort migration
+    err = objStorMgr->migrationMgr->abortMigration();
+
+    // send response
+    fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
+    msg->DLT_version = abortMsg->DLT_version;
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration), *msg);
 }
 
 /**
@@ -174,7 +193,7 @@ SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->migrationMgr->recvRebalanceDeltaSet(deltaObjSet);
 
     // TODO(Anna) respond with error, are we responding on success?
-    fds_verify(err.ok());
+    fds_verify(err.ok() || (err == ERR_SM_TOK_MIGRATION_ABORTED));
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -620,8 +639,8 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                            boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg)
 {
     Error err;
-    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     VolumeDesc vdbc(vol_msg->vol_desc), * vdb = &vdbc;
+    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     GLOGNOTIFY << "Received modify for vol "
                << "[" << std::hex << volumeId << std::dec << ", "
                << vdb->getName() << "]";
@@ -629,8 +648,10 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
     fds_assert(vol != NULL);
     if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
-        GLOGWARN << "Modify volume requested to modify media policy "
-                 << "- Not supported yet! Not modifying media policy";
+        MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
+        fdp::FDSP_TierPolicyPtr tp(new FDSP_TierPolicy());
+        tp->tier_media_pct = vdb->mediaPolicy;
+        objStorMgr->omc_srv_pol->serv_recvTierPolicyReq(tp);
     }
 
     vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
@@ -772,6 +793,10 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt)
 {
     LOGNOTIFY << "Receiving DLT Close";
+    // Set closed flag for the DLT. We use it for garbage collecting
+    // DLT tokens that are no longer belong to this SM. We want to make
+    // sure we garbage collect only when DLT is closed
+    objStorMgr->omClient->setCurrentDLTClosed();
 
     // re-enable GC and Tier Migration
     // If this SM did not receive start migration or rebalance
@@ -787,6 +812,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     err = objStorMgr->migrationMgr->handleDltClose();
 
     // send response
+    hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
     objStorMgr->tok_migrated_for_dlt_ = false;
 }

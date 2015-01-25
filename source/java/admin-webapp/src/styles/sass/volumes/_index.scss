@@ -14,7 +14,7 @@
     top: 0px;
     
     .new_volume {
-        margin-right: 18px;
+        margin-right: 5px;
     }
 }
 
@@ -95,6 +95,7 @@ table.volumes {
 
   .priority {
     text-align: center;
+    padding: 0px;
   }
     
   td.volume_time {
@@ -122,6 +123,7 @@ table.volumes {
     
   td.firebreak {
       text-align: center;
+      padding: 0px;
   }
 
   td.usage {

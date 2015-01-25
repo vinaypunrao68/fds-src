@@ -195,6 +195,7 @@ class OMgrClient {
     fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(const ObjectID &objId);
     const DLT* getCurrentDLT();
+    void setCurrentDLTClosed();
     const DLT* getPreviousDLT();
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
     fds_uint32_t getNodeMigPort(NodeUuid uuid);

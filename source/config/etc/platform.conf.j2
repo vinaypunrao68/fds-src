@@ -148,6 +148,13 @@ fds: {
            default_max_entries = 200
         }
 
+        migration: {
+            /* Rsync username to use during migration */
+            rsync_username = "root"
+            /* Rsync password to use during migration */
+	    rsync_password = "passwd"
+        }
+
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
         graphite: {
@@ -284,10 +291,18 @@ fds: {
         /* Migration related info */
         migration: {
             /* IP of the migration server */
+            /* DEPRECATED */
             ip = "{{ om_ip }}"
 
             /* Number of threads for doing migration work */
+            /* DEPRECATED */
             thread_cnt=5
+
+            /* size of the delta set from source SM to destination SM */
+            max_delta_set_size=16
+
+            /* verify the integrity of the metadata and data */
+            verify_migration_data=false
         }
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}

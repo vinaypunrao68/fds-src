@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 by Formation Data Systems, Inc.
+ * Copyright 2013-2015 by Formation Data Systems, Inc.
  */
 #ifndef SOURCE_ORCH_MGR_INCLUDE_OM_SVC_HANDLER_H_
 #define SOURCE_ORCH_MGR_INCLUDE_OM_SVC_HANDLER_H_
@@ -7,6 +7,7 @@
 #include <OmResources.h>
 #include <fdsp/fds_service_types.h>
 #include <net/PlatNetSvcHandler.h>
+#include <OmEventTracker.h>
 
 namespace fds {
 
@@ -52,6 +53,10 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
 
   protected:
     OM_NodeDomainMod         *om_mod;
+    EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
+
+  private:
+    void init_svc_event_handlers();
 };
 
 }  // namespace fds

@@ -37,7 +37,9 @@ ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
 typedef uint64_t SvcRequestId;
 
 /* Async svc request callback types */
-typedef std::function<void(const SvcRequestId&)> SvcRequestCompletionCb;
+struct SvcRequestIf;
+typedef boost::shared_ptr<SvcRequestIf> SvcRequestIfPtr;
+typedef std::function<SvcRequestIfPtr(const SvcRequestId&)> SvcRequestCompletionCb;
 typedef std::function<void(boost::shared_ptr<std::string>)> SvcRequestSuccessCb;
 typedef std::function<void(const Error&,
         boost::shared_ptr<std::string>)> SvcRequestErrorCb;
@@ -288,8 +290,6 @@ struct SvcRequestIf {
     fpi::SvcUuid myEpId_;
     /* Async svc request state */
     SvcRequestState state_;
-    /* Error if any */
-    Error error_;
     /* Timeout */
     uint32_t timeoutMs_;
     /* Timer */
@@ -308,7 +308,6 @@ struct SvcRequestIf {
             boost::shared_ptr<std::string>& payload) = 0;
 
 };
-typedef boost::shared_ptr<SvcRequestIf> SvcRequestIfPtr;
 
 #define EpInvokeRpc(SendIfT, func, svc_id, maj, min, ...)                       \
     do {                                                                        \

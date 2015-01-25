@@ -405,11 +405,6 @@ struct DataMgr : Module, DmIoReqHandler {
             // Don't do anything here. This stub is just to keep cpp compiler happy
         }
 
-        void GetVolumeBlobList(const FDSP_MsgHdrType& fds_msg,
-                               const FDSP_GetVolumeBlobListReqType& blob_list_req) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-
         void StatBlob(const FDSP_MsgHdrType& msg_hdr,
                       const std::string &volumeName,
                       const std::string &blobName) {
@@ -449,9 +444,6 @@ struct DataMgr : Module, DmIoReqHandler {
                                  &msg_hdr,
                                  FDS_ProtocolInterface::
                                  FDSP_DeleteCatalogTypePtr& query_catalog);
-        void GetVolumeBlobList(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                               FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr&
-                               blobListReq);
         void StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                       boost::shared_ptr<std::string> &volumeName,
                       boost::shared_ptr<std::string> &blobName);

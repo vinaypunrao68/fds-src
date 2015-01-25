@@ -300,11 +300,11 @@ class TestTransientRemoveNodeDMTMigration(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# whether there occurred successful static DMT migration
+# whether there occurred successful DM Static migration
 # between two nodes.
-class TestVerifyStaticDMTMigration(TestCase.FDSTestCase):
+class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node1=None, node2=None, volume=None):
-        super(TestVerifyStaticDMTMigration, self).__init__(parameters)
+        super(TestVerifyDMStaticMigration, self).__init__(parameters)
 
         self.passedNode1 = node1
         self.passedNode2 = node2
@@ -322,10 +322,10 @@ class TestVerifyStaticDMTMigration(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_VerifyStaticDMTMigration():
+            if not self.test_VerifyDMStaticMigration():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Static DMT migration verification caused exception:")
+            self.log.error("DM Static migration verification caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -339,10 +339,10 @@ class TestVerifyStaticDMTMigration(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_VerifyStaticDMTMigration(self):
+    def test_VerifyDMStaticMigration(self):
         """
         Test Case:
-        Verify whether static DMT migration successfully occurred
+        Verify whether DM Static migration successfully occurred
         by comparing ${FDS}/user_repo/dm_names contents of the two nodes
         for the given volume.
         """

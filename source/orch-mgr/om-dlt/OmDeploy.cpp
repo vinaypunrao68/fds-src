@@ -40,17 +40,26 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         virtual void runTimerTask() override;
     };
 
+    class WaitingTimerTask : public FdsTimerTask {
+      public:
+        explicit WaitingTimerTask(FdsTimer &timer)  // NOLINT
+                : FdsTimerTask(timer) {}
+        ~WaitingTimerTask() {}
+
+        virtual void runTimerTask() override;
+    };
+
+    // Lock to prevent dlt compute while already computing
+    std::atomic_flag lock = ATOMIC_FLAG_INIT;
+
     /**
      * OM DLT Deployment states.
      */
     struct DST_Idle : public msm::front::state<>
     {
-        DST_Idle() : retryTimer(new FdsTimer()),
-                     retryTimerTask(new RetryTimerTask(*retryTimer)) {}
+        DST_Idle()  {}
 
-        ~DST_Idle() {
-            retryTimer->destroy();
-        }
+        ~DST_Idle() {}
 
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
@@ -62,9 +71,35 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
             LOGDEBUG << "DST_Idle. Evt: " << e.logString();
         }
 
+    };
+    struct DST_Waiting : public msm::front::state<>
+    {
+        DST_Waiting() : waitingTimer(new FdsTimer()),
+                        waitingTimerTask(new WaitingTimerTask(*waitingTimer)),
+                        retryTimer(new FdsTimer()),
+                        retryTimerTask(new RetryTimerTask(*retryTimer)) {}
+
+        ~DST_Waiting() {
+            waitingTimer->destroy();
+            retryTimer->destroy();
+        }
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+        }
+
         /**
-         * timer to retry re-compute DLT
-         */
+        * timer to retry re-compute DLT
+        */
+        FdsTimerPtr waitingTimer;
+        FdsTimerTaskPtr waitingTimerTask;
+
         FdsTimerPtr retryTimer;
         FdsTimerTaskPtr retryTimerTask;
     };
@@ -85,8 +120,6 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGDEBUG << "DST_SendDlts. Evt: " << e.logString();
         }
-
-        std::atomic_flag lock = ATOMIC_FLAG_INIT;
     };
     struct DST_WaitSync : public msm::front::state<>
     {
@@ -188,6 +221,11 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     /**
      * Transition actions.
      */
+    struct DACT_Waiting
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     struct DACT_Compute
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -254,8 +292,10 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // +------------------+----------------+-------------+---------------+--------------+
     // | Start            | Event          | Next        | Action        | Guard        |
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Idle    , DltComputeEvt  , DST_SendDlts, DACT_Compute , GRD_DltCompute>,
+    msf::Row< DST_Idle    , DltComputeEvt  , DST_Waiting , DACT_Waiting  ,GRD_DltCompute>,
     msf::Row< DST_Idle    , DltLoadedDbEvt , DST_Commit  , DACT_Commit   , msf::none    >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_Waiting , DltTimeoutEvt  , DST_SendDlts, DACT_Compute  , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_SendDlts, msf::none      , DST_WaitSync, DACT_SendDlts , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
@@ -358,6 +398,27 @@ OM_DLTMod::dlt_deploy_event(DltLoadedDbEvt const &evt)
     dlt_dply_fsm->process_event(evt);
 }
 
+void
+OM_DLTMod::dlt_deploy_event(DltTimeoutEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dlt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DLTMod::dlt_deploy_event(DltErrorFoundEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dlt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DLTMod::dlt_deploy_event(DltAbortMigrationAckEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dlt_dply_fsm->process_event(evt);
+}
+
 // --------------------------------------------------------------------------------------
 // OM DLT Deployment FSM Implementation
 // --------------------------------------------------------------------------------------
@@ -398,6 +459,13 @@ void DltDplyFSM::RetryTimerTask::runTimerTask()
     domain->om_dlt_update_cluster();
 }
 
+void DltDplyFSM::WaitingTimerTask::runTimerTask()
+{
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    LOGNOTIFY << "DltWaitingFSM: moving from waiting state to compute state";
+    domain->om_dlt_waiting_timeout();
+}
+
 // GRD_DltCompute
 // -------------
 // Prevents more than one DltComputeEvt resulting in dlt computation,
@@ -413,13 +481,14 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    fds_bool_t stop = dst.lock.test_and_set();
+
+    fds_bool_t stop = fsm.lock.test_and_set();
     LOGDEBUG << "GRD_DltCompute: proceed check if DLT meeds update? " << !stop;
     if (stop) {
         // since we don't want to lose this event, retry later just in case
         LOGDEBUG << "GRD_DltCompute: DLT re-compute already in progress, "
                  << " will try re-compute for next set of SMs later";
-        if (!src.retryTimer->schedule(src.retryTimerTask,
+        if (!dst.retryTimer->schedule(dst.retryTimerTask,
                                       std::chrono::seconds(60))) {
             LOGWARN << "GRD_DltCompute: failed to start retry timer!!!"
                     << " SM additions/deletions may be pending for long time!";
@@ -452,7 +521,7 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         && ((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0)) {
         // unlock since we are not updating the DLT
         LOGDEBUG << "GRD_DltCompute: cluster map is up to date";
-        dst.lock.clear();
+        fsm.lock.clear();
         return false;
     }
 
@@ -473,6 +542,21 @@ DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_SmContainer::pointer smNodes = local->om_sm_nodes();
+
+    // Get added and removed nodes from pending SM additions
+    // and removals. We are updating the cluster map only in this
+    // state, so that it couldn't be changed while in the process
+    // of updating the DLT
+    NodeList addNodes, rmNodes;
+    LOGDEBUG << "DACT_Compute: Call cluster map update";
+    smNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
+    cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
+    LOGDEBUG << "Added Nodes size: " << (cm->getAddedServices(fpi::FDSP_STOR_MGR)).size()
+                << " Removed Nodes size: "
+                << (cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size();
 
     fds_verify(((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() != 0)
                || ((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() != 0));
@@ -481,6 +565,20 @@ DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     dp->computeDlt();
 }
 
+/* DACT_Waiting
+ * ------------
+ * Waiting to allow for additional nodes to join/leave before recomputing DLT.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_Waiting::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst) {
+    LOGDEBUG << "DACT_Waiting: entering wait state.";
+    if (!dst.waitingTimer->schedule(dst.waitingTimerTask,
+            std::chrono::seconds(1))) {
+        LOGWARN << "DACT_DltWaiting: failed to start retry timer!!!"
+                    << " SM additions/deletions may be pending for long time!";
+    }
+}
 /* DACT_SendDlts
  * ------------
  * For added nodes, send currently commited DLT to them so when we
@@ -521,7 +619,7 @@ DltDplyFSM::DACT_SendDlts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
     // ok to unlock here, because we are not in idle state anymore, and
     // other requests to start DLT update are queued till we go to idle state again
-    src.lock.clear();
+    fsm.lock.clear();
 }
 
 // GRD_DltSync
@@ -560,6 +658,7 @@ DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     ClusterMap* cm = om->om_clusmap_mod();
 
     Error err = dp->beginRebalance();
+    // TODO(Anna) go to error state and start from beginning
     fds_verify(err == ERR_OK);
 
     // if we did not send msg to any SMs, go to next state

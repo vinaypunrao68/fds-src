@@ -68,6 +68,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
     uint64_t seqId = 0;
+    fds_verify(dltTokens.size() > 0);   // we must have at least one token
     for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
@@ -168,7 +169,8 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
     fds_verify(deltaSet->objectToPropagate.size() > 0);
 
     // if objectToPropagate set is large, break down into smaller QoS work items
-    fds_uint32_t maxSize = 10;   // TODO(Anna) make configurable?, dynamic?, etc
+    // TODO(Anna) make configurable?, dynamic?, etc
+    fds_uint32_t maxSize = 10;
     fds_uint32_t totalCnt = deltaSet->objectToPropagate.size() / maxSize + 1;
     fds_uint32_t qosSeqNum = 0;
 
@@ -180,7 +182,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                                                             deltaSet->seqNum,
                                                             deltaSet->lastDeltaSet,
                                                             qosSeqNum,
-                                                            totalCnt);
+                                                            (qosSeqNum == (totalCnt - 1)));
         fds_verify(applyReq != NULL);
         applyReq->io_type = FDS_SM_APPLY_DELTA_SET;
 
@@ -222,6 +224,16 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     // beta2: if error happened, stop migration
     if (!error.ok()) {
         LOGERROR << "Failed to apply a set of objects " << error;
+        handleMigrationDone(error);
+        return;
+    }
+
+    bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
+                                                                   req->lastSet,
+                                                                   req->qosSeqNum,
+                                                                   req->qosLastSet);
+    if (completeDeltaSetReceived) {
+        LOGNORMAL << "All DeltaSet and QoS requests accounted for executor " << req->executorId;
         handleMigrationDone(error);
         return;
     }

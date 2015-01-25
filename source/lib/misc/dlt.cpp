@@ -31,7 +31,8 @@ DLT::DLT(fds_uint32_t numBitsForToken,
          fds_uint64_t version,
          bool fInit)
         : Module("data placement table"),
-          version(version) ,
+          version(version),
+          closed(false),
           numBitsForToken(numBitsForToken),
           numTokens(pow(2, numBitsForToken)),
           depth(depth) {
@@ -61,6 +62,7 @@ DLT::DLT(const DLT& dlt)
           version(dlt.version),
           distList(dlt.distList),
           timestamp(dlt.timestamp),
+          closed(false),
           mapNodeTokens(dlt.mapNodeTokens) {
 }
 
@@ -114,6 +116,14 @@ fds_uint32_t DLT::getNumBitsForToken() const {
 
 fds_uint32_t DLT::getNumTokens() const {
     return numTokens;
+}
+
+fds_bool_t DLT::isClosed() const {
+    return closed;
+}
+
+void DLT::setClosed() {
+    closed = true;
 }
 
 fds_token_id DLT::getToken(const ObjectID& objId) const {
@@ -684,6 +694,22 @@ void DLTManager::setCurrent(fds_uint64_t version) {
     const DLT* pdlt = getDLT(version);
     fds_verify(pdlt != NULL);
     curPtr = pdlt;
+}
+
+void DLTManager::setCurrentDltClosed() {
+    fds_verify(curPtr != NULL);
+    fds_uint64_t curVersion = curPtr->getVersion();
+    LOGNOTIFY << "Setting current DLT (version " << curVersion
+              << ") to closed";
+
+    // because curPtr is const pointer, we are searching again...
+    std::vector<DLT*>::const_iterator iter;
+    for (iter = dltList.begin(); iter != dltList.end(); ++iter) {
+        if (curVersion == (*iter)->version) {
+            (*iter)->setClosed();
+            break;
+        }
+    }
 }
 
 DltTokenGroupPtr DLTManager::getNodes(fds_token_id token) const {

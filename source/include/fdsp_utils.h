@@ -100,8 +100,8 @@ std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& msg);
 std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg);
 std::string logString(const FDS_ProtocolInterface::AddObjectRefMsg& msg);
 std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& msg);
-std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternMsg& msg);
-std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternRspMsg& msg);
+std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
+std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
 
 std::string quoteString(std::string const& text,
                         std::string const& delimiter = "\"",

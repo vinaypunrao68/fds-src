@@ -84,7 +84,10 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,
                                        shared_int_type& count,
-                                       shared_size_type& offset) {
+                                       shared_size_type& offset,
+                                       shared_string_type& pattern,
+                                       boost::shared_ptr<fpi::BlobListOrder>& orderBy,
+                                       shared_bool_type& descending) {
     // Closure for response call
     response_ptr& p = responseApi;
     auto closure = [p, requestId](GetBucketCallback* cb, Error const& e) mutable -> void {
@@ -96,6 +99,10 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
                                                *volumeName,
                                                *count,
+                                               *offset,
+                                               *pattern,
+                                               *orderBy,
+                                               *descending,
                                                SHARED_DYN_CAST(Callback, callback));
     storHvisor->enqueueBlobReq(blobReq);
 }

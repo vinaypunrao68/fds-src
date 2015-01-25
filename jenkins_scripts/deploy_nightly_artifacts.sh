@@ -34,25 +34,28 @@ function deploy_to_artifactory () {
 
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 fds_platform_dir=${script_dir}/../source/tools/install/pkg
-
+pkgdirs=(debug release)
 pkgs_to_deploy=(
     fds-platform
 )
 
 
-fds_package_pattern='(fds-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]-[[:digit:]]+.deb)'
-cd ${fds_platform_dir}
-
-for pkg in ${pkgs_to_deploy[@]}
+fds_package_pattern='(fds-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]-(debug|release)-[[:digit:]]+.deb)'
+for pkgdir in ${pkgdirs[@]}
 do
-    log "---------------------"
-    log "Checking  ::  ${pkg}"
-    pkg_file=$(ls -l ${pkg}*.deb | awk '{ print $9 }')
+    cd ${fds_platform_dir}-${pkgdir}
 
-    if [[ ${pkg_file} =~ ${fds_package_pattern} ]]; then
-        log "${pkg_file}  ::  matches pattern, uploading to Artifactory" 
-        deploy_to_artifactory ${pkg_file}
-    else
-        warn "${pkg_file} doesn't match pattern, skipping file"
-    fi
+    for pkg in ${pkgs_to_deploy[@]}
+    do
+        log "---------------------"
+        log "Checking  ::  ${pkg}"
+        pkg_file=$(ls -l ${pkg}*.deb | awk '{ print $9 }')
+
+        if [[ ${pkg_file} =~ ${fds_package_pattern} ]]; then
+            log "${pkg_file}  ::  matches pattern, uploading to Artifactory" 
+            deploy_to_artifactory ${pkg_file}
+        else
+            warn "${pkg_file} doesn't match pattern, skipping file"
+        fi
+    done
 done

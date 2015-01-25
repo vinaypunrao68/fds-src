@@ -108,6 +108,7 @@ typedef enum {
     ERR_SM_TOK_MIGRATION_SOURCE_MSG_CORRUPT,
     ERR_SM_TOK_MIGRATION_NO_DATA_RECVD,
     ERR_SM_TOK_MIGRATION_DATA_MISMATCH,
+    ERR_SM_TOK_MIGRATION_ABORTED,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,
@@ -243,6 +244,11 @@ class Error {
 
     friend bool operator== (const Error& lhs, const Error& rhs);
     friend bool operator!= (const Error& lhs, const Error& rhs);
+};
+
+struct ErrorHash {
+    size_t operator()(const Error& e) const
+    { return e.GetErrno(); }
 };
 
 inline std::string Error::GetErrstr() const {

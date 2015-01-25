@@ -36,7 +36,7 @@ function system_tests
 
    # Run Unit Test
    cd ${root_dir}/source/test/testsuites
-   ./BuildSmokeTest.py -q BuildSmokeTest_oncommit.ini -d dummy
+   ./BuildSmokeTest.py -q BuildSmokeTest_oncommit.ini -d dummy --verbose
    [[ $? -ne 0 ]] && echo "SYSTEM TEST:  FAILED" && exit 97
    cd -
 }

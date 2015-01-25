@@ -170,6 +170,14 @@ class DmPersistVolDir {
 
     fds_bool_t initialized_;
     fds_bool_t deleted_;
+
+    // TODO(Andrew): This is totally insecure. If we're gonna do this,
+    // we need the other service's public key. Or we move the data over
+    // our own secure channel.
+    /// Username for rsync migration
+    std::string rsyncUser;
+    /// Password for rsync migration
+    std::string rsyncPasswd;
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDIR_H_
