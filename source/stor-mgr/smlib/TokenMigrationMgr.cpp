@@ -45,13 +45,13 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
 
     // TODO(Anna) we are disabling migration for now since it is not fully
     // integrated, so calling callback right away
-#if 0
+
     if (cb) {
         LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
         cb(ERR_OK);
         return err;
     }
-#endif
+
 
     // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
