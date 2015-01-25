@@ -51,8 +51,8 @@
     tags:
         - install-deps
 
--   name: add LOCAL fds nightly platform repo
-    when: deploy_artifact == "nightly" and cluster_location is defined
+-   name: add local fds nightly platform repo
+    when: cluster_location is defined
     apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform nightly"
         state=present
         update_cache=yes
@@ -60,7 +60,7 @@
       - install-deps
 
 -   name: add Artifactory fds nightly platform repo
-    when: deploy_artifact == "nightly" and cluster_location is not defined
+    when: cluster_location is not defined
     apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
         state=present
         update_cache=yes
@@ -98,29 +98,5 @@
         force=yes
         state=present
         update_cache=yes
-    when: deploy_artifact == 'nightly'
     tags:
         - install-deps
-
--   name: copy local fds-deps.deb to host
-    when: deploy_artifact == "local"
-    copy: src={{ item }}
-      dest=/root/fds-deps.deb
-    with_fileglob:
-      - '../../playbooks/resources/fds-deps_*.deb'
-    when: deploy_artifact == 'local'
-    tags:
-      - install-local
-
--   name: install fds deps from local debs
-    apt: deb="/root/fds-deps.deb"
-    when: deploy_artifact == "local"
-    tags:
-      - install-local
-
--   name: delete local debs from /root/ to avoid conflict
-    file: path=/root/fds-deps.deb
-        state=absent
-    when: deploy_artifact == "local"
-    tags:
-      - install-local
