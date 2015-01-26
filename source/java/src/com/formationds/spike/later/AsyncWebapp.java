@@ -29,11 +29,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 
-public class App extends HttpServlet {
-    private static final Logger LOG = Logger.getLogger(App.class);
+public class AsyncWebapp extends HttpServlet {
+    private static final Logger LOG = Logger.getLogger(AsyncWebapp.class);
 
     public static void main(String[] args) throws Exception {
-        App app = new App(new HttpConfiguration(8080), null);
+        AsyncWebapp app = new AsyncWebapp(new HttpConfiguration(8080), null);
         app.route(new HttpPath(HttpMethod.GET, "/"), ctx -> {
             CompletableFuture<Void> cf = null;
             try {
@@ -59,7 +59,7 @@ public class App extends HttpServlet {
 
     public static final int CONCURRENCY = 500;
 
-    public App(HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration) {
+    public AsyncWebapp(HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration) {
         this.httpConfiguration = httpConfiguration;
         this.httpsConfiguration = httpsConfiguration;
         paths = new ArrayList<>();

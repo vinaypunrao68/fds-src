@@ -5,8 +5,8 @@ package com.formationds.xdi.s3;
 
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.spike.later.App;
 import com.formationds.spike.later.AsyncBridge;
+import com.formationds.spike.later.AsyncWebapp;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.spike.later.HttpPathContext;
 import com.formationds.web.toolkit.*;
@@ -28,7 +28,7 @@ public class S3Endpoint {
     public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
-    private final App webApp;
+    private final AsyncWebapp webApp;
     private Xdi xdi;
     private Function<AuthenticationToken, XdiAsync> xdiAsync;
     private SecretKey secretKey;
@@ -38,7 +38,7 @@ public class S3Endpoint {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
-        webApp = new App(httpConfiguration, httpsConfiguration);
+        webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration);
         authenticator = new S3Authenticator(xdi, secretKey);
     }
 
@@ -66,7 +66,7 @@ public class S3Endpoint {
                 (t) -> new PutObject(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.PUT, "/:bucket/:object"), ctx ->
-                auth(ctx).thenCompose(xdiAsync1 -> new AsyncPutObject(xdiAsync1).apply(ctx)));
+                executeAsync(ctx, xdiAsync -> new AsyncPutObject(xdiAsync).apply(ctx)));
 
         syncRoute(HttpMethod.POST, "/:bucket", (t) -> new PostObject(xdi, t));
         syncRoute(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObject(xdi, t));
@@ -76,7 +76,7 @@ public class S3Endpoint {
                 (t) -> new GetObject(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
-                auth(ctx).thenCompose(xdiAsync -> new AsyncGetObject(xdiAsync).apply(ctx)));
+                executeAsync(ctx, xdiAsync -> new AsyncGetObject(xdiAsync).apply(ctx)));
 
         syncRoute(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         syncRoute(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
@@ -84,17 +84,30 @@ public class S3Endpoint {
         webApp.start();
     }
 
-
-    private CompletableFuture<XdiAsync> auth(HttpPathContext ctx) {
-        CompletableFuture<XdiAsync> cf = new CompletableFuture<>();
+    private CompletableFuture<Void> executeAsync(HttpPathContext ctx, Function<XdiAsync, CompletableFuture<Void>> function) {
+        CompletableFuture<XdiAsync> authResult = new CompletableFuture<>();
         try {
             AuthenticationToken token = authenticator.authenticate(ctx.getRequest());
-            cf.complete(xdiAsync.apply(token));
-        } catch (Exception e) {
-            cf.completeExceptionally(e);
+            authResult.complete(xdiAsync.apply(token));
+        } catch (Exception e1) {
+            authResult.completeExceptionally(e1);
         }
 
-        return cf;
+        CompletableFuture<Void> cf = authResult.thenCompose(xdiAsync -> function.apply(xdiAsync));
+        return cf.exceptionally(e -> {
+            String requestUri = ctx.getRequest().getRequestURI();
+
+            AsyncBridge asyncBridge = new AsyncBridge((request, routeParameters) -> {
+                if (e instanceof SecurityException) {
+                    return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestUri);
+                } else {
+                    LOG.error("Error executing " + requestUri);
+                    return new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", requestUri);
+                }
+            });
+            asyncBridge.apply(ctx);
+            return null;
+        });
     }
 
     private void syncRoute(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
