@@ -6,12 +6,12 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     service.nodes = [];
     service.detachedNodes = [];
 
-    service.FDS_NODE_UP = 'FDS_Node_Up';
-    service.FDS_NODE_DOWN = 'FDS_Node_Down';
-    service.FDS_START_MIGRATION = 'FDS_Start_Migration';
-    service.FDS_NODE_INACTIVE = 'FDS_Node_Inactive';
-    service.FDS_NODE_ATTENTION = 'FDS_Node_Attention';
-    service.FDS_NODE_DISCOVERED = 'FDS_Node_Discovered';
+//    service.FDS_NODE_UP = 'FDS_Node_Up';
+//    service.FDS_NODE_DOWN = 'FDS_Node_Down';
+//    service.FDS_START_MIGRATION = 'FDS_Start_Migration';
+//    service.FDS_NODE_INACTIVE = 'FDS_Node_Inactive';
+//    service.FDS_NODE_ATTENTION = 'FDS_Node_Attention';
+//    service.FDS_NODE_DISCOVERED = 'FDS_Node_Discovered';
 
     service.getOverallStatus = function( node ){
 
@@ -34,22 +34,22 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
         return service.FDS_NODE_UP;
     };
 
-    service.classForState = function( state ){
-        switch ( state ){
-            case service.FDS_NODE_DOWN:
-                return 'fui-cross';
-            case service.FDS_NODE_UP:
-                return 'fui-check-inverted-2';
-            case service.FDS_START_MIGRATION:
-                return 'fui-radio-unchecked';
-            case service.FDS_NODE_ATTENTION:
-                return 'fui-chat';
-            case service.FDS_NODE_INACTIVE:
-                return 'fui-radio-unchecked';
-            default:
-                return 'fui-radio-unchecked';
-        }
-    };
+//    service.classForState = function( state ){
+//        switch ( state ){
+//            case service.FDS_NODE_DOWN:
+//                return 'fui-cross';
+//            case service.FDS_NODE_UP:
+//                return 'fui-check-inverted-2';
+//            case service.FDS_START_MIGRATION:
+//                return 'fui-radio-unchecked';
+//            case service.FDS_NODE_ATTENTION:
+//                return 'fui-chat';
+//            case service.FDS_NODE_INACTIVE:
+//                return 'fui-radio-unchecked';
+//            default:
+//                return 'fui-radio-unchecked';
+//        }
+//    };
 
     service.addNodes = function( nodes ){
 
@@ -59,70 +59,71 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
         });
     };
 
-    /**
-    * There is no node reporting service, so data is gathered by getting
-    * a list of services, grouping them by ID and then coallating the data.
-    * TODO:  Fix this.
-    **/
-    var parseData = function( raw ){
-
-        var temp = [];
-        var tempDetached = [];
-        service.detachedNodes = [];
-
-        raw.forEach( function( nodeService ){
-
-            // this will tell us if the node is a detachedNode
-            if ( nodeService.node_type == 'FDSP_PLATFORM' &&
-                nodeService.node_state == service.FDS_NODE_DISCOVERED ){
-                tempDetached.push( nodeService );
-                return;
-            }
-
-            var ref = temp[nodeService.node_uuid];
-
-            if ( !angular.isDefined( ref ) ){
-                ref = nodeService;
-            }
-
-            switch( nodeService.node_type ){
-                case 'FDSP_STOR_MGR':
-                    ref.sm = nodeService.node_state;
-                    break;
-                case 'FDSP_DATA_MGR':
-                    ref.dm = nodeService.node_state;
-                    break;
-                case 'FDSP_STOR_HVISOR':
-                    ref.am = nodeService.node_state;
-                    break;
-                case 'FDSP_PLATFORM':
-                    ref.hw = nodeService.node_state;
-                    break;
-                case 'FDSP_ORCH_MGR':
-                    ref.om = nodeService.node_state;
-                    break;
-            }
-
-            temp[ref.node_uuid] = ref;
-
-        });
-
-        service.detachedNodes = tempDetached;
-
-        var serializedBucket = [];
-
-        for ( var prop in temp ){
-            serializedBucket.push( temp[prop] );
-        }
-
-        service.nodes = serializedBucket;
-    };
+//    /**
+//    * There is no node reporting service, so data is gathered by getting
+//    * a list of services, grouping them by ID and then coallating the data.
+//    * TODO:  Fix this.
+//    **/
+//    var parseData = function( raw ){
+//
+//        var temp = [];
+//        var tempDetached = [];
+//        service.detachedNodes = [];
+//
+//        raw.forEach( function( nodeService ){
+//
+//            // this will tell us if the node is a detachedNode
+//            if ( nodeService.node_type == 'FDSP_PLATFORM' &&
+//                nodeService.node_state == service.FDS_NODE_DISCOVERED ){
+//                tempDetached.push( nodeService );
+//                return;
+//            }
+//
+//            var ref = temp[nodeService.node_uuid];
+//
+//            if ( !angular.isDefined( ref ) ){
+//                ref = nodeService;
+//            }
+//
+//            switch( nodeService.node_type ){
+//                case 'FDSP_STOR_MGR':
+//                    ref.sm = nodeService.node_state;
+//                    break;
+//                case 'FDSP_DATA_MGR':
+//                    ref.dm = nodeService.node_state;
+//                    break;
+//                case 'FDSP_STOR_HVISOR':
+//                    ref.am = nodeService.node_state;
+//                    break;
+//                case 'FDSP_PLATFORM':
+//                    ref.hw = nodeService.node_state;
+//                    break;
+//                case 'FDSP_ORCH_MGR':
+//                    ref.om = nodeService.node_state;
+//                    break;
+//            }
+//
+//            temp[ref.node_uuid] = ref;
+//
+//        });
+//
+//        service.detachedNodes = tempDetached;
+//
+//        var serializedBucket = [];
+//
+//        for ( var prop in temp ){
+//            serializedBucket.push( temp[prop] );
+//        }
+//
+//        service.nodes = serializedBucket;
+//    };
 
     var getNodes = function(){
         return $http_fds.get( '/api/config/services',
             function( data ){
 
-                parseData( data );
+                service.nodes = data;
+//                parseData( data );
                 $interval.cancel( pollerId );
             });
     };
