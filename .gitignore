@@ -109,6 +109,8 @@ source/java/${project.build.dir}
 source/test/.idea
 source/test/formation.conf
 source/config/etc/*.conf
+source/config/user-repo/
+source/config/sys-repo/
 ansible/resources/*
 ansible/.devsetup-is-*
 source/cit/*.xml
