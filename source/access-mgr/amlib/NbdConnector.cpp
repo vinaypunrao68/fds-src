@@ -608,8 +608,10 @@ NbdConnection::callback(ev::io &watcher, int revents) {
         }
     }
     } catch(Errors e) {
+        LOGNORMAL << "Connection shutting down.";
         // If we had an error, stop the event loop too
         if (e == connection_closed) {
+            LOGWARN << "Connection was terminated irregularly.";
             asyncWatcher->stop();
             ioWatcher->stop();
         }
