@@ -17,7 +17,10 @@ class UpgradeTest:
         self.url = opts['url']
         self.authport = 7777
         self.s3port = 8000
+        self.boto_debug = 0
         self.debug = opts['debug']
+        if self.debug is True:
+            self.boto_debug = 2
         self.user_token = self.get_user_token()
         self.bucket = 'upgradetest123'
         self.filename = 'upgradetestObject123'
@@ -48,7 +51,7 @@ class UpgradeTest:
                                           port=self.s3port,
                                           is_secure=False,
                                           calling_format=boto.s3.connection.OrdinaryCallingFormat(),
-                                          debug=self.debug)
+                                          debug=self.boto_debug)
 
     def delete_bucket(self):
         self.s3conn.delete_bucket(self.bucket)
@@ -78,7 +81,9 @@ class UpgradeTest:
 
     def post_upgrade_verify(self):
         bucket = self.s3conn.get_bucket(self.bucket)
+        self.d("Bucket: %s" % bucket)
         obj = self.read_object(bucket)
+        self.d("Object: %s" % obj)
         hash = hashlib.sha1(obj).hexdigest()
         print("Object successfully read - hash: %s" % hash)
 
