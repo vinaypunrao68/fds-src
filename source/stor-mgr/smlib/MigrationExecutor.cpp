@@ -123,7 +123,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
             auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
             asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                        perTokenMsgs[tok]);
-            asyncRebalSetReq->setTimeoutMs(5000);
+            asyncRebalSetReq->setTimeoutMs(0);
             // we are not waiting for response, so not setting a callback
             asyncRebalSetReq->invoke();
         }
@@ -136,13 +136,6 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         fds_panic("Unexpected migration executor state!");
     }
 
-    /**
-     * TODO(Sean):  To support active IO on both the source and destination SMs,
-     *              we need to keep this snapshot until initial set of objects
-     *              are propagated.  After that, we need to take another snapshot
-     *              to determine if active IOs have changed the state of the existing
-     *              objects (i.e. ref cnt) or additional object are written.
-     */
     return err;
 }
 
