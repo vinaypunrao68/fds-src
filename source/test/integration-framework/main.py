@@ -50,7 +50,7 @@ class Operation(object):
             os.makedirs(self.log_dir)
         # create the test suit runner
         self.runner = xmlrunner.XMLTestRunner(output=self.log_dir)
-        # executes all the test sets listed in test_list.json
+        # executes all the test sets listed in .json config file
         for ts in test_sets_list:
             current_ts = test_set.TestSet(name=ts,
                                           test_cases=test_sets_list[ts])
@@ -200,7 +200,7 @@ if __name__ == '__main__':
                         help='Specify a name of the cluster, if AWS a tag ' \
                         'name must be given.')
     parser.add_argument('-f', '--config_file',
-                        default=None,
+                        default='fast_integration_test.json',
                         help='User can specify which config file will be ' \
                         'used. The config file has to be .json.')
     args = parser.parse_args()
