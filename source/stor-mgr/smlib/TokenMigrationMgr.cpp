@@ -177,9 +177,9 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
                                           fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
     LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
-             << executorSmUuid.svc_uuid << std::dec << " executor ID "
-             << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
-             << " last " << rebalSetMsg->lastFilterSet;
+               << executorSmUuid.svc_uuid << std::dec << " executor ID "
+               << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
+               << " last " << rebalSetMsg->lastFilterSet;
 
     // If this SM is just a source and does not get Start Migration from OM
     // make sure that we set the migration state in progress
