@@ -26,7 +26,12 @@ public class Node
 
   private NodeState state;    // node state
 
-  private List<Service> services = new ArrayList<>();
+//  private List<Service> services = new ArrayList<>();
+  private List<AccessManagerService> accessManagers = new ArrayList<AccessManagerService>();
+  private List<OrchestrationManagerService> orchestrationManagers = new ArrayList<OrchestrationManagerService>();
+  private List<PlatformManagerService> platformManagers = new ArrayList<PlatformManagerService>();
+  private List<StorageManagerService> storageManagers = new ArrayList<StorageManagerService>();
+  private List<DataManagerService> dataManagers = new ArrayList<DataManagerService>();
 
 
   private Node( ) {
@@ -36,8 +41,24 @@ public class Node
     return new Node.Builder( uuid );
   }
 
-  public List<Service> getServices( ) {
-    return services;
+  public List<AccessManagerService> getAccessManagers() {
+    return accessManagers;
+  }
+  
+  public List<OrchestrationManagerService> getOrchestrationManagers(){
+	  return orchestrationManagers;
+  }
+  
+  public List<PlatformManagerService> getPlatformManagers(){
+	  return platformManagers;
+  }
+  
+  public List<StorageManagerService> getStorageManagers(){
+	  return storageManagers;
+  }
+  
+  public List<DataManagerService> getDataManagers(){
+	  return dataManagers;
   }
 
   public interface IIpV6address {

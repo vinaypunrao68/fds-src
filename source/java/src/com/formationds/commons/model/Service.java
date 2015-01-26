@@ -22,7 +22,7 @@ public class Service
   private ServiceStatus status;
   private ManagerType type;
 
-  private Service( ) {
+  protected Service( ) {
   }
 
   public String getAutoName( ) {

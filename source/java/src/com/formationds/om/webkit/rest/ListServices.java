@@ -6,9 +6,15 @@ package com.formationds.om.webkit.rest;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_Node_Info_Type;
+
+import com.formationds.commons.model.AccessManagerService;
+import com.formationds.commons.model.DataManagerService;
 import com.formationds.commons.model.Domain;
 import com.formationds.commons.model.Node;
+import com.formationds.commons.model.OrchestrationManagerService;
+import com.formationds.commons.model.PlatformManagerService;
 import com.formationds.commons.model.Service;
+import com.formationds.commons.model.StorageManagerService;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.ManagerType;
 import com.formationds.commons.model.type.NodeState;
@@ -16,6 +22,7 @@ import com.formationds.commons.model.type.ServiceStatus;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,10 +96,29 @@ public class ListServices
                                             .build() );
                     }
 
-                    clusterMap.get( nodeUUID )
-                              .getServices()
-                              .add( service.get() );
-
+                    Service serviceInstance = service.get();
+                    Node thisNode = clusterMap.get( nodeUUID );
+                    
+                    // differntiating the service and putting it with its own type
+                    switch( serviceInstance.getType() ){
+                    	case FDSP_DATA_MGR:
+                    		thisNode.getDataManagers().add( (DataManagerService)serviceInstance );
+                    		break;
+                    	case FDSP_ORCH_MGR:
+                    		thisNode.getOrchestrationManagers().add( (OrchestrationManagerService)serviceInstance );
+                    		break;
+                    	case FDSP_PLATFORM:
+                    		thisNode.getPlatformManagers().add( (PlatformManagerService)serviceInstance );
+                    		break;
+                    	case FDSP_STOR_MGR:
+                    		thisNode.getStorageManagers().add( (StorageManagerService)serviceInstance );
+                    		break;
+                    	case FDSP_STOR_HVISOR:
+                    		thisNode.getAccessManagers().add( (AccessManagerService)serviceInstance );
+                    		break;
+                    	default:
+                    		break;
+                    }
 
                 } else {
 
