@@ -6,8 +6,7 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.ManagerType;
-
-import java.beans.Transient;
+import com.formationds.commons.model.type.ServiceStatus;
 
 /**
  * @author ptinius
@@ -16,150 +15,94 @@ public class Service
   extends ModelBase {
   private static final long serialVersionUID = -1577170593630479004L;
 
-  private Long uuid = -1L;
-  private Integer controlPort = -1;
-  private Integer migrationPort = -1;
-  private Integer dataPort = -1;
-  private Integer metasyncPort = -1;
-  private ManagerType type = ManagerType.UNKNOWN;
+  private Long uuid;
 
-  /**
-   * default package level constructor
-   */
-  public Service() {
-    super();
+  private String autoName;
+  private Integer port;
+  private ServiceStatus status;
+  private ManagerType type;
+
+  private Service( ) {
   }
 
-  /**
-   * @return Returns {@code long} representing the service universal unique
-   * identifier
-   */
-  public long getUuid() {
+  public String getAutoName( ) {
+    return autoName;
+  }
+
+  public Long getUuid( ) {
     return uuid;
   }
 
-  /**
-   * @param uuid the service universal unique identifier
-   */
-  public void setUuid( final long uuid ) {
-    this.uuid = uuid;
-  }
-
-  /**
-   * @return Returns {@link ManagerType}
-   */
-  public ManagerType getType() {
+  public ManagerType getType( ) {
     return type;
   }
 
-  /**
-   * @param type the {@link ManagerType}
-   */
-  public void setType( final ManagerType type ) {
-    this.type = type;
+  public ServiceStatus getStatus( ) {
+    return status;
   }
 
-  /**
-   * @return Returns {@code int} representing the listening port for data
-   */
-  public int getDataPort() {
-    return dataPort;
+  public Integer getPort( ) {
+    return port;
   }
 
-  /**
-   * @param port the listening port for data
-   */
-  public void setDataPort( final int port ) {
-    this.dataPort = port;
+  public static IAutoName uuid( final Long uuid ) {
+    return new Service.Builder( uuid );
   }
 
-  /**
-   * @return Returns {@code int} representing the listening port for migration
-   */
-  public int getMigrationPort() {
-    return migrationPort;
+  public interface IAutoName {
+    IPort autoName( final String autoName );
   }
 
-  /**
-   * @param port the listening port for migration
-   */
-  public void setMigrationPort( final int port ) {
-    this.migrationPort = port;
+  public interface IPort {
+    IStatus port( final Integer port );
   }
 
-  /**
-   * @return Returns {@code int} representing the listening port for control
-   */
-  public int getControlPort() {
-    return controlPort;
+  public interface IStatus {
+    IType status( final ServiceStatus status );
   }
 
-  /**
-   * @param port the listening port for control
-   */
-  public void setControlPort( final int port ) {
-    this.controlPort = port;
+  public interface IType {
+    IBuild type( final ManagerType type );
   }
 
-  /**
-   * @return Returns {@code int} representing the listening port for meta sync
-   */
-  public int getMetasyncPort() {
-    return metasyncPort;
+  public interface IBuild {
+    Service build( );
   }
 
-  /**
-   * @param port the listening port for metadata sync
-   */
-  public void setMetasyncPort( final int port ) {
-    this.metasyncPort = port;
-  }
+  private static class Builder
+      implements IAutoName, IPort, IStatus, IType, IBuild {
+    private Service instance = new Service();
 
-  /**
-   * @return Returns {@code true} if the server uuid is set
-   */
-  @Transient
-  public boolean isSvrUuid() {
-    return isSet( getUuid() );
-  }
+    private Builder( final Long uuid ) {
+      instance.uuid = uuid;
+    }
 
-  /**
-   * @return Returns {@code true} if the type is set
-   */
-  @Transient
-  public boolean isType() {
-    return isSet( getType() );
-  }
+    @Override
+    public IPort autoName( final String autoName ) {
+      instance.autoName = autoName;
+      return this;
+    }
 
-  /**
-   * @return Returns {@code true} if the control port is set
-   */
-  @Transient
-  public boolean isControlPort() {
-    return getControlPort() != -1;
-  }
+    @Override
+    public IStatus port( final Integer port ) {
+      instance.port = port;
+      return this;
+    }
 
-  /**
-   * @return Returns {@code true} if the data port is set
-   */
-  @Transient
-  public boolean isDataPort() {
-    return getDataPort() != -1;
-  }
+    @Override
+    public IType status( final ServiceStatus status ) {
+      instance.status = status;
+      return this;
+    }
 
-  /**
-   * @return Returns {@code true} if the migration port is set
-   */
-  @Transient
-  public boolean isMigrationPort() {
-    return getMigrationPort() != -1;
-  }
+    @Override
+    public IBuild type( final ManagerType type ) {
+      instance.type = type;
+      return this;
+    }
 
-  /**
-   * @return Returns {@code true} if the meta sync port is set
-   */
-  @Transient
-  public boolean isMetasyncPort() {
-    return getMetasyncPort() != -1;
+    public Service build( ) {
+      return instance;
+    }
   }
 }
