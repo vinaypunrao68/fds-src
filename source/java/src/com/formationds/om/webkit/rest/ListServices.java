@@ -59,54 +59,40 @@ public class ListServices
         final Map<Long,Node> clusterMap = new HashMap<>( );
         if( list != null && !list.isEmpty() ) {
 
-            Long nodeUUID = null;
             for( final FDSP_Node_Info_Type info : list ) {
 
                 final Optional<Service> service = ListService.find( info );
                 if( service.isPresent() ) {
 
                     logger.debug( service.toString() );
+
                     final String ipv6Addr =
                         ipAddr2String( info.getIp_hi_addr() )
                             .orElse( String.valueOf( info.getIp_hi_addr() ) );
                     final String ipv4Addr =
                         ipAddr2String( info.getIp_lo_addr() )
                             .orElse( String.valueOf( info.getIp_lo_addr() ) );
-                    if( nodeUUID == null ) {
 
-                        nodeUUID = info.getNode_uuid();
-                        if( !clusterMap.containsKey( nodeUUID ) ) {
-                            clusterMap.put( nodeUUID,
-                                            Node.uuid( nodeUUID )
-                                                .ipV6address( ipv6Addr )
-                                                .ipV4address( ipv4Addr )
-                                                .state( NodeState.UP )
-                                                .name( ipv4Addr )
-                                                .build() );
-                        }
-                    } else if( !nodeUUID.equals( info.getNode_uuid() ) ) {
+                    final Long nodeUUID = info.getNode_uuid();
 
-                        if( !clusterMap.containsKey( nodeUUID ) ) {
+                    if( !clusterMap.containsKey( nodeUUID ) ) {
 
-
-                            clusterMap.put( nodeUUID,
-                                            Node.uuid( nodeUUID )
-                                                .ipV6address( ipv6Addr )
-                                                .ipV4address( ipv4Addr )
-                                                .state( NodeState.UP )
-                                                .name( ipv4Addr )
-                                                .build() );
-                        }
-
-                        nodeUUID = info.getNode_uuid();
+                        clusterMap.put( nodeUUID,
+                                        Node.uuid( nodeUUID )
+                                            .ipV6address( ipv6Addr )
+                                            .ipV4address( ipv4Addr )
+/*
+ * TODO (Tinius) get the real state of the node
+ */
+                                            .state( NodeState.UP )
+                                            .name( ipv4Addr )
+                                            .build() );
                     }
 
-                    if( clusterMap.containsKey( nodeUUID ) ) {
+                    clusterMap.get( nodeUUID )
+                              .getServices()
+                              .add( service.get() );
 
-                        clusterMap.get( nodeUUID )
-                                  .getServices().
-                            add( service.get() );
-                    }
 
                 } else {
 
