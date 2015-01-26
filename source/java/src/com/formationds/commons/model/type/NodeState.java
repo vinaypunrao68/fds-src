@@ -27,20 +27,4 @@ public enum NodeState {
   public String getFdsDefined() {
     return fdsDefined;
   }
-
-  /**
-   * @param fdsState the {@link String} representing the fds defined state
-   *
-   * @return Return the {@link NodeState}
-   */
-  public static NodeState byFdsState( final String fdsState ) {
-    for( final NodeState state : NodeState.values() ) {
-      if( state.getFdsDefined()
-               .equalsIgnoreCase( fdsState ) ) {
-        return state;
-      }
-    }
-
-    return UNKNOWN;
-  }
 }
