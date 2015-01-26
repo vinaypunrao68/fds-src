@@ -14,20 +14,5 @@ public enum ServiceStatus {
     INVALID,
     ACTIVE,
     INACTIVE,
-    ERROR;
-
-    public static ServiceStatus findBy( final int ordinal ) {
-
-        for( final ServiceStatus status : ServiceStatus.values() ) {
-
-            if( status.ordinal() == ordinal ) {
-
-                return status;
-
-            }
-        }
-
-        // unknown service state default to invalid
-        return INVALID;
-    }
+    ERROR
 }

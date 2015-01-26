@@ -56,17 +56,4 @@ public enum ManagerType
 
     return UNKNOWN;
   }
-
-  public static ManagerType lookup( final int ordinal )
-  {
-    for( final ManagerType type : values() )
-    {
-      if( type.ordinal() == ordinal )
-      {
-        return type;
-      }
-    }
-
-    return UNKNOWN;
-  }
 }

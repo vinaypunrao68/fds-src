@@ -27,29 +27,4 @@ public enum NodeState {
   public String getFdsDefined() {
     return fdsDefined;
   }
-
-  public static NodeState byFdsState( final String fdsState ) {
-    for( final NodeState state : NodeState.values() ) {
-      if( state.getFdsDefined()
-               .equalsIgnoreCase( fdsState ) ) {
-        return state;
-      }
-    }
-
-    return UNKNOWN;
-  }
-
-  public static NodeState byFdsState( final int fdsState ) {
-
-    for( final NodeState state : NodeState.values() ) {
-
-      if( state.ordinal() == fdsState ) {
-
-        return state;
-
-      }
-    }
-
-    return UNKNOWN;
-  }
 }
