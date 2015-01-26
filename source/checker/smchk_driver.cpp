@@ -107,7 +107,7 @@ int SMChkDriver::run() {
             success = checker->full_consistency_check();
             break;
     }
-    return (int)success;
+    return (success ? 0 : 1);
 }
 }  // namespace fds
 

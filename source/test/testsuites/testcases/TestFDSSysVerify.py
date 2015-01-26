@@ -451,12 +451,11 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
         # Verify input.
         if (self.passedNode1 is None) or (self.passedNode2 is None) or (self.passedVolume is None):
             self.log.error("Test case construction requires parameters node1, node2 and volume.")
-            raise
+            raise Exception
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
 
         # Locate our two nodes.
         nodes = fdscfg.rt_obj.cfg_nodes
@@ -495,48 +494,57 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
 
         # Capture stdout from dmchk for node1.
         #
-        # Parameter return_std_in is set to return stdout. ... Don't ask me!
-        status, stdout1 = n1.nd_agent.exec_wait(
-            'bash -c \"(nohup %s/dmchk --fds-root=%s -l %s > %s/dmchk.%s.out 2>&1 &) \"' %
-            (bin_dir, fds_dir1, log_dir, n1.nd_conf_dict['node-name'], v.nd_conf_dict['id']), return_stdin=True)
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout1 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/dmchk --fds-root=%s -l %s) \"' %
+                                                (bin_dir, fds_dir1, v.nd_conf_dict['id']), return_stdin=True)
 
         if status != 0:
             self.log.error("DM Static Migration checking using node %s returned status %d." %
-                           (n1.nd_conf_dict['fds_node'], status))
+                           (n1.nd_conf_dict['node-name'], status))
             return False
 
         # Now capture stdout from dmchk for node2.
-        status, stdout2 = n1.nd_agent.exec_wait(
-            'bash -c \"(nohup %s/dmchk --fds-root=%s -l %s > %s/dmchk.%s.out 2>&1 &) \"' %
-            (bin_dir, fds_dir2, log_dir, n2.nd_conf_dict['node-name'], v.nd_conf_dict['id']), return_stdin=True)
+        status, stdout2 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/dmchk --fds-root=%s -l %s) \"' %
+                                                (bin_dir, fds_dir2, v.nd_conf_dict['id']), return_stdin=True)
 
         if status != 0:
             self.log.error("DM Static Migration checking using node %s returned status %d." %
-                           (n2.nd_conf_dict['fds_node'], status))
+                           (n2.nd_conf_dict['node-name'], status))
             return False
 
         # Let's compare.
         if stdout1 != stdout2:
             self.log.error("DM Static Migration checking showed differences.")
-            self.log.error("Node %s shows %s" %
-                           (n1.nd_conf_dict['fds_node'], stdout1))
-            self.log.error("Node %s shows %s" %
-                           (n2.nd_conf_dict['fds_node'], stdout2))
+            self.log.error("Node %s shows: \n%s" %
+                           (n1.nd_conf_dict['node-name'], stdout1))
+            self.log.error("Node %s shows: \n%s" %
+                           (n2.nd_conf_dict['node-name'], stdout2))
             return False
+        else:
+            self.log.info("DM Static Migration checking showed match.")
+            self.log.info("Node %s shows: \n%s" %
+                           (n1.nd_conf_dict['node-name'], stdout1))
 
         return True
 
+
 # This class contains the attributes and methods to test
-# the consistency of SM It requires that the cluster be shut down.
-class TestVerifySMConsistency(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
-        super(TestVerifySMConsistency, self).__init__(parameters)
+# whether there occurred successful SM Static migration
+# between two nodes using the SM Check utility.
+class TestVerifySMStaticMigration(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node1=None, node2=None, skip=None):
+        super(TestVerifySMStaticMigration, self).__init__(parameters)
+
+        self.passedNode1 = node1
+        self.passedNode2 = node2
+        self.skip = skip  # Does the caller wish to execute even if previous test cases have failed?
 
 
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        # The caller may tell us not to skip this test case.
+        if (TestCase.pyUnitTCFailure) and (self.skip is None):
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -544,10 +552,10 @@ class TestVerifySMConsistency(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_VerifySMConsistency():
+            if not self.test_VerifySMStaticMigration():
                 test_passed = False
         except Exception as inst:
-            self.log.error("SM consistency checking caused exception:")
+            self.log.error("SM Static Migration checking caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -561,32 +569,81 @@ class TestVerifySMConsistency(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_VerifySMConsistency(self):
+    def test_VerifySMStaticMigration(self):
         """
         Test Case:
-        Attempt to run the the .../bin/smchk utility to confirm SM consistency.
-
-        WARNING: This implementation assumes that the cluster is down.
+        Verify whether SM Static migration successfully occurred
+        by comparing the output of the SM Check utility run for each node.
         """
+
+        # Verify input.
+        if (self.passedNode1 is None) or (self.passedNode2 is None):
+            self.log.error("Test case construction requires parameters node1 and node2.")
+            raise Exception
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        om_node = fdscfg.rt_om_node
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
-        fds_dir = om_node.nd_conf_dict['fds_root']
 
-        self.log.info("Check SM consistency.")
+        # Locate our two nodes.
+        nodes = fdscfg.rt_obj.cfg_nodes
+        n1 = None
+        n2 = None
+        for n in nodes:
+            if self.passedNode1 == n.nd_conf_dict['node-name']:
+                n1 = n
+            if self.passedNode2 == n.nd_conf_dict['node-name']:
+                n2 = n
 
-        status = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --full-check > %s/smchk.out 2>&1 &) \"' %
-                                      (bin_dir, fds_dir, log_dir))
+            if (n1 is not None) and (n2 is not None):
+                break
+
+        if n1 is None:
+            self.log.error("Node not found for %s." % self.passedNode1)
+            raise
+        if n2 is None:
+            self.log.error("Node not found for %s." % self.passedNode2)
+            raise
+
+        fds_dir1 = n1.nd_conf_dict['fds_root']
+
+        fds_dir2 = n2.nd_conf_dict['fds_root']
+
+        # Capture stdout from smchk for node1.
+        #
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout1 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --full-check) \"' %
+                                                (bin_dir, fds_dir1), return_stdin=True)
 
         if status != 0:
-            self.log.error("SM consistency checking using node %s returned status %d." %
-                           (om_node.nd_conf_dict['fds_node'], status))
+            self.log.error("SM Static Migration checking using node %s returned status %d." %
+                           (n1.nd_conf_dict['node-name'], status))
             return False
 
+        # Now capture stdout from smchk for node2.
+        status, stdout2 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --full-check) \"' %
+                                                (bin_dir, fds_dir2), return_stdin=True)
+
+        if status != 0:
+            self.log.error("SM Static Migration checking using node %s returned status %d." %
+                           (n2.nd_conf_dict['node-name'], status))
+            return False
+
+        # Let's compare.
+        if stdout1 != stdout2:
+            self.log.error("SM Static Migration checking showed differences.")
+            self.log.error("Node %s shows: \n%s" %
+                           (n1.nd_conf_dict['node-name'], stdout1))
+            self.log.error("Node %s shows: \n%s" %
+                           (n2.nd_conf_dict['node-name'], stdout2))
+            return False
+        else:
+            self.log.info("SM Static Migration checking showed match.")
+            self.log.info("Node %s shows: \n%s" %
+                           (n1.nd_conf_dict['node-name'], stdout1))
+
         return True
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
