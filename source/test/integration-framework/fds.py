@@ -63,11 +63,20 @@ class FDS(object):
         Run the FDS tool with 'cleanstart' argument to start all the fds
         related processes.
         '''
-        cmd = config.FDS_CMD % (config.FDS_TOOLS, "cleanstart")
+        cmd = config.SYSTEM_CMD % (config.SYSTEM_FRAMEWORK,
+                                   config.SYSTEM_FRAMEWORK)
+        print cmd
         try:
             subprocess.call([cmd], shell=True)
             if not self.check_status():
-                raise Exception("FDs failed to start")
+                raise Exception("FDS multinode cluster failed to start")
         except Exception, e:
             utils.log.exception(e)
             sys.exit(1)
+
+if __name__ == "__main__":
+    fds_node = FDS()
+    if not fds_node.check_status():
+        fds_node.start_single_node()
+    else:
+        fds_node.stop_single_node()
