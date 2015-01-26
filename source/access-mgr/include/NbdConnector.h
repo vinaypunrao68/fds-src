@@ -68,8 +68,7 @@ class NbdConnector {
     typedef boost::shared_ptr<NbdConnector> shared_ptr;
 };
 
-class NbdConnection : public NbdOperationsResponseIface {
- public:
+struct NbdConnection : public NbdOperationsResponseIface {
     template<typename T>
     using unique = std::unique_ptr<T>;
     using resp_vector_type = unique<iovec[]>;
@@ -78,6 +77,12 @@ class NbdConnection : public NbdOperationsResponseIface {
         connection_closed,
         shutdown_requested,
     };
+
+    NbdConnection(OmConfigApi::shared_ptr omApi, int clientsd);
+    ~NbdConnection();
+
+    // implementation of NbdOperationsResponseIface
+    void readWriteResp(NbdResponseVector* response);
 
   private:
     int clientSocket;
@@ -132,6 +137,8 @@ class NbdConnection : public NbdOperationsResponseIface {
     static constexpr char fourKayZeros[4096]{0};  // NOLINT
     static constexpr size_t kMaxChunks = (2 * 1024 * 1024) / minMaxObjectSizeInBytes;
 
+    static void ensure(bool b) { if (!b) throw connection_closed; }
+
     std::unique_ptr<ev::io> ioWatcher;
     std::unique_ptr<ev::async> asyncWatcher;
 
@@ -162,13 +169,6 @@ class NbdConnection : public NbdOperationsResponseIface {
                      boost::shared_ptr<std::string> data);
 
     bool write_response();
-
-  public:
-    NbdConnection(OmConfigApi::shared_ptr omApi, int clientsd);
-    ~NbdConnection();
-
-    // implementation of NbdOperationsResponseIface
-    void readWriteResp(NbdResponseVector* response);
 };
 
 }  // namespace fds

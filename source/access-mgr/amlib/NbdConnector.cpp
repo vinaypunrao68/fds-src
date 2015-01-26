@@ -286,7 +286,7 @@ NbdConnection::hsPostInit(ev::io &watcher) {
     if (nread < 0) {
         LOGERROR << "Socket read error";
     } else {
-        fds_verify(0 == ack);
+        ensure(0 == ack);
         LOGTRACE << "Received " << nread << " byte ack " << ack;
     }
 }
@@ -296,13 +296,13 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     if (attach.header_off >= 0) {
         if (!get_message_header(watcher.fd, attach))
             return false;
-        fds_verify(0 == memcmp(NBD_MAGIC, attach.header.magic, sizeof(NBD_MAGIC)));
+        ensure(0 == memcmp(NBD_MAGIC, attach.header.magic, sizeof(NBD_MAGIC)));
         attach.header.optSpec = ntohl(attach.header.optSpec);
-        fds_verify(NBD_OPT_EXPORT == attach.header.optSpec);
+        ensure(NBD_OPT_EXPORT == attach.header.optSpec);
         attach.header.length = ntohl(attach.header.length);
 
         // Just for sanities sake and protect against bad data
-        fds_verify(attach.data.size() >= static_cast<size_t>(attach.header.length));
+        ensure(attach.data.size() >= static_cast<size_t>(attach.header.length));
     }
     if (!get_message_payload(watcher.fd, attach))
         return false;
@@ -366,7 +366,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     if (request.header_off >= 0) {
         if (!get_message_header(watcher.fd, request))
             return;
-        fds_verify(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
+        ensure(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
         request.header.opType = ntohl(request.header.opType);
         request.header.offset = __builtin_bswap64(request.header.offset);
         request.header.length = ntohl(request.header.length);
@@ -396,7 +396,7 @@ NbdConnection::hsReq(ev::io &watcher) {
                            request.header.length,
                            request.data);
     request.data.reset();
-    fds_verify(ERR_OK == err);
+    ensure(ERR_OK == err);
     return;
 }
 
@@ -422,7 +422,7 @@ NbdConnection::hsReply(ev::io &watcher) {
             // Iterate and send each ready response
             if (!readyHandles.empty()) {
                 UturnPair rep;
-                fds_verify(readyHandles.pop(rep));
+                ensure(readyHandles.pop(rep));
 
                 response[2].iov_base = &rep.handle; response[2].iov_len = sizeof(rep.handle);
 
@@ -430,7 +430,7 @@ NbdConnection::hsReply(ev::io &watcher) {
                 fds_int32_t opType = rep.opType;
                 if (NBD_CMD_READ == opType) {
                     // TODO(Andrew): Remove this verify and handle sub-4K
-                    fds_verify((length % 4096) == 0);
+                    ensure((length % 4096) == 0);
                     total_blocks += length / 4096;
                 }
 
@@ -444,7 +444,7 @@ NbdConnection::hsReply(ev::io &watcher) {
         // no uturn
         if (!readyResponses.empty()) {
             NbdResponseVector* resp = NULL;
-            fds_verify(readyResponses.pop(resp));
+            ensure(readyResponses.pop(resp));
             current_response.reset(resp);
 
             response[2].iov_base = &current_response->handle;
@@ -648,11 +648,12 @@ bool get_message_header(int fd, M& message) {
         if (errno != EAGAIN && errno != EWOULDBLOCK)
             LOGERROR << "Socket read error: [" << strerror(errno) << "]";
         switch (errno) {
-            case EINVAL: fds_verify(false);  // Indicates logic bug
-                         break;
-            case EBADF:
-            case EPIPE: throw NbdConnection::connection_closed;
-                        break;
+        case EINVAL:
+            LOGERROR << "Read vector bug";
+            fds_assert(false);
+        case EBADF:
+        case EPIPE:
+            throw NbdConnection::connection_closed;
         }
         return false;
     } else if (0 == nread) {
@@ -692,11 +693,12 @@ bool get_message_payload(int fd, M& message) {
         if (errno != EAGAIN && errno != EWOULDBLOCK)
             LOGERROR << "Socket read error: [" << strerror(errno) << "]";
         switch (errno) {
-            case EINVAL: fds_assert(false);  // Indicates logic bug
-                         break;
-            case EBADF:
-            case EPIPE: throw NbdConnection::connection_closed;
-                        break;
+        case EINVAL:
+            LOGERROR << "Read vector bug";
+            fds_assert(false);
+        case EBADF:
+        case EPIPE:
+            throw NbdConnection::connection_closed;
         }
         return false;
     } else if (0 == nread) {
