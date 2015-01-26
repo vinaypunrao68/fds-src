@@ -2,7 +2,8 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <disk_constants.h>
+#include "fds_process.h"
+#include "disk_constants.h"
 #include "disk_part_mgr.h"
 #include "disk_common.h"
 #include "pm_disk_inventory.h"
@@ -212,15 +213,48 @@ namespace fds
     {
         uint32_t    hdd_count;
 
+        FdsConfigAccessor    conf(g_fdsprocess->get_conf_helper());
+
+        static bool mode_logged = false;  // We spam the log everytime we call this function
+                                          // use this to only log our mode once.
+
+        try
+        {
+            bool use_feature_control_disk_simulation = conf.get_abs<bool>("fds.feature_toggle.plat.control_disk_simulation_mode");   // NOLINT
+
+            if (use_feature_control_disk_simulation)
+            {
+                if (conf.get_abs<bool>("fds.plat.force_disk_simulation"))
+                {
+                    if (! mode_logged)
+                    {
+                        mode_logged = true;
+                        LOGNORMAL << "Forcing disk simulation mode via platform.conf";
+                    }
+
+                    return true;
+                }
+            }
+        }
+        catch (FdsException e)
+        {
+            LOGDEBUG << e.what();
+        }
+
         /* Remove ssd disks */
         hdd_count = dsk_count - DISK_ALPHA_COUNT_SSD;
 
         if ((hdd_count <= dsk_qualify_cnt) && (hdd_count >= DISK_ALPHA_COUNT_HDD_MIN))
         {
-            // if (dsk_qualify_cnt >= DISK_ALPHA_COUNT_HDD_MIN) {
             return false;
         }
-        LOGNORMAL << "Need to run in simulation";
+
+        if (! mode_logged)
+        {
+            mode_logged = true;
+            LOGNORMAL << "Need to run in disk simulation mode";
+        }
+
         return true;
     }
 
