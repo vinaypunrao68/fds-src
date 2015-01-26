@@ -65,3 +65,5 @@ LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202",
                           "10.2.10.203")
 
 CONFIG_DIR = "./config/"
+SYSTEM_FRAMEWORK = "testsuites"
+SYSTEM_CMD = "../%s/ClusterBootSuite.py -q ../%s/StaticMigration.ini -d dummy --verbose"
