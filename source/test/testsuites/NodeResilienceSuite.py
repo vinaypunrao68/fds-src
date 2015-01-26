@@ -10,6 +10,7 @@ import testcases.TestCase
 import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
+import testcases.TestMgt
 import testcases.TestOMIntFace
 import testcases.TestS3IntFace
 import NodeWaitSuite
@@ -74,7 +75,7 @@ def suiteConstruction():
     suite.addTest(nodeUpSuite)
 
     # Given the node some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     # Now verify we still have our data.
     suite.addTest(testcases.TestS3IntFace.TestS3VerifyMBLOB())

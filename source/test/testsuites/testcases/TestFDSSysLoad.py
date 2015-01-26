@@ -11,7 +11,6 @@ import TestCase
 # Module-specific requirements
 import sys
 import os
-import time
 
 
 # This class contains the attributes and methods to test

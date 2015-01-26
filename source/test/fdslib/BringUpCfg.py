@@ -105,10 +105,7 @@ class FdsNodeConfig(FdsConfig):
             self.nd_agent.env_password = env.env_password
             self.nd_agent.env_sudo_password = env.env_sudo_password
             if not quiet:
-                if env.env_test_harness:
-                    log.info("Making local connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
-                else:
-                    print("Making local connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+                log.info("Making local connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
             self.nd_agent.local_connect()
         else:
             self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
@@ -379,7 +376,7 @@ class FdsAMConfig(FdsConfig):
     #
     def am_connect_node(self, nodes):
         if 'fds_node' not in self.nd_conf_dict:
-            print('sh section must have "fds_node" keyword')
+            print('sh/am section must have "fds_node" keyword')
             sys.exit(1)
 
         name = self.nd_conf_dict['fds_node']
@@ -421,7 +418,7 @@ class FdsVolConfig(FdsConfig):
                 self.nd_am_node = am.nd_am_node
                 return
 
-        print('Can not find matcing AM node in %s' % self.nd_conf_dict['vol-name'])
+        print('Can not find matching AM node in %s' % self.nd_conf_dict['vol-name'])
         sys.exit(1)
 
     def vol_create(self, cli):
@@ -653,6 +650,8 @@ class FdsConfigFile(object):
         if len (self.cfg_parser.sections()) < 1:
             print 'ERROR:  Unable to open or parse the config file "%s".' % (self.cfg_file)
             sys.exit (1)
+
+        nodeID = 0
         for section in self.cfg_parser.sections():
             items = self.cfg_parser.items(section)
             if re.match('user', section) != None:
@@ -664,21 +663,25 @@ class FdsConfigFile(object):
             # out of the order expected by the names given them in the config file.
             # One might fix this by putting a sleep in between starting PMs.
             elif (re.match('node', section) != None) or (re.match('Node-', section) != None):
-                # Why are we doing the same thing either way? Is this
-                # because an OM doesn't have an enabled = true?
+                n = None
                 items_d = dict(items)
                 if 'enable' in items_d:
                     if items_d['enable'] == 'true':
-                        self.cfg_nodes.append(FdsNodeConfig(section, items, verbose))
+                        n = FdsNodeConfig(section, items, verbose)
                 else:
                     # Store OM ip address to pass to PMs during scenarios
                     if 'om' in items_d:
                         if items_d['om'] == 'true':
                             self.cfg_om = items_d['ip']
 
-                    self.cfg_nodes.append(FdsNodeConfig(section, items, verbose))
+                    n = FdsNodeConfig(section, items, verbose)
 
-            elif re.match('sh', section) != None:
+                if n is not None:
+                    n.nd_nodeID = nodeID
+                    self.cfg_nodes.append(n)
+                    nodeID = nodeID + 1
+
+            elif (re.match('sh', section) != None) or (re.match('am', section) != None):
                 self.cfg_am.append(FdsAMConfig(section, items, verbose))
 
             elif re.match('policy', section) != None:

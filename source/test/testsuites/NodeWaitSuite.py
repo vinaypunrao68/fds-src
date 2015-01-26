@@ -11,7 +11,7 @@ import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 
-def suiteConstruction():
+def suiteConstruction(fdsNodes=None):
     """
     Construct the ordered set of test cases that comprise the
     test cases necessary to check whether a node is started.
@@ -21,13 +21,24 @@ def suiteConstruction():
     """
     suite = unittest.TestSuite()
 
-    # Check the node(s) according to configuration supplied with the -q cli option.
-    suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestDMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestSMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestAMWait())
+    # Check the node(s) according to configuration supplied with the -q cli option
+    # or if a list of nodes is provided, check them specifically.
+    if fdsNodes is not None:
+
+        for node in fdsNodes:
+            suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestOMWait(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestPMWait(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestDMWait(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestSMWait(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestAMWait(node=node))
+    else:
+        suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
+        suite.addTest(testcases.TestFDSModMgt.TestOMWait())
+        suite.addTest(testcases.TestFDSModMgt.TestPMWait())
+        suite.addTest(testcases.TestFDSModMgt.TestDMWait())
+        suite.addTest(testcases.TestFDSModMgt.TestSMWait())
+        suite.addTest(testcases.TestFDSModMgt.TestAMWait())
 
     return suite
 
