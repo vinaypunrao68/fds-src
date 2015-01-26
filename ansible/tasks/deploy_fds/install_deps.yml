@@ -43,14 +43,6 @@
     tags:
         - install-deps
 
--   name: add LOCAL mirror for third party packages
-    apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/third-party-deps/ fds main"
-        state=present
-        update_cache=yes
-    when: cluster_location is defined
-    tags:
-        - install-deps
-
 -   name: add local fds nightly platform repo
     when: cluster_location is defined
     apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform nightly"
@@ -66,25 +58,6 @@
         update_cache=yes
     tags:
       - install-deps
-
--   name: add Artifactory repo for third party packages
-    apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
-        state=present
-        update_cache=yes
-    when: cluster_location is not defined
-    tags:
-        - install-deps
-
--   name: install third party deps from artifactory repo
-    apt: name={{item}}
-        force=yes
-        state=present
-        update_cache=yes
-        default_release=fds
-    with_items:
-        - oracle-java8-jdk
-    tags:
-        - install-deps
 
 -   name: uninstall fds-deps
     apt: name=fds-deps

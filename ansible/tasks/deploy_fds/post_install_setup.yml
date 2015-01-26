@@ -62,13 +62,3 @@
     tags:
         - post-install
         - init
-
--   name: java_symlink
-    file:
-        src=/usr/lib/jvm/jdk-8-oracle-x64/
-        dest=/usr/lib/jvm/jdk-8-oracle
-        owner=root
-        group=root
-        state=link
-    tags:
-        - post-install
