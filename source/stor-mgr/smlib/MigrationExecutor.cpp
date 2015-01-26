@@ -76,8 +76,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
-        LOGNORMAL << "Initial Set Msg: token " << dltTok << ", seqNum "
-                  << msg->seqNum << ", last " << msg->lastFilterSet;
+        LOGMIGRATE << "Filter Set Msg: token=" << dltTok << ", seqNum="
+                    << msg->seqNum << ", last=" << msg->lastFilterSet;
         perTokenMsgs[dltTok] = msg;
     }
 
@@ -105,9 +105,9 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
          *              Are there other checks before adding to the filter set?
          */
         if (omdFilter.objRefCnt > 0) {
-            LOGNORMAL << "Will add object " << id << ", dltToken " << dltTokId
-                      << " refcnt " << omdFilter.objRefCnt << " to thrift msg to source SM "
-                      << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            LOGMIGRATE << "FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
+                        << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
+                        << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
         }
     }
@@ -115,7 +115,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 
     // send rebalance set of objects to source SM
     for (auto tok : dltTokens) {
-        LOGNORMAL << "Sending rebalance initial set for DLT token "
+        LOGMIGRATE << "Sending rebalance initial set for DLT token "
                   << tok << " set size " << perTokenMsgs[tok]->objectsToFilter.size()
                   << " to source SM "
                   << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
@@ -149,24 +149,33 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 Error
 MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
     Error err(ERR_OK);
-    LOGDEBUG << "Sync Delta Object Set " << deltaSet->objectToPropagate.size()
+
+    LOGMIGRATE << "Sync Delta Object Set " << deltaSet->objectToPropagate.size()
              << " objects, executor ID " << deltaSet->executorID
              << " seqNum " << deltaSet->seqNum
              << " lastSet " << deltaSet->lastDeltaSet;
+
     fds_verify((fds_uint64_t)deltaSet->executorID == executorId);
     MigrationExecutorState curState = atomic_load(&state);
     fds_verify(curState == ME_APPLYING_DELTA);
 
     // if the obj data+meta list is empty, and lastDeltaSet == true,
-    // the source SM does not have any data for this SM token, finish
-    // migration
-    if ((deltaSet->objectToPropagate.size() == 0) &&
-        (deltaSet->lastDeltaSet)) {
-        handleMigrationDone(ERR_OK);
+    // nothing to apply, but have to check if we are done with migration
+    if (deltaSet->objectToPropagate.size() == 0) {
+        // we should't receive empty set if that's not the last message
+        fds_verify(deltaSet->lastDeltaSet);
+        bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(deltaSet->seqNum,
+                                                                       deltaSet->lastDeltaSet,
+                                                                       0,
+                                                                       true);
+        if (completeDeltaSetReceived) {
+            LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
+                      << executorId;
+            handleMigrationDone(ERR_OK);
+        }
+        // we will get more delta sets for this executor (out-of-order)
         return ERR_OK;
     }
-    // otherwise, we should have non-empty obj set
-    fds_verify(deltaSet->objectToPropagate.size() > 0);
 
     // if objectToPropagate set is large, break down into smaller QoS work items
     // TODO(Anna) make configurable?, dynamic?, etc
@@ -196,7 +205,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
             &MigrationExecutor::objDeltaAppliedCb, this,
             std::placeholders::_1, std::placeholders::_2);
 
-        LOGDEBUG << "Enqueue QoS Delta Set: "
+        LOGMIGRATE << "Enqueue QoS Delta Set: "
                  << " qosSeq=" << applyReq->qosSeqNum
                  << " qosLastSet=" << applyReq->qosLastSet
                  << " size of qos set=" << applyReq->deltaSet.size();
@@ -262,9 +271,9 @@ MigrationExecutor::handleMigrationDone(const Error& error) {
         std::atomic_store(&state, newState);
     }
 
-    LOGNOTIFY << "Migration finished for executor " << executorId << " src SM "
-              << std::hex << sourceSmUuid.uuid_get_val() << std::dec
-              << ", SM token " << smTokenId;
+    LOGMIGRATE << "Migration finished for executor " << executorId << " src SM "
+               << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+               << ", SM token " << smTokenId;
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {

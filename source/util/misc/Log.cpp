@@ -30,6 +30,7 @@ inline std::basic_ostream< CharT, TraitsT >& operator<< (std::basic_ostream< Cha
             {
                 "trace",
                 "debug",
+                "migrate",
                 "io",
                 "normal",
                 "notify",
@@ -49,6 +50,7 @@ fds_log::severity_level fds_log::getLevelFromName(std::string level) {
     boost::trim(level);
     if (0 == level.compare(0, 5, "TRACE")) return trace;
     if (0 == level.compare(0, 5, "DEBUG")) return debug;
+    if (0 == level.compare(0, 7, "MIGRATE")) return migrate;
     if (0 == level.compare(0, 2, "IO")) return io;
     if (0 == level.compare(0, 6, "NORMAL")) return normal;
     if (0 == level.compare(0, 4, "INFO")) return normal;

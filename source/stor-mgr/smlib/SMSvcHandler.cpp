@@ -140,6 +140,8 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // revert to DLT version provided in abort message
     if (abortMsg->DLT_version > 0) {
+        // will ignore error from setCurrent -- if this SM does not know
+        // about DLT with given version, then it did not have a DLT previously..
         objStorMgr->omClient->getDltManager()->setCurrent(abortMsg->DLT_version);
     }
 
