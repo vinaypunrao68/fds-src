@@ -2,7 +2,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
-test_list = "test_list.json"
+test_list = "fast_integration_test.json"
 log_dir = "test-reports"
 test_sets = "testsets"
 setup = "setup.cfg"
