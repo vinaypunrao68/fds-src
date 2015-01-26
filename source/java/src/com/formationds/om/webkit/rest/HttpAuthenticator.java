@@ -3,24 +3,27 @@ package com.formationds.om.webkit.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+
+import javax.security.auth.login.LoginException;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
+
+import com.formationds.commons.FdsConstants;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
-import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
-
-import javax.security.auth.login.LoginException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletResponse;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
 
 public class HttpAuthenticator implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(HttpAuthenticator.class);
@@ -82,7 +85,7 @@ public class HttpAuthenticator implements RequestHandler {
     }
 
     private Optional<AuthenticationToken> parseHeaders(Request request) {
-        String headerValue = request.getHeader("FDS-Auth");
+        String headerValue = request.getHeader(FdsConstants.FDS_AUTH_HEADER);
         if (StringUtils.isBlank(headerValue)) {
             return Optional.empty();
         }

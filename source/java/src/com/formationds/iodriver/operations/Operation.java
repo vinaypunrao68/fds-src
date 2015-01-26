@@ -1,10 +1,13 @@
-package com.formationds.iodriver;
+package com.formationds.iodriver.operations;
+
+import com.formationds.iodriver.NullArgumentException;
+import com.formationds.iodriver.endpoints.Endpoint;
 
 public abstract class Operation
 {
     public static final Operation NULL;
     
-    public abstract void runOn(Endpoint endpoint);
+    public abstract void runOn(Endpoint endpoint) throws ExecutionException;
     
     static
     {

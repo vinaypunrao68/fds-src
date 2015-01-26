@@ -1,0 +1,123 @@
+package com.formationds.commons;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import com.formationds.commons.annotations.Replacement;
+import com.formationds.commons.util.Strings;
+import com.formationds.commons.util.Uris;
+
+// FIXME: Make a better name.
+public final class FdsConstants
+{
+    @Replacement("FDS_AUTH_HEADER")
+    public static final String FDS_AUTH_HEADER;
+
+    @Replacement("FDS_HOST_PROPERTY")
+    public static final String FDS_HOST_PROPERTY;
+
+    @Replacement("PASSWORD_QUERY_PARAMETER")
+    public static final String PASSWORD_QUERY_PARAMETER;
+    
+    @Replacement("USERNAME_QUERY_PARAMETER")
+    public static final String USERNAME_QUERY_PARAMETER;
+    
+    @Replacement("API_BASE")
+    public static URI getApiPath()
+    {
+        final String scheme = "https";
+        final String host = getFdsHost();
+        final int omPort = getOmPort();
+        final String path = "/api";
+
+        try
+        {
+            return new URI(scheme, null, host, omPort, path, null, null);
+        }
+        catch (URISyntaxException e)
+        {
+            throw newUriConstructionException(scheme, null, host, omPort, path);
+        }
+    }
+
+    @Replacement("FDS_HOST")
+    public static String getFdsHost()
+    {
+        return System.getProperty(FDS_HOST_PROPERTY, "localhost");
+    }
+
+    @Replacement("LOGIN_URL")
+    public static URI getLoginPath()
+    {
+        final URI apiBase = getApiPath();
+        final URI authTokenPath = Uris.tryGetRelativeUri("auth/token");
+
+        try
+        {
+            return getApiPath().resolve(Uris.getRelativeUri("auth/token"));
+        }
+        catch (URISyntaxException e)
+        {
+            throw newUriResolutionException(apiBase, authTokenPath);
+        }
+    }
+
+    @Replacement("OM_PORT")
+    public static int getOmPort()
+    {
+        return 7443;
+    }
+
+    static
+    {
+        FDS_AUTH_HEADER = "FDS-Auth";
+        FDS_HOST_PROPERTY = "fds.host";
+        PASSWORD_QUERY_PARAMETER = "password";
+        USERNAME_QUERY_PARAMETER = "login";
+    }
+
+    private static IllegalStateException newUriConstructionException(String scheme,
+                                                                     String userInfo,
+                                                                     String host,
+                                                                     int port,
+                                                                     String path)
+    {
+        return newUriConstructionException(scheme,
+                                           userInfo,
+                                           host,
+                                           port,
+                                           path,
+                                           null,
+                                           null,
+                                           null);
+    }
+
+    private static IllegalStateException newUriConstructionException(String scheme,
+                                                                     String userInfo,
+                                                                     String host,
+                                                                     int port,
+                                                                     String path,
+                                                                     String query,
+                                                                     String fragment,
+                                                                     Throwable cause)
+    {
+        return new IllegalStateException("Error constructing URI("
+                                         + String.join(", ",
+                                                       Strings.javaString(scheme),
+                                                       Strings.javaString(userInfo),
+                                                       Strings.javaString(host),
+                                                       Integer.toString(port),
+                                                       Strings.javaString(path),
+                                                       Strings.javaString(query),
+                                                       Strings.javaString(fragment)) + ")", cause);
+    }
+
+    private static IllegalStateException newUriResolutionException(URI base, URI relative)
+    {
+        final String baseAsString = base == null ? "null" : base.toString();
+        final String relativeAsString = relative == null ? "null" : relative.toString();
+
+        return new IllegalStateException("Error resolving " + baseAsString + ".resolve("
+                                         + relativeAsString + ")");
+    }
+}

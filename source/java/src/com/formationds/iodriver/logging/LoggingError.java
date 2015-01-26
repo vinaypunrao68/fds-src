@@ -1,4 +1,4 @@
-package com.formationds.iodriver;
+package com.formationds.iodriver.logging;
 
 // This should only be thrown as an absolute last resort.
 public class LoggingError extends Error

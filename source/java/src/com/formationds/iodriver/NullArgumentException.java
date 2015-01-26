@@ -1,5 +1,6 @@
 package com.formationds.iodriver;
 
+// FIXME: Move this to commons.
 public class NullArgumentException extends IllegalArgumentException
 {
     public NullArgumentException(String argumentName)
