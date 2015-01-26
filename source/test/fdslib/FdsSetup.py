@@ -60,7 +60,7 @@ class FdsEnv(object):
 
         self.env_ldLibPath = ("export LD_LIBRARY_PATH=" +
                               self.get_fds_root() + 'lib:'
-                              '/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64:'
+                              '/usr/local/lib:/opt/fds-deps/embedded/jre/lib/amd64:'
                               '/opt/fds-deps/embedded/lib; '
                               'export PATH=/opt/fds-deps/embedded/bin:$PATH:' + self.get_fds_root() + 'bin; ')
 
