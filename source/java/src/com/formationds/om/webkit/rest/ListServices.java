@@ -98,7 +98,7 @@ public class ListServices
 
                     Service serviceInstance = service.get();
                     Node thisNode = clusterMap.get( nodeUUID );
-                    
+
                     // differntiating the service and putting it with its own type
                     switch( serviceInstance.getType() ){
                     	case FDSP_DATA_MGR:
@@ -229,7 +229,7 @@ public class ListServices
             final Long nodeUUID = fdspNodeInfoType.getNode_uuid();
             if( AM.is( fdspNodeInfoType.getControl_port() ) ) {
 
-                service = Service.uuid( nodeUUID + AM.ordinal() )
+                service = AccessManagerService.uuid( nodeUUID + AM.ordinal() )
                                  .autoName( AM.name() )
                                  .port( fdspNodeInfoType.getControl_port() )
                                  .status( getServiceState() )
@@ -237,7 +237,7 @@ public class ListServices
                                  .build();
             } else if( DM.is( fdspNodeInfoType.getControl_port() ) ) {
 
-                service = Service.uuid( nodeUUID + DM.ordinal() )
+                service = DataManagerService.uuid( nodeUUID + DM.ordinal() )
                                  .autoName( DM.name() )
                                  .port( fdspNodeInfoType.getControl_port() )
                                  .status( getServiceState() )
@@ -245,7 +245,7 @@ public class ListServices
                                  .build();
             } else if( PM.is( fdspNodeInfoType.getControl_port() ) ) {
 
-                service = Service.uuid( nodeUUID )
+                service = PlatformManagerService.uuid( nodeUUID )
                                  .autoName( PM.name() )
                                  .port( fdspNodeInfoType.getControl_port() )
                                       .status( getServiceState() )
@@ -253,7 +253,7 @@ public class ListServices
                                  .build();
             } else if( SM.is( fdspNodeInfoType.getControl_port() ) ) {
 
-                service = Service.uuid( nodeUUID )
+                service = StorageManagerService.uuid( nodeUUID )
                                  .autoName( SM.name() )
                                  .port( fdspNodeInfoType.getControl_port() )
 
