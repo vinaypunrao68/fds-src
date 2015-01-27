@@ -6,10 +6,6 @@
 #include <vector>
 #include <string>
 
-#include <boost/lexical_cast.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
 #include <chrono>
 #include <condition_variable>
 

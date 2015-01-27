@@ -265,7 +265,7 @@ class SmIoDeleteObjectReq : public SmIoReq {
     typedef std::function<void (const Error&, SmIoDeleteObjectReq *resp)> CbType;
     virtual std::string log_string() override;
 
-    int64_t origin_timestamp;
+    fds_uint64_t dltVersion;
 
     CbType response_cb;
 };
@@ -282,8 +282,8 @@ class SmIoPutObjectReq : public SmIoReq {
             : putObjectNetReq(msg) {
     }
 
-    /// TODO(Andrew): Client assigned timestamp. Can this be removed?
-    int64_t origin_timestamp;
+    /// DLT version for the put request
+    fds_uint64_t dltVersion;
 
     /// Service layer put request
     boost::shared_ptr<fpi::PutObjectMsg> putObjectNetReq;
