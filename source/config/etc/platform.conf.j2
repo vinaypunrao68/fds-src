@@ -305,8 +305,11 @@ fds: {
             /* size of the delta set from source SM to destination SM */
             max_delta_set_size=16
 
-            /* verify the integrity of the metadata and data */
+            /* verify the integrity of the metadata and data  on destination SM */
             verify_migration_data=false
+
+            /* boolean to enable/disable SM token migration feature */
+            enable_feature = false
         }
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}

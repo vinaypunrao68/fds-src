@@ -5,6 +5,7 @@
 #include <vector>
 #include <object-store/SmDiskMap.h>
 #include <TokenMigrationMgr.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -22,6 +23,8 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
                                                   std::placeholders::_2,
                                                   std::placeholders::_3,
                                                   std::placeholders::_4);
+
+    enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
 }
 
 SmTokenMigrationMgr::~SmTokenMigrationMgr() {
@@ -43,9 +46,8 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         return err;
     }
 
-    // TODO(Anna) we are disabling migration for now since it is not fully
-    // integrated, so calling callback right away
-    if (cb) {
+    // Check if the migraion feature is enabled or disabled.
+    if (false == enableMigrationFeature) {
         LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
         cb(ERR_OK);
         return err;

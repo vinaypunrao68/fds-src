@@ -188,6 +188,9 @@ class SmTokenMigrationMgr {
 
     /// maximum number of items in the delta set.
     fds_uint32_t maxDeltaSetSize;
+
+    /// enable/disable token migration feature -- from platform.conf
+    fds_bool_t enableMigrationFeature;
 };
 
 }  // namespace fds
