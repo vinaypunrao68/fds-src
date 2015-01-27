@@ -47,11 +47,11 @@
                         <td>{{node.site}}</td>
                         <td>{{node.domain}}</td>
 -->
-                        <td class="process-cell process-width ams"><span class="{{getStatus( node.am )}}"></span></td>
-                        <td class="process-cell process-width pms"><span class="{{getStatus( node.pm )}}"></span></td>
-                        <td class="process-cell process-width oms"><span class="{{getStatus( node.om )}}"></span></td>
-                        <td class="process-cell process-width sms"><span class="{{getStatus( node.sm )}}"></span></td>
-                        <td class="process-cell process-width dms"><span class="{{getStatus( node.dm )}}"></span></td>
+                        <td class="process-cell process-width ams"><span class="{{getStatus( node.services.AM )}}"></span></td>
+                        <td class="process-cell process-width pms"><span class="{{getStatus( node.services.PM )}}"></span></td>
+                        <td class="process-cell process-width oms"><span class="{{getStatus( node.services.OM )}}"></span></td>
+                        <td class="process-cell process-width sms"><span class="{{getStatus( node.services.SM )}}"></span></td>
+                        <td class="process-cell process-width dms"><span class="{{getStatus( node.services.DM )}}"></span></td>
                     </tr>
                 </tbody>
             </table>

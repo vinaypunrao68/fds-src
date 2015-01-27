@@ -15,6 +15,10 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
 
     $scope.getStatus = function( service ){
         
+        if ( !angular.isDefined( service ) ){
+            return 'icon-nothing state-unknown';
+        }
+        
         if ( service.length > 0 ){
             service = service[0];
         }

@@ -14,47 +14,48 @@ mockNode = function(){
           "nodes": [
             {
               "name": "awesome-node",
-              "uuid": 7300650721690765504,
+              "uuid": 7088430947183220032,
               "ipV6address": "0.0.0.0",
               "ipV4address": "127.0.0.1",
               "state": "UP",
-              "accessManagers": [
-                {
-                  "uuid": 7300650721690765507,
-                  "autoName": "AM",
-                  "port": 7041,
-                  "status": "ACTIVE",
-                  "type": "FDSP_STOR_HVISOR"
-                }
-              ],
-              "orchestrationManagers": [],
-              "platformManagers": [
-                {
-                  "uuid": 7300650721690765507,
-                  "autoName": "PM",
-                  "port": 7001,
-                  "status": "INACTIVE",
-                  "type": "FDSP_PLATFORM"
-                }
-              ],
-              "storageManagers": [
-                {
-                  "uuid": 7300650721690765507,
-                  "autoName": "SM",
-                  "port": 7021,
-                  "status": "ERROR",
-                  "type": "FDSP_STOR_MGR"
-                }
-              ],
-              "dataManagers": [
-                {
-                  "uuid": 7300650721690765507,
-                  "autoName": "DM",
-                  "port": 7031,
-                  "status": "INVALID",
-                  "type": "FDSP_DATA_MGR"
-                }
-              ]
+              "services": {
+                "DM": [
+                  {
+                    "uuid": 7088430947183220035,
+                    "autoName": "DM",
+                    "port": 7031,
+                    "status": "INVALID",
+                    "type": "FDSP_DATA_MGR"
+                  }
+                ],
+                "AM": [
+                  {
+                    "uuid": 7088430947183220035,
+                    "autoName": "AM",
+                    "port": 7041,
+                    "status": "ACTIVE",
+                    "type": "FDSP_STOR_HVISOR"
+                  }
+                ],
+                "SM": [
+                  {
+                    "uuid": 7088430947183220035,
+                    "autoName": "SM",
+                    "port": 7021,
+                    "status": "ERROR",
+                    "type": "FDSP_STOR_MGR"
+                  }
+                ],
+                "PM": [
+                  {
+                    "uuid": 7088430947183220035,
+                    "autoName": "PM",
+                    "port": 7001,
+                    "status": "INACTIVE",
+                    "type": "FDSP_PLATFORM"
+                  }
+                ]
+              }
             }
           ]
         };
