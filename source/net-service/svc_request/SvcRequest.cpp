@@ -702,7 +702,6 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
 
     /* Handle the error */
     if (header->msg_code != ERR_OK) {
-        GLOGWARN << fds::logString(*header);
         /* Notify actionable error to endpoint manager */
         if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
             NetMgr::ep_mgr_singleton()->ep_handle_error(
@@ -713,6 +712,7 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
                 bSuccess = epAppStatusCb_(header->msg_code, payload);
             }
         }
+        if (!bSuccess) GLOGWARN << fds::logString(*header);
     }
 
     /* Handle the case where response from this endpoint is considered success */

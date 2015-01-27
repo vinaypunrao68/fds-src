@@ -474,9 +474,26 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
             dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
     asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
     asyncQueryReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb, amReq));
+    asyncQueryReq->onEPAppStatusCb(std::bind(&AmDispatcher::getQueryCatalogAppStatusCb,
+                                             this, amReq, std::placeholders::_1,
+                                             std::placeholders::_2));
     asyncQueryReq->invoke();
 
     LOGDEBUG << asyncQueryReq->logString() << logString(*queryMsg);
+}
+
+fds_bool_t
+AmDispatcher::getQueryCatalogAppStatusCb(AmRequest* amReq,
+                                         const Error& error,
+                                         boost::shared_ptr<std::string> payload) {
+    // Tell service layer that it's OK to see these errors. These
+    // could mean we're just reading something we haven't written
+    // before.
+    if ((ERR_CAT_ENTRY_NOT_FOUND == error) ||
+        (ERR_BLOB_NOT_FOUND == error)) {
+        return true;
+    }
+    return false;
 }
 
 void
