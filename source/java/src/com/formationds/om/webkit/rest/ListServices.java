@@ -229,41 +229,60 @@ public class ListServices
             final Long nodeUUID = fdspNodeInfoType.getNode_uuid();
             if( AM.is( fdspNodeInfoType.getControl_port() ) ) {
 
-                service = AccessManagerService.uuid( nodeUUID + AM.ordinal() )
-                                 .autoName( AM.name() )
-                                 .port( fdspNodeInfoType.getControl_port() )
-                                 .status( getServiceState() )
-                                 .type( AM.type() )
-                                 .build();
+            	service = buildService( AM, fdspNodeInfoType );
+
             } else if( DM.is( fdspNodeInfoType.getControl_port() ) ) {
 
-                service = DataManagerService.uuid( nodeUUID + DM.ordinal() )
-                                 .autoName( DM.name() )
-                                 .port( fdspNodeInfoType.getControl_port() )
-                                 .status( getServiceState() )
-                                 .type( DM.type() )
-                                 .build();
+                service = buildService( DM,  fdspNodeInfoType );
+                
             } else if( PM.is( fdspNodeInfoType.getControl_port() ) ) {
 
-                service = PlatformManagerService.uuid( nodeUUID )
-                                 .autoName( PM.name() )
-                                 .port( fdspNodeInfoType.getControl_port() )
-                                      .status( getServiceState() )
-                                 .type( PM.type() )
-                                 .build();
+                service = buildService( PM, fdspNodeInfoType );
+                
             } else if( SM.is( fdspNodeInfoType.getControl_port() ) ) {
 
-                service = StorageManagerService.uuid( nodeUUID )
-                                 .autoName( SM.name() )
-                                 .port( fdspNodeInfoType.getControl_port() )
-
-                                 .status( getServiceState() )
-                                 .type( SM.type() )
-                                 .build();
+                service = buildService( SM,  fdspNodeInfoType );
             }
 
 
             return service == null ? Optional.<Service>empty() : Optional.of( service );
+        }
+        
+        /**
+         * Helper to build a service of a particular type
+         * 
+         * @param serviceType
+         * @return
+         */
+        private static Service buildService( final ListService serviceType, final FDSP_Node_Info_Type fdspNodeInfoType ){
+        	
+        	Service service = null;
+        	
+        	switch( serviceType ){
+        		case DM:
+        			service = new DataManagerService();
+        			break;
+        		case AM:
+        			service = new AccessManagerService();
+        			break;
+        		case PM:
+        			service = new PlatformManagerService();
+        			break;
+        		case SM:
+        			service = new StorageManagerService();
+        			break;
+        		default:
+        			service = new OrchestrationManagerService();
+        			break;
+        	}
+        	
+        	service.setAutoName( serviceType.name() );
+        	service.setType( serviceType.type() );
+        	service.setPort( fdspNodeInfoType.getControl_port() );
+        	service.setUuid( fdspNodeInfoType.getNode_uuid() + AM.ordinal() );
+        	service.setStatus( getServiceState() );
+        	
+        	return service;
         }
 
         private static ServiceStatus getServiceState( ) {

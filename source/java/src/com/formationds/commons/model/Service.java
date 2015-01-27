@@ -28,81 +28,41 @@ public class Service
   public String getAutoName( ) {
     return autoName;
   }
+  
+  public void setAutoName( String aName ){
+	  this.autoName = aName;
+  }
 
   public Long getUuid( ) {
     return uuid;
+  }
+  
+  public void setUuid( Long aUuid ){
+	  this.uuid = aUuid;
   }
 
   public ManagerType getType( ) {
     return type;
   }
+  
+  public void setType( ManagerType aType ){
+	  this.type = aType;
+  }
 
   public ServiceStatus getStatus( ) {
     return status;
+  }
+  
+  public void setStatus( ServiceStatus aStatus ){
+	  this.status = aStatus;
   }
 
   public Integer getPort( ) {
     return port;
   }
-
-  public static IAutoName uuid( final Long uuid ) {
-    return new Service.Builder( uuid );
+  
+  public void setPort( Integer aPort ){
+	  this.port = aPort;
   }
 
-  public interface IAutoName {
-    IPort autoName( final String autoName );
-  }
-
-  public interface IPort {
-    IStatus port( final Integer port );
-  }
-
-  public interface IStatus {
-    IType status( final ServiceStatus status );
-  }
-
-  public interface IType {
-    IBuild type( final ManagerType type );
-  }
-
-  public interface IBuild {
-    Service build( );
-  }
-
-  private static class Builder
-      implements IAutoName, IPort, IStatus, IType, IBuild {
-    private Service instance = new Service();
-
-    private Builder( final Long uuid ) {
-      instance.uuid = uuid;
-    }
-
-    @Override
-    public IPort autoName( final String autoName ) {
-      instance.autoName = autoName;
-      return this;
-    }
-
-    @Override
-    public IStatus port( final Integer port ) {
-      instance.port = port;
-      return this;
-    }
-
-    @Override
-    public IType status( final ServiceStatus status ) {
-      instance.status = status;
-      return this;
-    }
-
-    @Override
-    public IBuild type( final ManagerType type ) {
-      instance.type = type;
-      return this;
-    }
-
-    public Service build( ) {
-      return instance;
-    }
-  }
 }
