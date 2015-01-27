@@ -23,9 +23,10 @@ class TestCreateMultipleBuckets(testcase.FDSTestCase):
     parameters: dict
         a dictionary of parameters to be used by the test.
     '''
-    def __init__(self, parameters=None, config_file=None):
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestCreateMultipleBuckets, self).__init__(parameters=parameters,
-                                                        config_file=config_file)
+                                                    config_file=config_file,
+                                                    om_ip_address=om_ip_address)
         self.my_users = []
         # since the FDS doesn't support creating more than 1024 buckets,
         # we will limit this to 1023.

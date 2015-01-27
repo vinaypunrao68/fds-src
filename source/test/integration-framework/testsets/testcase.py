@@ -31,7 +31,8 @@ class FDSTestCase(unittest.TestCase):
                               config.FDS_DEFAULT_FILE_PATH,
                               config.TEST_DEBUG)
         
-    def __init__(self, parameters=None, config_file=None, test_failure=False):
+    def __init__(self, parameters=None, config_file=None, test_failure=False,
+                 om_ip_address=None):
         """
         When run by a qaautotest module test runner,
         this method provides the test fixture allocation.
@@ -47,6 +48,7 @@ class FDSTestCase(unittest.TestCase):
         self.test_passed = False
         self.test_failure = test_failure
         self.config = {}
+        self.om_ip_address = om_ip_address
         if parameters:
             self.parameters = parameters
         else:
@@ -57,7 +59,8 @@ class FDSTestCase(unittest.TestCase):
             self.parameters['s3'] = self.s3conn
             self.parameters['s3'].conn = self.s3conn.get_s3_connection()
         if config_file:
-            self.config_file = config_parser.parse(config_file)
+            self.config_file = config_parser.parse(config_file,
+                                                   config.CONFIG_DIR)
         
     def tearDown(self):
         """
