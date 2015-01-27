@@ -263,8 +263,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
         async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
                                       msg);
         async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-            MigrationExecutor::getSecondRebalanceDeltaResp,
-            executorId));
+            MigrationExecutor::getSecondRebalanceDeltaResp));
         async2RebalSetReq->setTimeoutMs(5000);
         async2RebalSetReq->invoke();
     }
@@ -280,13 +279,12 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
 }
 
 void
-MigrationExecutor::getSecondRebalanceDeltaResp(fds_token_id dltToken,
-                                               EPSvcRequest* req,
+MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                                const Error& error,
                                                boost::shared_ptr<std::string> payload)
 {
-    LOGDEBUG << "Received second rebalance delta response for DLT token"
-             << dltToken << " executor " << executorId << " " << error;
+    LOGDEBUG << "Received second rebalance delta response for executor"
+             << executorId << " " << error;
     // here we just check if there is no error
     if (!error.ok()) {
         handleMigrationDone(error);
