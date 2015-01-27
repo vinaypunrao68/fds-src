@@ -3,6 +3,8 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.ApiException;
+import com.formationds.apis.ErrorCode;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.AsyncBridge;
@@ -62,18 +64,27 @@ public class S3Endpoint {
                 (t) -> new PutObject(xdi, t));
 
         syncRoute(new HttpPath(HttpMethod.PUT, "/:bucket/:object")
-                        .withUrlParam("acl"),
-                (t) -> new PutObject(xdi, t));
+                        .withUrlParam("acl")
+                        .withHeader("x-amz-acl"),
+                (t) -> new PutObjectAcl(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.PUT, "/:bucket/:object"), ctx ->
                 executeAsync(ctx, xdiAsync -> new AsyncPutObject(xdiAsync).apply(ctx)));
 
-        syncRoute(HttpMethod.POST, "/:bucket", (t) -> new PostObject(xdi, t));
-        syncRoute(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObject(xdi, t));
+        syncRoute(new HttpPath(HttpMethod.POST, "/:bucket/:object")
+                .withUrlParam("delete"), (t) -> new DeleteMultipleObjects(xdi, t));
+
+        syncRoute(new HttpPath(HttpMethod.POST, "/:bucket/:object")
+                .withUrlParam("uploads"), (t) -> new MultiPartUploadInitiate(xdi, t));
+
+        syncRoute(new HttpPath(HttpMethod.POST, "/:bucket/:object")
+                .withUrlParam("uploadId"), (t) -> new MultiPartUploadComplete(xdi, t));
+
+        syncRoute(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObjectUpload(xdi, t));
 
         syncRoute(new HttpPath(HttpMethod.GET, "/:bucket/:object")
                         .withUrlParam("uploadId"),
-                (t) -> new GetObject(xdi, t));
+                (t) -> new MultiPartListParts(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
                 executeAsync(ctx, xdiAsync -> new AsyncGetObject(xdiAsync).apply(ctx)));
@@ -98,10 +109,12 @@ public class S3Endpoint {
             String requestUri = ctx.getRequest().getRequestURI();
 
             AsyncBridge asyncBridge = new AsyncBridge((request, routeParameters) -> {
-                if (e instanceof SecurityException) {
+                if (e.getCause() instanceof SecurityException) {
                     return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestUri);
+                } else if (e.getCause() instanceof ApiException && ((ApiException) e.getCause()).getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
+                    return new S3Failure(S3Failure.ErrorCode.NoSuchKey, "No such key", requestUri);
                 } else {
-                    LOG.error("Error executing " + requestUri);
+                    LOG.error("Error executing " + requestUri, e);
                     return new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", requestUri);
                 }
             });
