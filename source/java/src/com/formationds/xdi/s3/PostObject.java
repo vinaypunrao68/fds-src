@@ -8,7 +8,6 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.util.MultiMap;
 
 import java.util.Map;
 
@@ -24,7 +23,7 @@ public class PostObject implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        MultiMap<String> qp = request.getQueryParameters();
+        Map<String, String[]> qp = request.getParameterMap();
         if (qp.containsKey("delete")) {
             return new DeleteMultipleObjects(xdi, token, bucketName).handle(request, routeParameters);
         } else if(qp.containsKey("uploads")) {
