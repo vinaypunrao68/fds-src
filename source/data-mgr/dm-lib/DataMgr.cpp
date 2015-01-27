@@ -1328,7 +1328,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     // Set message parameters
     expReq->volId = volId;
     fds::assign(expReq->objId, objId);
-    expReq->origin_timestamp = fds::get_fds_timestamp_ms();
+    expReq->dlt_version = omClient->getDltVersion();
 
     // Make RPC call
 
