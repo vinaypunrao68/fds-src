@@ -264,7 +264,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
                                       msg);
         async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
             MigrationExecutor::getSecondRebalanceDeltaResp,
-            tok));
+            executorId));
         async2RebalSetReq->setTimeoutMs(5000);
         async2RebalSetReq->invoke();
     }
