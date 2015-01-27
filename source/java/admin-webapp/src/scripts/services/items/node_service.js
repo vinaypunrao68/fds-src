@@ -12,6 +12,8 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     service.FDS_NODE_INACTIVE = 'FDS_Node_Inactive';
     service.FDS_NODE_ATTENTION = 'FDS_Node_Attention';
     service.FDS_NODE_DISCOVERED = 'FDS_Node_Discovered';
+    
+    service.FDS_ACTIVE = 'ACTIVE';
 
     service.getOverallStatus = function( node ){
 

@@ -12,10 +12,14 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
         return $scope.getStatus( $node_service.getOverallStatus( node ) );
     };
 
-    $scope.getStatus = function( state ){
-
-        switch( state ){
-            case $node_service.FDS_NODE_UP:
+    $scope.getStatus = function( service ){
+        
+        if ( service.length > 0 ){
+            service = service[0];
+        }
+        
+        switch( service.status ){
+            case $node_service.FDS_ACTIVE:
                 return 'icon-excellent state-ok';
             case $node_service.FDS_NODE_DOWN:
                 return 'icon-issues state-down';
