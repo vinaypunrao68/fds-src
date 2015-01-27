@@ -132,7 +132,7 @@ enum  FDSPMsgTypeId {
 	DeleteObjectRspMsgTypeId,
     AddObjectRefMsgTypeId,
     AddObjectRefRspMsgTypeId,
-    ShutdownSMMsgTypeId,
+    ShutdownMODMsgTypeId,
 	
 
     /* DM Type Ids */
@@ -511,8 +511,8 @@ struct CtrlQueryScavengerStatus {
 struct CtrlQueryScavengerStatusResp {
 	   1: FDSP_ScavengerStatusType 	status;
 }
-/* ---------------------  ShutdownSMMsgTypeId  --------------------------- */
-struct ShutdownSMMsg {
+/* ---------------------  ShutdownMODMsgTypeId  --------------------------- */
+struct ShutdownMODMsg {
 }
 
 /* ---------------------  CtrlScavengerProgressTypeId  --------------------------- */

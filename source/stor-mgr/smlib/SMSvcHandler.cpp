@@ -57,7 +57,7 @@ SMSvcHandler::SMSvcHandler()
 
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
-    REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownMODMsg, shutdownSM);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMAbortMigration, migrationAbort);
@@ -205,7 +205,7 @@ SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-        boost::shared_ptr<fpi::ShutdownSMMsg>& shutdownMsg) {
+        boost::shared_ptr<fpi::ShutdownMODMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message... shuttting down...";
     objStorMgr->~ObjectStorMgr();
 }
