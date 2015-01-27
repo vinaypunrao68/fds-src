@@ -5,6 +5,7 @@
 #include <vector>
 #include <object-store/SmDiskMap.h>
 #include <TokenMigrationMgr.h>
+#include <fds_process.h>
 
 namespace fds {
 
