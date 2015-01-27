@@ -1102,11 +1102,8 @@ struct CtrlObjectRebalanceDeltaSet
  */
 struct CtrlGetSecondRebalanceDeltaSet
 {
-    /* DLT token to rebalance */
-    1: FDSP.FDSP_Token              tokenId
-
     /* unique id of executor on the destination SM */
-    2: i64 executorID
+    1: i64 executorID
 }
 
 /* Get second rebalance delta set message response */

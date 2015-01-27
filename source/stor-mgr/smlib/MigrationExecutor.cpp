@@ -251,24 +251,22 @@ Error
 MigrationExecutor::startSecondObjectRebalanceRound() {
     Error err(ERR_OK);
     // send message to source SM to request second delta set
-    for (auto tok : dltTokens) {
-        LOGMIGRATE << "Sending request for second delta set for DLT token "
-                  << tok << " to source SM "
-                  << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        if (!testMode) {
-            fpi::CtrlGetSecondRebalanceDeltaSetPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSet());
-            msg->tokenId = tok;
-            msg->executorID = executorId;
+    // just one message containing executor ID
+    LOGMIGRATE << "Sending request for second delta set to source SM "
+               << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+               << " Executor ID " << executorId;
+    if (!testMode) {
+        fpi::CtrlGetSecondRebalanceDeltaSetPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSet());
+        msg->executorID = executorId;
 
-            auto async2RebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-            async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
-                                          msg);
-            async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                MigrationExecutor::getSecondRebalanceDeltaResp,
-                tok));
-            async2RebalSetReq->setTimeoutMs(5000);
-            async2RebalSetReq->invoke();
-        }
+        auto async2RebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+        async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
+                                      msg);
+        async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+            MigrationExecutor::getSecondRebalanceDeltaResp,
+            tok));
+        async2RebalSetReq->setTimeoutMs(5000);
+        async2RebalSetReq->invoke();
     }
 
     // we sent all start second round  messages from this executor, go to next state

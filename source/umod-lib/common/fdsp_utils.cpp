@@ -183,7 +183,7 @@ std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
 {
     std::ostringstream oss;
     oss << " DeleteObjectMsg " << ObjectID(delMsg.objId.digest)
-	<< " Volume UUID " << std::hex << delMsg.volId << std::hex
+	<< " Volume UUID " << std::hex << delMsg.volId << std::dec
 	<< " DLT Version " << delMsg.dlt_version;
     return oss.str();
 }
