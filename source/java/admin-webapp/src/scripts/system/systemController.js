@@ -2,6 +2,7 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
 
     $scope.addingnode = false;
     $scope.nodes = $node_service.nodes;
+    
     $scope.sortPredicate = 'node_name';
 
     $scope.addNode = function(){
@@ -21,15 +22,13 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
         switch( service.status ){
             case $node_service.FDS_ACTIVE:
                 return 'icon-excellent state-ok';
-            case $node_service.FDS_NODE_DOWN:
-                return 'icon-issues state-down';
+            case $node_service.FDS_INACTIVE:
+                return 'icon-issues state-issues';
+            case $node_service.FDS_ERROR:
+                return 'icon-warning state-down';
             default:
                 return 'icon-nothing state-unknown';
         }
-    };
-
-    $scope.getIcon = function( state ){
-        return $node_service.classForState( state );
     };
 
     $scope.$on( 'fds::node_done_adding', function(){
