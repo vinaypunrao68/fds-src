@@ -293,15 +293,49 @@ Error DMTManager::addSerializedDMT(std::string& data, DMTType dmt_type) {
 }
 
 /**
- * Commit target DMT version. Asserts if target version does not exist
+ * Commit target DMT version.
+ * returns ERR_NOT_FOUND if target version does not exist
  */
-void DMTManager::commitDMT() {
+Error DMTManager::commitDMT(fds_bool_t rmTarget) {
+    Error err(ERR_OK);
     dmt_lock.write_lock();
-    fds_verify(target_version != DMT_VER_INVALID);
-    fds_verify(dmt_map.count(target_version) > 0);
-    committed_version = target_version;
-    target_version = DMT_VER_INVALID;
+    if (target_version != DMT_VER_INVALID) {
+        fds_verify(dmt_map.count(target_version) > 0);
+        committed_version = target_version;
+        if (rmTarget) {
+            target_version = DMT_VER_INVALID;
+        }
+    } else {
+        err = ERR_NOT_FOUND;
+    }
     dmt_lock.write_unlock();
+    return err;
+}
+
+Error DMTManager::commitDMT(fds_uint64_t version) {
+    Error err(ERR_OK);
+    dmt_lock.write_lock();
+    if (version != DMT_VER_INVALID) {
+        fds_verify(dmt_map.count(version) > 0);
+        committed_version = version;
+        target_version = DMT_VER_INVALID;
+    } else {
+        err = ERR_INVALID_ARG;
+    }
+    dmt_lock.write_unlock();
+    return err;
+}
+
+Error DMTManager::unsetTarget() {
+    Error err(ERR_OK);
+    dmt_lock.write_lock();
+    if (target_version != DMT_VER_INVALID) {
+        target_version = DMT_VER_INVALID;
+    } else {
+        err = ERR_NOT_FOUND;
+    }
+    dmt_lock.write_unlock();
+    return err;
 }
 
 DmtColumnPtr DMTManager::getCommittedNodeGroup(fds_volid_t vol_id) {
