@@ -939,7 +939,7 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
 
     for (fds_uint32_t i = 0; i < (cobjs_req->oid_list).size(); ++i) {
         const ObjectID& obj_id = (cobjs_req->oid_list)[i];
-        fds_bool_t objNotOwned = false;
+        fds_bool_t objOwned = true;
 
         // we will garbage collect an object even if its refct > 0
         // if it belongs to DLT token that this SM is not responsible anymore
@@ -955,8 +955,8 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
                     break;
                 }
             }
-            if (found) {
-                objNotOwned = true;
+            if (!found) {
+                objOwned = false;
                 LOGTRACE << "Will remove " << obj_id << " even if refct > 0 "
                          << " because the object no longer owned by this SM";
             }
@@ -964,13 +964,13 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
 
         LOGDEBUG << "Compaction is working on object " << obj_id
                  << " on tier " << cobjs_req->tier << " verify data?"
-                 << cobjs_req->verifyData << " notOwned? "
-                 << objNotOwned;
+                 << cobjs_req->verifyData << " object owned? "
+                 << objOwned;
 
         // copy this object if not garbage, otherwise rm object db entry
         err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
                                                    cobjs_req->verifyData,
-                                                   objNotOwned);
+                                                   objOwned);
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;

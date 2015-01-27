@@ -132,13 +132,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * If given object still valid (refcount > 0), copies the object
      * to new file from the file that is being garbage collected
-     * @param notOwned true if object is not owned by this SM anymore
+     * @param objOwned false if object is not owned by this SM anymore
      * and can be garbage collected even if refcnt > 0
      */
     Error copyObjectToNewLocation(const ObjectID& objId,
                                   diskio::DataTier tier,
                                   fds_bool_t verifyData,
-                                  fds_bool_t notOwned);
+                                  fds_bool_t objOwned);
 
 
     /**
