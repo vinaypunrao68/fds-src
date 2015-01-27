@@ -422,11 +422,14 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               asyncHdr)); \
               return;);
 
+    // TODO(Anna) forward Put if it's DLT version is new
+    // and we are in the middle of migration and forwarding
+
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
-    putReq->origin_timestamp = putObjMsg->origin_timestamp;
+    putReq->dltVersion = putObjMsg->dlt_version;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
     // perf-trace related data
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
@@ -517,13 +520,16 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*expObjMsg));
     Error err(ERR_OK);
 
+    // TODO(Anna) forward Delete if it's DLT version is new
+    // and we are in the middle of migration and forwarding
+
     auto delReq = new SmIoDeleteObjectReq();
 
     // Set delReq stuffs
     delReq->io_type = FDS_SM_DELETE_OBJECT;
 
     delReq->setVolId(expObjMsg->volId);
-    delReq->origin_timestamp = expObjMsg->origin_timestamp;
+    delReq->dltVersion = expObjMsg->dlt_version;
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));
     // perf-trace related data
     delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);

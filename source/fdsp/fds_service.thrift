@@ -571,7 +571,7 @@ struct CtrlSetScrubberStatusResp {
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
-     2: i32                       dlt_version;
+     2: i64                       dlt_version;
 }
 
 /* ---------------------- CtrlNotifySMStartMigration --------------------------- */
@@ -723,7 +723,7 @@ struct GetObjectResp {
 /* Put object request message */
 struct PutObjectMsg {
    1: i64    			volume_id;
-   2: i64                      	origin_timestamp;
+   2: i64                      	dlt_version;
    3: FDSP.FDS_ObjectIdType 	data_obj_id;
    4: i32                      	data_obj_len;
    5: binary                   	data_obj;
@@ -737,7 +737,7 @@ struct PutObjectRspMsg {
 struct  DeleteObjectMsg {
  1: i64 volId,
  2: FDSP.FDS_ObjectIdType objId, 
- 3: i64 origin_timestamp,  
+ 3: i64 dlt_version
 }
 
 /* Delete object response message */
@@ -1112,6 +1112,5 @@ struct CtrlGetSecondRebalanceDeltaSet
 /* Get second rebalance delta set message response */
 struct CtrlGetSecondRebalanceDeltaSetRsp {
 }
-
 
 #endif
