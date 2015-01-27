@@ -223,7 +223,7 @@ public class ListServices
             throw new AbstractMethodError();
         }
 
-        public static Service find( final FDSP_Node_Info_Type fdspNodeInfoType ) {
+        public static Optional<Service> find( final FDSP_Node_Info_Type fdspNodeInfoType ) {
 
             Service service = null;
             final Long nodeUUID = fdspNodeInfoType.getNode_uuid();
@@ -244,8 +244,8 @@ public class ListServices
                 service = buildService( SM,  fdspNodeInfoType );
             }
 
-            return null;
-//            return service == null ? Optional.<Service>empty() : Optional.of( service );
+
+            return service == null ? Optional.<Service>empty() : Optional.of( service );
         }
         
         /**
