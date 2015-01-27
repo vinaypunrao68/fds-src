@@ -23,6 +23,7 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
+interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
 
 def is_valid_ip(ip):
     '''
@@ -54,6 +55,8 @@ def get_ip_address(ifname):
     --------
     str : the local machine's ip address.
     '''
+    if ifname not in interfaces:
+        raise ValueError, "Unknown interface %s" % ifname
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return socket.inet_ntoa(fcntl.ioctl(
             s.fileno(),

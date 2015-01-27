@@ -60,8 +60,6 @@ class Operation(object):
             # gets the op_ip_address from the inventory file
             self.om_ip_address = \
             config_parser.get_om_ipaddress_from_inventory(self.args.inventory)
-        else:
-            self.om_ip_address = utils.get_ip_address('eth0')
         
         # always check if the ip address is a valid one
         if not utils.is_valid_ip(self.om_ip_address):
@@ -228,7 +226,7 @@ if __name__ == '__main__':
                         help='User can specify which config file will be ' \
                         'used. The config file has to be .json.')
     parser.add_argument('-p', '--ipaddress',
-                        default=None,
+                        default='127.0.0.1',
                         help='If the user wishes to use an existing cluster ' \
                         'for his tests, the ip address of the OM node has ' \
                         'to be specified.')
