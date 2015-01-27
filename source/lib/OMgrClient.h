@@ -65,6 +65,8 @@ typedef enum {
     fds_catalog_dmt_close = 2
 } fds_catalog_action_t;
 
+typedef std::function<void()> DmtCloseCb;
+
 typedef void (*migration_event_handler_t)(bool dlt_type);
 typedef void (*dltclose_event_handler_t)(FDSP_DltCloseTypePtr& dlt_close,
                                          const std::string& session_uuid);

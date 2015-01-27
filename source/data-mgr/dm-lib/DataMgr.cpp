@@ -22,6 +22,7 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
                             const std::string& session_uuid) {
     Error err(ERR_OK);
     OMgrClient* om_client = dataMgr->omClient;
+
     GLOGNORMAL << "Received Volume Catalog request";
     if (catalog_action == fds_catalog_push_meta) {
         if (dataMgr->feature.isCatSyncEnabled()) {

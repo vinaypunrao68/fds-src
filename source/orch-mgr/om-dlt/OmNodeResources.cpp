@@ -389,7 +389,7 @@ OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* re
 }
 
     //  PAUL to enable this code
-#if 0
+
 Error
 OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
@@ -422,7 +422,7 @@ OM_NodeAgent::om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* re
                                const Error& error,
                                boost::shared_ptr<std::string> payload)
 {
-    LOGNOTIFY << "OM received response for NotifyDltUpdate from node "
+    LOGNOTIFY << "OM received response for NotifyDmtUpdate from node "
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
               << " with version " << msg->dmt_version << " " << error;
 
@@ -432,8 +432,8 @@ OM_NodeAgent::om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* re
     FdspNodeType node_type = rs_get_uuid().uuid_get_type();
     domain->om_recv_dmt_commit_resp(node_type, node_uuid, msg->dmt_version, error);
 }
-#endif
 
+#if 0
 Error
 OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
@@ -451,6 +451,7 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     err = curDmt->getSerialized(dmt_msg->dmt_data);
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dmt_data, not sending DMT";
+
         return err;
     }
     if (nd_ctrl_eph != NULL) {
@@ -469,7 +470,7 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
 
     return err;
 }
-
+#endif
 //
 // Currently sends scavenger start message
 // TODO(xxx) extend to other scavenger commands (pass cmd type)
@@ -639,7 +640,7 @@ OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
 }
 
     //   PAUL to  enable this code
-#if 0
+
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {
     Error err(ERR_OK);
@@ -651,7 +652,7 @@ OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dmt_close_resp, this, msg,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    om_req->setTimeoutMs(5000);
+    om_req->setTimeoutMs(20000);
     om_req->invoke();
 
     LOGNORMAL << "OM: send dmt close (version " << cur_dmt_version
@@ -677,8 +678,8 @@ OM_NodeAgent::om_send_dmt_close_resp(fpi::CtrlNotifyDMTClosePtr msg,
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     domain->om_recv_dmt_close_resp(node_uuid, msg->dmt_close.DMT_version, error);
 }
-#endif
 
+#if 0
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
     Error err(ERR_OK);
@@ -708,7 +709,7 @@ OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
 
     return err;
 }
-
+#endif
 
 void
 OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const

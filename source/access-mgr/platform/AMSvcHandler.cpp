@@ -170,12 +170,10 @@ void
 AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg)
 {
-#if 0
-    Error err = storHvisor->om_client->addSerialized(msg->dmt_data.dmt_data, DMT_COMMITTED);
+    Error err = storHvisor->om_client->updateDmt(msg->dmt_data.dmt_type, msg->dmt_data.dmt_data);
     hdr->msg_code = err.GetErrno();
     LOGDEBUG << "Notify DMT update " << hdr->msg_code;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *msg);
-#endif
 }
 
 // NotifyDLTUpdate
