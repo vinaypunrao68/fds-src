@@ -6,9 +6,9 @@
 #include <vector>
 
 #include <fds_process.h>
-#include <SMSvcHandler.h>
 #include <ObjMeta.h>
 #include <dlt.h>
+#include <SMSvcHandler.h>
 #include <MigrationExecutor.h>
 
 namespace fds {
@@ -164,7 +164,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         if (completeDeltaSetReceived) {
             LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                       << executorId;
-            handleMigrationDone(ERR_OK);
+            handleFirstMigrationRoundDone(ERR_OK);
         }
         // we will get more delta sets for this executor (out-of-order)
         return ERR_OK;
@@ -240,19 +240,95 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
                                                                    req->qosSeqNum,
                                                                    req->qosLastSet);
     if (completeDeltaSetReceived) {
+        // this executor finished the first round of migration
         LOGNORMAL << "All DeltaSet and QoS requests accounted for executor " << req->executorId;
-        handleMigrationDone(error);
+        handleFirstMigrationRoundDone(error);
         return;
     }
+}
 
-    // TODO(Anna) check if we are done and notify migration manager
+Error
+MigrationExecutor::startSecondObjectRebalanceRound() {
+    Error err(ERR_OK);
+    // send message to source SM to request second delta set
+    for (auto tok : dltTokens) {
+        LOGMIGRATE << "Sending request for second delta set for DLT token "
+                  << tok << " to source SM "
+                  << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+        if (!testMode) {
+            fpi::CtrlGetSecondRebalanceDeltaSetPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSet());
+            msg->tokenId = tok;
+            msg->executorID = executorId;
+
+            auto async2RebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+            async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
+                                          msg);
+            async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+                MigrationExecutor::getSecondRebalanceDeltaResp,
+                tok));
+            async2RebalSetReq->setTimeoutMs(5000);
+            async2RebalSetReq->invoke();
+        }
+    }
+
+    // we sent all start second round  messages from this executor, go to next state
+    MigrationExecutorState expectState = ME_SECOND_REBALANCE_ROUND;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_APPLYING_SECOND_DELTA)) {
+        // this must not happen
+        fds_panic("Unexpected migration executor state!");
+    }
+
+    return err;
+}
+
+void
+MigrationExecutor::getSecondRebalanceDeltaResp(fds_token_id dltToken,
+                                               EPSvcRequest* req,
+                                               const Error& error,
+                                               boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "Received second rebalance delta response for DLT token"
+             << dltToken << " executor " << executorId << " " << error;
+    // here we just check if there is no error
+    if (!error.ok()) {
+        handleMigrationDone(error);
+    }
+
+    // TODO(Anna) Since we do not have second rebalance set implemented yet on source
+    // SM, we are finishing migration here; remove that when source implements sending
+    // second rebalance set.
+    LOGMIGRATE << "Finishing migration for executor " << executorId;
+    handleMigrationDone(error);
+}
+
+void
+MigrationExecutor::handleFirstMigrationRoundDone(const Error& error) {
+    // move to next state
+    if (error.ok()) {
+        MigrationExecutorState expect = ME_APPLYING_DELTA;
+        if (!std::atomic_compare_exchange_strong(&state, &expect, ME_SECOND_REBALANCE_ROUND)) {
+            fds_panic("Unexpected migration executor state!");
+        }
+
+        LOGMIGRATE << "First round of migration finished for executor " << executorId
+                   << " src SM " << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+                   << ", SM token " << smTokenId;
+
+        // notify the requested that this executor done with first round of migration
+        if (migrDoneHandler) {
+            migrDoneHandler(executorId, smTokenId, true, error);
+        }
+    } else {
+        // for now we are stopping migration on any error
+        handleMigrationDone(error);
+    }
 }
 
 void
 MigrationExecutor::handleMigrationDone(const Error& error) {
     // check and set the state
     if (error.ok()) {
-        MigrationExecutorState expect = ME_APPLYING_DELTA;
+        MigrationExecutorState expect = ME_APPLYING_SECOND_DELTA;
         if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
             fds_panic("Unexpected migration executor state!");
         }
@@ -270,7 +346,7 @@ MigrationExecutor::handleMigrationDone(const Error& error) {
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
-        migrDoneHandler(executorId, smTokenId, error);
+        migrDoneHandler(executorId, smTokenId, false, error);
     }
 }
 

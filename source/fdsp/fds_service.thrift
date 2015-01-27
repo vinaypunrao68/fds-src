@@ -101,6 +101,8 @@ enum  FDSPMsgTypeId {
     CtrlObjectRebalanceFilterSetTypeId = 2063,
     CtrlObjectRebalanceDeltaSetTypeId  = 2064,
     CtrlNotifySMAbortMigrationTypeId   = 2065,
+    CtrlGetSecondRebalanceDeltaSetTypeId    = 2066,
+    CtrlGetSecondRebalanceDeltaSetRspTypeId = 2067,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
@@ -1091,5 +1093,25 @@ struct CtrlObjectRebalanceDeltaSet
      */
     4: list<CtrlObjectMetaDataPropagate> objectToPropagate
 }
+
+/* Message body to request Source SM to calculate and send delta set
+ * from the metadata diff betweent the first rebalance msg and now.
+ * In this second round, destination SM does not need to send filter set
+ * as it does in the first round, because there are no active IO for this
+ * token on the destination SM -- there could be active IO on the sorce SM.
+ */
+struct CtrlGetSecondRebalanceDeltaSet
+{
+    /* DLT token to rebalance */
+    1: FDSP.FDSP_Token              tokenId
+
+    /* unique id of executor on the destination SM */
+    2: i64 executorID
+}
+
+/* Get second rebalance delta set message response */
+struct CtrlGetSecondRebalanceDeltaSetRsp {
+}
+
 
 #endif

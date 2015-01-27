@@ -147,6 +147,9 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void syncObjectSet(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlObjectRebalanceDeltaSet> &deltaObjSet);
 
+    void getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                      boost::shared_ptr<fpi::CtrlGetSecondRebalanceDeltaSet>& getDeltaSetMsg);
+
     /**
     * Handler for the new DMT messages
     */

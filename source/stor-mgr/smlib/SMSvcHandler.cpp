@@ -63,6 +63,7 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMAbortMigration, migrationAbort);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
 }
@@ -202,6 +203,26 @@ SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // TODO(Anna) respond with error, are we responding on success?
     fds_verify(err.ok() || (err == ERR_SM_TOK_MIGRATION_ABORTED));
+}
+
+void
+SMSvcHandler::getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           fpi::CtrlGetSecondRebalanceDeltaSetPtr& getDeltaSetMsg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << "Received get second delta set from destination SM "
+             << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
+             << " for DLT token " << getDeltaSetMsg->tokenId
+             << " executor ID " << getDeltaSetMsg->executorID;
+
+    // notify migration mgr -- this call is sync
+    err = objStorMgr->migrationMgr->startSecondObjectRebalance(getDeltaSetMsg,
+                                                               asyncHdr->msg_src_uuid);
+
+    // send response
+    fpi::CtrlGetSecondRebalanceDeltaSetRspPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSetRsp());
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSetRsp), *msg);
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
