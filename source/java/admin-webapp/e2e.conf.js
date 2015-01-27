@@ -71,7 +71,8 @@ exports.config = {
     snapshots: ['test/e2e/volumes/snapshot_spec.js'],
     users: ['test/e2e/users/*'],
     timeline: ['test/e2e/volumes/timeline_spec.js'],
-    scale: ['test/e2e/volumes/sorting_searching_spec.js']
+    scale: ['test/e2e/volumes/sorting_searching_spec.js'],
+    nodes: ['test/e2e/system/node_status_spec.js']
 
   },
 

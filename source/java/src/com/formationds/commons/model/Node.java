@@ -6,9 +6,12 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.NodeState;
+import com.formationds.commons.model.type.ServiceType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author ptinius
@@ -26,8 +29,7 @@ public class Node
 
   private NodeState state;    // node state
 
-  private List<Service> services = new ArrayList<>();
-
+  private Map<ServiceType, List<Service>> services = new HashMap<ServiceType, List<Service>>();
 
   private Node( ) {
   }
@@ -36,8 +38,24 @@ public class Node
     return new Node.Builder( uuid );
   }
 
-  public List<Service> getServices( ) {
+  public Map<ServiceType, List<Service>> getServices() {
     return services;
+  }
+  
+  public void addService( Service service ){
+	  
+	  ServiceType serviceType = ServiceType.valueOf( service.getAutoName() );
+	  List<Service> serviceList = getServices().get( serviceType );
+	  
+	  if ( serviceList == null ){
+		  serviceList = new ArrayList<Service>();
+	  }
+	  
+	  if ( !serviceList.contains( service ) ) {
+		  serviceList.add( service );
+	  }
+	  
+	  getServices().put( serviceType,  serviceList );
   }
 
   public interface IIpV6address {
