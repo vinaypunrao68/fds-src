@@ -40,7 +40,7 @@ pkgs_to_deploy=(
 )
 
 
-fds_package_pattern='(fds-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]-(debug|release)-[[:digit:]]+.deb)'
+fds_package_pattern='(fds-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]-(debug|release)-[[:alnum:]]+.deb)'
 for pkgdir in ${pkgdirs[@]}
 do
     cd ${fds_platform_dir}-${pkgdir}
