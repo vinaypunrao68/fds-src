@@ -121,7 +121,7 @@ public enum ServiceType {
         	
         	service.setAutoName( serviceType.name() );
         	service.setPort( fdspNodeInfoType.getControl_port() );
-        	service.setUuid( fdspNodeInfoType.getNode_uuid() + AM.ordinal() );
+        	service.setUuid( fdspNodeInfoType.getNode_uuid() );
         	service.setStatus( getServiceState() );
         	
         	return service;
