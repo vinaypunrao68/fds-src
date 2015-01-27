@@ -1812,5 +1812,7 @@ include_directories(source/lib)
 include_directories(source/orch-mgr/include)
 include_directories(source/platform/include)
 include_directories(source/stor-mgr/include)
+include_directories(source/include)
+include_directories(source/include/net)
 
 add_executable(dev ${SOURCE_FILES})

@@ -466,8 +466,11 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
     }  // end of scoped lock
 
     if (send_dmt_close_ack) {
-        fpi::FDSP_DmtCloseTypePtr dmtCloseAck(new FDSP_DmtCloseType);
-        dataMgr->omClient->sendDMTCloseAckToOM(dmtCloseAck, cat_sync_context);
+        if (dataMgr->sendDmtCloseCb != nullptr) {
+            dataMgr->sendDmtCloseCb();
+        } else {
+            LOGDEBUG << "sendDmtCloseCb called while ptr was NULL!!!";
+        }
     }
 
     return send_dmt_close_ack;

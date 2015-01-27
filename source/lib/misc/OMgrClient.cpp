@@ -128,8 +128,10 @@ void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
                                         FDSP_ScavengerTypePtr& gc_info) {
 }
 
+
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                                      FDSP_DMT_TypePtr& dmt_info) {
+    #if 0
     Error err(ERR_OK);
     err = om_client->recvDMTUpdate(dmt_info, msg_hdr->session_uuid);
     if (om_client->getNodeType() == fpi::FDSP_DATA_MGR) {
@@ -144,7 +146,9 @@ void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
         // DMT commit is sync for all other services, send response now
         om_client->sendDMTCommitAck(err, msg_hdr->session_uuid);
     }
+    #endif
 }
+
 
 void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_DltCloseTypePtr& dlt_close) {
@@ -153,8 +157,11 @@ void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
 
 void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_DmtCloseTypePtr& dmt_close) {
+#if 0
     om_client->recvDMTClose(dmt_close->DMT_version, fdsp_msg->session_uuid);
+#endif
 }
+
 
 void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_PushMetaPtr& push_meta_resp) {
@@ -787,6 +794,7 @@ int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
     return err;
 }
 
+#if 0
 /**
  * DMT close event notifies that nodes in the cluster received
  * the commited (new) DMT
@@ -843,7 +851,7 @@ int OMgrClient::sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
 
     return (0);
 }
-
+#endif
 
 Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
     Error err(ERR_OK);
@@ -863,7 +871,8 @@ Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
 Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
                                   const std::string& session_uuid) {
     fds_verify(this->catalog_evt_hdlr != NULL);
-    return this->catalog_evt_hdlr(fds_catalog_push_meta, push_meta, session_uuid);
+    //return this->catalog_evt_hdlr(fds_catalog_push_meta, push_meta, session_uuid);
+    return ERR_OK;
 }
 
 Error OMgrClient::updateDmt(bool dmt_type, std::string& dmt_data) {
@@ -879,7 +888,7 @@ Error OMgrClient::updateDmt(bool dmt_type, std::string& dmt_data) {
 
     return err;
 }
-
+#if 0
 Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
                                 const std::string& session_uuid) {
     Error err(ERR_OK);
@@ -903,6 +912,7 @@ Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
 
     return err;
 }
+#endif
 
 int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
                                 const FDSP_BucketStatsRespTypePtr& stats_msg)
