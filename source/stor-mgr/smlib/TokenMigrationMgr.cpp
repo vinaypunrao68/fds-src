@@ -234,7 +234,7 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
     Error err(ERR_OK);
     LOGMIGRATE << "Request to receive the rebalance diff since the first rebalance from "
                << std::hex << executorSmUuid.svc_uuid << std::dec << " executor ID "
-               << msg->executorID << " DLT token " << msg->tokenId;
+               << msg->executorID;
 
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error

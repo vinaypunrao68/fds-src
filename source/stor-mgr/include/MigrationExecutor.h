@@ -97,8 +97,7 @@ class MigrationExecutor {
     void handleFirstMigrationRoundDone(const Error& error);
 
     /// callback from SL on second rebalance delta set msg response
-    void getSecondRebalanceDeltaResp(fds_token_id dltToken,
-                                     EPSvcRequest* req,
+    void getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload);
 
