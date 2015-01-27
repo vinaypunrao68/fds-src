@@ -9,6 +9,7 @@ import com.formationds.commons.model.type.NodeState;
 import com.formationds.commons.model.type.ServiceType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +29,7 @@ public class Node
 
   private NodeState state;    // node state
 
-  private Map<ServiceType, List<Service>> services;
+  private Map<ServiceType, List<Service>> services = new HashMap<ServiceType, List<Service>>();
 
   private Node( ) {
   }
