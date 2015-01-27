@@ -6,9 +6,11 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.NodeState;
+import com.formationds.commons.model.type.ServiceType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author ptinius
@@ -26,13 +28,7 @@ public class Node
 
   private NodeState state;    // node state
 
-//  private List<Service> services = new ArrayList<>();
-  private List<AccessManagerService> accessManagers = new ArrayList<AccessManagerService>();
-  private List<OrchestrationManagerService> orchestrationManagers = new ArrayList<OrchestrationManagerService>();
-  private List<PlatformManagerService> platformManagers = new ArrayList<PlatformManagerService>();
-  private List<StorageManagerService> storageManagers = new ArrayList<StorageManagerService>();
-  private List<DataManagerService> dataManagers = new ArrayList<DataManagerService>();
-
+  private Map<ServiceType, List<Service>> services;
 
   private Node( ) {
   }
@@ -41,24 +37,24 @@ public class Node
     return new Node.Builder( uuid );
   }
 
-  public List<AccessManagerService> getAccessManagers() {
-    return accessManagers;
+  public Map<ServiceType, List<Service>> getServices() {
+    return services;
   }
   
-  public List<OrchestrationManagerService> getOrchestrationManagers(){
-	  return orchestrationManagers;
-  }
-  
-  public List<PlatformManagerService> getPlatformManagers(){
-	  return platformManagers;
-  }
-  
-  public List<StorageManagerService> getStorageManagers(){
-	  return storageManagers;
-  }
-  
-  public List<DataManagerService> getDataManagers(){
-	  return dataManagers;
+  public void addService( Service service ){
+	  
+	  ServiceType serviceType = ServiceType.valueOf( service.getAutoName() );
+	  List<Service> serviceList = getServices().get( serviceType );
+	  
+	  if ( serviceList == null ){
+		  serviceList = new ArrayList<Service>();
+	  }
+	  
+	  if ( !serviceList.contains( service ) ) {
+		  serviceList.add( service );
+	  }
+	  
+	  getServices().put( serviceType,  serviceList );
   }
 
   public interface IIpV6address {

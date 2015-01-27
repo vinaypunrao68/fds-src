@@ -20,9 +20,10 @@ public class Service
   private String autoName;
   private Integer port;
   private ServiceStatus status;
-  private ManagerType type;
+  private final ManagerType type;
 
-  protected Service( ) {
+  protected Service( final ManagerType aType ) {
+	  this.type = aType;
   }
 
   public String getAutoName( ) {
@@ -43,10 +44,6 @@ public class Service
 
   public ManagerType getType( ) {
     return type;
-  }
-  
-  public void setType( ManagerType aType ){
-	  this.type = aType;
   }
 
   public ServiceStatus getStatus( ) {
