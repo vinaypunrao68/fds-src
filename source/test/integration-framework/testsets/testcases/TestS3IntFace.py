@@ -37,9 +37,10 @@ class S3(object):
 # See TestOMIntFace.TestGetAuthToken.
 class TestS3GetConn(testcase.FDSTestCase):
     
-    def __init__(self, parameters=None, config_file=None):
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3GetConn, self).__init__(parameters=parameters,
-                                            config_file=config_file)
+                                            config_file=config_file,
+                                            om_ip_address=om_ip_address)
 
     def runTest(self):
         self.test_passed = True
@@ -83,9 +84,11 @@ class TestS3GetConn(testcase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn. See TestS3IntFace.TestS3GetConn.
 class TestS3CrtBucket(testcase.FDSTestCase):
-    def __init__(self, parameters=None, config_file=None):
+    
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3CrtBucket, self).__init__(parameters=parameters,
-                                              config_file=config_file)
+                                              config_file=config_file,
+                                              om_ip_address=om_ip_address)
 
 
     def runTest(self):
@@ -149,9 +152,11 @@ class TestS3CrtBucket(testcase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadSBLOB(testcase.FDSTestCase):
-    def __init__(self, parameters=None, config_file=None):
+    
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3LoadSBLOB, self).__init__(parameters=parameters,
-                                              config_file=config_file)
+                                              config_file=config_file,
+                                              om_ip_address=om_ip_address)
 
 
     def runTest(self):
@@ -238,9 +243,11 @@ class TestS3LoadSBLOB(testcase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadFBLOB(testcase.FDSTestCase):
-    def __init__(self, parameters=None, config_file=None):
+
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3LoadFBLOB, self).__init__(parameters=parameters,
-                                              config_file=config_file)
+                                              config_file=config_file,
+                                              om_ip_address=om_ip_address)
 
 
     def runTest(self):
@@ -434,9 +441,11 @@ class TestS3LoadMBLOB(testcase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadLBLOB(testcase.FDSTestCase):
-    def __init__(self, parameters=None, config_file=None):
+    
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3LoadLBLOB, self).__init__(parameters=parameters,
-                                              config_file=config_file)
+                                              config_file=config_file,
+                                              om_ip_address=om_ip_address)
 
 
     def runTest(self):
@@ -544,9 +553,11 @@ class TestS3LoadLBLOB(testcase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3ListBucketKeys(testcase.FDSTestCase):
-    def __init__(self, parameters=None, config=None):
+    
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3ListBucketKeys, self).__init__(parameters=parameters,
-                                                   config=config)
+                                                   config_file=config_file,
+                                                   om_ip_address=om_ip_address)
 
 
     def runTest(self):
@@ -617,9 +628,11 @@ class TestS3ListBucketKeys(testcase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3DelBucketKeys(testcase.FDSTestCase):
-    def __init__(self, parameters=None, config_file=None):
+    
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3DelBucketKeys, self).__init__(parameters=parameters,
-                                                  config_file=config_file)
+                                                  config_file=config_file,
+                                                  om_ip_address=om_ip_address)
 
 
     def runTest(self):
@@ -683,9 +696,11 @@ class TestS3DelBucketKeys(testcase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3DelBucket(testcase.FDSTestCase):
-    def __init__(self, parameters=None, config_file=None):
+    
+    def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3DelBucket, self).__init__(parameters=parameters,
-                                              config_file=config_file)
+                                              config_file=config_file,
+                                              om_ip_address=om_ip_address)
 
 
     def runTest(self):

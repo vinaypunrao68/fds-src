@@ -169,6 +169,29 @@ namespace fds {
          */
         void notifyEndOfRebalancing();
 
+        /**
+         * Persists target DMT as committed to config DB, and removes
+         * target DMT from persistent store
+         */
+        Error persistCommitedTargetDmt();
+
+        /**
+         * Reverts committed DMT to previously committed DMT
+         */
+        void undoTargetDmtCommit();
+
+        /**
+         * Returns true if there is no target DMT computed or committed
+         * as an official version
+         */
+        fds_bool_t hasNoTargetDmt() const;
+
+        /**
+         * Returns true if there is target DMT computed, but not yet commited
+         * as an official version
+         */
+        fds_bool_t hasNonCommitedTarget() const;
+
         Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services);
 
   private:
@@ -195,6 +218,12 @@ namespace fds {
          * as an exponent of 2 (e.g., width=16 means 2^16 columns in DMT).
          */
         fds_uint64_t curDmtWidth;
+
+        /**
+         * Keep previous DMT version after we commit DMT so that we can
+         * revert commited DMT for recovery
+         */
+        fds_uint64_t prevDmtVersion;
 
         /**
          * Current algorithm used to compute new DMT

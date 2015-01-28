@@ -212,7 +212,6 @@ SMSvcHandler::getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     Error err(ERR_OK);
     LOGDEBUG << "Received get second delta set from destination SM "
              << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
-             << " for DLT token " << getDeltaSetMsg->tokenId
              << " executor ID " << getDeltaSetMsg->executorID;
 
     // notify migration mgr -- this call is sync
