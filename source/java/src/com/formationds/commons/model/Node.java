@@ -23,7 +23,7 @@ public class Node
 
   private Integer id;         // used for persistent storage
   private String name;        // node name
-  private Long uuid;          // node uuid
+  private String uuid;        // node uuid
   private String ipV6address;
   private String ipV4address;
 
@@ -34,7 +34,7 @@ public class Node
   private Node( ) {
   }
 
-  public static IIpV6address uuid( final Long uuid ) {
+  public static IIpV6address uuid( final String uuid ) {
     return new Node.Builder( uuid );
   }
 
@@ -48,7 +48,7 @@ public class Node
 	  List<Service> serviceList = getServices().get( serviceType );
 	  
 	  if ( serviceList == null ){
-		  serviceList = new ArrayList<Service>();
+		  serviceList = new ArrayList<>();
 	  }
 	  
 	  if ( !serviceList.contains( service ) ) {
@@ -80,7 +80,7 @@ public class Node
       implements IIpV6address, IIpV4address, IBuild {
     private Node instance = new Node();
 
-    private Builder( final Long uuid ) {
+    private Builder( final String uuid ) {
       instance.uuid = uuid;
     }
 

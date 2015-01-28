@@ -6,7 +6,6 @@ package com.formationds.om.webkit.rest.platform;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_Node_Info_Type;
-
 import com.formationds.commons.model.Domain;
 import com.formationds.commons.model.Node;
 import com.formationds.commons.model.Service;
@@ -16,7 +15,6 @@ import com.formationds.commons.model.type.ServiceType;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +55,7 @@ public class ListNodes
          * service issues are resolved. This fix is just to get us to beta 2.
          */
 
-        final Map<Long,Node> clusterMap = new HashMap<>( );
+        final Map<String,Node> clusterMap = new HashMap<>( );
         if( list != null && !list.isEmpty() ) {
 
             for( final FDSP_Node_Info_Type info : list ) {
@@ -74,7 +72,8 @@ public class ListNodes
                         ipAddr2String( info.getIp_lo_addr() )
                             .orElse( String.valueOf( info.getIp_lo_addr() ) );
 
-                    final Long nodeUUID = info.getNode_uuid();
+                    final String nodeUUID = String.valueOf(
+                        info.getNode_uuid() );
                     NodeState nodeState = NodeState.UP;
                     final Optional<NodeState> optional =
                         NodeState.byFdsDefined( info.getNode_state().name() );
