@@ -1055,7 +1055,7 @@ struct CtrlObjectMetaDataPropagate
      *          can just be applied.
      *
      */
-    2: bool isObjectMetaDataDiff
+    2: bool isObjectMetaDataReconcile
     
     /* user data */
     3: FDSP.FDSP_ObjectData  objectData
