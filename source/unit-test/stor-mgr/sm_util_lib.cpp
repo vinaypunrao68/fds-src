@@ -27,8 +27,7 @@ namespace fds {
         fds_uint64_t  uuid;
         std::string   path, dev;
 
-        std::ifstream map(dir->dir_dev() + std::string("/disk-map"),
-                std::ifstream::in);
+        std::ifstream map(dir->dir_dev() + DISK_MAP, std::ifstream::in);
 
         diskMap->clear();
         fds_verify(map.fail() == false);
@@ -52,7 +51,7 @@ namespace fds {
     */
     static fds_bool_t SafeSmMgmt::diskMapPresent(const FdsRootDir* dir) {
         std::string devDir = dir->dir_dev();
-        std::string diskmapPath = devDir + std::string("disk-map");
+        std::string diskmapPath = devDir + DISK_MAP_FILE;
         std::ifstream map(diskmapPath, std::ifstream::in);
         fds_uint32_t diskCount = 0;
         if (map.fail() == false) {
@@ -163,7 +162,7 @@ namespace fds {
             fds_uint32_t simHddCount,
             fds_uint32_t simSsdCount) {
         std::string devDir = dir->dir_dev();
-        std::string diskmapPath = devDir + std::string("disk-map");
+        std::string diskmapPath = devDir + DISK_MAP_FILE;
 
         GLOGDEBUG << "Will create fake disk map for testing";
         cleanFdsTestDev(dir);  // clean dirs just in case
