@@ -646,7 +646,8 @@ NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     // broadcast shutdown msg to all services
     dom_ctrl->om_bcast_shutdown_msg();
 
-    // we will not wait for responses
+    // TODO(Anna) we are not currently waiting for responses. Implement waiting
+    // for acks to confirm that each service shut down
     LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
 }
 
