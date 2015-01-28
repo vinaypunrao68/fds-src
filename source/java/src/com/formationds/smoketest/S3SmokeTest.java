@@ -201,7 +201,7 @@ public class S3SmokeTest {
             userClient.deleteBucket(bucketName);
             testBucketNotExists(bucketName, true);
             userClient.createBucket(bucketName);
-            testBucketExists( bucketName, true );
+            testBucketExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient,
                                      bucketName);
@@ -219,7 +219,7 @@ public class S3SmokeTest {
             }
             testBucketExists(bucketName, true);
             userClient.deleteBucket(bucketName);
-            testBucketNotExists( bucketName, true );
+            testBucketNotExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient, bucketName);
         }
@@ -386,7 +386,8 @@ public class S3SmokeTest {
         assertEquals(403, response.getStatusLine().getStatusCode());
     }
 
-    @Test
+    // Commented pending FS-835
+    // @Test
     public void testMissingObject() throws Exception {
         try {
             userClient.getObject(userBucket, UUID.randomUUID().toString());
