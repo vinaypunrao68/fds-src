@@ -1,5 +1,9 @@
 .nodecontainer {
     
+    .nodes {
+        clear: both;
+    }
+    
     .state-unknown {
         color: $text_very_light_color;
     }
