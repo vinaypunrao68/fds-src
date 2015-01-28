@@ -252,7 +252,7 @@ class TestFDSPkgInst(TestCase.FDSTestCase):
 
 
 # This class contains attributes and methods to test
-# deleting an FDS installation.
+# deleting an FDS installation or root directory.
 class TestFDSDeleteInstDir(TestCase.FDSTestCase):
     def __init__(self, parameters = None, node=None):
         """
@@ -325,10 +325,102 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
                 # Try to delete it.
                 self.log.info("FDS installation directory, %s, exists on node %s. Attempting to delete." %
                               (fds_dir, n.nd_conf_dict['node-name']))
+
+                status = n.nd_agent.exec_wait('rm -rf %s ' % fds_dir)
+
+                if status != 0:
+                    self.log.error("FDS installation directory deletion on node %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
+            else:
+                self.log.warn("FDS installation directory, %s, nonexistent on node %s." %
+                              (fds_dir, n.nd_conf_dict['node-name']))
+
+            if self.passedNode is not None:
+                # We're done with the specified node. Get out.
+                break
+
+        return True
+
+
+# This class contains attributes and methods to test
+# clean selective parts of an FDS installation directory.
+class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
+    def __init__(self, parameters = None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
+
+
+    @unittest.expectedFailure
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_FDSSelectiveInstDirClean():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Selective FDS installation directory clean caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_FDSSelectiveInstDirClean(self):
+        """
+        Test Case:
+        Attempt to selectively delete from the FDS installation directory.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If we were passed a specific node, use it and get it.
+            if self.passedNode is not None:
+                n = self.passedNode
+
+            fds_dir = n.nd_conf_dict['fds_root']
+
+            # Check to see if the FDS root directory is already there.
+            status = n.nd_agent.exec_wait('ls ' + fds_dir)
+            if status == 0:
+                # Try to delete it.
+                self.log.info("FDS installation directory, %s, exists on node %s. Attempting to selectively clean." %
+                              (fds_dir, n.nd_conf_dict['node-name']))
                 print fds_dir
                 status = n.nd_cleanup_node(test_harness=True, _bin_dir=bin_dir)
                 if status != 0:
-                    self.log.error("FDS installation directory deletion on node %s returned status %d." %
+                    self.log.error("FDS installation directory selective clean on node %s returned status %d." %
                                    (n.nd_conf_dict['node-name'], status))
                     return False
             else:
@@ -429,6 +521,329 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
 
         if status != 0:
             self.log.error("Restart Redis after clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# booting up Redis.
+class TestBootRedis(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_BootRedis():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Boot Redis caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_BootRedis(self):
+        """
+        Test Case:
+        Attempt to boot Redis.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
+        # based on an install or a development environment. For now, we check for an install
+        # directory structure for Redis support. If not there, we assume a development environment.
+        if fdscfg.rt_env.env_install:
+            sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        self.log.info("Boot Redis on node %s." %n.nd_conf_dict['node-name'])
+
+        status = n.nd_agent.exec_wait("%s/redis.sh start" % sbin_dir)
+        time.sleep(2)
+
+        if status != 0:
+            self.log.error("Boot Redis on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# shutting down Redis.
+class TestShutdownRedis(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
+
+
+    def runTest(self):
+        test_passed = True
+
+        # We'll continue to shutdown Redis even in the event of failure upstream.
+        if TestCase.pyUnitTCFailure and not True:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_ShutdownRedis():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Shutdown Redis caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_ShutdownRedis(self):
+        """
+        Test Case:
+        Attempt to shutdown Redis.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
+        # based on an install or a development environment. For now, we check for an install
+        # directory structure for Redis support. If not there, we assume a development environment.
+        if fdscfg.rt_env.env_install:
+            sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        self.log.info("Shutdown Redis on node %s." %n.nd_conf_dict['node-name'])
+
+        status = n.nd_agent.exec_wait("%s/redis.sh stop" % sbin_dir)
+        time.sleep(2)
+
+        if status != 0:
+            self.log.error("Boot Redis on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# verifying that Redis is up.
+class TestVerifyRedisUp(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_VerifyRedisUp():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Verify Redis is up caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_VerifyRedisUp(self):
+        """
+        Test Case:
+        Attempt to verify Redis is up.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
+        # based on an install or a development environment. For now, we check for an install
+        # directory structure for Redis support. If not there, we assume a development environment.
+        if fdscfg.rt_env.env_install:
+            sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        self.log.info("Verify Redis is up node %s." % n.nd_conf_dict['node-name'])
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = n.nd_agent.exec_wait("%s/redis.sh status" % sbin_dir, return_stdin=True)
+
+        if status != 0:
+            self.log.error("Verify Redis is up on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        self.log.error(stdout)
+
+        if stdout.count("NOT") > 0:
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# verifying that Redis is down.
+class TestVerifyRedisDown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_VerifyRedisDown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Verify Redis is down caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_VerifyRedisDown(self):
+        """
+        Test Case:
+        Attempt to verify Redis is Down.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
+        # based on an install or a development environment. For now, we check for an install
+        # directory structure for Redis support. If not there, we assume a development environment.
+        if fdscfg.rt_env.env_install:
+            sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        self.log.info("Verify Redis is down node %s." % n.nd_conf_dict['node-name'])
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = n.nd_agent.exec_wait("%s/redis.sh status" % sbin_dir, return_stdin=True)
+
+        if status != 0:
+            self.log.error("Verify Redis is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        self.log.error(stdout)
+
+        if stdout.count("NOT") == 0:
             return False
 
         return True
