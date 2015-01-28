@@ -1,4 +1,4 @@
-package com.formationds.om.webkit.rest;
+package com.formationds.om.webkit.rest.platform;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -7,14 +7,9 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_Node_Info_Type;
 
-import com.formationds.commons.model.AccessManagerService;
-import com.formationds.commons.model.DataManagerService;
 import com.formationds.commons.model.Domain;
 import com.formationds.commons.model.Node;
-import com.formationds.commons.model.OrchestrationManagerService;
-import com.formationds.commons.model.PlatformManagerService;
 import com.formationds.commons.model.Service;
-import com.formationds.commons.model.StorageManagerService;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.NodeState;
 import com.formationds.commons.model.type.ServiceType;
@@ -33,16 +28,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class ListServices
+public class ListNodes
     implements RequestHandler {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( ListServices.class );
+        LoggerFactory.getLogger( ListNodes.class );
 
 
     private final FDSP_ConfigPathReq.Iface configPathClient;
 
-    public ListServices( final FDSP_ConfigPathReq.Iface configPathClient ) {
+    public ListNodes( final FDSP_ConfigPathReq.Iface configPathClient ) {
 
         this.configPathClient = configPathClient;
 
@@ -80,6 +75,14 @@ public class ListServices
                             .orElse( String.valueOf( info.getIp_lo_addr() ) );
 
                     final Long nodeUUID = info.getNode_uuid();
+                    NodeState nodeState = NodeState.UP;
+                    final Optional<NodeState> optional =
+                        NodeState.byFdsDefined( info.getNode_state().name() );
+                    if( optional.isPresent() ) {
+
+                         nodeState = optional.get();
+
+                    }
 
                     if( !clusterMap.containsKey( nodeUUID ) ) {
 
@@ -87,11 +90,8 @@ public class ListServices
                                         Node.uuid( nodeUUID )
                                             .ipV6address( ipv6Addr )
                                             .ipV4address( ipv4Addr )
-/*
- * TODO (Tinius) get the real state of the node
- */
-                                            .state( NodeState.UP )
-                                            .name( ipv4Addr )
+                                            .state( nodeState )
+                                            .name( nodeName( ipv4Addr ) )
                                             .build() );
                     }
 
@@ -134,6 +134,12 @@ public class ListServices
         }
 
         return Optional.empty();
+    }
+
+    protected String nodeName( final String ipv4Addr ) {
+
+        return ipv4Addr;
+
     }
 
     private byte[] htonl( long x )
