@@ -158,12 +158,26 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt) {
     LOGDEBUG << "Will handle new DLT, bits per token " << bitsPerToken_;
     LOGTRACE << *dlt;
 
-    // get list of SM tokens that this SM is responsible for
+    // TODO(Anna) get list of SM tokens that this SM is responsible for
+    // this is code below. For now commenting out and pretending SM is
+    // responsible for all SM tokens. The behavior is correct, except not
+    // very efficient -- we will have to open levelDBs for tokens that we
+    // know SM will not receive any data, GC will try to run for these
+    // tokens (but it will find out that there is nothing to GC), etc.
+    // We have to implement actual token ownership after beta 2
     SmTokenSet sm_toks;
+    /*
+     * this is code we want to have, but need to implement updating
+     * superblock and other SM state when we gain or lose ownership
+     * of an SM token...
     for (TokenList::const_iterator cit = dlt_toks.cbegin();
          cit != dlt_toks.cend();
          ++cit) {
         sm_toks.insert(smTokenId(*cit));
+    }
+    */
+    for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
+        sm_toks.insert(tokId);
     }
 
     if (first_dlt) {
