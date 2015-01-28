@@ -312,6 +312,8 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                                                leveldb::ReadOptions& options,
                                                leveldb::DB *db)
 {
+    std::vector<ObjMetaData::ptr> objMetaDataSet;
+
     secondPhaseSnapDB = db;
 
     /*****************
@@ -320,6 +322,11 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      * two snapshots.
      * Will have a set of
      */
+
+    /* TODO(Sean):
+     * Return empty set for now on the second phase.
+     */
+    migClientAddMetaData(objMetaDataSet, true);
 }
 
 Error
