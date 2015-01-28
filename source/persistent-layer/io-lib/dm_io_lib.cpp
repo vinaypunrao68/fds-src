@@ -19,6 +19,8 @@
 #include <fds_process.h>
 #include <persistent-layer/tokFileMgr.h>
 
+#include "platform/platform_consts.h"
+
 using namespace fds;  // NOLINT
 namespace diskio {
 
@@ -328,7 +330,7 @@ DataDiscoveryModule::disk_open_map()
     std::string   path, dev;
 
     const fds::FdsRootDir *dir = fds::g_fdsprocess->proc_fdsroot();
-    std::ifstream map(dir->dir_dev() + std::string("/disk-map"), std::ifstream::in);
+    std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
 
     fds_verify(map.fail() == false);
     while (!map.eof()) {
