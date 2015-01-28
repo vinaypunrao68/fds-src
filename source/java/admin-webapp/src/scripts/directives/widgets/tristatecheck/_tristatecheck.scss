@@ -4,13 +4,22 @@
     border: solid 1px gray;
     width: 12px;
     height: 12px;
-    border-radius: 3px;
+    border-radius: 3px !important;
     cursor: pointer;
     font-size: 1em;
     line-height: 9px;
+    margin: 0px !important;
+    padding: 0px !important;
+    background-color: white !important;
     
     @include no-select();
     color: $text_very_light_color;
+    
+    div {
+        background-color: transparent !important;
+        padding: 0px !important;
+        margin: 0px !important;
+    }
     
     &.disabled {
         border: 0px;

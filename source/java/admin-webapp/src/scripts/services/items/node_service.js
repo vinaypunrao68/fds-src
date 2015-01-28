@@ -41,9 +41,16 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     service.addNodes = function( nodes ){
 
         nodes.forEach( function( node ){
-            $http_fds.post( '/api/config/services/' + node.node_uuid, {am: node.am, sm: node.sm, dm: node.dm} )
+            $http_fds.post( '/api/config/services/' + node.uuid, {am: node.am, sm: node.sm, dm: node.dm} )
                 .then( getNodes );
+//            console.log( '/api/config/services/' + node.uuid + ' BODY: {am: ' + node.am + ', sm:' + node.sm + ', dm: ' + node.dm + '}' );
         });
+    };
+    
+    service.removeNode = function( node ){
+        
+        // right now we stop all services when we deactivate a node
+        $http_fds.put( '/api/config/services/' + node.uuid, { am: false, sm: false, dm: false } ).then( getNodes );
     };
 
     var getNodes = function(){
