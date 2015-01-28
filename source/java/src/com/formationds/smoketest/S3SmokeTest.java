@@ -24,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -404,16 +405,42 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void testAclReads() throws Exception {
+    public void testObjectAclReads() throws Exception {
         String key = UUID.randomUUID().toString();
         userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+
+        // Try anonymous GET on object, expect failure
         HttpResponse response = anonymousGet(key);
         assertEquals(403, response.getStatusLine().getStatusCode());
+
+        // Set ACL
         userClient.setObjectAcl(userBucket, key, CannedAccessControlList.PublicRead);
+
+        // Try anonymous GET again, expect success
         response = anonymousGet(key);
         assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
         byte[] result = IOUtils.toByteArray(response.getEntity().getContent());
         assertArrayEquals(randomBytes, result);
+    }
+
+    @Test
+    public void testObjectAclWrites() throws Exception {
+        String key = UUID.randomUUID().toString();
+
+        // Put object as admin
+        adminClient.putObject(adminBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+
+        // Try and update same object as user, expect failure
+        assertSecurityFailure(() -> userClient.putObject(adminBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata()));
+
+        // Set ACL
+        adminClient.setObjectAcl(adminBucket, key, CannedAccessControlList.PublicReadWrite);
+
+        // Try and update same object as user, expect success
+        byte[] bytes = new byte[42];
+        userClient.putObject(adminBucket, key, new ByteArrayInputStream(bytes), new ObjectMetadata());
+        S3Object object = userClient.getObject(adminBucket, key);
+        assertEquals(42l, object.getObjectMetadata().getContentLength());
     }
 
     private HttpResponse anonymousGet(String key) throws Exception {
@@ -554,4 +581,13 @@ public class S3SmokeTest {
                 .getContent()));
     }
 
+    private void assertSecurityFailure(Supplier action) {
+        try {
+            action.get();
+            fail("Should have gotten an AmazonS3Exception");
+        } catch (AmazonS3Exception e) {
+            String error = e.toString();
+            assertTrue(error.contains("Status Code: 403"));
+        }
+    }
 }

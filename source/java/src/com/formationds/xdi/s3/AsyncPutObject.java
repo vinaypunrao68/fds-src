@@ -1,5 +1,7 @@
 package com.formationds.xdi.s3;
 
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.spike.later.HttpPathContext;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.xdi.XdiAsync;
@@ -8,15 +10,20 @@ import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
 
+import javax.servlet.ServletInputStream;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public class AsyncPutObject implements Function<HttpPathContext, CompletableFuture<Void>> {
     private XdiAsync xdiAsync;
+    private S3Authenticator authenticator;
+    private Authorizer authorizer;
 
-    public AsyncPutObject(XdiAsync xdiAsync) {
+    public AsyncPutObject(XdiAsync xdiAsync, S3Authenticator authenticator, Authorizer authorizer) {
         this.xdiAsync = xdiAsync;
+        this.authenticator = authenticator;
+        this.authorizer = authorizer;
     }
 
     public static String formatEtag(String input) {
@@ -37,10 +44,38 @@ public class AsyncPutObject implements Function<HttpPathContext, CompletableFutu
 
             response.setContentType("text/html");
             response.setStatus(HttpStatus.OK_200);
-            CompletableFuture<XdiAsync.PutResult> putResult = xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, request.getInputStream());
+            ServletInputStream inputStream = request.getInputStream();
+            CompletableFuture<XdiAsync.PutResult> putResult =
+                    filterAccess(request, bucket, object)
+                            .thenCompose(x -> xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, inputStream));
             return putResult.thenAccept(result -> response.addHeader("etag", formatEtag(Hex.encodeHexString(result.digest))));
         } catch (Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);
         }
+    }
+
+
+    private CompletableFuture<Void> filterAccess(Request request, String bucket, String key) {
+        return xdiAsync.statBlob(S3Endpoint.FDS_S3, bucket, key)
+                .thenApply(bd -> bd.getMetadata())
+                .exceptionally(t -> new HashMap<String, String>()) // This blob might not exist, so we use empty metadata as a filter
+                .thenCompose(metadata -> {
+                    CompletableFuture<Void> cf = new CompletableFuture<Void>();
+
+                    String acl = metadata.getOrDefault(PutObjectAcl.X_AMZ_ACL, PutObjectAcl.PRIVATE);
+
+                    if (acl.equals(PutObjectAcl.PUBLIC_READ_WRITE)) {
+                        cf.complete(null);
+                    } else {
+                        AuthenticationToken token = authenticator.authenticate(request);
+                        if (authorizer.hasAccess(token, bucket)) {
+                            cf.complete(null);
+                        } else {
+                            cf.completeExceptionally(new SecurityException());
+                        }
+                    }
+
+                    return cf;
+                });
     }
 }

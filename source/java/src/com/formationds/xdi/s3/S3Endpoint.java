@@ -70,7 +70,7 @@ public class S3Endpoint {
                 (t) -> new PutObjectAcl(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.PUT, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, xdiAsync -> new AsyncPutObject(xdiAsync).apply(ctx)));
+                executeAsync(ctx, new AsyncPutObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
 
         syncRoute(new HttpPath(HttpMethod.POST, "/:bucket/:object")
                 .withUrlParam("delete"), (t) -> new DeleteMultipleObjects(xdi, t));
@@ -88,7 +88,7 @@ public class S3Endpoint {
                 (t) -> new MultiPartListParts(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, xdiAsync -> new AsyncGetObject(xdiAsync, authenticator, xdi.getAuthorizer()).apply(ctx)));
+                executeAsync(ctx, new AsyncGetObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
 
         syncRoute(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         syncRoute(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
@@ -96,9 +96,8 @@ public class S3Endpoint {
         webApp.start();
     }
 
-    private CompletableFuture<Void> executeAsync(HttpPathContext ctx, Function<XdiAsync, CompletableFuture<Void>> function) {
-
-        CompletableFuture<Void> cf = function.apply(xdiAsync.get());
+    private CompletableFuture<Void> executeAsync(HttpPathContext ctx, Function<HttpPathContext, CompletableFuture<Void>> function) {
+        CompletableFuture<Void> cf = function.apply(ctx);
         return cf.exceptionally(e -> {
             String requestUri = ctx.getRequest().getRequestURI();
 
