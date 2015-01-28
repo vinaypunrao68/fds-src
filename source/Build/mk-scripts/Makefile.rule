@@ -348,7 +348,9 @@ ctags:
 #
 .PHONY: precheckin
 precheckin:
-	@echo Run primitive precheckin....
+	@echo Run precheckin....
+	@echo Running Unit tests
+	(cd $(topdir) && ../jenkins_scripts/run-unit-tests.py)
 	(cd $(topdir) && python test/fds-primitive-smoke.py)
 
 # -----------------------------------------------------------------------------
