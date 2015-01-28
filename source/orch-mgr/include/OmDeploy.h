@@ -108,9 +108,9 @@ struct DltEndErrorEvt
 
 struct DltAbortMigrationAckEvt
 {
-    DltEndErrorEvt() {}
+    DltAbortMigrationAckEvt() {}
     std::string logString() const {
-        return "DltEndErrorEvt";
+        return "DltAbortMigrationAckEvt";
     }
 };
 

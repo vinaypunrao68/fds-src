@@ -467,7 +467,8 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
 
     if (send_dmt_close_ack) {
         if (dataMgr->sendDmtCloseCb != nullptr) {
-            dataMgr->sendDmtCloseCb();
+            Error err(ERR_OK);
+            dataMgr->sendDmtCloseCb(err);
         } else {
             LOGDEBUG << "sendDmtCloseCb called while ptr was NULL!!!";
         }

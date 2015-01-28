@@ -302,19 +302,21 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
 void
 DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                              boost::shared_ptr<fpi::CtrlNotifyDMTClose> &dmtClose)
-{
+                              boost::shared_ptr<fpi::CtrlNotifyDMTClose> &dmtClose) {
     LOGNOTIFY << "DMSvcHandler received DMT close.";
     Error err(ERR_OK);
 
     // TODO(xxx) notify volume sync that we can stop forwarding
     // updates to other DM
 
-    void (*async_f)(const FDS_ProtocolInterface::AsyncHdr&,
-                    const FDS_ProtocolInterface::FDSPMsgTypeId&,
-                    const FDS_ProtocolInterface::CtrlNotifyDMTClose&) = &sendAsyncResp;
+    /*
+    void (*async_f)(const FDS_ProtocolInterface::AsyncHdr &,
+            const FDS_ProtocolInterface::FDSPMsgTypeId &,
+            const FDS_ProtocolInterface::CtrlNotifyDMTClose &) = &sendAsyncResp;
+    */
 
-    dataMgr->sendDmtCloseCb = std::bind(async_f, *hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
+    dataMgr->sendDmtCloseCb = std::bind(&DMSvcHandler::NotifyDMTCloseCb, this,
+            hdr, dmtClose, std::placeholders::_1);
     err = dataMgr->volcat_evt_handler(fds_catalog_dmt_close, FDSP_PushMetaPtr(), "0");
 
     if (!err.ok()) {
@@ -322,10 +324,20 @@ DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         // ignore not ready errors
         if (err == ERR_CATSYNC_NOT_PROGRESS)
             err = ERR_OK;
+        hdr->msg_code = err.GetErrno();
         sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
     }
-    hdr->msg_code = err.GetErrno();
 
+
+}
+
+void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        boost::shared_ptr<fpi::CtrlNotifyDMTClose>& dmtClose,
+        Error &err)
+{
+    LOGDEBUG << "Sending async DMT close ack";
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
 }
 
 void DMSvcHandler::shutdownDM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
