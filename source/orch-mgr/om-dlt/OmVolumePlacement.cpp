@@ -12,7 +12,8 @@ namespace fds {
 
 VolumePlacement::VolumePlacement()
         : Module("Volume Placement Engine"),
-          dmtMgr(new DMTManager()),
+          dmtMgr(new DMTManager(1)),
+          prevDmtVersion(DMT_VER_INVALID),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex")
 {
@@ -326,7 +327,61 @@ void VolumePlacement::notifyEndOfRebalancing() {
 
 void
 VolumePlacement::commitDMT() {
-    dmtMgr->commitDMT();
+    // commit DMT without removing target
+    prevDmtVersion = dmtMgr->getCommittedVersion();
+    dmtMgr->commitDMT(false);
+    LOGNORMAL << "DMT version: " << dmtMgr->getCommittedVersion()
+              << " Previous committed DMT version " << prevDmtVersion;
+    LOGDEBUG << *dmtMgr;
+}
+
+void
+VolumePlacement::undoTargetDmtCommit() {
+    if (dmtMgr->hasTargetDMT()) {
+        if (!hasNonCommitedTarget()) {
+            // we already assigned committed DMT target, revert
+            Error err = dmtMgr->commitDMT(prevDmtVersion);
+            fds_verify(err.ok());
+            prevDmtVersion = DMT_VER_INVALID;
+        }
+
+        // forget about target DMT
+        dmtMgr->unsetTarget();
+
+        // also forget target DMT in persistent store
+        if (!configDB->setDmtType(0, "target")) {
+            LOGWARN << "unable to store target dmt type to config db";
+        }
+    }
+}
+
+/**
+ * Returns true if there is no target DMT computed or committed
+ * as an official version
+ */
+fds_bool_t
+VolumePlacement::hasNoTargetDmt() const {
+    return (dmtMgr->hasTargetDMT() == false);
+}
+
+fds_bool_t
+VolumePlacement::hasNonCommitedTarget() const {
+    if ((dmtMgr->hasCommittedDMT() == false) ||
+        (dmtMgr->getCommittedVersion() != dmtMgr->getTargetVersion())) {
+        return true;
+    }
+    return false;
+}
+
+Error
+VolumePlacement::persistCommitedTargetDmt() {
+    if (!dmtMgr->hasTargetDMT() ||
+        !dmtMgr->hasCommittedDMT()) {
+        return ERR_NOT_FOUND;
+    } else if (dmtMgr->getCommittedVersion() != dmtMgr->getTargetVersion()) {
+        return ERR_NOT_READY;
+    }
+
     // both the new & the old dlts should already be in the config db
     // just set their types
     if (!configDB->setDmtType(dmtMgr->getCommittedVersion(), "committed")) {
@@ -337,8 +392,15 @@ VolumePlacement::commitDMT() {
     if (!configDB->setDmtType(0, "target")) {
         LOGWARN << "unable to store target dmt type to config db";
     }
-    LOGNORMAL << "version: " << dmtMgr->getCommittedVersion();
+    LOGNORMAL << "DMT version: " << dmtMgr->getCommittedVersion();
     LOGDEBUG << *dmtMgr;
+
+    // unset target DMT in DMT Mgr
+    Error err = dmtMgr->unsetTarget();
+    if (!err.ok()) {
+        LOGERROR << "Failed to unset DMT target " << err;
+    }
+    return err;
 }
 
 Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)

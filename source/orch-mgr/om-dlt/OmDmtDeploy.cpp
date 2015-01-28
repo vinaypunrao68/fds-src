@@ -681,12 +681,13 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     VolumePlacement* vp = om->om_volplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
 
+    // We commit DMT as an 'official' version, but not yet persist it in
+    // redis nor reset pending services in cluster map. We do that on
+    // DMT close, just before moving back to idle state. If shutdown
+    // happens between commit and close, we will redo the migration
+
     // commit DMT
     vp->commitDMT();
-
-    // since we accounted for added/removed nodes in DMT, reset pending nodes in
-    // cluster map
-    cm->resetPendServices(fpi::FDSP_DATA_MGR);
 
     // broadcast DMT to DMs first, once we receove acks, will bcast to AMs
     dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR,
@@ -892,6 +893,13 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
+
+    // persist commited DMT
+    vp->persistCommitedTargetDmt();
+
+    // since we accounted for added/removed nodes in DMT, reset pending nodes in
+    // cluster map
+    cm->resetPendServices(fpi::FDSP_DATA_MGR);
 
     LOGNOTIFY << "OM deployed DMT with "
               << cm->getNumMembers(fpi::FDSP_DATA_MGR) << " DMs";

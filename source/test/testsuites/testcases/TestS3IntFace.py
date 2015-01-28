@@ -660,8 +660,10 @@ class TestS3VerifyMBLOB(TestCase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadLBLOB(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, bucket=None):
         super(TestS3LoadLBLOB, self).__init__(parameters)
+
+        self.passedBucket=bucket
 
 
     def runTest(self):
@@ -708,11 +710,19 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
             return False
-        elif not self.parameters["s3"].bucket1:
+
+        # Check if a bucket was passed to us.
+        if self.passedBucket is not None:
+            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
+            if self.parameters["s3"].bucket1 is None:
+                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
+                return False
+
+        if not self.parameters["s3"].bucket1:
             self.log.error("No S3 bucket with which to load a BLOB.")
             return False
         else:
-            self.log.info("Load a 'large' BLOB (> 2Mib) into an S3 bucket.")
+            self.log.info("Load a 'large' BLOB (> 2MiB) into an S3 bucket.")
             s3 = self.parameters["s3"]
 
             # Get file info

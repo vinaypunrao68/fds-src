@@ -1041,33 +1041,48 @@ struct CtrlObjectMetaDataPropagate
 {
     /* Object ID */
     1: FDSP.FDS_ObjectIdType objectID
+
+    /* If this flag is set, then the ObjectMetaDataProgate contains 
+     * different data to be applied to the destination SM.
+     *
+     * TRUE -> Only objectVolumeAssoc and objectRefCnt are pertinent fields at this point.
+     *         If true, these fields contains changes to the MetaData since the 
+     *         object was migrated to the destination SM.
+     *         objectData and other members are not set.
+     * NOTE: If TRUE, treat ref_cnt (including volume association ref_cnt) as signed int64_t.
+     *
+     * FALSE -> All MetaData fields and objectData is set.  The MetaData and objectData
+     *          can just be applied.
+     *
+     */
+    2: bool isObjectMetaDataReconcile
     
     /* user data */
-    2: FDSP.FDSP_ObjectData  objectData
+    3: FDSP.FDSP_ObjectData  objectData
 
     /* volume information */
-    3: list<MetaDataVolumeAssoc> objectVolumeAssoc
+    4: list<MetaDataVolumeAssoc> objectVolumeAssoc
 
     /* object refcnt */
-    4: i64              objectRefCnt
+    5: i64              objectRefCnt
     
     /* Compression type for this object */
-    5: i32              objectCompressType
+    6: i32              objectCompressType
 
     /* Size of data after compression */
-    6: i32              objectCompressLen
+    7: i32              objectCompressLen
 
     /* Object block size */
-    7: i32              objectBlkLen
+    8: i32              objectBlkLen
 
     /* object size */
-    8: i32              objectSize
+    9: i32              objectSize
 
     /* object flag */
-    9: i32              objectFlags
+    10: i32              objectFlags
     
     /* object expieration time */
-    10: i32              objectExpireTime    
+    11: i32              objectExpireTime    
 }
 
 struct CtrlObjectRebalanceDeltaSet

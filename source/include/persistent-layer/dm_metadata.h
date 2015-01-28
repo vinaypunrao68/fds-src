@@ -142,7 +142,15 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     meta_obj_id_t        obj_id;              /* check sum for data.         */
     fds_uint16_t         obj_blk_len;         /* var blk: 512 to 32M.        */
     fds_uint32_t         obj_size;            /* var, size in bytes */
-    fds_uint64_t          obj_refcnt;          /* de-dupe refcnt.             */
+    fds_uint64_t         obj_refcnt;          /* de-dupe refcnt.             */
+
+    /* version of sm token migration for reconcile_ref_cnt.  This version
+     * determines whether the reconcile_ref_cnt is current or stale
+     */
+    fds_uint64_t         migration_ver;
+    /* ref_cnt reconciliation during the token migration + active IO */
+    fds_int64_t          migration_reconcile_ref_cnt;
+
     fds_uint16_t         obj_num_assoc_entry; /* Number association entries in the arr.*/
     fds_uint64_t         obj_create_time;     /* creation time.         */
     fds_uint64_t         obj_del_time;        /* deletion time.         */
@@ -159,8 +167,13 @@ struct __attribute__((__packed__)) meta_obj_map_v0
 };
 
 struct __attribute__((__packed__)) obj_assoc_entry_v0 {
-    fds::fds_volid_t    vol_uuid;
-    fds_uint64_t         ref_cnt;
+    fds::fds_volid_t    vol_uuid;   /* volume unique identifier */
+    fds_uint64_t        ref_cnt;    /* ref_cnt association to this volume */
+    /* ref_cnt reconciliation during the token migration.
+     * see meta_obj_map_t's migration_ver to determine
+     * if the version is current or not.
+     */
+    fds_int64_t         vol_migration_reconcile_ref_cnt;
 };
 
 /*

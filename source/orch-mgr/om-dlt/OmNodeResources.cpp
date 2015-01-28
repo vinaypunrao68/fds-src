@@ -711,6 +711,23 @@ OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
 }
 #endif
 
+Error
+OM_NodeAgent::om_send_shutdown() {
+    Error err(ERR_OK);
+
+    auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::ShutdownMODMsgPtr msg(new fpi::ShutdownMODMsg());
+
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::ShutdownMODMsg), msg);
+    om_req->setTimeoutMs(0);
+    om_req->invoke();
+
+    LOGNOTIFY << "OM: send shutdown message to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
 void
 OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
@@ -1911,6 +1928,32 @@ OM_NodeContainer::om_bcast_stream_register_cmd(fds_int32_t regId,
                                                fds_bool_t bAll)
 {
     dc_dm_nodes->agent_foreach<fds_int32_t, fds_bool_t>(regId, bAll, om_send_stream_reg_cmd);
+}
+
+static Error
+om_send_shutdown(fds_uint32_t ignore, NodeAgent::pointer agent) {
+    return OM_SmAgent::agt_cast_ptr(agent)->om_send_shutdown();
+}
+
+// om_bcast_shutdown_msg
+// ---------------------
+//
+void
+OM_NodeContainer::om_bcast_shutdown_msg()
+{
+    fds_uint32_t count = 0;
+
+    // send shutdown to AM nodes
+    count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+    LOGDEBUG << "Sent SHUTDOWN to " << count << " AM services successfully";
+
+    // send shutdown to DM nodes
+    count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+    LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
+
+    // send shutdown to SM nodes
+    count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+    LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully";
 }
 
 

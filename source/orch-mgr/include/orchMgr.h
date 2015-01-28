@@ -222,6 +222,13 @@ class FDSP_ConfigPathReqHandler : virtual public fpi::FDSP_ConfigPathReqIf {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_CreateDomainTypePtr& del_dom_req);
 
+        int32_t ShutdownDomain(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_ShutdownDomainType& shut_dom_req);
+        int32_t ShutdownDomain(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_ShutdownDomainTypePtr& shut_dom_req);
+
         int32_t RemoveServices(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_RemoveServicesType& rm_svc_req);
