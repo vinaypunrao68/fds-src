@@ -5,7 +5,7 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
-import com.formationds.protocol.*;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
@@ -14,11 +14,7 @@ import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class Xdi {
 
@@ -84,10 +80,14 @@ public class Xdi {
     }
 
     public List<VolumeDescriptor> listVolumes(AuthenticationToken token, String domainName) throws ApiException, TException {
-        return config.listVolumes(domainName)
-                .stream()
-                .filter(v -> authorizer.hasAccess(token, v.getName()))
-                .collect(Collectors.toList());
+        List<VolumeDescriptor> volumes = config.listVolumes(domainName);
+        List<VolumeDescriptor> result = new ArrayList<>();
+        for (VolumeDescriptor volume : volumes) {
+            if (authorizer.hasAccess(token, volume.getName())) {
+                result.add(volume);
+            }
+        }
+        return result;
     }
 
     public List<BlobDescriptor> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
@@ -98,6 +98,13 @@ public class Xdi {
     public BlobDescriptor statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
         attemptVolumeAccess(token, volumeName);
         return am.statBlob(domainName, volumeName, blobName);
+    }
+
+    public void updateMetadata(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws ApiException, TException {
+        attemptVolumeAccess(token, volumeName);
+        TxDescriptor txDescriptor = am.startBlobTx(domainName, volumeName, blobName, 0);
+        am.updateMetadata(domainName, volumeName, blobName, txDescriptor, metadata);
+        am.commitBlobTx(domainName, volumeName, blobName, txDescriptor);
     }
 
     public InputStream readStream(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {

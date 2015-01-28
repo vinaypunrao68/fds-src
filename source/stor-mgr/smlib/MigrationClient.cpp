@@ -23,16 +23,13 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
       destSMNodeID(_destSMNodeID),
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
-      seqNumDeltaSet(0),
       testMode(false)
 {
+
+    migClientState = ATOMIC_VAR_INIT(MIG_CLIENT_INIT);
+    seqNumDeltaSet = ATOMIC_VAR_INIT(0UL);
+
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
-    snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotCB,
-                                                  this,
-                                                  std::placeholders::_1,
-                                                  std::placeholders::_2,
-                                                  std::placeholders::_3,
-                                                  std::placeholders::_4);
     SMTokenID = SMTokenInvalidID;
     executorID = invalidExecutorID;
 
@@ -55,6 +52,24 @@ MigrationClient::migClientSnapshotMetaData()
     fds_verify(SMTokenID != SMTokenInvalidID);
     snapshotRequest.token_id = SMTokenID;
 
+    fds_assert((getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) ||
+               (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET));
+    if (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) {
+        snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotFirstPhaseCb,
+                                                      this,
+                                                      std::placeholders::_1,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3,
+                                                      std::placeholders::_4);
+    } else {
+        snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotSecondPhaseCb,
+                                                      this,
+                                                      std::placeholders::_1,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3,
+                                                      std::placeholders::_4);
+    }
+
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
     if (!err.ok()) {
         LOGERROR << "Failed to snapshot. err=" << err;
@@ -72,7 +87,12 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                                             SmIoReadObjDeltaSetReq *req)
 {
     fds_verify(NULL != req);
-    LOGMIGRATE << "";
+    LOGMIGRATE << "MigClientState=" << getMigClientState()
+               << ": Complete ReadObjectDelta: "
+               << " seqNum=" << req->seqNum
+               << " executorID=" << req->executorId
+               << " DeltSetSize=" << req->deltaSet.size()
+               << " lastSet=" << req->lastSet ? "TRUE" : "FALSE";
 }
 
 void
@@ -95,19 +115,17 @@ MigrationClient::migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaData
                                 std::placeholders::_1,
                                 std::placeholders::_2);
 
-    LOGMIGRATE << "Allocating new ReadObjDelta with seqNum "
-             << readDeltaSetReq->seqNum;
-
     std::vector<ObjMetaData::ptr>::iterator itFirst, itLast;
     itFirst = objMetaDataSet.begin();
     itLast = objMetaDataSet.end();
     readDeltaSetReq->deltaSet.assign(itFirst, itLast);
 
-    LOGMIGRATE << "QoS Enqueu with ReadObjDelta..."
-             << " seqNum=" << readDeltaSetReq->seqNum
-             << " executorID=" << readDeltaSetReq->executorId
-             << " DeltSetSize=" << readDeltaSetReq->deltaSet.size()
-             << " lastSet=" << lastSet ? "TRUE" : "FALSE";
+    LOGMIGRATE << "MigClientState=" << getMigClientState()
+               << ": QoS Enqueue with ReadObjDelta: "
+               << " seqNum=" << readDeltaSetReq->seqNum
+               << " executorID=" << readDeltaSetReq->executorId
+               << " DeltSetSize=" << readDeltaSetReq->deltaSet.size()
+               << " lastSet=" << lastSet ? "TRUE" : "FALSE";
 
     /* enqueue to QoS queue */
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, readDeltaSetReq);
@@ -115,19 +133,15 @@ MigrationClient::migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaData
 }
 
 void
-MigrationClient::migClientSnapshotCB(const Error& error,
-                                     SmIoSnapshotObjectDB* snapRequest,
-                                     leveldb::ReadOptions& options,
-                                     leveldb::DB *db)
+MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
+                                               SmIoSnapshotObjectDB* snapRequest,
+                                               leveldb::ReadOptions& options,
+                                               leveldb::DB *db)
 {
     std::vector<ObjMetaData::ptr> objMetaDataSet;
 
-    /* TODO(Sean): Save off the levelDB information.
-     *             Need this to be on-diek snapshot, since the hold time on the
-     *             snapshot can be days or weeks.
-     */
-    snapDB = db;
-    iterDB = db->NewIterator(options);
+    firstPhaseSnapDB = db;
+    leveldb::Iterator *iterDB = firstPhaseSnapDB->NewIterator(options);
 
     /* Iterate through level db and filter against the objectFilterSet.
      */
@@ -181,7 +195,8 @@ MigrationClient::migClientSnapshotCB(const Error& error,
              *        accordingly on the destination SM.
              */
             if (!objMetaDataPtr->isObjCorrupted()) {
-                LOGMIGRATE << "Selecting object" << objMetaDataPtr->logString();
+                LOGMIGRATE << "MigClientState=" << getMigClientState()
+                           << ": Selecting object" << objMetaDataPtr->logString();
                 objMetaDataSet.push_back(objMetaDataPtr);
             } else {
                 LOGERROR << "CORRUPTION: Skipping object ID " << objId;
@@ -221,7 +236,8 @@ MigrationClient::migClientSnapshotCB(const Error& error,
                  *        accordingly on the destination SM.
                  */
                 if (!objMetaDataPtr->isObjCorrupted()) {
-                    LOGMIGRATE << "Selecting object" << objMetaDataPtr->logString();
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": Selecting object" << objMetaDataPtr->logString();
                     objMetaDataSet.push_back(objMetaDataPtr);
                 } else {
                     LOGERROR << "CORRUPTION: Skipping object ID " << objId;
@@ -239,13 +255,14 @@ MigrationClient::migClientSnapshotCB(const Error& error,
         }
     }
 
-    /* The last message is going to be empty.  It's just easier to deal
-     * with it for now.
-     * TODO(Sean):  check how easy it is check if the current item is
-     *              the last one -- especially with disk based snapshot.
-     */
+    /* The last message can be empty. */
     migClientAddMetaData(objMetaDataSet, true);
+
+    delete iterDB;
+
+    setMigClientState(MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE);
 }
+
 
 
 bool
@@ -256,10 +273,11 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
      */
     fds_token_id derivedSMTokenID = SmDiskMap::smTokenId(dltToken);
 
-    LOGMIGRATE << "Dest SM: " << std::hex << destSMNodeID.uuid_get_val() << std::dec << ", "
-             << "DLT Token: " << dltToken << ", "
-             << "SM Token: " << derivedSMTokenID << ", "
-             << "ExecutorID: " << executorId;
+    LOGMIGRATE << "MigClientState=" << getMigClientState()
+               << ": Dest SM=" << std::hex << destSMNodeID.uuid_get_val() << std::dec << ", "
+               << "DLT Token=" << dltToken << ", "
+               << "SM Token=" << derivedSMTokenID << ", "
+               << "ExecutorID=" << executorId;
 
     /* Update the SM token with the given DLT token.
      */
@@ -288,8 +306,24 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
 }
 
 
+void
+MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
+                                               SmIoSnapshotObjectDB* snapRequest,
+                                               leveldb::ReadOptions& options,
+                                               leveldb::DB *db)
+{
+    secondPhaseSnapDB = db;
+
+    /*****************
+     * TODO(Sean):
+     * Here, we will diff between two snapshots, and calculate difference between
+     * two snapshots.
+     * Will have a set of
+     */
+}
+
 Error
-MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet)
+MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet)
 {
     /* Verify that the token and executor ID matches known SM token and perviously
      * set exector ID.
@@ -300,17 +334,23 @@ MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr
     bool completeSet = false;
     Error err(ERR_OK);
 
-    LOGMIGRATE << "seqNum " << curSeqNum << " DLT token " << dltToken
-             << " executorId " << executorId;
+    LOGMIGRATE << "MigClientState=" << getMigClientState()
+               << ": seqNum=" << curSeqNum << ", "
+               << "DLT token=" << dltToken << ", "
+               << "executorId=" << executorId;
 
-    filterSetLock.lock();
+    /* Transition to the filter set state.
+     */
+    setMigClientState(MIG_CLIENT_FILTER_SET);
+
+    migClientLock.lock();
 
     /* Verify message destination.
      */
     bool verifySuccess = migClientVerifyDestination(dltToken, executorId);
     if (!verifySuccess) {
-            filterSetLock.unlock();
-            return ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT;
+        migClientLock.unlock();
+        return ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT;
     }
 
     /* since the MigrationMgr may add tokenID and objects to filter asynchronously,
@@ -326,7 +366,7 @@ MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr
       filterObjectSet.emplace(ObjectID(objAndRefCnt.objectID.digest),
                               objAndRefCnt.objRefCnt);
     }
-    filterSetLock.unlock();
+    migClientLock.unlock();
 
     /* Set the sequence number of the received message to ensure all messages are received.
      */
@@ -335,14 +375,73 @@ MigrationClient::migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr
         /* All filter objects sets from the destination SM is received.
          * Safe to snapshot.
          */
-        LOGMIGRATE << "Received complete FilterSet with last seqNum=" << filterSet->seqNum;
+        LOGMIGRATE << "MigClientState=" << getMigClientState()
+                   << ": Received complete FilterSet with last seqNum=" << filterSet->seqNum;
+
+        /* Transition to the first phase of delta set generation.
+         */
+        setMigClientState(MIG_CLIENT_FIRST_PHASE_DELTA_SET);
+
         err = migClientSnapshotMetaData();
         if (!err.ok()) {
+            LOGERROR << "Snapshot failed: error=" << err;
             return err;
         }
     }
 
     return err;
+}
+
+Error
+MigrationClient::migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhase)
+{
+    Error err(ERR_OK);
+
+    /* This can potentially be called repeatedly, but that's ok. */
+    setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET);
+
+    /* since we are starting second set of delta set migration,
+     * reset the sequence number to start from 0.
+     */
+    resetSeqNumDeltaSet();
+
+    LOGMIGRATE << "MigClientState=" << getMigClientState()
+               << ": Received Msg for executorID=" << secondPhase->executorID;
+
+    /* Take second snapshot */
+    err = migClientSnapshotMetaData();
+
+    return err;
+}
+
+
+uint64_t
+MigrationClient::getSeqNumDeltaSet()
+{
+    return std::atomic_fetch_add(&seqNumDeltaSet, 1UL);
+}
+
+void
+MigrationClient::resetSeqNumDeltaSet() {
+    LOGMIGRATE << "Resetting seqNumDeltaSet=0";
+    std::atomic_store(&seqNumDeltaSet, 0UL);
+}
+
+MigrationClient::MigrationClientState
+MigrationClient::getMigClientState() {
+    return std::atomic_load(&migClientState);
+}
+
+void
+MigrationClient::setMigClientState(MigrationClientState newState)
+{
+    MigrationClientState prevState;
+    prevState = std::atomic_load(&migClientState);
+
+    std::atomic_store(&migClientState, newState);
+
+    LOGMIGRATE << "Setting MigrateClieentState: from " << prevState
+               << "=> " << migClientState;
 }
 
 }  // namespace fds

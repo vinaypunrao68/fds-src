@@ -14,6 +14,9 @@ import os
 import logging
 import filecmp
 import os.path
+import fnmatch
+import time
+import re
 
 def fileSearch(searchFile, searchString, occurrences):
     """
@@ -40,9 +43,9 @@ def fileSearch(searchFile, searchString, occurrences):
             log.info("Found occurrence %d: %s." % (occur, line))
 
     if occur == occurrences:
-        return True
+        return True, occur
     else:
-        return False
+        return False, occur
 
 
 def are_dir_trees_equal(dir1, dir2, logDiff=False):
@@ -109,6 +112,54 @@ def are_dir_trees_equal(dir1, dir2, logDiff=False):
         new_dir2 = os.path.join(dir2, common_dir)
         if not are_dir_trees_equal(new_dir1, new_dir2, logDiff):
             return False
+
+    return True
+
+
+def canonMatch(canon, fileToCheck):
+    """
+    Test whether the fileToCheck file matches the canon file.
+    This is a regular expression check where the canon file may
+    contain regular expression patterns to aid in custom compares.
+    """
+    log = logging.getLogger('TestFDSSysVerify' + '.' + 'canonMatch')
+
+    # Verify the files exists.
+    if not os.path.isfile(canon):
+        log.error("File %s is not found." % (canon))
+        return False
+    if not os.path.isfile(fileToCheck):
+        log.error("File %s is not found." % (fileToCheck))
+        return False
+
+    # Open both files then go through line by line performing
+    # a regular expression match. The first mis-match results
+    # in a failed match.
+    c = open(canon, "r")
+    canonLines = c.readlines()
+    c.close()
+
+    f = open(fileToCheck, "r")
+    linesToCheck = f.readlines()
+    f.close()
+
+    if len(canonLines) != len(linesToCheck):
+        log.error("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
+                  (canon, len(canonLines), fileToCheck, len(fileToCheck)))
+        return False
+
+    idx = 0
+    for canonLine in canonLines:
+        if re.match(canonLine.encode('string-escape'), linesToCheck[idx]) is None:
+            log.error("File %s, differs from canon file, %s, at line %d." %
+                      (fileToCheck, canon, idx+1))
+            log.error("File line:")
+            log.error(linesToCheck[idx])
+            log.error("Canon line:")
+            log.error(canonLine)
+            return False
+        else:
+            idx += 1
 
     return True
 
@@ -521,9 +572,9 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
                            (n2.nd_conf_dict['node-name'], stdout2))
             return False
         else:
-            self.log.info("DM Static Migration checking showed match.")
-            self.log.info("Node %s shows: \n%s" %
-                           (n1.nd_conf_dict['node-name'], stdout1))
+            self.log.info("DM Static Migration checking showed match between nodes %s and %s." %
+                          (n1.nd_conf_dict['node-name'], n2.nd_conf_dict['node-name']))
+            self.log.info("Both nodes show: \n%s" % stdout1)
 
         return True
 
@@ -638,11 +689,165 @@ class TestVerifySMStaticMigration(TestCase.FDSTestCase):
                            (n2.nd_conf_dict['node-name'], stdout2))
             return False
         else:
-            self.log.info("SM Static Migration checking showed match.")
-            self.log.info("Node %s shows: \n%s" %
-                           (n1.nd_conf_dict['node-name'], stdout1))
+            self.log.info("SM Static Migration checking showed match between nodes %s and %s." %
+                          (n1.nd_conf_dict['node-name'], n2.nd_conf_dict['node-name']))
+            self.log.info("Both nodes show: \n%s" % stdout1)
 
         return True
+
+
+# This class contains the attributes and methods to test
+# whether the specified log entry can be located the sepcified number of times
+# in the specified log before expiration of the specified time.
+class TestWaitForLog(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None):
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
+        self.passedService = service
+        self.passedLogentry = logentry
+        self.passedOccurrences = occurrences
+        self.passedMaxwait = maxwait
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_WaitForLog():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Waiting for a log entry caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_WaitForLog(self):
+        """
+        Test Case:
+        Attempt to locate in the specified log the sought after entry.
+        """
+
+        # We must have all our parameters supplied.
+        if (self.passedNode is None) or \
+                (self.passedService is None) or \
+                (self.passedLogentry is None) or \
+                (self.passedOccurrences is None) or \
+                (self.passedMaxwait is None):
+            self.log.error("Some parameters missing values.")
+            raise Exception
+
+        fds_dir = self.passedNode.nd_conf_dict['fds_root']
+
+        self.log.info("Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
+                       (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                        self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
+
+        # We'll check for the specified log entry every 10 seconds until we
+        # either find what we're looking for or timeout while looking.
+        maxLooks = self.passedMaxwait / 10
+        occurrencesFound = 0
+        for i in range(1, maxLooks):
+            occurrencesFound = 0
+            for log_file in os.listdir(fds_dir + "/var/logs"):
+                if fnmatch.fnmatch(log_file, self.passedService + ".log_*.log"):
+                    found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
+                                                    self.passedOccurrences)
+                    occurrencesFound += occurrences
+
+            if occurrencesFound == self.passedOccurrences:
+                # Saw what we were looking for.
+                break
+            else:
+                time.sleep(10)
+                self.log.info("Looking ...")
+
+        self.log.info("Log entry found %s times." % occurrencesFound)
+
+        if occurrencesFound != self.passedOccurrences:
+            self.log.error("Expected %s occurrences." % self.passedOccurrences)
+            return False
+        else:
+            return True
+
+
+# This class contains the attributes and methods to test
+# whether he specified file matches the specified canon file
+# in a regular expression compare.
+class TestCanonMatch(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, canon=None, fileToCheck=None):
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedCanon = canon
+        self.passedFileToCheck = fileToCheck
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_CanonMatch():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Performing a canon match caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_CanonMatch(self):
+        """
+        Test Case:
+        Report the results of a regular expression compare between
+        the canon file and the file to be checked.
+        """
+
+        # We must have all our parameters supplied.
+        if (self.passedCanon is None) or \
+                (self.passedFileToCheck is None):
+            self.log.error("Some parameters missing values.")
+            raise Exception
+
+        fdscfg = self.parameters["fdscfg"]
+        canonDir = fdscfg.rt_env.get_fds_source() + "test/testsuites/canons/"
+
+        self.log.info("Comparing file %s to canon %s." %
+                      (self.passedFileToCheck, canonDir + self.passedCanon))
+
+        if canonMatch(canonDir + self.passedCanon, self.passedFileToCheck):
+            return True
+        else:
+            self.log.error("Canon match failed.")
+            return False
 
 
 if __name__ == '__main__':

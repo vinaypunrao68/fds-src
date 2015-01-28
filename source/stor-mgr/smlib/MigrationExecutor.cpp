@@ -67,7 +67,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // DLT token
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
-    uint64_t seqId = 0;
+    uint64_t seqId = 0UL;
     fds_verify(dltTokens.size() > 0);   // we must have at least one token
     for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
@@ -250,25 +250,28 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 Error
 MigrationExecutor::startSecondObjectRebalanceRound() {
     Error err(ERR_OK);
-    // send message to source SM to request second delta set
-    for (auto tok : dltTokens) {
-        LOGMIGRATE << "Sending request for second delta set for DLT token "
-                  << tok << " to source SM "
-                  << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        if (!testMode) {
-            fpi::CtrlGetSecondRebalanceDeltaSetPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSet());
-            msg->tokenId = tok;
-            msg->executorID = executorId;
 
-            auto async2RebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-            async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
-                                          msg);
-            async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                MigrationExecutor::getSecondRebalanceDeltaResp,
-                tok));
-            async2RebalSetReq->setTimeoutMs(5000);
-            async2RebalSetReq->invoke();
-        }
+    // send message to source SM to request second delta set
+    // just one message containing executor ID
+    LOGMIGRATE << "Sending request for second delta set to source SM "
+               << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+               << " Executor ID " << executorId;
+
+    // Reset sequence number for the second phase delta set.
+    seqNumDeltaSet.resetDoubleSeqNum();
+
+    // send msg to the source SM to start second phase of the delta set.
+    if (!testMode) {
+        fpi::CtrlGetSecondRebalanceDeltaSetPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSet());
+        msg->executorID = executorId;
+
+        auto async2RebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+        async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
+                                      msg);
+        async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+            MigrationExecutor::getSecondRebalanceDeltaResp));
+        async2RebalSetReq->setTimeoutMs(5000);
+        async2RebalSetReq->invoke();
     }
 
     // we sent all start second round  messages from this executor, go to next state
@@ -282,13 +285,12 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
 }
 
 void
-MigrationExecutor::getSecondRebalanceDeltaResp(fds_token_id dltToken,
-                                               EPSvcRequest* req,
+MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                                const Error& error,
                                                boost::shared_ptr<std::string> payload)
 {
-    LOGDEBUG << "Received second rebalance delta response for DLT token"
-             << dltToken << " executor " << executorId << " " << error;
+    LOGDEBUG << "Received second rebalance delta response for executor"
+             << executorId << " " << error;
     // here we just check if there is no error
     if (!error.ok()) {
         handleMigrationDone(error);

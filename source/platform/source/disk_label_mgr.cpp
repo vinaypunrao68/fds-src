@@ -2,6 +2,8 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+#include "platform/platform_consts.h"
+
 #include "fds_process.h"
 #include "disk_label.h"
 #include "disk_label_mgr.h"
@@ -127,8 +129,7 @@ namespace fds
         {
             const FdsRootDir   *dir = g_fdsprocess->proc_fdsroot();
             FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
-            dl_map = new std::ofstream(dir->dir_dev() + std::string(
-                                           "/disk-map"), std::ofstream::out | std::ofstream::trunc);
+            dl_map = new std::ofstream(dir->dir_dev() + DISK_MAP_FILE, std::ofstream::out | std::ofstream::trunc);
         }
 
         dl_total_disks  = 0;

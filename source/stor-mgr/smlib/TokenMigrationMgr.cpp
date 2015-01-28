@@ -210,7 +210,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         }
     }
     // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
-    migrClient->migClientAddObjToFilterSet(rebalSetMsg);
+    migrClient->migClientStartRebalanceFirstPhase(rebalSetMsg);
     return err;
 }
 
@@ -234,7 +234,7 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
     Error err(ERR_OK);
     LOGMIGRATE << "Request to receive the rebalance diff since the first rebalance from "
                << std::hex << executorSmUuid.svc_uuid << std::dec << " executor ID "
-               << msg->executorID << " DLT token " << msg->tokenId;
+               << msg->executorID;
 
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
@@ -246,7 +246,9 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
     fds_mutex::scoped_lock l(clientLock);
     // we must have migration client if we are in progress state
     fds_verify(migrClients.count(msg->executorID) != 0);
-    // TODO(Anna) call migrClients[executorId] method here
+    // TODO(Sean):  Need to reset the double sequence for executor on the destion SM
+    //              before starting the second phase.
+    migrClients[msg->executorID]->migClientStartRebalanceSecondPhase(msg);
 
     return err;
 }

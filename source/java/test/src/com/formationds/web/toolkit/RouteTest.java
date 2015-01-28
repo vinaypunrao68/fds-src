@@ -13,7 +13,7 @@ import static org.junit.Assert.*;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-public class RouteFinderTest {
+public class RouteTest {
     @Test
     public void testWithWildcards() throws Exception {
         RouteFinder routeFinder = new RouteFinder();
