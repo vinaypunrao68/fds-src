@@ -67,7 +67,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // DLT token
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
-    uint64_t seqId = 0;
+    uint64_t seqId = 0UL;
     fds_verify(dltTokens.size() > 0);   // we must have at least one token
     for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
@@ -250,11 +250,17 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 Error
 MigrationExecutor::startSecondObjectRebalanceRound() {
     Error err(ERR_OK);
+
     // send message to source SM to request second delta set
     // just one message containing executor ID
     LOGMIGRATE << "Sending request for second delta set to source SM "
                << std::hex << sourceSmUuid.uuid_get_val() << std::dec
                << " Executor ID " << executorId;
+
+    // Reset sequence number for the second phase delta set.
+    seqNumDeltaSet.resetDoubleSeqNum();
+
+    // send msg to the source SM to start second phase of the delta set.
     if (!testMode) {
         fpi::CtrlGetSecondRebalanceDeltaSetPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSet());
         msg->executorID = executorId;
