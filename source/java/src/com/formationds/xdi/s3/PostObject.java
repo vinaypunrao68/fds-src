@@ -22,10 +22,9 @@ public class PostObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucketName = requiredString(routeParameters, "bucket");
         Map<String, String[]> qp = request.getParameterMap();
         if (qp.containsKey("delete")) {
-            return new DeleteMultipleObjects(xdi, token, bucketName).handle(request, routeParameters);
+            return new DeleteMultipleObjects(xdi, token).handle(request, routeParameters);
         } else if(qp.containsKey("uploads")) {
             return new MultiPartUploadInitiate(xdi, token).handle(request, routeParameters);
         } else if(qp.containsKey("uploadId")) {
