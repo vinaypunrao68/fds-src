@@ -103,7 +103,7 @@ public class S3SmokeTest {
         String password = UUID.randomUUID().toString();
 
         long userId = doPost(omUrl + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
-        userToken = getObject( omUrl + "/api/system/token/" + userId, adminToken ).getString( "token" );
+        userToken = getObject(omUrl + "/api/system/token/" + userId, adminToken).getString("token");
         doPut(omUrl + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
 
         adminClient = s3Client(host, ADMIN_USERNAME, adminToken);
@@ -141,8 +141,10 @@ public class S3SmokeTest {
     //    }
     //
     private void deleteBucketIgnoreErrors(AmazonS3Client client, String bucket) {
-        try { client.deleteBucket(bucket); }
-        catch (Exception ignored) {}
+        try {
+            client.deleteBucket(bucket);
+        } catch (Exception ignored) {
+        }
     }
 
     public void testBucketExists(String bucketName, boolean fProgress) {
@@ -190,7 +192,7 @@ public class S3SmokeTest {
 
     @Test
     public void testRecreateVolume() {
-        String bucketName = "test-recreate-bucket-"+userBucket;
+        String bucketName = "test-recreate-bucket-" + userBucket;
         try {
             try {
                 userClient.createBucket(bucketName);
@@ -204,7 +206,7 @@ public class S3SmokeTest {
             testBucketExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient,
-                                     bucketName);
+                    bucketName);
         }
     }
 
@@ -375,6 +377,7 @@ public class S3SmokeTest {
     @Test
     public void testAnonymousAccessDenied() throws Exception {
         String key = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(new byte[42]), new ObjectMetadata());
         HttpResponse response = anonymousGet(key);
         assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatusLine().getStatusCode());
     }
@@ -393,24 +396,31 @@ public class S3SmokeTest {
     public void testMissingObject() throws Exception {
         try {
             userClient.getObject(userBucket, UUID.randomUUID().toString());
+            fail("Should have gotten an AmazonS3Exception");
         } catch (AmazonS3Exception e) {
             String error = e.toString();
             assertTrue(error.contains("Status Code: 404"));
-            return;
         }
-
-        fail("Should have gotten an AmazonS3Exception with a 404 status code");
     }
 
-    //@Test
-    public void testAcls() throws Exception {
+    @Test
+    public void testAclReads() throws Exception {
         String key = UUID.randomUUID().toString();
         userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        HttpResponse response = anonymousGet(key);
+        assertEquals(403, response.getStatusLine().getStatusCode());
         userClient.setObjectAcl(userBucket, key, CannedAccessControlList.PublicRead);
-        HttpResponse httpResponse = anonymousGet(key);
-        assertEquals(HttpServletResponse.SC_OK, httpResponse.getStatusLine().getStatusCode());
-        byte[] result = IOUtils.toByteArray(httpResponse.getEntity().getContent());
+        response = anonymousGet(key);
+        assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
+        byte[] result = IOUtils.toByteArray(response.getEntity().getContent());
         assertArrayEquals(randomBytes, result);
+    }
+
+    private HttpResponse anonymousGet(String key) throws Exception {
+        String url = "https://" + host + ":8443/" + userBucket + "/" + key;
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        return httpClient.execute(httpGet);
     }
 
     @Test
@@ -544,11 +554,4 @@ public class S3SmokeTest {
                 .getContent()));
     }
 
-    private HttpResponse anonymousGet(String key) throws Exception {
-        userClient.putObject(userBucket, key, new ByteArrayInputStream(new byte[42]), new ObjectMetadata());
-        String url = "https://" + host + ":8443/" + userBucket + "/" + key;
-        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
-        HttpGet httpGet = new HttpGet(url);
-        return httpClient.execute(httpGet);
-    }
 }
