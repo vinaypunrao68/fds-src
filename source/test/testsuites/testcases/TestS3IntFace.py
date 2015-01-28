@@ -726,7 +726,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             s3 = self.parameters["s3"]
 
             # Get file info
-            source_path = bin_dir + "/bare_am"
+            source_path = bin_dir + "/StorMgr"
             source_size = os.stat(source_path).st_size
 
             # Create a multipart upload request
@@ -762,7 +762,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
                 self.log.info("Etag matched: [" + completed_upload.etag + "]")
 
             # Read it back to a file and then compare.
-            dest_path = bin_dir + "/bare_am.boto"
+            dest_path = bin_dir + "/StorMgr.boto"
 
             k = Key(s3.bucket1)
             k.key = 'large'

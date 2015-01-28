@@ -27,7 +27,7 @@
                             <sort-helper ng-model="sortPredicate" value="application">{{ 'common.th_application' | translate }}</sort-helper>
                         </th>
 -->
-                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'tenant_name' ) !== -1 }" tool-tip text="{{ 'volumes.tt_tenant_name' | translate }}" ng-show="isAllowed( TENANT_MGMT )">
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'tenant_name' ) !== -1 }" tool-tip text="{{ 'volumes.tt_tenant_name' | translate }}" ng-show="isAllowed( 'TENANT_MGMT' )">
                             <sort-helper ng-model="sortPredicate" value="tenant_name">{{ 'common.th_tenant' | translate }}</sort-helper>                                                                             
                         </th>
                         <th ng-class="{ 'selected' : sortPredicate.indexOf( 'data_connector.type' ) !== -1 }" tool-tip text="{{ 'volumes.tt_data_connector' | translate }}">
@@ -63,7 +63,7 @@
                             
 <!--                            <td class="application"></td>-->
                             
-                            <td class="tenant" ng-show="isAllowed( TENANT_MGMT )">
+                            <td class="tenant" ng-show="isAllowed( 'TENANT_MGMT' )">
                                 {{ volume.tenant_name }}
                             </td>
                             

@@ -22,18 +22,15 @@ import org.junit.Test;
 
 public class DomainBuilderTest {
   private static final String EXPECTED_DOMAIN = "Joe's Domain";
-  private static final Integer EXPECTED_ID = 678;
-  private static final String EXPECTED_SITE = "Joe's Site";
+  private static final Long EXPECTED_ID = 678L;
 
   @Test
   public void test() {
-    final Domain domain = new DomainBuilder().withDomain( EXPECTED_DOMAIN )
-                                             .withId( EXPECTED_ID )
-                                             .withSite( EXPECTED_SITE )
-                                             .build();
+    final Domain domain = Domain.uuid( EXPECTED_ID )
+                                .domain( EXPECTED_DOMAIN )
+                                .build();
 
-    Assert.assertEquals( domain.getId(), EXPECTED_ID );
-    Assert.assertEquals( domain.getSite(), EXPECTED_SITE );
+    Assert.assertEquals( domain.getUuid(), EXPECTED_ID );
     Assert.assertEquals( domain.getDomain(), EXPECTED_DOMAIN );
   }
 

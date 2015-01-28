@@ -122,7 +122,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
             SmIoAddObjRefReq *addObjRefReq);
 
     void shutdownSM(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::ShutdownSMMsg> &shutdownMsg);
+            boost::shared_ptr <fpi::ShutdownMODMsg> &shutdownMsg);
 
     void StartMigration(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlStartMigration> &startMigration);
@@ -146,6 +146,9 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
 
     void syncObjectSet(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlObjectRebalanceDeltaSet> &deltaObjSet);
+
+    void getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                      boost::shared_ptr<fpi::CtrlGetSecondRebalanceDeltaSet>& getDeltaSetMsg);
 
     /**
     * Handler for the new DMT messages

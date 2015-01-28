@@ -101,6 +101,8 @@ enum  FDSPMsgTypeId {
     CtrlObjectRebalanceFilterSetTypeId = 2063,
     CtrlObjectRebalanceDeltaSetTypeId  = 2064,
     CtrlNotifySMAbortMigrationTypeId   = 2065,
+    CtrlGetSecondRebalanceDeltaSetTypeId    = 2066,
+    CtrlGetSecondRebalanceDeltaSetRspTypeId = 2067,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
@@ -132,7 +134,7 @@ enum  FDSPMsgTypeId {
 	DeleteObjectRspMsgTypeId,
     AddObjectRefMsgTypeId,
     AddObjectRefRspMsgTypeId,
-    ShutdownSMMsgTypeId,
+    ShutdownMODMsgTypeId,
 	
 
     /* DM Type Ids */
@@ -511,8 +513,8 @@ struct CtrlQueryScavengerStatus {
 struct CtrlQueryScavengerStatusResp {
 	   1: FDSP_ScavengerStatusType 	status;
 }
-/* ---------------------  ShutdownSMMsgTypeId  --------------------------- */
-struct ShutdownSMMsg {
+/* ---------------------  ShutdownMODMsgTypeId  --------------------------- */
+struct ShutdownMODMsg {
 }
 
 /* ---------------------  CtrlScavengerProgressTypeId  --------------------------- */
@@ -569,7 +571,7 @@ struct CtrlSetScrubberStatusResp {
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
-     2: i32                       dlt_version;
+     2: i64                       dlt_version;
 }
 
 /* ---------------------- CtrlNotifySMStartMigration --------------------------- */
@@ -721,7 +723,7 @@ struct GetObjectResp {
 /* Put object request message */
 struct PutObjectMsg {
    1: i64    			volume_id;
-   2: i64                      	origin_timestamp;
+   2: i64                      	dlt_version;
    3: FDSP.FDS_ObjectIdType 	data_obj_id;
    4: i32                      	data_obj_len;
    5: binary                   	data_obj;
@@ -735,7 +737,7 @@ struct PutObjectRspMsg {
 struct  DeleteObjectMsg {
  1: i64 volId,
  2: FDSP.FDS_ObjectIdType objId, 
- 3: i64 origin_timestamp,  
+ 3: i64 dlt_version
 }
 
 /* Delete object response message */
@@ -1090,6 +1092,22 @@ struct CtrlObjectRebalanceDeltaSet
      * at the destination SM.
      */
     4: list<CtrlObjectMetaDataPropagate> objectToPropagate
+}
+
+/* Message body to request Source SM to calculate and send delta set
+ * from the metadata diff betweent the first rebalance msg and now.
+ * In this second round, destination SM does not need to send filter set
+ * as it does in the first round, because there are no active IO for this
+ * token on the destination SM -- there could be active IO on the sorce SM.
+ */
+struct CtrlGetSecondRebalanceDeltaSet
+{
+    /* unique id of executor on the destination SM */
+    1: i64 executorID
+}
+
+/* Get second rebalance delta set message response */
+struct CtrlGetSecondRebalanceDeltaSetRsp {
 }
 
 #endif

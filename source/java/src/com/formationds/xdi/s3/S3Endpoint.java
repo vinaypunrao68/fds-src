@@ -5,103 +5,136 @@ package com.formationds.xdi.s3;
 
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.AsyncBridge;
+import com.formationds.spike.later.AsyncWebapp;
+import com.formationds.spike.later.HttpPath;
+import com.formationds.spike.later.HttpPathContext;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiAsync;
-import org.apache.hadoop.yarn.webapp.WebApp.HTTP;
+import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
-import javax.servlet.http.HttpServletResponse;
-import java.security.Security;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public class S3Endpoint {
-    private static final Logger logger = LoggerFactory.getLogger( S3Endpoint.class );
+    private final static org.apache.log4j.Logger LOG = org.apache.log4j.Logger.getLogger(S3Endpoint.class);
+    private final S3Authenticator authenticator;
+    public static final String FDS_S3 = "FDS_S3";
+    public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
+    public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
+    public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
+    private final AsyncWebapp webApp;
+    private Xdi xdi;
+    private Function<AuthenticationToken, XdiAsync> xdiAsync;
+    private SecretKey secretKey;
 
-    public static final  String FDS_S3 = "FDS_S3";
-    public static final  String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
-    public static final  String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
-    public static final  String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
-    private final WebApp                                  webApp;
-    private       Xdi                                     xdi;
-    private       Function<AuthenticationToken, XdiAsync> xdiAsync;
-    private       SecretKey                               secretKey;
-    private       HttpsConfiguration                      httpsConfiguration;
-    private       HttpConfiguration                       httpConfiguration;
-
-    public S3Endpoint( Xdi xdi, Function<AuthenticationToken, XdiAsync> xdiAsync, SecretKey secretKey,
-                       HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration ) {
+    public S3Endpoint(Xdi xdi, Function<AuthenticationToken, XdiAsync> xdiAsync, SecretKey secretKey,
+                      HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
-        this.httpsConfiguration = httpsConfiguration;
-        this.httpConfiguration = httpConfiguration;
-
-        webApp = new WebApp();
+        webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration);
+        authenticator = new S3Authenticator(xdi, secretKey);
     }
 
-    public static String formatAwsDate( DateTime dateTime ) {
-        return dateTime.toString( ISODateTimeFormat.dateTime() );
+    public static String formatAwsDate(DateTime dateTime) {
+        return dateTime.toString(ISODateTimeFormat.dateTime());
     }
 
     public void start() {
-        authenticate(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi, t));
-        authenticate(HttpMethod.PUT, "/:bucket", (t) -> new CreateBucket(xdi, t));
-        authenticate(HttpMethod.DELETE, "/:bucket", (t) -> new DeleteBucket(xdi, t));
-        authenticate(HttpMethod.GET, "/:bucket", (t) -> new ListObjects(xdi, t));
-        authenticate(HttpMethod.HEAD, "/:bucket", (t) -> new HeadBucket(xdi, t));
-        authenticate(HttpMethod.PUT, "/:bucket/:object", (t) -> new PutObject(xdi, t));
-        authenticate(HttpMethod.POST, "/:bucket", (t) -> new PostObject(xdi, t));
-        authenticate(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObject(xdi, t));
-        authenticate(HttpMethod.GET, "/:bucket/:object", (t) -> new GetObject(xdi, t));
-        authenticate(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
-        authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
+        syncRoute(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi, t));
+        syncRoute(HttpMethod.PUT, "/:bucket", (t) -> new CreateBucket(xdi, t));
+        syncRoute(HttpMethod.DELETE, "/:bucket", (t) -> new DeleteBucket(xdi, t));
+        syncRoute(HttpMethod.GET, "/:bucket", (t) -> new ListObjects(xdi, t));
+        syncRoute(HttpMethod.HEAD, "/:bucket", (t) -> new HeadBucket(xdi, t));
 
-        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync, new S3Authenticator(xdi, secretKey)));
+        syncRoute(new HttpPath(HttpMethod.PUT, "/:bucket/:object")
+                        .withHeader(S3Endpoint.X_AMZ_COPY_SOURCE),
+                (t) -> new PutObject(xdi, t));
 
-        webApp.start(httpConfiguration, httpsConfiguration);
+        syncRoute(new HttpPath(HttpMethod.PUT, "/:bucket/:object")
+                        .withUrlParam("uploadId"),
+                (t) -> new PutObject(xdi, t));
+
+        syncRoute(new HttpPath(HttpMethod.PUT, "/:bucket/:object")
+                        .withUrlParam("acl"),
+                (t) -> new PutObject(xdi, t));
+
+        webApp.route(new HttpPath(HttpMethod.PUT, "/:bucket/:object"), ctx ->
+                executeAsync(ctx, xdiAsync -> new AsyncPutObject(xdiAsync).apply(ctx)));
+
+        syncRoute(HttpMethod.POST, "/:bucket", (t) -> new PostObject(xdi, t));
+        syncRoute(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObject(xdi, t));
+
+        syncRoute(new HttpPath(HttpMethod.GET, "/:bucket/:object")
+                        .withUrlParam("uploadId"),
+                (t) -> new GetObject(xdi, t));
+
+        webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
+                executeAsync(ctx, xdiAsync -> new AsyncGetObject(xdiAsync).apply(ctx)));
+
+        syncRoute(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
+        syncRoute(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
+
+        webApp.start();
     }
 
-    private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
-        Function<AuthenticationToken, RequestHandler> errorHandler = new S3FailureHandler(f);
-        webApp.route(method, route, () -> (r, rp) -> {
-            try {
-                if (logger.isTraceEnabled()) {
-                    logger.trace( "S3::REQUEST::START:    {} {}", r.getMethod(), r.getRequestURI() );
+    private CompletableFuture<Void> executeAsync(HttpPathContext ctx, Function<XdiAsync, CompletableFuture<Void>> function) {
+        CompletableFuture<XdiAsync> authResult = new CompletableFuture<>();
+        try {
+            AuthenticationToken token = authenticator.authenticate(ctx.getRequest());
+            authResult.complete(xdiAsync.apply(token));
+        } catch (Exception e1) {
+            authResult.completeExceptionally(e1);
+        }
+
+        CompletableFuture<Void> cf = authResult.thenCompose(xdiAsync -> function.apply(xdiAsync));
+        return cf.exceptionally(e -> {
+            String requestUri = ctx.getRequest().getRequestURI();
+
+            AsyncBridge asyncBridge = new AsyncBridge((request, routeParameters) -> {
+                if (e instanceof SecurityException) {
+                    return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestUri);
+                } else {
+                    LOG.error("Error executing " + requestUri);
+                    return new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", requestUri);
                 }
-                AuthenticationToken token = null;
+            });
+            asyncBridge.apply(ctx);
+            return null;
+        });
+    }
+
+    private void syncRoute(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
+        syncRoute(new HttpPath(method, route), f);
+    }
+
+    private void syncRoute(HttpPath path, Function<AuthenticationToken, RequestHandler> f) {
+        AsyncBridge bridge = new AsyncBridge(new RequestHandler() {
+            @Override
+            public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
                 try {
-                    token = new S3Authenticator(xdi, secretKey).authenticate(r);
-                } catch (SecurityException se) {
-                    if (logger.isTraceEnabled()) {
-                        logger.trace( "Request Authentication Failed: " + se.getMessage() );
-                    }
-                    throw se;
+                    AuthenticationToken token = null;
+                    token = new S3Authenticator(xdi, secretKey).authenticate(request);
+                    AuthenticatedRequestContext.begin(token);
+                    Function<AuthenticationToken, RequestHandler> errorHandler = new S3FailureHandler(f);
+                    return errorHandler.apply(token).handle(request, routeParameters);
+                } catch (SecurityException e) {
+                    return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
+                } catch (Exception e) {
+                    LOG.debug("Got an exception: ", e);
+                    return new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", request.getRequestURI());
+                } finally {
+                    AuthenticatedRequestContext.complete();
                 }
-
-                AuthenticatedRequestContext.begin(token);
-
-                Resource resource = errorHandler.apply( token ).handle(r, rp);
-
-                if (logger.isTraceEnabled()) {
-                    logger.trace( "S3::REQUEST::COMPLETE: {} {} {}", r.getMethod(), r.getRequestURI(), resource.getHttpStatus() );
-                    if (resource.getHttpStatus() < 200 || resource.getHttpStatus() > 299) {
-                        logger.trace( "S3::REQUEST::FAILED:   {} {} {}", r.getMethod(), r.getRequestURI(), resource.getHttpStatus() );
-                    }
-                }
-                return resource;
-            } catch (SecurityException e) {
-                if (logger.isTraceEnabled()) {
-                    logger.trace( "S3::REQUEST::DENIED:   {} - {}", r.getRequestURI(), e.getMessage() );
-                }
-                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", r.getRequestURI());
-            } finally {
-                AuthenticatedRequestContext.complete();
             }
         });
+
+        webApp.route(path, bridge);
     }
 }

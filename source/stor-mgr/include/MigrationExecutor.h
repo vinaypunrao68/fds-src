@@ -11,16 +11,18 @@
 
 #include <fds_types.h>
 #include <SmIo.h>
-
 #include <MigrationUtility.h>
 
 namespace fds {
+
+class EPSvcRequest;
 
 /**
  * Callback to notify that migration executor is done with migration
  */
 typedef std::function<void (fds_uint64_t executorId,
                             fds_token_id smToken,
+                            fds_bool_t isFirstRound,
                             const Error& error)> MigrationExecutorDoneHandler;
 
 class MigrationExecutor {
@@ -39,6 +41,8 @@ class MigrationExecutor {
         ME_INIT,
         ME_REBALANCE_START,
         ME_APPLYING_DELTA,
+        ME_SECOND_REBALANCE_ROUND,
+        ME_APPLYING_SECOND_DELTA,
         ME_DONE,
         ME_ERROR
     };
@@ -48,6 +52,12 @@ class MigrationExecutor {
     }
     inline MigrationExecutorState getState() const {
         return std::atomic_load(&state);
+    }
+    inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
+        if (isFirstRound) {
+            return (std::atomic_load(&state) == ME_SECOND_REBALANCE_ROUND);
+        }
+        return (std::atomic_load(&state) == ME_DONE);
     }
     inline fds_bool_t isDone() const {
         return (std::atomic_load(&state) == ME_DONE);
@@ -67,6 +77,8 @@ class MigrationExecutor {
     Error startObjectRebalance(leveldb::ReadOptions& options,
                                leveldb::DB *db);
 
+    Error startSecondObjectRebalanceRound();
+
     /**
      * Handles message from Source SM to apply delta set to this SM
      */
@@ -81,6 +93,13 @@ class MigrationExecutor {
 
     /// Called to finish up (abort with error or complete) migration
     void handleMigrationDone(const Error& error);
+    /// Called to finish up the first round of migration
+    void handleFirstMigrationRoundDone(const Error& error);
+
+    /// callback from SL on second rebalance delta set msg response
+    void getSecondRebalanceDeltaResp(EPSvcRequest* req,
+                                     const Error& error,
+                                     boost::shared_ptr<std::string> payload);
 
     /// Id of this executor, used for communicating with source SM
     fds_uint64_t executorId;

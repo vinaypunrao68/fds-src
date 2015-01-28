@@ -17,13 +17,11 @@ package:
 	#  depending on the context
 	#  Otherwise, defaults to old behavior of assuming you want
 	#  "release" package versioning (x.y.z)
-	@if [ "x${release-build}" = "xfalse" ]; then \
-		fdspkgcreate ; \
-		cd ../../package/fds-pkghelper && fdspkgcreate ; \
-	else \
-		sudo fdspkgcreate -r ; \
-		cd ../../package/fds-pkghelper && sudo fdspkgcreate -r ; \
-	fi
+ifneq "x$(release-build)" "xfalse"
+	../../package/fds-pkg-create.py
+else
+	sudo ../../package/fds-pkg-create.py -r
+endif
 
 # -----------------------------------------------------------------------------
 # Keep track of where all relevant ansible files live

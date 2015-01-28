@@ -15,10 +15,12 @@ import xmlrunner
 
 # Import the configuration file helper
 import config
+import config_parser
 import fds
 import multinode
 import testsets.test_set as test_set
 import s3
+import utils
 
 
 class Operation(object):
@@ -42,6 +44,7 @@ class Operation(object):
         self.test_sets = []
         self.multicluster = None
         self.args = args
+        self.om_ip_address = None
         self.current_dir = os.path.dirname(os.path.realpath(__file__))
         self.log_dir = os.path.join(self.current_dir, config.log_dir)
         self.logger.info("Checking if the log directory exists...")
@@ -50,10 +53,23 @@ class Operation(object):
             os.makedirs(self.log_dir)
         # create the test suit runner
         self.runner = xmlrunner.XMLTestRunner(output=self.log_dir)
-        # executes all the test sets listed in test_list.json
+        # executes all the test sets listed in .json config file
+        if self.args.ipaddress is not None:
+                self.om_ip_address = self.args.ipaddress
+        elif self.args.inventory is not None:
+            # gets the op_ip_address from the inventory file
+            self.om_ip_address = \
+            config_parser.get_om_ipaddress_from_inventory(self.args.inventory)
+        
+        # always check if the ip address is a valid one
+        if not utils.is_valid_ip(self.om_ip_address):
+            raise ValueError, "Ip address %s is invalid." % self.om_ip_address
+            sys.exit(2)
+
         for ts in test_sets_list:
             current_ts = test_set.TestSet(name=ts,
-                                          test_cases=test_sets_list[ts])
+                                          test_cases=test_sets_list[ts],
+                                          om_ip_address=self.om_ip_address)
             # create the test set directory
             testset_root = os.path.join(self.current_dir, config.test_sets)
             testset_path = os.path.join(testset_root, ts)
@@ -107,6 +123,9 @@ class Operation(object):
             self.fds_node = fds.FDS()
             if not self.fds_node.check_status():
                 self.fds_node.start_single_node()
+        elif self.args.test == 'existing':
+            self.logger.info("Using an existing cluster... skipping startup" \
+                             " phase.")
         elif self.args.test == 'multi':
             if self.args.type == "aws":
                 if self.args.name == None:
@@ -136,6 +155,9 @@ class Operation(object):
         elif self.args.test == 'multi':
             if self.multicluster is not None:
                 self.multicluster.destroy_cluster()
+        elif self.args.test == 'existing':
+            self.logger.info("Using an existing cluster... skipping shutdown" \
+                             " phase.")
         
     def test_progress(self):
         pass
@@ -194,14 +216,20 @@ if __name__ == '__main__':
     parser.add_argument('-x', '--test',
                         default='single',
                         help='Define if framework should run for single' \
-                        ' or multi node cluster')
+                        'multi, or existing node cluster')
     parser.add_argument('-n', '--name',
                         default=None,
                         help='Specify a name of the cluster, if AWS a tag ' \
                         'name must be given.')
     parser.add_argument('-f', '--config_file',
-                        default=None,
+                        default='fast_integration_test.json',
                         help='User can specify which config file will be ' \
                         'used. The config file has to be .json.')
+    parser.add_argument('-p', '--ipaddress',
+                        default='127.0.0.1',
+                        help='If the user wishes to use an existing cluster ' \
+                        'for his tests, the ip address of the OM node has ' \
+                        'to be specified.')
+    
     args = parser.parse_args()
     main(args)

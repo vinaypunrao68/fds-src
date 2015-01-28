@@ -96,7 +96,10 @@ std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
 std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
 {
     std::ostringstream oss;
-    oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest);
+    oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest)
+	<< " Volume UUID " << std::hex << putObj.volume_id << std::dec
+	<< " Object length " << putObj.data_obj_len
+	<< " DLT version " << putObj.dlt_version;
     return oss.str();
 }
 
@@ -179,7 +182,9 @@ std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& setMDR
 std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
 {
     std::ostringstream oss;
-    oss < " DeleteObjectMsg";
+    oss << " DeleteObjectMsg " << ObjectID(delMsg.objId.digest)
+	<< " Volume UUID " << std::hex << delMsg.volId << std::dec
+	<< " DLT Version " << delMsg.dlt_version;
     return oss.str();
 }
 

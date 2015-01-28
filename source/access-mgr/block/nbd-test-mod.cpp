@@ -48,7 +48,7 @@ NbdSmVol::nbd_vol_write(NbdBlkIO *vio)
 
     vol = blk_vol_cast<NbdSmVol>(vio->nbd_vol);
     put->volume_id        = vol->vol_uuid;
-    put->origin_timestamp = util::getTimeStampMillis();
+    put->dlt_version      = dltMgr->getDLT()->getVersion();
 
     buf = vio->aio_buffer(&len);
     vio->nbd_cur_obj = ObjIdGen::genObjectId(buf, len);

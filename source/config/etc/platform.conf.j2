@@ -27,7 +27,7 @@ fds: {
         plat: {
 
             use_disk_hints = {{ ft_platform_use_disk_hints }}
-            force_simulation_mode = {{ ft_platform_force_simulation_mode }}
+            control_disk_simulation_mode = {{ ft_platform_control_disk_simulation_mode }}
         }
         dm: {
 
@@ -79,6 +79,10 @@ fds: {
 
         /* Disk types, hints file.  Relative to fds-root */
         disk_hints_path_file = "dev/disk-hints.conf"
+
+        /* Force disk simulation_mode (enable Feature Toggle first) */
+        /* true=simuation mode, false=auto detection */
+        force_disk_simulation = {{ force_disk_simulation }}
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
@@ -301,8 +305,11 @@ fds: {
             /* size of the delta set from source SM to destination SM */
             max_delta_set_size=16
 
-            /* verify the integrity of the metadata and data */
+            /* verify the integrity of the metadata and data  on destination SM */
             verify_migration_data=false
+
+            /* boolean to enable/disable SM token migration feature */
+            enable_feature = false
         }
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}

@@ -429,7 +429,7 @@ SmLoadProc::putSm(fds_volid_t volId,
 
     boost::shared_ptr<fpi::PutObjectMsg> putObjMsg(new fpi::PutObjectMsg());
     putObjMsg->volume_id = volId;
-    putObjMsg->origin_timestamp = fds::util::getTimeStampMillis();
+    putObjMsg->dlt_version = 1;
     putObjMsg->data_obj = *objData;
     putObjMsg->data_obj_len = (*objData).size();
     putObjMsg->data_obj_id.digest =
@@ -438,7 +438,7 @@ SmLoadProc::putSm(fds_volid_t volId,
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
-    putReq->origin_timestamp = 0;
+    putReq->dltVersion = 1;
     putReq->setObjId(objId);
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;
@@ -575,7 +575,7 @@ SmLoadProc::removeSm(fds_volid_t volId,
     auto delReq = new SmIoDeleteObjectReq();
     delReq->io_type = FDS_SM_DELETE_OBJECT;
     delReq->setVolId(expObjMsg->volId);
-    delReq->origin_timestamp = expObjMsg->origin_timestamp;
+    delReq->dltVersion = 1;
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));
     delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);
     delReq->opReqFailedPerfEventType = SM_DELETE_OBJ_REQ_ERR;

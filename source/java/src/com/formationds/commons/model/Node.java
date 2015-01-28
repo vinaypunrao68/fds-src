@@ -6,253 +6,116 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.NodeState;
+import com.formationds.commons.model.type.ServiceType;
 
-import java.beans.Transient;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author ptinius
  */
 public class Node
   extends ModelBase {
+
   private static final long serialVersionUID = -6684434195412037211L;
 
-  private Integer id;
-  private String name;
-  private Long uuid;
+  private Integer id;         // used for persistent storage
+  private String name;        // node name
+  private Long uuid;          // node uuid
+  private String ipV6address;
+  private String ipV4address;
 
-  private String site;
-  private String domain;
-  private String localDomain;
-  private NodeState state;
-  private String root;
+  private NodeState state;    // node state
 
-  private Long loAddr;
-  private Long hiAddr;
+  private Map<ServiceType, List<Service>> services = new HashMap<ServiceType, List<Service>>();
 
-  private List<Service> services = null;
-
-  /**
-   * default package level constructor
-   */
-  public Node() {
-    super();
+  private Node( ) {
   }
 
-  /**
-   * @return Returns {@code true} if the uuid is set
-   */
-  @Transient
-  public boolean isUuid() {
-    return getUuid() != -1L;
+  public static IIpV6address uuid( final Long uuid ) {
+    return new Node.Builder( uuid );
   }
 
-  /**
-   * @return Returns {@code true} if the uuid is set
-   */
-  @Transient
-  public boolean isRoot() {
-    return getRoot() != null;
-  }
-
-  /**
-   * @return Returns {@code true} if the uuid is set
-   */
-  @Transient
-  public boolean isService() {
-    return services != null;
-  }
-
-  /**
-   * @return Returns {@code true} if the node id is set
-   */
-  @Transient
-  public boolean isId() {
-    return getId() != -1;
-  }
-
-  /**
-   * @return Returns {@code long} representing the universal unique identifier
-   */
-  public long getUuid() {
-    return uuid;
-  }
-
-  /**
-   * @param uuid the {@code long} representing the universal unique identifier
-   */
-  public void setUuid( final long uuid ) {
-    this.uuid = uuid;
-  }
-
-  /**
-   * @return Returns {@link String} representing the domain
-   */
-  public String getDomain() {
-    return domain;
-  }
-
-  /**
-   * @param domain the {@link String} representing the domain
-   */
-  public void setDomain( final String domain ) {
-    this.domain = domain;
-  }
-
-  /**
-   * @return Returns {@code long} representing the high order of the IP address
-   */
-  public long getHiAddr() {
-    return hiAddr;
-  }
-
-  /**
-   * @param hiAddr the {@code long} representing the high order of the IP
-   *               address
-   */
-  public void setHiAddr( final long hiAddr ) {
-    this.hiAddr = hiAddr;
-  }
-
-  /**
-   * @return Returns {@link String} representing identifier
-   */
-  public int getId() {
-    return id;
-  }
-
-  /**
-   * @param id the {@code int} representing the identifier
-   */
-  public void setId( final int id ) {
-    this.id = id;
-  }
-
-  /**
-   * @return Returns {@code long} representing the low order of the IP address
-   */
-  public long getLoAddr() {
-    return loAddr;
-  }
-
-  /**
-   * @param loAddr the {@code long} representing the low order of the IP
-   *               address
-   */
-  public void setLoAddr( final long loAddr ) {
-    this.loAddr = loAddr;
-  }
-
-  /**
-   * @return Returns {@link String} representing the domain
-   */
-  public String getLocalDomain() {
-    return localDomain;
-  }
-
-  /**
-   * @param localDomain the {@link String} representing the domain
-   */
-  public void setLocalDomain( final String localDomain ) {
-    this.localDomain = localDomain;
-  }
-
-  /**
-   * @return Returns {@link String} representing the name
-   */
-  public String getName() {
-    return name;
-  }
-
-  /**
-   * @param name the {@link String} representing the name
-   */
-  public void setName( final String name ) {
-    this.name = name;
-  }
-
-  /**
-   * @return Returns {@link String} representing the root
-   */
-  public String getRoot() {
-    return root;
-  }
-
-  /**
-   * @param root the {@link String} representing the root
-   */
-  public void setRoot( final String root ) {
-    this.root = root;
-  }
-
-  /**
-   * @return Returns {@link String} representing the site
-   */
-  public String getSite() {
-    return site;
-  }
-
-  /**
-   * @param site the {@link String} representing the site
-   */
-  public void setSite( final String site ) {
-    this.site = site;
-  }
-
-  /**
-   * @return Returns {@link NodeState}
-   */
-  public NodeState getState() {
-    return state;
-  }
-
-  /**
-   * @param state the {@link NodeState}
-   */
-  public void setState( final NodeState state ) {
-    this.state = state;
-  }
-
-  /**
-   * @return Returns {@code true} if the node is detached
-   */
-  public boolean isDetached() {
-    /*
-      Nate's javascript for determining if a node is attached or detached.
-
-      if ( nodeService.node_type == 'FDSP_PLATFORM' &&
-      nodeService.node_state == service.FDS_NODE_DISCOVERED ){
-      tempDetached.push( nodeService );
-      return;
-      }
-    */
-
-    return getState().equals( NodeState.DISCOVERED );
-  }
-
-  /**
-   * @param service the {@link Service}
-   */
-  public void addService( final Service service ) {
-    if( services == null ) {
-      services = new ArrayList<>();
-    }
-
-    if( !services.contains( service ) ) {
-      services.add( service );
-    }
-  }
-
-  /**
-   * @return Returns {@link List} of {@link Service} that are installed on this
-   * node
-   */
-  public List<Service> getServices() {
-    if( !isService() ) {
-      services = new ArrayList<>();
-    }
-
+  public Map<ServiceType, List<Service>> getServices() {
     return services;
+  }
+  
+  public void addService( Service service ){
+	  
+	  ServiceType serviceType = ServiceType.valueOf( service.getAutoName() );
+	  List<Service> serviceList = getServices().get( serviceType );
+	  
+	  if ( serviceList == null ){
+		  serviceList = new ArrayList<Service>();
+	  }
+	  
+	  if ( !serviceList.contains( service ) ) {
+		  serviceList.add( service );
+	  }
+	  
+	  getServices().put( serviceType,  serviceList );
+  }
+
+  public interface IIpV6address {
+    IIpV4address ipV6address( final String ipV6address );
+  }
+
+  public interface IIpV4address {
+    IBuild ipV4address( final String ipV4address );
+  }
+
+  public interface IBuild {
+    IBuild id( final Integer id );
+
+    IBuild name( final String name );
+
+    IBuild state( final NodeState state );
+
+    Node build( );
+  }
+
+  private static class Builder
+      implements IIpV6address, IIpV4address, IBuild {
+    private Node instance = new Node();
+
+    private Builder( final Long uuid ) {
+      instance.uuid = uuid;
+    }
+
+    @Override
+    public IIpV4address ipV6address( final String ipV6address ) {
+      instance.ipV6address = ipV6address;
+      return this;
+    }
+
+    @Override
+    public IBuild ipV4address( final String ipV4address ) {
+      instance.ipV4address = ipV4address;
+      return this;
+    }
+
+    @Override
+    public IBuild id( final Integer id ) {
+      instance.id = id;
+      return this;
+    }
+
+    @Override
+    public IBuild name( final String name ) {
+      instance.name = name;
+      return this;
+    }
+
+    @Override
+    public IBuild state( final NodeState state ) {
+      instance.state = state;
+      return this;
+    }
+
+    public Node build( ) {
+      return instance;
+    }
   }
 }
