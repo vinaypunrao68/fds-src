@@ -12,6 +12,9 @@ import java.util.Map;
 
 public class PutObjectAcl implements RequestHandler {
     public static final String X_AMZ_ACL = "x-amz-acl";
+    public static final String PUBLIC_READ = "public-read";
+    public static final String PUBLIC_READ_WRITE = "public-read-write";
+    public static final String PRIVATE = "private";
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -26,9 +29,9 @@ public class PutObjectAcl implements RequestHandler {
         String objectName = requiredString(routeParameters, "object");
 
         String aclName = request.getHeader(X_AMZ_ACL).toLowerCase();
-        if ("public-read".equals(aclName) ||
-                "public-read-write".equals(aclName) ||
-                "private".equals(aclName)) {
+        if (PUBLIC_READ.equals(aclName) ||
+                PUBLIC_READ_WRITE.equals(aclName) ||
+                PRIVATE.equals(aclName)) {
             BlobDescriptor blobDescriptor = xdi.statBlob(token, S3Endpoint.FDS_S3, bucketName, objectName);
             Map<String, String> metadata = blobDescriptor.getMetadata();
             metadata.put(X_AMZ_ACL, aclName);

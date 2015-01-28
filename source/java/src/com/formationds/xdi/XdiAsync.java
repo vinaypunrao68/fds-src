@@ -7,8 +7,6 @@ import com.formationds.apis.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authorizer;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
@@ -39,18 +37,11 @@ public class XdiAsync {
 
     public XdiAsync(AsyncAm asyncAm,
                     ByteBufferPool bufferPool,
-                    AuthenticationToken token,
-                    Authorizer authorizer,
                     XdiConfigurationApi configurationApi) {
-        this.asyncAm = new AuthorizedAsyncAm(token, authorizer, asyncAm);
+        this.asyncAm = asyncAm;
         this.bufferPool = bufferPool;
         this.configurationApi = configurationApi;
         statistics = new AsyncRequestStatistics();
-    }
-
-    public XdiAsync withStats(AsyncRequestStatistics statistics) {
-        this.statistics = statistics;
-        return this;
     }
 
     public CompletableFuture<BlobInfo> getBlobInfo(String domain, String volume, String blob) {

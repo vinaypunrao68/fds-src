@@ -22,6 +22,7 @@ import javax.crypto.SecretKey;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class S3Endpoint {
     private final static org.apache.log4j.Logger LOG = org.apache.log4j.Logger.getLogger(S3Endpoint.class);
@@ -32,10 +33,10 @@ public class S3Endpoint {
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
     private final AsyncWebapp webApp;
     private Xdi xdi;
-    private Function<AuthenticationToken, XdiAsync> xdiAsync;
+    private Supplier<XdiAsync> xdiAsync;
     private SecretKey secretKey;
 
-    public S3Endpoint(Xdi xdi, Function<AuthenticationToken, XdiAsync> xdiAsync, SecretKey secretKey,
+    public S3Endpoint(Xdi xdi, Supplier<XdiAsync> xdiAsync, SecretKey secretKey,
                       HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
@@ -87,7 +88,7 @@ public class S3Endpoint {
                 (t) -> new MultiPartListParts(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, xdiAsync -> new AsyncGetObject(xdiAsync).apply(ctx)));
+                executeAsync(ctx, xdiAsync -> new AsyncGetObject(xdiAsync, authenticator, xdi.getAuthorizer()).apply(ctx)));
 
         syncRoute(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         syncRoute(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
@@ -96,15 +97,8 @@ public class S3Endpoint {
     }
 
     private CompletableFuture<Void> executeAsync(HttpPathContext ctx, Function<XdiAsync, CompletableFuture<Void>> function) {
-        CompletableFuture<XdiAsync> authResult = new CompletableFuture<>();
-        try {
-            AuthenticationToken token = authenticator.authenticate(ctx.getRequest());
-            authResult.complete(xdiAsync.apply(token));
-        } catch (Exception e1) {
-            authResult.completeExceptionally(e1);
-        }
 
-        CompletableFuture<Void> cf = authResult.thenCompose(xdiAsync -> function.apply(xdiAsync));
+        CompletableFuture<Void> cf = function.apply(xdiAsync.get());
         return cf.exceptionally(e -> {
             String requestUri = ctx.getRequest().getRequestURI();
 
