@@ -11,28 +11,7 @@ public class Workload
 {
     public static final Workload NULL;
 
-    public Workload()
-    {
-        this(Stream.empty());
-    }
-
-    public Workload(Stream<Operation> operations)
-    {
-        this(operations, Stream.empty(), Stream.empty());
-    }
-
-    public Workload(Stream<Operation> operations,
-                    Stream<Operation> setup,
-                    Stream<Operation> teardown)
-    {
-        if (operations == null) throw new NullArgumentException("operations");
-        if (setup == null) throw new NullArgumentException("setup");
-        if (teardown == null) throw new NullArgumentException("teardown");
-
-        _operations = operations;
-        _setup = setup;
-        _teardown = teardown;
-    }
+    public Workload() { }
 
     public final void runOn(Endpoint endpoint) throws ExecutionException
     {

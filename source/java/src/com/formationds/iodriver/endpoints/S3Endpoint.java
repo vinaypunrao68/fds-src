@@ -3,6 +3,8 @@ package com.formationds.iodriver.endpoints;
 import java.io.IOException;
 import java.net.MalformedURLException;
 
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -30,15 +32,7 @@ public final class S3Endpoint extends Endpoint
     public Endpoint copy()
     {
         CopyHelper copyHelper = new CopyHelper();
-        try
-        {
-            return new S3Endpoint(copyHelper.s3url, copyHelper.omEndpoint, copyHelper.logger);
-        }
-        catch (MalformedURLException e)
-        {
-            // This should be impossible.
-            throw new RuntimeException(e);
-        }
+        return new S3Endpoint(copyHelper);
     }
 
     @Override
@@ -58,7 +52,30 @@ public final class S3Endpoint extends Endpoint
     {
         if (operation == null) throw new NullArgumentException("operation");
 
-        operation.exec(_client);
+        try
+        {
+            operation.exec(getClient());
+        }
+        catch (IOException e)
+        {
+            throw new ExecutionException(e);
+        }
+    }
+
+    protected class CopyHelper extends Endpoint.CopyHelper
+    {
+        public final Logger logger = _logger;
+        public final OrchestrationManagerEndpoint omEndpoint = _omEndpoint.copy();
+        public final String s3url = _s3url;
+    }
+
+    protected S3Endpoint(CopyHelper helper)
+    {
+        super(helper);
+
+        _logger = helper.logger;
+        _omEndpoint = helper.omEndpoint;
+        _s3url = helper.s3url;
     }
 
     protected final AmazonS3Client getClient() throws IOException
@@ -75,13 +92,6 @@ public final class S3Endpoint extends Endpoint
         return _client;
     }
 
-    private final class CopyHelper extends Endpoint.CopyHelper
-    {
-        public final Logger logger = _logger;
-        public final OrchestrationManagerEndpoint omEndpoint = _omEndpoint.copy();
-        public final String s3url = _s3url;
-    }
-
     private AmazonS3Client _client;
 
     private final Logger _logger;
@@ -89,4 +99,9 @@ public final class S3Endpoint extends Endpoint
     private final OrchestrationManagerEndpoint _omEndpoint;
 
     private final String _s3url;
+
+    static
+    {
+        System.setProperty(SDKGlobalConfiguration.DISABLE_CERT_CHECKING_SYSTEM_PROPERTY, "true");
+    }
 }

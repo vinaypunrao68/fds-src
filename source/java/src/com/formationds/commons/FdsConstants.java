@@ -28,7 +28,7 @@ public final class FdsConstants
         final String scheme = "https";
         final String host = getFdsHost();
         final int omPort = getOmPort();
-        final String path = "/api";
+        final String path = "/api/";
 
         try
         {

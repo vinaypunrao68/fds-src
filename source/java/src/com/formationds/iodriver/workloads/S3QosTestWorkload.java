@@ -33,12 +33,16 @@ public final class S3QosTestWorkload extends Workload
     protected Stream<Operation> createOperations()
     {
         Stream<String> bucketNames = StreamSupport.stream(_bucketNames.spliterator(), false);
-        Stream<String> randomContent = Stream.generate(_nameSupplier);
 
-        return bucketNames.<Operation>flatMap(bucketName -> randomContent.map(content -> new CreateObject(bucketName,
-                                                                                                          _objectName,
-                                                                                                          content)))
-                          .limit(OPERATIONS_PER_BUCKET);
+        return bucketNames.<Operation>flatMap(bucketName ->
+        {
+            Stream<String> randomContent =
+                    Stream.generate(_nameSupplier).limit(OPERATIONS_PER_BUCKET);
+
+            return randomContent.map(content -> new CreateObject(bucketName,
+                                                                 _objectName,
+                                                                 content));
+        });
     }
 
     @Override

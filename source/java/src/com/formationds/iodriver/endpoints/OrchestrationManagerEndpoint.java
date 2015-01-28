@@ -2,11 +2,17 @@ package com.formationds.iodriver.endpoints;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
+import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.UnknownHostException;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -16,7 +22,7 @@ import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.NullArgumentException;
 import com.formationds.iodriver.logging.Logger;
 
-public final class OrchestrationManagerEndpoint extends HttpEndpoint
+public final class OrchestrationManagerEndpoint extends HttpsEndpoint
 {
     public static class AuthToken
     {
@@ -36,10 +42,14 @@ public final class OrchestrationManagerEndpoint extends HttpEndpoint
         private final String _value;
     }
 
-    public OrchestrationManagerEndpoint(URI uri, String username, String password, Logger logger)
-                                                                                                 throws MalformedURLException
+    public OrchestrationManagerEndpoint(URI uri,
+                                        String username,
+                                        String password,
+                                        Logger logger,
+                                        boolean trusting)
+                                                         throws MalformedURLException
     {
-        super(uri, logger);
+        super(uri, logger, trusting);
 
         if (username == null) throw new NullArgumentException("username");
         if (password == null) throw new NullArgumentException("password");
@@ -52,18 +62,7 @@ public final class OrchestrationManagerEndpoint extends HttpEndpoint
     public OrchestrationManagerEndpoint copy()
     {
         CopyHelper copyHelper = new CopyHelper();
-        try
-        {
-            return new OrchestrationManagerEndpoint(copyHelper.url.toURI(),
-                                                    copyHelper.username,
-                                                    copyHelper.password,
-                                                    copyHelper.logger);
-        }
-        catch (MalformedURLException | URISyntaxException e)
-        {
-            // This should be impossible.
-            throw new IllegalStateException(e);
-        }
+        return new OrchestrationManagerEndpoint(copyHelper);
     }
 
     public AuthToken getAuthToken() throws IOException
@@ -106,10 +105,18 @@ public final class OrchestrationManagerEndpoint extends HttpEndpoint
         return _username;
     }
 
-    protected class CopyHelper extends HttpEndpoint.CopyHelper
+    protected class CopyHelper extends HttpsEndpoint.CopyHelper
     {
         public final String password = _password;
         public final String username = _username;
+    }
+
+    protected OrchestrationManagerEndpoint(CopyHelper helper)
+    {
+        super(helper);
+
+        _password = helper.password;
+        _username = helper.username;
     }
 
     @Override
@@ -134,6 +141,6 @@ public final class OrchestrationManagerEndpoint extends HttpEndpoint
     private AuthToken _authToken;
 
     private final String _password;
-
+    
     private final String _username;
 }

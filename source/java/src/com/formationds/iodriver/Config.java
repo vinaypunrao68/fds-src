@@ -18,7 +18,7 @@ public final class Config
         {
             return _endpoint;
         }
-        
+
         public static Logger getLogger()
         {
             return _logger;
@@ -32,7 +32,7 @@ public final class Config
         static
         {
             Logger newLogger = new ConsoleLogger();
-            
+
             try
             {
                 _endpoint =
@@ -40,7 +40,9 @@ public final class Config
                                        new OrchestrationManagerEndpoint(FdsConstants.getApiPath(),
                                                                         "admin",
                                                                         "admin",
-                                                                        newLogger), newLogger);
+                                                                        newLogger,
+                                                                        true),
+                                       newLogger);
             }
             catch (MalformedURLException e)
             {
@@ -59,7 +61,7 @@ public final class Config
         private static final Endpoint _endpoint;
 
         private static final Logger _logger;
-        
+
         private static final Workload _workload;
     }
 

@@ -10,7 +10,10 @@ import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+import javax.net.ssl.SSLSocketFactory;
+
 import com.formationds.commons.util.Strings;
+import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.NullArgumentException;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
@@ -47,7 +50,7 @@ public class HttpEndpoint extends Endpoint
     public HttpEndpoint copy()
     {
         CopyHelper copyHelper = new CopyHelper();
-        return new HttpEndpoint(copyHelper.url, copyHelper.logger);
+        return new HttpEndpoint(copyHelper);
     }
 
     @Override
@@ -143,13 +146,21 @@ public class HttpEndpoint extends Endpoint
             throw new RuntimeException("Unexpected error making defensive copy of _url.", e);
         }
     }
-
+    
     protected class CopyHelper extends Endpoint.CopyHelper
     {
         public final Logger logger = _logger;
         public final URL url = _url;
     }
 
+    protected HttpEndpoint(CopyHelper helper)
+    {
+        super(helper);
+        
+        _logger = helper.logger;
+        _url = helper.url;
+    }
+    
     protected Charset getResponseCharset(HttpURLConnection connection)
     {
         if (connection == null) throw new NullArgumentException("connection");
@@ -219,7 +230,7 @@ public class HttpEndpoint extends Endpoint
     protected URLConnection openConnection(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
-
+        
         return url.openConnection();
     }
 
@@ -235,6 +246,6 @@ public class HttpEndpoint extends Endpoint
     }
 
     private final Logger _logger;
-
+    
     private final URL _url;
 }

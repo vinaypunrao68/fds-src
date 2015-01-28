@@ -1,16 +1,23 @@
 package com.formationds.smoketest;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.S3ClientOptions;
-import com.amazonaws.services.s3.model.*;
-import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.Snapshot;
-import com.formationds.commons.FdsConstants;
-import com.formationds.commons.util.Uris;
-import com.formationds.util.s3.S3SignatureGenerator;
-import com.formationds.xdi.XdiClientFactory;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
@@ -23,14 +30,28 @@ import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.security.SecureRandom;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import static org.junit.Assert.*;
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.SDKGlobalConfiguration;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.S3ClientOptions;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.PutObjectResult;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.UploadPartRequest;
+import com.amazonaws.services.s3.model.UploadPartResult;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.Snapshot;
+import com.formationds.commons.FdsConstants;
+import com.formationds.commons.util.Uris;
+import com.formationds.util.s3.S3SignatureGenerator;
+import com.formationds.xdi.XdiClientFactory;
 
 /**
  * Copyright (c) 2014 Formation Data Systems. All rights reserved.
@@ -39,7 +60,6 @@ import static org.junit.Assert.*;
 // We're just telling the unit test runner to ignore this, the class is ran SmokeTestRunner
 @Ignore
 public class S3SmokeTest {
-    private static final String AMAZON_DISABLE_SSL = "com.amazonaws.sdk.disableCertChecking";
     private final static String ADMIN_USERNAME = "admin";
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
 
@@ -89,7 +109,7 @@ public class S3SmokeTest {
 
     public S3SmokeTest()
             throws Exception {
-        System.setProperty(AMAZON_DISABLE_SSL, "true");
+        System.setProperty(SDKGlobalConfiguration.DISABLE_CERT_CHECKING_SYSTEM_PROPERTY, "true");
         host = FdsConstants.getFdsHost();
 
         String omUrl = "https://" + host + ":7443";
