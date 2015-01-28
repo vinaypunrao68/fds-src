@@ -223,11 +223,16 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
      * DltErrorMode interrupts
      * Will resume when end_error is generated
      */
+<<<<<<< HEAD
     struct DltErrorMode
             : public msm::front::interrupt_state<mpl::vector<DltEndErrorEvt, DltRecoverAckEvt>>
     {
         DltErrorMode() : abortMigrAcksToWait(0), commitDltAcksToWait(0) {}
 
+=======
+    struct DltErrorMode : public msm::front::interrupt_state<DltEndErrorEvt>
+    {
+>>>>>>> d63f316f5fc787053fadb35cedef47896de01f69
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -237,9 +242,12 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGDEBUG << "DltErrorMode. Evt: " << e.logString();
         }
+<<<<<<< HEAD
 
         fds_uint32_t abortMigrAcksToWait;
         fds_uint32_t commitDltAcksToWait;
+=======
+>>>>>>> d63f316f5fc787053fadb35cedef47896de01f69
     };
 
     /**
@@ -301,6 +309,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+<<<<<<< HEAD
     struct DACT_ChkEndErr
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -311,6 +320,8 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+=======
+>>>>>>> d63f316f5fc787053fadb35cedef47896de01f69
 
     /**
      * Guard conditions.
@@ -367,11 +378,17 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     msf::Row< DST_Commit  , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Close   , DltCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_DltClose >,
+<<<<<<< HEAD
     msf::Row< DST_Close   , DltEndErrorEvt , DST_Idle    , DACT_RecoverDone, msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DltAllOk    , DltErrorFoundEvt, DltErrorMode, DACT_Error   , msf::none    >,
     msf::Row< DltErrorMode, DltEndErrorEvt , DltAllOk    , DACT_EndError , msf::none    >,
     msf::Row< DltErrorMode, DltRecoverAckEvt, DltErrorMode, DACT_ChkEndErr, msf::none    >
+=======
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DltAllOk    , DltErrorFoundEvt, DltErrorMode, DACT_Error   , msf::none    >,
+    msf::Row< DltErrorMode, DltEndErrorEvt , DltAllOk    , DACT_EndError , msf::none    >
+>>>>>>> d63f316f5fc787053fadb35cedef47896de01f69
     // +------------------+----------------+-------------+---------------+--------------+
     >{};  // NOLINT
 
@@ -996,6 +1013,7 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     LOGDEBUG << "FSM DACT_EndError ";
 }
 
+<<<<<<< HEAD
 // DACT_ChkEndErr
 // -----------
 // Start recover from error state
@@ -1062,5 +1080,7 @@ DltDplyFSM::DACT_RecoverDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     LOGDEBUG << "FSM DACT_RecoverDone ";
 }
 
+=======
+>>>>>>> d63f316f5fc787053fadb35cedef47896de01f69
 
 }  // namespace fds
