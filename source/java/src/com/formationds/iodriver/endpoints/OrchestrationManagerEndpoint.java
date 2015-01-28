@@ -49,7 +49,24 @@ public final class OrchestrationManagerEndpoint extends HttpEndpoint
     }
 
     @Override
-    protected HttpURLConnection openConnection() throws IOException
+    public OrchestrationManagerEndpoint copy()
+    {
+        CopyHelper copyHelper = new CopyHelper();
+        try
+        {
+            return new OrchestrationManagerEndpoint(copyHelper.url.toURI(),
+                                                    copyHelper.username,
+                                                    copyHelper.password,
+                                                    copyHelper.logger);
+        }
+        catch (MalformedURLException | URISyntaxException e)
+        {
+            // This should be impossible.
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public AuthToken getAuthToken() throws IOException
     {
         if (_authToken == null)
         {
@@ -81,6 +98,24 @@ public final class OrchestrationManagerEndpoint extends HttpEndpoint
             _authToken = new AuthToken(userObject.getString("token"));
         }
 
+        return _authToken;
+    }
+
+    public String getUsername()
+    {
+        return _username;
+    }
+
+    protected class CopyHelper extends HttpEndpoint.CopyHelper
+    {
+        public final String password = _password;
+        public final String username = _username;
+    }
+
+    @Override
+    protected HttpURLConnection openConnection() throws IOException
+    {
+        getAuthToken();
         return super.openConnection();
     }
 

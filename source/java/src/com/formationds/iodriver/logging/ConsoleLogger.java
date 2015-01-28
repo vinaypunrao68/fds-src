@@ -4,6 +4,7 @@ import java.io.PrintStream;
 import java.util.Arrays;
 
 import com.formationds.iodriver.NullArgumentException;
+import com.google.common.base.Strings;
 
 public final class ConsoleLogger implements Logger
 {
@@ -46,30 +47,40 @@ public final class ConsoleLogger implements Logger
         logWarning(getErrorOutput(), message, ex);
     }
 
-    private void log(PrintStream out, String text, Iterable<? extends StackTraceElement> stack)
+    private void log(PrintStream out,
+                     String text,
+                     String errorType,
+                     Iterable<? extends StackTraceElement> stack,
+                     int indentDepth)
     {
         try
         {
+            String indent = Strings.repeat(_indent, indentDepth);
+
             if (out == null)
             {
                 out = getErrorOutput();
                 logWarning("out is null.");
             }
 
-            if (text == null && stack == null)
+            if (text == null && errorType == null && stack == null)
             {
-                out.println("No error information provided.");
-                printStackTrace(out, Thread.currentThread().getStackTrace());
+                out.println(indent + "No error information provided.");
+                printStackTrace(out, Thread.currentThread().getStackTrace(), indent);
             }
             else
             {
                 if (text != null)
                 {
-                    out.println(text);
+                    out.println(indent + text);
+                }
+                if (errorType != null)
+                {
+                    out.println(indent + errorType);
                 }
                 if (stack != null)
                 {
-                    printStackTrace(out, stack);
+                    printStackTrace(out, stack, indent);
                 }
             }
         }
@@ -79,43 +90,95 @@ public final class ConsoleLogger implements Logger
         }
     }
 
-    private void logError(PrintStream out, String message, Exception ex)
+    private void logError(PrintStream out, String message, Throwable t)
     {
-        logError(out, message, ex == null ? null : ex.getStackTrace());
+        if (t == null)
+        {
+            logError(out, message, null, (StackTraceElement[])null, 0);
+        }
+        else
+        {
+            int indent = 0;
+            while (t != null)
+            {
+                logError(out,
+                         message,
+                         t.getClass().getName() + ": " + t.getMessage(),
+                         t.getStackTrace(),
+                         indent);
+                t = t.getCause();
+                message = "Caused by:";
+                ++indent;
+            }
+        }
     }
 
     private void logError(PrintStream out,
                           String message,
-                          Iterable<? extends StackTraceElement> stack)
+                          String errorType,
+                          Iterable<? extends StackTraceElement> stack,
+                          int indentDepth)
     {
-        log(out, message == null ? null : ("[ERROR]: " + message), stack);
+        log(out, message == null ? null : ("[ERROR]: " + message), errorType, stack, indentDepth);
     }
 
-    private void logError(PrintStream out, String message, StackTraceElement[] stack)
+    private void logError(PrintStream out,
+                          String message,
+                          String errorType,
+                          StackTraceElement[] stack,
+                          int indentDepth)
     {
-        logError(out, message, stack == null ? null : Arrays.asList(stack));
+        logError(out, message, errorType, stack == null ? null : Arrays.asList(stack), indentDepth);
     }
 
     private void logWarning(PrintStream out, String message)
     {
-        logWarning(out, message, (Iterable<StackTraceElement>)null);
+        logWarning(out, message, null);
     }
 
-    private void logWarning(PrintStream out, String message, Exception ex)
+    private void logWarning(PrintStream out, String message, Throwable t)
     {
-        logWarning(out, message, ex == null ? null : ex.getStackTrace());
-    }
-
-    private void logWarning(PrintStream out, String message, StackTraceElement[] stack)
-    {
-        logWarning(out, message, stack == null ? null : Arrays.asList(stack));
+        if (t == null)
+        {
+            logWarning(out, message, null, (StackTraceElement[])null, 0);
+        }
+        else
+        {
+            int indent = 0;
+            while (t != null)
+            {
+                logWarning(out,
+                           message,
+                           t.getClass().getName() + ": " + t.getMessage(),
+                           t.getStackTrace(),
+                           indent);
+                t = t.getCause();
+                message = "Caused by: ";
+                ++indent;
+            }
+        }
     }
 
     private void logWarning(PrintStream out,
                             String message,
-                            Iterable<? extends StackTraceElement> stack)
+                            String errorType,
+                            StackTraceElement[] stack,
+                            int indentDepth)
     {
-        log(out, message == null ? null : ("[WARN]: " + message), stack);
+        logWarning(out,
+                   message,
+                   errorType,
+                   stack == null ? null : Arrays.asList(stack),
+                   indentDepth);
+    }
+
+    private void logWarning(PrintStream out,
+                            String message,
+                            String errorType,
+                            Iterable<? extends StackTraceElement> stack,
+                            int indentDepth)
+    {
+        log(out, message == null ? null : ("[WARN]: " + message), errorType, stack, indentDepth);
     }
 
     private void logWarning(String message)
@@ -131,7 +194,7 @@ public final class ConsoleLogger implements Logger
         printStackTrace(out, stack, _indent);
     }
 
-    private void printStackTrace(PrintStream out, StackTraceElement[] stack)
+    private void printStackTrace(PrintStream out, StackTraceElement[] stack, String indent)
     {
         if (out == null) throw new NullArgumentException("out");
         if (stack == null) throw new NullArgumentException("stack");

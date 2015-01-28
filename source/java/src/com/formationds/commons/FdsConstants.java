@@ -67,6 +67,29 @@ public final class FdsConstants
     {
         return 7443;
     }
+    
+    @Replacement("S3_ENDPOINT")
+    public static URI getS3Endpoint()
+    {
+        final String scheme = "https";
+        final String host = getFdsHost();
+        final int s3Port = getS3Port();
+        
+        try
+        {
+            return new URI(scheme, null, host, s3Port, null, null, null);
+        }
+        catch (URISyntaxException e)
+        {
+            throw newUriConstructionException(scheme, null, host, s3Port, null);
+        }
+    }
+    
+    @Replacement("S3_PORT")
+    public static int getS3Port()
+    {
+        return 8443;
+    }
 
     static
     {
