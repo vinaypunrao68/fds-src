@@ -191,6 +191,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "Create domain: domain-create <domain name> -k <domain-id>")
             ("domain-delete", po::value<std::string>(),
              "Delete domain: domain-delete <domain name> -k <domain-id>")
+            ("domain-shutdown", po::value<std::string>(),
+             "Delete domain: domain-shutdown <domain name> -k <domain-id>")
             ("domain-stats", "Get domain stats: domain-stats -k <domain-id>")
             ("activate-nodes", po::value<std::string>(),
              "Activate discovered nodes: activate-nodes <domain name> -k <domain-id>"
@@ -633,6 +635,15 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_id = vm["domain-id"].as<int>();
 
         NETWORKCHECK(cfgPrx->DeleteDomain(msg_hdr, domainData));
+    }  else if (vm.count("domain-shutdown") && vm.count("domain-id")) {
+        LOGNOTIFY << " Domain Shutdown ";
+        LOGNOTIFY << vm["domain-shutdown"].as<std::string>() << "-domain name";
+        LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
+
+        FDS_ProtocolInterface::FDSP_ShutdownDomainType domainData;
+        domainData.domain_id = vm["domain-id"].as<int>();
+
+        NETWORKCHECK(cfgPrx->ShutdownDomain(msg_hdr, domainData));
     } else if (vm.count("domain-stats") && vm.count("domain-id")) {
         LOGNOTIFY << " Domain Stats ";
         LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
