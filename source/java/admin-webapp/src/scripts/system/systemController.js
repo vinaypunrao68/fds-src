@@ -1,4 +1,4 @@
-angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_service', '$authentication', function( $scope, $node_service, $authentication ){
+angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_service', '$authentication', '$state', '$timeout', function( $scope, $node_service, $authentication, $state, $timeout ){
 
     $scope.addingnode = false;
     $scope.nodes = $node_service.nodes;
@@ -43,6 +43,12 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
     $scope.$on( 'fds::node_done_adding', function(){
         $scope.addingnode = false;
     });
+    
+    $scope.$on( 'fds::authentication_success', function(){
+        $timeout( $state.reload );
+        console.log( 'nodes calling refresh' );
+        $node_service.refresh();
+    });
 
     $scope.$watch( function(){ return $node_service.nodes; }, function(){
 
@@ -50,4 +56,6 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
             $scope.nodes = $node_service.nodes;
         }
     });
+    
+    $node_service.refresh();
 }]);

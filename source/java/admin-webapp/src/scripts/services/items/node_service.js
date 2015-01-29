@@ -54,6 +54,11 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
     };
 
     var getNodes = function(){
+        
+        if ( pollerId === -1 ){
+            poll();
+        }
+        
         return $http_fds.get( '/api/config/services',
             function( data ){
 
@@ -72,23 +77,25 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
                         service.nodes.push( node );
                     }
                 }
-                
-                $interval.cancel( pollerId );
             });
+    };
+    
+    service.refresh = function(){
+        getNodes();
     };
 
     var poll = function(){
-
-        getNodes().then( function(){
-            pollerId = $interval( getNodes, 10000 );
-        });
-    }();
-
+        pollerId = $interval( getNodes, 30000 );
+    }();    
+    
     $rootScope.$on( 'fds::authentication_logout', function(){
+        console.log( 'node poller cancelled' );
         $interval.cancel( pollerId );
     });
 
-    $rootScope.$on( 'fds::authentication_success', poll );
+    $rootScope.$on( 'fds::authentication_success', function(){
+        service.refresh();
+    });
 
     return service;
 
