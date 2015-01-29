@@ -657,6 +657,11 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         }
     } else {
         // over-write metadata
+        if (objMetaData.objectRefCnt < 0) {
+            LOGERROR << "Object refcnt must be > 0 if isObjectMetaDataReconcile is false "
+                     << " refcnt = " << objMetaData.objectRefCnt;
+            return ERR_INVALID_ARG;
+        }
         setRefCnt(objMetaData.objectRefCnt);
 
         obj_map.compress_type = objMetaData.objectCompressType;
@@ -674,6 +679,11 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         for (auto volAssoc : objMetaData.objectVolumeAssoc) {
             obj_assoc_entry_t new_association;
             new_association.vol_uuid = volAssoc.volumeAssoc;
+            if (volAssoc.volumeRefCnt < 0) {
+                LOGERROR << "Object vol assoc refcnt must be > 0 if isObjectMetaDataReconcile "
+                         << "is false refcnt = " << objMetaData.objectRefCnt;
+                return ERR_INVALID_ARG;
+            }
             new_association.ref_cnt = volAssoc.volumeRefCnt;
             assoc_entry.push_back(new_association);
             obj_map.obj_num_assoc_entry = assoc_entry.size();

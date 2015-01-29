@@ -279,9 +279,14 @@ TEST_F(SmObjectStoreTest, move_to_ssd) {
     EXPECT_TRUE(err == ERR_DUPLICATE);
 }
 
-TEST_F(SmObjectStoreTest, apply_deltaset) {
-    Error err(ERR_OK);
-    fpi::CtrlObjectMetaDataPropagate msg;
+void
+initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg) {
+    // cleanup first
+    msg.objectVolumeAssoc.clear();
+    msg.objectData.clear();
+    msg.objectSize = 0;
+
+    // init
     MetaDataVolumeAssoc volAssoc;
     volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
     volAssoc.volumeRefCnt = 1;
@@ -293,6 +298,12 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     msg.objectBlkLen = 4096;
     msg.objectFlags = 0;
     msg.objectExpireTime = 0;
+}
+
+TEST_F(SmObjectStoreTest, apply_deltaset) {
+    Error err(ERR_OK);
+    fpi::CtrlObjectMetaDataPropagate msg;
+    initMetaDataPropagate(msg);
 
     // apply first half of objects
     fds_uint32_t firstSetSize = (migrVolume->testdata_).dataset_.size() / 2;
@@ -305,6 +316,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
                 (migrVolume->testdata_).dataset_map_[oid].getObjectData();
 
         // update msg fields that depend on particular object/test
+        initMetaDataPropagate(msg);
         fds::assign(msg.objectID, oid);
         msg.objectData.clear();
         msg.objectData.resize(data->length());
@@ -338,6 +350,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     ObjectID newOid = (migrVolume->testdata_).dataset_[index];
     boost::shared_ptr<std::string> newData =
             (migrVolume->testdata_).dataset_map_[newOid].getObjectData();
+    initMetaDataPropagate(msg);
     fds::assign(msg.objectID, newOid);
     // if we add data during second phase, we should still set reconcile = false
     msg.isObjectMetaDataReconcile = false;
@@ -364,6 +377,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
                 (migrVolume->testdata_).dataset_map_[oid].getObjectData();
 
         // update msg fields that depend on particular object/test
+        initMetaDataPropagate(msg);
         fds::assign(msg.objectID, oid);
         msg.isObjectMetaDataReconcile = false;
         msg.objectData.clear();
