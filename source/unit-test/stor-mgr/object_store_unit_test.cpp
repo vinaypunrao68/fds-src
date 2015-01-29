@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include <util/Log.h>
+#include <fdsp_utils.h>
 #include <fds_types.h>
 #include <ObjectId.h>
 #include <fds_module.h>
