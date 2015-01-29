@@ -43,6 +43,15 @@
 					"depends" : ["TestS3DelBucketKeys"],
 					"config" : ""
 				}
+		],
+		"system_framework_migration" : [
+			{
+				"name" : "TestGetAuthToken",
+				"file" : "TestOMIntFace.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}	
 		]
 	}
 }
