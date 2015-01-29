@@ -284,6 +284,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     MetaDataVolumeAssoc volAssoc;
     volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
     volAssoc.volumeRefCnt = 1;
+    msg.isObjectMetaDataReconcile = false;
     msg.objectVolumeAssoc.push_back(volAssoc);
     msg.objectRefCnt = 1;
     msg.objectCompressType = 0;
@@ -336,6 +337,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
                 (migrVolume->testdata_).dataset_map_[oid].getObjectData();
 
         // update msg fields that depend on particular object/test
+        msg.isObjectMetaDataReconcile = false;
         msg.objectData.clear();
         msg.objectData.resize(data->length());
         msg.objectData.assign(*data);
@@ -352,10 +354,40 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
         EXPECT_TRUE(err.ok());
         EXPECT_TRUE((migrVolume->testdata_).dataset_map_[oid].isValid(retData));
 
-        // increase refcount and apply metadata again
+        // increase refcount (+2) and apply metadata again
+        msg.isObjectMetaDataReconcile = true;
         msg.objectRefCnt = 2;
+        msg.objectVolumeAssoc[0].volumeRefCnt = 2;
         err = objectStore->applyObjectMetadataData(oid, msg);
         EXPECT_TRUE(err.ok());
+
+        // decrease refcnt (-1) and apply metadata again
+        msg.isObjectMetaDataReconcile = true;
+        msg.objectRefCnt = -1;
+        msg.objectVolumeAssoc[0].volumeRefCnt = -1;
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // add new volume association
+        MetaDataVolumeAssoc volAssoc2;
+        volAssoc2.volumeAssoc = 0x123456;
+        volAssoc2.volumeRefCnt = 3;
+        msg.objectRefCnt = 3;
+        msg.objectVolumeAssoc.push_back(volAssoc2);
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // remove volume association we just added
+        msg.objectVolumeAssoc[1].volumeRefCnt = -3;
+        msg.objectRefCnt = -3;
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // remove it again -- should be an error
+        msg.objectVolumeAssoc[1].volumeRefCnt = -3;
+        msg.objectRefCnt = -3;
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_FALSE(err.ok());
 
         // read data again
         boost::shared_ptr<const std::string> retDataAgain;

@@ -102,6 +102,7 @@ std::string logString(const FDS_ProtocolInterface::AddObjectRefMsg& msg);
 std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& msg);
 std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
 std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
+std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
 
 std::string quoteString(std::string const& text,
                         std::string const& delimiter = "\"",

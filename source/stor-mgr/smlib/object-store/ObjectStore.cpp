@@ -704,12 +704,18 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // update metadata
     // note that we are not updating assoc entry as with datapath put
     // we are copying assoc entries from the msg and also copying ref count
-    updatedMeta->updateFromRebalanceDelta(msg);
+    err = updatedMeta->updateFromRebalanceDelta(msg);
+    if (!err.ok()) {
+        LOGCRITICAL << "Failed to update metadata from delta from source SM " << err;
+    }
 
     // write metadata to metadata store
-    err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+    if (err.ok()) {
+        err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+    }
 
-    LOGDEBUG << "Applied object data/metadata to object store " << objId << " " << err;
+    LOGDEBUG << "Applied object data/metadata to object store " << objId
+             << " delta from src SM " << msg << " updated meta " << *updatedMeta << " " << err;
     return err;
 }
 
