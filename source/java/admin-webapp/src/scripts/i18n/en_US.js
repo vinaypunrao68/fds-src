@@ -36,6 +36,7 @@ var en_US = {
         th_data_type: 'Data Type',
         th_name: 'Name',
         th_application: 'Application',
+        th_remove: 'Remove',
         th_tenant: 'Tenant',
         
         //time labels
@@ -314,13 +315,16 @@ var en_US = {
         th_site: 'Site',
         th_sm: 'SM',
         th_pm: 'PM',
+        th_ip_address: 'IP Address',
         
         tt_node_name: 'Name of the node',
         tt_am: 'Access manager status',
         tt_dm: 'Data manager status',
         tt_om: 'Orchestration manager status',
         tt_pm: 'Platform status',
-        tt_sm: 'Storage manager status'
+        tt_sm: 'Storage manager status',
+        tt_ip_address: 'The IP address for the discovered node',
+        tt_remove: 'Button to remove the selected node from the system'
     },
     tenants: {
         title: 'Tenants',

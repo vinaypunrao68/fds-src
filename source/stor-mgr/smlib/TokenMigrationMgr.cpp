@@ -12,9 +12,11 @@ namespace fds {
 SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
           omStartMigrCb(NULL),
+          targetDltVersion(DLT_VER_INVALID),
+          numBitsPerDltToken(0),
           clientLock("Migration Client Map Lock") {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
-    nextExecutorId = ATOMIC_VAR_INIT(0);
+    nextLocalExecutorId = ATOMIC_VAR_INIT(0);
 
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapshotRequest.smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
@@ -38,8 +40,10 @@ SmTokenMigrationMgr::~SmTokenMigrationMgr() {
 Error
 SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                                     OmStartMigrationCbType cb,
+                                    const NodeUuid& mySvcUuid,
                                     fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
+
     // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
         LOGWARN << "We received empty migrations message from OM, nothing to do";
@@ -59,6 +63,8 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         LOGNOTIFY << "startMigration called in non-idle state " << migrState;
         return ERR_NOT_READY;
     }
+    targetDltVersion = migrationMsg->DLT_version;
+    numBitsPerDltToken = bitsPerDltToken;
     omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
 
     // create migration executors for each <SM token, source SM> pair
@@ -76,12 +82,15 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
             if ((migrExecutors.count(smTok) == 0) ||
                 (migrExecutors.count(smTok) > 0 && migrExecutors[smTok].count(srcSmUuid) == 0)) {
                 LOGNORMAL << "Will create migration executor class";
-                fds_uint64_t eId = std::atomic_fetch_add(&nextExecutorId, (fds_uint64_t)1);
+                fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId, (fds_uint32_t)1);
+                fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);
+                LOGMIGRATE << "Will create migration executor class with executor ID "
+                           << std::hex << globalExecId << std::dec;
                 migrExecutors[smTok][srcSmUuid] = MigrationExecutor::unique_ptr(
                     new MigrationExecutor(smReqHandler,
                                           bitsPerDltToken,
                                           srcSmUuid,
-                                          smTok, eId,
+                                          smTok, globalExecId, targetDltVersion,
                                           std::bind(
                                               &SmTokenMigrationMgr::migrationExecutorDoneCb, this,
                                               std::placeholders::_1, std::placeholders::_2,
@@ -177,8 +186,8 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
                                           fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
     LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
-               << executorSmUuid.svc_uuid << std::dec << " executor ID "
-               << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
+               << executorSmUuid.svc_uuid << " executor ID " << rebalSetMsg->executorID
+               << std::dec << " seqNum " << rebalSetMsg->seqNum
                << " last " << rebalSetMsg->lastFilterSet;
 
     // If this SM is just a source and does not get Start Migration from OM
@@ -193,6 +202,8 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         }
         // else was already in progress
     }
+    numBitsPerDltToken = bitsPerDltToken;
+    targetDltVersion = rebalSetMsg->targetDltVersion;
 
     MigrationClient::shared_ptr migrClient;
     int64_t executorId = rebalSetMsg->executorID;
@@ -205,6 +216,15 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
                                                  executorNodeUuid,
                                                  bitsPerDltToken));
             migrClients[executorId] = migrClient;
+            // The assumption here that all SMs do the same mapping of
+            // dlt token to SM token.. This is currently true; but if
+            // this behavior changes, we need to change the code below
+            fds_token_id smToken = SmDiskMap::smTokenId(rebalSetMsg->tokenId);
+            // TODO(Anna) we need to implement multiple migr clients responsible
+            // for migrating the same SM token (happens when multiple SMs are
+            // added to the domain at the same time)
+            fds_verify(smtokExecutorIdMap.count(smToken) == 0);
+            smtokExecutorIdMap[smToken] = executorId;
         } else {
             migrClient = migrClients[executorId];
         }
@@ -233,7 +253,7 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
                                                 const fpi::SvcUuid &executorSmUuid) {
     Error err(ERR_OK);
     LOGMIGRATE << "Request to receive the rebalance diff since the first rebalance from "
-               << std::hex << executorSmUuid.svc_uuid << std::dec << " executor ID "
+               << std::hex << executorSmUuid.svc_uuid << " executor ID " << std::dec
                << msg->executorID;
 
     if (atomic_load(&migrState) == MIGR_ABORTED) {
@@ -296,8 +316,8 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                                              fds_token_id smToken,
                                              fds_bool_t isFirstRound,
                                              const Error& error) {
-    LOGNORMAL << "Migration executor " << executorId << " finished migration "
-              << " round first? " << isFirstRound << " done? "
+    LOGNORMAL << "Migration executor " << std::hex << executorId << std::dec
+              << " finished migration round first? " << isFirstRound << " done? "
               << !isFirstRound << error;
 
     fds_verify(smToken == smTokenInProgress);
@@ -379,6 +399,59 @@ SmTokenMigrationMgr::startSecondRebalanceRound(fds_token_id smToken) {
     }
 }
 
+fds_uint64_t 
+SmTokenMigrationMgr::getTargetDltVersion() const {
+    // this will be invalid if migration not in progress
+    return targetDltVersion;
+}
+
+Error
+SmTokenMigrationMgr::startForwarding(fds_token_id smTok) {
+    if (!isMigrationInProgress()) {
+        return ERR_NOT_READY;
+    }
+    // in this state, we must know about bits per tok
+    SmTokExecutorIdMap::iterator it = smtokExecutorIdMap.find(smTok);
+    if (it == smtokExecutorIdMap.end()) {
+        // we cannot start forwarding because there is no
+        // migration client (on source) that is migration this
+        // SM token
+        return ERR_NOT_READY;
+    }
+    fds_verify(migrClients.count(it->second) > 0);
+    // Tell migration client responsible for migrating SM token
+    LOGMIGRATE << "Setting forwarding flag for SM token " << smTok;
+    migrClients[it->second]->setForwardingFlag();
+    return ERR_OK;
+}
+
+fds_bool_t
+SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
+                                        fds_uint64_t reqDltVersion,
+                                        FDS_IOType* req) {
+    // we only do forwarding if migration is in progress
+    if (isMigrationInProgress()) {
+        if (reqDltVersion == targetDltVersion) {
+            // this request was also sent to the destination SM
+            // since AM sending the request is already on new DLT version
+            return false;
+        }
+        // in this state, we must know about bits per tok
+        fds_verify(numBitsPerDltToken != 0);
+        fds_token_id dltTok = DLT::getToken(objId, numBitsPerDltToken);
+        fds_token_id smTok = SmDiskMap::smTokenId(dltTok);
+        SmTokExecutorIdMap::iterator it = smtokExecutorIdMap.find(smTok);
+        if (it != smtokExecutorIdMap.end()) {
+            // migration client tells if we need to forward
+            fds_verify(migrClients.count(it->second) > 0);
+            return migrClients[it->second]->forwardIfNeeded(dltTok, req);
+        }
+        // else we don't have an executor so we are not doing
+        // migration of this DLT token
+    }
+    return false;
+}
+
 /**
  * Handles DLT close event. At this point IO should not arrive
  * with old DLT. Once we reply, we are done with token migration.
@@ -399,7 +472,9 @@ SmTokenMigrationMgr::handleDltClose() {
     {
         fds_mutex::scoped_lock l(clientLock);
         migrClients.clear();
+        smtokExecutorIdMap.clear();
     }
+    targetDltVersion = DLT_VER_INVALID;
     return err;
 }
 
@@ -439,6 +514,14 @@ SmTokenMigrationMgr::abortMigration(const Error& error) {
     }
 
     migrExecutors.clear();
+    targetDltVersion = DLT_VER_INVALID;
+}
+
+fds_uint64_t
+SmTokenMigrationMgr::getExecutorId(fds_uint32_t localId,
+                                   const NodeUuid& smSvcUuid) const {
+    fds_uint64_t execId = smSvcUuid.uuid_get_val();
+    return ((execId << 32) | localId);
 }
 
 }  // namespace fds

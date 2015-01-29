@@ -41,6 +41,10 @@ namespace fds {
      class OMgrClient;
      class CatalogSyncMgr;
 
+     // Callback to DM svc handler for any DMT migration events
+     // DMT update, DMT close and 
+     typedef std::function<void (const Error&)> OmDMTMsgCbType;
+
      typedef enum {
          CATSYNC_INITIAL_SYNC_DONE = 0,  // finished initial rsync
          CATSYNC_DELTA_SYNC_DONE         // finished second (delta) rsync
@@ -254,7 +258,8 @@ namespace fds {
          * @return ERR_NOT_READY if called in the middle of initial rsync; returns
          * ERR_OK if success.
          */
-        Error startCatalogSyncDelta(const std::string& context);
+        Error startCatalogSyncDelta(const std::string& context,
+                                    OmDMTMsgCbType cb);
 
         /**
          * Forward catalog update to DM to which we are pushing vol meta for the
@@ -325,6 +330,9 @@ namespace fds {
          * Timestamp when DM received DMT close
          */
         fds_uint64_t dmtclose_ts;
+
+        // callback to svc handler to send ack for DMT update
+        OmDMTMsgCbType omDmtUpdateCb;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;

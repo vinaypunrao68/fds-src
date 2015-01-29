@@ -90,6 +90,7 @@ SyncMetaData::operator=(const SyncMetaData &rhs) {
 ObjMetaData::ObjMetaData()
 {
     memset(&obj_map, 0, sizeof(obj_map));
+    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
 
     phy_loc = &obj_map.loc_map[0];
     phy_loc[diskio::flashTier].obj_tier = -1;
@@ -100,10 +101,12 @@ ObjMetaData::ObjMetaData()
 ObjMetaData::ObjMetaData(const ObjectBuf& buf)
         : ObjMetaData() {
     fds_verify(deserializeFrom(buf) == true);
+    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
 }
 
 ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
     memcpy(&obj_map, &(rhs->obj_map), sizeof(obj_map));
+    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
     phy_loc = &obj_map.loc_map[0];
     assoc_entry = rhs->assoc_entry;
     sync_data   = rhs->sync_data;
@@ -120,6 +123,7 @@ ObjMetaData::~ObjMetaData()
  */
 void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
     memcpy(&obj_map.obj_id.metaDigest, objid.GetId(), sizeof(obj_map.obj_id.metaDigest));
+    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
     obj_map.obj_size = obj_size;
 
     // Initialize the physical location array
@@ -281,9 +285,9 @@ ObjMetaData::getObjPhyLoc(diskio::DataTier tier) const {
 }
 
 /**
- * @brief 
+ * @brief
  *
- * @return 
+ * @return
  */
 fds_uint64_t ObjMetaData::getCreationTime() const
 {
@@ -641,9 +645,9 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
              */
             newIter->ref_cnt = (uint64_t)((int64_t)newIter->ref_cnt -
                                           (int64_t)oldIter->ref_cnt);
-            
+
             ++oldIter;
-            
+
             if (newIter != assoc_entry.end()) {
                 ++newIter;
             }
@@ -656,7 +660,7 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
              */
             oldIter->ref_cnt = (uint64_t)((int64_t)-(oldIter->ref_cnt));
             assoc_entry.push_back(*oldIter);
-            
+
             ++oldIter;
         } else {
             /* It's in the new list, but not in the old list.  no need to do anything
@@ -1028,33 +1032,84 @@ bool ObjMetaData::syncDataExists() const
     return (obj_map.obj_flags & SYNCMETADATA_MASK) != 0;
 }
 
+/**
+ * This operator compares subset of the ObjectMetaData.  For now, we are only
+ * comparing following fields in ObjectMetaData.
+ * - objID
+ * - compression type
+ * - compression len
+ * - obj_blk_len
+ * - obj_size
+ * - obj_refcnt
+ * - obj_flags
+ * - expire_time
+ * - vector<volume association>
+ *
+ *   Note: we are not memcmp() the whole obj_map data, since some information
+ *         can change, like timestamp related fields, which we really don't
+ *         care about.  This is currently used for token migration.
+ *
+ *   TODO(Sean):  Need to re-arrange the meta_obj_map to avoid
+ *                this type of comparison.  We can memcmp() only relevent fields
+ *                by packing them together at the top.
+ *                i.e.  memcmp(&first_field,
+ *                             &rhs.first_field,
+ *                             offsetof(struct..., field_right_after_pertinent_elem));
+ */
 bool ObjMetaData::operator==(const ObjMetaData &rhs) const
 {
-    if (obj_map.obj_flags == rhs.obj_map.obj_flags &&
-        assoc_entry.size() == rhs.assoc_entry.size() &&
-        (memcmp(assoc_entry.data(), rhs.assoc_entry.data(),
-                sizeof(obj_assoc_entry_t) * assoc_entry.size()) == 0)) {
-        if (syncDataExists()) {
-            return (sync_data == rhs.sync_data);
-        }
-        return true;
+    /* If any of the field do not match, then return false */
+    if ((0 != memcmp(obj_map.obj_id.metaDigest,
+                     rhs.obj_map.obj_id.metaDigest,
+                     sizeof(obj_map.obj_id.metaDigest))) ||
+        (obj_map.compress_type != rhs.obj_map.compress_type) ||
+        (obj_map.compress_len != rhs.obj_map.compress_len) ||
+        (obj_map.obj_blk_len != rhs.obj_map.obj_blk_len) ||
+        (obj_map.obj_size != rhs.obj_map.obj_size) ||
+        (obj_map.obj_refcnt != rhs.obj_map.obj_refcnt) ||
+        (obj_map.expire_time != rhs.obj_map.expire_time)) {
+        return false;
     }
-    return false;
+
+    /* if the volume association entry size is different, then
+     * metadata is different.
+     */
+    if (assoc_entry.size() != rhs.assoc_entry.size()) {
+        return false;
+    } else {
+        /* assoc_entry size is the same.  Just memcmp the vector data */
+        if (0 != memcmp(assoc_entry.data(),
+                        rhs.assoc_entry.data(),
+                        sizeof(obj_assoc_entry_t) * assoc_entry.size())) {
+            return false;
+        }
+    }
+
+    return true;
 }
+
 
 std::string ObjMetaData::logString() const
 {
     std::ostringstream oss;
+
     ObjectID obj_id(std::string((const char*)(obj_map.obj_id.metaDigest),
-            sizeof(obj_map.obj_id.metaDigest)));
+                    sizeof(obj_map.obj_id.metaDigest)));
+
     oss << "id=" << obj_id
+        << " refcnt=" << obj_map.obj_refcnt
         << " flags=" << (uint32_t)obj_map.obj_flags
+        << " compression_type=" << obj_map.compress_type
+        << " compress_len=" << obj_map.compress_len
+        << " blk_len=" << obj_map.obj_blk_len
         << " len=" << obj_map.obj_size
+        << " expire_time=" << obj_map.expire_time
         << " assoc_entry_cnt=" << assoc_entry.size()
         << " vol_id:refcnt=";
     for (auto entry : assoc_entry)  {
-        oss << "(" << entry.vol_uuid << ":" << entry.ref_cnt << "), ";
+        oss << "(" << std::hex << entry.vol_uuid << std::dec << ":" << entry.ref_cnt << "), ";
     }
+    oss << std::endl;
     return oss.str();
 }
 }  // namespace fds

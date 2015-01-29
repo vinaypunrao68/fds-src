@@ -296,8 +296,38 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     LOGNOTIFY << "DMSvcHandler received new DMT commit version  "
               << dmt->dmt_data.dmt_type;
     err = dataMgr->omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    if (!err.ok()) {
+        LOGERROR << "failed to update DMT " << err;
+        NotifyDMTUpdateCb(hdr, err);
+        return;
+    }
+
+    // see if DM sync feature is enabled
+    if (dataMgr->feature.isCatSyncEnabled()) {
+        err = dataMgr->catSyncMgr->startCatalogSyncDelta("",
+                                                         std::bind(
+                                                             &DMSvcHandler::NotifyDMTUpdateCb,
+                                                             this, hdr,
+                                                             std::placeholders::_1));
+    } else {
+        LOGWARN << "catalog sync feature - NOT enabled";
+        // ok we just respond...
+        NotifyDMTUpdateCb(hdr, err);
+        return;
+    }
+
+    if (!err.ok()) {
+        NotifyDMTUpdateCb(hdr, err);
+    }
+}
+
+void DMSvcHandler::NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                     const Error &err)
+{
+    LOGDEBUG << "Sending async DMT update ack " << err;
     hdr->msg_code = err.GetErrno();
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *dmt);
+    fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *msg);
 }
 
 void

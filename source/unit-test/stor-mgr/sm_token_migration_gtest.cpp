@@ -142,7 +142,7 @@ class SmTokenMigrationTest : public ::testing::Test {
             &SmTokenMigrationTest::snapshotDoneCb, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         tokenMigrationMgr = SmTokenMigrationMgr::unique_ptr(
-                                    new(std::nothrow) SmTokenMigrationMgr(dataStore));
+            new(std::nothrow) SmTokenMigrationMgr(dataStore));
         migration_done = ATOMIC_VAR_INIT(false);
         EXPECT_TRUE(dataStore != NULL);
     }
@@ -242,7 +242,7 @@ TEST_F(SmTokenMigrationTest, destination) {
         dataStore->createObjectDBIfNeeded(SmDiskMap::smTokenId(i+100));
         msg->migrations.push_back(grp);
     }
-    err = tokenMigrationMgr->startMigration(msg, NULL, bitsPerDltToken);
+    err = tokenMigrationMgr->startMigration(msg, NULL, NodeUuid(0x12345), bitsPerDltToken);
 
     // wait until migration is finished
     // TODO(anna) we do not set migration_done to true anywhere

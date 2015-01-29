@@ -15,6 +15,16 @@ table.default {
 //    border-top: 1px solid $text_very_light_color;
 
     thead {
+        
+        th > div {
+            background-color: $sub_header_color;
+            padding: 4px;
+            padding-right: 10px;
+            padding-left: 10px;
+            border-radius: 6px;
+            margin: 4px;
+        }
+        
         th {
             vertical-align: bottom;
 //            border-bottom: 1px solid $text_very_light_color;
@@ -24,15 +34,6 @@ table.default {
             font-weight: normal;
             color: $table_header_color;
             line-height: 19px !important;
-
-            div {
-                background-color: $sub_header_color;
-                padding: 4px;
-                padding-right: 10px;
-                padding-left: 10px;
-                border-radius: 6px;
-                margin: 4px;
-            }
             
             input[type="checkbox"] {
                 vertical-align: middle;

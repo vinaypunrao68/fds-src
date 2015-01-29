@@ -38,10 +38,12 @@
                         <sort-helper ng-model="sortPredicate" value="dm">{{ 'system.th_dm' | translate }}</sort-helper>
                     </th>
 
-                    <th></th>
+                    <th class="process-width" tool-tip text="{{ 'system.tt_remove' | translate }}">
+                        <div>{{ 'common.th_remove' | translate }}</div>
+                    </th>
                 </thead>
                 <tbody>
-                    <tr ng-repeat="node in nodes.nodes | filter:searchText | orderBy:sortPredicate:reverse" class="node-item" >
+                    <tr ng-repeat="node in nodes | filter:searchText | orderBy:sortPredicate:reverse" class="node-item" >
                         <td class="node-name">{{node.name}}</td>
 <!--
                         <td>{{node.site}}</td>
@@ -52,6 +54,7 @@
                         <td class="process-cell process-width oms"><span class="{{getStatus( node.services.OM )}}"></span></td>
                         <td class="process-cell process-width sms"><span class="{{getStatus( node.services.SM )}}"></span></td>
                         <td class="process-cell process-width dms"><span class="{{getStatus( node.services.DM )}}"></span></td>
+                        <td class="process-cell process-width"><span class="icon-delete remove" ng-click="removeNode( node )"></span></td>
                     </tr>
                 </tbody>
             </table>

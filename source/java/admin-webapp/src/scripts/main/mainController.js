@@ -146,6 +146,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
             if ( $state.current.name === view.link ){
                 view.selected = true;
                 noState = false;
+                return;
             }
         }
 

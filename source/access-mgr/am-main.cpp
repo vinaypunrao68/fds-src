@@ -34,13 +34,16 @@ class AMMain : public PlatformProcess
         Module *lckstp[] = { am.get(), NULL };
         proc_assign_locksteps(lckstp);
     }
+
     int run() override {
         am->run();
+
+        std::call_once(mod_shutdown_invoked_,
+                        &FdsProcess::shutdown_modules,
+                        this);
+
         return 0;
     }
-
-  private:
-    AccessMgr::unique_ptr am;
 };
 
 }  // namespace fds

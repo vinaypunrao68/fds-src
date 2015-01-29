@@ -16,7 +16,6 @@ public class Domain
   extends ModelBase {
   private static final long serialVersionUID = 2054093416617447166L;
 
-  private Integer id;
   private Long uuid;
   private String domain;
 
@@ -27,14 +26,6 @@ public class Domain
 
   public static IDomain uuid( final Long uuid ) {
     return new Domain.Builder( uuid );
-  }
-
-  public Integer getId() {
-    return id;
-  }
-
-  public void setId( final Integer id ) {
-    this.id = id;
   }
 
   public String getDomain() {

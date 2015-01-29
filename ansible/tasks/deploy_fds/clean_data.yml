@@ -16,8 +16,20 @@
     tags:
         - clean
 
--   name: clean_redis
+-   name: start redis for clean
+    shell: ./redis.sh start chdir=/fds/sbin
+    when: fds_installed|success
+    tags:
+        - clean
+
+-   name: clean redis
     shell: ./redis.sh clean chdir=/fds/sbin
+    when: fds_installed|success
+    tags:
+        - clean
+
+-   name: stop redis after clean
+    shell: ./redis.sh stop chdir=/fds/sbin
     when: fds_installed|success
     tags:
         - clean

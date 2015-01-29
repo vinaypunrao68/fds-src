@@ -592,6 +592,37 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     }
 }
 
+/* Initialize an instance specific vector of locks to cover the entire
+ * range of potential sm tokens.
+ *
+ * Take a read (or optionally write lock) on a sm token and return
+ * a structure that will automatically call the correct unlock when
+ * it goes out of scope.
+ */
+ObjectStorMgr::always_call
+ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
+    using lock_array_type = std::vector<fds_rwlock*>;
+    static lock_array_type token_locks;
+    static std::once_flag f;
+
+    fds_uint32_t b_p_t = getDLT()->getNumBitsForToken();
+
+    // Once, resize the vector appropriately on the bits in the token
+    std::call_once(f,
+                   [](fds_uint32_t size) {
+                       token_locks.resize(0x01<<size);
+                       token_locks.shrink_to_fit();
+                       for (auto& p : token_locks)
+                       { p = new fds_rwlock(); }
+                   },
+                   b_p_t);
+
+    auto lock = token_locks[id];
+    exclusive ? lock->write_lock() : lock->read_lock();
+    return always_call([lock, exclusive] { exclusive ? lock->write_unlock() : lock->read_unlock(); });
+}
+
+
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol internal processing
  -------------------------------------------------------------------------------------*/
@@ -606,20 +637,34 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
 
-    // latency of ObjectStore layer
-    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
+    {  // token lock
+        auto token_lock = getTokenLock(objId);
 
-    // TODO(Andrew): Remove this copy. The network should allocated
-    // a shared ptr structure so that we can directly store that, even
-    // after the network message is freed.
-    err = objectStore->putObject(volId,
-                                 objId,
-                                 boost::make_shared<std::string>(
-                                     putReq->putObjectNetReq->data_obj));
-    qosCtrl->markIODone(*putReq);
+        // latency of ObjectStore layer
+        PerfTracer::tracePointBegin(putReq->opLatencyCtx);
 
-    // end of ObjectStore layer latency
-    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
+        // TODO(Andrew): Remove this copy. The network should allocated
+        // a shared ptr structure so that we can directly store that, even
+        // after the network message is freed.
+        err = objectStore->putObject(volId,
+                                     objId,
+                                     boost::make_shared<std::string>(
+                                         putReq->putObjectNetReq->data_obj));
+        qosCtrl->markIODone(*putReq);
+
+        // end of ObjectStore layer latency
+        PerfTracer::tracePointEnd(putReq->opLatencyCtx);
+
+        // forward this IO to destination SM if needed, but only if we succeeded locally
+        if (err.ok() &&
+            migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq)) {
+            // we forwarded request, we will respond to PUT on ack
+            // from the destination SM
+            LOGDEBUG << "Forwarded Put " << objId << " to destination SM "
+                     << "; waiting for ack to respond to AM";
+            return err;
+        }
+    }
 
     putReq->response_cb(err, putReq);
     return err;
@@ -638,15 +683,29 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
     LOGDEBUG << "Volume " << std::hex << volId << std::dec
              << " " << objId;
 
-    // start of ObjectStore layer latency
-    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
+    {  // token lock
+        auto token_lock = getTokenLock(objId);
 
-    err = objectStore->deleteObject(volId, objId);
+        // start of ObjectStore layer latency
+        PerfTracer::tracePointBegin(delReq->opLatencyCtx);
 
-    qosCtrl->markIODone(*delReq);
+        err = objectStore->deleteObject(volId, objId);
 
-    // end of ObjectStore layer latency
-    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+        qosCtrl->markIODone(*delReq);
+
+        // end of ObjectStore layer latency
+        PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+
+        // forward this IO to destination SM if needed, but only if we succeeded locally
+        if (err.ok() &&
+            migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq)) {
+            // we forwarded request, we will respond to Delete on ack
+            // from the destination SM
+            LOGDEBUG << "Forwarded Delete " << objId << " to destination SM "
+                     << "; waiting for ack to respond to AM";
+            return err;
+        }
+    }
 
     delReq->response_cb(err, delReq);
     return err;
@@ -898,6 +957,13 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
+
+    // When this lock is held, any put/delete request in that
+    // object id range will block
+    auto token_lock = getTokenLock(snapReq->token_id, true);
+
+    // start forwarding puts and deletes for this SM token
+    migrationMgr->startForwarding(snapReq->token_id);
 
     objectStore->snapshotMetadata(snapReq->token_id,
                                   snapReq->smio_snap_resp_cb,
