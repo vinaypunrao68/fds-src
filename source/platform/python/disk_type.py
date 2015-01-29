@@ -398,6 +398,7 @@ class Disk:
             if node.get('id') == 'cdrom':
                 continue
             node_logicalname = node.find('logicalname')
+            print "node_logicalname = ", node_logicalname
             assert node_logicalname != None
 
             if node_logicalname.text != path:
@@ -412,7 +413,7 @@ class Disk:
                 break
             else:
                 self.dsk_cap = 0
-                print 'ERROR: lshw units size not implemented'
+                print 'ERROR: lshw units size not implemented for:  ', node_logicalname.text
                 assert False
         assert self.dsk_cap != 0
 

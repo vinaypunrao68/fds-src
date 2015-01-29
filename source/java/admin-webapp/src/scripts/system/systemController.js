@@ -9,6 +9,11 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
         $scope.systemVars.next( 'addNode' );
     };
     
+    $scope.removeNode = function( node ){
+        
+        $node_service.removeNode( node );
+    };
+    
     $scope.getOverallStatus = function( node ){
         return $scope.getStatus( $node_service.getOverallStatus( node ) );
     };

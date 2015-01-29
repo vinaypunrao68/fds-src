@@ -7,6 +7,7 @@
 #include <sys/statvfs.h>
 #include <utility>
 
+#include "platform/platform_consts.h"
 #include "platform/platform.h"
 
 namespace fds {
@@ -99,7 +100,7 @@ void SmDiskMap::getDiskMap() {
     std::string   path, dev;
 
     const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
-    std::ifstream map(dir->dir_dev() + std::string("/disk-map"), std::ifstream::in);
+    std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
 
     fds_verify(map.fail() == false);
     while (!map.eof()) {

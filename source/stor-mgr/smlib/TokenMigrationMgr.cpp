@@ -210,7 +210,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         }
     }
     // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
-    migrClient->migClientAddObjToFilterSet(rebalSetMsg);
+    migrClient->migClientStartRebalanceFirstPhase(rebalSetMsg);
     return err;
 }
 
@@ -246,7 +246,9 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
     fds_mutex::scoped_lock l(clientLock);
     // we must have migration client if we are in progress state
     fds_verify(migrClients.count(msg->executorID) != 0);
-    // TODO(Anna) call migrClients[executorId] method here
+    // TODO(Sean):  Need to reset the double sequence for executor on the destion SM
+    //              before starting the second phase.
+    migrClients[msg->executorID]->migClientStartRebalanceSecondPhase(msg);
 
     return err;
 }
