@@ -603,9 +603,9 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
              */
             newIter->ref_cnt = (uint64_t)((int64_t)newIter->ref_cnt -
                                           (int64_t)oldIter->ref_cnt);
-            if (oldIter != oldObjMetaData->assoc_entry.end()) {
-                ++oldIter;
-            }
+            
+            ++oldIter;
+            
             if (newIter != assoc_entry.end()) {
                 ++newIter;
             }
@@ -618,9 +618,8 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
              */
             oldIter->ref_cnt = (uint64_t)((int64_t)-(oldIter->ref_cnt));
             assoc_entry.push_back(*oldIter);
-            if (oldIter != oldObjMetaData->assoc_entry.end()) {
-                ++oldIter;
-            }
+            
+            ++oldIter;
         } else {
             /* It's in the new list, but not in the old list.  no need to do anything
              * here.
