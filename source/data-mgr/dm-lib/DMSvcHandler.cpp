@@ -304,7 +304,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     // see if DM sync feature is enabled
     if (dataMgr->feature.isCatSyncEnabled()) {
-        err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid,
+        err = dataMgr->catSyncMgr->startCatalogSyncDelta("",
                                                          std::bind(
                                                              &DMSvcHandler::NotifyDMTUpdateCb,
                                                              this, asyncHdr,
