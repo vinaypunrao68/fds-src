@@ -23,7 +23,7 @@ namespace metadata
 
 template<typename T>
 using output_type = std::list<T>;
-using elem_type = boost::shared_ptr<ObjMetaData const>;
+using elem_type = boost::shared_ptr<ObjMetaData>;
 using metadata_diff_type = output_type<std::pair<elem_type, elem_type>>;
 
 void
