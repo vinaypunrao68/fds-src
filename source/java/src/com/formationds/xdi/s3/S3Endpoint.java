@@ -42,7 +42,7 @@ public class S3Endpoint {
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
         webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration);
-        authenticator = new S3Authenticator(xdi, secretKey);
+        authenticator = new S3Authenticator(xdi.getAuthorizer(), secretKey);
     }
 
     public static String formatAwsDate(DateTime dateTime) {
@@ -126,7 +126,7 @@ public class S3Endpoint {
             public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
                 try {
                     AuthenticationToken token = null;
-                    token = new S3Authenticator(xdi, secretKey).authenticate(request);
+                    token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(request);
                     AuthenticatedRequestContext.begin(token);
                     Function<AuthenticationToken, RequestHandler> errorHandler = new S3FailureHandler(f);
                     return errorHandler.apply(token).handle(request, routeParameters);

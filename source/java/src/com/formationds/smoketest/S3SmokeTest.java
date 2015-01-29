@@ -376,7 +376,7 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void testAnonymousAccessDenied() throws Exception {
+    public void testForbiddenAnonymousPut() throws Exception {
         String key = UUID.randomUUID().toString();
         userClient.putObject(userBucket, key, new ByteArrayInputStream(new byte[42]), new ObjectMetadata());
         HttpResponse response = anonymousGet(key);
@@ -384,7 +384,7 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void testAnonymousListBuckets() throws Exception {
+    public void testForbiddenAnonymousListBuckets() throws Exception {
         String url = "https://" + host + ":8443/";
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet(url);
@@ -402,6 +402,15 @@ public class S3SmokeTest {
             String error = e.toString();
             assertTrue(error.contains("Status Code: 404"));
         }
+    }
+
+    @Test
+    public void testForbiddenAnonymousCreateBucket() throws Exception {
+        String url = "https://" + host + ":8443/" + UUID.randomUUID().toString();
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpPut put = new HttpPut(url);
+        HttpResponse response = httpClient.execute(put);
+        assertEquals(403, response.getStatusLine().getStatusCode());
     }
 
     @Test

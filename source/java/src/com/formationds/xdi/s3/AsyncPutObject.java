@@ -1,10 +1,11 @@
 package com.formationds.xdi.s3;
 
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authorizer;
 import com.formationds.spike.later.HttpPathContext;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.xdi.XdiAsync;
+import com.formationds.xdi.security.Intent;
+import com.formationds.xdi.security.XdiAuthorizer;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.server.Request;
@@ -17,10 +18,10 @@ import java.util.function.Function;
 
 public class AsyncPutObject implements Function<HttpPathContext, CompletableFuture<Void>> {
     private XdiAsync xdiAsync;
+    private XdiAuthorizer authorizer;
     private S3Authenticator authenticator;
-    private Authorizer authorizer;
 
-    public AsyncPutObject(XdiAsync xdiAsync, S3Authenticator authenticator, Authorizer authorizer) {
+    public AsyncPutObject(XdiAsync xdiAsync, S3Authenticator authenticator, XdiAuthorizer authorizer) {
         this.xdiAsync = xdiAsync;
         this.authenticator = authenticator;
         this.authorizer = authorizer;
@@ -68,7 +69,7 @@ public class AsyncPutObject implements Function<HttpPathContext, CompletableFutu
                         cf.complete(null);
                     } else {
                         AuthenticationToken token = authenticator.authenticate(request);
-                        if (authorizer.hasAccess(token, bucket)) {
+                        if (authorizer.hasVolumePermission(token, bucket, Intent.write)) {
                             cf.complete(null);
                         } else {
                             cf.completeExceptionally(new SecurityException());
