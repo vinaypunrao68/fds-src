@@ -34,7 +34,7 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
         fds_panic("We moved to new service layer, must not be called!");
         // thsi will ignore this msg if catalog sync is not in progress
         if (dataMgr->feature.isCatSyncEnabled()) {
-            err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
+            err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid, NULL);
         } else {
             LOGWARN << "catalog sync feature - NOT enabled";
         }
