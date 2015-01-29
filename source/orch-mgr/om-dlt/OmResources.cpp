@@ -1172,7 +1172,6 @@ OM_NodeDomainMod::om_dmt_update_cluster() {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     dmtMod->dmt_deploy_event(DmtDeployEvt());
-
     // in case there are no vol acks to wait
     dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }
