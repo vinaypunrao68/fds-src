@@ -37,6 +37,7 @@ struct RequestHelper {
 struct QueueHelper {
     fds_bool_t ioIsMarkedAsDone;
     fds_bool_t cancelled;
+    fds_bool_t skipImplicitCb;
     dmCatReq *dmRequest;
     Error err = ERR_OK;
     explicit QueueHelper(dmCatReq *dmRequest);
@@ -189,6 +190,9 @@ struct ForwardCatalogUpdateHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
+    void handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
+                          Error const& e, dmCatReq* dmRequest);
 };
 
 struct GetVolumeMetaDataHandler : Handler {

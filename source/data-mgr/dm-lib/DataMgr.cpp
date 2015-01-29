@@ -22,8 +22,7 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
                             const std::string& session_uuid) {
     Error err(ERR_OK);
     OMgrClient* om_client = dataMgr->omClient;
-
-    GLOGNORMAL << "Received Volume Catalog request";
+    LOGNORMAL << "Received volume catalog action request " << catalog_action;
     if (catalog_action == fds_catalog_push_meta) {
         if (dataMgr->feature.isCatSyncEnabled()) {
             err = dataMgr->catSyncMgr->startCatalogSync(
@@ -40,7 +39,6 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
         }
     } else if (catalog_action == fds_catalog_dmt_close) {
         // will finish forwarding when all queued updates are processed
-        GLOGNORMAL << "Received DMT Close";
         err = dataMgr->notifyDMTClose();
     } else {
         fds_assert(!"Unknown catalog command");
@@ -1226,10 +1224,6 @@ DataMgr::snapVolCat(dmCatReq *io) {
     DmIoSnapVolCat *snapReq = static_cast<DmIoSnapVolCat*>(io);
     fds_verify(snapReq != NULL);
 
-    LOGDEBUG << "Will do first or second rsync for volume "
-             << std::hex << snapReq->volId << " to node "
-             << (snapReq->node_uuid).uuid_get_val() << std::dec;
-
     if (io->io_type == FDS_DM_SNAPDELTA_VOLCAT) {
         // we are doing second rsync, set volume state to forward
         // We are doing this before we do catalog rsync, so some
@@ -1243,8 +1237,20 @@ DataMgr::snapVolCat(dmCatReq *io) {
         vol_map_mtx->lock();
         fds_verify(vol_meta_map.count(snapReq->volId) > 0);
         VolumeMeta *vol_meta = vol_meta_map[snapReq->volId];
+        // TODO(Andrew): We're setting the forwarding state separately from
+        // taking the snapshot, which means that we'll start forwarding
+        // data that will also be in the delta snapshot that we rsync, which
+        // is incorrect. These two steps should be made atomic.
         vol_meta->setForwardInProgress();
         vol_map_mtx->unlock();
+        LOGDEBUG << "Starting 2nd (delta) rsync for volume " << std::hex
+                 << snapReq->volId << " to node "
+                 << (snapReq->node_uuid).uuid_get_val() << std::dec;
+    } else {
+        fds_verify(FDS_DM_SNAP_VOLCAT == io->io_type);
+        LOGDEBUG << "Starting 1st rsync for volume " << std::hex
+                 << snapReq->volId << " to node "
+                 << (snapReq->node_uuid).uuid_get_val() << std::dec;
     }
 
     // sync the catalog
