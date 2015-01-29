@@ -351,6 +351,7 @@ precheckin:
 	@echo Run precheckin....
 	@echo Running Unit tests
 	(cd $(topdir) && ../jenkins_scripts/run-unit-tests.py)
+	@echo Running Smoke test
 	(cd $(topdir) && python test/fds-primitive-smoke.py)
 
 # -----------------------------------------------------------------------------
