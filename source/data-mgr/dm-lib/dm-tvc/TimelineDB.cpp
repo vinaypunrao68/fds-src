@@ -103,6 +103,31 @@ Error TimelineDB::removeJournalFile(fds_volid_t volId, const std::string& journa
     return ERR_OK;
 }
 
+Error TimelineDB::removeOldJournalFiles(fds_volid_t volId, TimeStamp uptoTime,
+                                        std::vector<JournalFileInfo>& vecJournalFiles) {
+    DECLARE_DB_VARS();
+    Error err(ERR_OK);
+    // get the latest file lesser than the upto time
+    sql = util::strformat("select starttime from journaltbl where volid=%ld and "
+                          "starttime <= %ld order by starttime desc limit 1",
+                          uptoTime);
+    TimeStamp startTime = 0;
+    getInt(sql, startTime);
+    if (startTime == 0) {
+        LOGDEBUG << "no old files to be removed before : " << uptoTime;
+        return err;
+    }
+    // dec the time by 1 so that we get the correct journal files.
+    startTime -= 1;
+    getJournalFiles(volId, 0, startTime, vecJournalFiles);
+    sql = util::strformat(
+        "delete from journaltbl where "
+        "volid = %ld and starttime <= %ld",
+        volId, startTime);
+    rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
+    CHECK_SQL_CODE("unable to delete records from db");
+    return err;
+}
 
 Error TimelineDB::getJournalFiles(fds_volid_t volId, TimeStamp fromTime, TimeStamp toTime,
                                   std::vector<JournalFileInfo>& vecJournalFiles) {
@@ -111,9 +136,9 @@ Error TimelineDB::getJournalFiles(fds_volid_t volId, TimeStamp fromTime, TimeSta
     TimeStamp startTime = 0;
 
     // get the highest time <= fromTime
-    sql = util::strformat("select starttime from journaltbl where "
+    sql = util::strformat("select starttime from journaltbl where volid=%ld and "
                           "starttime <= %ld order by starttime desc limit 1",
-                          fromTime);
+                          volId, fromTime);
     getInt(sql, startTime);
 
     sql = util::strformat(

@@ -1169,22 +1169,6 @@ set(SOURCE_FILES
     source/stor-mgr/include/TierEngine.h
     source/stor-mgr/include/TierMigration.h
     source/stor-mgr/include/TierPutAlgorithms.h
-    source/stor-mgr/migrations/fds_base_migrators.h
-    source/stor-mgr/migrations/fds_migration.cpp
-    source/stor-mgr/migrations/fds_migration.h
-    source/stor-mgr/migrations/TokenPullReceiver.cpp
-    source/stor-mgr/migrations/TokenPullReceiver.h
-    source/stor-mgr/migrations/TokenPullSender.cpp
-    source/stor-mgr/migrations/TokenPullSender.h
-    source/stor-mgr/migrations/TokenReceiver.cpp
-    source/stor-mgr/migrations/TokenReceiver.h
-    source/stor-mgr/migrations/TokenSender.cpp
-    source/stor-mgr/migrations/TokenSender.h
-    source/stor-mgr/migrations/TokenSyncBaseEvents.h
-    source/stor-mgr/migrations/TokenSyncReceiver.cpp
-    source/stor-mgr/migrations/TokenSyncReceiver.h
-    source/stor-mgr/migrations/TokenSyncSender.cpp
-    source/stor-mgr/migrations/TokenSyncSender.h
     source/stor-mgr/platform/sm-node-workflow.cpp
     source/stor-mgr/platform/sm-platform.cpp
     source/stor-mgr/policy/policy_rpc.cpp
@@ -1812,5 +1796,7 @@ include_directories(source/lib)
 include_directories(source/orch-mgr/include)
 include_directories(source/platform/include)
 include_directories(source/stor-mgr/include)
+include_directories(source/include)
+include_directories(source/include/net)
 
 add_executable(dev ${SOURCE_FILES})

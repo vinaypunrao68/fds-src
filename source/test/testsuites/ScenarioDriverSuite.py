@@ -172,6 +172,12 @@ def suiteConstruction():
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
                         suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown(node=node))
+
+                        # Shutdown Redis on the machine if we started it.
+                        if 'redis' in node.nd_conf_dict:
+                            if node.nd_conf_dict['redis'] == 'true':
+                                suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis(node=node))
+
                         break
 
                 if found:
@@ -183,13 +189,26 @@ def suiteConstruction():
                     log.error("Node not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
-            elif action == "cleaninst":
-                # Clean up the installation area build during bootup.
+            elif action == "deletefds":
+                # Delete the installation area built during bootup.
                 found = False
                 for node in scenario.cfg_sect_nodes:
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
                         suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
+                        break
+
+                if not found:
+                    log.error("Node not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
+            elif action == "cleaninst":
+                # Selectively clean up the installation area built during bootup.
+                found = False
+                for node in scenario.cfg_sect_nodes:
+                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
+                        found = True
+                        suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
                         break
 
                 if not found:
@@ -344,6 +363,64 @@ def suiteConstruction():
                 log.error("Unrecognized node action '%s' for scenario %s" %
                           (action, scenario.nd_conf_dict['scenario-name']))
                 raise Exception
+
+        elif re.match('\[waitforlog\]', script) is not None:
+            # Verify the section.
+            if ('fds_node' not in scenario.nd_conf_dict) or \
+                ('service' not in scenario.nd_conf_dict) or \
+                ('logentry' not in scenario.nd_conf_dict) or \
+                ('occurrences' not in scenario.nd_conf_dict) or \
+                ('maxwait' not in scenario.nd_conf_dict):
+                log.error("Scenario section %s is missing one of 'fds_node', 'service', 'logentry', 'occurrences', or 'maxwait'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+            elif scenario.nd_conf_dict['service'] not in ["om", "am", "sm", "dm", "pm"]:
+                log.error("Scenario section %s service config identifies an invalid service, %s." %
+                          (scenario.nd_conf_dict['scenario-name'], scenario.nd_conf_dict['service']))
+                raise Exception
+            elif len(scenario.nd_conf_dict['logentry']) == 0:
+                log.error("Scenario section %s logentry config identifies an empty string." %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+            else:
+                occurrences = int(scenario.nd_conf_dict['occurrences'])
+                maxwait = int(scenario.nd_conf_dict['maxwait'])
+
+            # Locate the node.
+            found = False
+            n = None
+            for node in scenario.cfg_sect_nodes:
+                if node.nd_conf_dict['node-name'] == scenario.nd_conf_dict['fds_node']:
+                    found = True
+                    suite.addTest(testcases.TestFDSSysVerify.TestWaitForLog(node=node, service=scenario.nd_conf_dict['service'],
+                                                                            logentry=scenario.nd_conf_dict['logentry'],
+                                                                            occurrences=occurrences, maxwait=maxwait))
+                    break
+
+            if found:
+                # Give the test some time if requested.
+                if 'delay_wait' in scenario.nd_conf_dict:
+                    suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                             reason="just because"))
+            else:
+                log.error("Node not found for scenario '%s'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+
+        elif re.match('\[canonmatch\]', script) is not None:
+            # Verify the section.
+            if ('canon' not in scenario.nd_conf_dict) or \
+               ('filetocheck' not in scenario.nd_conf_dict):
+                log.error("Scenario section %s is missing one of 'canon', or 'filetocheck'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+
+            suite.addTest(testcases.TestFDSSysVerify.TestCanonMatch(canon=scenario.nd_conf_dict['canon'],
+                                                                    fileToCheck=scenario.nd_conf_dict['filetocheck']))
+
+            # Give the test some time if requested.
+            if 'delay_wait' in scenario.nd_conf_dict:
+                suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                         reason="just because"))
 
         elif re.match('\[testcases.+\]', script) is not None:
             # Do we have any parameters?

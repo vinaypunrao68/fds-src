@@ -19,6 +19,7 @@ import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
@@ -200,7 +201,7 @@ public class S3SmokeTest {
             userClient.deleteBucket(bucketName);
             testBucketNotExists(bucketName, true);
             userClient.createBucket(bucketName);
-            testBucketExists( bucketName, true );
+            testBucketExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient,
                                      bucketName);
@@ -218,7 +219,7 @@ public class S3SmokeTest {
             }
             testBucketExists(bucketName, true);
             userClient.deleteBucket(bucketName);
-            testBucketNotExists( bucketName, true );
+            testBucketNotExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient, bucketName);
         }
@@ -252,7 +253,9 @@ public class S3SmokeTest {
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
                     byte[] buf = new byte[(1 + i) * (1024 * 1024)];
-                    rng.nextBytes(buf);
+                    for (int j = 0; j < buf.length; j++) {
+                        buf[j] = (byte) -1;
+                    }
                     UploadPartRequest request = new UploadPartRequest()
                             .withBucketName(userBucket)
                             .withKey(key)
@@ -367,6 +370,47 @@ public class S3SmokeTest {
         HttpResponse response = httpClient.execute(httpGet);
         byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
         assertArrayEquals(buf, bytes);
+    }
+
+    @Test
+    public void testAnonymousAccessDenied() throws Exception {
+        String key = UUID.randomUUID().toString();
+        HttpResponse response = anonymousGet(key);
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatusLine().getStatusCode());
+    }
+
+    @Test
+    public void testAnonymousListBuckets() throws Exception {
+        String url = "https://" + host + ":8443/";
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        HttpResponse response = httpClient.execute(httpGet);
+        assertEquals(403, response.getStatusLine().getStatusCode());
+    }
+
+    // Commented pending FS-835
+    // @Test
+    public void testMissingObject() throws Exception {
+        try {
+            userClient.getObject(userBucket, UUID.randomUUID().toString());
+        } catch (AmazonS3Exception e) {
+            String error = e.toString();
+            assertTrue(error.contains("Status Code: 404"));
+            return;
+        }
+
+        fail("Should have gotten an AmazonS3Exception with a 404 status code");
+    }
+
+    //@Test
+    public void testAcls() throws Exception {
+        String key = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        userClient.setObjectAcl(userBucket, key, CannedAccessControlList.PublicRead);
+        HttpResponse httpResponse = anonymousGet(key);
+        assertEquals(HttpServletResponse.SC_OK, httpResponse.getStatusLine().getStatusCode());
+        byte[] result = IOUtils.toByteArray(httpResponse.getEntity().getContent());
+        assertArrayEquals(randomBytes, result);
     }
 
     @Test
@@ -500,4 +544,11 @@ public class S3SmokeTest {
                 .getContent()));
     }
 
+    private HttpResponse anonymousGet(String key) throws Exception {
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(new byte[42]), new ObjectMetadata());
+        String url = "https://" + host + ":8443/" + userBucket + "/" + key;
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        return httpClient.execute(httpGet);
+    }
 }

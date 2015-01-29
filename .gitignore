@@ -113,6 +113,7 @@ source/test/formation.conf
 source/config/etc/*.conf
 source/config/user-repo/
 source/config/sys-repo/
+source/config/var
 ansible/resources/*
 ansible/.devsetup-is-*
 source/cit/*.xml

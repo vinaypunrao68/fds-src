@@ -212,6 +212,17 @@ struct DMTester :  FdsProcess {
         shutdown_modules();
     }
 
+    void clean() {        
+        const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+        if (root) {
+            std::ostringstream oss;
+            oss << "rm -rf " << root->dir_user_repo_dm() << "*";
+            int rc = system(oss.str().c_str());
+        } else {
+            GLOGERROR << "unable to get fds root dir";
+        }
+    }
+
     int run() override {
         return 0;
     }

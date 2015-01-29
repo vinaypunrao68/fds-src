@@ -187,6 +187,7 @@ class StorMgrVolumeTable : public HasLogger {
 
          return volIds;
      }
+     bool hasFlashOnlyVolumes(const std::vector<fds_volid_t>& inVols);
 
     private:
      /* Reference to parent SM instance */

@@ -162,6 +162,18 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
             LOGDEBUG << "DST_DomainUp. Evt: " << e.logString();
         }
     };
+    struct DST_DomainShutdown : public msm::front::state<>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_DomainShutdown. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_DomainShutdown. Evt: " << e.logString();
+        }
+    };
 
     /**
      * Define the initial state.
@@ -212,6 +224,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_Shutdown
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
 
     /**
      * Guard conditions.
@@ -247,8 +264,10 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         msf::Row< DST_WaitNds, RegNodeEvt  ,DST_WaitDltDmt, DACT_NodesUp , GRD_NdsUp   >,  // NOLINT
         msf::Row< DST_WaitNds, TimeoutEvt  ,DST_WaitDltDmt, DACT_UpdDlt , GRD_EnoughNds>,  // NOLINT
         // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_WaitDltDmt, DltDmtUpEvt, DST_DomainUp, DACT_LoadVols, GRD_DltDmtUp >
-        // +------------------+-------------+------------+---------------+-------------+
+        msf::Row<DST_WaitDltDmt, DltDmtUpEvt, DST_DomainUp, DACT_LoadVols, GRD_DltDmtUp>,
+        // +-----------------+-------------+------------+---------------+--------------+
+        msf::Row<DST_DomainUp, ShutdownEvt , DST_DomainShutdown, DACT_Shutdown, msf::none >
+        // +-----------------+-------------+------------+---------------+--------------+
         >{};  // NOLINT
 
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
@@ -610,6 +629,28 @@ NodeDomainFSM::GRD_DltDmtUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         return false;
     }
 }
+
+/**
+ * DACT_Shutdown
+ * ------------
+ * Send shutdown command to all services
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
+    LOGDEBUG << "Will send shutdown msg to all services";
+
+    // broadcast shutdown msg to all services
+    dom_ctrl->om_bcast_shutdown_msg();
+
+    // TODO(Anna) we are not currently waiting for responses. Implement waiting
+    // for acks to confirm that each service shut down
+    LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
+}
+
 //--------------------------------------------------------------------
 // OM Node Domain
 //--------------------------------------------------------------------
@@ -691,6 +732,10 @@ void OM_NodeDomainMod::local_domain_event(TimeoutEvt const &evt) {
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(NoPersistEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
+    domain_fsm->process_event(evt);
+}
+void OM_NodeDomainMod::local_domain_event(ShutdownEvt const &evt) {
     fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
@@ -1026,6 +1071,15 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             LOGDEBUG << "Unregistered SM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result: " << err.GetErrstr();
+
+            // send shutdown msg to SM
+            if (err.ok()) {
+                err = smAgent->om_send_shutdown();
+            } else {
+                LOGERROR << "Failed to unregister SM node " << node_name << ":"
+                         << std::dec << node_uuid.uuid_get_val() << std::hex << " " << err
+                         << ". Not sending shutdown message to SM";
+            }
         }
         if (om_local_domain_up()) {
             om_dlt_update_cluster();
@@ -1040,6 +1094,14 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             LOGDEBUG << "Unregistered DM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result: " << err.GetErrstr();
+            // send shutdown msg to DM
+            if (err.ok()) {
+                err = dmAgent->om_send_shutdown();
+            } else {
+                LOGERROR << "Failed to unregister DM node " << node_name << ":"
+                         << std::dec << node_uuid.uuid_get_val() << std::hex << " " << err
+                         << ". Not sending shutdown message to DM";
+            }
         }
         om_dmt_update_cluster();
     }
@@ -1052,8 +1114,36 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             LOGDEBUG << "Unregistered AM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result " << err.GetErrstr();
+
+            // send shutdown msg to AM
+            if (err.ok()) {
+                err = amAgent->om_send_shutdown();
+            } else {
+                LOGERROR << "Failed to unregister AM node " << node_name << ":"
+                         << std::dec << node_uuid.uuid_get_val() << std::hex << " " << err
+                         << ". Not sending shutdown message to AM";
+            }
         }
     }
+
+    return err;
+}
+
+// om_shutdown_domain
+// ------------------------
+//
+Error
+OM_NodeDomainMod::om_shutdown_domain()
+{
+    Error err(ERR_OK);
+    if (!om_local_domain_up()) {
+        LOGWARN << "Domain is not up yet.. not going to shutdown, try again soon";
+        return ERR_NOT_READY;
+    }
+
+    LOGNOTIFY << "Shutting down domain, will stop processing node add/remove"
+              << " and other commands for the domain";
+    local_domain_event(ShutdownEvt());
 
     return err;
 }
@@ -1082,7 +1172,6 @@ OM_NodeDomainMod::om_dmt_update_cluster() {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     dmtMod->dmt_deploy_event(DmtDeployEvt());
-
     // in case there are no vol acks to wait
     dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }

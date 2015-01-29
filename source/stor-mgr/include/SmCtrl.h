@@ -145,6 +145,8 @@ class SmTieringCmd {
     enum CommandType {
         TIERING_ENABLE,
         TIERING_DISABLE,
+        /* Debug message for manually starting hybrid tier controller */
+        TIERING_START_HYBRIDCTRLR,
         TIERING_CMD_NOT_SET
     };
     SmTieringCmd() : command(TIERING_CMD_NOT_SET) {}

@@ -540,6 +540,47 @@ void DmTimeVolCatalog::monitorLogs() {
             }
         } while (processedEvent);
 
+        // get the list of volumes in the system
+        std::vector<fds_volid_t> vecVolIds;
+        {
+            fds_scoped_spinlock l(commitLogLock_);
+            vecVolIds.reserve(commitLogs_.size());
+            for (const auto& item : commitLogs_) {
+                vecVolIds.push_back(item.first);
+            }
+        }
+        
+        // now check for each volume if the commit log time has been exceeded
+        TimeStamp now = fds::util::getTimeStampMicros();
+        std::vector<JournalFileInfo> vecJournalFiles;
+        TimeStamp retention = 0;
+        int rc;
+        for (const auto& volid : vecVolIds) {
+            vecJournalFiles.clear();
+            const VolumeDesc *volumeDesc = dataMgr->getVolumeDesc(volid);
+            if (!volumeDesc) {
+                LOGWARN << "unable to get voldesc for vol:" << volid;
+                continue;
+            }
+            retention = volumeDesc->contCommitlogRetention * 1000 * 1000;
+            // TODO(prem) : remove this soon
+            bool fRemoveOldLogs = false;
+            if (retention > 0 && fRemoveOldLogs) {
+                dataMgr->timeline.removeOldJournalFiles(volid, now-retention,
+                                                        vecJournalFiles);
+                LOGDEBUG << "[" << vecJournalFiles.size() << "] files will be removed";
+                for (const auto& journal : vecJournalFiles) {
+                    rc = unlink(journal.journalFile.c_str());
+                    if (rc) {
+                        LOGERROR << "unable to remove old archive : " << journal.journalFile;
+                    } else {
+                        LOGDEBUG << "journal file removed successfully : " << journal.journalFile;
+                    }
+                }
+            }
+        }        
+
+
         do {
             eventReady = false;
             errno = 0;

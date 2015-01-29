@@ -65,6 +65,7 @@ function usage() {
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
     log "   - $(yellow tail)      : tail the application log file"
+    log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
     log "   - $(yellow release)   : switch to $(green release) build"
     log "   - $(yellow debug)     : switch to $(red debug) build"
@@ -353,6 +354,32 @@ function taillog() {
     esac
 }
 
+function showerrors() {
+    local apps="$@"
+    if [[ $1 == 'all' ]]; then
+        apps="am om dm sm pm xdi"
+    fi
+    for app in ${apps}; do
+        loginfo $(yellow "showing errors/warn/critical log data for : ") $(blue $app)
+        case "${app}" in
+            om|am|dm|sm)
+                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSROOT}/var/logs/${app}.log*.log 2>/dev/null
+                ;;
+            pm)
+                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSROOT}/var/logs/platform.log*.log 2>/dev/null
+                ;;
+            xdi)
+                grep -E " (WARN|ERROR|FATAL) " ${FDSROOT}/var/logs/om-xdi*.log ${FDSROOT}/var/logs/xdi*.log 2>/dev/null
+                ;;
+            *)
+                logerror "can grep logs of only om|am|dm|sm|pm|xdi"
+                ;;
+        esac
+        echo
+    done
+}
+
+
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
         bin_dir=${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/${node}
@@ -491,7 +518,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail) ;;
+    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*) ;;
     *)
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -533,6 +560,9 @@ case "${CMD}" in
         ;;
     tail)
         taillog $APP
+        ;;
+    err*)
+        showerrors $APP
         ;;
     *) usage ;;
 esac

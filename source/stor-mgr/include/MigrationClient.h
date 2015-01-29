@@ -7,6 +7,7 @@
 
 #include <list>
 #include <map>
+#include <atomic>
 
 #include <fds_types.h>
 
@@ -35,6 +36,15 @@ class MigrationClient {
                              fds_uint32_t bitsPerToken);
     ~MigrationClient();
 
+     enum MigrationClientState {
+            MIG_CLIENT_INIT,
+            MIG_CLIENT_FILTER_SET,
+            MIG_CLIENT_FIRST_PHASE_DELTA_SET,
+            MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE,
+            MIG_CLIENT_SECOND_PHASE_DELTA_SET,
+            MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE,
+            MIG_CLIENT_FINISH
+     };
 
     typedef std::unique_ptr<MigrationClient> unique_ptr;
     typedef std::shared_ptr<MigrationClient> shared_ptr;
@@ -53,10 +63,15 @@ class MigrationClient {
      *             Since, not sure what this callback is going to do, making
      *             it a generic name.
      */
-    void migClientSnapshotCB(const Error& error,
-                             SmIoSnapshotObjectDB* snapRequest,
-                             leveldb::ReadOptions& options,
-                             leveldb::DB *db);
+    void migClientSnapshotFirstPhaseCb(const Error& error,
+                                       SmIoSnapshotObjectDB* snapRequest,
+                                       leveldb::ReadOptions& options,
+                                       leveldb::DB *db);
+
+    void migClientSnapshotSecondPhaseCb(const Error& error,
+                                        SmIoSnapshotObjectDB* snapRequest,
+                                        leveldb::ReadOptions& options,
+                                        leveldb::DB *db);
 
     /**
      * Add initial set of DLT and Objects to the clients
@@ -73,14 +88,17 @@ class MigrationClient {
      *              sequence number isn't updated for a long time, take the
      *              node offline.
      */
-    Error migClientAddObjToFilterSet(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet);
+    Error migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet);
+
+    Error migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhaseMsg);
 
     /**
      * Callback from the QoS
      */
-    void
-    migClientReadObjDeltaSetCb(const Error& error,
-                               SmIoReadObjDeltaSetReq *req);
+    void migClientReadObjDeltaSetCb(const Error& error,
+                                    SmIoReadObjDeltaSetReq *req);
+
+
 
   private:
     /* Verify that set of DLT tokens belong to the same SM token.
@@ -90,26 +108,35 @@ class MigrationClient {
 
     /* Add object meta data to the set to be sent to QoS.
      */
-    void migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaDataSet,
+    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bool>>& objMetaDataSet,
                               fds_bool_t lastSet);
 
     /**
      * Return sequence number for delta set message from source SM to
      * destination SM.
      */
-    fds_uint64_t
-    getSeqNumDeltaSet() {
-        return seqNumDeltaSet++;
-    };
+    uint64_t getSeqNumDeltaSet();
 
     /**
      * Reset sequence number
      */
-    void
-    resetSeqNumDeltaSet() {
-        seqNumDeltaSet = 0UL;
-    };
+    void resetSeqNumDeltaSet();
 
+    /**
+     * Get current MigrationClient state.
+     */
+    MigrationClientState getMigClientState();
+
+    /**
+     * Set current Migration Client state.
+     */
+    void setMigClientState(MigrationClientState newState);
+
+    /**
+     * MigrationClient state.
+     * Doesn't really need to be atomic, but for safety in future????
+     */
+    std::atomic<MigrationClientState> migClientState;
 
     /**
      * SM token which is derived from the set of DLT tokens.
@@ -124,7 +151,7 @@ class MigrationClient {
     /**
      * Mutex for dltTokenIDs and filterObjectSet.
      */
-    std::mutex filterSetLock;
+    std::mutex migClientLock;
 
     /**
      * Set of dlt tokens to filter against the the snapshot.
@@ -184,15 +211,16 @@ class MigrationClient {
     SmIoSnapshotObjectDB snapshotRequest;
 
     /**
-     * Pointer to the snapshot.  This is set in the snapshot callback.
+     * Pointer to first leveldb snapshot.  This is set in the snapshot callback.
      */
-    leveldb::DB *snapDB;
+    leveldb::DB *firstPhaseLevelDB;
+    leveldb::ReadOptions firstPhaseReadOptions;
 
     /**
-     * Pointer to the snapshot iterator.  We need to save the iterator,
-     * since we need to keep the pointer to the current iteration.
+     * Pointer to second leveldb snapshot.  This is set in the snapshot callback.
      */
-    leveldb::Iterator *iterDB;
+    leveldb::DB *secondPhaseLevelDB;
+    leveldb::ReadOptions secondPhaseReadOptions;
 
     /**
      * Maximum number of objects to send in delta set back to the destination SM.
@@ -203,7 +231,7 @@ class MigrationClient {
      * Maintain the sequence number for the delta set of object to be sent
      * from the source SM to destination SM.
      */
-    fds_uint64_t seqNumDeltaSet;
+    std::atomic<uint64_t> seqNumDeltaSet;
 
     /**
      * Standalone test mode.

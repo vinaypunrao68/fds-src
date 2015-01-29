@@ -390,6 +390,31 @@ int32_t FDSP_ConfigPathReqHandler::DeleteDomain(
     return err;
 }
 
+int32_t FDSP_ConfigPathReqHandler::ShutdownDomain(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_ShutdownDomainType& shut_dom_req) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t FDSP_ConfigPathReqHandler::ShutdownDomain(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_ShutdownDomainTypePtr& shut_dom_req) {
+
+    Error err(ERR_OK);
+    try {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        err = domain->om_shutdown_domain();
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing shutdown domain";
+        return -1;
+    }
+
+    return err.GetErrno();
+}
+
 int32_t FDSP_ConfigPathReqHandler::SetThrottleLevel(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ThrottleMsgType& throttle_msg) {
