@@ -329,9 +329,31 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     err = objectStore->applyObjectMetadataData((migrVolume->testdata_).dataset_[index], msg);
     EXPECT_TRUE(err == ERR_SM_TOK_MIGRATION_NO_DATA_RECVD);
 
+    // apply object with data during second phase, when object
+    // did not exist during the first phase
+    ++index;
+    EXPECT_TRUE(index < (migrVolume->testdata_).dataset_.size());
+    ObjectID newOid = (migrVolume->testdata_).dataset_[index];
+    boost::shared_ptr<std::string> newData =
+            (migrVolume->testdata_).dataset_map_[oid].getObjectData();
+    msg.isObjectMetaDataReconcile = true;
+    msg.objectData.clear();
+    msg.objectData.resize(newData->length());
+    msg.objectData.assign(*newData);
+    msg.objectSize = newData->length();
+    err = objectStore->applyObjectMetadataData(newOid, msg);
+    EXPECT_TRUE(err.ok());
+    // read and see if data is there...
+    boost::shared_ptr<const std::string> retNewData;
+    diskio::DataTier usedTierNew = diskio::maxTier;
+    retNewData = objectStore->getObject((migrVolume->voldesc_).volUUID, newOid, usedTierNew, err);
+    EXPECT_TRUE(err.ok());
+    EXPECT_TRUE((migrVolume->testdata_).dataset_map_[newOid].isValid(retNewData));
+    ++index;
+
     // apply second set of objects + one more metadata change (refcnt ++)
     LOGDEBUG << "Applying second half of objects to object store";
-    for (fds_uint32_t i = firstSetSize; i < (migrVolume->testdata_).dataset_.size(); ++i) {
+    for (fds_uint32_t i = index; i < (migrVolume->testdata_).dataset_.size(); ++i) {
         ObjectID oid = (migrVolume->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (migrVolume->testdata_).dataset_map_[oid].getObjectData();
