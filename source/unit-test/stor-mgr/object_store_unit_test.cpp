@@ -398,7 +398,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
 
         // add new volume association
         MetaDataVolumeAssoc volAssoc2;
-        volAssoc2.volumeAssoc = 0x123456;
+        volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID;
         volAssoc2.volumeRefCnt = 3;
         msg.objectRefCnt = 3;
         msg.objectVolumeAssoc.push_back(volAssoc2);

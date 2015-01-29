@@ -628,6 +628,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                     it->ref_cnt = newRefcnt;
                     if (newRefcnt == 0) {
                         assoc_entry.erase(it);
+                        obj_map.obj_num_assoc_entry = assoc_entry.size();
                     }
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
