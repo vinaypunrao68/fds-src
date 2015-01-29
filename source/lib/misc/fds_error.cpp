@@ -58,6 +58,7 @@ const char* fds_errstrs[] = {
     "Invalid volume ID",
     "Journal time not available",
     "Unable to replay journal for provided interval",
+    "DM forwarding failed",
     "Service is shutting down",
     // Good up to here. 01/28/2015
     "SM object metadata not found",
