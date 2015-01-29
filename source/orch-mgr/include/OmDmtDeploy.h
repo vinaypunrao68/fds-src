@@ -28,6 +28,15 @@ class DmtDeployEvt
     }
 };
 
+class DmtRecoveryEvt
+{
+  public:
+    DmtRecoveryEvt() {}
+    std::string logString() const {
+        return "DmtRecoveryEvt";
+    }
+};
+
 class DmtLoadedDbEvt
 {
   public:
@@ -136,6 +145,7 @@ class OM_DMTMod : public Module
     void dmt_deploy_event(DmtLoadedDbEvt const &evt);
     void dmt_deploy_event(DmtTimeoutEvt const &evt);
     void dmt_deploy_event(DmtErrorFoundEvt const &evt);
+    void dmt_deploy_event(DmtRecoveryEvt const &evt);
 
     /**
      * Module methods

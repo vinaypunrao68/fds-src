@@ -389,7 +389,7 @@ OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* re
 }
 
     //  PAUL to enable this code
-#if 0
+
 Error
 OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
@@ -422,7 +422,7 @@ OM_NodeAgent::om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* re
                                const Error& error,
                                boost::shared_ptr<std::string> payload)
 {
-    LOGNOTIFY << "OM received response for NotifyDltUpdate from node "
+    LOGNOTIFY << "OM received response for NotifyDmtUpdate from node "
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
               << " with version " << msg->dmt_version << " " << error;
 
@@ -432,8 +432,8 @@ OM_NodeAgent::om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* re
     FdspNodeType node_type = rs_get_uuid().uuid_get_type();
     domain->om_recv_dmt_commit_resp(node_type, node_uuid, msg->dmt_version, error);
 }
-#endif
 
+#if 0
 Error
 OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
@@ -451,6 +451,7 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     err = curDmt->getSerialized(dmt_msg->dmt_data);
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dmt_data, not sending DMT";
+
         return err;
     }
     if (nd_ctrl_eph != NULL) {
@@ -469,7 +470,7 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
 
     return err;
 }
-
+#endif
 //
 // Currently sends scavenger start message
 // TODO(xxx) extend to other scavenger commands (pass cmd type)
@@ -639,7 +640,7 @@ OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
 }
 
     //   PAUL to  enable this code
-#if 0
+
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {
     Error err(ERR_OK);
@@ -651,7 +652,7 @@ OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dmt_close_resp, this, msg,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    om_req->setTimeoutMs(5000);
+    om_req->setTimeoutMs(20000);
     om_req->invoke();
 
     LOGNORMAL << "OM: send dmt close (version " << cur_dmt_version
@@ -677,8 +678,8 @@ OM_NodeAgent::om_send_dmt_close_resp(fpi::CtrlNotifyDMTClosePtr msg,
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     domain->om_recv_dmt_close_resp(node_uuid, msg->dmt_close.DMT_version, error);
 }
-#endif
 
+#if 0
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
     Error err(ERR_OK);
@@ -708,7 +709,24 @@ OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
 
     return err;
 }
+#endif
 
+Error
+OM_NodeAgent::om_send_shutdown() {
+    Error err(ERR_OK);
+
+    auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::ShutdownMODMsgPtr msg(new fpi::ShutdownMODMsg());
+
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::ShutdownMODMsg), msg);
+    om_req->setTimeoutMs(0);
+    om_req->invoke();
+
+    LOGNOTIFY << "OM: send shutdown message to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
 
 void
 OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
@@ -1910,6 +1928,32 @@ OM_NodeContainer::om_bcast_stream_register_cmd(fds_int32_t regId,
                                                fds_bool_t bAll)
 {
     dc_dm_nodes->agent_foreach<fds_int32_t, fds_bool_t>(regId, bAll, om_send_stream_reg_cmd);
+}
+
+static Error
+om_send_shutdown(fds_uint32_t ignore, NodeAgent::pointer agent) {
+    return OM_SmAgent::agt_cast_ptr(agent)->om_send_shutdown();
+}
+
+// om_bcast_shutdown_msg
+// ---------------------
+//
+void
+OM_NodeContainer::om_bcast_shutdown_msg()
+{
+    fds_uint32_t count = 0;
+
+    // send shutdown to AM nodes
+    count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+    LOGDEBUG << "Sent SHUTDOWN to " << count << " AM services successfully";
+
+    // send shutdown to DM nodes
+    count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+    LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
+
+    // send shutdown to SM nodes
+    count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+    LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully";
 }
 
 

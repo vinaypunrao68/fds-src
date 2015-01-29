@@ -227,7 +227,6 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
             : public msm::front::interrupt_state<mpl::vector<DltEndErrorEvt, DltRecoverAckEvt>>
     {
         DltErrorMode() : abortMigrAcksToWait(0), commitDltAcksToWait(0) {}
-
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 

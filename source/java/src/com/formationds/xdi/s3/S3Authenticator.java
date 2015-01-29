@@ -28,6 +28,11 @@ public class S3Authenticator {
         }
 
         String candidateHeader = request.getHeader("Authorization");
+
+        if (candidateHeader == null) {
+            return AuthenticationToken.ANONYMOUS;
+        }
+
         AuthenticationComponents authenticationComponents = resolveFdsCredentials(candidateHeader);
         AWSCredentials basicAWSCredentials = new BasicAWSCredentials(authenticationComponents.principalName, authenticationComponents.fdsToken.signature(secretKey));
 

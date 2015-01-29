@@ -106,6 +106,14 @@ struct DltEndErrorEvt
     }
 };
 
+struct DltAbortMigrationAckEvt
+{
+    DltAbortMigrationAckEvt() {}
+    std::string logString() const {
+        return "DltAbortMigrationAckEvt";
+    }
+};
+
 struct DltRecoverAckEvt
 {
     DltRecoverAckEvt(fds_bool_t abortAck,

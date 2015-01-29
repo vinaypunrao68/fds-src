@@ -524,6 +524,10 @@ struct FDSP_RemoveServicesType {
   5: bool remove_am    // true to remove am
 }
 
+struct FDSP_ShutdownDomainType {
+    1: i32 domain_id;
+}
+
 struct FDSP_GetVolInfoReqType {
  1: string vol_name,    /* name of the volume */
  3: i32    domain_id,
@@ -1172,7 +1176,8 @@ service FDSP_ConfigPathReq {
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
   i32 ScavengerCommand(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerType gc_req),
   list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),
-  list <FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg)
+  list <FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg),
+  i32 ShutdownDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ShutdownDomainType dom_req)
 }
 
 /* Not needed.  But created for symemtry */

@@ -366,5 +366,6 @@ int main(int argc, char** argv) {
 
     int retCode = RUN_ALL_TESTS();
     dmTester->stop();
+    dmTester->clean();
     return retCode;
 }

@@ -66,6 +66,7 @@ struct DataMgr : Module, DmIoReqHandler {
 
     typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
     typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
+
     OMgrClient     *omClient;
 
     /* Common module provider */
@@ -82,6 +83,12 @@ struct DataMgr : Module, DmIoReqHandler {
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
     VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
+
+    /**
+    * Callback for DMT close
+    */
+    DmtCloseCb sendDmtCloseCb;
+
     /**
      * DmIoReqHandler method implementation
      */

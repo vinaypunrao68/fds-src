@@ -61,7 +61,7 @@ public class Configuration {
 
         if (options.has("console")) {
             //initConsoleLogging(LOGLEVELS.getOrDefault(logLevel, "INFO"));
-            initConsoleLogging("INFO");
+            initConsoleLogging("DEBUG");
         } else {
             initFileLogging(commandName + "." + Integer.toString(amInstanceId), fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"));
         }
@@ -70,7 +70,7 @@ public class Configuration {
     }
 
     private void initConsoleLogging(String loglevel) {
-        properties.put("log4j.rootCategory", loglevel + ", console");
+        properties.put("log4j.rootCategory", "INFO, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
