@@ -715,7 +715,8 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     }
 
     LOGDEBUG << "Applied object data/metadata to object store " << objId
-             << " delta from src SM " << msg << " updated meta " << *updatedMeta << " " << err;
+             << " delta from src SM " << fds::logString(msg)
+             << " updated meta " << *updatedMeta << " " << err;
     return err;
 }
 
