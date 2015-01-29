@@ -3,7 +3,6 @@ package com.formationds.iodriver;
 import java.net.MalformedURLException;
 
 import com.formationds.commons.FdsConstants;
-import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.logging.ConsoleLogger;
@@ -14,7 +13,7 @@ public final class Config
 {
     public final static class Defaults
     {
-        public static Endpoint getEndpoint()
+        public static S3Endpoint getEndpoint()
         {
             return _endpoint;
         }
@@ -24,7 +23,7 @@ public final class Config
             return _logger;
         }
 
-        public static Workload getWorkload()
+        public static S3QosTestWorkload getWorkload()
         {
             return _workload;
         }
@@ -58,20 +57,20 @@ public final class Config
             throw new UnsupportedOperationException("Instantiating a utility class.");
         }
 
-        private static final Endpoint _endpoint;
+        private static final S3Endpoint _endpoint;
 
         private static final Logger _logger;
 
-        private static final Workload _workload;
+        private static final S3QosTestWorkload _workload;
     }
 
-    public Endpoint getEndpoint()
+    public S3Endpoint getEndpoint()
     {
         // TODO: Allow this to be specified.
         return Defaults.getEndpoint();
     }
 
-    public Workload getWorkload()
+    public S3QosTestWorkload getWorkload()
     {
         // TODO: Allow this to be specified.
         return Defaults.getWorkload();

@@ -1,7 +1,9 @@
 package com.formationds.iodriver;
 
+import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
+import com.formationds.iodriver.workloads.S3QosTestWorkload;
 
 public final class Main
 {
@@ -11,8 +13,10 @@ public final class Main
         {
             // TODO: Build config from persistent configuration or command-line options.
             Config config = new Config();
-            
-            Driver driver = new Driver(config.getEndpoint(), config.getWorkload(), LOGGER);
+
+            Driver<?, ?> driver =
+                    new Driver<S3Endpoint, S3QosTestWorkload>(config.getEndpoint(),
+                                                              config.getWorkload());
             driver.runWorkload();
         }
         catch (Exception ex)
@@ -25,11 +29,11 @@ public final class Main
     {
         throw new UnsupportedOperationException("Trying to instantiate a utility class.");
     }
-    
+
     static
     {
         LOGGER = new ConsoleLogger();
     }
-    
+
     private static final Logger LOGGER;
 }

@@ -1,19 +1,17 @@
 package com.formationds.iodriver;
 
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 
-public final class Driver
+public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
+                          WorkloadT extends Workload<EndpointT, ?>>
 {
-    public Driver(Endpoint endpoint, Workload workload, Logger logger)
+    public Driver(EndpointT endpoint, WorkloadT workload)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (workload == null) throw new NullArgumentException("workload");
-        if (logger == null) throw new NullArgumentException("logger");
         
         _endpoint = endpoint;
-        _logger = logger;
         _workload = workload;
     }
     
@@ -35,12 +33,12 @@ public final class Driver
         }
     }
     
-    public Endpoint getEndpoint()
+    public EndpointT getEndpoint()
     {
         return _endpoint;
     }
     
-    public Workload getWorkload()
+    public WorkloadT getWorkload()
     {
         return _workload;
     }
@@ -58,16 +56,9 @@ public final class Driver
         }
     }
     
-    private Logger getLogger()
-    {
-        return _logger;
-    }
-    
-    private final Endpoint _endpoint;
+    private final EndpointT _endpoint;
     
     private boolean _isSetUp;
     
-    private final Logger _logger;
-    
-    private final Workload _workload;
+    private final WorkloadT _workload;
 }

@@ -3,7 +3,6 @@ package com.formationds.iodriver.endpoints;
 import java.io.IOException;
 import java.net.MalformedURLException;
 
-import com.amazonaws.ClientConfiguration;
 import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -12,10 +11,9 @@ import com.formationds.iodriver.NullArgumentException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint.AuthToken;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.S3Operation;
 
-public final class S3Endpoint extends Endpoint
+public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
 {
     public S3Endpoint(String s3url, OrchestrationManagerEndpoint omEndpoint, Logger logger) throws MalformedURLException
     {
@@ -29,26 +27,21 @@ public final class S3Endpoint extends Endpoint
     }
 
     @Override
-    public Endpoint copy()
+    public S3Endpoint copy()
     {
         CopyHelper copyHelper = new CopyHelper();
         return new S3Endpoint(copyHelper);
     }
 
     @Override
-    public void exec(Operation operation) throws ExecutionException
+    public void doVisit(S3Operation operation) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (!(operation instanceof S3Operation))
-        {
-            throw new IllegalArgumentException("operation must be an instance of "
-                                               + S3Operation.class.getName());
-        }
 
-        exec((S3Operation)operation);
+        visit(operation);
     }
 
-    public void exec(S3Operation operation) throws ExecutionException
+    public void visit(S3Operation operation) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
 
@@ -62,7 +55,7 @@ public final class S3Endpoint extends Endpoint
         }
     }
 
-    protected class CopyHelper extends Endpoint.CopyHelper
+    protected class CopyHelper extends Endpoint<S3Endpoint, S3Operation>.CopyHelper
     {
         public final Logger logger = _logger;
         public final OrchestrationManagerEndpoint omEndpoint = _omEndpoint.copy();

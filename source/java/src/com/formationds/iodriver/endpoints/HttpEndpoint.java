@@ -10,19 +10,15 @@ import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-import javax.net.ssl.SSLSocketFactory;
-
 import com.formationds.commons.util.Strings;
-import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.NullArgumentException;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.HttpOperation;
-import com.formationds.iodriver.operations.Operation;
 import com.google.common.io.CharStreams;
 import com.google.common.net.MediaType;
 
-public class HttpEndpoint extends Endpoint
+public class HttpEndpoint extends Endpoint<HttpEndpoint, HttpOperation>
 {
     public HttpEndpoint(URI uri, Logger logger) throws MalformedURLException
     {
@@ -54,19 +50,14 @@ public class HttpEndpoint extends Endpoint
     }
 
     @Override
-    public void exec(Operation operation) throws ExecutionException
+    public void doVisit(HttpOperation operation) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (!(operation instanceof HttpOperation))
-        {
-            throw new IllegalArgumentException("operation must be an instance of "
-                                               + HttpOperation.class.getName());
-        }
 
-        exec((HttpOperation)operation);
+        operation.accept(this);
     }
 
-    public void exec(HttpOperation operation) throws ExecutionException
+    public void visit(HttpOperation operation) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
 
@@ -147,7 +138,7 @@ public class HttpEndpoint extends Endpoint
         }
     }
     
-    protected class CopyHelper extends Endpoint.CopyHelper
+    protected class CopyHelper extends Endpoint<HttpEndpoint, HttpOperation>.CopyHelper
     {
         public final Logger logger = _logger;
         public final URL url = _url;

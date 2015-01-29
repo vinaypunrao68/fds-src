@@ -7,56 +7,55 @@ import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
 
-public class Workload
+public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
+                      OperationT extends Operation<OperationT, EndpointT>>
 {
-    public static final Workload NULL;
-
     public Workload() { }
 
-    public final void runOn(Endpoint endpoint) throws ExecutionException
+    public final void runOn(EndpointT endpoint) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
 
         ensureInitialized();
         
-        untunnel(ops -> ops.forEach(tunnel(op -> op.runOn(endpoint), ExecutionException.class)),
+        untunnel(ops -> ops.forEach(tunnel(op -> op.accept(endpoint), ExecutionException.class)),
                  _operations,
                  ExecutionException.class);
     }
 
-    public final void setUp(Endpoint endpoint) throws ExecutionException
+    public final void setUp(EndpointT endpoint) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
 
         ensureInitialized();
         
-        untunnel(ops -> ops.forEach(tunnel(op -> op.runOn(endpoint), ExecutionException.class)),
+        untunnel(ops -> ops.forEach(tunnel(op -> op.accept(endpoint), ExecutionException.class)),
                  _setup,
                  ExecutionException.class);
     }
 
-    public final void tearDown(Endpoint endpoint) throws ExecutionException
+    public final void tearDown(EndpointT endpoint) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
 
         ensureInitialized();
         
-        untunnel(ops -> ops.forEach(tunnel(op -> op.runOn(endpoint), ExecutionException.class)),
-                 _teardown,
-                 ExecutionException.class);
+//        untunnel(ops -> ops.forEach(tunnel(op -> op.accept(endpoint), ExecutionException.class)),
+//                 _teardown,
+//                 ExecutionException.class);
     }
     
-    protected Stream<Operation> createOperations()
+    protected Stream<OperationT> createOperations()
     {
         return Stream.empty();
     }
     
-    protected Stream<Operation> createSetup()
+    protected Stream<OperationT> createSetup()
     {
         return Stream.empty();
     }
     
-    protected Stream<Operation> createTeardown()
+    protected Stream<OperationT> createTeardown()
     {
         return Stream.empty();
     }
@@ -148,14 +147,9 @@ public class Workload
         }
     }
 
-    static
-    {
-        NULL = new Workload();
-    }
+    private Stream<OperationT> _operations;
 
-    private Stream<Operation> _operations;
+    private Stream<OperationT> _setup;
 
-    private Stream<Operation> _setup;
-
-    private Stream<Operation> _teardown;
+    private Stream<OperationT> _teardown;
 }
