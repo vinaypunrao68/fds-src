@@ -372,6 +372,7 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     obj_assoc_entry_t new_association;
     new_association.vol_uuid = vol_id;
     new_association.ref_cnt = 1L;
+    new_association.vol_migration_reconcile_ref_cnt = 0L;
     obj_map.obj_refcnt++;
     assoc_entry.push_back(new_association);
     obj_map.obj_num_assoc_entry = assoc_entry.size();

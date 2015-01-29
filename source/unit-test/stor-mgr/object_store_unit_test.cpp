@@ -339,11 +339,13 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     boost::shared_ptr<std::string> newData =
             (migrVolume->testdata_).dataset_map_[newOid].getObjectData();
     fds::assign(msg.objectID, newOid);
-    msg.isObjectMetaDataReconcile = true;
+    // if we add data during second phase, we should still set reconcile = false
+    msg.isObjectMetaDataReconcile = false;
     msg.objectData.clear();
     msg.objectData.resize(newData->length());
     msg.objectData.assign(*newData);
     msg.objectSize = newData->length();
+    LOGDEBUG << "Object with data during second phase " << newOid;
     err = objectStore->applyObjectMetadataData(newOid, msg);
     EXPECT_TRUE(err.ok());
     // read and see if data is there...
