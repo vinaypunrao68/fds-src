@@ -7,6 +7,7 @@
 #include <fiu-control.h>
 #include <fiu-local.h>
 
+#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
