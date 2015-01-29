@@ -402,4 +402,29 @@ StorMgrVolumeTable::deleteVolIndexEntry(fds_volid_t vol_uuid,
 
     return err;
 }
+
+/**
+* @brief Returns true if all volumes in inVols are flash only.  Non-existent volumes are treated
+* as NOT-flash only
+*
+* @param inVols
+*
+* @return 
+* NOTE: It's better to have a cached list of flash only volumes to avoid the lock.
+*/
+bool StorMgrVolumeTable::hasFlashOnlyVolumes(const std::vector<fds_volid_t>& inVols)
+{
+    map_rwlock.read_lock();
+    for (auto &volId : inVols) {
+       auto itr = volume_map.find(volId);
+       if (itr == volume_map.end()) {
+           return false;
+       }
+       if (itr->second->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {
+           return false;
+       }
+    }
+    map_rwlock.read_unlock();
+    return true;
+}
 }  // namespace fds

@@ -75,6 +75,7 @@ enum  FDSPMsgTypeId {
     CtrlNotifySnapVolTypeId            = 2023,
     CtrlTierPolicyTypeId               = 2024,
     CtrlTierPolicyAuditTypeId          = 2025,
+    CtrlStartHybridTierCtrlrMsgTypeId  = 2026,
 
     /* SM messages. */
     CtrlStartMigrationTypeId           = 2040,
@@ -478,6 +479,11 @@ struct CtrlTierPolicy {
 /* ----------------------  CtrlTierPolicyAuditTypeId  -------------------------- */
 struct CtrlTierPolicyAudit {
      1: FDSP.FDSP_TierPolicyAudit tier_audit;
+}
+
+/* ------------ Debug message for starting hybrid tier controller manually --------- */
+struct CtrlStartHybridTierCtrlrMsg
+{
 }
 
 /* ----------------------  CtrlStartMigrationTypeId  --------------------------- */

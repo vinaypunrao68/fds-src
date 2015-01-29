@@ -32,7 +32,7 @@ ObjectStore::ObjectStore(const std::string &modName,
               "SM Object Metadata Storage Module")),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
-                                    volTbl, data_store)) {
+                                    volTbl, diskMap, data_store)) {
 }
 
 ObjectStore::~ObjectStore() {
@@ -396,8 +396,22 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
 
     // do not move if object is deleted
     if (objMeta->getRefCnt() < 1) {
-        LOGWARN << "Object refcnt == 0";
-        return err;
+        LOGWARN << "object " << objId << " refcnt == 0";
+        return ERR_SM_ZERO_REFCNT_OBJECT;
+    }
+
+    if (relocateFlag &&
+        fromTier == diskio::DataTier::flashTier &&
+        toTier == diskio::DataTier::diskTier) {
+        std::vector<fds_volid_t> vols;
+        objMeta->getAssociatedVolumes(vols);
+        /* Skip moving from flash to disk if all associated volumes are flash only */
+        if (!(volumeTbl->hasFlashOnlyVolumes(vols))) {
+            /* NOTE: Phyically moving the object should be taken care by GC */
+            return updateLocationFromFlashToDisk(objId, objMeta);
+        } else {
+            return ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME;
+        }
     }
 
     // make sure the object is not on destination tier already
@@ -422,9 +436,7 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         LOGERROR << "Failed to write " << objId << " to obj data store "
                  << ", tier " << toTier << " " << err;
         return err;
-    }
-
-    // update physical location that we got from data store
+    } // update physical location that we got from data store
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
     updatedMeta->updatePhysLocation(&objPhyLoc);
     if (relocateFlag) {
@@ -436,6 +448,33 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
     err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
     if (!err.ok()) {
         LOGERROR << "Failed to update metadata for obj " << objId;
+    }
+    return err;
+}
+
+Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
+                                                 ObjMetaData::const_ptr objMeta)
+{
+    Error err;
+
+    if (!objMeta->onTier(diskio::DataTier::diskTier)) {
+        LOGNOTIFY << "Object " << objId << " hasn't made it to disk yet.  Ignoring move";
+        return ERR_SM_TIER_WRITEBACK_NOT_DONE; 
+    }
+
+    /* Remove flash as the phsycal location */
+    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+    updatedMeta->removePhyLocation(diskio::DataTier::flashTier);
+    fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
+    fds_assert(updatedMeta->onTier(diskio::DataTier::flashTier) == false);
+
+    /* write metadata to metadata store */
+    err = metaStore->putObjectMetadata(invalid_vol_id, objId, updatedMeta);
+    if (!err.ok()) {
+        LOGERROR << "Failed to update metadata for obj " << objId;
+    } else {
+        // TODO(Rao): Remove this log statement
+        DBG(LOGDEBUG << "Moved object " << objId << "from flash to disk");
     }
     return err;
 }
@@ -743,6 +782,9 @@ ObjectStore::tieringControlCmd(SmTieringCmd* tierCmd) {
             break;
         case SmTieringCmd::TIERING_DISABLE:
             tierEngine->disableTierMigration();
+            break;
+        case SmTieringCmd::TIERING_START_HYBRIDCTRLR:
+            tierEngine->startHybridTierCtrlr();
             break;
         default:
             fds_panic("Unknown tiering command");

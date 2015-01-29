@@ -7,6 +7,7 @@
 #include <string>
 #include <fds_module.h>
 #include <fds_types.h>
+#include <fds_counters.h>
 #include <ObjMeta.h>
 #include <object-store/ObjectDataCache.h>
 #include <persistent-layer/dm_io.h>
@@ -15,6 +16,15 @@
 namespace fds {
 
 class SmScavengerCmd;
+
+struct ObjectDataStoreCounters : FdsCounters {
+    explicit ObjectDataStoreCounters(const std::string &id);
+
+    NumericCounter ssd_reads;
+    NumericCounter ssd_writes;
+    NumericCounter hdd_reads;
+    NumericCounter hdd_writes;
+};
 
 /**
  * Class that manages storage of object data. The class persistetnly stores
@@ -28,6 +38,8 @@ class ObjectDataStore : public Module, public boost::noncopyable {
 
     /// Object data cache manager
     ObjectDataCache::unique_ptr dataCache;
+
+    ObjectDataStoreCounters odsCntrs;
 
     // TODO(Andrew): Add some private GC interfaces here?
 

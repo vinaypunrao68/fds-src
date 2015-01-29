@@ -200,6 +200,40 @@ class VolumeContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
+    @arg('cnt', help= "count of objs to get", type=long, default=100)
+    def bulkget(self, vol_name, cnt):
+        '''
+        Does bulk gets.
+        TODO: Make it do random gets as well
+        '''
+        b = self.s3api.get_bucket(vol_name)
+        i = 0
+        while i < cnt:
+            for key in b.list():
+                print "Getting object#: {}".format(i)
+                print self.get(vol_name, key.name.encode('ascii','ignore'))
+                i = i + 1
+                if i >= cnt:
+                    break
+        return 'Done!'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('cnt', help= "count of objs to put", type=long, default=100)
+    @arg('seed', help= "count of objs to put", default='seed')
+    def bulkput(self, vol_name, cnt, seed):
+        '''
+        Does bulk put
+        TODO: Make it do random put as well
+        '''
+        for i in xrange(0, cnt):
+            k = "key_{}_{}".format(seed, i)
+            v = "value_{}_{}".format(seed, i)
+            print "Putting object#: {}".format(i)
+            print self.put(vol_name, k, v)
+        return 'Done!'
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
     def get(self, vol_name, key):
         'get an object from the volume'
         try:

@@ -42,6 +42,8 @@ struct SyncMetaData : public serialize::Serializable {
     virtual uint32_t getEstimatedSize() const override;
 
     bool operator== (const SyncMetaData &rhs) const;
+    bool operator!= (const SyncMetaData &rhs) const
+    { return !(this->operator==(rhs)); }
     SyncMetaData& operator=(const SyncMetaData &rhs);
 
     /* Born timestamp */
@@ -113,6 +115,7 @@ class ObjMetaData : public serialize::Serializable {
     fds_uint32_t   getObjSize() const;
     const obj_phy_loc_t* getObjPhyLoc(diskio::DataTier tier) const;
     meta_obj_map_t*   getObjMap();
+    fds_uint64_t getCreationTime() const;
 
     void setRefCnt(fds_uint64_t refcnt);
 
@@ -134,6 +137,8 @@ class ObjMetaData : public serialize::Serializable {
     fds_bool_t isVolumeAssociated(fds_volid_t vol_id) const;
     std::vector<obj_assoc_entry_t>::iterator getAssociationIt(fds_volid_t volId);
 
+    void getAssociatedVolumes(std::vector<fds_volid_t> &vols) const;
+
     void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) const;
 
     // Tiering/Physical Location update routines
@@ -144,6 +149,8 @@ class ObjMetaData : public serialize::Serializable {
     void removePhyLocation(diskio::DataTier tier);
 
     bool operator==(const ObjMetaData &rhs) const;
+    bool operator!= (const ObjMetaData &rhs) const
+    { return !(this->operator==(rhs)); }
 
     std::string logString() const;
 
