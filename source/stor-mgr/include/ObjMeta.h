@@ -94,7 +94,7 @@ class ObjMetaData : public serialize::Serializable {
     void diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData);
     void propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData,
                                  bool reconcileMetaDataOnly);
-    void updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
+    Error updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
 
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
