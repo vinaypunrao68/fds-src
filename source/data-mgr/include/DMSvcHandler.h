@@ -129,7 +129,7 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
 
     virtual void
     NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                      Error &err);
+                      const Error &err);
 
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
