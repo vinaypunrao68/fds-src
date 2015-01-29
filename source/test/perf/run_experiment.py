@@ -4,6 +4,8 @@ from exp_framework import *
 import json
 from tests import TestList
 from optparse import OptionParser
+import  perf_framework_utils as utils
+
 # FIXME: import only what you use
 # TODO: better configuration
 # TODO: need to streamline the options
@@ -17,13 +19,10 @@ def main():
     parser.add_option("", "--force-cmd-server", dest = "force_cmd_server", action = "store_true", default = False,
                       help = "Force start of command server")
 
+    parser.add_option("-v", "--log-severity", dest = "log_severity", default = "INFO", help = "Log severity level: DEBUG, INFO, WARNING, ERROR, CRITICAL")
+
     # Main FDS cluster configuration
-    parser.add_option("-l", "--local", dest = "local", action = "store_true", default = False, help = "Run locally")
-    parser.add_option("-s", "--single-node", dest = "single_node", action = "store_true", default = False,
-                      help = "Enable single node")
     parser.add_option("-m", "--main-node", dest = "main_node", default = "luke", help = "Node AM is on")
-    parser.add_option("-M", "--mode", dest = "mode", default = None,
-                      help = "Running mode: <single/multi>-<local/remote>. Supported: single-local, multi-remote")
 
     # Test configuration
     #FIXME: rename: test_node is an IP
@@ -57,38 +56,19 @@ def main():
 
     # Hardcoded options
 
-    # FDS paths
-    options.remote_fds_root = options.fds_directory
-    options.local_fds_root = options.fds_directory
-    print "FDS local root:", options.local_fds_root
-    print "FDS remote root:", options.remote_fds_root
+    #logging.basicConfig( stream=sys.stderr, level=logging.INFO )
+    #options.logger = logging.getLogger("perf_exp_framework")
+    options.logger = utils.PerfLogger("perf_exp_framework", utils.PerfLogger.get_level_from_str(options.log_severity))
+
     # FDS nodes
-    NODES = {
-        "node1" : "10.1.10.16",
-        "node2" : "10.1.10.17",
-        "node3" : "10.1.10.18",
-        "tiefighter" : "10.1.10.102",
-        "luke" : "10.1.10.222",
-        "han" : "10.1.10.139",
-        "chewie" : "10.1.10.80",
-        "c3po" : "10.1.10.221",
-    }
     options.nodes = {}
     for n in options.fds_nodes.split(","):
-        options.nodes[n] = NODES[n]
-    print "FDS nodes: ", options.nodes    
-    options.myip = get_myip()
-    print "My IP:", options.myip
+        options.nodes[n] = utils.get_ip(n)
+    options.logger.info("FDS nodes: " + str(options.nodes))
+    options.myip = utils.get_my_ip()
+    options.logger.info("My IP:" + options.myip)
 
-    if "single" in options.mode:
-        options.single_node = True
-    elif "multi" in options.mode:
-        options.single_node = False
-    if "local" in options.mode:
-        options.local = True
-    elif "remote" in options.mode:
-        options.local = False
-    print "Options:", options
+    options.logger.info( "Options: " + str(options))
 
     tl = TestList()
     if options.json_file == None:
@@ -99,10 +79,10 @@ def main():
             tests = json.load(_f)
     assert tests != None, "Tests not loaded"
 
-    print "--- Number of tests to run", len(tests), "---"
+    options.logger.info("--- Number of tests to run " + str(len(tests)) + " ---")
     for t in tests:
-        print "test -->", t
-    print "--- . ---"
+        options.logger.info("test --> " + str(t))
+    options.logger.info("--- . ---")
 
     if not os.path.exists(options.experiment_directory):
         os.makedirs(options.experiment_directory)
@@ -118,8 +98,8 @@ def main():
 
     # Execute tests
     for t in tests:
-        print t
-        results_dir = get_results_dir("results", t)
+        options.logger.info(t)
+        results_dir = utils.get_results_dir("results", t)
         fds.init_test(t["test_type"], results_dir, t)
         # FIXME: need to reset counters!
         # start stats collection

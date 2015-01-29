@@ -46,21 +46,16 @@ class Executor(object):
         
 def main():
     parser = OptionParser()
-    #parser.add_option("-d", "--directory", dest = "directory", help = "Directory")
     parser.add_option("-d", "--node-name", dest = "node_name", default = "node", help = "Node name")
-    parser.add_option("-n", "--name-server-ip", dest = "ns_ip", default = "10.1.10.102", help = "IP of the name server")
+    parser.add_option("-n", "--name-server-ip", dest = "ns_ip", default = "10.1.10.102", help = "IP/hostname of the name server")
     parser.add_option("-p", "--name-server-port", dest = "ns_port", type = "int", default = 47672, help = "Port of the name server")
-    parser.add_option("-s", "--server-ip", dest = "s_ip", default = "10.1.10.18", help = "IP of the server")
-    #parser.add_option("-c", "--column", dest = "column", help = "Column")
-    #parser.add_option("-p", "--plot-enable", dest = "plot_enable", action = "store_true", default = False, help = "Plot graphs")
-    #parser.add_option("-A", "--ab-enable", dest = "ab_enable", action = "store_true", default = False, help = "AB mode")
+    parser.add_option("-s", "--server-ip", dest = "s_ip", default = "10.1.10.18", help = "IP/hostname of the server")
     (options, args) = parser.parse_args()
 
 
     executor = Executor()
-    daemon=Pyro4.Daemon(host = options.s_ip)                 # make a Pyro daemon
-    #ns=Pyro4.locateNS(host="10.1.10.102", port = 47672)                   # find the name server
-    ns=Pyro4.locateNS(host = options.ns_ip, port = options.ns_port)                   # find the name server
+    daemon=Pyro4.Daemon(host = options.s_ip)                                # make a Pyro daemon
+    ns=Pyro4.locateNS(host = options.ns_ip, port = options.ns_port)         # find the name server
     uri=daemon.register(executor)   
     ns.register("%s.executor" % options.node_name, uri)  
     
