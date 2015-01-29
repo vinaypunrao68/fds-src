@@ -596,6 +596,10 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
      * 3) volume association exists in new, but not in old
      *       - do nothing.
      */
+     /* TODO(Sean): Was thinking about this last night, and may have a bug, if
+      *             we don't check if newIter or oldIter is already at the
+      *             end before incrementing them.  Will make change on next PR. 
+      */
     while (oldIter != oldObjMetaData->assoc_entry.end()) {
         if (oldIter->vol_uuid == newIter->vol_uuid) {
             /* This is a case where volume association appears on both obj metadata.
