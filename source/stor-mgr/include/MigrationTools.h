@@ -7,6 +7,7 @@
 
 #include <list>
 #include <utility>
+#include <boost/shared_ptr.hpp>
 
 namespace leveldb
 {
@@ -22,7 +23,8 @@ namespace metadata
 
 template<typename T>
 using output_type = std::list<T>;
-using metadata_diff_type = output_type<std::pair<ObjMetaData*, ObjMetaData*>>;
+using elem_type = boost::shared_ptr<ObjMetaData>;
+using metadata_diff_type = output_type<std::pair<elem_type, elem_type>>;
 
 void
 diff(leveldb::DB* db,

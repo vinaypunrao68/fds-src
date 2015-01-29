@@ -1047,31 +1047,41 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
-        ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i];
+        ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
+        bool reconcileMetaDataOnly = (readDeltaSetReq->deltaSet)[i].second;
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
-        /* get the object from metadata information. */
-        boost::shared_ptr<const std::string> dataPtr =
-                objectStore->getObjectData(invalid_vol_id,
-                                       objID,
-                                       objMetaDataPtr,
-                                       err);
-        /* TODO(sean): For now, just panic. Need to know why
-         * object read failed.
+        fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
+
+        /* copy metadata to object propagation message. */
+        objMetaDataPtr->propagateObjectMetaData(objMetaDataPropagate,
+                                                reconcileMetaDataOnly);
+        /* If reconciling only the metadata, there is no need to read the
+         * data from the object store.
          */
-        fds_verify(err.ok());
+        if (!reconcileMetaDataOnly) {
+
+            /* get the object from metadata information. */
+            boost::shared_ptr<const std::string> dataPtr =
+                    objectStore->getObjectData(invalid_vol_id,
+                                               objID,
+                                               objMetaDataPtr,
+                                               err);
+            /* TODO(sean): For now, just panic. Need to know why
+             * object read failed.
+             */
+            fds_verify(err.ok());
+
+            /* Copy the object data */
+            objMetaDataPropagate.objectData = *dataPtr;
+        }
 
         /* Add metadata and data to the delta set */
-        fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
-        objMetaDataPtr->propagateMetaData(objMetaDataPropagate);
-        /* TODO(Sean): Can we avoid data copy and directory read
-         * to the string buffer?
-         */
-        objMetaDataPropagate.objectData = *dataPtr;
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
 
-        LOGMIGRATE << "Adding DeltaSet element: " << objID;
+        LOGMIGRATE << "Adding DeltaSet element: " << objID
+                   << " reconcileMetaDataOnly=" << reconcileMetaDataOnly;
     }
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
@@ -1100,17 +1110,24 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
              << moveReq->fromTier << " to tier " << moveReq->fromTier
              << " relocate? " << moveReq->relocate;
 
+    moveReq->movedCnt = 0;
     for (fds_uint32_t i = 0; i < (moveReq->oidList).size(); ++i) {
         const ObjectID& objId = (moveReq->oidList)[i];
         err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
                                             moveReq->toTier, moveReq->relocate);
         if (!err.ok()) {
-            LOGERROR << "Failed to move " << objId << " from tier "
-                     << moveReq->fromTier << " to tier " << moveReq->fromTier
-                     << " relocate? " << moveReq->relocate << " " << err;
-            // we will just continue to move other objects; ok for promotions
-            // demotion should not assume that object was written back to HDD
-            // anyway, because writeback is eventual
+            if (err != ERR_SM_ZERO_REFCNT_OBJECT && 
+                err != ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME &&
+                err != ERR_SM_TIER_WRITEBACK_NOT_DONE) { 
+                LOGERROR << "Failed to move " << objId << " from tier "
+                    << moveReq->fromTier << " to tier " << moveReq->fromTier
+                    << " relocate? " << moveReq->relocate << " " << err;
+                // we will just continue to move other objects; ok for promotions
+                // demotion should not assume that object was written back to HDD
+                // anyway, because writeback is eventual
+            } 
+        } else {
+            moveReq->movedCnt++;
         }
     }
 

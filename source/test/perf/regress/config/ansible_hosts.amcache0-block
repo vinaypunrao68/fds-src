@@ -14,3 +14,6 @@ fds_dm_catalog_cache_size=16777216
 fds_dm_catalog_write_buffer_size=52428800
 fds_am_testing_am_testing_toggleDisableStreamingStats=true
 fds_svc_plat_lftp_enable=false
+fds_build=release
+fds_om_host=luke
+clean_fds=yes

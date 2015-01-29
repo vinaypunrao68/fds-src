@@ -143,14 +143,16 @@ Error
 MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
     Error err(ERR_OK);
 
-    LOGMIGRATE << "Sync Delta Object Set " << deltaSet->objectToPropagate.size()
-             << " objects, executor ID " << deltaSet->executorID
-             << " seqNum " << deltaSet->seqNum
-             << " lastSet " << deltaSet->lastDeltaSet;
-
     fds_verify((fds_uint64_t)deltaSet->executorID == executorId);
     MigrationExecutorState curState = atomic_load(&state);
-    fds_verify(curState == ME_APPLYING_DELTA);
+    fds_verify((curState == ME_APPLYING_DELTA) ||
+               (curState == ME_APPLYING_SECOND_DELTA));
+
+    LOGMIGRATE << "Sync Delta Object Set " << deltaSet->objectToPropagate.size()
+               << " objects, executor ID " << deltaSet->executorID
+               << " seqNum " << deltaSet->seqNum
+               << " lastSet " << deltaSet->lastDeltaSet
+               << " first rebalance round? " << (curState == ME_APPLYING_DELTA);
 
     // if the obj data+meta list is empty, and lastDeltaSet == true,
     // nothing to apply, but have to check if we are done with migration
@@ -164,7 +166,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         if (completeDeltaSetReceived) {
             LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                       << executorId;
-            handleFirstMigrationRoundDone(ERR_OK);
+            handleMigrationRoundDone(err);
         }
         // we will get more delta sets for this executor (out-of-order)
         return ERR_OK;
@@ -199,9 +201,10 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
             std::placeholders::_1, std::placeholders::_2);
 
         LOGMIGRATE << "Enqueue QoS Delta Set: "
-                 << " qosSeq=" << applyReq->qosSeqNum
-                 << " qosLastSet=" << applyReq->qosLastSet
-                 << " size of qos set=" << applyReq->deltaSet.size();
+                   << " qosSeq=" << applyReq->qosSeqNum
+                   << " qosLastSet=" << applyReq->qosLastSet
+                   << " size of qos set=" << applyReq->deltaSet.size()
+                   << " first rebalance round? " << (curState == ME_APPLYING_DELTA);
 
         // enqueue to QoS queue
         err = dataStore->enqueueMsg(FdsSysTaskQueueId, applyReq);
@@ -231,18 +234,23 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     // beta2: if error happened, stop migration
     if (!error.ok()) {
         LOGERROR << "Failed to apply a set of objects " << error;
-        handleMigrationDone(error);
+        handleMigrationRoundDone(error);
         return;
     }
+
+    // here no error happened so far, so we must be in one of
+    // the applying delta states
+    fds_verify((curState == ME_APPLYING_DELTA) ||
+               (curState == ME_APPLYING_SECOND_DELTA));
 
     bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
                                                                    req->lastSet,
                                                                    req->qosSeqNum,
                                                                    req->qosLastSet);
     if (completeDeltaSetReceived) {
-        // this executor finished the first round of migration
+        // this executor finished the first or second round of migration, based on state
         LOGNORMAL << "All DeltaSet and QoS requests accounted for executor " << req->executorId;
-        handleFirstMigrationRoundDone(error);
+        handleMigrationRoundDone(error);
         return;
     }
 }
@@ -291,48 +299,31 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
 {
     LOGDEBUG << "Received second rebalance delta response for executor"
              << executorId << " " << error;
-    // here we just check if there is no error
+    // here we just check for errors
     if (!error.ok()) {
-        handleMigrationDone(error);
-    }
-
-    // TODO(Anna) Since we do not have second rebalance set implemented yet on source
-    // SM, we are finishing migration here; remove that when source implements sending
-    // second rebalance set.
-    LOGMIGRATE << "Finishing migration for executor " << executorId;
-    handleMigrationDone(error);
-}
-
-void
-MigrationExecutor::handleFirstMigrationRoundDone(const Error& error) {
-    // move to next state
-    if (error.ok()) {
-        MigrationExecutorState expect = ME_APPLYING_DELTA;
-        if (!std::atomic_compare_exchange_strong(&state, &expect, ME_SECOND_REBALANCE_ROUND)) {
-            fds_panic("Unexpected migration executor state!");
-        }
-
-        LOGMIGRATE << "First round of migration finished for executor " << executorId
-                   << " src SM " << std::hex << sourceSmUuid.uuid_get_val() << std::dec
-                   << ", SM token " << smTokenId;
-
-        // notify the requested that this executor done with first round of migration
-        if (migrDoneHandler) {
-            migrDoneHandler(executorId, smTokenId, true, error);
-        }
-    } else {
-        // for now we are stopping migration on any error
-        handleMigrationDone(error);
+        handleMigrationRoundDone(error);
     }
 }
 
 void
-MigrationExecutor::handleMigrationDone(const Error& error) {
+MigrationExecutor::handleMigrationRoundDone(const Error& error) {
+    fds_bool_t firstRoundFinished = false;
     // check and set the state
     if (error.ok()) {
-        MigrationExecutorState expect = ME_APPLYING_SECOND_DELTA;
-        if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
-            fds_panic("Unexpected migration executor state!");
+        // if no error, we must be in one of the apply delta states
+
+        // if we were in first round of migration, go to second round
+        MigrationExecutorState expect = ME_APPLYING_DELTA;
+        if (!std::atomic_compare_exchange_strong(&state, &expect, ME_SECOND_REBALANCE_ROUND)) {
+            // ok, see if we are in the second round of migration
+            expect = ME_APPLYING_SECOND_DELTA;
+            if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
+                // must be a bug somewhere...
+                fds_panic("Unexpected migration executor state!");
+            }
+        } else {
+            firstRoundFinished = true;
+            // we just finished first round and started second round
         }
     } else {
         // beta2: any error will stop the whole migration process
@@ -344,11 +335,12 @@ MigrationExecutor::handleMigrationDone(const Error& error) {
 
     LOGMIGRATE << "Migration finished for executor " << executorId << " src SM "
                << std::hex << sourceSmUuid.uuid_get_val() << std::dec
-               << ", SM token " << smTokenId;
+               << ", SM token " << smTokenId
+               << " firstRound? " << firstRoundFinished;
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
-        migrDoneHandler(executorId, smTokenId, false, error);
+        migrDoneHandler(executorId, smTokenId, firstRoundFinished, error);
     }
 }
 

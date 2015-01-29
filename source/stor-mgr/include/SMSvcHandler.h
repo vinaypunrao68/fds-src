@@ -114,6 +114,9 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
             TierPolicyAudit(boost::shared_ptr <fpi::AsyncHdr> &hdr,
             boost::shared_ptr <fpi::CtrlTierPolicyAudit> &msg);
 
+    void startHybridTierCtrlr(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                              boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg);
+
     void addObjectRef(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::AddObjectRefMsg> &addObjRefMsg);
 

@@ -91,10 +91,12 @@ class MigrationExecutor {
     void objDeltaAppliedCb(const Error& error,
                            SmIoApplyObjRebalDeltaSet* req);
 
-    /// Called to finish up (abort with error or complete) migration
-    void handleMigrationDone(const Error& error);
-    /// Called to finish up the first round of migration
-    void handleFirstMigrationRoundDone(const Error& error);
+    /**
+     * Called to finish up (abort with error or complete) first round
+     * or second round of migration; finishing second round finishes
+     * migration; error aborts migration
+     */
+    void handleMigrationRoundDone(const Error& error);
 
     /// callback from SL on second rebalance delta set msg response
     void getSecondRebalanceDeltaResp(EPSvcRequest* req,

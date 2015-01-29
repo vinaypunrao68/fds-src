@@ -103,6 +103,26 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
+{
+    std::ostringstream oss;
+    oss << " CtrlObjectMetaDataPropagate for object " << ObjectID(msg.objectID.digest)
+	<< " reconcile " << msg.isObjectMetaDataReconcile
+        << " refcnt " << msg.objectRefCnt
+        << " objectCompressType " << msg.objectCompressType
+        << " objectCompressLen " << msg.objectCompressLen
+        << " objectBlkLen " << msg.objectBlkLen
+        << " objectSize " << msg.objectSize
+        << " objectFlags " << (fds_uint16_t)msg.objectFlags
+        << " objectExpireTime" << msg.objectExpireTime << std::endl;
+    for (auto volAssoc : msg.objectVolumeAssoc) {
+        oss << "CtrlObjectMetaDataPropagate vol assoc "
+            << std::hex << volAssoc.volumeAssoc << std::dec
+            << " refcnt " << volAssoc.volumeRefCnt;
+    }
+    return oss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj)
 {
     std::ostringstream oss;

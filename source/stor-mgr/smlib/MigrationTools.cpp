@@ -48,11 +48,11 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
             // Keys are the same, push a difference if values are not.
             auto l_v = l_it->value().ToString();
             auto r_v = r_it->value().ToString();
-            if (l_v != r_v) {
-                diff.emplace_back(std::make_pair(new ObjMetaData(),
-                                                 new ObjMetaData()));
-                diff.back().first->deserializeFrom(l_v);
-                diff.back().second->deserializeFrom(r_v);
+            ObjMetaData a; a.deserializeFrom(l_v);
+            ObjMetaData b; b.deserializeFrom(r_v);
+            if (a != b) {
+                diff.emplace_back(std::make_pair(boost::make_shared<ObjMetaData>(a),
+                                                 boost::make_shared<ObjMetaData>(b)));
             }
             l_it->Next();
             r_it->Next();
@@ -61,8 +61,8 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
         case cmp_result::addition:
             {
             // New key in the rhs, append to the metadata list
-            diff.emplace_back(std::make_pair(nullptr, new ObjMetaData()));
-            diff.back().second->deserializeFrom(r_it->value().ToString());
+            ObjMetaData b; b.deserializeFrom(r_it->value().ToString());
+            diff.emplace_back(std::make_pair(nullptr, boost::make_shared<ObjMetaData>(b)));
             r_it->Next();
             break;
             }

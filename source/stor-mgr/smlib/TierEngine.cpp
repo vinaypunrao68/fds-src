@@ -14,10 +14,12 @@ namespace fds {
 TierEngine::TierEngine(const std::string &modName,
         rankPolicyType _rank_type,
         StorMgrVolumeTable* _sm_volTbl,
+        const SmDiskMap::ptr& diskMap,
         SmIoReqHandler* storMgr) :
         Module(modName.c_str()),
         migrator(nullptr),
-        sm_volTbl(_sm_volTbl) {
+        sm_volTbl(_sm_volTbl),
+        hybridTierCtrlr(storMgr, diskMap) {
     switch (_rank_type) {
         case FDS_RANDOM_RANK_POLICY:
             rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy(storMgr, 50));
@@ -40,6 +42,11 @@ TierEngine::~TierEngine() {
 
 int TierEngine::mod_init(SysParams const *const param) {
     Module::mod_init(param);
+
+    if (gModuleProvider->get_fds_config()->\
+        get<bool>("fds.sm.tiering.hybrid.enable")) {
+        hybridTierCtrlr.start(false);
+    }
 
     /*
     boost::shared_ptr<FdsConfig> conf = g_fdsprocess->get_fds_config();
@@ -83,6 +90,12 @@ void TierEngine::enableTierMigration() {
               << " if disabling tier migration actually disables it";
 }
 
+/* For manually starting hybrid tier controller */
+void TierEngine::startHybridTierCtrlr()
+{
+    hybridTierCtrlr.start(true);
+}
+
 /*
  * TODO: Make this interface take volId instead of the entire
  * vol struct. A lookup should be done internally.
@@ -120,7 +133,8 @@ TierEngine::notifyIO(const ObjectID& objId, fds_io_op_t opType,
             volDesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
         rankEngine->notifyDataPath(opType, objId, tier);
     }
-    if ((opType == FDS_SM_PUT_OBJECT) && (tier == diskio::flashTier)) {
+    if ((opType == FDS_SM_PUT_OBJECT) && (tier == diskio::flashTier) &&
+        volDesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID) {
         migrator->notifyHybridVolFlashPut(objId);
     }
 }
