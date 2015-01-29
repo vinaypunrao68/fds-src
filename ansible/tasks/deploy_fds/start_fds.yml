@@ -57,14 +57,6 @@
     tags:
         - startup
 
--   name: sleep for a minute
-    command: sleep 60
-        chdir=/fds/sbin
-    when: fds_om_host is defined and fds_om_host == inventory_hostname
-    tags:
-        - startup
-        - status
-
 -   name: check process status
     action: shell ./fdsadmin -f deploy_formation.conf --monitor --quiet
         chdir=/fds/sbin
