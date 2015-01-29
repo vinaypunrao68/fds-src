@@ -382,6 +382,7 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     obj_assoc_entry_t new_association;
     new_association.vol_uuid = vol_id;
     new_association.ref_cnt = 1L;
+    new_association.vol_migration_reconcile_ref_cnt = 0L;
     obj_map.obj_refcnt++;
     assoc_entry.push_back(new_association);
     obj_map.obj_num_assoc_entry = assoc_entry.size();
@@ -447,6 +448,19 @@ fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id) const
 }
 
 /**
+ * Returns index of an association entry for the given volume
+ * If volume is not associated, returns assoc_entry.end()
+ */
+std::vector<obj_assoc_entry_t>::iterator
+ObjMetaData::getAssociationIt(fds_volid_t volId) {
+    std::vector<obj_assoc_entry_t>::iterator it;
+    for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
+        if (volId == (*it).vol_uuid) break;
+    }
+    return it;
+}
+
+/*
 * @brief copies associated volume information into vols
 *
 * @param vols
@@ -690,40 +704,113 @@ ObjMetaData::propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaDa
     }
 }
 
-void
+Error
 ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData)
 {
-    // this method over-writes metadata from objMetaData
+    Error err(ERR_OK);
 
-    // TODO(Anna) revisit applying refcount for migration when we
-    // implement IO forwarding from the source SM
-    // because we may already start receiving forwarded IO, so it is
-    // not just over-writing refcount
-    setRefCnt(objMetaData.objectRefCnt);
+    if (objMetaData.isObjectMetaDataReconcile) {
+        // objMetaData contain changes to the metadata since object
+        // was migrated to this SM
 
-    // below fields ok to be over-written
-    obj_map.compress_type = objMetaData.objectCompressType;
-    obj_map.compress_len = objMetaData.objectCompressLen;
-    obj_map.obj_blk_len = objMetaData.objectBlkLen;
-    obj_map.obj_size = objMetaData.objectSize;
-    obj_map.expire_time = objMetaData.objectExpireTime;
+        // these fields must not change at least in current implementation
+        // may not be true in the future...
+        if ((obj_map.compress_type != objMetaData.objectCompressType) ||
+            (obj_map.compress_len != (fds_uint32_t)objMetaData.objectCompressLen) ||
+            (obj_map.obj_blk_len != objMetaData.objectBlkLen) ||
+            (obj_map.obj_size != (fds_uint32_t)objMetaData.objectSize) ||
+            (obj_map.expire_time != (fds_uint64_t)objMetaData.objectExpireTime)) {
+            return ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
+        }
 
-    // TODO(Anna) do not over-write if data corrupted flag set
-    // unless we got the data from source SM and can recover...
-    obj_map.obj_flags = objMetaData.objectFlags;
+        // if object is corrupted on source, set corrupted here too.
+        // should not trust that SM with the object..
+        obj_map.obj_flags = objMetaData.objectFlags;
 
-    // over-write volume association
-    // TODO(Anna) revisit this when we implement IO forwarding from
-    // source SM, because we may already start receiving forwarded IO,
-    // so we may have associations that source SM does not know about
-    assoc_entry.clear();
-    for (auto volAssoc : objMetaData.objectVolumeAssoc) {
-        obj_assoc_entry_t new_association;
-        new_association.vol_uuid = volAssoc.volumeAssoc;
-        new_association.ref_cnt = volAssoc.volumeRefCnt;
-        assoc_entry.push_back(new_association);
-        obj_map.obj_num_assoc_entry = assoc_entry.size();
+        // reconcile refcnt
+        fds_int64_t newRefcnt = obj_map.obj_refcnt + objMetaData.objectRefCnt;
+        if (newRefcnt < 0) {
+            LOGERROR << "Cannot reconcile refcnt: existing refcnt "
+                     << obj_map.obj_refcnt << ", diff from destination SM "
+                     << objMetaData.objectRefCnt;
+            return ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
+        }
+        obj_map.obj_refcnt = newRefcnt;
+
+        // reconcile volume association
+        std::vector<obj_assoc_entry_t>::iterator it;
+        for (auto volAssoc : objMetaData.objectVolumeAssoc) {
+            it = getAssociationIt(volAssoc.volumeAssoc);
+            if (it != assoc_entry.end()) {
+                // found volume association, reconcile
+                newRefcnt = it->ref_cnt + volAssoc.volumeRefCnt;
+                if (newRefcnt >= 0) {
+                    it->ref_cnt = newRefcnt;
+                    if (newRefcnt == 0) {
+                        assoc_entry.erase(it);
+                        obj_map.obj_num_assoc_entry = assoc_entry.size();
+                    }
+                } else {
+                    err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
+                }
+            } else {
+                // this is a new association..
+                if (volAssoc.volumeRefCnt >= 0) {
+                    obj_assoc_entry_t new_association;
+                    new_association.vol_uuid = volAssoc.volumeAssoc;
+                    new_association.ref_cnt = volAssoc.volumeRefCnt;
+                    assoc_entry.push_back(new_association);
+                    obj_map.obj_num_assoc_entry = assoc_entry.size();
+                } else {
+                    err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
+                }
+            }
+
+            if (!err.ok()) {
+                LOGERROR << "Cannot reconcile refcnt for volume "
+                         << std::hex << volAssoc.volumeAssoc << std::dec
+                         << " : existing refcnt "
+                         << obj_map.obj_refcnt << ", diff from destination SM "
+                         << volAssoc.volumeRefCnt;
+                return err;
+            }
+        }
+    } else {
+        // over-write metadata
+        if (objMetaData.objectRefCnt < 0) {
+            LOGERROR << "Object refcnt must be > 0 if isObjectMetaDataReconcile is false "
+                     << " refcnt = " << objMetaData.objectRefCnt;
+            return ERR_INVALID_ARG;
+        }
+        setRefCnt(objMetaData.objectRefCnt);
+
+        obj_map.compress_type = objMetaData.objectCompressType;
+        obj_map.compress_len = objMetaData.objectCompressLen;
+        obj_map.obj_blk_len = objMetaData.objectBlkLen;
+        obj_map.obj_size = objMetaData.objectSize;
+        obj_map.expire_time = objMetaData.objectExpireTime;
+
+        // TODO(Anna) do not over-write if data corrupted flag set
+        // unless we got the data from source SM and can recover...
+        obj_map.obj_flags = objMetaData.objectFlags;
+
+        // over-write volume association
+        assoc_entry.clear();
+        for (auto volAssoc : objMetaData.objectVolumeAssoc) {
+            obj_assoc_entry_t new_association;
+            new_association.vol_uuid = volAssoc.volumeAssoc;
+            if (volAssoc.volumeRefCnt < 0) {
+                LOGERROR << "Object vol assoc refcnt must be > 0 if isObjectMetaDataReconcile "
+                         << "is false refcnt = " << objMetaData.objectRefCnt;
+                return ERR_INVALID_ARG;
+            }
+            new_association.ref_cnt = volAssoc.volumeRefCnt;
+            assoc_entry.push_back(new_association);
+            obj_map.obj_num_assoc_entry = assoc_entry.size();
+        }
     }
+
+    return ERR_OK;
 }
 
 /**

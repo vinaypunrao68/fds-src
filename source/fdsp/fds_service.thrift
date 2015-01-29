@@ -1088,7 +1088,7 @@ struct CtrlObjectMetaDataPropagate
     10: i32              objectFlags
     
     /* object expieration time */
-    11: i32              objectExpireTime    
+    11: i64              objectExpireTime
 }
 
 struct CtrlObjectRebalanceDeltaSet

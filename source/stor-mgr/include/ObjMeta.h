@@ -96,7 +96,7 @@ class ObjMetaData : public serialize::Serializable {
     void diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData);
     void propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData,
                                  bool reconcileMetaDataOnly);
-    void updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
+    Error updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
 
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
@@ -135,6 +135,7 @@ class ObjMetaData : public serialize::Serializable {
     fds_bool_t deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);
 
     fds_bool_t isVolumeAssociated(fds_volid_t vol_id) const;
+    std::vector<obj_assoc_entry_t>::iterator getAssociationIt(fds_volid_t volId);
 
     void getAssociatedVolumes(std::vector<fds_volid_t> &vols) const;
 
@@ -185,6 +186,8 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
         << "  del_time " << objMd.obj_map.obj_del_time
         << "  mod_time " << objMd.obj_map.assoc_mod_time
         << "  flags " << std::hex << (fds_uint16_t)objMd.obj_map.obj_flags << std::dec
+        << "  migration_version " << objMd.obj_map.migration_ver
+        << "  migration reconcile refcnt " << objMd.obj_map.migration_reconcile_ref_cnt
         << std::endl;
     for (fds_uint32_t i = 0; i < MAX_PHY_LOC_MAP; i++) {
         out << "Object MetaData: "
@@ -192,6 +195,12 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
             << ") loc id (" << objMd.phy_loc[i].obj_stor_loc_id
             << ") offset (" << objMd.phy_loc[i].obj_stor_offset
             << ") file id (" << objMd.phy_loc[i].obj_file_id << ")"
+            << std::endl;
+    }
+    for (fds_uint32_t i = 0; i < objMd.obj_map.obj_num_assoc_entry; ++i) {
+        out << "Assoc volume " << std::hex << objMd.assoc_entry[i].vol_uuid << std::dec
+            << " refcnt " << objMd.assoc_entry[i].ref_cnt
+            << " reconcile refcnt " << objMd.assoc_entry[i].vol_migration_reconcile_ref_cnt
             << std::endl;
     }
     return out;
