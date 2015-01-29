@@ -235,8 +235,8 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     fds_verify((cur_state == CSSTATE_DELTA_SYNC) ||
                (cur_state == CSSTATE_FORWARD_ONLY));
 
-    LOGDEBUG << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
-             << std::dec << " blob " << commitBlobReq->blob_name;
+    LOGMIGRATE << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
+               << std::dec << " blob " << commitBlobReq->blob_name;
 
     ForwardCatalogMsgPtr fwdMsg(new ForwardCatalogMsg());
     fwdMsg->volume_id = commitBlobReq->volId;
@@ -252,6 +252,9 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     asyncCatUpdReq->setTimeoutMs(5000);
     asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(CatalogSync::fwdCatalogUpdateMsgResp,
                                                       commitBlobReq));
+    // TODO(Andrew): It is incorrect to send unordered, async messages to the
+    // destination DM. The requests can be received out of order on the network.
+    // The updates should either be A) tagged with an order or B) sent serially.
     asyncCatUpdReq->invoke();
 
     return err;
@@ -260,10 +263,16 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
 void CatalogSync::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
                                           EPSvcRequest* req,
                                           const Error& error,
-                                          boost::shared_ptr<std::string> payload) // NOLINT                                                                                      
-{
-    LOGDEBUG << "Received fwd cat update response" << *commitReq << " " << error;
-    commitReq->dmio_commit_blob_tx_resp_cb(error, commitReq);
+                                          boost::shared_ptr<std::string> payload) {
+    LOGMIGRATE << "Received forward catalog update response for blob " << commitReq->blob_name
+               << " request that used DMT version " << commitReq->dmt_version << " with error " << error;
+    // Set the error code to forward failed when we got a timeout so that
+    // the caller can differentiate between our timeout and its own.
+    if (!error.ok()) {
+        commitReq->cb(ERR_DM_FORWARD_FAILED, commitReq);
+        return;
+    }
+    commitReq->cb(error, commitReq);
 }
 
 /***** CatalogSyncManager implementation ******/
@@ -276,7 +285,6 @@ CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
           dm_req_handler(dm_req_hdlr),
           cat_sync_lock("Catalog Sync lock"),
           dmtclose_ts(util::getTimeStampNanos()) {
-    LOGNORMAL << "Constructing CatalogSyncMgr";
 }
 
 CatalogSyncMgr::~CatalogSyncMgr() {
@@ -285,15 +293,13 @@ CatalogSyncMgr::~CatalogSyncMgr() {
 /**
  * Module start up code
  */
-void CatalogSyncMgr::mod_startup()
-{
+void CatalogSyncMgr::mod_startup() {
 }
 
 /**
  * Module shutdown code
  */
-void CatalogSyncMgr::mod_shutdown()
-{
+void CatalogSyncMgr::mod_shutdown() {
 }
 
 /**
@@ -309,7 +315,7 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
     fds_mutex::scoped_lock l(cat_sync_lock);
     // we should not get request to start a sync until
     // close is finished -- OM serializes DM deployment, so return an error
-    LOGNORMAL << "startCatalogSync :" << sync_in_progress;
+    LOGMIGRATE << "startCatalogSync :" << sync_in_progress;
     if (sync_in_progress) {
         return ERR_NOT_READY;
     }
@@ -331,8 +337,8 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
         std::set<fds_volid_t> vols;
 
         for (auto vol : metavol.volList) {
-            LOGDEBUG << "Will sync vol " << std::hex << vol
-                     << " to node " << uuid.uuid_get_val() << std::dec;
+            LOGMIGRATE << "Will sync vol " << std::hex << vol
+                       << " to node " << uuid.uuid_get_val() << std::dec;
             vols.insert(vol);
         }
 
@@ -398,8 +404,6 @@ Error CatalogSyncMgr::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
          cit != cat_sync_map.cend();
          ++cit) {
         if ((cit->second)->hasVolume(commitBlobReq->volId)) {
-            LOGDEBUG << "FORWARD:sync catalog update for volume "
-                     << std::hex << commitBlobReq->volId << std::dec;
             err = (cit->second)->forwardCatalogUpdate(commitBlobReq, blob_version,
                                                       blob_obj_list, meta_list);
             found_volume = true;
@@ -447,13 +451,13 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
              cit != cat_sync_map.cend();
              ++cit) {
             if ((cit->second)->hasVolume(volid)) {
-                LOGDEBUG << "DEL-VOL: Map Clean up "
-                         << std::hex << volid << std::dec;
                 (cit->second)->handleVolumeDone(volid);
+                LOGMIGRATE << "Completed forwarding for volume " << std::hex << volid << std::dec
+                           << " and removed from syncing volumes list";
                 if (((cit->second)->emptyVolume())) {
                     cat_sync_map.erase(cit);
-                    LOGDEBUG << "cat sync map erase: " << std::hex
-                             << volid << std::dec;
+                    LOGMIGRATE << "cat sync map erase: " << std::hex
+                               << volid << std::dec;
                     // TODO(Anna) fix for case when DM pushes meta
                     // for same volume to multiple dest DMs
                     break;
@@ -461,7 +465,7 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
             }
         }
         send_dmt_close_ack = cat_sync_map.empty();
-        LOGDEBUG << "send_dmt_close_ack :  " << send_dmt_close_ack;
+        LOGMIGRATE << "send_dmt_close_ack: " << send_dmt_close_ack;
         sync_in_progress = !send_dmt_close_ack;
     }  // end of scoped lock
 
@@ -505,14 +509,14 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
         }
     }
 
-    LOGNORMAL << "Sync is finished for volume " << std::hex << volid
-              << std::dec << " " << error;
+    LOGMIGRATE << "Sync is finished for volume " << std::hex << volid
+               << std::dec << " " << error;
 
     if ((event == CATSYNC_INITIAL_SYNC_DONE) && send_ack) {
-        LOGNORMAL << "PushMeta finished for all volumes";
+        LOGMIGRATE << "PushMeta finished for all volumes";
         omclient->sendDMTPushMetaAck(error, cat_sync_context);
     } else if ((event == CATSYNC_DELTA_SYNC_DONE) && send_ack) {
-        LOGNORMAL << "Delta sync finished for all volumes, sending commit ack";
+        LOGMIGRATE << "Delta sync finished for all volumes, sending commit ack";
         omclient->sendDMTCommitAck(error, cat_sync_context);
     }
 }
@@ -542,8 +546,8 @@ Error CatalogSync::issueVolSyncStateMsg(fds_volid_t volId,
     fwdMsg->volume_id = volId;
     fwdMsg->forward_complete = forward_complete;
 
-    LOGDEBUG << "Sending VolSyncStateMsg: " << std::hex
-             << volId << std::dec << " fwd_complete: " << forward_complete;
+    LOGMIGRATE << "Sending VolSyncStateMsg: " << std::hex
+               << volId << std::dec << " fwd_complete: " << forward_complete;
 
     auto asyncFwdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
     asyncFwdReq->setPayload(FDSP_MSG_TYPEID(fpi::VolSyncStateMsg), fwdMsg);

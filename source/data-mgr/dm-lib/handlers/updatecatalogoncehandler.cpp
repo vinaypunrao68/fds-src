@@ -137,8 +137,8 @@ void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
 void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
                                               Error const& e, dmCatReq* dmRequest) {
-    DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = e.GetErrno();
+    DBG(GLOGDEBUG << logString(*asyncHdr));
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::UpdateCatalogOnceRspMsgTypeId, updcatRspMsg);
 

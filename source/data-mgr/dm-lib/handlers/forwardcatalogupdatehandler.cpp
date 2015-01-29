@@ -25,16 +25,23 @@ void ForwardCatalogUpdateHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::ForwardCatalogMsg>& message) {
     auto dmReq = new DmIoFwdCat(message);
-    dmReq->cb = BIND_MSG_CALLBACK(ForwardCatalogUpdateHandler::handleResponse, asyncHdr, message);
+    dmReq->cb = BIND_MSG_CALLBACK(ForwardCatalogUpdateHandler::handleCompletion, asyncHdr, message);
 
     addToQueue(dmReq);
+
+    DBG(LOGMIGRATE << "Enqueued new forward request " << logString(*asyncHdr)
+        << " " << *reinterpret_cast<DmIoFwdCat*>(dmReq));
+
+    // Reply back now to acknowledge that we received the forward message and properly
+    // enqueued it for later processing
+    handleResponse(asyncHdr, message, ERR_OK, dmReq);
 }
 
 void ForwardCatalogUpdateHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dmRequest);
     DmIoFwdCat* typedRequest = static_cast<DmIoFwdCat*>(dmRequest);
 
-    LOGTRACE << "Will commit fwd blob " << *typedRequest << " to tvc";
+    LOGMIGRATE << "Will commit fwd blob " << *typedRequest << " to tvc";
     helper.err = dataMgr->timeVolCat_->updateFwdCommittedBlob(
             typedRequest->volId,
             typedRequest->blob_name,
@@ -58,14 +65,31 @@ void ForwardCatalogUpdateHandler::handleUpdateFwdCommittedBlob(Error const& e,
     LOGTRACE << "Commited fwd blob " << *fwdCatReq;
 }
 
+/**
+ * Replies back to the caller. Does NOT delete the request because we're only replying
+ * on request receipt, not completion.
+ */
 void ForwardCatalogUpdateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                  boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
-                                                 Error const& e, dmCatReq* dmRequest) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << " " << *reinterpret_cast<DmIoFwdCat*>(dmRequest));
+                                                 Error const& e,
+                                                 dmCatReq* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
-
+    // TODO(Andrew): There is a race here if the request actually gets completed before
+    // we reply then the dmRequest may be NULL
+    DBG(LOGMIGRATE << logString(*asyncHdr) << " " << *reinterpret_cast<DmIoFwdCat*>(dmRequest));
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::ForwardCatalogRspMsgTypeId, fpi::ForwardCatalogRspMsg());
+}
 
+/**
+ * Invoked when the forward request completes. We've already replied so we
+ * only need to delete the request.
+ */
+void ForwardCatalogUpdateHandler::handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                                   boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
+                                                   Error const& e,
+                                                   dmCatReq* dmRequest) {
+    DBG(LOGMIGRATE << "Completed request " << logString(*asyncHdr) << " "
+        << *reinterpret_cast<DmIoFwdCat*>(dmRequest));
     delete dmRequest;
 }
 
