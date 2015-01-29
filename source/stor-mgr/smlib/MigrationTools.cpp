@@ -48,9 +48,9 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
             // Keys are the same, push a difference if values are not.
             auto l_v = l_it->value().ToString();
             auto r_v = r_it->value().ToString();
-            if (l_v != r_v) {
-                ObjMetaData a; a.deserializeFrom(l_v);
-                ObjMetaData b; b.deserializeFrom(r_v);
+            ObjMetaData a; a.deserializeFrom(l_v);
+            ObjMetaData b; b.deserializeFrom(r_v);
+            if (a != b) {
                 diff.emplace_back(std::make_pair(boost::make_shared<ObjMetaData>(a),
                                                  boost::make_shared<ObjMetaData>(b)));
             }

@@ -11,3 +11,4 @@ Build/linux-x86_64.debug/tests/sm_objectstore_gtest --fds-root=./config/ --fds.s
 Build/linux-x86_64.debug/tests/sm_tier_migration_gtest
 Build/linux-x86_64.debug/tests/histogram_gtest
 Build/linux-x86_64.debug/tests/sm_token_migration_seqnum_gtest
+Build/linux-x86_64.debug/tests/sm_token_snapshot_delta_gtest

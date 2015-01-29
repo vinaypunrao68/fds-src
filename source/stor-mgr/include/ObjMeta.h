@@ -42,6 +42,8 @@ struct SyncMetaData : public serialize::Serializable {
     virtual uint32_t getEstimatedSize() const override;
 
     bool operator== (const SyncMetaData &rhs) const;
+    bool operator!= (const SyncMetaData &rhs) const
+    { return !(this->operator==(rhs)); }
     SyncMetaData& operator=(const SyncMetaData &rhs);
 
     /* Born timestamp */
@@ -146,6 +148,8 @@ class ObjMetaData : public serialize::Serializable {
     void removePhyLocation(diskio::DataTier tier);
 
     bool operator==(const ObjMetaData &rhs) const;
+    bool operator!= (const ObjMetaData &rhs) const
+    { return !(this->operator==(rhs)); }
 
     std::string logString() const;
 
