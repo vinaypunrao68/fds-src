@@ -441,7 +441,7 @@ fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id) const
  * If volume is not associated, returns assoc_entry.end()
  */
 std::vector<obj_assoc_entry_t>::iterator
-ObjMetaData::getAssociationIndex(fds_volid_t volId) {
+ObjMetaData::getAssociationIt(fds_volid_t volId) {
     std::vector<obj_assoc_entry_t>::iterator it;
     for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
         if (volId == (*it).vol_uuid) break;
@@ -595,10 +595,10 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         // these fields must not change at least in current implementation
         // may not be true in the future...
         if ((obj_map.compress_type != objMetaData.objectCompressType) ||
-            (obj_map.compress_len != objMetaData.objectCompressLen) ||
+            (obj_map.compress_len != (fds_uint32_t)objMetaData.objectCompressLen) ||
             (obj_map.obj_blk_len != objMetaData.objectBlkLen) ||
-            (obj_map.obj_size != objMetaData.objectSize) ||
-            (obj_map.expire_time != objMetaData.objectExpireTime)) {
+            (obj_map.obj_size != (fds_uint32_t)objMetaData.objectSize) ||
+            (obj_map.expire_time != (fds_uint64_t)objMetaData.objectExpireTime)) {
             return ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
         }
 
@@ -619,7 +619,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         // reconcile volume association
         std::vector<obj_assoc_entry_t>::iterator it;
         for (auto volAssoc : objMetaData.objectVolumeAssoc) {
-            it = getAssociationIndex(volAssoc.volumeAssoc);
+            it = getAssociationIt(volAssoc.volumeAssoc);
             if (it != assoc_entry.end()) {
                 // found volume association, reconcile
                 newRefcnt = it->ref_cnt + volAssoc.volumeRefCnt;
