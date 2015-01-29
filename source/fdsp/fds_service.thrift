@@ -109,6 +109,8 @@ enum  FDSPMsgTypeId {
     CtrlNotifyPushDMTTypeId            = 2080,
     CtrlNotifyDMTCloseTypeId           = 2081,
     CtrlNotifyDMTUpdateTypeId          = 2082,
+    CtrlNotifyDMAbortMigrationTypeId   = 2083,
+
 
     /* OM-> AM messages. */
     CtrlNotifyBucketStatTypeId         = 2100,
@@ -615,6 +617,11 @@ struct CtrlNotifyDMTClose {
 struct CtrlNotifyDMTUpdate {
      1: FDSP.FDSP_DMT_Type        dmt_data;
      2: i32                       dmt_version;
+}
+
+/* --------------------  CtrlNotifyDMAbortMigrationTypeId  ---------------------- */
+struct CtrlNotifyDMAbortMigration {
+     1: i64  DMT_version;
 }
 
 /* --------------------  CtrlNotifyBucketStatTypeId  --------------------------- */

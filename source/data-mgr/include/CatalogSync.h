@@ -87,7 +87,8 @@ namespace fds {
             CSSTATE_INITIAL_SYNC,   // initial sync in progress
             CSSTATE_DELTA_SYNC ,    // second (delta) sync in progress
             CSSTATE_FORWARD_ONLY,   // all rsyncs done, only forwarding updates
-            CSSTATE_DONE            // done syncing
+            CSSTATE_DONE,            // done syncing
+            CSSTATE_ABORT           // aborting the sync
         } csStateType;
 
         /**
@@ -298,6 +299,11 @@ namespace fds {
                         fds_volid_t volid,
                         OMgrClient* omclient,
                         const Error& error);
+
+        /**
+        * Aborts sync when error state is reached in DMT state machine
+        */
+        void abortMigration();
 
   private:
         fds_bool_t sync_in_progress;

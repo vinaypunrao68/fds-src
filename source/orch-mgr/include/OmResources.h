@@ -109,11 +109,16 @@ class OM_NodeAgent : public NodeAgent
                       boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt(const DLT *curDlt);
-    virtual Error om_send_abort_migration(fds_uint64_t dltVersion);
-    void om_send_abort_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
+    virtual Error om_send_abort_sm_migration(fds_uint64_t dltVersion);
+    virtual Error om_send_abort_dm_migration(fds_uint64_t dmtVersion);
+    void om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
                                       EPSvcRequest* req,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload);
+    void om_send_abort_dm_migration_resp(fpi::CtrlNotifyDMAbortMigrationPtr msg,
+            EPSvcRequest* req,
+            const Error& error,
+            boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
     void    om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* rpcReq,
@@ -471,6 +476,7 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
     virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
     virtual void om_bcast_shutdown_msg();
+    virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 
     /**
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs

@@ -27,6 +27,7 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTClose, NotifyDMTClose);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyAbortMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownMODMsg, shutdownDM);
 }
 
@@ -309,12 +310,6 @@ DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     // TODO(xxx) notify volume sync that we can stop forwarding
     // updates to other DM
 
-    /*
-    void (*async_f)(const FDS_ProtocolInterface::AsyncHdr &,
-            const FDS_ProtocolInterface::FDSPMsgTypeId &,
-            const FDS_ProtocolInterface::CtrlNotifyDMTClose &) = &sendAsyncResp;
-    */
-
     dataMgr->sendDmtCloseCb = std::bind(&DMSvcHandler::NotifyDMTCloseCb, this,
             hdr, dmtClose, std::placeholders::_1);
     err = dataMgr->volcat_evt_handler(fds_catalog_dmt_close, FDSP_PushMetaPtr(), "0");
@@ -327,8 +322,6 @@ DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         hdr->msg_code = err.GetErrno();
         sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
     }
-
-
 }
 
 void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -344,6 +337,16 @@ void DMSvcHandler::shutdownDM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::ShutdownMODMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message DM ... shuttting down...";
     dataMgr->mod_shutdown();
+}
+
+void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+        boost::shared_ptr<fpi::CtrlNotifyDMAbortMigration>& abortMsg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << "Got abort migration, reverting to DMT version" << abortMsg->dmt_version;
+
+    // Tell the DMT manager
+    err = dataMgr->catSyncMgr->abortMigration();
 }
 
 }  // namespace fds
