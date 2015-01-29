@@ -22,8 +22,6 @@
 
 namespace fds {
 
-AccessMgr::unique_ptr am;
-
 class AmProcessWrapper : public FdsProcess {
   public:
     AmProcessWrapper(int argc, char * argv[], const std::string & config,

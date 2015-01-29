@@ -21,7 +21,8 @@ namespace fds {
 AccessMgr::AccessMgr(const std::string &modName,
                      CommonModuleProviderIf *modProvider)
         : Module(modName.c_str()),
-          modProvider_(modProvider) {
+          modProvider_(modProvider),
+          shuttingDown(false) {
 }
 
 AccessMgr::~AccessMgr() {
@@ -100,6 +101,24 @@ AccessMgr::registerVolume(const VolumeDesc& volDesc) {
     // on a single volume add location.
     storHvisor->amCache->createCache(volDesc);
     return storHvisor->vol_table->registerVolume(volDesc);
+}
+
+// Set AM in shutdown mode.
+void
+AccessMgr::setShutDown() {
+    shuttingDown = true;
+}
+
+// Check whether AM is in shutdown mode.
+bool
+AccessMgr::isShuttingDown() {
+    return shuttingDown;
+}
+
+/// Allow queues to drain and outstanding requests to complete.
+void
+AccessMgr::prepareToShutDown() {
+
 }
 
 }  // namespace fds

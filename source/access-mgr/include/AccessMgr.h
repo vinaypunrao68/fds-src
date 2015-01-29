@@ -39,6 +39,15 @@ class AccessMgr : public Module, public boost::noncopyable {
     /// used for testing today.
     Error registerVolume(const VolumeDesc& volDesc);
 
+    // Set AM in shutdown mode.
+    void setShutDown();
+
+    // Check whether AM is in shutdown mode.
+    bool isShuttingDown();
+
+    /// Allow queues to drain and outstanding requests to complete.
+    void prepareToShutDown();
+
     /// Shared ptr to AM's data API. It's public so that
     /// other components (e.g., unit tests, perf tests) can
     /// directly call it. It may be shared by this and the
@@ -46,7 +55,7 @@ class AccessMgr : public Module, public boost::noncopyable {
     AmDataApi::shared_ptr dataApi;
 
   private:
-    /// Raw pointer to an external dependancy manager
+    /// Raw pointer to an external dependency manager
     CommonModuleProviderIf *modProvider_;
 
     /// Unique ptr to the fdsn server that communicates with XDI
@@ -63,7 +72,11 @@ class AccessMgr : public Module, public boost::noncopyable {
 
     /// Block connector
     NbdConnector::shared_ptr blkConnector;
+
+    std::atomic_bool  shuttingDown;
 };
+
+extern AccessMgr::unique_ptr am;
 
 }  // namespace fds
 

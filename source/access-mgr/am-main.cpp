@@ -34,13 +34,17 @@ class AMMain : public PlatformProcess
         Module *lckstp[] = { am.get(), NULL };
         proc_assign_locksteps(lckstp);
     }
+
     int run() override {
         am->run();
+
+        /* Only do module shutdown once.  Module shutdown can happen in interrupt_cb() */
+        if (!mod_shutdown_invoked_) {
+            shutdown_modules();
+        }
+
         return 0;
     }
-
-  private:
-    AccessMgr::unique_ptr am;
 };
 
 }  // namespace fds

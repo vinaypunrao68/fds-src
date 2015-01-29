@@ -8,6 +8,7 @@
 #include <net/PlatNetSvcHandler.h>
 #include <fds_typedefs.h>
 #include <fdsp/AMSvc.h>
+#include <AccessMgr.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -62,6 +63,10 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &msg);
+
+    virtual void
+    shutdownAM(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+               boost::shared_ptr<fpi::ShutdownMODMsg>   &shutdownMsg);
 };
 
 }  // namespace fds
