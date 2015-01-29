@@ -108,7 +108,7 @@ class MigrationClient {
 
     /* Add object meta data to the set to be sent to QoS.
      */
-    void migClientAddMetaData(std::vector<ObjMetaData::ptr>& objMetaDataSet,
+    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bool>>& objMetaDataSet,
                               fds_bool_t lastSet);
 
     /**
@@ -213,12 +213,14 @@ class MigrationClient {
     /**
      * Pointer to first leveldb snapshot.  This is set in the snapshot callback.
      */
-    leveldb::DB *firstPhaseSnapDB;
+    leveldb::DB *firstPhaseLevelDB;
+    leveldb::ReadOptions firstPhaseReadOptions;
 
     /**
      * Pointer to second leveldb snapshot.  This is set in the snapshot callback.
      */
-    leveldb::DB *secondPhaseSnapDB;
+    leveldb::DB *secondPhaseLevelDB;
+    leveldb::ReadOptions secondPhaseReadOptions;
 
     /**
      * Maximum number of objects to send in delta set back to the destination SM.

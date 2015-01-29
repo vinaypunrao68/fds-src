@@ -1047,31 +1047,41 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
-        ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i];
+        ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
+        bool reconcileMetaDataOnly = (readDeltaSetReq->deltaSet)[i].second;
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
-        /* get the object from metadata information. */
-        boost::shared_ptr<const std::string> dataPtr =
-                objectStore->getObjectData(invalid_vol_id,
-                                       objID,
-                                       objMetaDataPtr,
-                                       err);
-        /* TODO(sean): For now, just panic. Need to know why
-         * object read failed.
+        fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
+
+        /* copy metadata to object propagation message. */
+        objMetaDataPtr->propagateObjectMetaData(objMetaDataPropagate,
+                                                reconcileMetaDataOnly);
+        /* If reconciling only the metadata, there is no need to read the
+         * data from the object store.
          */
-        fds_verify(err.ok());
+        if (!reconcileMetaDataOnly) {
+
+            /* get the object from metadata information. */
+            boost::shared_ptr<const std::string> dataPtr =
+                    objectStore->getObjectData(invalid_vol_id,
+                                               objID,
+                                               objMetaDataPtr,
+                                               err);
+            /* TODO(sean): For now, just panic. Need to know why
+             * object read failed.
+             */
+            fds_verify(err.ok());
+
+            /* Copy the object data */
+            objMetaDataPropagate.objectData = *dataPtr;
+        }
 
         /* Add metadata and data to the delta set */
-        fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
-        objMetaDataPtr->propagateMetaData(objMetaDataPropagate);
-        /* TODO(Sean): Can we avoid data copy and directory read
-         * to the string buffer?
-         */
-        objMetaDataPropagate.objectData = *dataPtr;
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
 
-        LOGMIGRATE << "Adding DeltaSet element: " << objID;
+        LOGMIGRATE << "Adding DeltaSet element: " << objID
+                   << " reconcileMetaDataOnly=" << reconcileMetaDataOnly;
     }
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
