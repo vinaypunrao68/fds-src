@@ -335,7 +335,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     EXPECT_TRUE(index < (migrVolume->testdata_).dataset_.size());
     ObjectID newOid = (migrVolume->testdata_).dataset_[index];
     boost::shared_ptr<std::string> newData =
-            (migrVolume->testdata_).dataset_map_[oid].getObjectData();
+            (migrVolume->testdata_).dataset_map_[newOid].getObjectData();
     msg.isObjectMetaDataReconcile = true;
     msg.objectData.clear();
     msg.objectData.resize(newData->length());
