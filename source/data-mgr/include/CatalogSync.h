@@ -36,14 +36,14 @@ typedef netClientSessionEx<fpi::FDSP_MetaSyncReqClient,
                 fpi::FDSP_MetaSyncRespProcessor,
                 fpi::FDSP_MetaSyncRespIf> netMetaSyncClientSession;
 
-// Callback to DM svc handler for any DMT migration events
-// DMT update, DMT close and 
-typedef std::function<void (const Error&)> OmDMTMsgCbType;
-
 namespace fds {
 
      class OMgrClient;
      class CatalogSyncMgr;
+
+     // Callback to DM svc handler for any DMT migration events
+     // DMT update, DMT close and 
+     typedef std::function<void (const Error&)> OmDMTMsgCbType;
 
      typedef enum {
          CATSYNC_INITIAL_SYNC_DONE = 0,  // finished initial rsync
