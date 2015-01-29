@@ -253,7 +253,9 @@ public class S3SmokeTest {
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
                     byte[] buf = new byte[(1 + i) * (1024 * 1024)];
-                    rng.nextBytes(buf);
+                    for (int j = 0; j < buf.length; j++) {
+                        buf[j] = (byte) -1;
+                    }
                     UploadPartRequest request = new UploadPartRequest()
                             .withBucketName(userBucket)
                             .withKey(key)

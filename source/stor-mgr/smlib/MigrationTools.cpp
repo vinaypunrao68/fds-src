@@ -51,8 +51,8 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
             ObjMetaData a; a.deserializeFrom(l_v);
             ObjMetaData b; b.deserializeFrom(r_v);
             if (a != b) {
-                diff.emplace_back(std::make_pair(boost::make_shared<ObjMetaData const>(a),
-                                                 boost::make_shared<ObjMetaData const>(b)));
+                diff.emplace_back(std::make_pair(boost::make_shared<ObjMetaData>(a),
+                                                 boost::make_shared<ObjMetaData>(b)));
             }
             l_it->Next();
             r_it->Next();
@@ -62,7 +62,7 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
             {
             // New key in the rhs, append to the metadata list
             ObjMetaData b; b.deserializeFrom(r_it->value().ToString());
-            diff.emplace_back(std::make_pair(nullptr, boost::make_shared<ObjMetaData const>(b)));
+            diff.emplace_back(std::make_pair(nullptr, boost::make_shared<ObjMetaData>(b)));
             r_it->Next();
             break;
             }

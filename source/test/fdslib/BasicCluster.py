@@ -7,10 +7,10 @@ import os
 import time
 
 # List of proceses expected to be running on all nodes.
-all_nodes_process_list = ['platformd', 'DataMgr', 'StorMgr']
+all_nodes_process_list = ['am.Main', 'bare_am', 'platformd', 'DataMgr', 'StorMgr']
 
 # List of processes expected to be running on AM/OM nodes.
-process_list = ['om.Main', 'am.Main', 'bare_am'] + all_nodes_process_list
+process_list = ['om.Main'] + all_nodes_process_list
 
 # Display setting for status command
 process_status_field_list = 'euser,pid,pcpu,pmem,nlwp,stat,bsdstart,bsdtime'
