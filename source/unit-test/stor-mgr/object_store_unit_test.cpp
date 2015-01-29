@@ -304,6 +304,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
                 (migrVolume->testdata_).dataset_map_[oid].getObjectData();
 
         // update msg fields that depend on particular object/test
+        fds::assign(msg.objectID, oid);
         msg.objectData.clear();
         msg.objectData.resize(data->length());
         msg.objectData.assign(*data);
@@ -336,6 +337,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     ObjectID newOid = (migrVolume->testdata_).dataset_[index];
     boost::shared_ptr<std::string> newData =
             (migrVolume->testdata_).dataset_map_[newOid].getObjectData();
+    fds::assign(msg.objectID, newOid);
     msg.isObjectMetaDataReconcile = true;
     msg.objectData.clear();
     msg.objectData.resize(newData->length());
@@ -359,6 +361,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
                 (migrVolume->testdata_).dataset_map_[oid].getObjectData();
 
         // update msg fields that depend on particular object/test
+        fds::assign(msg.objectID, oid);
         msg.isObjectMetaDataReconcile = false;
         msg.objectData.clear();
         msg.objectData.resize(data->length());
