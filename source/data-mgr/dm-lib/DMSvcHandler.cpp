@@ -317,7 +317,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
 
     if (!err.ok()) {
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *dmt);
+        NotifyDMTUpdateCb(hdr, err);
     }
 }
 
