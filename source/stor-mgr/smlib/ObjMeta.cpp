@@ -559,11 +559,108 @@ void ObjMetaData::extractSyncData(fpi::FDSP_MigrateObjectMetadata &md) const
     }
 }
 
+struct AssocEntryLess {
+    bool operator() (const obj_assoc_entry_t &assocEntry1,
+                     const obj_assoc_entry_t &assocEntry2)
+    {
+        return assocEntry1.vol_uuid < assocEntry2.vol_uuid;
+    }
+};
+
+/**
+ * This function currently calculates difference between two object's metadata ref_cnts:
+ * 1) object reference count
+ * 2) per volume association reference count.
+ *
+ * The metadata now contains the difference between this and old object meta data.
+ *
+ * In the future, we may need additional fields to diff two object metadata.
+ */
 void
-ObjMetaData::propagateMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaData)
+ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
+{
+    LOGMIGRATE << "OLD Object MetaData: " << oldObjMetaData->logString();
+    LOGMIGRATE << "NEW Object MetaData: " << logString();
+
+    fds_assert(memcmp(obj_map.obj_id.metaDigest, oldObjMetaData->obj_map.obj_id.metaDigest,
+               sizeof(obj_map.obj_id.metaDigest)) == 0);
+
+    /* calculate the refcnt change */
+    obj_map.obj_refcnt = (uint64_t)((int64_t)obj_map.obj_refcnt -
+                                    (int64_t)oldObjMetaData->obj_map.obj_refcnt);
+
+    fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+    fds_assert(oldObjMetaData->obj_map.obj_num_assoc_entry == oldObjMetaData->assoc_entry.size());
+
+    /* Sort both the old metadata and new metadata volume association, so
+     * it's easier to determine the changes between two sets - O(nlogn) + O(n).
+     */
+    std::sort(assoc_entry.begin(), assoc_entry.end(), AssocEntryLess());
+    std::sort(oldObjMetaData->assoc_entry.begin(),
+              oldObjMetaData->assoc_entry.end(),
+              AssocEntryLess());
+
+    auto newIter = assoc_entry.begin();
+    auto oldIter = oldObjMetaData->assoc_entry.begin();
+
+    /* Following conditions are handled:
+     * 1) volume association exists in both new and old set.
+     *       - update it with diff.
+     * 2) volume assoction exists in old but not in new.
+     *       - update it with *negative* value of old entry.
+     * 3) volume association exists in new, but not in old
+     *       - do nothing.
+     */
+     /* TODO(Sean): Was thinking about this last night, and may have a bug, if
+      *             we don't check if newIter or oldIter is already at the
+      *             end before incrementing them.  Will make change on next PR. 
+      */
+    while (oldIter != oldObjMetaData->assoc_entry.end()) {
+        if (oldIter->vol_uuid == newIter->vol_uuid) {
+            /* This is a case where volume association appears on both obj metadata.
+             * Get the *signed* value and update it with the diff.
+             */
+            newIter->ref_cnt = (uint64_t)((int64_t)newIter->ref_cnt -
+                                          (int64_t)oldIter->ref_cnt);
+            ++oldIter;
+            ++newIter;
+        } else if (oldIter->vol_uuid < newIter->vol_uuid) {
+            /* This is a case where volume association appears on the old list but
+             * not on the new list.  This means that the volume association has
+             * disappeared.  Diff is *negative* of the volume ref_cnt.  Add the
+             * entry to the new list, so when propagated to the destination SM, it
+             * will appropriately reflect that volume association has disappeared.
+             */
+            oldIter->ref_cnt = (uint64_t)((int64_t)-(oldIter->ref_cnt));
+            assoc_entry.push_back(*oldIter);
+            ++oldIter;
+        } else {
+            /* It's in the new list, but not in the old list.  no need to do anything
+             * here.
+             */
+            ++newIter;
+        }
+    }
+
+    /* Just update the assoc entry number.  this is just to avoid headache
+     * later with all the assert in the existing code base.
+     */
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+
+    LOGMIGRATE << "DIFF of OLD/NEW: " << logString();
+}
+
+
+void
+ObjMetaData::propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaData,
+                                     bool reconcileMetaDataOnly)
 {
     fds::assign(objMetaData.objectID, obj_map.obj_id);
 
+    /* Even ObjectMetaDataReconcileOny flag is set, still copy over
+     * the entire ObjectMetaData.
+     */
+    objMetaData.isObjectMetaDataReconcile = reconcileMetaDataOnly;
     objMetaData.objectRefCnt = getRefCnt();
     objMetaData.objectCompressType = obj_map.compress_type;
     objMetaData.objectCompressLen = obj_map.compress_len;
@@ -924,9 +1021,14 @@ std::string ObjMetaData::logString() const
     std::ostringstream oss;
     ObjectID obj_id(std::string((const char*)(obj_map.obj_id.metaDigest),
             sizeof(obj_map.obj_id.metaDigest)));
-    oss << "id: " << obj_id << " flags: " << (uint32_t)obj_map.obj_flags
-            << " len: " << obj_map.obj_size
-            << " assoc_entry_cnt: " << assoc_entry.size();
+    oss << "id=" << obj_id
+        << " flags=" << (uint32_t)obj_map.obj_flags
+        << " len=" << obj_map.obj_size
+        << " assoc_entry_cnt=" << assoc_entry.size()
+        << " vol_id:refcnt=";
+    for (auto entry : assoc_entry)  {
+        oss << "(" << entry.vol_uuid << ":" << entry.ref_cnt << "), ";
+    }
     return oss.str();
 }
 }  // namespace fds

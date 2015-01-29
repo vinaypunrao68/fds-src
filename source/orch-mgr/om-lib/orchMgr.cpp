@@ -381,8 +381,8 @@ void OrchMgr::defaultS3BucketPolicy()
     FDS_ProtocolInterface::FDSP_PolicyInfoType policy_info;
     policy_info.policy_name = std::string("FDS Default/Stock Policy");
     policy_info.policy_id = 50;
-    policy_info.iops_min = 100;
-    policy_info.iops_max = 400;
+    policy_info.iops_min = conf_helper_.get<int>("default_iops_min");;
+    policy_info.iops_max = conf_helper_.get<int>("default_iops_max");;
     policy_info.rel_prio = 1;
 
     orchMgr->om_mutex->lock();
