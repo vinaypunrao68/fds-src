@@ -25,9 +25,10 @@ struct DeltaTest : public ::testing::Test {
       ObjectBuf buf;
       ObjMetaData().serializeTo(buf);
       std::string& omd = *buf.data;
-      ldb->Put(leveldb::WriteOptions(), "test_10", omd);
-      ldb->Put(leveldb::WriteOptions(), "test_20", omd);
       ldb->Put(leveldb::WriteOptions(), "test_30", omd);
+      ldb->Put(leveldb::WriteOptions(), "test_20", omd);
+      ldb->Put(leveldb::WriteOptions(), "test_10", omd);
+      ldb->Put(leveldb::WriteOptions(), "test_25", omd);
       init_state = ldb->GetSnapshot();
   }
 
