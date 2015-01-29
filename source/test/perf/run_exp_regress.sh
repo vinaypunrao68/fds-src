@@ -15,7 +15,7 @@ config=`echo $TAG | awk -F ":" '{print $3}'`
 echo "test_type: $test_type, mix: $mix, config: $config" 
 
 # remove package
-hosts=`echo $CLUSTER | sed 's/,/\\\n/g'`
+hosts=`echo $CLUSTER | sed 's/,/ /g'`
 for node in $hosts ; do
     ssh $node 'apt-get remove -y fds-platform'
 done
