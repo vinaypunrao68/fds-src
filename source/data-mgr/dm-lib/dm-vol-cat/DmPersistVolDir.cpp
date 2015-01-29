@@ -70,18 +70,16 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     }
 
     // rsync
-    LOGTRACE << "rsync command: " << rsyncCmd;
+    LOGMIGRATE << "Migrating catalog " << getVolIdStr() << "  with rsync command: " << rsyncCmd;
     ret = std::system(rsyncCmd.c_str());
-
     if (ret) {
         LOGERROR << "rsync command failed '" << rsyncCmd << "', code: '" << ret << "'";
         return ERR_DM_RSYNC_FAILED;
     }
-
+    LOGMIGRATE << "Migrated catalog " << getVolIdStr() << " successfully";
 
     // remove the temp dir
     ret = std::system(rmCmd.c_str());
-
     if (ret) {
         LOGWARN << "rm command failed '" << rmCmd << "', code: '" << ret << "'";
     }
