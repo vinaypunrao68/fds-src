@@ -50,6 +50,7 @@ SMSvcHandler::SMSvcHandler()
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicy, TierPolicy);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartHybridTierCtrlrMsg, startHybridTierCtrlr);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
@@ -682,9 +683,9 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
     fds_assert(vol != NULL);
     if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
-        fdp::FDSP_TierPolicyPtr tp(new FDSP_TierPolicy());
-        tp->tier_media_pct = vdb->mediaPolicy;
-        objStorMgr->omc_srv_pol->serv_recvTierPolicyReq(tp);
+        // TODO(Rao): Total hack. This should go through some sort of synchronization.
+        // I can't fina a better interface for doing this in the existing code
+        vol->voldesc->mediaPolicy = vdb->mediaPolicy;
     }
 
     vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
@@ -732,6 +733,20 @@ SMSvcHandler::TierPolicyAudit(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     objStorMgr->omc_srv_pol->serv_recvTierPolicyAuditReq(ta);
     hdr->msg_code = 0;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlTierPolicyAudit), *msg);
+}
+
+// CtrlStartHybridTierCtrlrMsg
+// ----------------
+//
+void
+SMSvcHandler::startHybridTierCtrlr(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg)
+{
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR);
+    Error err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+    if (err != ERR_OK) {
+        LOGWARN << err;
+    }
 }
 
 void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

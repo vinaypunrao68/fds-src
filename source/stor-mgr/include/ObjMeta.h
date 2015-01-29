@@ -113,6 +113,7 @@ class ObjMetaData : public serialize::Serializable {
     fds_uint32_t   getObjSize() const;
     const obj_phy_loc_t* getObjPhyLoc(diskio::DataTier tier) const;
     meta_obj_map_t*   getObjMap();
+    fds_uint64_t getCreationTime() const;
 
     void setRefCnt(fds_uint64_t refcnt);
 
@@ -132,6 +133,8 @@ class ObjMetaData : public serialize::Serializable {
     fds_bool_t deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);
 
     fds_bool_t isVolumeAssociated(fds_volid_t vol_id) const;
+
+    void getAssociatedVolumes(std::vector<fds_volid_t> &vols) const;
 
     void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) const;
 

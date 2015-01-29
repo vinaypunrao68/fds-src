@@ -1110,17 +1110,24 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
              << moveReq->fromTier << " to tier " << moveReq->fromTier
              << " relocate? " << moveReq->relocate;
 
+    moveReq->movedCnt = 0;
     for (fds_uint32_t i = 0; i < (moveReq->oidList).size(); ++i) {
         const ObjectID& objId = (moveReq->oidList)[i];
         err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
                                             moveReq->toTier, moveReq->relocate);
         if (!err.ok()) {
-            LOGERROR << "Failed to move " << objId << " from tier "
-                     << moveReq->fromTier << " to tier " << moveReq->fromTier
-                     << " relocate? " << moveReq->relocate << " " << err;
-            // we will just continue to move other objects; ok for promotions
-            // demotion should not assume that object was written back to HDD
-            // anyway, because writeback is eventual
+            if (err != ERR_SM_ZERO_REFCNT_OBJECT && 
+                err != ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME &&
+                err != ERR_SM_TIER_WRITEBACK_NOT_DONE) { 
+                LOGERROR << "Failed to move " << objId << " from tier "
+                    << moveReq->fromTier << " to tier " << moveReq->fromTier
+                    << " relocate? " << moveReq->relocate << " " << err;
+                // we will just continue to move other objects; ok for promotions
+                // demotion should not assume that object was written back to HDD
+                // anyway, because writeback is eventual
+            } 
+        } else {
+            moveReq->movedCnt++;
         }
     }
 

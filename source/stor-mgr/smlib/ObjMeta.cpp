@@ -281,6 +281,16 @@ ObjMetaData::getObjPhyLoc(diskio::DataTier tier) const {
 }
 
 /**
+ * @brief 
+ *
+ * @return 
+ */
+fds_uint64_t ObjMetaData::getCreationTime() const
+{
+    return obj_map.obj_create_time;
+}
+
+/**
  *
  * @return
  */
@@ -435,6 +445,20 @@ fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id) const
     }
     return false;
 }
+
+/**
+* @brief copies associated volume information into vols
+*
+* @param vols
+*/
+void ObjMetaData::getAssociatedVolumes(std::vector<fds_volid_t> &vols) const
+{
+    vols.clear();
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+        vols.push_back(assoc_entry[i].vol_uuid);
+    }
+}
+
 /**
  *
  * @return
