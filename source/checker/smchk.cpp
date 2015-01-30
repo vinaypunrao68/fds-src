@@ -83,6 +83,16 @@ void SMChk::list_metadata() {
     }
 }
 
+void SMChk::list_active_metadata() {
+    MetadataIterator md_iter(this);
+    for (md_iter.start(); !md_iter.end(); md_iter.next()) {
+        boost::shared_ptr<ObjMetaData> omd = md_iter.value();
+        if (omd->getRefCnt() > 0L) {
+            std::cout << *(md_iter.value()) << "\n";
+        }
+    }
+}
+
 int SMChk::bytes_reclaimable() {
     int bytes = 0;
     MetadataIterator md_it(this);
