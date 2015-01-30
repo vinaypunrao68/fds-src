@@ -154,7 +154,7 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": Complete ReadObjectDelta: "
                << " seqNum=" << req->seqNum
-               << " executorID=" << req->executorId
+               << " executorID=" << std::hex << req->executorId << std::dec
                << " DeltSetSize=" << req->deltaSet.size()
                << " lastSet=" << req->lastSet ? "TRUE" : "FALSE";
 }
@@ -187,7 +187,7 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bo
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": QoS Enqueue with ReadObjDelta: "
                << " seqNum=" << readDeltaSetReq->seqNum
-               << " executorID=" << readDeltaSetReq->executorId
+               << " executorID=" << std::hex << readDeltaSetReq->executorId << std::dec
                << " DeltSetSize=" << readDeltaSetReq->deltaSet.size()
                << " lastSet=" << lastSet ? "TRUE" : "FALSE";
 
@@ -462,7 +462,7 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
                << ": Dest SM=" << std::hex << destSMNodeID.uuid_get_val() << std::dec << ", "
                << "DLT Token=" << dltToken << ", "
                << "SM Token=" << derivedSMTokenID << ", "
-               << "ExecutorID=" << executorId;
+               << "ExecutorID=" << std::hex << executorId << std::dec;
 
     /* Update the SM token with the given DLT token.
      */
@@ -507,7 +507,7 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": seqNum=" << curSeqNum << ", "
                << "DLT token=" << dltToken << ", "
-               << "executorId=" << executorId;
+               << "executorId=" << std::hex << executorId << std::dec;
 
     /* Transition to the filter set state.
      */
@@ -576,7 +576,7 @@ MigrationClient::migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceD
     resetSeqNumDeltaSet();
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
-               << ": Received Msg for executorID=" << secondPhase->executorID;
+               << ": Received Msg for executorID=" << std::hex << secondPhase->executorID << std::dec;
 
     /* Take second snapshot */
     err = migClientSnapshotMetaData();

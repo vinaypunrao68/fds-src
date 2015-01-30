@@ -142,7 +142,7 @@ class SmTokenMigrationTest : public ::testing::Test {
             &SmTokenMigrationTest::snapshotDoneCb, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         tokenMigrationMgr = SmTokenMigrationMgr::unique_ptr(
-                                    new(std::nothrow) SmTokenMigrationMgr(dataStore));
+            new(std::nothrow) SmTokenMigrationMgr(dataStore, NodeUuid(0x12345)));
         migration_done = ATOMIC_VAR_INIT(false);
         EXPECT_TRUE(dataStore != NULL);
     }

@@ -43,7 +43,8 @@ typedef std::function<void (const Error&)> OmStartMigrationCbType;
  */
 class SmTokenMigrationMgr {
   public:
-    explicit SmTokenMigrationMgr(SmIoReqHandler *dataStore);
+    explicit SmTokenMigrationMgr(SmIoReqHandler *dataStore,
+                                 const NodeUuid& myUuid);
     ~SmTokenMigrationMgr();
 
     typedef std::unique_ptr<SmTokenMigrationMgr> unique_ptr;
@@ -176,6 +177,13 @@ class SmTokenMigrationMgr {
     void startSecondRebalanceRound(fds_token_id smToken);
 
     /**
+     * Returns executor ID for this destination SM based on localId
+     * 0...31 bits: localId
+     * 32..64 bits: half of this SM service UUID
+     */
+    fds_uint64_t getExecutorId(fds_uint32_t localId);
+
+    /**
      * Stops migration and sends ack with error to OM
      */
     void abortMigration(const Error& error);
@@ -188,7 +196,17 @@ class SmTokenMigrationMgr {
     fds_uint32_t numBitsPerDltToken;
 
     /// next ID to assign to a migration executor
-    std::atomic<fds_uint64_t> nextExecutorId;
+    /**
+     * TODO(Anna) executor ID must be a more complex type that encodes
+     * destination SM uuid and unique id local to destination SM
+     * Otherwise, source SMs that are responsible for migrating same SM
+     * tokens to multiple destinations may get same executor id from
+     * multiple destination SMs.
+     * For now we encode first 32 bits of destination SM + uint32 number
+     * local to destination SM; we need 64bit + 64bit type for executor ID
+     */
+    std::atomic<fds_uint32_t> nextLocalExecutorId;
+    NodeUuid localSMSvcUuid;
 
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb;
