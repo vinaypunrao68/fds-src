@@ -386,6 +386,15 @@ processBlobReq(AmRequest *amReq) {
     fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(amReq->magicInUse() == true);
 
+    /*
+     * Drain the queue if we are shutting down.
+     */
+    if (am->isShuttingDown()) {
+        Error err(ERR_SHUTTING_DOWN);
+        amReq->cb->call(err);
+        return;
+    }
+
     switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:
             storHvisor->amProcessor->startBlobTx(amReq);

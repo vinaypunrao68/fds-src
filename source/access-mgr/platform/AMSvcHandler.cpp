@@ -231,7 +231,6 @@ void
 AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg)
 {
-    Error err = storHvisor->om_client->updateDmt(msg->dmt_data.dmt_type, msg->dmt_data.dmt_data);
     Error err(ERR_OK);
 
     LOGNOTIFY << "OMClient received notify DMT update " << hdr->msg_code;
@@ -243,7 +242,7 @@ AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
     else
     {
-        err = storHvisor->om_client->addSerialized(msg->dmt_data.dmt_data, DMT_COMMITTED);
+        err = storHvisor->om_client->updateDmt(msg->dmt_data.dmt_type, msg->dmt_data.dmt_data);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -288,6 +287,7 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
 
      /**
       * Block any more requests.
+      * Drain queues and allow outstanding requests to complete.
       */
      am->setShutDown();
 
@@ -296,11 +296,6 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       */
      hdr->msg_code = err.GetErrno();
      sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ShutdownMODMsg), *shutdownMsg);
-
-     /*
-      * Drain queues and allow outstanding requests to complete.
-      */
-     am->prepareToShutDown();
 }
 
 }  // namespace fds

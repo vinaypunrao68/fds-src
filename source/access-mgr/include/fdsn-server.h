@@ -71,6 +71,10 @@ class FdsnServer : public Module {
 
     virtual void init_server();
     virtual void deinit_server();
+
+    boost::shared_ptr<xdi_ats::TNonblockingServer> getNBServer() {
+        return nbServer;
+    }
 };
 
 }  // namespace fds

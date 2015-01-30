@@ -45,8 +45,11 @@ class AccessMgr : public Module, public boost::noncopyable {
     // Check whether AM is in shutdown mode.
     bool isShuttingDown();
 
-    /// Allow queues to drain and outstanding requests to complete.
-    void prepareToShutDown();
+    /// Unique ptr to the fdsn server that communicates with XDI
+    FdsnServer::unique_ptr fdsnServer;
+
+    /// Unique ptr to the async server that communicates with XDI
+    AsyncDataServer::unique_ptr asyncServer;
 
     /// Shared ptr to AM's data API. It's public so that
     /// other components (e.g., unit tests, perf tests) can
@@ -57,12 +60,6 @@ class AccessMgr : public Module, public boost::noncopyable {
   private:
     /// Raw pointer to an external dependency manager
     CommonModuleProviderIf *modProvider_;
-
-    /// Unique ptr to the fdsn server that communicates with XDI
-    FdsnServer::unique_ptr fdsnServer;
-
-    /// Unique ptr to the async server that communicates with XDI
-    AsyncDataServer::unique_ptr asyncServer;
 
     /// Unique instance ID of this AM
     fds_uint32_t instanceId;

@@ -109,7 +109,6 @@ AsyncDataServer::init_server() {
 void
 AsyncDataServer::deinit_server() {
     fds_verify(listen_thread != NULL);
-    ttServer->stop();
     listen_thread->join();
     listen_thread.reset();
 }

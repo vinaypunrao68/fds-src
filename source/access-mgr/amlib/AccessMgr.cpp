@@ -107,18 +107,25 @@ AccessMgr::registerVolume(const VolumeDesc& volDesc) {
 void
 AccessMgr::setShutDown() {
     shuttingDown = true;
+
+    /*
+     * If there are no
+     * more outstanding requests, tell the QoS
+     * Dispatcher that we're shutting down.
+     */
+    if (storHvisor->qos_ctrl->htb_dispatcher->max_outstanding_ios == 0)
+    {
+        LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
+        storHvisor->qos_ctrl->htb_dispatcher->stop();
+        asyncServer->getTTServer()->stop();
+        fdsnServer->getNBServer()->stop();
+    }
 }
 
 // Check whether AM is in shutdown mode.
 bool
 AccessMgr::isShuttingDown() {
     return shuttingDown;
-}
-
-/// Allow queues to drain and outstanding requests to complete.
-void
-AccessMgr::prepareToShutDown() {
-
 }
 
 }  // namespace fds

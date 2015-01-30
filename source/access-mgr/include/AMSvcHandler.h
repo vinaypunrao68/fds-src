@@ -8,7 +8,7 @@
 #include <net/PlatNetSvcHandler.h>
 #include <fds_typedefs.h>
 #include <fdsp/AMSvc.h>
-#include <AccessMgr.h>
+#include <AccessMgr.h>  /* For references to "am" */
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {

@@ -39,6 +39,26 @@ AmProcessor::AmProcessor(const std::string &modName,
 }
 
 void
+AmProcessor::respond(AmRequest *amReq, const Error& error) {
+    qosCtrl->markIODone(amReq);
+    amReq->cb->call(error);
+
+    /*
+     * If we're shutting down and there are no
+     * more outstanding requests, tell the QoS
+     * Dispatcher that we're shutting down.
+     */
+    if (am->isShuttingDown() &&
+            (qosCtrl->htb_dispatcher->max_outstanding_ios == 0))
+    {
+        LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
+        qosCtrl->htb_dispatcher->stop();
+        am->asyncServer->getTTServer()->stop();
+        am->fdsnServer->getNBServer()->stop();
+    }
+}
+
+void
 AmProcessor::getVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.getVolMeta",
               respond_and_delete(amReq, ERR_OK); \
