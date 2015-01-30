@@ -1,18 +1,23 @@
 package com.formationds.iodriver.operations;
 
-import com.amazonaws.AmazonClientException;
+import java.util.function.Supplier;
+
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.VerificationReporter.VolumeQosParams;
 
-public class DeleteBucket extends S3Operation
+public class AddToReporter extends S3Operation
 {
-    public DeleteBucket(String bucketName)
+    public AddToReporter(String bucketName,
+                         Supplier<StatBucketVolume.Output> statsGetter)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
+        if (statsGetter == null) throw new NullArgumentException("statsGetter");
 
         _bucketName = bucketName;
+        _statsGetter = statsGetter;
     }
 
     @Override
@@ -22,15 +27,13 @@ public class DeleteBucket extends S3Operation
         if (client == null) throw new NullArgumentException("client");
         if (reporter == null) throw new NullArgumentException("reporter");
 
-        try
-        {
-            client.deleteBucket(_bucketName);
-        }
-        catch (AmazonClientException e)
-        {
-            throw new ExecutionException("Error deleting bucket.", e);
-        }
+        StatBucketVolume.Output stats = _statsGetter.get();
+        reporter.addVolume(_bucketName, new VolumeQosParams(stats.assured_rate,
+                                                            stats.throttle_rate,
+                                                            stats.priority));
     }
 
     private final String _bucketName;
+
+    private final Supplier<StatBucketVolume.Output> _statsGetter;
 }

@@ -7,16 +7,22 @@ import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
-import com.formationds.iodriver.NullArgumentException;
+import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint.AuthToken;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
+import com.formationds.iodriver.reporters.VerificationReporter;
 
 public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
 {
-    public S3Endpoint(String s3url, OrchestrationManagerEndpoint omEndpoint, Logger logger) throws MalformedURLException
+    public S3Endpoint(String s3url,
+                      OrchestrationManagerEndpoint omEndpoint,
+                      Logger logger,
+                      VerificationReporter reporter) throws MalformedURLException
     {
+        super(reporter);
+        
         if (s3url == null) throw new NullArgumentException("s3url");
         if (omEndpoint == null) throw new NullArgumentException("omEndpoint");
         if (logger == null) throw new NullArgumentException("logger");
@@ -41,13 +47,18 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         visit(operation);
     }
 
+    public OrchestrationManagerEndpoint getOmEndpoint()
+    {
+        return _omEndpoint;
+    }
+
     public void visit(S3Operation operation) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
 
         try
         {
-            operation.exec(getClient());
+            operation.exec(this, getClient(), getReporter());
         }
         catch (IOException e)
         {
@@ -77,7 +88,7 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         {
             AuthToken authToken = _omEndpoint.getAuthToken();
             _client =
-                    new AmazonS3Client(new BasicAWSCredentials(_omEndpoint.getUsername(),
+                    new AmazonS3Client(new BasicAWSCredentials(getOmEndpoint().getUsername(),
                                                                authToken.toString()));
             _client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
             _client.setEndpoint(_s3url);

@@ -10,6 +10,50 @@ import com.formationds.commons.util.Uris;
 // FIXME: Make a better name.
 public final class FdsConstants
 {
+    public final static class Api
+    {
+        @Replacement("API_AUTH_TOKEN")
+        public static URI getAuthToken()
+        {
+            final URI apiBase = Api.getBase();
+            final URI authTokenPath = Uris.tryGetRelativeUri("auth/token");
+
+            return Uris.resolve(apiBase, authTokenPath);
+        }
+
+        @Replacement("API_BASE")
+        public static URI getBase()
+        {
+            final String scheme = "https";
+            final String host = getFdsHost();
+            final int omPort = getOmPort();
+            final String path = "/api/";
+
+            try
+            {
+                return new URI(scheme, null, host, omPort, path, null, null);
+            }
+            catch (URISyntaxException e)
+            {
+                throw newUriConstructionException(scheme, null, host, omPort, path);
+            }
+        }
+        
+        @Replacement("API_VOLUMES")
+        public static URI getVolumes()
+        {
+            final URI apiBase = Api.getBase();
+            final URI volumesPath = Uris.tryGetRelativeUri("config/volumes");
+            
+            return Uris.resolve(apiBase, volumesPath);
+        }
+        
+        private Api()
+        {
+            throw new UnsupportedOperationException("Instantiating a utility class.");
+        }
+    }
+    
     @Replacement("FDS_AUTH_HEADER")
     public static final String FDS_AUTH_HEADER;
 
@@ -22,44 +66,10 @@ public final class FdsConstants
     @Replacement("USERNAME_QUERY_PARAMETER")
     public static final String USERNAME_QUERY_PARAMETER;
     
-    @Replacement("API_BASE")
-    public static URI getApiPath()
-    {
-        final String scheme = "https";
-        final String host = getFdsHost();
-        final int omPort = getOmPort();
-        final String path = "/api/";
-
-        try
-        {
-            return new URI(scheme, null, host, omPort, path, null, null);
-        }
-        catch (URISyntaxException e)
-        {
-            throw newUriConstructionException(scheme, null, host, omPort, path);
-        }
-    }
-
     @Replacement("FDS_HOST")
     public static String getFdsHost()
     {
         return System.getProperty(FDS_HOST_PROPERTY, "localhost");
-    }
-
-    @Replacement("LOGIN_URL")
-    public static URI getLoginPath()
-    {
-        final URI apiBase = getApiPath();
-        final URI authTokenPath = Uris.tryGetRelativeUri("auth/token");
-
-        try
-        {
-            return getApiPath().resolve(Uris.getRelativeUri("auth/token"));
-        }
-        catch (URISyntaxException e)
-        {
-            throw newUriResolutionException(apiBase, authTokenPath);
-        }
     }
 
     @Replacement("OM_PORT")
@@ -133,14 +143,5 @@ public final class FdsConstants
                                                        Strings.javaString(path),
                                                        Strings.javaString(query),
                                                        Strings.javaString(fragment)) + ")", cause);
-    }
-
-    private static IllegalStateException newUriResolutionException(URI base, URI relative)
-    {
-        final String baseAsString = base == null ? "null" : base.toString();
-        final String relativeAsString = relative == null ? "null" : relative.toString();
-
-        return new IllegalStateException("Error resolving " + baseAsString + ".resolve("
-                                         + relativeAsString + ")");
     }
 }

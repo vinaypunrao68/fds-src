@@ -1,4 +1,4 @@
-package com.formationds.iodriver;
+package com.formationds.commons;
 
 // FIXME: Move this to commons.
 public class NullArgumentException extends IllegalArgumentException

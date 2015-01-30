@@ -115,7 +115,7 @@ public class S3SmokeTest {
         String omUrl = "https://" + host + ":7443";
         turnLog4jOff();
         JSONObject adminUserObject =
-                getObject(Uris.withQueryParameters(FdsConstants.getLoginPath(),
+                getObject(Uris.withQueryParameters(FdsConstants.Api.getAuthToken(),
                                                    FdsConstants.USERNAME_QUERY_PARAMETER,
                                                    "admin",
                                                    FdsConstants.PASSWORD_QUERY_PARAMETER,

@@ -12,11 +12,15 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.formationds.commons.FdsConstants;
+import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
-import com.formationds.iodriver.NullArgumentException;
 import com.formationds.iodriver.logging.Logger;
+import com.formationds.iodriver.operations.OrchestrationManagerOperation;
+import com.formationds.iodriver.reporters.VerificationReporter;
 
-public final class OrchestrationManagerEndpoint extends HttpsEndpoint
+public final class OrchestrationManagerEndpoint
+                                               extends
+                                               AbstractHttpsEndpoint<OrchestrationManagerEndpoint, OrchestrationManagerOperation>
 {
     public static class AuthToken
     {
@@ -40,10 +44,10 @@ public final class OrchestrationManagerEndpoint extends HttpsEndpoint
                                         String username,
                                         String password,
                                         Logger logger,
-                                        boolean trusting)
-                                                         throws MalformedURLException
+                                        boolean trusting,
+                                        VerificationReporter reporter) throws MalformedURLException
     {
-        super(uri, logger, trusting);
+        super(uri, logger, trusting, reporter);
 
         if (username == null) throw new NullArgumentException("username");
         if (password == null) throw new NullArgumentException("password");
@@ -66,7 +70,7 @@ public final class OrchestrationManagerEndpoint extends HttpsEndpoint
             URI authUri;
             try
             {
-                authUri = Uris.withQueryParameters(FdsConstants.getLoginPath(),
+                authUri = Uris.withQueryParameters(FdsConstants.Api.getAuthToken(),
                                                    FdsConstants.USERNAME_QUERY_PARAMETER,
                                                    _username,
                                                    FdsConstants.PASSWORD_QUERY_PARAMETER,
@@ -99,7 +103,9 @@ public final class OrchestrationManagerEndpoint extends HttpsEndpoint
         return _username;
     }
 
-    protected class CopyHelper extends HttpsEndpoint.CopyHelper
+    protected class CopyHelper
+                              extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint,
+                              OrchestrationManagerOperation>.CopyHelper
     {
         public final String password = _password;
         public final String username = _username;
@@ -114,16 +120,11 @@ public final class OrchestrationManagerEndpoint extends HttpsEndpoint
     }
 
     @Override
-    protected HttpURLConnection openConnection() throws IOException
-    {
-        getAuthToken();
-        return super.openConnection();
-    }
-
-    @Override
     protected URLConnection openConnection(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
+
+        getAuthToken();
 
         URLConnection connection = super.openConnection(url);
         connection.setRequestProperty(FdsConstants.FDS_AUTH_HEADER, _authToken == null ? null
@@ -135,6 +136,6 @@ public final class OrchestrationManagerEndpoint extends HttpsEndpoint
     private AuthToken _authToken;
 
     private final String _password;
-    
+
     private final String _username;
 }

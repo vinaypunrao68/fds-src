@@ -141,6 +141,7 @@ public class WebKitImpl {
          */
         tenants( secretKey, authorizer );
 
+        // FIXME: DRY violation, definitely in com.formationds.commons.Fds, probably elsewhere.
         authenticate( HttpMethod.GET, "/api/config/volumes",
                       ( t ) -> new ListVolumes( authorizer,
                                                 SingletonConfigAPI.instance().api(),

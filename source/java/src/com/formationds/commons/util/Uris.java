@@ -17,7 +17,9 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.ws.rs.core.UriBuilder;
 
-import com.formationds.iodriver.NullArgumentException;
+import org.apache.http.client.utils.URIUtils;
+
+import com.formationds.commons.NullArgumentException;
 
 public final class Uris
 {
@@ -39,7 +41,7 @@ public final class Uris
             }
         };
     }
-    
+
     public static SSLSocketFactory getTrustingSocketFactory()
     {
         SSLContext sslContext;
@@ -87,6 +89,62 @@ public final class Uris
         }
 
         return sslContext.getSocketFactory();
+    }
+
+    public static boolean isDescendant(URI base, URI sub)
+    {
+        if (base == null) throw new NullArgumentException("base");
+        if (sub == null) throw new NullArgumentException("sub");
+
+        // A relative URI can be a descendant of another relative URI, so we only resolve if the
+        // base is absolute and the sub isn't.
+        if (base.isAbsolute() && !sub.isAbsolute())
+        {
+            sub = resolve(base, sub);
+        }
+
+        // Get rid of any parent paths.
+        URI normalizedBase = base.normalize();
+        URI normalizedSub = sub.normalize();
+
+        // Scheme is common to all URIs. This will be null for both if both are relative.
+        if (!Strings.nullTolerantEquals(normalizedSub.getScheme(), normalizedBase.getScheme()))
+        {
+            return false;
+        }
+
+        // Opaque URIs can't really be compared, but equal URIs (fragment excepted) are considered
+        // descendants of each other (e.g. dir/. == dir).
+        if (normalizedBase.isOpaque() && normalizedSub.isOpaque())
+        {
+            // Scheme-specific part is never null.
+            return normalizedBase.getSchemeSpecificPart()
+                                 .equals(normalizedSub.getSchemeSpecificPart());
+        }
+
+        // Authority must be exactly equal--subdomains aren't descendants of each other, nor are
+        // different ports on the same host, or different user logins to the same endpoint. This
+        // also covers registry-based URIs (authority is opaque).
+        if (!Strings.nullTolerantEquals(normalizedSub.getAuthority(), normalizedBase.getAuthority()))
+        {
+            return false;
+        }
+
+        // All components after the path are ignored. URIs are
+        return Strings.nullTolerantStartsWith(normalizedSub.getPath(), normalizedBase.getPath());
+    }
+
+    public static URI resolve(URI base, URI relative)
+    {
+        if (base == null) throw new NullArgumentException("base");
+        if (relative == null) throw new NullArgumentException("relative");
+        if (relative.isAbsolute())
+        {
+            throw new IllegalArgumentException("relative is not a relative URI: "
+                                               + relative.toString());
+        }
+
+        return URIUtils.resolve(base, relative);
     }
 
     public static URI tryGetRelativeUri(String path)

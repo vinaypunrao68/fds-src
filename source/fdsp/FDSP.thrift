@@ -439,6 +439,7 @@ struct FDSP_VolumeDescType {
   2: i32 	 		 tennantId,  // Tennant id that owns the volume
   3: i32    		 localDomainId,  // Local domain id that owns vol
   4: i32	 		 globDomainId,
+  // FIXME: UUIDs are 128 bits. This is not a UUID.
   5: i64	 	 volUUID,
 
 // Basic operational properties

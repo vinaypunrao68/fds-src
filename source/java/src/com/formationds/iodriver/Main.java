@@ -16,8 +16,11 @@ public final class Main
 
             Driver<?, ?> driver =
                     new Driver<S3Endpoint, S3QosTestWorkload>(config.getEndpoint(),
-                                                              config.getWorkload());
+                                                              config.getWorkload(),
+                                                              config.getReporter());
             driver.runWorkload();
+            
+            System.exit(driver.getResult());
         }
         catch (Exception ex)
         {

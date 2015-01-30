@@ -3,7 +3,7 @@ package com.formationds.iodriver.logging;
 import java.io.PrintStream;
 import java.util.Arrays;
 
-import com.formationds.iodriver.NullArgumentException;
+import com.formationds.commons.NullArgumentException;
 import com.google.common.base.Strings;
 
 public final class ConsoleLogger implements Logger

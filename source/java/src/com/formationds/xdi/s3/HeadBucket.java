@@ -29,6 +29,6 @@ public class HeadBucket implements RequestHandler {
 
         if(descriptor == null)
             return new TextResource(404, "");
-        return new TextResource("");
+        return new TextResource(descriptor.toString());
     }
 }
