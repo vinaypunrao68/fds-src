@@ -720,7 +720,7 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
         complete(ERR_OK);
         if (respCb_) {
             SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
-            respCb_(this, ERR_OK, payload);
+            respCb_(this, header->msg_code, payload);
         }
         gSvcRequestCntrs->appsuccess.incr();
         return;
