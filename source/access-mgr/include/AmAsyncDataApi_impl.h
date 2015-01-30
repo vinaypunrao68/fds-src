@@ -2,8 +2,8 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMASYNCSERVICE_CXX_
-#define SOURCE_ACCESS_MGR_INCLUDE_AMASYNCSERVICE_CXX_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMASYNCDATAAPI_IMPL_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_AMASYNCDATAAPI_IMPL_H_
 
 #include <map>
 #include <string>
@@ -486,4 +486,4 @@ void AmAsyncDataApi<H>::deleteBlob(H& requestId,
 }
 
 }  // namespace fds
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMASYNCSERVICE_CXX_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMASYNCDATAAPI_IMPL_H_

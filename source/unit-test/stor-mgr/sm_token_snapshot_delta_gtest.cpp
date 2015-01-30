@@ -17,6 +17,7 @@ struct DeltaTest : public ::testing::Test {
       using namespace leveldb; // NOLINT
       Options options;
       options.create_if_missing = true;
+      writeOption.sync = true;
       leveldb::DB* _ldb;
       ASSERT_TRUE(DB::Open(options, test_db_path, &_ldb).ok());
       ldb.reset(_ldb);
@@ -25,10 +26,10 @@ struct DeltaTest : public ::testing::Test {
       ObjectBuf buf;
       ObjMetaData().serializeTo(buf);
       std::string& omd = *buf.data;
-      ldb->Put(leveldb::WriteOptions(), "test_30", omd);
-      ldb->Put(leveldb::WriteOptions(), "test_20", omd);
-      ldb->Put(leveldb::WriteOptions(), "test_10", omd);
-      ldb->Put(leveldb::WriteOptions(), "test_25", omd);
+      ldb->Put(writeOption, "test_30", omd);
+      ldb->Put(writeOption, "test_20", omd);
+      ldb->Put(writeOption, "test_10", omd);
+      ldb->Put(writeOption, "test_25", omd);
       init_state = ldb->GetSnapshot();
   }
 
@@ -40,6 +41,7 @@ struct DeltaTest : public ::testing::Test {
   }
   std::unique_ptr<leveldb::DB> ldb;
   leveldb::Snapshot const* init_state;
+  leveldb::WriteOptions writeOption;
 };
 
 TEST_F(DeltaTest, equivalentSnapshotsYieldsEmptyList) {
@@ -58,7 +60,7 @@ TEST_F(DeltaTest, additionsAtFrontAreFound) {
     ObjMetaData().serializeTo(buf);
     std::string& omd = *buf.data;
 
-    ldb->Put(leveldb::WriteOptions(), "test_00", omd);
+    ldb->Put(writeOption, "test_00", omd);
 
     auto snap = ldb->GetSnapshot();
 
@@ -78,9 +80,9 @@ TEST_F(DeltaTest, additionsAtBackAreFound) {
     ObjMetaData().serializeTo(buf);
     std::string& omd = *buf.data;
 
-    ldb->Put(leveldb::WriteOptions(), "test_31", omd);
-    ldb->Put(leveldb::WriteOptions(), "test_32", omd);
-    ldb->Put(leveldb::WriteOptions(), "test_50", omd);
+    ldb->Put(writeOption, "test_31", omd);
+    ldb->Put(writeOption, "test_32", omd);
+    ldb->Put(writeOption, "test_50", omd);
 
     auto snap = ldb->GetSnapshot();
 
@@ -100,8 +102,8 @@ TEST_F(DeltaTest, additionsInMiddleAreFound) {
     ObjMetaData().serializeTo(buf);
     std::string& omd = *buf.data;
 
-    ldb->Put(leveldb::WriteOptions(), "test_23", omd);
-    ldb->Put(leveldb::WriteOptions(), "test_13", omd);
+    ldb->Put(writeOption, "test_23", omd);
+    ldb->Put(writeOption, "test_13", omd);
 
     auto snap = ldb->GetSnapshot();
 
@@ -121,10 +123,10 @@ TEST_F(DeltaTest, additionsScatteredAreFound) {
     ObjMetaData().serializeTo(buf);
     std::string& omd = *buf.data;
 
-    ldb->Put(leveldb::WriteOptions(), "test_00", omd);
-    ldb->Put(leveldb::WriteOptions(), "test_13", omd);
-    ldb->Put(leveldb::WriteOptions(), "test_23", omd);
-    ldb->Put(leveldb::WriteOptions(), "test_33", omd);
+    ldb->Put(writeOption, "test_00", omd);
+    ldb->Put(writeOption, "test_13", omd);
+    ldb->Put(writeOption, "test_23", omd);
+    ldb->Put(writeOption, "test_33", omd);
 
     auto snap = ldb->GetSnapshot();
 
@@ -138,74 +140,71 @@ TEST_F(DeltaTest, additionsScatteredAreFound) {
     ldb->ReleaseSnapshot(snap);
 }
 
-// TODO(bszmyd): Thu 29 Jan 2015 08:57:42 AM PST
-// Renable this test once the ObjMetaData::operator==() method is working
-//
-// TEST_F(DeltaTest, updatedElementCaptured) {
-//     using namespace fds; // NOLINT
-//     ObjectBuf buf;
-//     ObjMetaData data;
-//     data.incRefCnt();
-//     data.serializeTo(buf);
-//
-//     ldb->Put(leveldb::WriteOptions(), "test_10", *buf.data);
-//
-//     data.incRefCnt();
-//     data.serializeTo(buf);
-//     ldb->Put(leveldb::WriteOptions(), "test_20", *buf.data);
-//
-//     auto snap = ldb->GetSnapshot();
-//
-//     metadata::metadata_diff_type diff;
-//     fds::metadata::diff(ldb.get(), init_state, snap, diff);
-//     ASSERT_EQ(diff.size(), 2);
-//     for (auto& p: diff) {
-//         ASSERT_TRUE(static_cast<bool>(p.first));
-//         ASSERT_TRUE(static_cast<bool>(p.second));
-//     }
-//     ldb->ReleaseSnapshot(snap);
-// }
-
-// TODO(bszmyd): Thu 29 Jan 2015 08:57:42 AM PST
-// Renable this test once the ObjMetaData::operator==() method is working
-//
-// TEST_F(DeltaTest, mixedAdditionsAndUpdates) {
-//     using namespace fds; // NOLINT
-//     ObjectBuf buf;
-//     ObjMetaData data;
-//     data.incRefCnt();
-//     data.serializeTo(buf);
-//
-//     ldb->Put(leveldb::WriteOptions(), "test_10", *buf.data);
-//
-//     data.incRefCnt();
-//     data.serializeTo(buf);
-//     ldb->Put(leveldb::WriteOptions(), "test_40", *buf.data);
-//
-//     auto snap = ldb->GetSnapshot();
-//
-//     metadata::metadata_diff_type diff;
-//     fds::metadata::diff(ldb.get(), init_state, snap, diff);
-//     ASSERT_EQ(diff.size(), 2);
-//     ASSERT_TRUE(static_cast<bool>(diff.front().first));
-//     ASSERT_TRUE(static_cast<bool>(diff.front().second));
-//     ASSERT_FALSE(static_cast<bool>(diff.back().first));
-//     ASSERT_TRUE(static_cast<bool>(diff.back().second));
-//     ldb->ReleaseSnapshot(snap);
-// }
-
-TEST_F(DeltaTest, canceledEventsYieldsEmptyList) {
+TEST_F(DeltaTest, updatedElementCaptured) {
     using namespace fds; // NOLINT
     ObjectBuf buf;
     ObjMetaData data;
     data.incRefCnt();
     data.serializeTo(buf);
 
-    ldb->Put(leveldb::WriteOptions(), "test_10", *buf.data);
+    ldb->Put(writeOption, "test_10", *buf.data);
 
-    data.decRefCnt();
+    data.incRefCnt();
     data.serializeTo(buf);
-    ldb->Put(leveldb::WriteOptions(), "test_10", *buf.data);
+    ldb->Put(writeOption, "test_20", *buf.data);
+
+    auto snap = ldb->GetSnapshot();
+
+    metadata::metadata_diff_type diff;
+    fds::metadata::diff(ldb.get(), init_state, snap, diff);
+    ASSERT_EQ(diff.size(), 2);
+    for (auto& p: diff) {
+        ASSERT_TRUE(static_cast<bool>(p.first));
+        ASSERT_TRUE(static_cast<bool>(p.second));
+    }
+    ldb->ReleaseSnapshot(snap);
+}
+
+TEST_F(DeltaTest, mixedAdditionsAndUpdates) {
+    using namespace fds; // NOLINT
+    ObjectBuf buf;
+    ObjMetaData data;
+    data.incRefCnt();
+    data.serializeTo(buf);
+
+    ldb->Put(writeOption, "test_10", *buf.data);
+
+    data.incRefCnt();
+    data.serializeTo(buf);
+    ldb->Put(writeOption, "test_40", *buf.data);
+
+    auto snap = ldb->GetSnapshot();
+
+    metadata::metadata_diff_type diff;
+    fds::metadata::diff(ldb.get(), init_state, snap, diff);
+    ASSERT_EQ(diff.size(), 2);
+    ASSERT_TRUE(static_cast<bool>(diff.front().first));
+    ASSERT_TRUE(static_cast<bool>(diff.front().second));
+    ASSERT_FALSE(static_cast<bool>(diff.back().first));
+    ASSERT_TRUE(static_cast<bool>(diff.back().second));
+    ldb->ReleaseSnapshot(snap);
+}
+
+TEST_F(DeltaTest, canceledEventsYieldsEmptyList) {
+    using namespace fds; // NOLINT
+
+    ObjectBuf buf;
+    ObjMetaData data;
+    data.incRefCnt();   // refcnt == 1
+    data.serializeTo(buf);
+
+    ldb->Put(writeOption, "test_10", *buf.data);
+
+    ObjectBuf buf1;
+    ObjMetaData data1;  // refcnt == 0, same as init_state
+    data1.serializeTo(buf1);
+
+    ldb->Put(writeOption, "test_10", *buf1.data);
 
     auto snap = ldb->GetSnapshot();
 

@@ -284,6 +284,7 @@ CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
           max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
           cat_sync_lock("Catalog Sync lock"),
+          omDmtUpdateCb(NULL),
           dmtclose_ts(util::getTimeStampNanos()) {
 }
 
@@ -356,7 +357,8 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
 }
 
 Error
-CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
+CatalogSyncMgr::startCatalogSyncDelta(const std::string& context,
+                                      OmDMTMsgCbType cb) {
     Error err(ERR_OK);
 
     fds_mutex::scoped_lock l(cat_sync_lock);
@@ -365,6 +367,8 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
         LOGWARN << "Will Not start delta sync because catsync not in progress!";
         return ERR_CATSYNC_NOT_PROGRESS;
     }
+
+    omDmtUpdateCb = cb;
     fds_verify(cat_sync_map.size() > 0);
     // make sure that all CatalogSync objects finished the initial sync
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
@@ -521,7 +525,10 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
         omclient->sendDMTPushMetaAck(error, cat_sync_context);
     } else if ((event == CATSYNC_DELTA_SYNC_DONE) && send_ack) {
         LOGMIGRATE << "Delta sync finished for all volumes, sending commit ack";
-        omclient->sendDMTCommitAck(error, cat_sync_context);
+        omDmtUpdateCb(error);
+        omDmtUpdateCb = NULL;
+        // we moved to new service layer...
+        // omclient->sendDMTCommitAck(error, cat_sync_context);
     }
 }
 

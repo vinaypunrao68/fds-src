@@ -592,6 +592,37 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     }
 }
 
+/* Initialize an instance specific vector of locks to cover the entire
+ * range of potential sm tokens.
+ *
+ * Take a read (or optionally write lock) on a sm token and return
+ * a structure that will automatically call the correct unlock when
+ * it goes out of scope.
+ */
+ObjectStorMgr::always_call
+ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
+    using lock_array_type = std::vector<fds_rwlock*>;
+    static lock_array_type token_locks;
+    static std::once_flag f;
+
+    fds_uint32_t b_p_t = getDLT()->getNumBitsForToken();
+
+    // Once, resize the vector appropriately on the bits in the token
+    std::call_once(f,
+                   [](fds_uint32_t size) {
+                       token_locks.resize(0x01<<size);
+                       token_locks.shrink_to_fit();
+                       for (auto& p : token_locks)
+                       { p = new fds_rwlock(); }
+                   },
+                   b_p_t);
+
+    auto lock = token_locks[id];
+    exclusive ? lock->write_lock() : lock->read_lock();
+    return always_call([lock, exclusive] { exclusive ? lock->write_unlock() : lock->read_unlock(); });
+}
+
+
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol internal processing
  -------------------------------------------------------------------------------------*/
@@ -605,6 +636,8 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
 
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
+
+    auto token_lock = getTokenLock(objId);
 
     // latency of ObjectStore layer
     PerfTracer::tracePointBegin(putReq->opLatencyCtx);
@@ -637,6 +670,8 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 
     LOGDEBUG << "Volume " << std::hex << volId << std::dec
              << " " << objId;
+
+    auto token_lock = getTokenLock(objId);
 
     // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(delReq->opLatencyCtx);
@@ -898,6 +933,10 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
+
+    // When this lock is held, any put/delete request in that
+    // object id range will block
+    auto token_lock = getTokenLock(snapReq->token_id, true);
 
     objectStore->snapshotMetadata(snapReq->token_id,
                                   snapReq->smio_snap_resp_cb,

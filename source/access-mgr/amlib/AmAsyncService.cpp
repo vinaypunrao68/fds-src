@@ -14,7 +14,7 @@
 
 #include <AmAsyncService.h>
 #include "AmAsyncXdi.h"
-#include "AmAsyncDataApi.cxx"
+#include "AmAsyncDataApi_impl.h"
 #include <responsehandler.h>
 
 namespace fds {

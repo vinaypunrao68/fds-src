@@ -135,8 +135,8 @@ typedef obj_phy_loc_t     ObjPhyLoc;
 struct __attribute__((__packed__)) meta_obj_map_v0
 {
     fds_uint8_t          obj_map_ver;         /* current version.            */
-    fds_uint32_t         obj_map_len;
-    fds_uint8_t          obj_rsvd;
+    fds_uint32_t         obj_map_len;         /* UNUSED?????                 */
+    fds_uint8_t          obj_rsvd;            /* NO NEED FOR THIS????        */
     fds_uint8_t          compress_type;       /* Obj Compression type */
     fds_uint32_t         compress_len;        /* If compressed the obj compress length */
     meta_obj_id_t        obj_id;              /* check sum for data.         */

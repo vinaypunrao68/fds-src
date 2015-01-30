@@ -13,7 +13,7 @@
 #include <net/net-service.h>
 #include <AccessMgr.h>
 #include "AmAsyncXdi.h"
-#include "AmAsyncDataApi.cxx"
+#include "AmAsyncDataApi_impl.h"
 
 #include "boost/program_options.hpp"
 #include <boost/enable_shared_from_this.hpp>
