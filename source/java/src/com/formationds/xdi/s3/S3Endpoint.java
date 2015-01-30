@@ -100,7 +100,6 @@ public class S3Endpoint {
         CompletableFuture<Void> cf = function.apply(ctx);
         return cf.exceptionally(e -> {
             String requestUri = ctx.getRequest().getRequestURI();
-
             AsyncBridge asyncBridge = new AsyncBridge((request, routeParameters) -> {
                 if (e.getCause() instanceof SecurityException) {
                     return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestUri);
