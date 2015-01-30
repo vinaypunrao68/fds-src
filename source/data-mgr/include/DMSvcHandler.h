@@ -126,11 +126,11 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& hdr,
             boost::shared_ptr<fpi::CtrlNotifyDMTClose>& dmtClose,
             Error &err);
-#if 0
+
     virtual void
-    NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                    boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg, const Error err);
-#endif
+    NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                      const Error &err);
+
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt);

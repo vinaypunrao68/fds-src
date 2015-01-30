@@ -920,7 +920,33 @@ void
 DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "DACT_Error fired.";
+
+    /*
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+
+    if(vp->hasNoTargetDmt()) {
+        LOGNORMAL << "No target DMT computed/commited, nothing to recover";
+        fsm.process_event(DmtRecoveryEvt());
+    } else {
+        OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
+
+        // Revert to previous DMT
+        vp->undoTargetDmtCommit();
+        // Need to send abort migration msg
+        LOGNORMAL << "Already computed or commited target DMT, will send abort now";
+    }
+    */
     fsm.process_event(DmtRecoveryEvt());
+}
+// DACT_Recovery
+// -----------
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DmtDplyFSM::DACT_Recovery::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "DACT_Recovery fired.";
 }
 
 }  // namespace fds
