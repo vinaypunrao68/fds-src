@@ -70,7 +70,7 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     }
 
     // rsync
-    LOGMIGRATE << "Migrating catalog " << getVolIdStr() << "  with rsync command: " << rsyncCmd;
+    LOGMIGRATE << "Migrating catalog " << getVolIdStr() << " with rsync";
     ret = std::system(rsyncCmd.c_str());
     if (ret) {
         LOGERROR << "rsync command failed '" << rsyncCmd << "', code: '" << ret << "'";

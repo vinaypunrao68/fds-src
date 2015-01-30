@@ -86,8 +86,8 @@ void CatalogSync::doDeltaSync() {
                   node_uuid.uuid_get_val());
     }
 
-    LOGNORMAL << "Start delta sync to destination node "
-              << std::hex << node_uuid.uuid_get_val() << std::dec;
+    LOGMIGRATE << "Start delta sync to destination node "
+               << std::hex << node_uuid.uuid_get_val() << std::dec;
 
     // at this point, we must have meta client and done evt handler
     fds_verify(done_evt_handler != NULL);
@@ -436,8 +436,13 @@ Error CatalogSyncMgr::issueServiceVolumeMsg(fds_volid_t volid) {
         if ((cit->second)->hasVolume(volid)) {
             err = (cit->second)->issueVolSyncStateMsg(volid, true);
             if (!err.ok()) return err;
+            // TODO(Andrew): We're not erasing anything if there's
+            // an error. I guess it's just gonna sit there?
+            cat_sync_map.erase(cit);
         }
     }
+
+    dataMgr->sendDmtCloseCb(err);
     return err;
 }
 
@@ -459,9 +464,11 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
                 LOGMIGRATE << "Completed forwarding for volume " << std::hex << volid << std::dec
                            << " and removed from syncing volumes list";
                 if (((cit->second)->emptyVolume())) {
-                    cat_sync_map.erase(cit);
-                    LOGMIGRATE << "cat sync map erase: " << std::hex
-                               << volid << std::dec;
+                    // TODO(Andrew): Clean this stuff up since the map
+                    // and flags should be set on a later call.
+                    // cat_sync_map.erase(cit);
+                    // LOGMIGRATE << "cat sync map erase: " << std::hex
+                    //        << volid << std::dec;
                     // TODO(Anna) fix for case when DM pushes meta
                     // for same volume to multiple dest DMs
                     break;
@@ -473,6 +480,9 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
         sync_in_progress = !send_dmt_close_ack;
     }  // end of scoped lock
 
+    // TODO(Andrew): Clean this stuff up since the callback is made
+    // in a later call.
+    /*
     if (send_dmt_close_ack) {
         if (dataMgr->sendDmtCloseCb != nullptr) {
             Error err(ERR_OK);
@@ -481,6 +491,7 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
             LOGDEBUG << "sendDmtCloseCb called while ptr was NULL!!!";
         }
     }
+    */
 
     return send_dmt_close_ack;
 }

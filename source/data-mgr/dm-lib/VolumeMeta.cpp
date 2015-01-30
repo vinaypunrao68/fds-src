@@ -49,7 +49,7 @@ void VolumeMeta::finishForwarding() {
         //        boost::posix_time::milliseconds(10);
         fwd_state = VFORWARD_STATE_FINISHING;
     } else {
-        fwd_state = VFORWARD_STATE_NONE;
+        setForwardFinish();
     }
     vol_mtx->unlock();
 

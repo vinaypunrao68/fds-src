@@ -257,8 +257,11 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
     // set the state
     vol_map_mtx->lock();
     VolumeMeta *vol_meta = vol_meta_map[volid];
-    fds_verify(vol_meta->isForwarding());
-    vol_meta->setForwardFinish();
+    // Skip this verify because it's actually set later?
+    // TODO(Andrew): If the above comment is correct, we
+    // remove most of what this function actually does.
+    // fds_verify(vol_meta->isForwarding());
+    // vol_meta->setForwardFinish();
     vol_map_mtx->unlock();
 
     // notify cat sync mgr
@@ -1244,14 +1247,14 @@ DataMgr::snapVolCat(dmCatReq *io) {
         // is incorrect. These two steps should be made atomic.
         vol_meta->setForwardInProgress();
         vol_map_mtx->unlock();
-        LOGDEBUG << "Starting 2nd (delta) rsync for volume " << std::hex
-                 << snapReq->volId << " to node "
-                 << (snapReq->node_uuid).uuid_get_val() << std::dec;
+        LOGMIGRATE << "Starting 2nd (delta) rsync for volume " << std::hex
+                   << snapReq->volId << " to node "
+                   << (snapReq->node_uuid).uuid_get_val() << std::dec;
     } else {
         fds_verify(FDS_DM_SNAP_VOLCAT == io->io_type);
-        LOGDEBUG << "Starting 1st rsync for volume " << std::hex
-                 << snapReq->volId << " to node "
-                 << (snapReq->node_uuid).uuid_get_val() << std::dec;
+        LOGMIGRATE << "Starting 1st rsync for volume " << std::hex
+                   << snapReq->volId << " to node "
+                   << (snapReq->node_uuid).uuid_get_val() << std::dec;
     }
 
     // sync the catalog
