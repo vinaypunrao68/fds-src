@@ -131,6 +131,7 @@ public class DeactivateNode
         return Optional.empty();
     }
 
+    // TODO Move event packages
     enum DeactivateNodeEvent
         implements EventDescriptor {
 
