@@ -229,8 +229,14 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
                                                    blobReq->metadata) == ERR_OK);
         }
         // Update the tx manager with this update
-        fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc),
-                                               amReq->data_len) == ERR_OK);
+        if (ERR_OK != txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), amReq->data_len)) {
+            // An abort or commit already caused the tx
+            // to be cleaned up. Short-circuit
+            LOGNOTIFY << "Response no longer has active transaction: " << blobReq->tx_desc->getValue();
+            delete amReq;
+            return;
+        }
+
         // Update the transaction manager with the stage offset update
         fds_verify(txMgr->updateStagedBlobOffset(*(blobReq->tx_desc),
                                                  amReq->getBlobName(),
@@ -391,12 +397,11 @@ AmProcessor::statBlob(AmRequest *amReq) {
 
 void
 AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
-    respond(amReq, error);
-
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
-    fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->tx_desc)));
+    if (ERR_OK != txMgr->removeTx(*(blobReq->tx_desc)))
+        LOGWARN << "Transaction unknown";
 
-    delete amReq;
+    respond_and_delete(amReq, error);
 }
 
 void

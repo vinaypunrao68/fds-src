@@ -267,6 +267,9 @@ class SmIoDeleteObjectReq : public SmIoReq {
 
     fds_uint64_t dltVersion;
 
+    /// Service layer put request
+    boost::shared_ptr<fpi::DeleteObjectMsg> delObjectNetReq;
+
     CbType response_cb;
 };
 

@@ -53,6 +53,8 @@ class SmTokenMigrationMgr {
     typedef std::unordered_map<fds_token_id, SrcSmExecutorMap> MigrExecutorMap;
     /// executorId -> migrationClient
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
+    /// SM token id -> executor ID map
+    typedef std::unordered_map<fds_token_id, fds_uint64_t> SmTokExecutorIdMap;
 
     /**
      * Matches OM state, just for sanity checks that we are getting
@@ -80,6 +82,7 @@ class SmTokenMigrationMgr {
      */
     Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                          OmStartMigrationCbType cb,
+                         const NodeUuid& mySvcUuid,
                          fds_uint32_t bitsPerDltToken);
 
     /**
@@ -118,6 +121,31 @@ class SmTokenMigrationMgr {
     Error rebalanceDeltaSetResp();
 
     /**
+     * Forwards object to destination SM if needed
+     * Forwarding will happen if the following conditions are true:
+     *    - migration is in progress
+     *    - reqDltVersion does not match targetDltVersion of this
+     *      migration
+     *    - Forwarding flag is set for DLT token this object ID belongs to;
+     *      forwarding flag is set on migration Client when it receives
+     *      message to start the second migration round (before doing second
+     *      levelDB snapshot)
+     *
+     * @param objId object ID of the request
+     * @param reqDltVersion dlt version passed with this request
+     */
+    fds_bool_t forwardReqIfNeeded(const ObjectID& objId,
+                                  fds_uint64_t reqDltVersion,
+                                  FDS_IOType* req);
+    fds_uint64_t getTargetDltVersion() const;
+
+    /**
+     * Sets start forwarding flag on migration client responsible
+     * for given SM token
+     */
+    Error startForwarding(fds_token_id smTok);
+
+    /**
      * Handles DLT close event. At this point IO should not arrive
      * with old DLT. Once we reply, we are done with token migration.
      * Assumes we are receiving DLT close event for the correct version,
@@ -149,14 +177,36 @@ class SmTokenMigrationMgr {
     void startSecondRebalanceRound(fds_token_id smToken);
 
     /**
+     * Returns executor ID for this destination SM based on localId
+     * 0...31 bits: localId
+     * 32..64 bits: half of smSvcUuid  service UUID
+     */
+    fds_uint64_t getExecutorId(fds_uint32_t localId,
+                               const NodeUuid& smSvcUuid) const;
+
+    /**
      * Stops migration and sends ack with error to OM
      */
     void abortMigration(const Error& error);
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
+    /// target DLT version for which current migration is happening
+    /// does not mean anything if mgr in IDLE state
+    fds_uint64_t targetDltVersion;
+    fds_uint32_t numBitsPerDltToken;
+
     /// next ID to assign to a migration executor
-    std::atomic<fds_uint64_t> nextExecutorId;
+    /**
+     * TODO(Anna) executor ID must be a more complex type that encodes
+     * destination SM uuid and unique id local to destination SM
+     * Otherwise, source SMs that are responsible for migrating same SM
+     * tokens to multiple destinations may get same executor id from
+     * multiple destination SMs.
+     * For now we encode first 32 bits of destination SM + uint32 number
+     * local to destination SM; we need 64bit + 64bit type for executor ID
+     */
+    std::atomic<fds_uint32_t> nextLocalExecutorId;
 
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb;
@@ -185,6 +235,8 @@ class SmTokenMigrationMgr {
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
     fds_mutex clientLock;
+    /// to be able to get migrClient from SM token on src side
+    SmTokExecutorIdMap smtokExecutorIdMap;
 
     /// maximum number of items in the delta set.
     fds_uint32_t maxDeltaSetSize;

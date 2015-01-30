@@ -1016,20 +1016,23 @@ struct CtrlObjectMetaDataSync
  */
 struct CtrlObjectRebalanceFilterSet
 {
+    /* Target DLT version for rebalance */
+    1: i64 targetDltVersion
+
     /* DLT token to be rebalance */
-    1: FDSP.FDSP_Token              tokenId
+    2: FDSP.FDSP_Token              tokenId
 
     /* unique id of executor on the destination SM */
-    2: i64 executorID
+    3: i64 executorID
 
     /* sequence number */
-    3: i64 seqNum
+    4: i64 seqNum
 
     /* true if this is the last message */
-    4: bool lastFilterSet
+    5: bool lastFilterSet
     
     /* Set of objects to be sync'ed */
-    5: list<CtrlObjectMetaDataSync> objectsToFilter
+    6: list<CtrlObjectMetaDataSync> objectsToFilter
 }
 
 /* Object volume association */
