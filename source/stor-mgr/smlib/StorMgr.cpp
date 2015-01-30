@@ -655,8 +655,9 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         // end of ObjectStore layer latency
         PerfTracer::tracePointEnd(putReq->opLatencyCtx);
 
-        // forward this IO to destination SM if needed
-        if (migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq)) {
+        // forward this IO to destination SM if needed, but only if we succeeded locally
+        if (err.ok() &&
+            migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq)) {
             // we forwarded request, we will respond to PUT on ack
             // from the destination SM
             LOGDEBUG << "Forwarded Put " << objId << " to destination SM "
@@ -695,9 +696,10 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
         // end of ObjectStore layer latency
         PerfTracer::tracePointEnd(delReq->opLatencyCtx);
 
-        // forward this IO to destination SM if needed
-        if (migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq)) {
-        // we forwarded request, we will respond to Delete on ack
+        // forward this IO to destination SM if needed, but only if we succeeded locally
+        if (err.ok() &&
+            migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq)) {
+            // we forwarded request, we will respond to Delete on ack
             // from the destination SM
             LOGDEBUG << "Forwarded Delete " << objId << " to destination SM "
                      << "; waiting for ack to respond to AM";
