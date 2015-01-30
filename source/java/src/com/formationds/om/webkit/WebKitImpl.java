@@ -254,7 +254,7 @@ public class WebKitImpl {
         fdsAdminOnly( HttpMethod.POST, "/api/config/services/:node_uuid",
                       ( t ) -> new ActivateNode( legacyConfig ),
                       authorizer );
-        fdsAdminOnly( HttpMethod.PUT, "/api/config/services/:node_uuid/:node_name",
+        fdsAdminOnly( HttpMethod.PUT, "/api/config/services/:node_uuid",
                       ( t ) -> new DeactivateNode( legacyConfig ),
                       authorizer );
         logger.trace( "registered platform endpoints" );

@@ -42,7 +42,7 @@ public enum NodeState {
 
     }
 
-    return Optional.empty();
+    return Optional.of( UNKNOWN );
   }
 
 }

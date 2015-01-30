@@ -63,8 +63,6 @@ public class ListNodes
                 final Optional<Service> service = ServiceType.find( info );
                 if( service.isPresent() ) {
 
-                    logger.debug( service.toString() );
-
                     final String ipv6Addr =
                         ipAddr2String( info.getIp_hi_addr() )
                             .orElse( String.valueOf( info.getIp_hi_addr() ) );

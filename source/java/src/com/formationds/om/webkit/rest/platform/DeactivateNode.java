@@ -12,7 +12,10 @@ import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventDescriptor;
 import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
+import com.formationds.commons.model.Node;
 import com.formationds.om.events.EventManager;
+import com.formationds.util.thrift.pm.PMServiceClient;
+import com.formationds.util.thrift.pm.PMServiceException;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -27,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class DeactivateNode
     implements RequestHandler {
@@ -46,8 +50,16 @@ public class DeactivateNode
     public Resource handle( Request request, Map<String, String> routeParameters )
         throws Exception {
 
-        String nodeName = requiredString( routeParameters, "node_name" );
-        long nodeUuid = requiredLong( routeParameters, "node_uuid" );
+        final long nodeUuid = requiredLong( routeParameters, "node_uuid" );
+        final Optional<String> nodeName =
+            nodeName( String.valueOf( nodeUuid ) );
+
+        if( !nodeName.isPresent() ) {
+
+            throw new Exception( "The specified node uuid " + nodeUuid +
+                                 " has no matching node name." );
+
+        }
 
         String source = IOUtils.toString( request.getInputStream() );
 
@@ -58,12 +70,16 @@ public class DeactivateNode
         boolean activateDm = !o.isNull( "dm" ) && o.getBoolean( "dm" );
 
         logger.debug( "Deactivating {}:{} AM: {} DM: {} SM: {}",
-                      nodeName, nodeUuid, activateAm, activateDm, activateSm );
+                      nodeName.get(),
+                      nodeUuid,
+                      activateAm,
+                      activateDm,
+                      activateSm );
 
         int status =
             client.RemoveServices( new FDSP_MsgHdrType(),
                                    new FDSP_RemoveServicesType(
-                                     nodeName,
+                                     nodeName.get(),
                                      new FDSP_Uuid( nodeUuid ),
                                      activateSm,
                                      activateDm,
@@ -87,6 +103,32 @@ public class DeactivateNode
 
         return new JsonResource( new JSONObject().put( "status", status ),
                                  httpCode );
+    }
+
+    protected Optional<String> nodeName( final String nodeUuid ) {
+
+        // refresh
+        // connect to local PM to get all node uuid to node name
+        final PMServiceClient client = new PMServiceClient( );
+        try {
+
+            for( final List<Node> nodes : client.getDomainNodes().values() ) {
+
+                for( final Node node : nodes ) {
+
+                    if( node.getUuid().equalsIgnoreCase( nodeUuid ) ) {
+                        return Optional.of( node.getName() );
+                    }
+                }
+
+            }
+
+        } catch( PMServiceException e ) {
+
+            logger.error( e.getMessage(), e );
+        }
+
+        return Optional.empty();
     }
 
     enum DeactivateNodeEvent

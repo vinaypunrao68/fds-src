@@ -11,12 +11,13 @@ import com.formationds.commons.model.type.ServiceStatus;
 /**
  * @author ptinius
  */
-public class Service
+public abstract class Service
   extends ModelBase {
   private static final long serialVersionUID = -1577170593630479004L;
 
   private Long uuid;
 
+  private String name;
   private String autoName;
   private Integer port;
   private ServiceStatus status;
@@ -26,6 +27,13 @@ public class Service
 	  this.type = aType;
   }
 
+  public String getName( ) {
+    return name;
+  }
+
+  public void setName( final String name ) {
+    this.name = name;
+  }
   public String getAutoName( ) {
     return autoName;
   }
@@ -61,5 +69,4 @@ public class Service
   public void setPort( Integer aPort ){
 	  this.port = aPort;
   }
-
 }

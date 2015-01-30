@@ -34,7 +34,31 @@ public class Node
   private Node( ) {
   }
 
-  public static IIpV6address uuid( final String uuid ) {
+    public String getIpV4address( ) {
+        return ipV4address;
+    }
+
+    public String getIpV6address( ) {
+        return ipV6address;
+    }
+
+    public String getName( ) {
+        return name;
+    }
+
+    public NodeState getState( ) {
+        return state;
+    }
+
+    public String getUuid( ) {
+        return uuid;
+    }
+
+    public Integer getId( ) {
+        return id;
+    }
+
+    public static IIpV6address uuid( final String uuid ) {
     return new Node.Builder( uuid );
   }
 
@@ -58,7 +82,32 @@ public class Node
 	  getServices().put( serviceType,  serviceList );
   }
 
-  public interface IIpV6address {
+    @Override
+    public boolean equals( final Object o ) {
+        if( this == o ) {
+            return true;
+        }
+
+        if( !( o instanceof Node ) ) {
+            return false;
+        }
+
+        final Node node = ( Node ) o;
+
+        return ipV4address.equals( node.ipV4address ) &&
+               name.equals( node.name ) && uuid.equals( node.uuid );
+
+    }
+
+    @Override
+    public int hashCode( ) {
+        int result = name.hashCode();
+        result = 31 * result + uuid.hashCode();
+        result = 31 * result + ipV4address.hashCode();
+        return result;
+    }
+
+    public interface IIpV6address {
     IIpV4address ipV6address( final String ipV6address );
   }
 
