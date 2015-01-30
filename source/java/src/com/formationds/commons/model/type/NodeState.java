@@ -4,6 +4,8 @@
 
 package com.formationds.commons.model.type;
 
+import java.util.Optional;
+
 /**
  * @author ptinius
  */
@@ -27,4 +29,20 @@ public enum NodeState {
   public String getFdsDefined() {
     return fdsDefined;
   }
+
+  public static Optional<NodeState> byFdsDefined( final String fdspNodeStateName ) {
+
+    for( final NodeState state : values() ) {
+
+      if( state.getFdsDefined().equalsIgnoreCase( fdspNodeStateName ) ) {
+
+        return Optional.of( state );
+
+      }
+
+    }
+
+    return Optional.of( UNKNOWN );
+  }
+
 }

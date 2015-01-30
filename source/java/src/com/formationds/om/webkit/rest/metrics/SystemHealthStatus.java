@@ -1,23 +1,10 @@
-package com.formationds.om.webkit.rest;
-
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import javax.persistence.EntityManager;
-
-import org.apache.thrift.TException;
-import org.eclipse.jetty.server.Request;
+package com.formationds.om.webkit.rest.metrics;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MgrIdType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_Node_Info_Type;
 import FDS_ProtocolInterface.FDSP_NodeState;
-
+import FDS_ProtocolInterface.FDSP_Node_Info_Type;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
@@ -43,11 +30,21 @@ import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
+import com.formationds.util.SizeUnit;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.util.SizeUnit;
-import com.formationds.util.thrift.ConfigurationApi;
+import org.apache.thrift.TException;
+import org.eclipse.jetty.server.Request;
+
+import javax.persistence.EntityManager;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class SystemHealthStatus implements RequestHandler {
 
@@ -267,8 +264,6 @@ public class SystemHealthStatus implements RequestHandler {
 
 	/**
 	 * Generate a status object to rollup system capacity status
-	 * @param volumes
-	 * @return
 	 */
 	private SystemHealth getCapacityStatus( List<VolumeDescriptor> volDescs ){
 		SystemHealth status = new SystemHealth();

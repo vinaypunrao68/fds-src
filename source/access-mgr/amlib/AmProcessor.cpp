@@ -210,8 +210,9 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
         }
         // Update the tx manager with this update
         if (ERR_OK != txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), amReq->data_len)) {
-            // An abort or commit (from an abort?) already caused the tx
+            // An abort or commit already caused the tx
             // to be cleaned up. Short-circuit
+            LOGNOTIFY << "Response no longer has active transaction: " << blobReq->tx_desc->getValue();
             delete amReq;
             return;
         }
