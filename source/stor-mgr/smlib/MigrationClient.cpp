@@ -58,7 +58,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
 
     // forward to destination SM
     if (req->io_type == FDS_SM_PUT_OBJECT) {
-        SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req); 
+        SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req);
         const ObjectID&  objId    = putReq->getObjId();
         LOGMIGRATE << "Forwarding PUT request for " << objId;
         if (!testMode) {
@@ -266,8 +266,11 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
              *        state later.  With active IO, we need to look at if
              *        active IOs have change the metadat state, and change
              *        accordingly on the destination SM.
+             *
+             * Send over metadata and object if not in the filterset, if object
+             * is not corrupted and refcnt > 0.
              */
-            if (!objMetaDataPtr->isObjCorrupted()) {
+            if (!objMetaDataPtr->isObjCorrupted() && (objMetaDataPtr->getRefCnt() > 0UL)) {
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                            << ": Selecting object " << objMetaDataPtr->logString();
                 objMetaDataSet.emplace_back(objMetaDataPtr, false);
@@ -403,7 +406,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
             fds_verify(objMD.second != nullptr);
 
             /* only send if the object is not corrupted */
-            if (!objMD.second->isObjCorrupted()) {
+            if (!objMD.second->isObjCorrupted() && (objMD.second->getRefCnt() > 0UL)) {
 
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                            << ": Selecting object " << objMD.second->logString();

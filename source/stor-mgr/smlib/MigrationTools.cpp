@@ -46,10 +46,9 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
         case cmp_result::exists:
             {
             // Keys are the same, push a difference if values are not.
-            auto l_v = l_it->value().ToString();
-            auto r_v = r_it->value().ToString();
-            ObjMetaData a; a.deserializeFrom(l_v);
-            ObjMetaData b; b.deserializeFrom(r_v);
+            ObjMetaData a; a.deserializeFrom(l_it->value());
+            ObjMetaData b; b.deserializeFrom(r_it->value());
+
             if (a != b) {
                 diff.emplace_back(std::make_pair(boost::make_shared<ObjMetaData>(a),
                                                  boost::make_shared<ObjMetaData>(b)));
@@ -61,7 +60,7 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
         case cmp_result::addition:
             {
             // New key in the rhs, append to the metadata list
-            ObjMetaData b; b.deserializeFrom(r_it->value().ToString());
+            ObjMetaData b; b.deserializeFrom(r_it->value());
             diff.emplace_back(std::make_pair(nullptr, boost::make_shared<ObjMetaData>(b)));
             r_it->Next();
             break;
@@ -70,7 +69,7 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
             {
             // Key no longer exists in rhs! Since GC and tiering are disabled
             // during snapshot delta calculation this shouldn't happen.
-            LOGERROR << "Missing key in snap2: " << l_it->key().ToString();
+            LOGMIGRATE << "Missing key in snap2: " << l_it->key().ToString();
             fds_assert(false);
             }
         default:
