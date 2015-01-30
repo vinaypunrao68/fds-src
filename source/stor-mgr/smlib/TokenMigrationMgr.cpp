@@ -199,6 +199,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         // else was already in progress
     }
     numBitsPerDltToken = bitsPerDltToken;
+    targetDltVersion = rebalSetMsg->targetDltVersion;
 
     MigrationClient::shared_ptr migrClient;
     int64_t executorId = rebalSetMsg->executorID;
