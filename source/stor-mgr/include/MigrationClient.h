@@ -98,7 +98,18 @@ class MigrationClient {
     void migClientReadObjDeltaSetCb(const Error& error,
                                     SmIoReadObjDeltaSetReq *req);
 
+    /**
+     * Will set forwarding flag to true
+     */
+    void setForwardingFlag();
 
+    /**
+     * Forwards requests if given DLT token is migrating and migration
+     * client has forwarding flag set
+     * @return true if request was forwarded
+     */
+    fds_bool_t forwardIfNeeded(fds_token_id dltToken,
+                               FDS_IOType* req);
 
   private:
     /* Verify that set of DLT tokens belong to the same SM token.
@@ -110,6 +121,16 @@ class MigrationClient {
      */
     void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bool>>& objMetaDataSet,
                               fds_bool_t lastSet);
+
+    void fwdPutObjectCb(SmIoPutObjectReq* putReq,
+                        EPSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload);
+
+    void fwdDelObjectCb(SmIoDeleteObjectReq* delReq,
+                        EPSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload);
 
     /**
      * Return sequence number for delta set message from source SM to
@@ -147,6 +168,14 @@ class MigrationClient {
      * bits per dlt token.
      */
     fds_uint32_t bitsPerDltToken;
+
+    /**
+     * Flag indicating objects in SM token for which this migration
+     * client is responsible need to be forwarded to destination SM
+     * Does not need to be atomic, because currently it is set under
+     * write lock in stor mgr.
+     */
+    fds_bool_t forwardingIO;
 
     /**
      * Mutex for dltTokenIDs and filterObjectSet.

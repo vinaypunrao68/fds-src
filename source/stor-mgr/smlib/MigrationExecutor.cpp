@@ -18,13 +18,15 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      const NodeUuid& srcSmId,
                                      fds_token_id smTokId,
                                      fds_uint64_t executorID,
+                                     fds_uint64_t targetDltVer,
                                      MigrationExecutorDoneHandler doneHandler)
         : executorId(executorID),
           migrDoneHandler(doneHandler),
           dataStore(_dataStore),
           bitsPerDltToken(bitsPerToken),
           smTokenId(smTokId),
-          sourceSmUuid(srcSmId)
+          sourceSmUuid(srcSmId),
+          targetDltVersion(targetDltVer)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
@@ -59,7 +61,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 
     LOGNORMAL << "Will send obj ids to source SM " << std::hex
               << sourceSmUuid.uuid_get_val() << std::dec << " for SM token "
-              << smTokenId << " (appropriate set of DLT tokens)";
+              << smTokenId << " (appropriate set of DLT tokens) "
+              << " target DLT version " << targetDltVersion;
 
     // we are going to send rebalance initial set msg(s) per DLT token
     // even if there are no objects in level DB, we are sending one msg per
@@ -72,6 +75,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
+        msg->targetDltVersion = targetDltVersion;
         msg->tokenId = dltTok;
         msg->executorID = executorId;
         msg->seqNum = seqId++;

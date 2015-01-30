@@ -24,6 +24,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
       destSMNodeID(_destSMNodeID),
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
+      forwardingIO(false),
       testMode(false)
 {
 
@@ -42,6 +43,68 @@ MigrationClient::~MigrationClient()
 {
 }
 
+void
+MigrationClient::setForwardingFlag() {
+    forwardingIO = true;
+}
+
+fds_bool_t
+MigrationClient::forwardIfNeeded(fds_token_id dltToken,
+                                 FDS_IOType* req) {
+    if (!forwardingIO || (dltTokenIDs.count(dltToken) == 0)) {
+        // don't need to forward
+        return false;
+    }
+
+    // forward to destination SM
+    if (req->io_type == FDS_SM_PUT_OBJECT) {
+        SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req); 
+        const ObjectID&  objId    = putReq->getObjId();
+        LOGMIGRATE << "Forwarding PUT request for " << objId;
+        if (!testMode) {
+            auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
+            asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg),
+                                    putReq->putObjectNetReq);
+            asyncPutReq->setTimeoutMs(1000);
+            asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdPutObjectCb, putReq));
+            asyncPutReq->invoke();
+        }
+    } else if (req->io_type == FDS_SM_DELETE_OBJECT) {
+        SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
+        const ObjectID&  objId    = delReq->getObjId();
+        LOGMIGRATE << "Forwarding DELETE request for " << objId;
+        if (!testMode) {
+            auto asyncDelReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
+            asyncDelReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg),
+                                    delReq->delObjectNetReq);
+            asyncDelReq->setTimeoutMs(1000);
+            asyncDelReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdDelObjectCb, delReq));
+            asyncDelReq->invoke();
+        }
+    }
+
+    return true;
+}
+
+void
+MigrationClient::fwdPutObjectCb(SmIoPutObjectReq* putReq,
+                                EPSvcRequest* svcReq,
+                                const Error& error,
+                                boost::shared_ptr<std::string> payload) {
+    LOGMIGRATE << "Ack for forwarded PUT request " << putReq->getObjId();
+    // reply to AM for the original PUT
+    putReq->response_cb(error, putReq);
+}
+
+void
+MigrationClient::fwdDelObjectCb(SmIoDeleteObjectReq* delReq,
+                                EPSvcRequest* svcReq,
+                                const Error& error,
+                                boost::shared_ptr<std::string> payload) {
+    LOGMIGRATE << "Ack for forwarded DELETE request " << delReq->getObjId();
+    // reply to AM for the original Delete
+    delReq->response_cb(error, delReq);
+}
 
 Error
 MigrationClient::migClientSnapshotMetaData()
