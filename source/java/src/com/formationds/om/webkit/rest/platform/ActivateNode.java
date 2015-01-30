@@ -86,6 +86,7 @@ public class ActivateNode
                                  httpCode);
     }
 
+    // TODO move to event package
     enum ActivateNodeEvent
         implements EventDescriptor {
 
