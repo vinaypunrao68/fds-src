@@ -74,7 +74,8 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                 boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Received Start Migration";
+    LOGDEBUG << "Received Start Migration for target DLT "
+             << migrationMsg->DLT_version;
 
     // first disable GC and Tier Migration
     // Note that after disabling GC, GC work in QoS queue will still
@@ -107,6 +108,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                            &SMSvcHandler::startMigrationCb, this,
                                                            asyncHdr, migrationMsg->DLT_version,
                                                            std::placeholders::_1),
+                                                       objStorMgr->getUuid(),
                                                        dlt->getNumBitsForToken());
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "
@@ -422,15 +424,13 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               asyncHdr)); \
               return;);
 
-    // TODO(Anna) forward Put if it's DLT version is new
-    // and we are in the middle of migration and forwarding
-
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
     putReq->dltVersion = putObjMsg->dlt_version;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
+    putReq->putObjectNetReq = putObjMsg;
     // perf-trace related data
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;
@@ -520,9 +520,6 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*expObjMsg));
     Error err(ERR_OK);
 
-    // TODO(Anna) forward Delete if it's DLT version is new
-    // and we are in the middle of migration and forwarding
-
     auto delReq = new SmIoDeleteObjectReq();
 
     // Set delReq stuffs
@@ -531,6 +528,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delReq->setVolId(expObjMsg->volId);
     delReq->dltVersion = expObjMsg->dlt_version;
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));
+    delReq->delObjectNetReq = expObjMsg;
     // perf-trace related data
     delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);
     delReq->opReqFailedPerfEventType = SM_DELETE_OBJ_REQ_ERR;

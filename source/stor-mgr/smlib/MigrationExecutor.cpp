@@ -18,13 +18,15 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      const NodeUuid& srcSmId,
                                      fds_token_id smTokId,
                                      fds_uint64_t executorID,
+                                     fds_uint64_t targetDltVer,
                                      MigrationExecutorDoneHandler doneHandler)
         : executorId(executorID),
           migrDoneHandler(doneHandler),
           dataStore(_dataStore),
           bitsPerDltToken(bitsPerToken),
           smTokenId(smTokId),
-          sourceSmUuid(srcSmId)
+          sourceSmUuid(srcSmId),
+          targetDltVersion(targetDltVer)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
@@ -57,9 +59,10 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         return ERR_NOT_READY;
     }
 
-    LOGNORMAL << "Will send obj ids to source SM " << std::hex
+    LOGNORMAL << "Executor " << std::hex << executorId << " will send obj ids to source SM "
               << sourceSmUuid.uuid_get_val() << std::dec << " for SM token "
-              << smTokenId << " (appropriate set of DLT tokens)";
+              << smTokenId << " (appropriate set of DLT tokens) "
+              << " target DLT version " << targetDltVersion;
 
     // we are going to send rebalance initial set msg(s) per DLT token
     // even if there are no objects in level DB, we are sending one msg per
@@ -72,6 +75,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
+        msg->targetDltVersion = targetDltVersion;
         msg->tokenId = dltTok;
         msg->executorID = executorId;
         msg->seqNum = seqId++;
@@ -165,7 +169,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                                                                        true);
         if (completeDeltaSetReceived) {
             LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
-                      << executorId;
+                      << std::hex << executorId << std::dec;
             handleMigrationRoundDone(err);
         }
         // we will get more delta sets for this executor (out-of-order)
@@ -249,7 +253,8 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
                                                                    req->qosLastSet);
     if (completeDeltaSetReceived) {
         // this executor finished the first or second round of migration, based on state
-        LOGNORMAL << "All DeltaSet and QoS requests accounted for executor " << req->executorId;
+        LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
+                  << std::hex << req->executorId << std::dec;
         handleMigrationRoundDone(error);
         return;
     }
@@ -262,8 +267,8 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // send message to source SM to request second delta set
     // just one message containing executor ID
     LOGMIGRATE << "Sending request for second delta set to source SM "
-               << std::hex << sourceSmUuid.uuid_get_val() << std::dec
-               << " Executor ID " << executorId;
+               << std::hex << sourceSmUuid.uuid_get_val()
+               << " Executor ID " << std::dec << executorId;
 
     // Reset sequence number for the second phase delta set.
     seqNumDeltaSet.resetDoubleSeqNum();
@@ -298,7 +303,7 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                                boost::shared_ptr<std::string> payload)
 {
     LOGDEBUG << "Received second rebalance delta response for executor"
-             << executorId << " " << error;
+             << std::hex << executorId << std::dec << " " << error;
     // here we just check for errors
     if (!error.ok()) {
         handleMigrationRoundDone(error);
@@ -333,8 +338,8 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         std::atomic_store(&state, newState);
     }
 
-    LOGMIGRATE << "Migration finished for executor " << executorId << " src SM "
-               << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+    LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
+               << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
                << ", SM token " << smTokenId
                << " firstRound? " << firstRoundFinished;
 
