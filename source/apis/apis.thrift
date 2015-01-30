@@ -47,7 +47,8 @@ enum ErrorCode {
      BAD_REQUEST,
      RESOURCE_ALREADY_EXISTS,
      RESOURCE_NOT_EMPTY,
-     SERVICE_NOT_READY
+     SERVICE_NOT_READY,
+     SERVICE_SHUTTING_DOWN
 }
 
 exception ApiException {

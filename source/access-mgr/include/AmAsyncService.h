@@ -65,6 +65,10 @@ class AsyncDataServer : public Module, public boost::noncopyable {
 
     virtual void init_server();
     virtual void deinit_server();
+
+    boost::shared_ptr<xdi_ats::TThreadedServer> getTTServer() {
+        return ttServer;
+    }
 };
 
 }  // namespace fds

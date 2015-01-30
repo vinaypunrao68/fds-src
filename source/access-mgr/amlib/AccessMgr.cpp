@@ -21,7 +21,8 @@ namespace fds {
 AccessMgr::AccessMgr(const std::string &modName,
                      CommonModuleProviderIf *modProvider)
         : Module(modName.c_str()),
-          modProvider_(modProvider) {
+          modProvider_(modProvider),
+          shuttingDown(false) {
 }
 
 AccessMgr::~AccessMgr() {
@@ -100,6 +101,31 @@ AccessMgr::registerVolume(const VolumeDesc& volDesc) {
     // on a single volume add location.
     storHvisor->amCache->createCache(volDesc);
     return storHvisor->vol_table->registerVolume(volDesc);
+}
+
+// Set AM in shutdown mode.
+void
+AccessMgr::setShutDown() {
+    shuttingDown = true;
+
+    /*
+     * If there are no
+     * more outstanding requests, tell the QoS
+     * Dispatcher that we're shutting down.
+     */
+    if (storHvisor->qos_ctrl->htb_dispatcher->num_outstanding_ios == 0)
+    {
+        LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
+        storHvisor->qos_ctrl->htb_dispatcher->stop();
+        asyncServer->getTTServer()->stop();
+        fdsnServer->getNBServer()->stop();
+    }
+}
+
+// Check whether AM is in shutdown mode.
+bool
+AccessMgr::isShuttingDown() {
+    return shuttingDown;
 }
 
 }  // namespace fds

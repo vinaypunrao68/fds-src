@@ -14,16 +14,16 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('nodeid', help= "-Uuid of the SM/DM to send the command to", type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm'])
+    @arg('nodeid', help= "-Uuid of the SM/DM/AM to send the command to", type=long)
+    @arg('svcname', help= "service name",  choices=['sm','dm','am'])
     def shutdown(self, nodeid, svcname):
         try:
-	    svcUuid = self.smClient.svcMap.svcUuid(nodeid, svcname)
+            svcUuid = self.smClient.svcMap.svcUuid(nodeid, svcname)
             shutdownMsg = FdspUtils.newShutdownMODMsg()
             self.smClient.sendAsyncSvcReq(svcUuid, shutdownMsg, None)
         except Exception, e:
             log.exception(e)
-            return 'Enable failed'
+            return 'Shutdown failed'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd

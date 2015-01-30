@@ -6,6 +6,7 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_ASYNCRESPONSEHANDLERS_H_
 
 #include "responsehandler.h"
+#include <AccessMgr.h>  /* For references to "am" */
 
 namespace fds
 {
