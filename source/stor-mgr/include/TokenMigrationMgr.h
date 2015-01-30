@@ -43,8 +43,7 @@ typedef std::function<void (const Error&)> OmStartMigrationCbType;
  */
 class SmTokenMigrationMgr {
   public:
-    explicit SmTokenMigrationMgr(SmIoReqHandler *dataStore,
-                                 const NodeUuid& myUuid);
+    explicit SmTokenMigrationMgr(SmIoReqHandler *dataStore);
     ~SmTokenMigrationMgr();
 
     typedef std::unique_ptr<SmTokenMigrationMgr> unique_ptr;
@@ -83,6 +82,7 @@ class SmTokenMigrationMgr {
      */
     Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                          OmStartMigrationCbType cb,
+                         const NodeUuid& mySvcUuid,
                          fds_uint32_t bitsPerDltToken);
 
     /**
@@ -179,9 +179,10 @@ class SmTokenMigrationMgr {
     /**
      * Returns executor ID for this destination SM based on localId
      * 0...31 bits: localId
-     * 32..64 bits: half of this SM service UUID
+     * 32..64 bits: half of smSvcUuid  service UUID
      */
-    fds_uint64_t getExecutorId(fds_uint32_t localId);
+    fds_uint64_t getExecutorId(fds_uint32_t localId,
+                               const NodeUuid& smSvcUuid) const;
 
     /**
      * Stops migration and sends ack with error to OM
@@ -206,7 +207,6 @@ class SmTokenMigrationMgr {
      * local to destination SM; we need 64bit + 64bit type for executor ID
      */
     std::atomic<fds_uint32_t> nextLocalExecutorId;
-    NodeUuid localSMSvcUuid;
 
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb;

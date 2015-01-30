@@ -9,13 +9,11 @@
 
 namespace fds {
 
-SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore,
-                                         const NodeUuid& myUuid)
+SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
           omStartMigrCb(NULL),
           targetDltVersion(DLT_VER_INVALID),
           numBitsPerDltToken(0),
-          localSMSvcUuid(myUuid),
           clientLock("Migration Client Map Lock") {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(0);
@@ -42,6 +40,7 @@ SmTokenMigrationMgr::~SmTokenMigrationMgr() {
 Error
 SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                                     OmStartMigrationCbType cb,
+                                    const NodeUuid& mySvcUuid,
                                     fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
 
@@ -84,7 +83,9 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                 (migrExecutors.count(smTok) > 0 && migrExecutors[smTok].count(srcSmUuid) == 0)) {
                 LOGNORMAL << "Will create migration executor class";
                 fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId, (fds_uint32_t)1);
-                fds_uint32_t globalExecId = getExecutorId(localExecId);
+                fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);
+                LOGMIGRATE << "Will create migration executor class with executor ID "
+                           << std::hex << globalExecId << std::dec;
                 migrExecutors[smTok][srcSmUuid] = MigrationExecutor::unique_ptr(
                     new MigrationExecutor(smReqHandler,
                                           bitsPerDltToken,
@@ -517,8 +518,9 @@ SmTokenMigrationMgr::abortMigration(const Error& error) {
 }
 
 fds_uint64_t
-SmTokenMigrationMgr::getExecutorId(fds_uint32_t localId) {
-    fds_uint64_t execId = localSMSvcUuid.uuid_get_val();
+SmTokenMigrationMgr::getExecutorId(fds_uint32_t localId,
+                                   const NodeUuid& smSvcUuid) const {
+    fds_uint64_t execId = smSvcUuid.uuid_get_val();
     return ((execId << 32) | localId);
 }
 

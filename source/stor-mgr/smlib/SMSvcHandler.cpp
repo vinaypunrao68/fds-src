@@ -108,6 +108,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                            &SMSvcHandler::startMigrationCb, this,
                                                            asyncHdr, migrationMsg->DLT_version,
                                                            std::placeholders::_1),
+                                                       objStorMgr->getUuid(),
                                                        dlt->getNumBitsForToken());
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "

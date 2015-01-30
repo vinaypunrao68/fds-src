@@ -248,7 +248,7 @@ void ObjectStorMgr::mod_startup()
     objectStore->mod_init(mod_params);
 
     // Init token migration manager
-    migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this, getUuid()));
+    migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this));
 
     // qos defaults
     qosThrds = modProvider_->get_fds_config()->get<int>(
