@@ -49,7 +49,7 @@ AmProcessor::respond(AmRequest *amReq, const Error& error) {
      * Dispatcher that we're shutting down.
      */
     if (am->isShuttingDown() &&
-            (qosCtrl->htb_dispatcher->max_outstanding_ios == 0))
+            (qosCtrl->htb_dispatcher->num_outstanding_ios == 0))
     {
         LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
         qosCtrl->htb_dispatcher->stop();

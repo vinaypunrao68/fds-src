@@ -225,7 +225,7 @@ class FdsProcess : public boost::noncopyable,
     ModuleVector *mod_vectors_;
 
     /* Flag to indicate whether modulue shutdown has been invoked or not */
-    std::atomic<bool>mod_shutdown_invoked_;
+    std::once_flag mod_shutdown_invoked_;
 
     /* FdsRootDir globals. */
     FdsRootDir   *proc_root;

@@ -113,7 +113,7 @@ AccessMgr::setShutDown() {
      * more outstanding requests, tell the QoS
      * Dispatcher that we're shutting down.
      */
-    if (storHvisor->qos_ctrl->htb_dispatcher->max_outstanding_ios == 0)
+    if (storHvisor->qos_ctrl->htb_dispatcher->num_outstanding_ios == 0)
     {
         LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
         storHvisor->qos_ctrl->htb_dispatcher->stop();

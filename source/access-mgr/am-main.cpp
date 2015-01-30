@@ -38,10 +38,9 @@ class AMMain : public PlatformProcess
     int run() override {
         am->run();
 
-        /* Only do module shutdown once.  Module shutdown can happen in interrupt_cb() */
-        if (!mod_shutdown_invoked_) {
-            shutdown_modules();
-        }
+        std::call_once(mod_shutdown_invoked_,
+                        &FdsProcess::shutdown_modules,
+                        this);
 
         return 0;
     }
