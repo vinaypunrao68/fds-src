@@ -1,5 +1,9 @@
 .nodecontainer {
     
+    .nodes {
+        clear: both;
+    }
+    
     .state-unknown {
         color: $text_very_light_color;
     }
@@ -23,5 +27,14 @@
     
     .process-cell {
         padding: 0px;
+        
+        .remove{
+            color: $fds_dark_gray;
+            
+            &:hover {
+                cursor: pointer;
+                color: red;                
+            }
+        }
     }
 }
