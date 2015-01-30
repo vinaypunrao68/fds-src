@@ -90,6 +90,7 @@ SyncMetaData::operator=(const SyncMetaData &rhs) {
 ObjMetaData::ObjMetaData()
 {
     memset(&obj_map, 0, sizeof(obj_map));
+    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
 
     phy_loc = &obj_map.loc_map[0];
     phy_loc[diskio::flashTier].obj_tier = -1;
@@ -100,10 +101,12 @@ ObjMetaData::ObjMetaData()
 ObjMetaData::ObjMetaData(const ObjectBuf& buf)
         : ObjMetaData() {
     fds_verify(deserializeFrom(buf) == true);
+    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
 }
 
 ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
     memcpy(&obj_map, &(rhs->obj_map), sizeof(obj_map));
+    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
     phy_loc = &obj_map.loc_map[0];
     assoc_entry = rhs->assoc_entry;
     sync_data   = rhs->sync_data;
@@ -120,6 +123,7 @@ ObjMetaData::~ObjMetaData()
  */
 void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
     memcpy(&obj_map.obj_id.metaDigest, objid.GetId(), sizeof(obj_map.obj_id.metaDigest));
+    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
     obj_map.obj_size = obj_size;
 
     // Initialize the physical location array
