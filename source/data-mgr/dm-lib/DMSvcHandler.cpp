@@ -27,7 +27,7 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTClose, NotifyDMTClose);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyAbortMigration);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyDMAbortMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownMODMsg, shutdownDM);
 }
 
@@ -343,7 +343,7 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
         boost::shared_ptr<fpi::CtrlNotifyDMAbortMigration>& abortMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Got abort migration, reverting to DMT version" << abortMsg->dmt_version;
+    LOGDEBUG << "Got abort migration, reverting to DMT version" << abortMsg->DMT_version;
 
     // Tell the DMT manager
     err = dataMgr->catSyncMgr->abortMigration();

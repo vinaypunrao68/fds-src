@@ -250,7 +250,7 @@ OM_NodeAgent::om_send_reg_resp(const Error &err)
 }
 
 Error
-OM_NodeAgent::om_send_abort_sm_migration(fds_uint64_t dltVersion) {
+OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t dltVersion) {
     Error err(ERR_OK);
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
@@ -258,7 +258,7 @@ OM_NodeAgent::om_send_abort_sm_migration(fds_uint64_t dltVersion) {
 
     // send request
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration), msg);
-    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_migration_resp, this, msg,
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_sm_migration_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
     om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
@@ -290,7 +290,7 @@ OM_NodeAgent::om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr
 }
 
 Error
-OM_NodeAgent::om_send_abort_dm_migration(fds_uint64_t dltVersion) {
+OM_NodeAgent::om_send_dm_abort_migration(fds_uint64_t dmtVersion) {
     Error err(ERR_OK);
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMAbortMigrationPtr msg(new fpi::CtrlNotifyDMAbortMigration());
@@ -312,7 +312,7 @@ OM_NodeAgent::om_send_abort_dm_migration(fds_uint64_t dltVersion) {
 }
 
 void
-OM_NodeAgent::om_send_abort_dm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
+OM_NodeAgent::om_send_abort_dm_migration_resp(fpi::CtrlNotifyDMAbortMigrationPtr msg,
         EPSvcRequest* req,
         const Error& error,
         boost::shared_ptr<std::string> payload)
@@ -1919,7 +1919,7 @@ OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
 static Error
 om_send_sm_migration_abort(fds_uint64_t cur_dlt_version, NodeAgent::pointer agent)
 {
-    return OM_SmAgent::agt_cast_ptr(agent)->om_send_abort_migration(cur_dlt_version);
+    return OM_SmAgent::agt_cast_ptr(agent)->om_send_sm_abort_migration(cur_dlt_version);
 }
 
 // om_bcast_sm_migration_abort
@@ -1937,6 +1937,15 @@ OM_NodeContainer::om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version)
     return count;
 }
 
+// om_send_dm_migration_abort
+// --------------------------
+//
+static Error
+om_send_dm_migration_abort(fds_uint64_t cur_dmt_version, NodeAgent::pointer agent)
+{
+    return OM_DmAgent::agt_cast_ptr(agent)->om_send_dm_abort_migration(cur_dmt_version);
+}
+
 // om_bcast_dm_migration_abort
 // ---------------------------
 // @return number of nodes we sent message to
@@ -1945,19 +1954,11 @@ fds_uint32_t
 OM_NodeContainer::om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version) {
     fds_uint32_t count = 0;
     count = dc_dm_nodes->agent_ret_foreach<fds_uint64_t>(cur_dmt_version,
-            om_send_dmt_migration_abort);
+            om_send_dm_migration_abort);
     LOGDEBUG << "Sent DM migration abort to " << count << "nodes.";
     return count;
 }
 
-// om_send_dm_migration_abort
-// --------------------------
-//
-static Error
-om_send_dm_migration_abort(fds_uint64_t cur_dmt_version, NodeAgent::pointer agent)
-{
-    return OM_DmAgent::agt_cast_ptr(agent)->om_send_abort_migration(cur_dmt_version);
-}
 
 
 // om_send_dlt_close

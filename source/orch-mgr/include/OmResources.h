@@ -109,8 +109,8 @@ class OM_NodeAgent : public NodeAgent
                       boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt(const DLT *curDlt);
-    virtual Error om_send_abort_sm_migration(fds_uint64_t dltVersion);
-    virtual Error om_send_abort_dm_migration(fds_uint64_t dmtVersion);
+    virtual Error om_send_sm_abort_migration(fds_uint64_t dltVersion);
+    virtual Error om_send_dm_abort_migration(fds_uint64_t dmtVersion);
     void om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
                                       EPSvcRequest* req,
                                       const Error& error,

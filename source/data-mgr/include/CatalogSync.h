@@ -171,6 +171,9 @@ namespace fds {
             return (sync_volumes.empty());
         }
 
+
+        void abortMigration(Error err);
+
   private:  // methods
         Error sendMetaSyncDone(fds_volid_t volid, fds_bool_t forward_done);
 
@@ -303,7 +306,8 @@ namespace fds {
         /**
         * Aborts sync when error state is reached in DMT state machine
         */
-        void abortMigration();
+        Error abortMigration();
+
 
   private:
         fds_bool_t sync_in_progress;
