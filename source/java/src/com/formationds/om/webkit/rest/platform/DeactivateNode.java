@@ -65,9 +65,15 @@ public class DeactivateNode
 
         JSONObject o = new JSONObject( source );
 
-        boolean activateSm = !o.isNull( "sm" ) && o.getBoolean( "sm" );
-        boolean activateAm = !o.isNull( "am" ) && o.getBoolean( "am" );
-        boolean activateDm = !o.isNull( "dm" ) && o.getBoolean( "dm" );
+        /**
+         * Currently the whole rest url and class naming are out of sync.
+         *
+         * So for now we will just changes the "false" being passed in
+         * to "true" so the C++ code called below will work as expected.
+         */
+        boolean activateSm = !o.getBoolean( "sm" );
+        boolean activateAm = !o.getBoolean( "am" );
+        boolean activateDm = !o.getBoolean( "dm" );
 
         logger.debug( "Deactivating {}:{} AM: {} DM: {} SM: {}",
                       nodeName.get(),
@@ -81,9 +87,9 @@ public class DeactivateNode
                                    new FDSP_RemoveServicesType(
                                      nodeName.get(),
                                      new FDSP_Uuid( nodeUuid ),
-                                     activateSm,
-                                     activateDm,
-                                     activateAm ) );
+                                     !activateSm,
+                                     !activateDm,
+                                     !activateAm ) );
 
         int httpCode = HttpServletResponse.SC_OK;
         if( status != 0 ) {
