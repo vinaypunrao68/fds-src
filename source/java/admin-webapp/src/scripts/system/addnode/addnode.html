@@ -13,49 +13,30 @@
     <table class="default clickable">
         <thead>
             <th tool-tip text="{{ 'system.tt_node_name' | translate }}">
-                <div translate>
-                    system.th_node_name
+                <div class="flex">
+                    <tri-state-check check-state="addAllNodes" style="top: 3px;"></tri-state-check>
+                    <div style="margin-left: 4px;" translate>
+                        system.th_node_name
+                    </div>
                 </div>
             </th>
-            <th tool-tip text="{{ 'system.tt_am' | translate }}">
-                <div translate>system.th_am</div>
+            <th tool-tip text="{{ 'system.tt_ip_address' | translate }}">
+                <div translate>system.th_ip_address</div>
             </th>
-            <th tool-tip text="{{ 'system.tt_om' | translate }}">
-                <div translate>system.th_om</div>
-            </th>
-            <th tool-tip text="{{ 'system.tt_pm' | translate }}">
-                <div translate>system.th_pm</div>
-            </th>
-            <th tool-tip text="{{ 'system.tt_sm' | translate }}">
-                <div translate>system.th_sm</div>
-            </th>
-            <th tool-tip text="{{ 'system.tt_dm' | translate }}">
-                <div translate>system.th_dm</div>
-            </th>
+
         </thead>
         <tbody>
             <tr class="no-border" ng-repeat="detachedNode in detachedNodes">
-                <td width="32">
+                <td>
                     <div class="flex">
-                        <tri-state-check check-state="detachedNode.addAll" ng-click="parentStateChanged( detachedNode )"></tri-state-checkbox>
-                        {{ detachedNode.node_name }}
+                        <tri-state-check check-state="detachedNode.addAll" ng-click="nodeStateChanged( detachedNode )" style="top: 3px;"></tri-state-check>
+                        <div style="margin-left: 4px;">{{ detachedNode.name }}</div>
                     </div>
                 </td>
                 <td>
-                    <switch ng-model="detachedNode.am" on-text="{{ onText }}" off-text="{{ offTest }}"></switch>
+                    {{ detachedNode.ipV4address }}
                 </td>
-                <td>
-                    <switch ng-model="detachedNode.om" on-text="{{ onText }}" off-text="{{ offTest }}"></switch>
-                </td>
-                <td>
-                    <switch ng-model="detachedNode.pm" on-text="{{ onText }}" off-text="{{ offTest }}"></switch>
-                </td>
-                <td>
-                    <switch ng-model="detachedNode.sm" on-text="{{ onText }}" off-text="{{ offTest }}"></switch>
-                </td>
-                <td>
-                    <switch ng-model="detachedNode.dm" on-text="{{ onText }}" off-text="{{ offTest }}"></switch>
-                </td>
+                
             </tr>
             <tr class="disabled" ng-show="!detachedNodes.length || detachedNodes.length === 0">
                 <td colspan="100%">

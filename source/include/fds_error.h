@@ -71,7 +71,8 @@ typedef enum {
     ERR_DM_JOURNAL_TIME       = 48,
     ERR_DM_REPLAY_JOURNAL     = 49,
     ERR_DM_FORWARD_FAILED     = 50,
-    ERR_DM_MIGRATION_ABORTED  = 51,
+    ERR_SHUTTING_DOWN         = 51,
+    ERR_DM_MIGRATION_ABORTED  = 52,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

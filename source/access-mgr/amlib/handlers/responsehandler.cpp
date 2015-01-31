@@ -26,6 +26,9 @@ if (status != ERR_OK) {                                             \
         case ERR_DUPLICATE:                                         \
             e.errorCode = apis::ErrorCode::RESOURCE_ALREADY_EXISTS; \
             break;                                                  \
+        case ERR_SHUTTING_DOWN:                                     \
+            e.errorCode = apis::ErrorCode::SERVICE_SHUTTING_DOWN;   \
+            break;                                                  \
         default:                                                    \
             e.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
     }                                                               \

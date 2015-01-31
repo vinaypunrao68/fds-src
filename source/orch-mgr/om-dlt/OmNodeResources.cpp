@@ -468,11 +468,17 @@ OM_NodeAgent::om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* re
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
               << " with version " << msg->dmt_version << " " << error;
 
+    Error respError(error);
+    // ok to receive ERR_CATSYNC_NOT_PROGRESS error
+    if (respError == ERR_CATSYNC_NOT_PROGRESS) {
+        respError = ERR_OK;
+    }
+
     // notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid(rs_get_uuid());
     FdspNodeType node_type = rs_get_uuid().uuid_get_type();
-    domain->om_recv_dmt_commit_resp(node_type, node_uuid, msg->dmt_version, error);
+    domain->om_recv_dmt_commit_resp(node_type, node_uuid, msg->dmt_version, respError);
 }
 
 #if 0

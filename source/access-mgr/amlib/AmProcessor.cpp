@@ -39,6 +39,26 @@ AmProcessor::AmProcessor(const std::string &modName,
 }
 
 void
+AmProcessor::respond(AmRequest *amReq, const Error& error) {
+    qosCtrl->markIODone(amReq);
+    amReq->cb->call(error);
+
+    /*
+     * If we're shutting down and there are no
+     * more outstanding requests, tell the QoS
+     * Dispatcher that we're shutting down.
+     */
+    if (am->isShuttingDown() &&
+            (qosCtrl->htb_dispatcher->num_outstanding_ios == 0))
+    {
+        LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
+        qosCtrl->htb_dispatcher->stop();
+        am->asyncServer->getTTServer()->stop();
+        am->fdsnServer->getNBServer()->stop();
+    }
+}
+
+void
 AmProcessor::getVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.getVolMeta",
               respond_and_delete(amReq, ERR_OK); \
@@ -209,8 +229,14 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
                                                    blobReq->metadata) == ERR_OK);
         }
         // Update the tx manager with this update
-        fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc),
-                                               amReq->data_len) == ERR_OK);
+        if (ERR_OK != txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), amReq->data_len)) {
+            // An abort or commit already caused the tx
+            // to be cleaned up. Short-circuit
+            LOGNOTIFY << "Response no longer has active transaction: " << blobReq->tx_desc->getValue();
+            delete amReq;
+            return;
+        }
+
         // Update the transaction manager with the stage offset update
         fds_verify(txMgr->updateStagedBlobOffset(*(blobReq->tx_desc),
                                                  amReq->getBlobName(),
@@ -371,12 +397,11 @@ AmProcessor::statBlob(AmRequest *amReq) {
 
 void
 AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
-    respond(amReq, error);
-
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
-    fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->tx_desc)));
+    if (ERR_OK != txMgr->removeTx(*(blobReq->tx_desc)))
+        LOGWARN << "Transaction unknown";
 
-    delete amReq;
+    respond_and_delete(amReq, error);
 }
 
 void

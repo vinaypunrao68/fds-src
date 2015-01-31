@@ -32,6 +32,7 @@ class MigrationExecutor {
                       const NodeUuid& srcSmId,
                       fds_token_id smTokId,
                       fds_uint64_t id,
+                      fds_uint64_t targetDltVer,
                       MigrationExecutorDoneHandler doneHandler);
     ~MigrationExecutor();
 
@@ -126,6 +127,11 @@ class MigrationExecutor {
      * SM Token to migration from the source SM node.
      */
     fds_token_id smTokenId;
+
+    /**
+     * Target DLT version for this executor
+     */
+    fds_uint64_t targetDltVersion;
 
     /**
      * Set of DLT tokens that needs to be migrated from source SM

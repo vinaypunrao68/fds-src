@@ -121,6 +121,7 @@ cc_assert(vio1, fds_offset_of(meta_vol_adr_t, vol_uuid) ==
 #define MAX_ASSOC_ENTRY 64
 #define SYNCMETADATA_MASK    0x1
 #define OBJ_FLAG_CORRUPTED   0x40
+#define META_OBJ_MAP_MAGIC_VALUE    0xdeadbeef // magic value for meta_obj_map
 struct __attribute__((__packed__)) obj_phy_loc_v0 {
     fds_int8_t           obj_tier;            /* tier location               */
     fds_uint16_t         obj_stor_loc_id;     /* physical location in tier   */
@@ -134,9 +135,10 @@ typedef obj_phy_loc_t     ObjPhyLoc;
 
 struct __attribute__((__packed__)) meta_obj_map_v0
 {
+    fds_uint32_t         obj_magic;           /* magic value for object */
     fds_uint8_t          obj_map_ver;         /* current version.            */
-    fds_uint32_t         obj_map_len;
-    fds_uint8_t          obj_rsvd;
+    fds_uint32_t         obj_map_len;         /* UNUSED?????                 */
+    fds_uint8_t          obj_rsvd;            /* NO NEED FOR THIS????        */
     fds_uint8_t          compress_type;       /* Obj Compression type */
     fds_uint32_t         compress_len;        /* If compressed the obj compress length */
     meta_obj_id_t        obj_id;              /* check sum for data.         */

@@ -34,11 +34,13 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     };
 
     $rootScope.$on( 'fds::authentication_logout', function(){
+        
         $interval.cancel( pollerId );
         api.volume = [];
     });
 
     $rootScope.$on( 'fds::authentication_success', function(){
+        
         getVolumes().then( startPoller );
     });
 
