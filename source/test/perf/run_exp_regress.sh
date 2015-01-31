@@ -14,25 +14,48 @@ config=`echo $TAG | awk -F ":" '{print $3}'`
 
 echo "test_type: $test_type, mix: $mix, config: $config" 
 
+echo "Cleaning up..."
+# kill FDS if up
+echo "Killing FDS on $CLUSTER"
+./is_fds_up.py -K --fds-nodes $CLUSTER
+
 # remove package
 hosts=`echo $CLUSTER | sed 's/,/ /g'`
 for node in $hosts ; do
+    echo "$node -> stopping redis"
+    scp $WORKSPACE/source/tools/redis.sh $node:/tmp/
+    ssh $node 'bash /tmp/redis.sh clean'
+    ssh $node 'bash /tmp/redis.sh stop'
+    echo "$node -> remove fds-platform"
     ssh $node 'apt-get remove -y fds-platform'
+    echo "$node -> clean up shared memory"
+    ssh $node 'rm -f /dev/shm/0x*-0'
+    echo "$node -> unmount FDS disks"
+    ssh $node 'umount /fds/dev/*'
+    echo "$node -> remove /fds"
+    ssh $node 'rm -fr /fds'
 done
 
 # deploy inventory file/confs
+echo "Deploy inventory file - config: $config om_node: $OM_NODE cluster: $CLUSTER"
 ./deploy_confs.sh $config $OM_NODE $CLUSTER
 
-# kill FDS if up
-./is_fds_up.py -K --fds-nodes $CLUSTER
+# bring up fds
+echo "Bring up FDS"
+pushd $WORKSPACE/ansible
+./scripts/deploy_fds.sh $OM_NODE local
+echo "Sleep for one minute more..."
+sleep 60
+popd
 
+echo "Start Testing"
 TEST_DIR=/regress/test-$RANDOM
 
 # run tests
 if [ "$TEST_NODE" = "local" ] ; then
-    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $CLUSTER
+    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $CLUSTER -x
 else
-    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_NODE -D $WORKSPACE --fds-nodes $CLUSTER
+    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_NODE -D $WORKSPACE --fds-nodes $CLUSTER -x
 fi
 
 # stats processing
