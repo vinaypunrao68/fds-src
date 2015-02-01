@@ -8,11 +8,12 @@ import javax.net.ssl.HttpsURLConnection;
 import org.json.JSONObject;
 
 import com.formationds.apis.MediaPolicy;
-import com.formationds.commons.FdsConstants;
+import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.reporters.VerificationReporter;
 
 public final class SetVolumeQos extends OrchestrationManagerOperation
 {
@@ -48,17 +49,14 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
         _input = input;
     }
 
-    // @eclipseFormat:off
     @Override
-    public void exec(OrchestrationManagerEndpoint endpoint, HttpsURLConnection connection)
-            throws ExecutionException
-    // @eclipseFormat:on
+    public void exec(OrchestrationManagerEndpoint endpoint,
+                     HttpsURLConnection connection,
+                     VerificationReporter reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
-
-        connection.setDoInput(false);
-        connection.setDoOutput(true);
+        if (reporter == null) throw new NullArgumentException("reporter");
 
         JSONObject request = new JSONObject();
         request.put("sla", _input.assured_rate);
@@ -80,9 +78,12 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
     @Override
     public URI getRelativeUri()
     {
-        return Uris.resolve(FdsConstants.Api.getVolumes(),
-                            Uris.tryGetRelativeUri(Long.toString(_input.id)))
-                   .relativize(FdsConstants.Api.getBase());
+        URI apiBase = Fds.Api.getBase();
+        URI volumes = Fds.Api.getVolumes();
+        URI volumeId = Uris.tryGetRelativeUri(Long.toString(_input.id));
+        URI putVolume = Uris.resolve(volumes, volumeId);
+
+        return apiBase.relativize(putVolume);
     }
 
     private final Input _input;

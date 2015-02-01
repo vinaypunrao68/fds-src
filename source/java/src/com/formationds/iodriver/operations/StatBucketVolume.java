@@ -30,12 +30,13 @@ public final class StatBucketVolume extends S3Operation
         if (consumer == null) throw new NullArgumentException("consumer");
 
         _statVolumeOp =
-                new StatVolume(bucketName, output -> new Output(output.assured_rate,
-                                                                output.throttle_rate,
-                                                                output.priority,
-                                                                output.commit_log_retention,
-                                                                output.mediaPolicy,
-                                                                output.id));
+                new StatVolume(bucketName,
+                               output -> consumer.accept(new Output(output.assured_rate,
+                                                                    output.throttle_rate,
+                                                                    output.priority,
+                                                                    output.commit_log_retention,
+                                                                    output.mediaPolicy,
+                                                                    output.id)));
     }
 
     @Override

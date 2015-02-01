@@ -11,7 +11,7 @@ import java.net.URLConnection;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import com.formationds.commons.FdsConstants;
+import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.logging.Logger;
@@ -70,10 +70,10 @@ public final class OrchestrationManagerEndpoint
             URI authUri;
             try
             {
-                authUri = Uris.withQueryParameters(FdsConstants.Api.getAuthToken(),
-                                                   FdsConstants.USERNAME_QUERY_PARAMETER,
+                authUri = Uris.withQueryParameters(Fds.Api.getAuthToken(),
+                                                   Fds.USERNAME_QUERY_PARAMETER,
                                                    _username,
-                                                   FdsConstants.PASSWORD_QUERY_PARAMETER,
+                                                   Fds.PASSWORD_QUERY_PARAMETER,
                                                    _password);
             }
             catch (URISyntaxException e)
@@ -81,7 +81,8 @@ public final class OrchestrationManagerEndpoint
                 throw new RuntimeException("Unexpected error creating auth URI.", e);
             }
             URL authUrl = toUrl(authUri);
-            HttpURLConnection authConnection = (HttpURLConnection)openConnection(authUrl);
+            HttpURLConnection authConnection =
+                    (HttpURLConnection)openConnectionWithoutAuth(authUrl);
 
             JSONObject userObject;
             try
@@ -126,8 +127,15 @@ public final class OrchestrationManagerEndpoint
 
         getAuthToken();
 
+        return openConnectionWithoutAuth(url);
+    }
+
+    protected URLConnection openConnectionWithoutAuth(URL url) throws IOException
+    {
+        if (url == null) throw new NullArgumentException("url");
+
         URLConnection connection = super.openConnection(url);
-        connection.setRequestProperty(FdsConstants.FDS_AUTH_HEADER, _authToken == null ? null
+        connection.setRequestProperty(Fds.FDS_AUTH_HEADER, _authToken == null ? null
                 : _authToken.toString());
 
         return connection;

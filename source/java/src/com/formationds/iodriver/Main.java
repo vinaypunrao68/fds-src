@@ -11,8 +11,7 @@ public final class Main
     {
         try
         {
-            // TODO: Build config from persistent configuration or command-line options.
-            Config config = new Config();
+            Config config = new Config(args);
 
             Driver<?, ?> driver =
                     new Driver<S3Endpoint, S3QosTestWorkload>(config.getEndpoint(),

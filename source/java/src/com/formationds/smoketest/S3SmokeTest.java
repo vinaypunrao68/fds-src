@@ -48,7 +48,7 @@ import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
-import com.formationds.commons.FdsConstants;
+import com.formationds.commons.Fds;
 import com.formationds.commons.util.Uris;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
@@ -110,15 +110,15 @@ public class S3SmokeTest {
     public S3SmokeTest()
             throws Exception {
         System.setProperty(SDKGlobalConfiguration.DISABLE_CERT_CHECKING_SYSTEM_PROPERTY, "true");
-        host = FdsConstants.getFdsHost();
+        host = Fds.getFdsHost();
 
         String omUrl = "https://" + host + ":7443";
         turnLog4jOff();
         JSONObject adminUserObject =
-                getObject(Uris.withQueryParameters(FdsConstants.Api.getAuthToken(),
-                                                   FdsConstants.USERNAME_QUERY_PARAMETER,
+                getObject(Uris.withQueryParameters(Fds.Api.getAuthToken(),
+                                                   Fds.USERNAME_QUERY_PARAMETER,
                                                    "admin",
-                                                   FdsConstants.PASSWORD_QUERY_PARAMETER,
+                                                   Fds.PASSWORD_QUERY_PARAMETER,
                                                    "admin").toString(),
                           "");
         String adminToken = adminUserObject.getString("token");
@@ -502,7 +502,7 @@ public class S3SmokeTest {
             throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet(url);
-        httpGet.setHeader(FdsConstants.FDS_AUTH_HEADER, token);
+        httpGet.setHeader(Fds.FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpGet);
         return IOUtils.toString(response.getEntity()
                 .getContent());
@@ -512,7 +512,7 @@ public class S3SmokeTest {
             throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpPost httpPost = new HttpPost(url);
-        httpPost.setHeader(FdsConstants.FDS_AUTH_HEADER, token);
+        httpPost.setHeader(Fds.FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpPost);
         return new JSONObject(IOUtils.toString(response.getEntity()
                 .getContent()));
@@ -522,7 +522,7 @@ public class S3SmokeTest {
             throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpPut httpPut = new HttpPut(url);
-        httpPut.setHeader(FdsConstants.FDS_AUTH_HEADER, token);
+        httpPut.setHeader(Fds.FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpPut);
         return new JSONObject(IOUtils.toString(response.getEntity()
                 .getContent()));

@@ -23,10 +23,9 @@ extends AbstractHttpOperation<ThisT, EndpointT>
         endpoint.visit(getThis());
     }
 
-    // @eclipseFormat:off
-    public abstract void exec(EndpointT endpoint, HttpsURLConnection connection)
-            throws ExecutionException;
-    // @eclipseFormat:on
+    public abstract void exec(EndpointT endpoint,
+                              HttpsURLConnection connection,
+                              VerificationReporter reporter) throws ExecutionException;
 
     @Override
     public final void exec(EndpointT endpoint,

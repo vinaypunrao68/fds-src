@@ -115,9 +115,15 @@ public class Configuration {
         return fdsRoot.getAbsolutePath();
     }
 
+    public Path getPlatformConfigPath() {
+        
+        return Paths.get(getFdsRoot(), "etc", "platform.conf");
+        
+    }
+    
     public ParsedConfig getPlatformConfig() {
 
-        Path path = Paths.get(getFdsRoot(), "etc", "platform.conf");
+        Path path = getPlatformConfigPath();
         return getParserFacade(path);
 
     }

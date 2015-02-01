@@ -10,10 +10,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.formationds.apis.MediaPolicy;
-import com.formationds.commons.FdsConstants;
+import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.reporters.VerificationReporter;
 
 public final class StatVolume extends OrchestrationManagerOperation
 {
@@ -59,14 +60,14 @@ public final class StatVolume extends OrchestrationManagerOperation
         _volumeName = volumeName;
     }
 
-    // @eclipseFormat:off
     @Override
-    public void exec(OrchestrationManagerEndpoint endpoint, HttpsURLConnection connection)
-              throws ExecutionException
-    // @eclipseFormat:on
+    public void exec(OrchestrationManagerEndpoint endpoint,
+                     HttpsURLConnection connection,
+                     VerificationReporter reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
+        if (reporter == null) throw new NullArgumentException("reporter");
 
         String content;
         try
@@ -123,7 +124,7 @@ public final class StatVolume extends OrchestrationManagerOperation
     @Override
     public URI getRelativeUri()
     {
-        return FdsConstants.Api.getVolumes().relativize(FdsConstants.Api.getBase());
+        return Fds.Api.getBase().relativize(Fds.Api.getVolumes());
     }
 
     private final Consumer<Output> _consumer;

@@ -17,7 +17,7 @@ import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
-import com.formationds.commons.FdsConstants;
+import com.formationds.commons.Fds;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
@@ -85,7 +85,7 @@ public class HttpAuthenticator implements RequestHandler {
     }
 
     private Optional<AuthenticationToken> parseHeaders(Request request) {
-        String headerValue = request.getHeader(FdsConstants.FDS_AUTH_HEADER);
+        String headerValue = request.getHeader(Fds.FDS_AUTH_HEADER);
         if (StringUtils.isBlank(headerValue)) {
             return Optional.empty();
         }

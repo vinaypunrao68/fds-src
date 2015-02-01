@@ -115,10 +115,12 @@ extends Endpoint<ThisT, OperationT>
             // Should be impossible.
             throw new RuntimeException("Unexpected error setting request method to PUT.");
         }
-        connection.setDoInput(false);
+        connection.setDoInput(true);
         connection.setDoOutput(true);
 
-        handleResponseNoReturn(connection, c -> doPut(c, content, charset));
+        putRequest(connection, content, charset);
+        
+        handleResponse(connection, c -> null);
     }
 
     public String doGet(HttpURLConnection connection) throws HttpException
