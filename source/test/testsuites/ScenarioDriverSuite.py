@@ -246,7 +246,6 @@ def suiteConstruction(self):
                                                                    reason="to allow the activation to complete"))
             elif action == "shutdown":
                 # Shutdown the cluster.
-                # Start this cluster.
                 clusterShutdownSuite = ClusterShutdownSuite.suiteConstruction(self=None)
                 suite.addTest(clusterShutdownSuite)
             else:
