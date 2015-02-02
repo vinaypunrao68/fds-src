@@ -237,6 +237,8 @@ class FdsLocalEnv(FdsEnv):
 
         p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+        # Probably p.communicate() is forcing a wait for the process to complete
+        # regardless of wait_compl's setting.
         if cmd_input is not None:
             # Watch for a sudo password of "dummy". In that case we'll assume that the environment
             # will not request a password for sudo and so execute the command without providing it
@@ -250,6 +252,8 @@ class FdsLocalEnv(FdsEnv):
 
         if wait_compl:
             p.wait()
+        else:
+            log.info("Not waiting.")
 
         status = p.returncode
 
@@ -295,8 +299,8 @@ class FdsLocalEnv(FdsEnv):
     # Execute command and wait for result. We'll also log
     # output in this case.
     #
-    def exec_wait(self, cmd, return_stdin=False, cmd_input=None):
-        return self.local_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True):
+        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=False, output=True, return_stdin=return_stdin,
                                cmd_input=cmd_input)
 
     def local_close(self):

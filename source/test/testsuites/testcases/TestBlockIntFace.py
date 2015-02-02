@@ -67,7 +67,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         fds_root = nodes[0].nd_conf_dict['fds_root']
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         global pwd
-        pwd = os.getcwd()
+        cur_dir = os.getcwd()
         os.chdir(bin_dir)
 
         # Block volume create command
@@ -75,6 +75,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         blkCrtCmd = "./fdscli --fds-root=" + fds_root + " --volume-create blockVolume -i 1 -s 10240 -p 50 -y blk"
         result = subprocess.call(blkCrtCmd, shell=True)
         if result != 0:
+            os.chdir(cur_dir)
             self.log.error("Failed to create block volume")
             return False
         time.sleep(5)
@@ -82,8 +83,12 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         blkModCmd = "./fdscli --fds-root=" + fds_root + " --volume-modify \"blockVolume\" -s 10240 -g 0 -m 0 -r 10"
         result = subprocess.call(blkModCmd, shell=True)
         if result != 0:
+            os.chdir(cur_dir)
             self.log.error("Failed to modify block volume")
             return False
+
+        os.chdir(cur_dir)
+
         time.sleep(5)
 
         return True
@@ -92,8 +97,10 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
 # the FDS interface to attach a volume.
 #
 class TestBlockAttachVolume(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, volume=None):
         super(TestBlockAttachVolume, self).__init__(parameters)
+
+        self.passedVolume = volume
 
 
     def runTest(self):
@@ -128,21 +135,34 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
     def test_BlockAttVolume(self):
         """
         Test Case:
-        Attempt to attach a block volume.
+        Attempt to attach a block volume client.
         """
 
-        # TODO(Andrew): We shouldn't hard code the path, volume name, port, ip
-        blkAttCmd = ['sudo', '../../../cinder/nbdadm.py', 'attach', 'localhost', 'blockVolume']
-        nbdadm = subprocess.Popen(blkAttCmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        (stdout, stderr) = nbdadm.communicate()
-        if nbdadm.returncode != 0:
-            self.log.error("Failed to attach block volume %s %s" % (stdout, stderr))
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        volume = 'blockVolume'
+
+        # Check if a volume was passed to us.
+        if self.passedVolume is not None:
+            volume = self.passedVolume
+
+        cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
+        blkAttCmd = '%s/nbdadm.py attach %s %s' % (cinder_dir, om_node.nd_conf_dict['ip'], volume)
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = om_node.nd_agent.exec_wait(blkAttCmd, return_stdin=True)
+
+        if status != 0:
+            self.log.error("Failed to attach block volume %s: %s." % (volume, stdout))
             return False
         else:
             global nbd_device
             nbd_device = stdout.rstrip()
-        self.log.info("Attached block device %s" % (nbd_device))
+
         time.sleep(5)
+        self.log.info("Attached block device %s" % (nbd_device))
 
         return True
 
@@ -150,8 +170,10 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
 # the FDS interface to disconnect a volume.
 #
 class TestBlockDetachVolume(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, volume=None):
         super(TestBlockDetachVolume, self).__init__(parameters)
+
+        self.passedVolume = volume
 
     def runTest(self):
         test_passed = True
@@ -188,25 +210,42 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
         Attempt to detach a block volume.
         """
 
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        volume = 'blockVolume'
+
+        # Check if a volume was passed to us.
+        if self.passedVolume is not None:
+            volume = self.passedVolume
+
+        cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
+
         # Command to detach a block volume
-        # TODO(Andrew): Don't hard code path, volume name
-        blkDetachCmd = "sudo ../../../cinder/nbdadm.py detach blockVolume"
-        result = subprocess.call(blkDetachCmd, shell=True)
-        if result != 0:
-            self.log.error("Failed to detach block volume")
+        blkDetachCmd = '%s/nbdadm.py detach %s' % (cinder_dir, volume)
+
+        status = om_node.nd_agent.exec_wait(blkDetachCmd)
+
+        if status != 0:
+            self.log.error("Failed to detach block volume with status %s." % status)
             return False
+
         time.sleep(5)
 
-        os.chdir(pwd)
         return True
 
 # This class contains the attributes and methods to test
 # writing block data
 #
 class TestBlockFioSeqW(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, waitComplete="TRUE"):
         super(TestBlockFioSeqW, self).__init__(parameters)
 
+        if waitComplete == "TRUE":
+            self.passedWaitComplete = True
+        else:
+            self.passedWaitComplete = False
 
     def runTest(self):
         test_passed = True
@@ -243,13 +282,18 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         Attempt to write to a block volume.
         """
 
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
         # TODO(Andrew): Don't hard code all of this stuff...
         fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --size=16m --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
-        result = subprocess.call(fioCmd, shell=True)
-        if result != 0:
-            self.log.error("Failed to run write workload")
+
+        status = om_node.nd_agent.exec_wait(fioCmd, wait_compl=self.passedWaitComplete)
+
+        if status != 0:
+            self.log.error("Failed to run write workload with status %s." % status)
             return False
-        time.sleep(5)
 
         return True
 

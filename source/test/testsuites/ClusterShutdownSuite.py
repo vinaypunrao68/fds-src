@@ -1,6 +1,15 @@
 #!/usr/bin/python
 #
-# Copyright 2014 by Formation Data Systems, Inc.
+# Copyright 2015 by Formation Data Systems, Inc.
+#
+# From the .../source/test/testsuite directory run
+# ./ClusterShutdownSuite.py -q ./<QAAutotestConfig.ini> -d <sudo_pwd> --verbose
+#
+# where
+#  - <QAAutotestConfig.ini> - One of TwoNodeCluster.ini or FourNodeCluster.ini found in the
+#  testsuite directory, or one of your own.
+#  - <sudo_pwd> - The password you use for executing sudo on your machine. Even
+#  if your machine does not require a password for sudo, you must provide something, e.g. "dummy".
 #
 
 import sys
@@ -11,47 +20,27 @@ import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
-import ClusterBootSuite
-import NodeWaitSuite
-import BotoBLOBSuite
-import NodeResilienceSuite
-import BlockBlobSuite
+import testcases.TestMgt
+import NodeVerifyShutdownSuite
+
 
 def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
-    Build Smoke Test suite.
+    Cluster Shutdown test suite.
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS infrastructure and boot the cluster
-    # according to configuration.
-    clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None)
-    suite.addTest(clusterBootSuite)
-
-    # Load test.
-    suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
-
-    # Small/Large BLOB test using Boto.
-    blobSuite = BotoBLOBSuite.suiteConstruction(self=None)
-    suite.addTest(blobSuite)
-
-    # Everyone should still be up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
-    suite.addTest(nodeUpSuite)
-
-    # Block Blob test.
-    blockSuite = BlockBlobSuite.suiteConstruction(self=None)
-    suite.addTest(blockSuite)
-
-    # Everyone should still be up.
-    suite.addTest(nodeUpSuite)
-
-    # Node Resiliency suite.
-    nodeResilienceSuite = NodeResilienceSuite.suiteConstruction(self=None)
-    suite.addTest(nodeResilienceSuite)
-
+    # One test case to shutdown the cluster.
     suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
+
+    # Verify that all nodes are down.
+    nodeDownSuite = NodeVerifyShutdownSuite.suiteConstruction(self=None)
+    suite.addTest(nodeDownSuite)
+
+    # Shutdown Redis.
+    suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis())
+    suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
 
     # Cleanup FDS installation directory.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())

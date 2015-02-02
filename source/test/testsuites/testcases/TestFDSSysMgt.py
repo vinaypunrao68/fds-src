@@ -15,7 +15,8 @@ from TestFDSModMgt import TestAMShutDown, TestSMShutDown, TestDMShutDown, TestOM
 
 
 # This class contains the attributes and methods to test
-# activation of an FDS cluster.
+# activation of an FDS cluster except for AMs. For AMs, see
+# test case TestFDSModMgt.TestAMActivate().
 class TestClusterActivate(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestClusterActivate, self).__init__(parameters)
@@ -63,7 +64,7 @@ class TestClusterActivate(TestCase.FDSTestCase):
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
-        self.log.info("Activate cluster from OM node %s." % n.nd_conf_dict['node-name'])
+        self.log.info("Activate cluster (except AMs) from OM node %s." % n.nd_conf_dict['node-name'])
 
         cur_dir = os.getcwd()
         os.chdir(bin_dir)
@@ -136,64 +137,52 @@ class TestNodeShutdown(TestCase.FDSTestCase):
                 shutdownSuccess = False
                 n = self.passedNode
 
-                self.log.info("Shutdown node %s." % n.nd_conf_dict['node-name'])
+            self.log.info("Shutdown node %s." % n.nd_conf_dict['node-name'])
 
-                # First shutdown AM if on this node.
-                amNodes = fdscfg.rt_get_obj('cfg_am')
-                for amNode in amNodes:
-                    if amNode.nd_conf_dict['fds_node'] == n.nd_conf_dict['node-name']:
-                        shutdownAM = TestAMShutDown(node=amNode)
-                        shutdownSuccess = shutdownAM.test_AMShutDown()
-
-                        if not shutdownSuccess:
-                            self.log.error("Node shutdown on %s failed." % (n.nd_conf_dict['node-name']))
-                            return False
-
-                        break
-
-                # SM and DM next.
-                shutdownSM = TestSMShutDown(node=n)
-                shutdownSuccess = shutdownSM.test_SMShutDown()
-
-                if not shutdownSuccess:
-                    self.log.error("Node shutdown on %s failed." % (n.nd_conf_dict['node-name']))
-                    return False
-
-                shutdownDM = TestDMShutDown(node=n)
-                shutdownSuccess = shutdownDM.test_DMShutDown()
-
-                if not shutdownSuccess:
-                    self.log.error("Node shutdown on %s failed." % (n.nd_conf_dict['node-name']))
-                    return False
-
-                # Next, shutdown OM if on this node.
-                if fdscfg.rt_om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']:
-                    shutdownOM = TestOMShutDown(node=n)
-                    shutdownSuccess = shutdownOM.test_OMShutDown()
+            # First shutdown AM if on this node.
+            amNodes = fdscfg.rt_get_obj('cfg_am')
+            for amNode in amNodes:
+                if amNode.nd_conf_dict['fds_node'] == n.nd_conf_dict['node-name']:
+                    shutdownAM = TestAMShutDown(node=amNode)
+                    shutdownSuccess = shutdownAM.test_AMShutDown()
 
                     if not shutdownSuccess:
                         self.log.error("Node shutdown on %s failed." % (n.nd_conf_dict['node-name']))
                         return False
 
-                # Finally PM.
-                shutdownPM = TestPMShutDown(node=n)
-                shutdownSuccess = shutdownPM.test_PMShutDown()
+                    break
+
+            # SM and DM next.
+            shutdownSM = TestSMShutDown(node=n)
+            shutdownSuccess = shutdownSM.test_SMShutDown()
+
+            if not shutdownSuccess:
+                self.log.error("Node shutdown on %s failed." % (n.nd_conf_dict['node-name']))
+                return False
+
+            shutdownDM = TestDMShutDown(node=n)
+            shutdownSuccess = shutdownDM.test_DMShutDown()
+
+            if not shutdownSuccess:
+                self.log.error("Node shutdown on %s failed." % (n.nd_conf_dict['node-name']))
+                return False
+
+            # Next, shutdown OM if on this node.
+            if fdscfg.rt_om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']:
+                shutdownOM = TestOMShutDown(node=n)
+                shutdownSuccess = shutdownOM.test_OMShutDown()
 
                 if not shutdownSuccess:
                     self.log.error("Node shutdown on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
-            else:
-                self.log.info("Shutdown node %s." % n.nd_conf_dict['node-name'])
 
-                # TODO(GREG): Currently, no return from this method. Also
-                # this method indiscriminately kills all processes running
-                # a specifically named binary (e.g. all platformd processes)
-                # rather than just the one associated with the given node.
-                n.nd_cleanup_daemons()
+            # Finally PM.
+            shutdownPM = TestPMShutDown(node=n)
+            shutdownSuccess = shutdownPM.test_PMShutDown()
 
-                #if status != 0:
-                #    self.log.error("Node shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
-                #    return False
+            if not shutdownSuccess:
+                self.log.error("Node shutdown on %s failed." % (n.nd_conf_dict['node-name']))
+                return False
 
             if self.passedNode is not None:
                 # We took care of the specified node. Now get out.
@@ -369,6 +358,140 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
                 return True
 
         return True
+
+
+# This class contains the attributes and methods to test
+# domain shutdown
+class TestDomainShutdown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_DomainShutdown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Domain shutdown caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_DomainShutdown(self):
+        """
+        Test Case:
+        Attempt to execute domain-shutdown.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+
+        self.log.info("Shutdown domain.")
+
+        cur_dir = os.getcwd()
+        os.chdir(bin_dir)
+
+        status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --domain-shutdown abc -k 1 > '
+                                      '%s/cli.out 2>&1 &) \"' %
+                                      (fds_dir,
+                                       log_dir if om_node.nd_agent.env_install else "."))
+
+        os.chdir(cur_dir)
+
+        if status != 0:
+            self.log.error("Domain shutdown returned status %d." % (status))
+            return False
+        else:
+            return True
+
+
+# This class contains the attributes and methods to test
+# domain create
+class TestDomainCreate(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_DomainCreate():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Domain create caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_DomainCreate(self):
+        """
+        Test Case:
+        Attempt to execute domain-create.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+
+        self.log.info("Create domain.")
+
+        cur_dir = os.getcwd()
+        os.chdir(bin_dir)
+
+        status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --domain-create abc -k 1 > '
+                                      '%s/cli.out 2>&1 &) \"' %
+                                      (fds_dir,
+                                       log_dir if om_node.nd_agent.env_install else "."))
+
+        os.chdir(cur_dir)
+
+        if status != 0:
+            self.log.error("Domain create returned status %d." % (status))
+            return False
+        else:
+            return True
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

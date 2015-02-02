@@ -11,7 +11,7 @@ import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
     test cases necessary to check whether a transient node is started.
@@ -42,9 +42,9 @@ if __name__ == '__main__':
     # Get a test runner that will output an xUnit XML report for Jenkins
     # TODO(Greg) I've tried everything I can think of, but failfast does not
     # stop the suite upon first failure.
-    runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
+    runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
 
     runner.run(test_suite)
 

@@ -25,7 +25,7 @@ import NodeWaitSuite
 import TransientNodeWaitSuite
 
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
     Transient Node Cluster test suite.
@@ -58,7 +58,7 @@ def suiteConstruction():
     suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
 
     # Check that all non-transient nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
     suite.addTest(nodeUpSuite)
 
     # Give the nodes some time to initialize.
@@ -79,7 +79,7 @@ def suiteConstruction():
 
     # Check that *all* nodes are up.
     suite.addTest(nodeUpSuite)
-    transientNodeUpSuite = TransientNodeWaitSuite.suiteConstruction()
+    transientNodeUpSuite = TransientNodeWaitSuite.suiteConstruction(self=None)
     suite.addTest(transientNodeUpSuite)
 
     # Give the transient nodes some time to initialize.
@@ -124,6 +124,6 @@ if __name__ == '__main__':
     #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
     runner.run(test_suite)
 

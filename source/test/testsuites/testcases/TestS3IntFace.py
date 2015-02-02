@@ -241,8 +241,10 @@ class TestS3LoadZBLOB(TestCase.FDSTestCase):
             # Set the value, write it to the bucket, and, while the file containing the value is still
             # open, read it back to verify.
             with open(source_path, 'r')  as f:
+                f.seek(0)
                 k.set_contents_from_string(f.read())
 
+                f.seek(0)
                 if k.get_contents_as_string() == (f.read()):
                     return True
                 else:
