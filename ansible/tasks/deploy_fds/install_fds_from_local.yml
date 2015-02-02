@@ -19,10 +19,8 @@
       - install-local
 
 -   name: delete local debs from /root/ to avoid conflicts
-    when: deploy_artifact == "local"
-    file: path=/root/{{ item }}
+    file: path=/root/fds-platform.deb
         state=absent
-    with_fileglob:
-      - 'fds-*.deb'
+    when: deploy_artifact == "local"
     tags:
       - install-local
