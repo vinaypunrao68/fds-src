@@ -106,7 +106,7 @@ def suiteConstruction(self):
 
         # Based on the script defined in the scenario, take appropriate
         # action which typically includes executing one or more test cases.
-        if re.match('\[node.+\]', script) is not None:
+        if (re.match('\[node.+\]', script) is not None) or (re.match('\[Node-.+\]', script) is not None):
             # What action should be taken against the node? If not stated, assume "bootup".
             if "action" in scenario.nd_conf_dict:
                 action = scenario.nd_conf_dict['action']

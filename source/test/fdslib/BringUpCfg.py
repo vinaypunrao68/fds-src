@@ -54,17 +54,6 @@ class FdsNodeConfig(FdsConfig):
             else:
                 self.nd_local = False
 
-        # Is the node transient? (I.e. Will it come and go according to test
-        # design as opposed to being booted by default and treated in unison
-        # with all other non-transient nodes.)
-        if 'transient' in self.nd_conf_dict:
-            if (self.nd_conf_dict['transient'] == 'true'):
-                self.nd_transient = True
-            else:
-                self.nd_transient = False
-        else:
-            self.nd_transient = False
-
     ###
     # Establish ssh connection with the remote node.  After this call, the obj
     # can use nd_agent to send ssh commands to the remote node.
