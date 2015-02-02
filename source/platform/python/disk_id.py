@@ -318,7 +318,7 @@ if __name__ == "__main__":
             if len(hdd_device_list) < 2:
                 hdd_device_list.append (disk.get_path())
 
-    # reverse these two lists -- pop works from the tail of the list
+    # reverse these two lists -- pop() works from the tail of the list
     ssd_device_list.reverse()
     hdd_device_list.reverse()
 
