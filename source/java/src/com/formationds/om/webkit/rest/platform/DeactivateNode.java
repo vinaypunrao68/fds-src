@@ -66,10 +66,11 @@ public class DeactivateNode
         JSONObject o = new JSONObject( source );
 
         /**
-         * Currently the whole rest url and class naming are out of sync.
+         * Since the call expects the service flags to be set to the
+         * services which to remove, and the GUI passes in false for the
+         * services to be removed.
          *
-         * So for now we will just changes the "false" being passed in
-         * to "true" so the C++ code called below will work as expected.
+         * We have to map them correcting here.
          */
         boolean activateSm = !o.getBoolean( "sm" );
         boolean activateAm = !o.getBoolean( "am" );
@@ -87,22 +88,22 @@ public class DeactivateNode
                                    new FDSP_RemoveServicesType(
                                      nodeName.get(),
                                      new FDSP_Uuid( nodeUuid ),
-                                     !activateSm,
-                                     !activateDm,
-                                     !activateAm ) );
+                                     activateSm,
+                                     activateDm,
+                                     activateAm ) );
 
         int httpCode = HttpServletResponse.SC_OK;
         if( status != 0 ) {
 
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( DeactivateNodeEvent.DEACTIVATE_NODE_ERROR,
-                                      nodeName,
+                                      nodeName.get(),
                                       nodeUuid );
 
         } else {
 
             EventManager.notifyEvent( DeactivateNodeEvent.DEACTIVATE_NODE,
-                                      nodeName,
+                                      nodeName.get(),
                                       nodeUuid );
 
         }
