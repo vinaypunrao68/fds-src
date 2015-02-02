@@ -1,0 +1,77 @@
+---
+-   name: Deploy InfluxDB to EC2
+    connection: local
+    hosts: localhost
+    gather_facts: False
+    vars_files:
+    -   ../vars_files/credentials/aws_fds_testing.yml
+    -   ../vars_files/credentials/fds-deploy_rsa.yml
+
+    tasks:
+
+    -   name: copy FDS deploy key locally
+        include: ../tasks/deploy_fds/copy_fds_deploy_key.yml
+
+    -   name: spin up a node in the private subnet with an auto-assigned IP
+        ec2:
+            aws_access_key: "{{ aws_access_key }}"
+            aws_secret_key: "{{ aws_secret_key }}"
+            instance_tags:
+                fds_purpose: influxdb
+            exact_count: 3
+            count_tag:
+                fds_purpose: influxdb
+            key_name: fds-ie
+            group_id:
+                - sg-43b9c126
+                - sg-30eab855
+            instance_type: m3.large
+            image: ami-0f114a3f
+            volumes:
+                -   device_name: /dev/sda2
+                    volume_size: 100
+                    delete_on_termination: false
+            vpc_subnet_id: subnet-195bac40
+            monitoring: no
+            region: us-west-2
+            zone: us-west-2c
+            wait: yes
+        register: ec2
+
+    -   name: Add all instance public IPs to host group
+        add_host: hostname={{ item.private_ip }} groupname=ec2hosts
+        with_items: ec2.tagged_instances
+
+################################################################################
+### This is necessary for now until I can get a Github issue put in and resolved
+-   hosts: awo-bh-01
+    name: wait for EC2 instances to be reachable
+    remote_user: deploy
+    gather_facts: false
+    sudo: false
+    tags: wait
+
+    tasks:
+
+    -   name: wait for SSH to come up on all instances
+        wait_for: host={{ item }} port=22 delay=1 timeout=300 state=started
+        with_items: groups.ec2hosts
+################################################################################
+
+
+-   name: Deploy FDS
+    hosts: ec2hosts
+    remote_user: deploy
+    gather_facts: true
+    sudo: true
+    vars:
+        this_is_an_ec2_node: true
+        influxdb_version: 0.8.8
+
+    tasks:
+    -   name: get InfluxDB package
+        get_url: url=https://s3.amazonaws.com/influxdb/influxdb_{{ influxdb_version }}_amd64.deb
+            dest=/root/influxdb_{{ influxdb_version }}_amd64.deb
+            sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
+
+
