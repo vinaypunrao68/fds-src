@@ -46,6 +46,8 @@ dependency "google-perftools"
 dependency "leveldb"
 dependency "pycurl"
 dependency "python-scp"
+dependency "libcryptopp"
+dependency "server-jre"
 
 # Version manifest file
 dependency "version-manifest"

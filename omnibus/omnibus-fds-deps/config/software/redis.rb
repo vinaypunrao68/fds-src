@@ -12,6 +12,6 @@ relative_path "redis-#{version}"
 build do
   env = with_standard_compiler_flags(with_embedded_path)
 
-  make "-j #{workers}", env: env
+  make "-j #{workers}"
   make "PREFIX=#{install_dir}/embedded install", env: env
 end
