@@ -21,9 +21,9 @@ build do
     sync "#{fds_src_dir}/source/Build/linux-x86_64.#{build_type}/lib/admin-webapp", "#{install_dir}/lib/admin-webapp"
     sync "#{fds_src_dir}/source/config/etc/ssl/dev", "#{install_dir}/etc/ssl/dev"
 
-    mkdir "#{install_dir}/lib/python2.7/dist-packages"
+    mkdir "#{install_dir}/lib/python2.7/dist-packages/fdslib"
     copy "#{fds_src_dir}/source/platform/python/disk_type.py", "#{install_dir}/lib/python2.7/dist-packages"
-    copy "#{fds_src_dir}/source/test/fdslib/*.py", "#{install_dir}/lib/python2.7/dist-packages"
+    copy "#{fds_src_dir}/source/test/fdslib/*.py", "#{install_dir}/lib/python2.7/dist-packages/fdslib"
 
     mkdir "#{install_dir}/sbin"
     copy "#{fds_src_dir}/source/tools/redis.sh", "#{install_dir}/sbin"
