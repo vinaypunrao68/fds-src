@@ -15,7 +15,7 @@ import testcases.TestOMIntFace
 import testcases.TestS3IntFace
 import NodeWaitSuite
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that check the
     resiliency of a node as components are stopped and started.
@@ -23,7 +23,7 @@ def suiteConstruction():
     suite = unittest.TestSuite()
 
     # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
     suite.addTest(nodeUpSuite)
 
     # Create a S3 bucket and object that we can use to make sure
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     # Get a test runner that will output an xUnit XML report for Jenkins
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
 
     runner.run(test_suite)
 

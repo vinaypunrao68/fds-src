@@ -23,8 +23,11 @@ import testcases.TestFDSPolMgt
 import testcases.TestFDSVolMgt
 import testcases.TestMgt
 import NodeWaitSuite
+import ClusterBootSuite
+import ClusterShutdownSuite
 import logging
 import re
+import string
 
 
 def str_to_obj(astr):
@@ -54,7 +57,7 @@ def str_to_obj(astr):
             else:
                 raise Exception
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
     test suite defined by the input FDS scenario config file.
@@ -220,23 +223,51 @@ def suiteConstruction():
                           (action, scenario.nd_conf_dict['scenario-name']))
                 raise Exception
 
-        elif re.match('\[activate\]', script) is not None:
-            # Activate the cluster.
-            suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
-
-            # Give the activation some time to complete if requested.
-            if 'delay_wait' in scenario.nd_conf_dict:
-                suite.addTest(testcases.TestMgt.TestWait(delay=delay,
-                                                               reason="to allow the activation to complete"))
-
-        elif re.match('\[am.+\]', script) is not None:
-            # What action should be taken against the AM? If not stated, assume "bootup".
+        # Based on the script defined in the scenario, take appropriate
+        # action which typically includes executing one or more test cases.
+        elif re.match('\[cluster\]', script) is not None:
+            # What action should be taken against the cluster? If not stated, assume "bootup".
             if "action" in scenario.nd_conf_dict:
                 action = scenario.nd_conf_dict['action']
             else:
                 action = "bootup"
 
             if action == "bootup":
+                # Start this cluster.
+                clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None)
+                suite.addTest(clusterBootSuite)
+            elif action == "activate":
+                # Activate the cluster.
+                suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
+
+                # Give the activation some time to complete if requested.
+                if 'delay_wait' in scenario.nd_conf_dict:
+                    suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                                   reason="to allow the activation to complete"))
+            elif action == "shutdown":
+                # Shutdown the cluster.
+                clusterShutdownSuite = ClusterShutdownSuite.suiteConstruction(self=None)
+                suite.addTest(clusterShutdownSuite)
+            else:
+                log.error("Unrecognized cluster action '%s' for scenario %s" %
+                          (action, scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+
+        elif re.match('\[am.+\]', script) is not None:
+            # What action should be taken against the AM? If not stated, assume "activate".
+            if "action" in scenario.nd_conf_dict:
+                action = scenario.nd_conf_dict['action']
+            else:
+                action = "activate"
+
+            if action == "activate":
+                suite.addTest(testcases.TestFDSModMgt.TestAMActivate())
+
+                # Give the AM some time to initialize if requested.
+                if 'delay_wait' in scenario.nd_conf_dict:
+                    suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                             reason="to allow AM " + script + " to initialize"))
+            elif action == "bootup":
                 found = False
                 for am in scenario.cfg_sect_ams:
                     if '[' + am.nd_conf_dict['am-name'] + ']' == script:
@@ -252,6 +283,7 @@ def suiteConstruction():
                 else:
                     log.error("AM not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
             elif action == "shutdown":
                 pass
             else:
@@ -278,7 +310,7 @@ def suiteConstruction():
                 else:
                     fdsNodes = None
 
-                nodeUpSuite = NodeWaitSuite.suiteConstruction(fdsNodes=fdsNodes)
+                nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None, fdsNodes=fdsNodes)
                 suite.addTest(nodeUpSuite)
             elif state == "down":
                 pass
@@ -311,6 +343,7 @@ def suiteConstruction():
                 else:
                     log.error("Volume policy not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
             elif action == "delete":
                 pass
             else:
@@ -341,6 +374,7 @@ def suiteConstruction():
                 else:
                     log.error("Volume not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
             elif action == "attach":
                 found = False
                 for volume in scenario.cfg_sect_volumes:
@@ -357,6 +391,7 @@ def suiteConstruction():
                 else:
                     log.error("Volume not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
             elif action == "delete":
                 pass
             else:
@@ -405,6 +440,7 @@ def suiteConstruction():
             else:
                 log.error("Node not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
 
         elif re.match('\[canonmatch\]', script) is not None:
             # Verify the section.
@@ -463,6 +499,23 @@ def suiteConstruction():
                 suite.addTest(testcases.TestMgt.TestWait(delay=delay,
                                                          reason="to allow async work from test case " + script + " to complete"))
 
+        elif re.match('\[testsuite.+\]', script) is not None:
+            testsuite_name = string.split(script.strip('[]'), '.')[1] + ".suiteConstruction"
+            testsuite_obj = str_to_obj(testsuite_name)
+            testsuite = testsuite_obj(self=None)
+
+            try:
+                suite.addTest(testsuite)
+            except Exception:
+                log.error("Unrecognized test suite '%s' for scenario %s" %
+                          (script, scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+
+            # Give the test case some time to complete async activities if requested.
+            if 'delay_wait' in scenario.nd_conf_dict:
+                suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                         reason="to allow async work from test suite " + script + " to complete"))
+
         else:
             log.error("Unrecognized script '%s' for scenario %s" %
                       (script, scenario.nd_conf_dict['scenario-name']))
@@ -511,6 +564,6 @@ if __name__ == '__main__':
     #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
     runner.run(test_suite)
 

@@ -14,7 +14,7 @@ import testcases.TestOMIntFace
 import testcases.TestS3IntFace
 import NodeWaitSuite
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
     test cases necessary to test handling a large BLOB.
@@ -22,7 +22,7 @@ def suiteConstruction():
     suite = unittest.TestSuite()
 
     # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
     suite.addTest(nodeUpSuite)
 
     # For the S3 interface, we need an authorization token from OM.
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     # Get a test runner that will output an xUnit XML report for Jenkins
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
 
     runner.run(test_suite)
 

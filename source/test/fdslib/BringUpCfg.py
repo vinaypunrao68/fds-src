@@ -717,7 +717,8 @@ class FdsConfigFile(object):
         for dg in self.cfg_datagen:
             dg.dg_parse_blocks()
 
-        self.cfg_scenarios.sort()
+        # Why do we want to do this? Just execute the scenarios in the order listed.
+        #self.cfg_scenarios.sort()
 
 ###
 # Parse the config file and setup runtime env for it.

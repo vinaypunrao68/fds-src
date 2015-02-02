@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2014 by Formation Data Systems, Inc.
+# Copyright 2015 by Formation Data Systems, Inc.
 #
 
 import sys
@@ -14,10 +14,7 @@ import testcases.TestFDSSysMgt
 def suiteConstruction(self, fdsNodes=None):
     """
     Construct the ordered set of test cases that comprise the
-    test cases necessary to check whether a node is started.
-
-    Note that this does not check non-transient nodes. For those, use
-    suite TransientNodeWaitSuite.
+    test cases necessary to check whether a node is shutdown.
     """
     suite = unittest.TestSuite()
 
@@ -26,19 +23,19 @@ def suiteConstruction(self, fdsNodes=None):
     if fdsNodes is not None:
 
         for node in fdsNodes:
-            suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestOMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestPMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestDMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestSMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestAMWait(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestPMForOMVerifyShutdown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestOMVerifyShutdown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestPMVerifyShutdown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestDMVerifyShutdown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestSMVerifyShutdown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestAMVerifyShutdown(node=node))
     else:
-        suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestPMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestDMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestSMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestAMWait())
+        suite.addTest(testcases.TestFDSModMgt.TestPMForOMVerifyShutdown())
+        suite.addTest(testcases.TestFDSModMgt.TestOMVerifyShutdown())
+        suite.addTest(testcases.TestFDSModMgt.TestPMVerifyShutdown())
+        suite.addTest(testcases.TestFDSModMgt.TestDMVerifyShutdown())
+        suite.addTest(testcases.TestFDSModMgt.TestSMVerifyShutdown())
+        suite.addTest(testcases.TestFDSModMgt.TestAMVerifyShutdown())
 
     return suite
 
