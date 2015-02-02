@@ -49,8 +49,7 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](AttachCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](AttachCallback* cb, Error const& e) mutable -> void {
         p->attachVolumeResp(e, requestId);
     };
 
@@ -65,8 +64,7 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](GetVolumeMetaDataCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](GetVolumeMetaDataCallback* cb, Error const& e) mutable -> void {
         typename response_api_type::shared_status_type volume_status;
         if (e.ok()) {
             volume_status = boost::make_shared<apis::VolumeStatus>();
@@ -94,8 +92,7 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                        boost::shared_ptr<fpi::BlobListOrder>& orderBy,
                                        shared_bool_type& descending) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](GetBucketCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](GetBucketCallback* cb, Error const& e) mutable -> void {
         p->volumeContentsResp(e, requestId, cb->vecBlobs);
     };
 
@@ -117,8 +114,7 @@ void AmAsyncDataApi<H>::statBlob(H& requestId,
                                  shared_string_type& volumeName,
                                  shared_string_type& blobName) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](StatBlobCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](StatBlobCallback* cb, Error const& e) mutable -> void {
         // TODO(bszmyd): Tue 16 Dec 2014 08:06:47 PM MST
         // Unfortunately we have to transform meta-data received
         // from the DataManager. We should fix that.
@@ -143,8 +139,7 @@ void AmAsyncDataApi<H>::startBlobTx(H& requestId,
                                     shared_string_type& blobName,
                                     shared_int_type& blobMode) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](StartBlobTxCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](StartBlobTxCallback* cb, Error const& e) mutable -> void {
         auto txDesc = boost::make_shared<apis::TxDescriptor>();
         txDesc->txId = cb->blobTxId.getValue();
         p->startBlobTxResp(e, requestId, txDesc);
@@ -171,8 +166,7 @@ void AmAsyncDataApi<H>::commitBlobTx(H& requestId,
             txDesc->txId));
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](CommitBlobTxCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](CommitBlobTxCallback* cb, Error const& e) mutable -> void {
         p->commitBlobTxResp(e, requestId);
     };
 
@@ -197,8 +191,7 @@ void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
             txDesc->txId));
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](AbortBlobTxCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](AbortBlobTxCallback* cb, Error const& e) mutable -> void {
         p->abortBlobTxResp(e, requestId);
     };
 
@@ -223,8 +216,7 @@ void AmAsyncDataApi<H>::getBlob(H& requestId,
     fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](GetObjectCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](GetObjectCallback* cb, Error const& e) mutable -> void {
         p->getBlobResp(e, requestId, cb->returnBuffer, cb->returnSize);
     };
 
@@ -250,8 +242,7 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
     fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](GetObjectWithMetadataCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](GetObjectWithMetadataCallback* cb, Error const& e) mutable -> void {
         typename response_api_type::shared_descriptor_type retBlobDesc = e.ok() ?
             transform_descriptor(cb->blobDesc) : nullptr;
         p->getBlobWithMetaResp(e,
@@ -281,8 +272,7 @@ void AmAsyncDataApi<H>::updateMetadata(H& requestId,
                                        shared_tx_ctx_type& txDesc,
                                        shared_meta_type& metadata) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](UpdateMetadataCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](UpdateMetadataCallback* cb, Error const& e) mutable -> void {
         p->updateMetadataResp(e, requestId);
     };
 
@@ -324,8 +314,7 @@ void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
     fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
         p->updateBlobResp(e, requestId);
     };
 
@@ -363,8 +352,7 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
             txDesc->txId));
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
         p->updateBlobResp(e, requestId);
     };
 
@@ -394,8 +382,7 @@ void AmAsyncDataApi<H>::deleteBlob(H& requestId,
     BlobTxId::ptr blobTxId(new BlobTxId(txDesc->txId));
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](DeleteBlobCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](DeleteBlobCallback* cb, Error const& e) mutable -> void {
         p->deleteBlobResp(e, requestId);
     };
 
