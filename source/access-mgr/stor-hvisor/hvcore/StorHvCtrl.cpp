@@ -361,6 +361,10 @@ StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
 
 void
 StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
+    if (am->isShuttingDown()) {
+        blobReq->cb->call(ERR_SHUTTING_DOWN);
+        return;
+    }
     fds_verify(blobReq->magicInUse() == true);
 
     // check if volume is attached to this AM
