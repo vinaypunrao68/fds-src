@@ -215,7 +215,7 @@ if __name__ == '__main__':
                         ' inventory than default.')
     parser.add_argument('-x', '--test',
                         default='single',
-                        help='Define if framework should run for single' \
+                        help='Define if framework should run for single, ' \
                         'multi, or existing node cluster')
     parser.add_argument('-n', '--name',
                         default=None,
