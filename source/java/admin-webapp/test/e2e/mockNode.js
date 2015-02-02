@@ -5,13 +5,29 @@ mockNode = function(){
         var service = {};
 
         var pollerId;
-        service.nodes = [];
-        service.detachedNodes = [];
+        
+        service.detachedNodes = [
+            {
+              "name": "awesome-new-node",
+              "uuid": 7088430947183220032,
+              "ipV6address": "0.0.0.0",
+              "ipV4address": "127.0.0.1",
+              "state": "DISCOVERED",
+              "services": {
+                "DM": [
+                  {
+                    "uuid": 7088430947183220035,
+                    "autoName": "PM",
+                    "port": 7031,
+                    "status": "INVALID",
+                    "type": "FDSP_PLATFORM"
+                  }
+                ]
+              }
+            }
+        ];
 
-        service.nodes = {
-          "uuid": 1,
-          "domain": "fds",
-          "nodes": [
+        service.nodes = [
             {
               "name": "awesome-node",
               "uuid": 7088430947183220032,
@@ -57,8 +73,7 @@ mockNode = function(){
                 ]
               }
             }
-          ]
-        };
+          ];
 
         service.FDS_NODE_UP = 'FDS_Node_Up';
         service.FDS_NODE_DOWN = 'FDS_Node_Down';
@@ -94,6 +109,42 @@ mockNode = function(){
 
         service.addNodes = function( nodes ){
 
+            for ( var i = 0; i < nodes.length; i++ ){
+                nodes[i].state = 'UP';
+                service.nodes.push( nodes[i] );
+                
+                for ( var j = 0; j < service.detachedNodes.length; j++ ){
+                    
+                    var dNode = service.detachedNodes[j];
+                    
+                    if ( nodes[i].name === dNode.name ){
+                        service.detachedNodes.splice( j, 1 );
+                        break;
+                    }
+                }
+            }
+            
+        };
+        
+        service.removeNode = function( node, callback ){
+            
+            node.state = 'DISCOVERED';
+            service.detachedNodes.push( node );
+            
+            for ( var i = 0; i < service.nodes.length; i++ ){
+                
+                if ( service.nodes[i].name === node.name ){
+                    service.nodes.splice( i, 1 );
+                    break;
+                }
+            }
+            
+            if ( angular.isFunction( callback ) ){
+                callback();
+            }
+        };
+        
+        service.refresh = function(){
         };
 
         var getNodes = function(){
