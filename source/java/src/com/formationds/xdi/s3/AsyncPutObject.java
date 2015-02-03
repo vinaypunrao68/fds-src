@@ -72,7 +72,7 @@ public class AsyncPutObject implements Function<HttpPathContext, CompletableFutu
                         cf.complete(metadata);
                     } else {
                         AuthenticationToken token = authenticator.authenticate(request);
-                        if (authorizer.hasVolumePermission(token, bucket, Intent.write)) {
+                        if (authorizer.hasVolumePermission(token, bucket, Intent.readWrite)) {
                             cf.complete(metadata);
                         } else {
                             cf.completeExceptionally(new SecurityException());

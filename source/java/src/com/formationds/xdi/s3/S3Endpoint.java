@@ -51,6 +51,12 @@ public class S3Endpoint {
 
     public void start() {
         syncRoute(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi, t));
+
+        syncRoute(new HttpPath(HttpMethod.PUT, "/:bucket")
+                        .withUrlParam("acl")
+                        .withHeader("x-amz-acl"),
+                (t) -> new PutBucketAcl(xdi, t));
+
         syncRoute(HttpMethod.PUT, "/:bucket", (t) -> new CreateBucket(xdi, t));
         syncRoute(HttpMethod.DELETE, "/:bucket", (t) -> new DeleteBucket(xdi, t));
         syncRoute(HttpMethod.GET, "/:bucket", (t) -> new ListObjects(xdi, t));

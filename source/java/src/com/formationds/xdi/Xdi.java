@@ -29,7 +29,7 @@ public class Xdi {
     public Xdi(AmService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer) {
         this.am = am;
         this.config = config;
-        this.authorizer = new XdiAuthorizer(authenticator, authorizer);
+        this.authorizer = new XdiAuthorizer(authenticator, authorizer, am, config);
     }
 
     private void attemptVolumeAccess(AuthenticationToken token, String volumeName, Intent intent) throws SecurityException {
@@ -57,7 +57,7 @@ public class Xdi {
     }
 
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
-        attemptToplevelAccess(token, Intent.write);
+        attemptToplevelAccess(token, Intent.readWrite);
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
         return config.getVolumeId(volumeName);
     }
@@ -103,7 +103,7 @@ public class Xdi {
     }
 
     public void updateMetadata(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws ApiException, TException {
-        attemptVolumeAccess(token, volumeName, Intent.write);
+        attemptVolumeAccess(token, volumeName, Intent.readWrite);
         TxDescriptor txDescriptor = am.startBlobTx(domainName, volumeName, blobName, 0);
         am.updateMetadata(domainName, volumeName, blobName, txDescriptor, metadata);
         am.commitBlobTx(domainName, volumeName, blobName, txDescriptor);
@@ -122,7 +122,7 @@ public class Xdi {
     }
 
     public byte[] writeStream(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
-        attemptVolumeAccess(token, volumeName, Intent.write);
+        attemptVolumeAccess(token, volumeName, Intent.readWrite);
         VolumeDescriptor volume = config.statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
         metadata.putIfAbsent(LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
@@ -144,7 +144,7 @@ public class Xdi {
     }
 
     public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
-        attemptVolumeAccess(token, volume, Intent.write);
+        attemptVolumeAccess(token, volume, Intent.readWrite);
         TxDescriptor tx = am.startBlobTx(domain, volume, blob, 0);
         am.updateMetadata(domain, volume, blob, tx, metadataMap);
         am.commitBlobTx(domain, volume, blob, tx);

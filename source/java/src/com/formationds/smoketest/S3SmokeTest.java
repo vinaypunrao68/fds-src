@@ -379,7 +379,7 @@ public class S3SmokeTest {
     public void testForbiddenAnonymousPut() throws Exception {
         String key = UUID.randomUUID().toString();
         userClient.putObject(userBucket, key, new ByteArrayInputStream(new byte[42]), new ObjectMetadata());
-        HttpResponse response = anonymousGet(key);
+        HttpResponse response = anonymousGet(userBucket, key);
         assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatusLine().getStatusCode());
     }
 
@@ -419,14 +419,14 @@ public class S3SmokeTest {
         userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
 
         // Try anonymous GET on object, expect failure
-        HttpResponse response = anonymousGet(key);
+        HttpResponse response = anonymousGet(userBucket, key);
         assertEquals(403, response.getStatusLine().getStatusCode());
 
         // Set ACL
         userClient.setObjectAcl(userBucket, key, CannedAccessControlList.PublicRead);
 
         // Try anonymous GET again, expect success
-        response = anonymousGet(key);
+        response = anonymousGet(userBucket, key);
         assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
         byte[] result = IOUtils.toByteArray(response.getEntity().getContent());
         assertArrayEquals(randomBytes, result);
@@ -452,8 +452,43 @@ public class S3SmokeTest {
         assertEquals(42l, object.getObjectMetadata().getContentLength());
     }
 
-    private HttpResponse anonymousGet(String key) throws Exception {
-        String url = "https://" + host + ":8443/" + userBucket + "/" + key;
+    @Test
+    public void testBucketAclReads() throws Exception {
+        adminClient.putObject(adminBucket, "someKey", new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        assertSecurityFailure(() -> userClient.listObjects(adminBucket));
+        adminClient.setBucketAcl(adminBucket, CannedAccessControlList.PublicRead);
+        assertEquals(1, userClient.listObjects(adminBucket).getObjectSummaries().size());
+    }
+
+    @Test
+    public void testBucketAclWrites() throws Exception {
+        assertSecurityFailure(() -> userClient.putObject(adminBucket, "someKey", new ByteArrayInputStream(randomBytes), new ObjectMetadata()));
+
+        adminClient.setBucketAcl(adminBucket, CannedAccessControlList.PublicRead);
+        assertEquals(0, userClient.listObjects(adminBucket).getObjectSummaries().size());
+        assertSecurityFailure(() -> userClient.putObject(adminBucket, "someKey", new ByteArrayInputStream(randomBytes), new ObjectMetadata()));
+
+        adminClient.setBucketAcl(adminBucket, CannedAccessControlList.PublicReadWrite);
+        userClient.putObject(adminBucket, "someKey", new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        assertEquals(1, userClient.listObjects(adminBucket).getObjectSummaries().size());
+    }
+
+    @Test
+    public void testAnonymousBucketAclReads() throws Exception {
+        String key = "someKey";
+        adminClient.putObject(adminBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        assertEquals(403, anonymousGet(adminBucket, key).getStatusLine().getStatusCode());
+        adminClient.setBucketAcl(adminBucket, CannedAccessControlList.PublicRead);
+        assertEquals(200, anonymousGet(adminBucket, key).getStatusLine().getStatusCode());
+    }
+
+    @Test
+    public void testFoo() throws Exception {
+        adminClient.setBucketAcl("fremont", CannedAccessControlList.PublicReadWrite);
+    }
+
+    private HttpResponse anonymousGet(String bucket, String key) throws Exception {
+        String url = "https://" + host + ":8443/" + bucket + "/" + key;
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet(url);
         return httpClient.execute(httpGet);

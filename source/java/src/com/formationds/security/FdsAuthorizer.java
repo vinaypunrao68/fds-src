@@ -32,6 +32,9 @@ public class FdsAuthorizer implements Authorizer {
 
     @Override
     public boolean ownsVolume(AuthenticationToken token, String volume) throws SecurityException {
+        if (AuthenticationToken.ANONYMOUS.equals(token)) {
+            return false;
+        }
         try {
             VolumeDescriptor v = config.statVolume("", volume);
             if (v == null) {
