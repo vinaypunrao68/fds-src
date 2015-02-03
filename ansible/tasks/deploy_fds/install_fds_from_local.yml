@@ -1,5 +1,5 @@
 ---
--   name: set varaible build defined in inventory file (release or debug)
+-   name: set variable build defined in inventory file (release or debug)
     set_fact:
         build: "{{ fds_build if fds_build is defined else 'debug' }}"
     tags:
@@ -43,10 +43,3 @@
     apt: deb="/home/deploy/fds-platform.deb"
     tags:
       - install-local
-
-#-   name: delete local debs from /root/ to avoid conflicts
-#    file: path=/root/fds-platform.deb
-#        state=absent
-#    when: deploy_artifact == "local"
-#    tags:
-#      - install-local
