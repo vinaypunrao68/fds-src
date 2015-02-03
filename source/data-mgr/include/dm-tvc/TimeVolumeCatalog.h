@@ -13,13 +13,11 @@
 #include <fds_config.hpp>
 #include <DmBlobTypes.h>
 #include <dm-tvc/CommitLog.h>
-#include <dm-vol-cat/DmVolumeCatalog.h>
 #include <dm-vol-cat/DmVolumeDirectory.h>
 #include <util/Log.h>
 #include <util/timeutils.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 
-// #define DM_VOLUME_CATALOG_TYPE DmVolumeCatalog
 #define DM_VOLUME_CATALOG_TYPE DmVolumeDirectory
 
 namespace fds {
