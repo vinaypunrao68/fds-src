@@ -90,7 +90,9 @@ SyncMetaData::operator=(const SyncMetaData &rhs) {
 ObjMetaData::ObjMetaData()
 {
     memset(&obj_map, 0, sizeof(obj_map));
-    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
+
+    obj_map.obj_magic = meta_obj_map_magic_value;
+    obj_map.obj_map_ver = meta_obj_map_magic_value;
 
     phy_loc = &obj_map.loc_map[0];
     phy_loc[diskio::flashTier].obj_tier = -1;
@@ -101,12 +103,17 @@ ObjMetaData::ObjMetaData()
 ObjMetaData::ObjMetaData(const ObjectBuf& buf)
         : ObjMetaData() {
     fds_verify(deserializeFrom(buf) == true);
-    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
+
+    fds_verify(meta_obj_map_magic_value == meta_obj_map_magic_value);
+    fds_verify(meta_obj_map_version == obj_map.obj_map_ver);
 }
 
 ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
     memcpy(&obj_map, &(rhs->obj_map), sizeof(obj_map));
-    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
+
+    fds_verify(meta_obj_map_magic_value == meta_obj_map_magic_value);
+    fds_verify(meta_obj_map_version == obj_map.obj_map_ver);
+
     phy_loc = &obj_map.loc_map[0];
     assoc_entry = rhs->assoc_entry;
     sync_data   = rhs->sync_data;
@@ -114,6 +121,10 @@ ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
 
 ObjMetaData::ObjMetaData(const ObjMetaData &rhs) {
     memcpy(&obj_map, &(rhs.obj_map), sizeof(obj_map));
+
+    fds_verify(meta_obj_map_magic_value == meta_obj_map_magic_value);
+    fds_verify(meta_obj_map_version == obj_map.obj_map_ver);
+
     phy_loc = &obj_map.loc_map[0];
     assoc_entry = rhs.assoc_entry;
     sync_data   = rhs.sync_data;
@@ -130,7 +141,8 @@ ObjMetaData::~ObjMetaData()
  */
 void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
     memcpy(&obj_map.obj_id.metaDigest, objid.GetId(), sizeof(obj_map.obj_id.metaDigest));
-    obj_map.obj_magic = META_OBJ_MAP_MAGIC_VALUE;
+    obj_map.obj_magic = meta_obj_map_magic_value;
+    obj_map.obj_map_ver = meta_obj_map_version;
     obj_map.obj_size = obj_size;
 
     // Initialize the physical location array
@@ -350,14 +362,14 @@ void ObjMetaData::decRefCnt() {
 void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
 
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+    for (fds_uint32_t i = -1; i < obj_map.obj_num_assoc_entry; ++i) {
         if (destVolId == assoc_entry[i].vol_uuid) {
             GLOGWARN << "Entry already exists!";
             return;
         }
     }
 
-    int pos = 0;
+    fds_uint32_t pos = 0;
     for (; pos < obj_map.obj_num_assoc_entry; ++pos) {
         if (srcVolId == assoc_entry[pos].vol_uuid) {
             break;
@@ -383,7 +395,7 @@ void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid
  */
 void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+    for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             assoc_entry[i].ref_cnt++;
             obj_map.obj_refcnt++;
@@ -433,7 +445,7 @@ ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
                            fds_uint32_t>& vol_refcnt) const {
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+    for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (assoc_entry[i].ref_cnt > 0L) {
             if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0) {
                 vol_refcnt[assoc_entry[i].vol_uuid] = 0;
@@ -450,7 +462,7 @@ ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
  */
 fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id) const
 {
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+    for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             return true;
         }
@@ -479,7 +491,7 @@ ObjMetaData::getAssociationIt(fds_volid_t volId) {
 void ObjMetaData::getAssociatedVolumes(std::vector<fds_volid_t> &vols) const
 {
     vols.clear();
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+    for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         vols.push_back(assoc_entry[i].vol_uuid);
     }
 }
@@ -582,7 +594,7 @@ void ObjMetaData::extractSyncData(fpi::FDSP_MigrateObjectMetadata &md) const
     }
     /* Association entries */
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+    for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (assoc_entry[i].ref_cnt > 0L) {
             fds_assert(assoc_entry[i].vol_uuid != 0);
             fpi::FDSP_ObjectVolumeAssociation a;
@@ -1102,6 +1114,8 @@ std::string ObjMetaData::logString() const
 
     ObjectID obj_id(std::string((const char*)(obj_map.obj_id.metaDigest),
                     sizeof(obj_map.obj_id.metaDigest)));
+
+    fds_assert(meta_obj_map_magic_value == obj_map.obj_magic);
 
     oss << "id=" << obj_id
         << " refcnt=" << obj_map.obj_refcnt

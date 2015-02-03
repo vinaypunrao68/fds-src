@@ -178,6 +178,9 @@ class ObjMetaData : public serialize::Serializable {
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
     ObjectID oid(objMd.obj_map.obj_id.metaDigest);
+
+    fds_assert(meta_obj_map_magic_value == objMd.obj_map.obj_magic);
+
     out << "Object MetaData: Version " << (fds_uint16_t)objMd.obj_map.obj_map_ver
         << " " << oid
         << "  obj_size " << objMd.obj_map.obj_size
