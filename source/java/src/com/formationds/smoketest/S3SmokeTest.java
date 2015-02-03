@@ -482,11 +482,6 @@ public class S3SmokeTest {
         assertEquals(200, anonymousGet(adminBucket, key).getStatusLine().getStatusCode());
     }
 
-    @Test
-    public void testFoo() throws Exception {
-        adminClient.setBucketAcl("fremont", CannedAccessControlList.PublicReadWrite);
-    }
-
     private HttpResponse anonymousGet(String bucket, String key) throws Exception {
         String url = "https://" + host + ":8443/" + bucket + "/" + key;
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
