@@ -7,7 +7,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import javax.security.auth.login.LoginException;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,21 +54,21 @@ public class FdsAuthenticatorTest {
     @Test(expected = LoginException.class)
     public void testSignatureIntegrity() throws Exception {
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList());
-        authenticator.resolveToken("hello");
+        authenticator.parseToken("hello");
     }
 
     @Test(expected = LoginException.class)
     public void testOutDatedToken() throws Exception {
         String signature = new AuthenticationToken(USER_ID, "oldSecret").signature(AuthenticationTokenTest.SECRET_KEY);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(new User(USER_ID, "james", "doesntMatter", "newSecret", false)));
-        authenticator.resolveToken(signature);
+        authenticator.parseToken(signature);
     }
 
     @Test(expected = LoginException.class)
     public void testUserNoLongerExists() throws Exception {
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList());
         String signature = new AuthenticationToken(USER_ID, "secret").signature(AuthenticationTokenTest.SECRET_KEY);
-        authenticator.resolveToken(signature);
+        authenticator.parseToken(signature);
     }
 
     @Test
@@ -80,7 +79,7 @@ public class FdsAuthenticatorTest {
         final ArrayList<User> users = Lists.newArrayList( user );
         when(config.getUser( USER_ID ) ).thenReturn( user );
         when( config.allUsers( anyLong() ) ).thenReturn( users );
-        AuthenticationToken result = authenticator.resolveToken(token.signature(AuthenticationTokenTest.SECRET_KEY));
+        AuthenticationToken result = authenticator.parseToken(token.signature(AuthenticationTokenTest.SECRET_KEY));
         assertEquals(token, result);
     }
 

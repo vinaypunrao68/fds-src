@@ -42,7 +42,7 @@ public class S3Endpoint {
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
         webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration);
-        authenticator = new S3Authenticator(xdi, secretKey);
+        authenticator = new S3Authenticator(xdi.getAuthorizer(), secretKey);
     }
 
     public static String formatAwsDate(DateTime dateTime) {
@@ -51,6 +51,12 @@ public class S3Endpoint {
 
     public void start() {
         syncRoute(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi, t));
+
+        syncRoute(new HttpPath(HttpMethod.PUT, "/:bucket")
+                        .withUrlParam("acl")
+                        .withHeader("x-amz-acl"),
+                (t) -> new PutBucketAcl(xdi, t));
+
         syncRoute(HttpMethod.PUT, "/:bucket", (t) -> new CreateBucket(xdi, t));
         syncRoute(HttpMethod.DELETE, "/:bucket", (t) -> new DeleteBucket(xdi, t));
         syncRoute(HttpMethod.GET, "/:bucket", (t) -> new ListObjects(xdi, t));
@@ -70,7 +76,7 @@ public class S3Endpoint {
                 (t) -> new PutObjectAcl(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.PUT, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, xdiAsync -> new AsyncPutObject(xdiAsync).apply(ctx)));
+                executeAsync(ctx, new AsyncPutObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
 
         syncRoute(new HttpPath(HttpMethod.POST, "/:bucket/:object")
                 .withUrlParam("delete"), (t) -> new DeleteMultipleObjects(xdi, t));
@@ -88,7 +94,7 @@ public class S3Endpoint {
                 (t) -> new MultiPartListParts(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, xdiAsync -> new AsyncGetObject(xdiAsync, authenticator, xdi.getAuthorizer()).apply(ctx)));
+                executeAsync(ctx, new AsyncGetObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
 
         syncRoute(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         syncRoute(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
@@ -96,12 +102,10 @@ public class S3Endpoint {
         webApp.start();
     }
 
-    private CompletableFuture<Void> executeAsync(HttpPathContext ctx, Function<XdiAsync, CompletableFuture<Void>> function) {
-
-        CompletableFuture<Void> cf = function.apply(xdiAsync.get());
+    private CompletableFuture<Void> executeAsync(HttpPathContext ctx, Function<HttpPathContext, CompletableFuture<Void>> function) {
+        CompletableFuture<Void> cf = function.apply(ctx);
         return cf.exceptionally(e -> {
             String requestUri = ctx.getRequest().getRequestURI();
-
             AsyncBridge asyncBridge = new AsyncBridge((request, routeParameters) -> {
                 if (e.getCause() instanceof SecurityException) {
                     return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestUri);
@@ -127,7 +131,7 @@ public class S3Endpoint {
             public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
                 try {
                     AuthenticationToken token = null;
-                    token = new S3Authenticator(xdi, secretKey).authenticate(request);
+                    token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(request);
                     AuthenticatedRequestContext.begin(token);
                     Function<AuthenticationToken, RequestHandler> errorHandler = new S3FailureHandler(f);
                     return errorHandler.apply(token).handle(request, routeParameters);

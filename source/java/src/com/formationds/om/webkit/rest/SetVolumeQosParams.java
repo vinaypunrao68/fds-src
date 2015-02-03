@@ -3,13 +3,7 @@ package com.formationds.om.webkit.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
-import FDS_ProtocolInterface.FDSP_MediaPolicy;
-import FDS_ProtocolInterface.FDSP_ModifyVolType;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_VolumeDescType;
-
+import FDS_ProtocolInterface.*;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeDescriptor;
@@ -20,13 +14,11 @@ import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletResponse;
-
 import java.util.Map;
 
 public class SetVolumeQosParams implements RequestHandler {
@@ -67,7 +59,7 @@ public class SetVolumeQosParams implements RequestHandler {
                 .orElseThrow(() -> new RuntimeException("No such volume"));
 
         String volumeName = volumeDescType.getVol_name();
-        if ( !authorizer.hasAccess(token, volumeName)) {
+        if (!authorizer.ownsVolume(token, volumeName)) {
             return new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
         }
 

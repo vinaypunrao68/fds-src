@@ -8,9 +8,7 @@ import org.apache.thrift.TException;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -71,16 +69,16 @@ public class FdsAuthorizerTest {
             fail("unexpected exception." + e);
         }
 
-        authorizer.hasAccess(new AuthenticationToken(USER_ID, "badSecret"), "foo");
+        authorizer.ownsVolume(new AuthenticationToken(USER_ID, "badSecret"), "foo");
     }
 
     @Test
     public void testHasAccessFails() {
-        assertFalse(authorizer.hasAccess(new AuthenticationToken(USER_ID, SECRET), VOLUME_NAME));
+        assertFalse(authorizer.ownsVolume(new AuthenticationToken(USER_ID, SECRET), VOLUME_NAME));
     }
 
     @Test
     public void testHasAccessSucceeds() {
-        assertFalse(authorizer.hasAccess(new AuthenticationToken(USER_ID, SECRET), "foo"));
+        assertFalse(authorizer.ownsVolume(new AuthenticationToken(USER_ID, SECRET), "foo"));
     }
 }

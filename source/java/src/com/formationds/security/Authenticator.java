@@ -14,5 +14,5 @@ public interface Authenticator {
 
     AuthenticationToken reissueToken(long userId) throws LoginException;
 
-    AuthenticationToken resolveToken(String signature) throws LoginException;
+    AuthenticationToken parseToken(String signature) throws LoginException;
 }

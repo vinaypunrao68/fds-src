@@ -6,17 +6,9 @@ package com.formationds.om.webkit.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
-import FDS_ProtocolInterface.FDSP_MediaPolicy;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
-
-import com.formationds.apis.AmService;
-import com.formationds.apis.MediaPolicy;
-import com.formationds.apis.Tenant;
-import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeStatus;
-import com.formationds.apis.VolumeType;
+import com.formationds.apis.*;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
@@ -39,7 +31,6 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
@@ -47,13 +38,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -81,36 +66,36 @@ public class ListVolumes implements RequestHandler {
         String domain = ""; // not yet supported
         JSONArray jsonArray = config.listVolumes(domain)
                                     .stream()
-                                    .filter(v -> authorizer.hasAccess(token, v.getName()))
-                                    .map(v -> {
-                                        try {
-                                            JSONObject volResponse = toJsonObject(v);
+				.filter(v -> authorizer.ownsVolume(token, v.getName()))
+				.map(v -> {
+					try {
+						JSONObject volResponse = toJsonObject(v);
 
-                                            // putting the tenant information here because the static call
-                                            // below won't always have access to the api.  It should be injected
-                                            // so that it's always acceptable
-                                            List<Tenant> tenants =
-                                                SingletonConfigAPI.instance().api().listTenants(0).stream()
-                                                                  .filter((t) -> {
+						// putting the tenant information here because the static call
+						// below won't always have access to the api.  It should be injected
+						// so that it's always acceptable
+						List<Tenant> tenants =
+								SingletonConfigAPI.instance().api().listTenants(0).stream()
+										.filter((t) -> {
 
-																	  return t.getId() == v.getTenantId();
+											return t.getId() == v.getTenantId();
 
-																  })
-                                                                  .collect(Collectors.toList());
+										})
+										.collect(Collectors.toList());
 
-                                            String tenantName = "";
+						String tenantName = "";
 
-                                            if (tenants.size() > 0) {
-                                                tenantName = tenants.get(0).getIdentifier();
-                                            }
+						if (tenants.size() > 0) {
+							tenantName = tenants.get(0).getIdentifier();
+						}
 
-                                            volResponse.put("tenant_name", tenantName);
+						volResponse.put("tenant_name", tenantName);
 
-                                            return volResponse;
-                                        } catch (TException e) {
-                                            LOG.error("Error fetching configuration data for volume", e);
-						                    throw new RuntimeException(e);
-                                        }
+						return volResponse;
+					} catch (TException e) {
+						LOG.error("Error fetching configuration data for volume", e);
+						throw new RuntimeException(e);
+					}
 				})
 				.collect(new JsonArrayCollector());
 

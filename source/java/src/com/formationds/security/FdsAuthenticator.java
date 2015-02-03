@@ -11,7 +11,6 @@ import org.apache.thrift.TException;
 
 import javax.crypto.SecretKey;
 import javax.security.auth.login.LoginException;
-import java.util.Map;
 import java.util.UUID;
 
 public class FdsAuthenticator implements Authenticator {
@@ -85,7 +84,7 @@ public class FdsAuthenticator implements Authenticator {
     }
 
     @Override
-    public AuthenticationToken resolveToken(String signature) throws LoginException {
+    public AuthenticationToken parseToken(String signature) throws LoginException {
         AuthenticationToken token;
         try {
             token = new TokenEncrypter().tryParse(secretKey, signature);
