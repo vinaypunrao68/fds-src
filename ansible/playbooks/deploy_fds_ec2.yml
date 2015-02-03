@@ -53,7 +53,7 @@
         tags: provision
 
 -   hosts: awo-bh-01
-    name: wait for EC2 instances to be reachable
+    name: stage debs on awo-bh-01 and wait for cluster to be available for deployment
     remote_user: deploy
     gather_facts: false
     sudo: false
@@ -79,7 +79,7 @@
         copy: src={{ item }}
           dest=/home/deploy/deb_staging/{{ instance_name_tag }}/fds-platform.deb
         with_fileglob:
-          - '../../source/tools/install/pkg-{{ build }}/fds-platform_*{{ build }}*.deb'
+          - '../../omnibus/omnibus-fds-platform//pkg/fds-platform_*{{ build }}*.deb'
         tags:
           - install-local
 
