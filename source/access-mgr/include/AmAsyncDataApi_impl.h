@@ -24,7 +24,7 @@ extern boost::shared_ptr<apis::BlobDescriptor>
     transform_descriptor(boost::shared_ptr<BlobDescriptor> descriptor);
 
 template<typename T, typename C>
-boost::shared_ptr<AsyncResponseHandler<T, C>>
+CallbackPtr
 create_async_handler(C&& c)
 { return boost::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
 
@@ -49,21 +49,14 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](AttachCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](AttachCallback* cb, Error const& e) mutable -> void {
         p->attachVolumeResp(e, requestId);
     };
 
     auto callback = create_async_handler<AttachCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        storHvisor->enqueueAttachReq(*volumeName,
-                                     callback_dyn_ptr);
-    }
+    storHvisor->enqueueAttachReq(*volumeName,
+                                 callback);
 }
 
 template<typename H>
@@ -71,8 +64,7 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](GetVolumeMetaDataCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](GetVolumeMetaDataCallback* cb, Error const& e) mutable -> void {
         typename response_api_type::shared_status_type volume_status;
         if (e.ok()) {
             volume_status = boost::make_shared<apis::VolumeStatus>();
@@ -83,17 +75,11 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
     };
 
     auto callback = create_async_handler<GetVolumeMetaDataCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
-                                                      *volumeName,
-                                                      callback_dyn_ptr);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
+                                                  *volumeName,
+                                                  callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -106,28 +92,21 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                        boost::shared_ptr<fpi::BlobListOrder>& orderBy,
                                        shared_bool_type& descending) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](GetBucketCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](GetBucketCallback* cb, Error const& e) mutable -> void {
         p->volumeContentsResp(e, requestId, cb->vecBlobs);
     };
 
     auto callback = create_async_handler<GetBucketCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
-                                                   *volumeName,
-                                                   *count,
-                                                   *offset,
-                                                   *pattern,
-                                                   *orderBy,
-                                                   *descending,
-                                                   callback_dyn_ptr);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
+                                               *volumeName,
+                                               *count,
+                                               *offset,
+                                               *pattern,
+                                               *orderBy,
+                                               *descending,
+                                               callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 template<typename H>
 void AmAsyncDataApi<H>::statBlob(H& requestId,
@@ -135,8 +114,7 @@ void AmAsyncDataApi<H>::statBlob(H& requestId,
                                  shared_string_type& volumeName,
                                  shared_string_type& blobName) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](StatBlobCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](StatBlobCallback* cb, Error const& e) mutable -> void {
         // TODO(bszmyd): Tue 16 Dec 2014 08:06:47 PM MST
         // Unfortunately we have to transform meta-data received
         // from the DataManager. We should fix that.
@@ -146,18 +124,12 @@ void AmAsyncDataApi<H>::statBlob(H& requestId,
     };
 
     auto callback = create_async_handler<StatBlobCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        AmRequest *blobReq = new StatBlobReq(invalid_vol_id,
-                                             *volumeName,
-                                             *blobName,
-                                             callback_dyn_ptr);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new StatBlobReq(invalid_vol_id,
+                                         *volumeName,
+                                         *blobName,
+                                         callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -167,27 +139,20 @@ void AmAsyncDataApi<H>::startBlobTx(H& requestId,
                                     shared_string_type& blobName,
                                     shared_int_type& blobMode) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](StartBlobTxCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](StartBlobTxCallback* cb, Error const& e) mutable -> void {
         auto txDesc = boost::make_shared<apis::TxDescriptor>();
         txDesc->txId = cb->blobTxId.getValue();
         p->startBlobTxResp(e, requestId, txDesc);
     };
 
     auto callback = create_async_handler<StartBlobTxCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        AmRequest *blobReq = new StartBlobTxReq(invalid_vol_id,
-                                                *volumeName,
-                                                *blobName,
-                                                *blobMode,
-                                                callback_dyn_ptr);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new StartBlobTxReq(invalid_vol_id,
+                                            *volumeName,
+                                            *blobName,
+                                            *blobMode,
+                                            callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -201,25 +166,18 @@ void AmAsyncDataApi<H>::commitBlobTx(H& requestId,
             txDesc->txId));
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](CommitBlobTxCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](CommitBlobTxCallback* cb, Error const& e) mutable -> void {
         p->commitBlobTxResp(e, requestId);
     };
 
     auto callback = create_async_handler<CommitBlobTxCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        AmRequest *blobReq = new CommitBlobTxReq(invalid_vol_id,
-                                                 *volumeName,
-                                                 *blobName,
-                                                 blobTxDesc,
-                                                 callback_dyn_ptr);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new CommitBlobTxReq(invalid_vol_id,
+                                             *volumeName,
+                                             *blobName,
+                                             blobTxDesc,
+                                             callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -233,25 +191,18 @@ void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
             txDesc->txId));
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](AbortBlobTxCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](AbortBlobTxCallback* cb, Error const& e) mutable -> void {
         p->abortBlobTxResp(e, requestId);
     };
 
     auto callback = create_async_handler<AbortBlobTxCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        AmRequest *blobReq = new AbortBlobTxReq(invalid_vol_id,
-                                                *volumeName,
-                                                *blobName,
-                                                blobTxDesc,
-                                                callback_dyn_ptr);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new AbortBlobTxReq(invalid_vol_id,
+                                            *volumeName,
+                                            *blobName,
+                                            blobTxDesc,
+                                            callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -265,26 +216,19 @@ void AmAsyncDataApi<H>::getBlob(H& requestId,
     fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](GetObjectCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](GetObjectCallback* cb, Error const& e) mutable -> void {
         p->getBlobResp(e, requestId, cb->returnBuffer, cb->returnSize);
     };
 
     auto callback = create_async_handler<GetObjectCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
-                                           *volumeName,
-                                           *blobName,
-                                           callback_dyn_ptr,
-                                           static_cast<fds_uint64_t>(objectOffset->value),
-                                           *length);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
+                                       *volumeName,
+                                       *blobName,
+                                       callback,
+                                       static_cast<fds_uint64_t>(objectOffset->value),
+                                       *length);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -298,8 +242,7 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
     fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](GetObjectWithMetadataCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](GetObjectWithMetadataCallback* cb, Error const& e) mutable -> void {
         typename response_api_type::shared_descriptor_type retBlobDesc = e.ok() ?
             transform_descriptor(cb->blobDesc) : nullptr;
         p->getBlobWithMetaResp(e,
@@ -310,21 +253,15 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
     };
 
     auto callback = create_async_handler<GetObjectWithMetadataCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        GetBlobReq *blobReq= new GetBlobReq(invalid_vol_id,
-                                            *volumeName,
-                                            *blobName,
-                                            callback_dyn_ptr,
-                                            static_cast<fds_uint64_t>(objectOffset->value),
-                                            *length);
-        blobReq->get_metadata = true;
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    GetBlobReq *blobReq= new GetBlobReq(invalid_vol_id,
+                                        *volumeName,
+                                        *blobName,
+                                        callback,
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length);
+    blobReq->get_metadata = true;
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -335,39 +272,32 @@ void AmAsyncDataApi<H>::updateMetadata(H& requestId,
                                        shared_tx_ctx_type& txDesc,
                                        shared_meta_type& metadata) {
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](UpdateMetadataCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](UpdateMetadataCallback* cb, Error const& e) mutable -> void {
         p->updateMetadataResp(e, requestId);
     };
 
     auto callback = create_async_handler<UpdateMetadataCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
-        LOGDEBUG << "received updateMetadata cmd";
-        fpi::FDSP_MetaDataPair metaPair;
-        for (auto const & meta : *metadata) {
-            LOGDEBUG << meta.first << ":" << meta.second;
-            metaPair.key = meta.first;
-            metaPair.value = meta.second;
-            metaDataList->push_back(metaPair);
-        }
-        // Setup the transaction descriptor
-        BlobTxId::ptr blobTxDesc(new BlobTxId(
-                txDesc->txId));
-
-        AmRequest *blobReq = new SetBlobMetaDataReq(invalid_vol_id,
-                                                    *volumeName,
-                                                    *blobName,
-                                                    blobTxDesc,
-                                                    metaDataList,
-                                                    callback_dyn_ptr);
-        storHvisor->enqueueBlobReq(blobReq);
+    boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
+    LOGDEBUG << "received updateMetadata cmd";
+    fpi::FDSP_MetaDataPair metaPair;
+    for (auto const & meta : *metadata) {
+        LOGDEBUG << meta.first << ":" << meta.second;
+        metaPair.key = meta.first;
+        metaPair.value = meta.second;
+        metaDataList->push_back(metaPair);
     }
+    // Setup the transaction descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
+
+    AmRequest *blobReq = new SetBlobMetaDataReq(invalid_vol_id,
+                                                *volumeName,
+                                                *blobName,
+                                                blobTxDesc,
+                                                metaDataList,
+                                                callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -384,28 +314,22 @@ void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
     fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
         p->updateBlobResp(e, requestId);
     };
 
     auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        SHARED_DYN_CAST(Callback, callback)->call(err);
-    } else {
-        AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
-                                            *volumeName,
-                                            *blobName,
-                                            static_cast<fds_uint64_t>(objectOffset->value),
-                                            *length,
-                                            bytes,
-                                            *blobMode,
-                                            metadata,
-                                            callback);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
+                                        *volumeName,
+                                        *blobName,
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length,
+                                        bytes,
+                                        *blobMode,
+                                        metadata,
+                                        callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -428,31 +352,25 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
             txDesc->txId));
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
         p->updateBlobResp(e, requestId);
     };
 
     auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        SHARED_DYN_CAST(Callback, callback)->call(err);
-    } else {
-        AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
-                                            *volumeName,
-                                            *blobName,
-                                            static_cast<fds_uint64_t>(objectOffset->value),
-                                            *length,
-                                            bytes,
-                                            blobTxDesc,
-                                            *isLast,
-                                            &bucket_ctx,
-                                            NULL,
-                                            NULL,
-                                            callback);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
+                                        *volumeName,
+                                        *blobName,
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length,
+                                        bytes,
+                                        blobTxDesc,
+                                        *isLast,
+                                        &bucket_ctx,
+                                        NULL,
+                                        NULL,
+                                        callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 template<typename H>
@@ -464,25 +382,18 @@ void AmAsyncDataApi<H>::deleteBlob(H& requestId,
     BlobTxId::ptr blobTxId(new BlobTxId(txDesc->txId));
 
     // Closure for response call
-    response_ptr& p = responseApi;
-    auto closure = [p, requestId](DeleteBlobCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](DeleteBlobCallback* cb, Error const& e) mutable -> void {
         p->deleteBlobResp(e, requestId);
     };
 
     auto callback = create_async_handler<DeleteBlobCallback>(std::move(closure));
-    auto callback_dyn_ptr = SHARED_DYN_CAST(Callback, callback);
 
-    if (am->isShuttingDown()) {
-        Error err(ERR_SHUTTING_DOWN);
-        callback_dyn_ptr->call(err);
-    } else {
-        AmRequest *blobReq = new DeleteBlobReq(invalid_vol_id,
-                                               *blobName,
-                                               *volumeName,
-                                               blobTxId,
-                                               callback_dyn_ptr);
-        storHvisor->enqueueBlobReq(blobReq);
-    }
+    AmRequest *blobReq = new DeleteBlobReq(invalid_vol_id,
+                                           *blobName,
+                                           *volumeName,
+                                           blobTxId,
+                                           callback);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 }  // namespace fds

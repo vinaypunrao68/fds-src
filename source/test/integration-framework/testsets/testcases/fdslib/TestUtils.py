@@ -320,8 +320,9 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
                   %options.config)
         sys.exit(1)
     setattr(options, "config_file", params["fds_config_file"])
-
+    print params["fds_config_file"]
     if not os.path.isfile(options.config_file):
+        print '****Config_File: %s' % options.config_file
         print("The fds_config_file item, %s, in your qaautotest test suite .ini file does not exist." % options.config)
         sys.exit(1)
 

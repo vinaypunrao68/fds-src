@@ -45,13 +45,13 @@
             zone: us-west-2c
             wait: yes
         register: ec2
+        tags: provision
 
     -   name: Add all instance public IPs to host group
         add_host: hostname={{ item.private_ip }} groupname=ec2hosts
         with_items: ec2.tagged_instances
+        tags: provision
 
-################################################################################
-### This is necessary for now until I can get a Github issue put in and resolved
 -   hosts: awo-bh-01
     name: wait for EC2 instances to be reachable
     remote_user: deploy
@@ -60,11 +60,32 @@
     tags: wait
 
     tasks:
+ 
+    -   name: set variable build defined in inventory file (release or debug)
+        set_fact:
+            build: "{{ fds_build if fds_build is defined else 'debug' }}"
+        tags:
+          - install-local
+
+    -   name: create staging directory on awo-bh-01 to house local fds_platform deb
+        when: deploy_artifact == "local"
+        file: path=/home/deploy/deb_staging/{{ instance_name_tag }}
+                state=directory
+        tags:
+          - install-local
+
+    -   name: stage local fds-platform deb on awo-bh-01
+        when: deploy_artifact == "local"
+        copy: src={{ item }}
+          dest=/home/deploy/deb_staging/{{ instance_name_tag }}/fds-platform.deb
+        with_fileglob:
+          - '../../source/tools/install/pkg-{{ build }}/fds-platform_*{{ build }}*.deb'
+        tags:
+          - install-local
 
     -   name: wait for SSH to come up on all instances
         wait_for: host={{ item }} port=22 delay=1 timeout=300 state=started
         with_items: groups.ec2hosts
-################################################################################
 
 
 -   name: Deploy FDS

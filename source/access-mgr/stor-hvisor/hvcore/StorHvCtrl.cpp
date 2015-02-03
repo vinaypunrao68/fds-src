@@ -304,6 +304,10 @@ void
 StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
                              CallbackPtr cb) {
     LOGDEBUG << "Attach request for volume " << volumeName;
+    if (am->isShuttingDown()) {
+        cb->call(ERR_SHUTTING_DOWN);
+        return;
+    }
 
     // check if volume is already attached
     fds_volid_t volId = invalid_vol_id;
@@ -361,6 +365,10 @@ StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
 
 void
 StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
+    if (am->isShuttingDown()) {
+        blobReq->cb->call(ERR_SHUTTING_DOWN);
+        return;
+    }
     fds_verify(blobReq->magicInUse() == true);
 
     // check if volume is attached to this AM
