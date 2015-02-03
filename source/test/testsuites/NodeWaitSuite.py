@@ -15,9 +15,6 @@ def suiteConstruction(self, fdsNodes=None):
     """
     Construct the ordered set of test cases that comprise the
     test cases necessary to check whether a node is started.
-
-    Note that this does not check non-transient nodes. For those, use
-    suite TransientNodeWaitSuite.
     """
     suite = unittest.TestSuite()
 
@@ -25,13 +22,30 @@ def suiteConstruction(self, fdsNodes=None):
     # or if a list of nodes is provided, check them specifically.
     if fdsNodes is not None:
 
+        # By constructing a generic test case at this point, we gain
+        # access to the FDS config file from which
+        # we'll pull the node configurations to determine the context
+        # for verification.
+        genericTestCase = testcases.TestCase.FDSTestCase()
+        fdscfg = genericTestCase.parameters["fdscfg"]
+
         for node in fdsNodes:
-            suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestOMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestPMWait(node=node))
+            # If it's the OM node, check it's PM and OM. Otherwise,
+            # we're looking for a non-OM PM.
+            if node.nd_conf_dict['node-name'] == fdscfg.rt_om_node.nd_conf_dict['node-name']:
+                suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait(node=node))
+                suite.addTest(testcases.TestFDSModMgt.TestOMWait(node=node))
+            else:
+                suite.addTest(testcases.TestFDSModMgt.TestPMWait(node=node))
+
             suite.addTest(testcases.TestFDSModMgt.TestDMWait(node=node))
             suite.addTest(testcases.TestFDSModMgt.TestSMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestAMWait(node=node))
+
+            # If this node should have an AM, check for it.
+            amNodes = fdscfg.rt_get_obj('cfg_am')
+            for amNode in amNodes:
+                if amNode.nd_am_node.nd_conf_dict['node-name'] == node.nd_conf_dict['node-name']:
+                    suite.addTest(testcases.TestFDSModMgt.TestAMWait(node=node))
     else:
         suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
         suite.addTest(testcases.TestFDSModMgt.TestOMWait())
