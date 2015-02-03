@@ -13,6 +13,7 @@ namespace fds {
 enum RunFunc {
     FULL_CHECK = 0,
     PRINT_MD,
+    PRINT_ACTIVE_MD,
     PRINT_TOK_BY_PATH,
     PRINT_PATH_BY_TOK,
     CALC_BYTES_RECLAIMABLE,
@@ -34,6 +35,7 @@ class SMChk {
     void list_path_by_token();
     void list_token_by_path();
     void list_metadata();
+    void list_active_metadata();
     bool full_consistency_check();
     int  bytes_reclaimable();
     bool consistency_check(ObjectID obj_id);  // test a single object
