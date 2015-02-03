@@ -67,6 +67,7 @@ class ObjMetaData : public serialize::Serializable {
     ObjMetaData();
     explicit ObjMetaData(const ObjectBuf& buf);
     explicit ObjMetaData(const ObjMetaData::const_ptr &rhs);
+    explicit ObjMetaData(const ObjMetaData &rhs);
     virtual ~ObjMetaData();
 
     void initialize(const ObjectID& objid, fds_uint32_t obj_size);
