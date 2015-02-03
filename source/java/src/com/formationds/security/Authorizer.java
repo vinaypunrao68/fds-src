@@ -24,7 +24,7 @@ public interface Authorizer {
      * @param volume
      * @return
      */
-    boolean hasAccess(AuthenticationToken token, String volume);
+    boolean ownsVolume(AuthenticationToken token, String volume);
 
     /**
      *
@@ -47,7 +47,7 @@ public interface Authorizer {
      */
     // TODO: domain not supported yet
     default boolean checkAccess(AuthenticationToken token, String domain, String volume) throws SecurityException {
-        if (!hasAccess(token, volume)) {
+        if (!ownsVolume(token, volume)) {
             throw new SecurityException();
         }
         return true;

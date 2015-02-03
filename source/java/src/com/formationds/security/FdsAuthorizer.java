@@ -13,30 +13,33 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class FdsAuthorizer implements Authorizer {
-    private static final Logger logger = LoggerFactory.getLogger( FdsAuthorizer.class );
+    private static final Logger logger = LoggerFactory.getLogger(FdsAuthorizer.class);
 
     private ConfigurationApi config;
 
-    public FdsAuthorizer( ConfigurationApi config ) {
+    public FdsAuthorizer(ConfigurationApi config) {
         this.config = config;
     }
 
     @Override
-    public long tenantId( AuthenticationToken token ) throws SecurityException {
-        User user = userFor( token );
-        if ( user.isIsFdsAdmin() ) {
+    public long tenantId(AuthenticationToken token) throws SecurityException {
+        User user = userFor(token);
+        if (user.isIsFdsAdmin()) {
             return 0;
         }
-        return config.tenantId( user.getId() );
+        return config.tenantId(user.getId());
     }
 
     @Override
-    public boolean hasAccess( AuthenticationToken token, String volume ) throws SecurityException {
+    public boolean ownsVolume(AuthenticationToken token, String volume) throws SecurityException {
+        if (AuthenticationToken.ANONYMOUS.equals(token)) {
+            return false;
+        }
         try {
-            VolumeDescriptor v = config.statVolume( "", volume );
-            if ( v == null ) {
+            VolumeDescriptor v = config.statVolume("", volume);
+            if (v == null) {
                 if (logger.isTraceEnabled()) {
-                    logger.trace( "AUTHZ::HASACCESS::DENIED " + volume + " not found." );
+                    logger.trace("AUTHZ::HASACCESS::DENIED " + volume + " not found.");
                 }
                 return false;
             }
@@ -44,7 +47,7 @@ public class FdsAuthorizer implements Authorizer {
             User user = userFor(token);
             if (user.isIsFdsAdmin()) {
                 if (logger.isTraceEnabled()) {
-                    logger.trace( "AUTHZ::HASACCESS::GRANTED " + volume + " (admin)");
+                    logger.trace("AUTHZ::HASACCESS::GRANTED " + volume + " (admin)");
                 }
                 return true;
             }
@@ -54,25 +57,25 @@ public class FdsAuthorizer implements Authorizer {
 
             if (userTenantId == volTenantId) {
                 if (logger.isTraceEnabled()) {
-                    logger.trace( "AUTHZ::HASACCESS::GRANTED volume={} userid={}", volume, token.getUserId() );
+                    logger.trace("AUTHZ::HASACCESS::GRANTED volume={} userid={}", volume, token.getUserId());
                 }
 
                 return true;
             } else {
                 if (logger.isTraceEnabled()) {
-                    logger.trace( "AUTHZ::HASACCESS::DENIED volume={} userid={}", volume, token.getUserId() );
+                    logger.trace("AUTHZ::HASACCESS::DENIED volume={} userid={}", volume, token.getUserId());
                 }
 
                 return false;
             }
         } catch (ApiException apie) {
-            if (apie.getErrorCode().equals( ErrorCode.MISSING_RESOURCE )) {
+            if (apie.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
                 if (logger.isTraceEnabled()) {
-                    logger.trace( "AUTHZ::HASACCESS::DENIED " + volume + " not found." );
+                    logger.trace("AUTHZ::HASACCESS::DENIED " + volume + " not found.");
                 }
                 return false;
             }
-            throw new IllegalStateException( "Failed to access config service.", apie );
+            throw new IllegalStateException("Failed to access config service.", apie);
 
         } catch (TException e) {
             throw new IllegalStateException("Failed to access config service.", e);
@@ -82,14 +85,13 @@ public class FdsAuthorizer implements Authorizer {
     @Override
     public User userFor(AuthenticationToken token) throws SecurityException {
         User user = config.getUser(token.getUserId());
-        if (user == null ) {
+        if (user == null) {
             if (logger.isTraceEnabled()) {
-                logger.trace( "AUTHZ::HASACCESS::DENIED user userid={} not found.", token.getUserId() );
+                logger.trace("AUTHZ::HASACCESS::DENIED user userid={} not found.", token.getUserId());
             }
 
-            throw new SecurityException( );
-        }
-        else if (!user.getSecret().equals(token.getSecret())) {
+            throw new SecurityException();
+        } else if (!user.getSecret().equals(token.getSecret())) {
             throw new SecurityException();
         }
         return user;
