@@ -74,6 +74,9 @@ public final class Fds
 
             _configuration = new Configuration(commandName, args);
             _fdsRoot = null;
+            _iopsMax = -1;
+            _iopsMin = -1;
+            _platformConfig = null;
         }
 
         @Replacement("FDS_ROOT")

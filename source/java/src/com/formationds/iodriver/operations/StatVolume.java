@@ -14,44 +14,12 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.VerificationReporter;
 
 public final class StatVolume extends OrchestrationManagerOperation
 {
-    public static class Output
-    {
-        public final int assured_rate;
-        public final long commit_log_retention;
-        public final long id;
-        public final MediaPolicy mediaPolicy;
-        public final int throttle_rate;
-        public final int priority;
-
-        public Output(int assured_rate,
-                      int throttle_rate,
-                      int priority,
-                      long commit_log_retention,
-                      MediaPolicy mediaPolicy,
-                      long id)
-        {
-            this.assured_rate = assured_rate;
-            this.commit_log_retention = commit_log_retention;
-            this.mediaPolicy = mediaPolicy;
-            this.throttle_rate = throttle_rate;
-            this.priority = priority;
-            this.id = id;
-        }
-        // /api/config/volumes/:uuid
-        // {
-        // "sla": int
-        // "priority": int
-        // "limit" : int
-        // "commit_log_retention": long (seconds)
-        // "mediaPolicy": MediaPolicy
-        // }
-    }
-
-    public StatVolume(String volumeName, Consumer<Output> consumer)
+    public StatVolume(String volumeName, Consumer<VolumeQosSettings> consumer)
     {
         if (volumeName == null) throw new NullArgumentException("volumeName");
         if (consumer == null) throw new NullArgumentException("consumer");
@@ -105,12 +73,12 @@ public final class StatVolume extends OrchestrationManagerOperation
                 MediaPolicy mediaPolicy = MediaPolicy.valueOf(policy.getString("mediaPolicy"));
                 long id = Long.parseLong(voldesc.getString("id"));
 
-                _consumer.accept(new Output(assured_rate,
-                                            throttle_rate,
-                                            priority,
-                                            commit_log_retention,
-                                            mediaPolicy,
-                                            id));
+                _consumer.accept(new VolumeQosSettings(id,
+                                                       assured_rate,
+                                                       throttle_rate,
+                                                       priority,
+                                                       commit_log_retention,
+                                                       mediaPolicy));
                 found = true;
                 break;
             }
@@ -127,7 +95,7 @@ public final class StatVolume extends OrchestrationManagerOperation
         return Fds.Api.getBase().relativize(Fds.Api.getVolumes());
     }
 
-    private final Consumer<Output> _consumer;
+    private final Consumer<VolumeQosSettings> _consumer;
 
     private final String _volumeName;
 }

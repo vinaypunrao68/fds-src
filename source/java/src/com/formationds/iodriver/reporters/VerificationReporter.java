@@ -1,54 +1,29 @@
 package com.formationds.iodriver.reporters;
 
-import java.util.Date;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Strings;
+import com.formationds.iodriver.model.VolumeQosPerformance;
+import com.formationds.iodriver.model.VolumeQosSettings;
 
 public final class VerificationReporter
 {
-    public final static class VolumeQosParams
-    {
-        public final int assured_rate;
-        public final int priority;
-        public final int throttle_rate;
-
-        public VolumeQosParams(int assured_rate, int throttle_rate, int priority)
-        {
-            this.assured_rate = assured_rate;
-            this.throttle_rate = throttle_rate;
-            this.priority = priority;
-        }
-    }
-
-    public final static class VolumePerformanceData
-    {
-        public int ops;
-        public Date start;
-        public Date stop;
-        
-        public VolumePerformanceData()
-        {
-            ops = 0;
-            start = null;
-            stop = null;
-        }
-    }
-
     public final static class VolumeQosStats
     {
-        public final VolumeQosParams params;
-        public final VolumePerformanceData performance;
+        public final VolumeQosSettings params;
+        public final VolumeQosPerformance performance;
 
-        public VolumeQosStats(VolumeQosParams params)
+        public VolumeQosStats(VolumeQosSettings params)
         {
             if (params == null) throw new NullArgumentException("params");
 
             this.params = params;
-            this.performance = new VolumePerformanceData();
+            this.performance = new VolumeQosPerformance();
         }
     }
 
@@ -56,16 +31,16 @@ public final class VerificationReporter
     {
         this(new HashMap<>());
     }
-    
-    public VerificationReporter(Map<String, VolumeQosParams> params)
+
+    public VerificationReporter(Map<String, VolumeQosSettings> params)
     {
         if (params == null) throw new NullArgumentException("params");
 
         _volumeOps = new HashMap<>();
-        for (Entry<String, VolumeQosParams> param : params.entrySet())
+        for (Entry<String, VolumeQosSettings> param : params.entrySet())
         {
             String volumeName = param.getKey();
-            VolumeQosParams value = param.getValue();
+            VolumeQosSettings value = param.getValue();
             if (value == null)
             {
                 throw new IllegalArgumentException("null entry for params["
@@ -74,53 +49,69 @@ public final class VerificationReporter
             _volumeOps.put(volumeName, new VolumeQosStats(value));
         }
     }
-    
-    public void addVolume(String name, VolumeQosParams params)
+
+    public void addVolume(String name, VolumeQosSettings params)
     {
         if (name == null) throw new NullArgumentException("name");
         if (params == null) throw new NullArgumentException("params");
-        
+
         if (_volumeOps.containsKey(name))
         {
             throw new IllegalArgumentException("Volume " + name + " already exists.");
         }
-        
+
         _volumeOps.put(name, new VolumeQosStats(params));
+    }
+
+    public Instant getStart(String volume)
+    {
+        if (volume == null) throw new NullArgumentException("volume");
+
+        VolumeQosStats stats = getStats(volume);
+        return stats.performance.getStart();
+    }
+
+    public Instant getStop(String volume)
+    {
+        if (volume == null) throw new NullArgumentException("volume");
+
+        VolumeQosStats stats = getStats(volume);
+        return stats.performance.getStop();
     }
 
     public void reportIo(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
-        
+
         VolumeQosStats stats = getStats(volume);
-        ++stats.performance.ops;
+        stats.performance.addOps(1);
     }
-    
+
     public void reportStart(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
-        
+
         VolumeQosStats stats = getStats(volume);
-        stats.performance.start = new Date();
+        stats.performance.startNow();
     }
-    
+
     public void reportStop(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
-        
+
         VolumeQosStats stats = getStats(volume);
-        stats.performance.stop = new Date();
+        stats.performance.stopNow();
     }
-    
+
     public boolean wereIopsInRange()
     {
-        for (Entry<String, VolumeQosStats> entry: _volumeOps.entrySet())
+        for (Entry<String, VolumeQosStats> entry : _volumeOps.entrySet())
         {
             String volumeName = entry.getKey();
             VolumeQosStats stats = entry.getValue();
-            
-            Date start = stats.performance.start;
-            Date stop = stats.performance.stop;
+
+            Instant start = stats.performance.getStart();
+            Instant stop = stats.performance.getStop();
             if (start == null)
             {
                 throw new IllegalStateException("Volume " + volumeName + " has not been started.");
@@ -129,12 +120,15 @@ public final class VerificationReporter
             {
                 throw new IllegalStateException("Volume " + volumeName + " has not been stopped.");
             }
-            
-            long durationInMs = stop.getTime() - start.getTime();
-            double durationInSeconds = durationInMs / 1000.0;
-            double iops = stats.performance.ops / durationInSeconds;
 
-            if (iops < stats.params.assured_rate || iops > stats.params.throttle_rate)
+            Duration duration = Duration.between(start, stop);
+            double durationInSeconds = duration.toMillis() / 1000.0;
+            double iops = stats.performance.getOps() / durationInSeconds;
+
+            System.out.println(volumeName + ": " + stats.performance.getOps() + " / "
+                               + durationInSeconds + " = " + iops + ".");
+
+            if (iops < stats.params.getIopsAssured() || iops > stats.params.getIopsThrottle())
             {
                 return false;
             }
@@ -146,13 +140,13 @@ public final class VerificationReporter
     private VolumeQosStats getStats(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
-        
+
         VolumeQosStats stats = _volumeOps.get(volume);
         if (stats == null)
         {
             throw new IllegalArgumentException("No such volume: " + volume);
         }
-        
+
         return stats;
     }
 

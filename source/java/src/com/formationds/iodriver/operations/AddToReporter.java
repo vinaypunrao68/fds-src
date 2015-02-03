@@ -3,15 +3,16 @@ package com.formationds.iodriver.operations;
 import java.util.function.Supplier;
 
 import com.amazonaws.services.s3.AmazonS3Client;
+
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
+import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.VerificationReporter;
-import com.formationds.iodriver.reporters.VerificationReporter.VolumeQosParams;
 
 public class AddToReporter extends S3Operation
 {
     public AddToReporter(String bucketName,
-                         Supplier<StatBucketVolume.Output> statsGetter)
+                         Supplier<VolumeQosSettings> statsGetter)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
         if (statsGetter == null) throw new NullArgumentException("statsGetter");
@@ -27,13 +28,11 @@ public class AddToReporter extends S3Operation
         if (client == null) throw new NullArgumentException("client");
         if (reporter == null) throw new NullArgumentException("reporter");
 
-        StatBucketVolume.Output stats = _statsGetter.get();
-        reporter.addVolume(_bucketName, new VolumeQosParams(stats.assured_rate,
-                                                            stats.throttle_rate,
-                                                            stats.priority));
+        VolumeQosSettings stats = _statsGetter.get();
+        reporter.addVolume(_bucketName, stats);
     }
 
     private final String _bucketName;
 
-    private final Supplier<StatBucketVolume.Output> _statsGetter;
+    private final Supplier<VolumeQosSettings> _statsGetter;
 }

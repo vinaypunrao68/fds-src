@@ -13,22 +13,28 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.VerificationReporter;
 
-public class CreateObject extends S3Operation
+public final class CreateObject extends S3Operation
 {
     public CreateObject(String bucketName, String key, String content)
     {
-        this(bucketName, key, getBytes(content));
+        this(bucketName, key, content, true);
+    }
+    
+    public CreateObject(String bucketName, String key, String content, boolean doReporting)
+    {
+        this(bucketName, key, getBytes(content), doReporting);
     }
 
-    public CreateObject(String bucketName, String key, byte[] content)
+    public CreateObject(String bucketName, String key, byte[] content, boolean doReporting)
     {
-        this(bucketName, key, () -> toInputStream(content), getLength(content));
+        this(bucketName, key, () -> toInputStream(content), getLength(content), doReporting);
     }
 
     public CreateObject(String bucketName,
                         String key,
                         Supplier<InputStream> input,
-                        long contentLength)
+                        long contentLength,
+                        boolean doReporting)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
         if (key == null) throw new NullArgumentException("key");
@@ -39,6 +45,7 @@ public class CreateObject extends S3Operation
         _contentLength = contentLength;
         _key = key;
         _input = input;
+        _doReporting = doReporting;
     }
 
     @Override
@@ -63,13 +70,18 @@ public class CreateObject extends S3Operation
             throw new ExecutionException("Error closing input stream.", e);
         }
         
-        reporter.reportIo(_bucketName);
+        if (_doReporting)
+        {
+            reporter.reportIo(_bucketName);
+        }
     }
 
     private final String _bucketName;
 
     private final long _contentLength;
 
+    private final boolean _doReporting;
+    
     private Supplier<InputStream> _input;
 
     private final String _key;
