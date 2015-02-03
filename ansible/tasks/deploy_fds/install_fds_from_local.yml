@@ -1,10 +1,12 @@
 ---
--   name: set varaible build defined in inventory file (release or debug)
+-   name: set variable build defined in inventory file (release or debug)
     set_fact:
         build: "{{ fds_build if fds_build is defined else 'debug' }}"
+    tags:
+      - install-local
 
 -   name: copy local fds-platform_*{{ build }} to host
-    when: deploy_artifact == "local"
+    when: deploy_artifact == "local" and this_is_an_ec2_node is not defined
     copy: src={{ item }}
       dest=/root/fds-platform.deb
     with_fileglob:
@@ -13,16 +15,22 @@
       - install-local
 
 -   name: install fds platfrom from local debs
-    when: deploy_artifact == "local"
+    when: deploy_artifact == "local" and this_is_an_ec2_node is not defined
     apt: deb="/root/fds-platform.deb"
     tags:
       - install-local
 
--   name: delete local debs from /root/ to avoid conflicts
-    when: deploy_artifact == "local"
-    file: path=/root/{{ item }}
-        state=absent
-    with_fileglob:
-      - 'fds-*.deb'
+-   name: push local fds-platform deb from awo-bh-01 to cluster nodes
+    when: deploy_artifact == "local" and (this_is_an_ec2_node is defined and this_is_an_ec2_node)
+    synchronize: src="/home/deploy/deb_staging/{{ instance_name_tag }}/fds-platform.deb"
+        dest="/home/deploy/fds-platform.deb"
+        rsync_timeout=3 mode=push private_key="/home/deploy/.ssh/fds-deploy_rsa"
+    delegate_to: awo-bh-01
+    tags:
+      - install-local
+
+-   name: install fds platfrom from local debs
+    when: deploy_artifact == "local" and (this_is_an_ec2_node is defined and this_is_an_ec2_node)
+    apt: deb="/home/deploy/fds-platform.deb"
     tags:
       - install-local

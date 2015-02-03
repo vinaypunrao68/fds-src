@@ -5,22 +5,13 @@
 package com.formationds.om.repository.helper;
 
 import com.formationds.commons.calculation.Calculation;
-import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.Events;
-import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Statistics;
-import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.*;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
-import com.formationds.commons.model.calculated.capacity.AverageIOPs;
-import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
-import com.formationds.commons.model.calculated.capacity.CapacityDeDupRatio;
-import com.formationds.commons.model.calculated.capacity.CapacityFull;
-import com.formationds.commons.model.calculated.capacity.CapacityToFull;
-import com.formationds.commons.model.calculated.capacity.TotalCapacity;
+import com.formationds.commons.model.calculated.capacity.*;
 import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.entity.VolumeDatapoint;
@@ -37,24 +28,17 @@ import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
-
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.persistence.EntityManager;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
-
-import javax.persistence.EntityManager;
 
 /**
  * @author ptinius
@@ -406,23 +390,22 @@ public class QueryHelper {
 
 	    		contexts = api.listVolumes("")
 	    			.stream()
-	    			.filter( vd -> authorizer.hasAccess( token, vd.getName() ) )
-	    			.map( vd -> {
+                        .filter(vd -> authorizer.ownsVolume(token, vd.getName()))
+                        .map(vd -> {
 
-	    				String volumeId = "";
+                            String volumeId = "";
 
-	    				try{
-	    					volumeId = String.valueOf( api.getVolumeId( vd.getName() ) );
-	    				}
-	    				catch( TException e ){
+                            try {
+                                volumeId = String.valueOf(api.getVolumeId(vd.getName()));
+                            } catch (TException e) {
 
-	    				}
+                            }
 
-	    				Volume volume = new VolumeBuilder().withId( volumeId ).withName( vd.getName() )
-	    					.build();
+                            Volume volume = new VolumeBuilder().withId(volumeId).withName(vd.getName())
+                                    .build();
 
-	    				return volume;
-	    			})
+                            return volume;
+                        })
 	    			.collect( Collectors.toList() );
 
     		} catch ( Exception e ){
@@ -433,9 +416,9 @@ public class QueryHelper {
     	else {
     		
     		contexts = contexts.stream().filter( c -> {
-    			boolean hasAccess = authorizer.hasAccess( token, ((Volume)c).getName() );
-    			
-    			if ( hasAccess == false ){
+                boolean hasAccess = authorizer.ownsVolume(token, ((Volume) c).getName());
+
+                if ( hasAccess == false ){
     				// TODO: Add an audit event here because someone may be trying an attack
     				logger.warn( "User does not have access to query for volume: " + ((Volume)c).getName() +
     					".  It will be removed from the query context." );

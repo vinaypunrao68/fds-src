@@ -20,7 +20,14 @@ class TestWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, delay=None, reason=None):
         super(TestWait, self).__init__(parameters)
 
-        self.passedDelay = delay
+        if delay is not None:
+            if isinstance(delay, int):
+                self.passedDelay = delay
+            else:
+                self.passedDelay = int(delay)
+        else:
+            self.passedDelay = delay
+
         self.passedReason = reason
 
 

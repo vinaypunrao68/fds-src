@@ -324,7 +324,10 @@ var en_US = {
         tt_pm: 'Platform status',
         tt_sm: 'Storage manager status',
         tt_ip_address: 'The IP address for the discovered node',
-        tt_remove: 'Button to remove the selected node from the system'
+        tt_remove: 'Button to remove the selected node from the system',
+        
+        desc_remove_node: 'Are you sure you want to remove this node from the system?',
+        desc_node_removed: 'Node was removed successfully.'
     },
     tenants: {
         title: 'Tenants',

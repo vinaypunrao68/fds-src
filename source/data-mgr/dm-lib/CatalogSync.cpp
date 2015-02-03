@@ -87,8 +87,8 @@ void CatalogSync::doDeltaSync() {
                   node_uuid.uuid_get_val());
     }
 
-    LOGNORMAL << "Start delta sync to destination node "
-              << std::hex << node_uuid.uuid_get_val() << std::dec;
+    LOGMIGRATE << "Start delta sync to destination node "
+               << std::hex << node_uuid.uuid_get_val() << std::dec;
 
     // at this point, we must have meta client and done evt handler
     fds_verify(done_evt_handler != NULL);
@@ -430,15 +430,24 @@ Error CatalogSyncMgr::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
 Error CatalogSyncMgr::issueServiceVolumeMsg(fds_volid_t volid) {
     Error err(ERR_OK);
     fds_mutex::scoped_lock l(cat_sync_lock);
-    fds_verify(sync_in_progress);
+    // TODO(Andrew): Commenting out because there is a race here between
+    // finishing the forwarding and actually getting the close event from OM.
+    // fds_verify(sync_in_progress);
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
          cit != cat_sync_map.cend();
          ++cit) {
         if ((cit->second)->hasVolume(volid)) {
             err = (cit->second)->issueVolSyncStateMsg(volid, true);
             if (!err.ok()) return err;
+            // TODO(Andrew): We're not erasing anything if there's
+            // an error. I guess it's just gonna sit there?
+            // Lets erase later.
+            // cat_sync_map.erase(cit);
         }
     }
+
+    // TODO(Andrew): We're calling the callback in a different spot.
+    // dataMgr->sendDmtCloseCb(err);
     return err;
 }
 
@@ -460,6 +469,8 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
                 LOGMIGRATE << "Completed forwarding for volume " << std::hex << volid << std::dec
                            << " and removed from syncing volumes list";
                 if (((cit->second)->emptyVolume())) {
+                    // TODO(Andrew): Clean this stuff up since the map
+                    // and flags should be set on a later call.
                     cat_sync_map.erase(cit);
                     LOGMIGRATE << "cat sync map erase: " << std::hex
                                << volid << std::dec;
@@ -474,6 +485,8 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
         sync_in_progress = !send_dmt_close_ack;
     }  // end of scoped lock
 
+    // TODO(Andrew): Clean this stuff up since the callback is made
+    // in a later call.
     if (send_dmt_close_ack) {
         if (dataMgr->sendDmtCloseCb != nullptr) {
             Error err(ERR_OK);

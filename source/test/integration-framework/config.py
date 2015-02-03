@@ -68,3 +68,4 @@ CONFIG_DIR = "./config/"
 SYSTEM_FRAMEWORK = "testsuites"
 SYSTEM_CMD = "../%s/ClusterBootSuite.py -q ../%s/StaticMigration.ini -d dummy --verbose"
 DEFAULT_INVENTORY_FILE = "integration-framework-cluster"
+CMD_CONFIG = ['./setup_module.py', '-q', './BuildSmokeTest.ini', '-d', 'dummy', '--verbose']

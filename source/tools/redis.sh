@@ -1,5 +1,7 @@
 #!/bin/bash
 ########################################################################
+# setup path to point to omnibus install of redis
+PATH=$PATH:/opt/fds-deps/embedded/bin
 # setup correct dirs
 SOURCE="${BASH_SOURCE[0]}"
 # resolve $SOURCE until the file is no longer a symlink

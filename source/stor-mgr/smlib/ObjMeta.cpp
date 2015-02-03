@@ -112,6 +112,13 @@ ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
     sync_data   = rhs->sync_data;
 }
 
+ObjMetaData::ObjMetaData(const ObjMetaData &rhs) {
+    memcpy(&obj_map, &(rhs.obj_map), sizeof(obj_map));
+    phy_loc = &obj_map.loc_map[0];
+    assoc_entry = rhs.assoc_entry;
+    sync_data   = rhs.sync_data;
+}
+
 ObjMetaData::~ObjMetaData()
 {
 }

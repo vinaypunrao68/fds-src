@@ -18,7 +18,7 @@ import java.util.Properties;
 public class SmokeTestRunner {
     public static void main(String[] args) throws Exception {
         turnLog4jOff();
-        Lists.newArrayList(HdfsSmokeTest.class, S3SmokeTest.class)
+        Lists.newArrayList(HdfsSmokeTest.class, S3SmokeTest.class, AmTest.class)
                 .forEach(k -> runTest(k));
         System.out.flush();
         System.out.println("Smoke tests done.");

@@ -40,6 +40,6 @@ public class SwiftEndpoint {
 
     private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
         Function<AuthenticationToken, RequestHandler> supplier = new SwiftFailureHandler(f);
-        webApp.route(method, route, () -> new SwiftAuthenticator(supplier, xdi.getAuthenticator()));
+        webApp.route(method, route, () -> new SwiftAuthenticator(supplier, xdi.getAuthorizer()));
     }
 }

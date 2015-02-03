@@ -27,7 +27,7 @@ public class NullAuthenticator implements Authenticator {
     }
 
     @Override
-    public AuthenticationToken resolveToken(String signature) throws LoginException {
+    public AuthenticationToken parseToken(String signature) throws LoginException {
         return AuthenticationToken.ANONYMOUS;
     }
 }

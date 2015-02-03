@@ -10,7 +10,7 @@ import testcases.TestCase
 import testcases.TestCinderIntFace
 
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
     Build Smoke Test suite.
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
 
     runner.run(test_suite)
 
