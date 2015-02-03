@@ -165,23 +165,39 @@ public final class Fds
             DISK_IOPS_MIN_CONFIG = testingConfig + ".disk_iops_min";
         }
     }
-    
+
     // It makes sense to centralize random processing--as there's more and more independent
     // consumers, it becomes more difficult to observe, predict, or have any control.
     public static final class Random
     {
+        public static int nextInt(int minInclusive, int maxExclusive)
+        {
+            if (minInclusive < 0)
+            {
+                throw new IllegalArgumentException("minInclusive must be >= 0. Received "
+                                                   + minInclusive + ".");
+            }
+            if (maxExclusive <= minInclusive)
+            {
+                throw new IllegalArgumentException("Arguments must be minInclusive < maxExclusive. Received "
+                                                   + minInclusive + ", " + maxExclusive + ".");
+            }
+
+            return minInclusive + nextInt(maxExclusive - minInclusive);
+        }
+
         public static int nextInt(int bound)
         {
             return _random.nextInt(bound);
         }
-        
+
         private static final java.util.Random _random;
-        
+
         private Random()
         {
             throw new UnsupportedOperationException("Instantiating a utility class.");
         }
-        
+
         static
         {
             _random = new java.util.Random();

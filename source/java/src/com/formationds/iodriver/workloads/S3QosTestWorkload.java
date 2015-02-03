@@ -97,18 +97,19 @@ public final class S3QosTestWorkload extends Workload<S3Endpoint, S3Operation>
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
 
-        Stream<String> randomContent = Stream.generate(_nameSupplier);
-
         Stream<S3Operation> warmup =
-                randomContent.<S3Operation>map(content -> new CreateObject(bucketName,
-                                                                           _objectName,
-                                                                           content,
-                                                                           false))
-                             .limit(OPERATIONS_PER_BUCKET);
+                Stream.generate(_nameSupplier)
+                      .<S3Operation>map(content -> new CreateObject(bucketName,
+                                                                    _objectName,
+                                                                    content,
+                                                                    false))
+                      .limit(OPERATIONS_PER_BUCKET);
+
         Stream<S3Operation> unlimitedLoad =
-                randomContent.<S3Operation>map(content -> new CreateObject(bucketName,
-                                                                           _objectName,
-                                                                           content));
+                Stream.generate(_nameSupplier)
+                      .<S3Operation>map(content -> new CreateObject(bucketName,
+                                                                    _objectName,
+                                                                    content));
 
         Stream<S3Operation> load =
                 StreamUtils.takeWhile(unlimitedLoad, op -> ZonedDateTime.now().isBefore(_stopTime));

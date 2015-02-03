@@ -122,10 +122,10 @@ public final class Config
 
     public S3QosTestWorkload getWorkload() throws ConfigurationException
     {
-        // TODO: Allow this to be specified.
-        int remainingAssured = getSystemIopsMin();
-        int remainingThrottle = getSystemIopsMax();
+        // TODO: Allow # of buckets to be specified.
         int buckets = 4;
+        int remainingAssured = getSystemIopsMin();
+        final int throttle = getSystemIopsMax();
 
         if (remainingAssured < buckets)
         {
@@ -133,51 +133,46 @@ public final class Config
                                              + " does not allow a guaranteed IOPS to each of the "
                                              + buckets + " buckets.");
         }
-        if (remainingThrottle < remainingAssured)
+        if (throttle < remainingAssured)
         {
-            throw new ConfigurationException("Max IOPS of " + remainingThrottle
+            throw new ConfigurationException("Max IOPS of " + throttle
                                              + " is less than min of "
                                              + remainingAssured + ", which does not make sense.");
         }
-        if (remainingThrottle < buckets + remainingAssured)
+        if (throttle < buckets + remainingAssured)
         {
-            throw new ConfigurationException("Max IOPS of " + remainingThrottle
+            throw new ConfigurationException("Max IOPS of " + throttle
                                              + " won't allow at least 1 additional IOPS for each "
                                              + "of " + buckets + " buckets with a min of "
                                              + remainingAssured + ".");
         }
 
         int reservedAssured = buckets;
-        int reservedThrottle = reservedAssured + buckets;
         remainingAssured -= reservedAssured;
-        remainingThrottle -= reservedThrottle;
 
         List<S3QosTestWorkload.IoParams> bucketParams = new ArrayList<>(buckets);
         for (int i = 0; i != buckets; ++i)
         {
-            int myReservedAssured = 1;
-            int myNonreservedAssured = Fds.Random.nextInt(remainingAssured);
-            int myAssured = myReservedAssured + myNonreservedAssured;
-            reservedAssured -= myReservedAssured;
-            remainingAssured -= myNonreservedAssured;
+            int myAssured;
+            if (i == buckets - 1)
+            {
+                myAssured = reservedAssured + remainingAssured;
+            }
+            else
+            {
+                int myReservedAssured = 1;
+                int myNonreservedAssured = Fds.Random.nextInt(remainingAssured);
+                reservedAssured -= myReservedAssured;
+                remainingAssured -= myNonreservedAssured;
 
-            int myReservedThrottle = myReservedAssured + 1;
-            int myNonreservedThrottle =
-                    myNonreservedAssured
-                            + Fds.Random.nextInt(remainingThrottle - myNonreservedAssured);
-            int myThrottle = myReservedThrottle + myNonreservedThrottle;
-            reservedThrottle -= myReservedThrottle;
-            remainingThrottle -= myNonreservedThrottle;
+                myAssured = myReservedAssured + myNonreservedAssured;
+            }
+            int myThrottle = Fds.Random.nextInt(myAssured, throttle);
 
             S3QosTestWorkload.IoParams params =
                     new S3QosTestWorkload.IoParams(myAssured, myThrottle);
             bucketParams.add(params);
         }
-        S3QosTestWorkload.IoParams lastParams = bucketParams.get(bucketParams.size() - 1);
-        lastParams =
-                new S3QosTestWorkload.IoParams(lastParams.getAssured() + remainingAssured,
-                                               lastParams.getThrottle() + remainingThrottle);
-        bucketParams.set(bucketParams.size() - 1, lastParams);
 
         return new S3QosTestWorkload(bucketParams, Duration.ofMinutes(1));
     }
