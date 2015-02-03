@@ -343,6 +343,85 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
         return True
 
 
+# This class contains attributes and methods to test clean shared memory.
+# A workaround that is presently required if you want to restart a cluster
+# that was previously started.
+class TestFDSSharedMemoryClean(TestCase.FDSTestCase):
+    def __init__(self, parameters = None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedNode = node
+
+
+    @unittest.expectedFailure
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_FDSSharedMemoryClean():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Shared Memory cleanup caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+    def test_FDSSharedMemoryClean(self):
+        """
+        Test Case:
+        Attempt to selectively delete from the FDS installation directory.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If we were passed a specific node, use it and get it.
+            if self.passedNode is not None:
+                n = self.passedNode
+
+            # Check to see if shared memory segments exist
+            status = n.nd_agent.exec_wait('ls /dev/shm/0x*')
+            if status == 0:
+                # Try to delete it.
+                self.log.info("Shared memory segments exist, attempting to remove them on node %s" %
+                              (n.nd_conf_dict['node-name']))
+
+                status = n.nd_agent.exec_wait('rm /dev/shm/0x*')
+                if status != 0:
+                    self.log.error("Shared memory cleanup on node %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
+            else:
+                self.log.warn("Shared memory segments nonexistent on node %s." %
+                              (n.nd_conf_dict['node-name']))
+
+            if self.passedNode is not None:
+                # We're done with the specified node. Get out.
+                break
+
+        return True
+
 # This class contains attributes and methods to test
 # clean selective parts of an FDS installation directory.
 class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):

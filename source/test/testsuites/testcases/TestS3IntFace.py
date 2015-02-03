@@ -25,6 +25,8 @@ class S3(object):
         self.conn = conn
         self.bucket1 = None
         self.keys = []  # As we add keys to the bucket, add them here as well.
+        self.verifiers = [] # As we track objects to verify, add object name 
+                            # and hash here
 
 
 # This class contains the attributes and methods to test
@@ -780,6 +782,174 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 
             return test_passed
 
+
+# This class contains the attributes and methods to test
+# the FDS S3 interface to put an objected with verifiable content
+# in place for later retrieval and validation
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None):
+        super(TestS3LoadVerifiableObject, self).__init__(parameters)
+
+        self.passedBucket=bucket
+        self.verifiableObjectSha=None
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_S3LoadVerifiableObject():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Creating a verifiable object in S3 bucket caused exception:")
+            self.log.error(traceback.format_exc())
+            self.log.error(inst.message)
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+    def test_S3LoadVerifiableObject(self):
+        """
+        Test Case:
+        Attempt to load an object with verifiable contents into a bucket
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
+            self.log.error("No S3 connection with which to load an object.")
+            return False
+
+        # Check if a bucket was passed to us.
+        if self.passedBucket is not None:
+            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
+            if self.parameters["s3"].bucket1 is None:
+                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
+                return False
+
+        if not self.parameters["s3"].bucket1:
+            self.log.error("No S3 bucket with which to load an object.")
+            return False
+        else:
+            self.log.info("Load an object with verifiable contents into an S3 bucket.")
+            s3 = self.parameters["s3"]
+
+            verifiable_file_contents = "a" * 1024
+            verifiable_object = s3.bucket.new_key('s3VerifiableObject')
+            verifiable_object.set_contents_from_string(verifiable_file_contents)
+
+            # Grab the object and capture the hash for verification
+
+            try:
+                obj = s3.bucket.get_key('s3VerifiableObject')
+            except:
+                self.log.error("Could not verify object")
+            else:
+                if obj:
+                    self.verifiers['s3VerifiableObject'] = hashlib.sha1(obj).hexdigest()
+                    test_passed = True
+                else:
+                    test_passed = False
+
+            return test_passed
+
+# This class contains the attributes and methods to test
+# the FDS S3 interface to verify an object with verifiable content
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None):
+        super(TestS3CheckVerifiableObject, self).__init__(parameters)
+
+        self.passedBucket=bucket
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_S3LoadVerifiableObject():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Verifying verifiable object in S3 bucket caused exception:")
+            self.log.error(traceback.format_exc())
+            self.log.error(inst.message)
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+    def test_S3CheckVerifiableObject(self):
+        """
+        Test Case:
+        Attempt to get an object with verifiable contents and validate the
+        checksum matches what we have stored
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
+            self.log.error("No S3 connection with which to get an object.")
+            return False
+
+        # Check if a bucket was passed to us.
+        if self.passedBucket is not None:
+            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
+            if self.parameters["s3"].bucket1 is None:
+                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
+                return False
+
+        if not self.parameters["s3"].bucket1:
+            self.log.error("No S3 bucket with which to get an object.")
+            return False
+        else:
+            self.log.info("Verify contents of verifiable object in an S3 bucket.")
+            s3 = self.parameters["s3"]
+
+            verifiable_object = s3.bucket.get_key('s3VerifiableObject')
+            verify_hash = hashlib.sha1(verifiable_object).hexdigest()
+            if self.verifiers['s3VerifiableObject'] == verify_hash:
+                test_passed = True
+            else:
+                self.log.error("S3 Verifiable Object hash did not match")
+                test_passed = False
+
+            return test_passed
 
 # This class contains the attributes and methods to test
 # the FDS S3 interface to list the keys of a bucket.
