@@ -2,9 +2,20 @@
 -   name: set varaible build defined in inventory file (release or debug)
     set_fact:
         build: "{{ fds_build if fds_build is defined else 'debug' }}"
+    tags:
+      - install-local
 
 -   name: copy local fds-platform_*{{ build }} to host
-    when: deploy_artifact == "local"
+    when: deploy_artifact == "local" and not this_is_an_ec2_node
+    copy: src={{ item }}
+      dest=/root/fds-platform.deb
+    with_fileglob:
+      - '../../../source/tools/install/pkg-{{ build }}/fds-platform_*{{ build }}*.deb'
+    tags:
+      - install-local
+
+-   name: copy local fds-platform_*{{ build }} to host
+    when: deploy_artifact == "local" and not this_is_an_ec2_node
     copy: src={{ item }}
       dest=/root/fds-platform.deb
     with_fileglob:
@@ -13,14 +24,29 @@
       - install-local
 
 -   name: install fds platfrom from local debs
-    when: deploy_artifact == "local"
+    when: deploy_artifact == "local" and not this_is_an_ec2_node
     apt: deb="/root/fds-platform.deb"
     tags:
       - install-local
 
--   name: delete local debs from /root/ to avoid conflicts
-    file: path=/root/fds-platform.deb
-        state=absent
-    when: deploy_artifact == "local"
+-   name: push local fds-platform deb from awo-bh-01 to cluster nodes
+    when: deploy_artifact == "local" and this_is_an_ec2_node
+    synchronize: src="/home/deploy/deb_staging/{{ instance_name_tag }}/fds-platform.deb"
+        dest="/home/deploy/fds-platform.deb"
+        rsync_timeout=3 mode=push private_key="/home/deploy/.ssh/fds-deploy_rsa"
+    delegate_to: awo-bh-01
     tags:
       - install-local
+
+-   name: install fds platfrom from local debs
+    when: deploy_artifact == "local" and this_is_an_ec2_node
+    apt: deb="/home/deploy/fds-platform.deb"
+    tags:
+      - install-local
+
+#-   name: delete local debs from /root/ to avoid conflicts
+#    file: path=/root/fds-platform.deb
+#        state=absent
+#    when: deploy_artifact == "local"
+#    tags:
+#      - install-local
