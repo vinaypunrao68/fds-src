@@ -65,9 +65,16 @@ public class DeactivateNode
 
         JSONObject o = new JSONObject( source );
 
-        boolean activateSm = !o.isNull( "sm" ) && o.getBoolean( "sm" );
-        boolean activateAm = !o.isNull( "am" ) && o.getBoolean( "am" );
-        boolean activateDm = !o.isNull( "dm" ) && o.getBoolean( "dm" );
+        /**
+         * Since the call expects the service flags to be set to the
+         * services which to remove, and the GUI passes in false for the
+         * services to be removed.
+         *
+         * We have to map them correcting here.
+         */
+        boolean activateSm = !o.getBoolean( "sm" );
+        boolean activateAm = !o.getBoolean( "am" );
+        boolean activateDm = !o.getBoolean( "dm" );
 
         logger.debug( "Deactivating {}:{} AM: {} DM: {} SM: {}",
                       nodeName.get(),
@@ -90,13 +97,13 @@ public class DeactivateNode
 
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( DeactivateNodeEvent.DEACTIVATE_NODE_ERROR,
-                                      nodeName,
+                                      nodeName.get(),
                                       nodeUuid );
 
         } else {
 
             EventManager.notifyEvent( DeactivateNodeEvent.DEACTIVATE_NODE,
-                                      nodeName,
+                                      nodeName.get(),
                                       nodeUuid );
 
         }
