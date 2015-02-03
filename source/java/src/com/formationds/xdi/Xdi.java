@@ -82,6 +82,7 @@ public class Xdi {
     }
 
     public List<VolumeDescriptor> listVolumes(AuthenticationToken token, String domainName) throws ApiException, TException {
+        attemptToplevelAccess(token, Intent.read);
         List<VolumeDescriptor> volumes = config.listVolumes(domainName);
         List<VolumeDescriptor> result = new ArrayList<>();
         for (VolumeDescriptor volume : volumes) {
