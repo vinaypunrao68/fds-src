@@ -427,6 +427,7 @@ ifneq "$(project)" ""
 pkg: $(omnibus_dir)
 	[ -e /usr/local/bin/bundle ] && echo "Bundler installed, continuing" || sudo gem install bundler
 	[ -d $(omnibus_dir)/omnibus-$(project) ] || (echo "No such project '$(project)'" && exit 1)
+	cd $(omnibus_dir)/omnibus-$(project) && rm -f pkg/*
 	cd $(omnibus_dir)/omnibus-$(project) && bundle install --without development --binstubs
 	cd $(omnibus_dir)/omnibus-$(project) && FDS_SRC_DIR=$(shell cd $(incl_scripts)/../../.. && pwd -P) bundle exec bin/omnibus build $(project)
 	
