@@ -56,11 +56,15 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
 Error
 DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
     Error err(ERR_OK);
-    LOGNORMAL << "DM received volume sync state for volume " << std::hex
-              << volume_id << std::dec << " forward complete? " << fwd_complete;
+    LOGMIGRATE << "DM received volume sync state for volume " << std::hex
+               << volume_id << std::dec << " forward complete? " << fwd_complete;
+
+    // open catalogs so we can start processing updates
+    // TODO(Andrew): Actually do something if this fails. It doesn't really matter
+    // now because our caller never replies to other other DM anyways...
+    fds_verify(ERR_OK == timeVolCat_->activateVolume(volume_id));
 
     if (!fwd_complete) {
-        // open catalogs so we can start processing updates
         err = timeVolCat_->activateVolume(volume_id);
         if (err.ok()) {
             // start processing forwarded updates
@@ -259,18 +263,14 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
     VolumeMeta *vol_meta = vol_meta_map[volid];
     // Skip this verify because it's actually set later?
     // TODO(Andrew): If the above comment is correct, we
-    // remove most of what this function actually does.
+    // remove most of what this function actually do
     // fds_verify(vol_meta->isForwarding());
-    // vol_meta->setForwardFinish();
+    vol_meta->setForwardFinish();
     vol_map_mtx->unlock();
 
     // notify cat sync mgr
-    if (feature.isCatSyncEnabled()) {
-        if (catSyncMgr->finishedForwardVolmeta(volid)) {
-            all_finished = true;
-        }
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
+    if (catSyncMgr->finishedForwardVolmeta(volid)) {
+        all_finished = true;
     }
 }
 
@@ -741,7 +741,9 @@ Error DataMgr::notifyDMTClose() {
             return err;
         }
         // set DMT close time in catalog sync mgr
-        catSyncMgr->setDmtCloseNow();
+        // TODO(Andrew): We're doing this later in the process,
+        // so can remove this when that works for sure.
+        // catSyncMgr->setDmtCloseNow();
     } else {
         LOGWARN << "catalog sync feature - NOT enabled";
     }
@@ -756,19 +758,15 @@ Error DataMgr::notifyDMTClose() {
         VolumeMeta *vol_meta = vol_it->second;
         vol_meta->finishForwarding();
         pushMetaDoneIo = new DmIoPushMetaDone(vol_it->first);
-        err = enqueueMsg(vol_it->first, pushMetaDoneIo);
-        fds_verify(err.ok());
+        handleDMTClose(pushMetaDoneIo);
     }
     vol_map_mtx->unlock();
 
-    // we will stop forwarding for each volume when all transactions
-    // open before time we received dmt close get committed or aborted
-    // but we timeout to ensure we send DMT close ack
-    if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(60))) {
-        // TODO(xxx) how do we handle this?
-        // fds_panic("Failed to schedule closedmt timer!");
-        LOGWARN << "Failed to schedule close dmt timer task";
-    }
+    // TODO(Andrew): Um, no where to we have a useful error statue
+    // to even return.
+    sendDmtCloseCb(err);
+    LOGMIGRATE << "Sent DMT close message to OM";
+
     return err;
 }
 
@@ -778,31 +776,16 @@ Error DataMgr::notifyDMTClose() {
 //
 void DataMgr::handleDMTClose(dmCatReq *io) {
     DmIoPushMetaDone *pushMetaDoneReq = static_cast<DmIoPushMetaDone*>(io);
+    LOGMIGRATE << "Processed all commits that arrived before DMT close "
+               << "will now notify dst DM to open up volume queues: vol "
+               << std::hex << pushMetaDoneReq->volId << std::dec;
 
-    LOGDEBUG << "Processed all commits that arrived before DMT close "
-             << "will now notify dst DM to open up volume queues: vol "
-             << std::hex << pushMetaDoneReq->volId << std::dec;
-
-    Error err(ERR_OK);
-    if (feature.isCatSyncEnabled()) {
-        err = catSyncMgr->issueServiceVolumeMsg(pushMetaDoneReq->volId);
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
-    }
-    // TODO(Anna) if err, send DMT close ack with error???
-    fds_verify(err.ok());
-
-    // If there are no open transactions that started before we got
-    // DMT close, we can finish forwarding right now
-    if (feature.isCatSyncEnabled()) {
-        if (!timeVolCat_->isPendingTx(pushMetaDoneReq->volId, catSyncMgr->dmtCloseTs())) {
-            finishForwarding(pushMetaDoneReq->volId);
-        }
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
-    }
-
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*pushMetaDoneReq);
+    // Notify any other DMs we're migrating to that it's OK to dispatch
+    // from their blocked QoS queues.
+    // If we commit any currently open or in process transactions they
+    // will still get forwarded when they complete.
+    fds_verify(ERR_OK == catSyncMgr->issueServiceVolumeMsg(pushMetaDoneReq->volId));
+    LOGMIGRATE << "Sent message to migration destination to open blocked queues.";
     delete pushMetaDoneReq;
 }
 

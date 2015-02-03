@@ -42,19 +42,10 @@ VolumeMeta::~VolumeMeta() {
 //
 void VolumeMeta::finishForwarding() {
     vol_mtx->lock();
-    if (fwd_state == VFORWARD_STATE_INPROG) {
-        // set close time to now + small(ish) time interval to include IOs that
-        // being queued right now
-        // dmtclose_time = boost::posix_time::microsec_clock::universal_time() +
-        //        boost::posix_time::milliseconds(10);
-        fwd_state = VFORWARD_STATE_FINISHING;
-    } else {
-        setForwardFinish();
-    }
+    setForwardFinish();
     vol_mtx->unlock();
-
-    LOGNORMAL << "finishForwarding for volume " << *vol_desc
-              << ", state " << fwd_state;
+    LOGMIGRATE << "finishForwarding for volume " << *vol_desc
+               << ", state " << fwd_state;
 }
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
