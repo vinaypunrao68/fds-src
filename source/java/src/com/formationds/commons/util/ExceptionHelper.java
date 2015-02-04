@@ -91,29 +91,35 @@ public final class ExceptionHelper {
         if (consumer == null) throw new NullArgumentException("consumer");
         if (tunnelType == null) throw new NullArgumentException("tunnelType");
 
-        return arg ->
+        return arg -> tunnelNow(() -> consumer.accept(arg), tunnelType);
+    }
+
+    public static <E extends Exception> void tunnelNow(ExceptionThrowingRunnable<E> runnable,
+                                                       Class<E> tunnelType)
+    {
+        if (runnable == null) throw new NullArgumentException("runnable");
+        if (tunnelType == null) throw new NullArgumentException("tunnelType");
+
+        try
         {
-            try
+            runnable.run();
+        }
+        catch (RuntimeException re)
+        {
+            // Runtime exceptions don't need to be tunneled.
+            throw re;
+        }
+        catch (Throwable t)
+        {
+            if (tunnelType.isAssignableFrom(t.getClass()))
             {
-                consumer.accept(arg);
+                throw new TunneledException(t);
             }
-            catch (RuntimeException re)
+            else
             {
-                // Runtime exceptions don't need to be tunneled.
-                throw re;
+                throw new RuntimeException("Unexpected exception.", t);
             }
-            catch (Throwable t)
-            {
-                if (tunnelType.isAssignableFrom(t.getClass()))
-                {
-                    throw new TunneledException(t);
-                }
-                else
-                {
-                    throw new RuntimeException("Unexpected exception.", t);
-                }
-            }
-        };
+        }
     }
 
     // @eclipseFormat:off

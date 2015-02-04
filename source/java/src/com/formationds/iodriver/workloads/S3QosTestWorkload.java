@@ -3,6 +3,7 @@ package com.formationds.iodriver.workloads;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -160,10 +161,11 @@ public final class S3QosTestWorkload extends Workload<S3Endpoint, S3Operation>
     }
 
     @Override
-    protected Stream<S3Operation> createOperations()
+    protected List<Stream<S3Operation>> createOperations()
     {
         return StreamSupport.stream(_bucketStats.keySet().spliterator(), false)
-                            .flatMap(bucketName -> createBucketOperations(bucketName));
+                            .map(bucketName -> createBucketOperations(bucketName))
+                            .collect(Collectors.toList());
     }
 
     @Override
