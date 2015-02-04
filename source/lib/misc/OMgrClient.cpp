@@ -871,8 +871,7 @@ Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
 Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
                                   const std::string& session_uuid) {
     fds_verify(this->catalog_evt_hdlr != NULL);
-    //return this->catalog_evt_hdlr(fds_catalog_push_meta, push_meta, session_uuid);
-    return ERR_OK;
+    return this->catalog_evt_hdlr(fds_catalog_push_meta, push_meta, session_uuid);
 }
 
 Error OMgrClient::updateDmt(bool dmt_type, std::string& dmt_data) {

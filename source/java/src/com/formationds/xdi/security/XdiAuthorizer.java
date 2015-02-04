@@ -6,9 +6,12 @@ import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.util.blob.Mode;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.formationds.xdi.s3.PutObjectAcl;
 import com.formationds.xdi.s3.S3Endpoint;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -16,22 +19,23 @@ import javax.security.auth.login.LoginException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class XdiAuthorizer {
     private static final Logger LOG = Logger.getLogger(XdiAuthorizer.class);
     private Authenticator authenticator;
     private Authorizer authorizer;
-    private AmService.Iface am;
     private ConfigurationApi config;
     private final BucketMetadataCache cache;
+    private AsyncAm asyncAm;
 
-    public XdiAuthorizer(Authenticator authenticator, Authorizer authorizer, AmService.Iface am, ConfigurationApi config) {
+    public XdiAuthorizer(Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm, ConfigurationApi config) {
         this.authenticator = authenticator;
         this.authorizer = authorizer;
-        this.am = am;
+        this.asyncAm = asyncAm;
         this.config = config;
-        cache = new BucketMetadataCache(config, am);
+        cache = new BucketMetadataCache(config, asyncAm);
         cache.start();
     }
 
@@ -83,8 +87,8 @@ public class XdiAuthorizer {
         Map<String, String> metadata = new HashMap<String, String>();
         metadata.put(PutObjectAcl.X_AMZ_ACL, aclName);
         String blobName = makeBucketAclBlobName(volumeDescriptor.getVolId());
-        am.updateBlobOnce(S3Endpoint.FDS_S3, systemVolume, blobName, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), metadata);
-        cache.refresh();
+        asyncAm.updateBlobOnce(S3Endpoint.FDS_S3, systemVolume, blobName, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), metadata).get();
+        cache.scheduleRefresh(false);
     }
 
     private void createVolumeIfNeeded(String volume, long tenantId) {
@@ -101,23 +105,25 @@ public class XdiAuthorizer {
 
 
     private class BucketMetadataCache {
-        private volatile Map<String, Map<String, String>> metadataCache;
+        private final Cache<String, CompletableFuture<Map<String, String>>> cache;
         private final ConfigurationApi config;
-        private final AmService.Iface am;
+        private final AsyncAm am;
 
-        BucketMetadataCache(ConfigurationApi config, AmService.Iface am) {
+        BucketMetadataCache(ConfigurationApi config, AsyncAm am) {
             this.config = config;
             this.am = am;
-            this.metadataCache = new HashMap<>();
+            cache = CacheBuilder.newBuilder()
+                    .expireAfterWrite(10, TimeUnit.MINUTES)
+                    .build();
         }
 
         void start() {
-            refresh();
+            scheduleRefresh(false);
             Thread thread = new Thread(() -> {
                 while (true) {
                     try {
-                        Thread.sleep(2000);
-                        refresh();
+                        Thread.sleep(5000);
+                        scheduleRefresh(true);
                     } catch (Exception e) {
                         LOG.error("Error refreshing bucket metadata cache", e);
                     }
@@ -128,31 +134,44 @@ public class XdiAuthorizer {
         }
 
         Map<String, String> getMetadata(String bucketName) {
-            return metadataCache.getOrDefault(bucketName, new HashMap<>());
+            try {
+                CompletableFuture<Map<String, String>> cf = cache.get(bucketName, () -> CompletableFuture.completedFuture(new HashMap<String, String>()));
+                if (cf.isDone()) {
+                    return cf.get();
+                } else {
+                    return new HashMap<>();
+                }
+            } catch (Exception e) {
+                LOG.error("Error polling bucket metadata cache", e);
+            }
+
+            return new HashMap<>();
         }
 
-        void refresh() {
+        void scheduleRefresh(boolean deferrable) {
             try {
-                metadataCache = config.listVolumes(S3Endpoint.FDS_S3)
+                config.listVolumes(S3Endpoint.FDS_S3)
                         .stream()
-                        .collect(Collectors.<VolumeDescriptor, String, Map<String, String>>toMap(
-                                vd -> vd.getName(),
-                                vd -> {
-                                    String systemVolume = XdiConfigurationApi.systemFolderName(vd.getTenantId());
-                                    String blobName = makeBucketAclBlobName(vd.getVolId());
-                                    try {
-                                        BlobDescriptor blobDescriptor = am.statBlob(S3Endpoint.FDS_S3, systemVolume, blobName);
-                                        return blobDescriptor.getMetadata();
-                                    } catch (ApiException e) {
-                                        return new HashMap<>();
-                                    } catch (Exception e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                }));
+                        .forEach(vd -> {
+                            String systemVolume = XdiConfigurationApi.systemFolderName(vd.getTenantId());
+                            String blobName = makeBucketAclBlobName(vd.getVolId());
+                            CompletableFuture<BlobDescriptor> blobFuture = am.statBlob(S3Endpoint.FDS_S3, systemVolume, blobName)
+                                    .exceptionally(e -> new BlobDescriptor(vd.getName(), 0, new HashMap<String, String>()));
+                            CompletableFuture<Map<String, String>> cf = blobFuture.thenApply(bd -> bd.getMetadata());
+                            cache.put(vd.getName(), cf);
+                        });
             } catch (TException e) {
                 throw new RuntimeException(e);
             }
+
+            if (!deferrable) cache.asMap().keySet().forEach(k -> {
+                try {
+                    cache.getIfPresent(k).get();
+                } catch (Exception e) {
+                    LOG.error("Error updating cache entry", e);
+                    cache.put(k, CompletableFuture.completedFuture(new HashMap<String, String>()));
+                }
+            });
         }
     }
-
 }

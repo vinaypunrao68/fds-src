@@ -59,17 +59,10 @@
     tags:
       - install-deps
 
--   name: uninstall fds-deps
-    apt: name=fds-deps
-        state=absent
-        purge=yes
-    tags:
-        - uninstall
-
 -   name: install fds-deps package
     apt: name=fds-deps
         force=yes
-        state=present
+        state=latest
         update_cache=yes
     tags:
         - install-deps

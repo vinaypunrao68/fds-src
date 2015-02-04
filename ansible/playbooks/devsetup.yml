@@ -140,3 +140,21 @@
 
     - name: update_java_alternatives
       alternatives: name=java path=/usr/lib/jvm/java-8-oracle/jre/bin/java
+
+    - name: create omnibus install directory for fds-platform
+      file: path=/fds
+        owner=root
+        mode=0777
+        state=directory
+
+    - name: create omnibus install directory for fds-platform
+      file: path=/opt/fds-deps
+        owner=root
+        mode=0777
+        state=directory
+
+    - name: create omnibus cache directory with liberal permissions
+      file: path=/var/cache/omnibus
+        owner=root
+        mode=0777
+        state=directory
