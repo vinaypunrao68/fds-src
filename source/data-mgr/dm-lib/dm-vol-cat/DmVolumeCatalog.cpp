@@ -14,7 +14,7 @@
 
 #include <dm-vol-cat/DmPersistVolDB.h>
 #include <dm-vol-cat/DmPersistVolFile.h>
-#include <dm-vol-cat/DmVolumeDirectory.h>
+#include <dm-vol-cat/DmVolumeCatalog.h>
 
 #define GET_VOL(volId) \
         DmPersistVolDir::ptr vol; \

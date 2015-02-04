@@ -9,7 +9,7 @@
 
 #include <fds_process.h>
 #include <dm-tvc/CommitLog.h>
-#include <dm-vol-cat/DmPersistVolDir.h>
+#include <dm-vol-cat/DmPersistVc.h>
 
 namespace fds {
 

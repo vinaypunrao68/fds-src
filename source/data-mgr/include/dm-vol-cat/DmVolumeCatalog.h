@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMEDIRECTORY_H_
-#define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMEDIRECTORY_H_
+#ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMECATALOG_H_
+#define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMECATALOG_H_
 
 #include <string>
 #include <set>
@@ -17,7 +17,7 @@
 #include <VcQueryIface.h>
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
-#include <dm-vol-cat/DmPersistVolDir.h>
+#include <dm-vol-cat/DmPersistVc.h>
 
 namespace fds {
 
@@ -244,4 +244,4 @@ class DmVolumeDirectory : public Module, public HasLogger,
     fds_mutex lockVolSummaryMap_;
 };
 }  // namespace fds
-#endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMEDIRECTORY_H_
+#endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMECATALOG_H_

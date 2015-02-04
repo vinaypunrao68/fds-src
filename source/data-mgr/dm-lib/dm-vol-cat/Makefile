@@ -10,8 +10,8 @@ user_cpp_flags    :=
 user_cpp          := \
 	DmVcCache.cpp \
 	DmExtentTypes.cpp \
-	DmVolumeDirectory.cpp \
-	DmPersistVolDir.cpp \
+	DmVolumeCatalog.cpp \
+	DmPersistVc.cpp \
 	DmPersistVolDB.cpp \
 	DmOIDArrayMmap.cpp \
 	DmPersistVolFile.cpp

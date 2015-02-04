@@ -13,7 +13,7 @@
 #include <fds_config.hpp>
 #include <DmBlobTypes.h>
 #include <dm-tvc/CommitLog.h>
-#include <dm-vol-cat/DmVolumeDirectory.h>
+#include <dm-vol-cat/DmVolumeCatalog.h>
 #include <util/Log.h>
 #include <util/timeutils.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>

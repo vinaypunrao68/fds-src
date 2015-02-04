@@ -13,7 +13,7 @@
 
 #include <string>
 #include <fds_process.h>
-#include <dm-vol-cat/DmVolumeDirectory.h>
+#include <dm-vol-cat/DmVolumeCatalog.h>
 
 namespace fds {
 
