@@ -13,26 +13,13 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     name = volinfo.vol_name;
     tennantId = volinfo.tennantId;
     localDomainId = volinfo.localDomainId;
-    globDomainId = volinfo.globDomainId;
     volUUID = vol_uuid;
     volType = volinfo.volType;
     maxObjSizeInBytes = volinfo.maxObjSizeInBytes;
     capacity = volinfo.capacity;
-    maxQuota = volinfo.maxQuota;
-    replicaCnt = volinfo.defReplicaCnt;
-    writeQuorum = volinfo.defWriteQuorum;
-    readQuorum = volinfo.defReadQuorum;
-    consisProtocol = volinfo.defConsisProtocol;
     volPolicyId = volinfo.volPolicyId;
-    archivePolicyId = volinfo.archivePolicyId;
     placementPolicy = volinfo.placementPolicy;
-    appWorkload = volinfo.appWorkload;
-    backupVolume = volinfo.backupVolume;
     mediaPolicy = volinfo.mediaPolicy;
-    /// FDSP_VolumeInfoTypePtr does not contain policy details
-    // but it is so far only called in orchMgr where policy
-    // details are explicitly set after the construction, so
-    // just fill in zeros here
     iops_min = 0;
     iops_max = 0;
     iops_guarantee = 0;
@@ -41,8 +28,6 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
         GLOGWARN << "volume id is invalid";
     }
     fSnapshot = volinfo.fSnapshot;
-    srcVolumeId = volinfo.srcVolumeId;
-    qosQueueId = volinfo.qosQueueId;
     contCommitlogRetention = volinfo.contCommitlogRetention;
     timelineTime = volinfo.timelineTime;
     createTime   = volinfo.createTime;
@@ -52,29 +37,18 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     name = vdesc.name;
     tennantId = vdesc.tennantId;
     localDomainId = vdesc.localDomainId;
-    globDomainId = vdesc.globDomainId;
     volUUID = vdesc.volUUID;
     volType = vdesc.volType;
     maxObjSizeInBytes = vdesc.maxObjSizeInBytes;
     capacity = vdesc.capacity;
-    maxQuota = vdesc.maxQuota;
-    replicaCnt = vdesc.replicaCnt;
-    writeQuorum = vdesc.writeQuorum;
-    readQuorum = vdesc.readQuorum;
-    consisProtocol = vdesc.consisProtocol;
     volPolicyId = vdesc.volPolicyId;
-    archivePolicyId = vdesc.archivePolicyId;
     placementPolicy = vdesc.placementPolicy;
-    appWorkload = vdesc.appWorkload;
-    backupVolume = vdesc.backupVolume;
     mediaPolicy = vdesc.mediaPolicy;
     iops_min = vdesc.iops_min;
     iops_max = vdesc.iops_max;
     iops_guarantee = vdesc.iops_guarantee;
     relativePrio = vdesc.relativePrio;
     fSnapshot = vdesc.fSnapshot;
-    srcVolumeId = vdesc.srcVolumeId;
-    qosQueueId = vdesc.qosQueueId;
     state = vdesc.state;
     contCommitlogRetention = vdesc.contCommitlogRetention;
     timelineTime = vdesc.timelineTime;
@@ -87,29 +61,18 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     name = voldesc.vol_name;
     tennantId = voldesc.tennantId;
     localDomainId = voldesc.localDomainId;
-    globDomainId = voldesc.globDomainId;
     volUUID = voldesc.volUUID;
     volType = voldesc.volType;
     maxObjSizeInBytes = voldesc.maxObjSizeInBytes;
     capacity = voldesc.capacity;
-    maxQuota = voldesc.maxQuota;
-    replicaCnt = voldesc.defReplicaCnt;
-    writeQuorum = voldesc.defWriteQuorum;
-    readQuorum = voldesc.defReadQuorum;
-    consisProtocol = voldesc.defConsisProtocol;
     volPolicyId = voldesc.volPolicyId;
-    archivePolicyId = voldesc.archivePolicyId;
     placementPolicy = voldesc.placementPolicy;
-    appWorkload = voldesc.appWorkload;
-    backupVolume = voldesc.backupVolume;
     mediaPolicy = voldesc.mediaPolicy;
     iops_min = voldesc.iops_min;
     iops_max = voldesc.iops_max;
     iops_guarantee = voldesc.iops_guarantee;
     relativePrio = voldesc.rel_prio;
     fSnapshot = voldesc.fSnapshot;
-    srcVolumeId = voldesc.srcVolumeId;
-    qosQueueId = voldesc.qosQueueId;
     state = voldesc.state;
     contCommitlogRetention = voldesc.contCommitlogRetention;
     timelineTime = voldesc.timelineTime;
@@ -131,27 +94,16 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
 
     tennantId = 0;
     localDomainId = 0;
-    globDomainId = 0;
     volType = fpi::FDSP_VOL_S3_TYPE;
     maxObjSizeInBytes = 0;
     capacity = 0;
-    maxQuota = 0;
-    replicaCnt = 0;
-    writeQuorum = 0;
-    readQuorum = 0;
-    consisProtocol = fpi::FDSP_CONS_PROTO_STRONG;
     volPolicyId = 0;
-    archivePolicyId = 0;
     placementPolicy = 0;
-    appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
     mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
-    backupVolume = 0;
     iops_min = 0;
     iops_max = 0;
     iops_guarantee = 0;
     fSnapshot = false;
-    srcVolumeId = invalid_vol_id;
-    qosQueueId = invalid_vol_id;
     relativePrio = 0;
     contCommitlogRetention = 0;
     timelineTime = 0;
@@ -176,24 +128,13 @@ VolumeDesc::VolumeDesc(const std::string& _name,
 
     tennantId = 0;
     localDomainId = 0;
-    globDomainId = 0;
     volType = fpi::FDSP_VOL_S3_TYPE;
     maxObjSizeInBytes = 0;
     capacity = 0;
-    maxQuota = 0;
-    replicaCnt = 0;
-    writeQuorum = 0;
-    readQuorum = 0;
-    consisProtocol = fpi::FDSP_CONS_PROTO_STRONG;
     volPolicyId = 0;
-    archivePolicyId = 0;
     placementPolicy = 0;
     fSnapshot = false;
-    srcVolumeId = invalid_vol_id;
-    qosQueueId = invalid_vol_id;
-    appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
     mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
-    backupVolume = 0;
     contCommitlogRetention = 0;
     timelineTime = 0;
     createTime = 0;
@@ -249,25 +190,15 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
     this->name = volinfo.name;
     this->tennantId = volinfo.tennantId;
     this->localDomainId = volinfo.localDomainId;
-    this->globDomainId = volinfo.globDomainId;
     this->volUUID = volinfo.volUUID;
     this->volType = volinfo.volType;
     this->maxObjSizeInBytes = volinfo.maxObjSizeInBytes;
     this->capacity = volinfo.capacity;
-    this->maxQuota = volinfo.maxQuota;
-    this->replicaCnt = volinfo.replicaCnt;
-    this->writeQuorum = volinfo.writeQuorum;
-    this->readQuorum = volinfo.readQuorum;
-    this->consisProtocol = volinfo.consisProtocol;
+
     this->volPolicyId = volinfo.volPolicyId;
-    this->archivePolicyId = volinfo.archivePolicyId;
     this->placementPolicy = volinfo.placementPolicy;
-    this->appWorkload = volinfo.appWorkload;
     this->mediaPolicy = volinfo.mediaPolicy;
-    this->backupVolume = volinfo.backupVolume;
     this->fSnapshot = volinfo.fSnapshot;
-    this->srcVolumeId = volinfo.srcVolumeId;
-    this->qosQueueId = volinfo.qosQueueId;
     this->contCommitlogRetention = volinfo.contCommitlogRetention;
     this->timelineTime = volinfo.timelineTime;
     this->createTime = volinfo.createTime;
@@ -294,28 +225,17 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " name:" << vol.name
               << " tenant:" << vol.tennantId
               << " localdomain:" <<vol.localDomainId
-              << " global.domain:" << vol.globDomainId
               << " type:" << vol.volType
               << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
               << " capacity:" << vol.capacity
-              << " quota:" << vol.maxQuota
-              << " replica:" << vol.replicaCnt
-              << " write.quorum:" << vol.writeQuorum
-              << " read.quorum:" << vol.readQuorum
-              << " consis.proto:" << vol.consisProtocol
               << " vol.policy.id:" << vol.volPolicyId
-              << " archive.policy.id:" << vol.archivePolicyId
               << " media.policy:" << vol.mediaPolicy
               << " placement.policy:" << vol.placementPolicy
-              << " app.workload:" << vol.appWorkload
-              << " backup.vol:" << vol.backupVolume
               << " iops.min:" << vol.iops_min
               << " iops.max:" << vol.iops_max
               << " iops.guarantee:" << vol.iops_guarantee
               << " rel.prio:" << vol.relativePrio
               << " isSnapshot:" << vol.fSnapshot
-              << " srcVolumeId:" << vol.srcVolumeId
-              << " qosQueueId:" << vol.qosQueueId
               << " state:" << vol.getState()
               << " qosQueueId:" << vol.contCommitlogRetention
               << " timelineTime:" << vol.timelineTime

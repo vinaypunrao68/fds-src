@@ -816,13 +816,10 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->volUUID       = pVol->volUUID;
     pkt->tennantId     = pVol->tennantId;
     pkt->localDomainId = pVol->localDomainId;
-    pkt->globDomainId  = pVol->globDomainId;
 
     pkt->maxObjSizeInBytes = pVol->maxObjSizeInBytes;
     pkt->capacity      = pVol->capacity;
     pkt->volType       = pVol->volType;
-    pkt->maxQuota      = pVol->maxQuota;
-    pkt->defReplicaCnt = pVol->replicaCnt;
 
     pkt->volPolicyId   = pVol->volPolicyId;
     pkt->iops_max      = pVol->iops_max;
@@ -830,12 +827,8 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->iops_guarantee      = pVol->iops_guarantee;
     pkt->rel_prio      = pVol->relativePrio;
 
-    pkt->defConsisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
-    pkt->appWorkload       = pVol->appWorkload;
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
-    pkt->srcVolumeId   = pVol->srcVolumeId;
-    pkt->qosQueueId   = pVol->qosQueueId;
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
 }
