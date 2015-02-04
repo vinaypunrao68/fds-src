@@ -109,31 +109,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
      netDataPathServerSession *datapath_session_;
 
-     /* To indicate whether tokens were migrated or not for the dlt. Based on this
-      * flag we simulate sync/io close notification to OM.  We shouldn't need this
-      * flag once we start doing per token copy/syncs
-      */
-     bool tok_migrated_for_dlt_;
-
      /** Helper for accessing datapth response client */
      DPRespClientPtr fdspDataPathClient(const std::string& session_uuid);
-
-     /*
-      * Service UUID to Session UUID mapping stuff. Used to support
-      * proxying where SM doesn't know the session UUID because it
-      * was proxyed from another node. We can use service UUID instead.
-      */
-     typedef std::string SessionUuid;
-     typedef std::unordered_map<NodeUuid, SessionUuid, UuidHash> SvcToSessMap;
-     /** Maps service UUIDs to established session id */
-     SvcToSessMap svcSessMap;
-     /** Protects the service to session map */
-     fds_rwlock svcSessLock;
-     /** Stores mapping from service uuid to session uuid */
-     void addSvcMap(const NodeUuid    &svcUuid,
-                    const SessionUuid &sessUuid);
-     SessionUuid getSvcSess(const NodeUuid &svcUuid);
-
      NodeAgentDpClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
 
      /*

@@ -411,26 +411,6 @@ int ObjectStorMgr::run()
     return 0;
 }
 
-void
-ObjectStorMgr::addSvcMap(const NodeUuid    &svcUuid,
-                         const SessionUuid &sessUuid) {
-    svcSessLock.write_lock();
-    LOGNORMAL << "NodeUuid: " << svcUuid.uuid_get_val() << ", Session Uuid: " << sessUuid;
-    svcSessMap[svcUuid] = sessUuid;
-    svcSessLock.write_unlock();
-}
-
-ObjectStorMgr::SessionUuid
-ObjectStorMgr::getSvcSess(const NodeUuid &svcUuid) {
-    SessionUuid sessId;
-    svcSessLock.read_lock();
-    fds_verify(svcSessMap.count(svcUuid) > 0);
-    sessId = svcSessMap[svcUuid];
-    svcSessLock.read_unlock();
-
-    return sessId;
-}
-
 DPRespClientPtr
 ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
     return datapath_session_->getRespClient(session_uuid);
