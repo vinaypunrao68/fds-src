@@ -65,6 +65,8 @@
     gather_facts: true
     sudo: true
     vars:
+        data_vg_name: datavg01
+        data_vol_name: datalv01
         this_is_an_ec2_node: true
         influxdb_version: 0.8.8
 
@@ -74,4 +76,60 @@
             dest=/root/influxdb_{{ influxdb_version }}_amd64.deb
             sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
 
+    -   name: create influxdb user and group
+        group: name=influxdb
 
+    -   user: name=influxdb
+            createhome=no
+            group=influxdb
+
+    -   name: check for data LogVol presence
+        stat: path=/dev/mapper/{{data_vg_name}}-{{data_vol_name}}
+        register: data_vol
+
+    -   name: create /opt/influxdb with root ownership
+        when: not data_vol.stat.exists
+        file: path=/opt/influxdb
+            state=directory
+            owner=root
+            group=root
+            mode=0755
+
+    -   name: install lvm2
+        apt: name=lvm2
+            state=present
+
+    -   name: set up data VolGroup
+        lvg: vg={{data_vg_name}}
+            pvs=/dev/xvdb
+            state=present
+
+    -   name: set up data LogVol
+        lvol: lv={{data_vol_name}}
+            vg={{data_vg_name}}
+            size=100%FREE
+
+    -   name: create ext4 filesystem on data volume
+        filesystem: dev=/dev/mapper/{{data_vg_name}}-{{data_vol_name}}
+            fstype=ext4
+
+    -   name: mount data volume at /opt/influxdb
+        mount: name=/opt/influxdb
+            src=/dev/mapper/{{data_vg_name}}-{{data_vol_name}}
+            fstype=ext4
+            state=mounted
+
+    -   name: fix ownership of /opt/influxdb
+        file: path=/opt/influxdb
+            state=directory
+            owner=influxdb
+            group=influxdb
+            mode=0755
+
+    -   name: install InfluxDB
+        apt: deb=/root/influxdb_{{ influxdb_version }}_amd64.deb
+
+    -   name: ensure InfluxDB service is started
+        service: name=influxdb
+            state=started
+            enabled=yes
