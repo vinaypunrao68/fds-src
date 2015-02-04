@@ -416,8 +416,6 @@ class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
      }
 
      /* user defined methods */
-     void GetObjectMetadataCb(const Error &e, SmIoReadObjectMetadata *read_data);
-
      void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
                                  const FDSP_MsgHdrType& fdsp_msg) {
          // Don't do anything here. This stub is just to keep cpp compiler happy

@@ -90,12 +90,6 @@ void ObjectStorMgrI::GetObjectMetadata(
     // This should never be called
     fds_assert(1 == 0);
 }
-void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
-        SmIoReadObjectMetadata *read_data)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
 
 void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
             boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
