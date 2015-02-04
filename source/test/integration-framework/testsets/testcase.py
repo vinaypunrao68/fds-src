@@ -12,25 +12,20 @@ import config
 import config_parser
 import s3
 import testsets.testcases.fdslib.TestUtils as TestUtils
-
+import utils
 
 class FDSTestCase(unittest.TestCase):
 
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
-    s3conn = s3.S3Connection(
-                        config.FDS_DEFAULT_KEY_ID,
-                        config.FDS_DEFAULT_SECRET_ACCESS_KEY,
-                        config.FDS_DEFAULT_HOST,
-                        config.FDS_AUTH_DEFAULT_PORT,       
-                      )
+
     param = s3.TestParameters(config.FDS_DEFAULT_BUCKET_NAME,
                               config.FDS_DEFAULT_BUCKET_PREFIX,
                               config.FDS_DEFAULT_KEY_NAME,
                               config.FDS_DEFAULT_KEYS_COUNT,
                               config.FDS_DEFAULT_FILE_PATH,
                               config.TEST_DEBUG)
-        
+
     def __init__(self, parameters=None, config_file=None, test_failure=False,
                  om_ip_address=None):
         """
@@ -49,10 +44,22 @@ class FDSTestCase(unittest.TestCase):
         self.test_failure = test_failure
         self.config = {}
         self.om_ip_address = om_ip_address
+
+        #Get the user token
+        auth_token = str(utils.get_user_token(config.FDS_DEFAULT_ADMIN_USER,
+                            config.FDS_DEFAULT_ADMIN_PASS,
+                            self.om_ip_address, config.FDS_REST_PORT, 0, 1))
+
+        self.s3conn = s3.S3Connection(
+                     config.FDS_DEFAULT_ADMIN_USER,
+                     auth_token,
+                     self.om_ip_address,
+                     config.FDS_S3_PORT)
+
         if parameters:
             self.parameters = parameters
         else:
-            #self.parameters = TestUtils.get_config(True, config.pyUnitConfig, 
+            #self.parameters = TestUtils.get_config(True, config.pyUnitConfig,
             #                                       False, False,
             #                                       False, "passwd")
             self.parameters = {}
@@ -61,7 +68,7 @@ class FDSTestCase(unittest.TestCase):
         if config_file:
             self.config_file = config_parser.parse(config_file,
                                                    config.CONFIG_DIR)
-        
+
     def tearDown(self):
         """
         When run by the PyUnit test runner,
