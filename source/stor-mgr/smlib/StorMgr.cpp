@@ -1048,8 +1048,6 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     qosCtrl->markIODone(*cobjs_req, diskio::diskTier);
 
     cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
-
-    delete cobjs_req;
 }
 
 void
