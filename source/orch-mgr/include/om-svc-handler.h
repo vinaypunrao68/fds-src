@@ -51,6 +51,10 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
     SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlSvcEvent> &msg);
 
+    virtual void
+    GetSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
+
   protected:
     OM_NodeDomainMod         *om_mod;
     EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
