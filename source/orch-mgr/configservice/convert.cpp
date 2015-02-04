@@ -22,15 +22,12 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     request->vol_name = volume;
 
     request->vol_info.vol_name = volume;
-    request->vol_info.localDomainId = 1;
 
     request->vol_info.tennantId = 0;
     request->vol_info.localDomainId = 0;
-    request->vol_info.globDomainId = 0;
 
     // Volume capacity is in MB
     request->vol_info.capacity = volSettings.blockDeviceSizeInBytes / (1024 * 1024);
-    request->vol_info.maxQuota = 0;
     request->vol_info.maxObjSizeInBytes =
             volSettings.maxObjectSizeInBytes;
     request->vol_info.contCommitlogRetention = volSettings.contCommitlogRetention;
@@ -49,16 +46,9 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
             fds_panic("Unknown connector type!");
     }
 
-    request->vol_info.defReplicaCnt = 0;
-    request->vol_info.defWriteQuorum = 0;
-    request->vol_info.defReadQuorum = 0;
-    request->vol_info.defConsisProtocol = fpi::FDSP_CONS_PROTO_STRONG;
-
     // TODO(Andrew): Don't hard code to policy 50
     request->vol_info.volPolicyId = 50;
-    request->vol_info.archivePolicyId = 0;
     request->vol_info.placementPolicy = 0;
-    request->vol_info.appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
     request->vol_info.mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     request->vol_info.createTime = util::getTimeStampMillis();
 }

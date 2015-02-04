@@ -448,7 +448,6 @@ struct EmptyMsg {
 /* ----------------------  CtrlNotifyVolAddTypeId  ----------------------------- */
 struct CtrlNotifyVolAdd {
      1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
-     2: FDSP.FDSP_VolumeInfoType  vol_info;
      3: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 
@@ -467,7 +466,6 @@ struct CtrlNotifyVolMod {
 /* ----------------------  CtrlNotifySnapVolTypeId  ---------------------------- */
 struct CtrlNotifySnapVol {
      1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
-     2: FDSP.FDSP_VolumeInfoType  vol_info;
      3: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 
