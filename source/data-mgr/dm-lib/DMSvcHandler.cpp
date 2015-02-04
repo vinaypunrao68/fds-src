@@ -375,8 +375,21 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     Error err(ERR_OK);
     LOGDEBUG << "Got abort migration, reverting to DMT version" << abortMsg->DMT_version;
 
+
+    // revert to DMT version provided in abort message ??
+    // need to discuss semantics here
+    if (abortMsg->DMT_version > 0) {
+        // dataMgr->omClient->getDmtManager()->setCurrent(abortMsg->DMT_version);
+    }
+
     // Tell the DMT manager
     err = dataMgr->catSyncMgr->abortMigration();
+
+    // TODO(xxx): make abort cb
+    fpi::CtrlNotifyDMAbortMigrationPtr msg(new fpi::CtrlNotifyDMAbortMigration());
+    msg->DMT_version = abortMsg->DMT_version;
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMAbortMigration), *msg);
 }
 
 }  // namespace fds
