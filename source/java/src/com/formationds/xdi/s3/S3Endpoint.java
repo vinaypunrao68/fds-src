@@ -50,6 +50,13 @@ public class S3Endpoint {
     }
 
     public void start() {
+        syncRoute(new HttpPath(HttpMethod.GET, "/:bucket/:object")
+                        .withUrlParam("uploadId"),
+                (t) -> new MultiPartListParts(xdi, t));
+
+        webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
+                executeAsync(ctx, new AsyncGetObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
+
         syncRoute(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi, t));
 
         syncRoute(new HttpPath(HttpMethod.PUT, "/:bucket")
@@ -88,13 +95,6 @@ public class S3Endpoint {
                 .withUrlParam("uploadId"), (t) -> new MultiPartUploadComplete(xdi, t));
 
         syncRoute(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObjectUpload(xdi, t));
-
-        syncRoute(new HttpPath(HttpMethod.GET, "/:bucket/:object")
-                        .withUrlParam("uploadId"),
-                (t) -> new MultiPartListParts(xdi, t));
-
-        webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, new AsyncGetObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
 
         syncRoute(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         syncRoute(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
