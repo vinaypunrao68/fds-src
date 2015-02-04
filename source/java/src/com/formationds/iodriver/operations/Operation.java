@@ -1,16 +1,12 @@
 package com.formationds.iodriver.operations;
 
-import com.formationds.commons.patterns.Visitable;
+import com.formationds.commons.patterns.VisitableWithArg;
 import com.formationds.iodriver.endpoints.Endpoint;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+// @eclipseFormat:off
 public abstract class Operation<ThisT extends Operation<ThisT, EndpointT>,
                                 EndpointT extends Endpoint<EndpointT, ThisT>>
-implements Visitable<EndpointT, ThisT, ExecutionException>
-{
-    public int getCost()
-    {
-        return 1;
-    }
-    
-    public abstract void accept(EndpointT endpoint) throws ExecutionException;
-}
+implements VisitableWithArg<EndpointT, ThisT, WorkflowEventListener, ExecutionException>
+//@eclipseFormat:on
+{}

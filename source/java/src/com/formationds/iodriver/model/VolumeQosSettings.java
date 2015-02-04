@@ -19,18 +19,46 @@ public final class VolumeQosSettings
         _mediaPolicy = mediaPolicy;
     }
 
-    public long getCommitLogRetention() { return _commit_log_retention; }
-    
-    public long getId() { return _id; }
-    
-    public int getIopsAssured() { return _iops_assured; }
-    
-    public int getIopsThrottle() { return _iops_throttle; }
-    
-    public MediaPolicy getMediaPolicy() { return _mediaPolicy; }
-    
-    public int getPriority() { return _priority; }
-    
+    public VolumeQosSettings copy()
+    {
+        return new VolumeQosSettings(_id,
+                                     _iops_assured,
+                                     _iops_throttle,
+                                     _priority,
+                                     _commit_log_retention,
+                                     _mediaPolicy);
+    }
+
+    public long getCommitLogRetention()
+    {
+        return _commit_log_retention;
+    }
+
+    public long getId()
+    {
+        return _id;
+    }
+
+    public int getIopsAssured()
+    {
+        return _iops_assured;
+    }
+
+    public int getIopsThrottle()
+    {
+        return _iops_throttle;
+    }
+
+    public MediaPolicy getMediaPolicy()
+    {
+        return _mediaPolicy;
+    }
+
+    public int getPriority()
+    {
+        return _priority;
+    }
+
     private final long _commit_log_retention;
 
     private final long _id;

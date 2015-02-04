@@ -8,7 +8,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 public final class StatBucketVolume extends S3Operation
 {
@@ -21,15 +21,19 @@ public final class StatBucketVolume extends S3Operation
     }
 
     @Override
-    public void exec(S3Endpoint endpoint, AmazonS3Client client, VerificationReporter reporter) throws ExecutionException
+    // @eclipseFormat:off
+    public void exec(S3Endpoint endpoint,
+                     AmazonS3Client client,
+                     WorkflowEventListener listener) throws ExecutionException
+    // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (client == null) throw new NullArgumentException("client");
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (listener == null) throw new NullArgumentException("listener");
 
         OrchestrationManagerEndpoint omEndpoint = endpoint.getOmEndpoint();
 
-        omEndpoint.doVisit(_statVolumeOp);
+        omEndpoint.doVisit(_statVolumeOp, listener);
     }
 
     private final StatVolume _statVolumeOp;

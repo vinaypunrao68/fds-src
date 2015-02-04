@@ -4,14 +4,14 @@ import com.amazonaws.services.s3.AmazonS3Client;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 public class LambdaS3Operation extends S3Operation
 {
     @FunctionalInterface
     public interface Delegate
     {
-        void exec(S3Endpoint endpoint, AmazonS3Client client, VerificationReporter reporter) throws ExecutionException;
+        void exec(S3Endpoint endpoint, AmazonS3Client client, WorkflowEventListener reporter) throws ExecutionException;
     }
 
     public LambdaS3Operation(Runnable action)
@@ -27,7 +27,7 @@ public class LambdaS3Operation extends S3Operation
     }
     
     @Override
-    public void exec(S3Endpoint endpoint, AmazonS3Client client, VerificationReporter reporter) throws ExecutionException
+    public void exec(S3Endpoint endpoint, AmazonS3Client client, WorkflowEventListener reporter) throws ExecutionException
     {
         _delegate.exec(endpoint, client, reporter);
     }

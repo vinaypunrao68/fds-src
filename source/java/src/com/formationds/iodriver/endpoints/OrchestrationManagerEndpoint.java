@@ -16,11 +16,12 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.OrchestrationManagerOperation;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+// @eclipseFormat:off
 public final class OrchestrationManagerEndpoint
-                                               extends
-                                               AbstractHttpsEndpoint<OrchestrationManagerEndpoint, OrchestrationManagerOperation>
+    extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint, OrchestrationManagerOperation>
+// @eclipseFormat:on
 {
     public static class AuthToken
     {
@@ -44,10 +45,9 @@ public final class OrchestrationManagerEndpoint
                                         String username,
                                         String password,
                                         Logger logger,
-                                        boolean trusting,
-                                        VerificationReporter reporter) throws MalformedURLException
+                                        boolean trusting) throws MalformedURLException
     {
-        super(uri, logger, trusting, reporter);
+        super(uri, logger, trusting);
 
         if (username == null) throw new NullArgumentException("username");
         if (password == null) throw new NullArgumentException("password");

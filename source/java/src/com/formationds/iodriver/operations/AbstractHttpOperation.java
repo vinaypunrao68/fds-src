@@ -5,7 +5,7 @@ import java.net.URI;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.AbstractHttpEndpoint;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 // @eclipseFormat:off
 public abstract class AbstractHttpOperation<
@@ -15,16 +15,17 @@ extends Operation<ThisT, EndpointT>
 // @eclipseFormat:on
 {
     @Override
-    public void accept(EndpointT endpoint) throws ExecutionException
+    public void accept(EndpointT endpoint, WorkflowEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (listener == null) throw new NullArgumentException("listener");
 
-        endpoint.visit(getThis());
+        endpoint.visit(getThis(), listener);
     }
 
     public abstract void exec(EndpointT endpoint,
                               HttpURLConnection connection,
-                              VerificationReporter reporter) throws ExecutionException;
+                              WorkflowEventListener reporter) throws ExecutionException;
 
     public URI getRelativeUri()
     {

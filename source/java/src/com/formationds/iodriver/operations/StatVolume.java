@@ -15,7 +15,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 public final class StatVolume extends OrchestrationManagerOperation
 {
@@ -31,7 +31,7 @@ public final class StatVolume extends OrchestrationManagerOperation
     @Override
     public void exec(OrchestrationManagerEndpoint endpoint,
                      HttpsURLConnection connection,
-                     VerificationReporter reporter) throws ExecutionException
+                     WorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");

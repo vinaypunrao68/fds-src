@@ -14,36 +14,37 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.AbstractHttpOperation;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
-public abstract class AbstractHttpsEndpoint<ThisT extends AbstractHttpsEndpoint<ThisT, OperationT>, OperationT extends AbstractHttpOperation<OperationT, ThisT>>
-                                                                                                                                                                 extends
-                                                                                                                                                                 AbstractHttpEndpoint<ThisT, OperationT>
+// @eclipseFormat:off
+public abstract class AbstractHttpsEndpoint<
+        ThisT extends AbstractHttpsEndpoint<ThisT, OperationT>,
+        OperationT extends AbstractHttpOperation<OperationT, ThisT>>
+extends AbstractHttpEndpoint<ThisT, OperationT>
+// @eclipseFormat:on
 {
-    public AbstractHttpsEndpoint(URI uri, Logger logger, VerificationReporter reporter) throws MalformedURLException
+    public AbstractHttpsEndpoint(URI uri, Logger logger) throws MalformedURLException
     {
-        this(toUrl(uri), logger, reporter);
+        this(toUrl(uri), logger);
     }
 
     public AbstractHttpsEndpoint(URI uri,
                                  Logger logger,
-                                 boolean trusting,
-                                 VerificationReporter reporter) throws MalformedURLException
+                                 boolean trusting) throws MalformedURLException
     {
-        this(toUrl(uri), logger, trusting, reporter);
+        this(toUrl(uri), logger, trusting);
     }
 
-    public AbstractHttpsEndpoint(URL url, Logger logger, VerificationReporter reporter)
+    public AbstractHttpsEndpoint(URL url, Logger logger)
     {
-        this(url, logger, false, reporter);
+        this(url, logger, false);
     }
 
     public AbstractHttpsEndpoint(URL url,
                                  Logger logger,
-                                 boolean trusting,
-                                 VerificationReporter reporter)
+                                 boolean trusting)
     {
-        super(url, logger, reporter);
+        super(url, logger);
 
         String scheme = url.getProtocol();
         if (scheme == null || !scheme.equalsIgnoreCase("https"))

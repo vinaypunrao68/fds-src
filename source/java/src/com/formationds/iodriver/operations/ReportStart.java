@@ -3,7 +3,7 @@ package com.formationds.iodriver.operations;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 public class ReportStart extends S3Operation
 {
@@ -15,7 +15,7 @@ public class ReportStart extends S3Operation
     }
 
     @Override
-    public void exec(S3Endpoint endpoint, AmazonS3Client client, VerificationReporter reporter) throws ExecutionException
+    public void exec(S3Endpoint endpoint, AmazonS3Client client, WorkflowEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (client == null) throw new NullArgumentException("client");

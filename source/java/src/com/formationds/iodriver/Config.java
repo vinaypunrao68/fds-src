@@ -11,7 +11,8 @@ import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.QosValidator;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.workloads.S3QosTestWorkload;
 
 public final class Config
@@ -23,20 +24,24 @@ public final class Config
             return _endpoint;
         }
 
+        public static WorkflowEventListener getListener()
+        {
+            return _listener;
+        }
+        
         public static Logger getLogger()
         {
             return _logger;
         }
 
-        public static VerificationReporter getReporter()
+        public static QosValidator getValidator()
         {
-            return _reporter;
+            return _validator;
         }
 
         static
         {
             Logger newLogger = new ConsoleLogger();
-            VerificationReporter newReporter = new VerificationReporter();
 
             try
             {
@@ -46,18 +51,17 @@ public final class Config
                                                                         "admin",
                                                                         "admin",
                                                                         newLogger,
-                                                                        true,
-                                                                        newReporter),
-                                       newLogger,
-                                       newReporter);
+                                                                        true),
+                                       newLogger);
             }
             catch (MalformedURLException e)
             {
                 // Should be impossible.
                 throw new IllegalStateException(e);
             }
+            _listener = new WorkflowEventListener();
             _logger = newLogger;
-            _reporter = newReporter;
+            _validator = new QosValidator();
         }
 
         private Defaults()
@@ -67,9 +71,11 @@ public final class Config
 
         private static final S3Endpoint _endpoint;
 
+        private static final WorkflowEventListener _listener;
+        
         private static final Logger _logger;
 
-        private static final VerificationReporter _reporter;
+        private static final QosValidator _validator;
     }
 
     public Config(String[] args)
@@ -96,10 +102,16 @@ public final class Config
         return _runtimeConfig;
     }
 
-    public VerificationReporter getReporter()
+    public WorkflowEventListener getListener()
     {
         // TODO: ALlow this to be configured.
-        return Defaults.getReporter();
+        return Defaults.getListener();
+    }
+    
+    public Logger getLogger()
+    {
+        // TODO: Allow this to be configured.
+        return Defaults.getLogger();
     }
 
     public int getSystemIopsMax() throws ConfigUndefinedException
@@ -175,6 +187,12 @@ public final class Config
         }
 
         return new S3QosTestWorkload(bucketParams, Duration.ofMinutes(1));
+    }
+    
+    public QosValidator getValidator()
+    {
+        // TODO: Allow this to be configured.
+        return Defaults.getValidator();
     }
 
     private final String[] _args;

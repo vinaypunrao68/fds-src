@@ -60,7 +60,7 @@ public final class ExceptionHelper {
         }
         catch (Throwable t)
         {
-            if (tunnelType.isAssignableFrom(te.getClass()))
+            if (tunnelType.isAssignableFrom(t.getClass()))
             {
                 @SuppressWarnings("unchecked")
                 T typedT = (T)t;

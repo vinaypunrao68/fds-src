@@ -43,6 +43,11 @@ public final class VolumeQosPerformance
         return _ops += ops;
     }
 
+    public VolumeQosPerformance copy()
+    {
+        return new VolumeQosPerformance(_ops, _start, _stop);
+    }
+    
     public int getOps()
     {
         verifyStopped();

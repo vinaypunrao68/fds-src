@@ -22,7 +22,7 @@ import com.formationds.commons.util.functional.ExceptionThrowingFunction;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.AbstractHttpOperation;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.google.common.io.CharStreams;
 import com.google.common.net.MediaType;
 
@@ -33,15 +33,13 @@ public abstract class AbstractHttpEndpoint<
 extends Endpoint<ThisT, OperationT>
 // @eclipseFormat:on
 {
-    public AbstractHttpEndpoint(URI uri, Logger logger, VerificationReporter reporter) throws MalformedURLException
+    public AbstractHttpEndpoint(URI uri, Logger logger) throws MalformedURLException
     {
-        this(toUrl(uri), logger, reporter);
+        this(toUrl(uri), logger);
     }
 
-    public AbstractHttpEndpoint(URL url, Logger logger, VerificationReporter reporter)
+    public AbstractHttpEndpoint(URL url, Logger logger)
     {
-        super(reporter);
-        
         if (url == null) throw new NullArgumentException("url");
         {
             String scheme = url.getProtocol();
@@ -58,16 +56,24 @@ extends Endpoint<ThisT, OperationT>
     }
 
     @Override
-    public void doVisit(OperationT operation) throws ExecutionException
+    // @eclipseFormat:off
+    public void doVisit(OperationT operation,
+                        WorkflowEventListener listener) throws ExecutionException
+    // @eclipseFormat:on
     {
         if (operation == null) throw new NullArgumentException("operation");
+        if (listener == null) throw new NullArgumentException("listener");
 
-        operation.accept(getThis());
+        operation.accept(getThis(), listener);
     }
 
-    public void visit(OperationT operation) throws ExecutionException
+    // @eclipseFormat:off
+    public void visit(OperationT operation,
+                      WorkflowEventListener listener) throws ExecutionException
+    // @eclipseFormat:on
     {
         if (operation == null) throw new NullArgumentException("operation");
+        if (listener == null) throw new NullArgumentException("listener");
 
         HttpURLConnection connection;
         try
@@ -89,7 +95,7 @@ extends Endpoint<ThisT, OperationT>
 
         try
         {
-            operation.exec(getThis(), connection, getReporter());
+            operation.exec(getThis(), connection, listener);
         }
         finally
         {
@@ -119,7 +125,7 @@ extends Endpoint<ThisT, OperationT>
         connection.setDoOutput(true);
 
         putRequest(connection, content, charset);
-        
+
         handleResponse(connection, c -> null);
     }
 

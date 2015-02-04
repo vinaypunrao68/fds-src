@@ -12,17 +12,14 @@ import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint.AuthToken
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.VerificationReporter;
+import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
 {
     public S3Endpoint(String s3url,
                       OrchestrationManagerEndpoint omEndpoint,
-                      Logger logger,
-                      VerificationReporter reporter) throws MalformedURLException
+                      Logger logger) throws MalformedURLException
     {
-        super(reporter);
-        
         if (s3url == null) throw new NullArgumentException("s3url");
         if (omEndpoint == null) throw new NullArgumentException("omEndpoint");
         if (logger == null) throw new NullArgumentException("logger");
@@ -40,11 +37,15 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
     }
 
     @Override
-    public void doVisit(S3Operation operation) throws ExecutionException
+    // @eclipseFormat:off
+    public void doVisit(S3Operation operation,
+                        WorkflowEventListener listener) throws ExecutionException
+    // @eclipseFormat:on
     {
         if (operation == null) throw new NullArgumentException("operation");
+        if (listener == null) throw new NullArgumentException("listener");
 
-        visit(operation);
+        visit(operation, listener);
     }
 
     public OrchestrationManagerEndpoint getOmEndpoint()
@@ -52,13 +53,17 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         return _omEndpoint;
     }
 
-    public void visit(S3Operation operation) throws ExecutionException
+    // @eclipseFormatter:off
+    public void visit(S3Operation operation,
+                      WorkflowEventListener listener) throws ExecutionException
+    // @eclipseFormatter:on
     {
         if (operation == null) throw new NullArgumentException("operation");
+        if (listener == null) throw new NullArgumentException("listener");
 
         try
         {
-            operation.exec(this, getClient(), getReporter());
+            operation.exec(this, getClient(), listener);
         }
         catch (IOException e)
         {
