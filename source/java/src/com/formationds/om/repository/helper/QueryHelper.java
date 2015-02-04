@@ -124,7 +124,7 @@ public class QueryHelper {
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,
 	                                                        query,
-	                                                        StatOperation.RATE ) );
+	                                                        StatOperation.SUM ) );
 	                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
 	                ioPsConsumed.setDailyAverage( 0.0 );
 	                calculatedList.add( ioPsConsumed );
@@ -134,7 +134,7 @@ public class QueryHelper {
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,
 	                                                        query,
-	                                                        StatOperation.SUM) );
+	                                                        StatOperation.MAX) );
 	
 	                calculatedList.add( deDupRatio() );
 	
@@ -171,14 +171,16 @@ public class QueryHelper {
 	
 	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
 	            	
-	            	normalizeDatapoints( queryResults );
+	            	// normalize it because the sums will look arbitrarily higher if the
+	            	// sampling period is longer.
+//	            	normalizeDatapoints( queryResults );
 	            	
 	            	series.addAll(
 	            		new SeriesHelper().getRollupSeries( queryResults, 
 	            										 	query,
 	            										 	StatOperation.RATE) );
 	            	
-	            	// GETS has the total # of gets and SSD is a subset of those.
+	            	// GETS has the total # of gets/sec and SSD is a subset of those.
 	            	// This query wants GETS for HDD access and SSD access so we mutate the
 	            	// GETS series with a quick subtraction of the corresponding SSD field
 	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
@@ -197,7 +199,7 @@ public class QueryHelper {
 		            			);
 	            		});
 	            	
-	            	calculatedList.add( getAverageIOPs( series ) );
+	            	calculatedList.add( getAverageIOPs( query.getRange(), series ) );
 	            	
 	            } else {
 	            	
@@ -356,10 +358,10 @@ public class QueryHelper {
     		 * that is tied in to the data rollup strategy
     		 * and we can use that to normalize the data into per seconds.
     		 * 
-    		 * For now we always do 2 minute intervals
+    		 * For now we always do 1 minute intervals
     		 */
 //    		long intervalInSeconds = point.getCalculationInterval();
-    		final Double intervalInSeconds = new Double(1);
+    		final Double intervalInSeconds = new Double(60);
     		
     		point.setValue( point.getValue() / intervalInSeconds );
     	});
@@ -445,13 +447,15 @@ public class QueryHelper {
      * @param series
      * @return Returns the average IOPs for the collection of series passed in
      */
-    protected AverageIOPs getAverageIOPs( List<Series> series ){
+    protected AverageIOPs getAverageIOPs( DateRange dateRange, List<Series> series ){
     	
+    	// sum each series (which is already a series of averages)
+    	// divide by input # to get the average of averages
+    	// now add the averages together for the total average
     	Double rawAvg = series.stream().flatMapToDouble( s -> {
     		return DoubleStream.of( s.getDatapoints().stream()
     				.flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() / s.getDatapoints().size() );
     	}).sum();
- 
     	
     	final AverageIOPs avgIops = new AverageIOPs();
     	avgIops.setAverage( rawAvg );
