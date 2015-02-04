@@ -236,8 +236,6 @@ void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void SMSvcHandler::StartMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
         boost::shared_ptr<fpi::CtrlStartMigration>& startMigration) {
     LOGDEBUG << "Start migration handler called";
-    objStorMgr->tok_migrated_for_dlt_ = false;
-    LOGNORMAL << "Token copy complete";
 
     // TODO(brian): Do we need a write lock here?
     DLTManagerPtr dlt_mgr = objStorMgr->omClient->getDltManager();
@@ -860,7 +858,6 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // send response
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-    objStorMgr->tok_migrated_for_dlt_ = false;
 }
 
 // NotifyDMTUpdate
