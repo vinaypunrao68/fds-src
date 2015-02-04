@@ -12,7 +12,7 @@
 
 #include <lib/Catalog.h>
 
-#include <dm-vol-cat/DmPersistVc.h>
+#include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace fds {
 

@@ -11,7 +11,7 @@ user_cpp          := \
 	DmVcCache.cpp \
 	DmExtentTypes.cpp \
 	DmVolumeCatalog.cpp \
-	DmPersistVc.cpp \
+	DmPersistVolCat.cpp \
 	DmPersistVolDB.cpp \
 	DmOIDArrayMmap.cpp \
 	DmPersistVolFile.cpp

@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVC_H_
-#define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVC_H_
+#ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_
+#define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_
 
 #include <map>
 #include <string>
@@ -180,4 +180,4 @@ class DmPersistVolDir {
     std::string rsyncPasswd;
 };
 }  // namespace fds
-#endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVC_H_
+#endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_
