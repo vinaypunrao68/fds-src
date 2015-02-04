@@ -28,7 +28,7 @@ struct CommitLogTx : serialize::Serializable {
     fds_int32_t blobMode;
 
     fds_uint64_t started;
-    fds_uint64_t committed;     // commit issued by user, but not wriiten yet
+    fds_uint64_t committed;     // commit issued by user, but not written yet
     bool blobDelete;
     bool snapshot;
 
@@ -104,7 +104,6 @@ class DmCommitLog : public Module {
     fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
 
     // get active transactions
-    // fds_uint32_t getActiveTx() const {
     fds_uint32_t getActiveTx() {
         FDSGUARD(lockTxMap_);
         return txMap_.size();
