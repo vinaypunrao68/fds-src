@@ -756,7 +756,7 @@ VolumeInfo::~VolumeInfo()
 // ------------------
 //
 void
-VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeInfoType &info)
+VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeDescType &info)
 {
     vol_properties = new VolumeDesc(info, rs_uuid.uuid_get_val());
     setName(info.vol_name);

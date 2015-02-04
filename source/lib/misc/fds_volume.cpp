@@ -8,7 +8,7 @@
 
 namespace fds {
 
-VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
+VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
                        fds_volid_t vol_uuid) {
     name = volinfo.vol_name;
     tennantId = volinfo.tennantId;

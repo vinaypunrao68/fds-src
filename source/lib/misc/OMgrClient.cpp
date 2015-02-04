@@ -426,7 +426,7 @@ int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
 }
 
 int OMgrClient::testBucket(const std::string& bucket_name,
-                           const fpi::FDSP_VolumeInfoTypePtr& vol_info,
+                           const fpi::FDSP_VolumeDescTypePtr& vol_info,
                            fds_bool_t attach_vol_reqd,
                            const std::string& accessKeyId,
                            const std::string& secretAccessKey)
@@ -471,7 +471,7 @@ int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
     return 0;
 }
 
-int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeInfoTypePtr& volInfo)
+int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeDescTypePtr& volInfo)
 {
     if (fNoNetwork) return 0;
     try {

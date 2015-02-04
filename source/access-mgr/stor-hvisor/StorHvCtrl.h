@@ -35,7 +35,7 @@ namespace fds_pi = FDS_ProtocolInterface;
 namespace FDS_ProtocolInterface
 {
     class FDSP_AnnounceDiskCapability;
-    class FDSP_VolumeInfoType;
+    class FDSP_VolumeDescType;
 }  // namespace FDS_ProtocolInterface
 
 template<class T> using b_sp = boost::shared_ptr<T>;
@@ -98,7 +98,7 @@ public:
                              const std::string& access_key_id = "",
                              const std::string& secret_access_key = "");
 
-    void initVolInfo(b_sp<fds_pi::FDSP_VolumeInfoType> vol_info,
+    void initVolInfo(b_sp<fds_pi::FDSP_VolumeDescType> vol_info,
                      const std::string& bucket_name);
 
     void attachVolume(fds::AmRequest *amReq);
