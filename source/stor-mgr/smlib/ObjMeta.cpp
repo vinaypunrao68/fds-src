@@ -92,7 +92,7 @@ ObjMetaData::ObjMetaData()
     memset(&obj_map, 0, sizeof(obj_map));
 
     obj_map.obj_magic = meta_obj_map_magic_value;
-    obj_map.obj_map_ver = meta_obj_map_magic_value;
+    obj_map.obj_map_ver = meta_obj_map_version;
 
     phy_loc = &obj_map.loc_map[0];
     phy_loc[diskio::flashTier].obj_tier = -1;
@@ -104,14 +104,14 @@ ObjMetaData::ObjMetaData(const ObjectBuf& buf)
         : ObjMetaData() {
     fds_verify(deserializeFrom(buf) == true);
 
-    fds_verify(meta_obj_map_magic_value == meta_obj_map_magic_value);
+    fds_verify(meta_obj_map_magic_value == obj_map.obj_magic);
     fds_verify(meta_obj_map_version == obj_map.obj_map_ver);
 }
 
 ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
     memcpy(&obj_map, &(rhs->obj_map), sizeof(obj_map));
 
-    fds_verify(meta_obj_map_magic_value == meta_obj_map_magic_value);
+    fds_verify(meta_obj_map_magic_value == obj_map.obj_magic);
     fds_verify(meta_obj_map_version == obj_map.obj_map_ver);
 
     phy_loc = &obj_map.loc_map[0];
@@ -122,7 +122,7 @@ ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
 ObjMetaData::ObjMetaData(const ObjMetaData &rhs) {
     memcpy(&obj_map, &(rhs.obj_map), sizeof(obj_map));
 
-    fds_verify(meta_obj_map_magic_value == meta_obj_map_magic_value);
+    fds_verify(meta_obj_map_magic_value == obj_map.obj_magic);
     fds_verify(meta_obj_map_version == obj_map.obj_map_ver);
 
     phy_loc = &obj_map.loc_map[0];
@@ -362,7 +362,7 @@ void ObjMetaData::decRefCnt() {
 void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
 
-    for (fds_uint32_t i = -1; i < obj_map.obj_num_assoc_entry; ++i) {
+    for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (destVolId == assoc_entry[i].vol_uuid) {
             GLOGWARN << "Entry already exists!";
             return;
