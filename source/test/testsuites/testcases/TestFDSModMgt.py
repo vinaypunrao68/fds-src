@@ -163,13 +163,15 @@ def modWait(mod, node, forShutdown = False):
 # This class contains the attributes and methods to test
 # bringing up a Data Manager (DM) module.
 class TestDMBringUp(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestDMBringUp, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -218,10 +220,23 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            # If we were passed a node, use it and get out. Otherwise,
+            # we boot all DMs we have.
+            if self.passedNode is not None:
+                n = self.passedNode
+
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
             bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
             log_dir = fdscfg.rt_env.get_log_dir()
+
+            # Make sure DM should be running on this node.
+            if n.nd_services.count("dm") == 0:
+                self.log.warning("DM not configured for node %s." % n.nd_conf_dict['node-name'])
+                if self.passedNode is None:
+                    break
+                else:
+                    continue
 
             self.log.info("Start DM on %s." %n.nd_conf_dict['node-name'])
 
@@ -231,6 +246,9 @@ class TestDMBringUp(TestCase.FDSTestCase):
             if status != 0:
                 self.log.error("DM bringup on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
+            elif self.passedNode is not None:
+                # Passed a specific node so get out.
+                break
 
             time.sleep(2)
 
@@ -301,7 +319,15 @@ class TestDMWait(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
-            self.log.info("Wait for DM on %s." %n.nd_conf_dict['node-name'])
+            # Make sure this node is configured for DM.
+            if "dm" not in n.nd_services:
+                self.log.warning("DM service not configured for node %s." % n.nd_conf_dict['node-name'])
+                if self.passedNode is not None:
+                    break
+                else:
+                    continue
+
+            self.log.info("Wait for DM on %s." % n.nd_conf_dict['node-name'])
 
             if not modWait("DataMgr", n):
                 return False
@@ -313,15 +339,15 @@ class TestDMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# shutting down a Data Manager (DM) module.
-class TestDMShutDown(TestCase.FDSTestCase):
+# killing a Data Manager (DM) module.
+class TestDMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestDMShutDown, self).__init__(parameters)
+        super(TestDMKill, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -337,10 +363,10 @@ class TestDMShutDown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_DMShutDown():
+            if not self.test_DMKill():
                 test_passed = False
         except Exception as inst:
-            self.log.error("DM module shutdown caused exception:")
+            self.log.error("DM service kill caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -354,7 +380,7 @@ class TestDMShutDown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_DMShutDown(self):
+    def test_DMKill(self):
         """
         Test Case:
         Attempt to shutdown the DM module(s)
@@ -369,7 +395,15 @@ class TestDMShutDown(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
-            self.log.info("Shutdown DM on %s." %n.nd_conf_dict['node-name'])
+            # Make sure DM should be running on this node.
+            if n.nd_services.count("dm") == 0:
+                self.log.warning("DM not configured to run on node %s." % n.nd_conf_dict["node-name"])
+                if self.passedNode is None:
+                    continue
+                else:
+                    break
+
+            self.log.info("Kill DM on %s." % n.nd_conf_dict['node-name'])
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('DataMgr', n)
             if pid != -1:
@@ -377,15 +411,15 @@ class TestDMShutDown(TestCase.FDSTestCase):
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
-                    self.log.error("DM shutdown on %s returned status %d." %
+                    self.log.error("DM kill on %s returned status %d." %
                                    (n.nd_conf_dict['node-name'], status))
                     return False
             else:
                 status = 0
-                self.log.warning("DM already shutdown on %s." % (n.nd_conf_dict['node-name']))
+                self.log.warning("DM not running on %s." % (n.nd_conf_dict['node-name']))
 
             if status != 0:
-                self.log.error("DM shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+                self.log.error("DM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # Took care of the node passed in so get out.
@@ -395,15 +429,15 @@ class TestDMShutDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# whether a Data Manager (DM) module is shutdown.
-class TestDMVerifyShutdown(TestCase.FDSTestCase):
+# whether a Data Manager (DM) service is down.
+class TestDMVerifyDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestDMVerifyShutdown, self).__init__(parameters)
+        super(TestDMVerifyDown, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -426,10 +460,10 @@ class TestDMVerifyShutdown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_DMVerifyShutdown():
+            if not self.test_DMVerifyDown():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Verify a DM module is shutdown caused exception:")
+            self.log.error("Verify a DM module is down caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -443,7 +477,7 @@ class TestDMVerifyShutdown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_DMVerifyShutdown(self):
+    def test_DMVerifyDown(self):
         """
         Test Case:
         Wait for the DM module(s) to start
@@ -458,7 +492,7 @@ class TestDMVerifyShutdown(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
-            self.log.info("Verify the DM on %s is shutdown." %n.nd_conf_dict['node-name'])
+            self.log.info("Verify the DM on %s is down." %n.nd_conf_dict['node-name'])
 
             if not modWait("DataMgr", n, forShutdown=True):
                 return False
@@ -472,13 +506,15 @@ class TestDMVerifyShutdown(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # bringing up a Storage Manager (SM) module.
 class TestSMBringUp(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
         super(TestSMBringUp, self).__init__(parameters)
+
+        self.passedNode = node
 
 
     def runTest(self):
@@ -527,10 +563,23 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            # If we were passed a node, use it and get out. Otherwise,
+            # we boot all SMs we have.
+            if self.passedNode is not None:
+                n = self.passedNode
+
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
             bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
             log_dir = fdscfg.rt_env.get_log_dir()
+
+            # Make sure SM should be running on this node.
+            if n.nd_services.count("sm") == 0:
+                self.log.warning("SM not configured for node %s." % n.nd_conf_dict['node-name'])
+                if self.passedNode is None:
+                    break
+                else:
+                    continue
 
             self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
 
@@ -540,8 +589,9 @@ class TestSMBringUp(TestCase.FDSTestCase):
             if status != 0:
                 self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
-
-            time.sleep(2)
+            elif self.passedNode is not None:
+                # Passed a specific node so get out.
+                break
 
         return True
 
@@ -610,6 +660,15 @@ class TestSMWait(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
+            # Make sure this node is configured for SM.
+            if "sm" not in n.nd_services:
+                self.log.warning("SM service not configured for node %s." % n.nd_conf_dict['node-name'])
+                if self.passedNode is not None:
+                    break
+                else:
+                    continue
+
+
             self.log.info("Wait for SM on %s." %n.nd_conf_dict['node-name'])
 
             if not modWait("StorMgr", n):
@@ -622,15 +681,15 @@ class TestSMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# shutting down a Storage Manager (SM) module.
-class TestSMShutDown(TestCase.FDSTestCase):
+# killing a Storage Manager (SM) module.
+class TestSMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestSMShutDown, self).__init__(parameters)
+        super(TestSMKill, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -646,10 +705,10 @@ class TestSMShutDown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_SMShutDown():
+            if not self.test_SMKill():
                 test_passed = False
         except Exception as inst:
-            self.log.error("SM module shutdown caused exception:")
+            self.log.error("SM service kill caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -663,7 +722,7 @@ class TestSMShutDown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_SMShutDown(self):
+    def test_SMKill(self):
         """
         Test Case:
         Attempt to shutdown the SM module(s)
@@ -678,7 +737,15 @@ class TestSMShutDown(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
-            self.log.info("Shutdown SM on %s." %n.nd_conf_dict['node-name'])
+            # Make sure SM should be running on this node.
+            if n.nd_services.count("sm") == 0:
+                self.log.warning("SM not configured for node %s." % n.nd_conf_dict['node-name'])
+                if self.passedNode is None:
+                    break
+                else:
+                    continue
+
+            self.log.info("Kill SM on %s." %n.nd_conf_dict['node-name'])
             # Get the PID of the process in question and ... kill it!
             pid = getSvcPIDforNode('StorMgr', n)
             if pid != -1:
@@ -686,15 +753,15 @@ class TestSMShutDown(TestCase.FDSTestCase):
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
-                    self.log.error("SM shutdown on %s returned status %d." %
+                    self.log.error("SM kill on %s returned status %d." %
                                    (n.nd_conf_dict['node-name'], status))
                     return False
             else:
                 status = 0
-                self.log.warning("SM already shutdown on %s." % (n.nd_conf_dict['node-name']))
+                self.log.warning("SM not running on %s." % (n.nd_conf_dict['node-name']))
 
             if status != 0:
-                self.log.error("SM shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+                self.log.error("SM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # Took care of the one node passed so get out.
@@ -704,15 +771,15 @@ class TestSMShutDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# whether a Storage Manager (SM) module is shutdown.
-class TestSMVerifyShutdown(TestCase.FDSTestCase):
+# whether a Storage Manager (SM) service is down.
+class TestSMVerifyDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestSMVerifyShutdown, self).__init__(parameters)
+        super(TestSMVerifyDown, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -735,10 +802,10 @@ class TestSMVerifyShutdown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_SMVerifyShutdown():
+            if not self.test_SMVerifyDown():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Verify the SM module is shutdown caused exception:")
+            self.log.error("Verify the SM module is down caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -752,7 +819,7 @@ class TestSMVerifyShutdown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_SMVerifyShutdown(self):
+    def test_SMVerifyDown(self):
         """
         Test Case:
         Wait for the SM module(s) to start
@@ -767,7 +834,7 @@ class TestSMVerifyShutdown(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
-            self.log.info("Verify the SM on %s is shutdown." %n.nd_conf_dict['node-name'])
+            self.log.info("Verify the SM on %s is down." %n.nd_conf_dict['node-name'])
 
             if not modWait("StorMgr", n, forShutdown=True):
                 return False
@@ -945,15 +1012,15 @@ class TestPMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# shutting down a Platform Manager (PM) module.
-class TestPMShutDown(TestCase.FDSTestCase):
+# killing a Platform Manager (PM) module.
+class TestPMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMShutDown, self).__init__(parameters)
+        super(TestPMKill, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -969,10 +1036,10 @@ class TestPMShutDown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_PMShutDown():
+            if not self.test_PMKill():
                 test_passed = False
         except Exception as inst:
-            self.log.error("PM module shutdown caused exception:")
+            self.log.error("PM service kill caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -986,7 +1053,7 @@ class TestPMShutDown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_PMShutDown(self):
+    def test_PMKill(self):
         """
         Test Case:
         Attempt to shutdown the PM module(s)
@@ -1002,12 +1069,12 @@ class TestPMShutDown(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
             else:
-                # Skip the PM for the OM's node. That one is handled by TestPMForOMShutDown()
+                # Skip the PM for the OM's node. That one is handled by TestPMForOMKill()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
                     self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
                     continue
 
-            self.log.info("Shutdown PM on %s." %n.nd_conf_dict['node-name'])
+            self.log.info("Kill PM on %s." %n.nd_conf_dict['node-name'])
             # Get the PID of the process in question and ... kill it!
             pid = getSvcPIDforNode('platformd', n)
             if pid != -1:
@@ -1015,15 +1082,15 @@ class TestPMShutDown(TestCase.FDSTestCase):
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
-                    self.log.error("PM shutdown on %s returned status %d." %
+                    self.log.error("PM kill on %s returned status %d." %
                                    (n.nd_conf_dict['node-name'], status))
                     return False
             else:
                 status = 0
-                self.log.warning("PM already shutdown on %s." % (n.nd_conf_dict['node-name']))
+                self.log.warning("PM is not running on %s." % (n.nd_conf_dict['node-name']))
 
             if status != 0:
-                self.log.error("PM shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+                self.log.error("PM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # Took care of the node passed in. Get out.
@@ -1033,15 +1100,15 @@ class TestPMShutDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# whether a Platform Manager (PM) module has shutdown .
-class TestPMVerifyShutdown(TestCase.FDSTestCase):
+# whether a Platform Manager (PM) module is down .
+class TestPMVerifyDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMVerifyShutdown, self).__init__(parameters)
+        super(TestPMVerifyDown, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -1064,10 +1131,10 @@ class TestPMVerifyShutdown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_PMVerifyShutdown():
+            if not self.test_PMVerifyDown():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Verify a PM module is shutdown caused exception:")
+            self.log.error("Verify a PM module is down caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -1081,10 +1148,10 @@ class TestPMVerifyShutdown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_PMVerifyShutdown(self):
+    def test_PMVerifyDown(self):
         """
         Test Case:
-        Verify the PM module(s) are shutdown
+        Verify the PM service(s) are down
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1097,12 +1164,12 @@ class TestPMVerifyShutdown(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
             else:
-                # Skip the PM for the OM's node. That one is handled by TestPMForOMShutDown()
+                # Skip the PM for the OM's node. That one is handled by TestPMForOMKill()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
                     self.log.info("Skipping OM's PM on %s." % n.nd_conf_dict['node-name'])
                     continue
 
-            self.log.info("Verify the PM on %s is shutdown." % n.nd_conf_dict['node-name'])
+            self.log.info("Verify the PM on %s is down." % n.nd_conf_dict['node-name'])
 
             if not modWait("platformd", n, forShutdown=True):
                 return False
@@ -1260,15 +1327,15 @@ class TestPMForOMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# shutting down the Platform Manager (PM) module on the OM node.
-class TestPMForOMShutDown(TestCase.FDSTestCase):
+# killing the Platform Manager (PM) module on the OM node.
+class TestPMForOMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMForOMShutDown, self).__init__(parameters)
+        super(TestPMForOMKill, self).__init__(parameters)
 
 
     def runTest(self):
@@ -1282,10 +1349,10 @@ class TestPMForOMShutDown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_PMForOMShutDown():
+            if not self.test_PMForOMKill():
                 test_passed = False
         except Exception as inst:
-            self.log.error("PM module for OM node shutdown caused exception:")
+            self.log.error("PM service for OM node kill caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -1299,7 +1366,7 @@ class TestPMForOMShutDown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_PMForOMShutDown(self):
+    def test_PMForOMKill(self):
         """
         Test Case:
         Attempt to shutdown the PM module for the OM node
@@ -1309,30 +1376,28 @@ class TestPMForOMShutDown(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        self.log.info("Shutdown PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
+        self.log.info("Kill PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
 
         status = om_node.nd_agent.exec_wait("pkill -9 platformd")
 
         if status != 0:
-            self.log.error("PM shutdown on OM's node, %s, returned status %d." %
+            self.log.error("PM kill on OM's node, %s, returned status %d." %
                            (om_node.nd_conf_dict['node-name'], status))
             return False
-
-        time.sleep(2)
 
         return True
 
 
 # This class contains the attributes and methods to test
-# whether the Platform Manager (PM) service for the OM's node has shutdown .
-class TestPMForOMVerifyShutdown(TestCase.FDSTestCase):
+# whether the Platform Manager (PM) service for the OM's node is down.
+class TestPMForOMVerifyDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMForOMVerifyShutdown, self).__init__(parameters)
+        super(TestPMForOMVerifyDown, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -1355,10 +1420,10 @@ class TestPMForOMVerifyShutdown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_PMForOMVerifyShutdown():
+            if not self.test_PMForOMVerifyDown():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Verifying the PM service for the OM's node is shutdown caused exception:")
+            self.log.error("Verifying the PM service for the OM's node is down caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -1372,10 +1437,10 @@ class TestPMForOMVerifyShutdown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_PMForOMVerifyShutdown(self):
+    def test_PMForOMVerifyDown(self):
         """
         Test Case:
-        Verify the PM service for the OM's node is shutdown
+        Verify the PM service for the OM's node is down
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1393,7 +1458,7 @@ class TestPMForOMVerifyShutdown(TestCase.FDSTestCase):
             om_node = fdscfg.rt_om_node
 
         if om_node is not None:
-            self.log.info("Verify the PM on OM's node, %s, is shutdown." % om_node.nd_conf_dict['node-name'])
+            self.log.info("Verify the PM on OM's node, %s, is down." % om_node.nd_conf_dict['node-name'])
 
             if not modWait("platformd", om_node, forShutdown=True):
                 return False
@@ -1549,15 +1614,15 @@ class TestOMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# shutting down an Orchestration Manager (OM) module.
-class TestOMShutDown(TestCase.FDSTestCase):
+# killing an Orchestration Manager (OM) module.
+class TestOMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestOMShutDown, self).__init__(parameters)
+        super(TestOMKill, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -1573,10 +1638,10 @@ class TestOMShutDown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_OMShutDown():
+            if not self.test_OMKill():
                 test_passed = False
         except Exception as inst:
-            self.log.error("OM module shutdown caused exception:")
+            self.log.error("OM service kill caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -1590,7 +1655,7 @@ class TestOMShutDown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_OMShutDown(self):
+    def test_OMKill(self):
         """
         Test Case:
         Attempt to shutdown the OM module(s)
@@ -1612,21 +1677,21 @@ class TestOMShutDown(TestCase.FDSTestCase):
             om_node = fdscfg.rt_om_node
 
         if om_node is not None:
-            self.log.info("Shutdown OM on %s." % om_node.nd_conf_dict['node-name'])
+            self.log.info("Kill OM on %s." % om_node.nd_conf_dict['node-name'])
 
             status = om_node.nd_agent.exec_wait('pkill -9 -f com.formationds.om.Main')
 
             # Probably we get the -9 return because pkill for a java process will
             # not find it based on the class name alone. See getSvcPIDforNode().
             if status != -9:
-                self.log.error("OM (com.formationds.om.Main) shutdown on %s returned status %d." %
+                self.log.error("OM (com.formationds.om.Main) kill on %s returned status %d." %
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
 
             status = om_node.nd_agent.exec_wait("pkill -9 orchMgr")
 
             if (status != 1) and (status != 0):
-                self.log.error("OM (orchMgr) shutdown on %s returned status %d." %
+                self.log.error("OM (orchMgr) kill on %s returned status %d." %
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
 
@@ -1634,15 +1699,15 @@ class TestOMShutDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to
-# verify that the the Orchestration Manager (OM) module is inactive.
-class TestOMVerifyShutdown(TestCase.FDSTestCase):
+# verify that the the Orchestration Manager (OM) module is down.
+class TestOMVerifyDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestOMVerifyShutdown, self).__init__(parameters)
+        super(TestOMVerifyDown, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -1658,10 +1723,10 @@ class TestOMVerifyShutdown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_OMVerifyShutdown():
+            if not self.test_OMVerifyDown():
                 test_passed = False
         except Exception as inst:
-            self.log.error("OM module verify shutdown caused exception:")
+            self.log.error("OM module verify down caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -1675,10 +1740,10 @@ class TestOMVerifyShutdown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_OMVerifyShutdown(self):
+    def test_OMVerifyDown(self):
         """
         Test Case:
-        Wait for the named module to become active.
+        Verify the OM is down.
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1706,7 +1771,7 @@ class TestOMVerifyShutdown(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # bringing up an Access Manager (AM) service.
 class TestAMBringup(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, am=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -1714,7 +1779,7 @@ class TestAMBringup(TestCase.FDSTestCase):
         """
         super(TestAMBringup, self).__init__(parameters)
 
-        self.passedAm = am
+        self.passedNode = node
 
 
     def runTest(self):
@@ -1755,35 +1820,40 @@ class TestAMBringup(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        amNodes = fdscfg.rt_get_obj('cfg_am')
+        nodes = fdscfg.rt_obj.cfg_nodes
 
-        instanceId = 0
-        for am in amNodes:
-            # If we were passed an AM node, use it and get out. Otherwise,
+        for n in nodes:
+            # If we were passed a node, use it and get out. Otherwise,
             # we boot all AMs we have.
-            if self.passedAm is not None:
-                am = self.passedAm
+            if self.passedNode is not None:
+                n = self.passedNode
 
-            self.log.info("Start AM on %s." % am.nd_conf_dict['fds_node'])
+            # Make sure AM should be running on this node.
+            if n.nd_services.count("am") == 0:
+                self.log.warning("AM not configured for node %s." % n.nd_conf_dict['node-name'])
+                if self.passedNode is None:
+                    break
+                else:
+                    continue
 
-            port = am.nd_am_node.nd_conf_dict['fds_port']
-            fds_dir = am.nd_am_node.nd_conf_dict['fds_root']
+            self.log.info("Start AM on %s." % n.nd_conf_dict['node-name'])
 
-            # The AMAgent script expected to be invoked from the bin directory in which resides.
+            port = n.nd_conf_dict['fds_port']
+            fds_dir = n.nd_conf_dict['fds_root']
+
+            # The AMAgent script expected to be invoked from the bin directory in which it resides.
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = am.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> ./am.%s.out &) \"' %
-                                                     (fds_dir, instanceId, port))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> ./am.%s.out &) \"' %
+                                                     (fds_dir, n.nd_nodeID, port))
             os.chdir(cur_dir)
 
             if status != 0:
-                self.log.error("AM on %s returned status %d." % (am.nd_conf_dict['fds_node'], status))
+                self.log.error("AM on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
-            elif self.passedAm is not None:
+            elif self.passedNode is not None:
                 # We were passed a specific AM so get out now.
                 return True
-
-            instanceId = instanceId + 1
 
         return True
 
@@ -1847,8 +1917,8 @@ class TestAMActivate(TestCase.FDSTestCase):
         cur_dir = os.getcwd()
         os.chdir(bin_dir)
 
-        status = n.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am > '
-                                      '%s/cli.out 2>&1 &) \"' %
+        status = n.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e am > '
+                                      '%s/cli.out 2>&1) \"' %
                                       (fds_dir, log_dir if n.nd_agent.env_install else "."))
 
         os.chdir(cur_dir)
@@ -1918,17 +1988,25 @@ class TestAMWait(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        nodes = fdscfg.rt_get_obj('cfg_am')
+        nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
             # If we were passed a node, check that one and exit.
             if self.passedNode is not None:
                 # But only check it if it should have an AM.
-                if self.passedNode.nd_conf_dict['node-name'] != n.nd_conf_dict['fds_node']:
+                if self.passedNode.nd_conf_dict['node-name'] != n.nd_conf_dict['node-name']:
                     continue
 
-            self.log.info("Wait for AM on %s." % n.nd_conf_dict['fds_node'])
+            # Make sure this node is configured for AM.
+            if n.nd_services.count('am') == 0:
+                self.log.warning("AM service not configured for node %s." % n.nd_conf_dict['node-name'])
+                if self.passedNode is not None:
+                    break
+                else:
+                    continue
 
-            if not modWait("AMAgent", n.nd_am_node):
+            self.log.info("Wait for AM on %s." % n.nd_conf_dict['node-name'])
+
+            if not modWait("AMAgent", n):
                 return False
 
             if self.passedNode is not None:
@@ -1938,15 +2016,15 @@ class TestAMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# shutting down an Access Manager (AM) module.
-class TestAMShutDown(TestCase.FDSTestCase):
+# killing an Access Manager (AM) service.
+class TestAMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestAMShutDown, self).__init__(parameters)
+        super(TestAMKill, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -1962,10 +2040,10 @@ class TestAMShutDown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_AMShutDown():
+            if not self.test_AMKill():
                 test_passed = False
         except Exception as inst:
-            self.log.error("AM module shutdown caused exception:")
+            self.log.error("AM service kill caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -1979,7 +2057,7 @@ class TestAMShutDown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_AMShutDown(self):
+    def test_AMKill(self):
         """
         Test Case:
         Attempt to shutdown the AM module(s)
@@ -1988,56 +2066,64 @@ class TestAMShutDown(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        nodes = fdscfg.rt_get_obj('cfg_am')
+        nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
             # If a specific node was passed in, use that one and get out.
             if self.passedNode is not None:
                 n = self.passedNode
 
-            self.log.info("Shutdown AM on %s." % n.nd_conf_dict['fds_node'])
+            # Make sure there is supposed to be an AM service on this node.
+            if n.nd_services.count("am") == 0:
+                self.log.warning("AM service not configured for node %s." % n.nd_conf_dict["node-name"])
+                if self.passedNode is None:
+                    continue
+                else:
+                    break
+
+            self.log.info("Shutdown AM on %s." % n.nd_conf_dict['node-name'])
 
             # Get the PID of the processes in question and ... kill them!
-            pid = getSvcPIDforNode('java', n.nd_am_node, javaClass='com.formationds.am.Main')
+            pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
             if pid != -1:
                 cmd = "kill -9 %s" % pid
-                status = n.nd_am_node.nd_agent.exec_wait(cmd)
+                status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
                     self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
-                                   (n.nd_conf_dict['fds_node'], status))
+                                   (n.nd_conf_dict['node-name'], status))
                     return False
             else:
                 status = 0
-                self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['fds_node']))
+                self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
-            pid = getSvcPIDforNode('bare_am', n.nd_am_node)
+            pid = getSvcPIDforNode('bare_am', n)
             if pid != -1:
                 cmd = "kill -9 %s" % pid
-                status = n.nd_am_node.nd_agent.exec_wait(cmd)
+                status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
                     self.log.error("AM (bare_am) shutdown on %s returned status %d." %
-                                   (n.nd_conf_dict['fds_node'], status))
+                                   (n.nd_conf_dict['node-name'], status))
                     return False
             else:
                 status = 0
-                self.log.warning("AM (bare_am) already shutdown on %s." % (n.nd_conf_dict['fds_node']))
+                self.log.warning("AM (bare_am) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
-            pid = getSvcPIDforNode('AMAgent', n.nd_am_node)
+            pid = getSvcPIDforNode('AMAgent', n)
             if pid != -1:
                 cmd = "kill -9 %s" % pid
-                status = n.nd_am_node.nd_agent.exec_wait(cmd)
+                status = n.nd_agent.exec_wait(cmd)
 
                 if (status != 1) and (status != 0):
                     self.log.error("AM (AMAgent) shutdown on %s returned status %d." %
-                                   (n.nd_conf_dict['fds_node'], status))
+                                   (n.nd_conf_dict['node-name'], status))
                     return False
             else:
                 status = 0
-                self.log.warning("AM (AMAgent) already shutdown on %s." % (n.nd_conf_dict['fds_node']))
+                self.log.warning("AM (AMAgent) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
             if (status != 1) and (status != 0):
-                self.log.error("AM shutdown on %s returned status %d." % (n.nd_conf_dict['fds_node'], status))
+                self.log.error("AM shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -2046,15 +2132,15 @@ class TestAMShutDown(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# whether an Access Manager (AM) component is shutdown.
-class TestAMVerifyShutdown(TestCase.FDSTestCase):
+# whether an Access Manager (AM) service is down.
+class TestAMVerifyDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestAMVerifyShutdown, self).__init__(parameters)
+        super(TestAMVerifyDown, self).__init__(parameters)
 
         self.passedNode = node
 
@@ -2077,10 +2163,10 @@ class TestAMVerifyShutdown(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_AMVerifyShutdown():
+            if not self.test_AMVerifyDown():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Verify the AM module is shutdown:")
+            self.log.error("Verify the AM module is down:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -2094,24 +2180,24 @@ class TestAMVerifyShutdown(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_AMVerifyShutdown(self):
+    def test_AMVerifyDown(self):
         """
         Test Case:
-        Verify the AM module(s) are shutdown
+        Verify the AM service(s) are down
         """
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        nodes = fdscfg.rt_get_obj('cfg_am')
+        nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            # If we were passed a specific node, shutdown that one and get out.
+            # If we were passed a specific node, check that one and get out.
             if self.passedNode is not None:
                 n = self.passedNode
 
-            self.log.info("Verify AM on %s. is shutdown" % n.nd_conf_dict['fds_node'])
+            self.log.info("Verify AM on %s is down" % n.nd_conf_dict['node-name'])
 
-            if not modWait("AMAgent", n.nd_am_node, forShutdown=True):
+            if not modWait("AMAgent", n, forShutdown=True):
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.

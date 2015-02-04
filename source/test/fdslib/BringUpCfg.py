@@ -45,6 +45,7 @@ class FdsNodeConfig(FdsConfig):
         self.nd_local_env = None
         self.nd_assigned_name = None
         self.nd_uuid = None
+        self.nd_services = None
 
         # Is the node local or remote?
         if 'ip' not in self.nd_conf_dict:
@@ -445,7 +446,7 @@ class FdsVolConfig(FdsConfig):
         self.nd_am_node = None
         self.nd_conf_dict['vol-name'] = name
 
-    def vol_connect_to_am(self, am_nodes):
+    def vol_connect_to_am(self, am_nodes, all_nodes):
         if 'client' not in self.nd_conf_dict:
             print('volume section must have "client" keyword')
             sys.exit(1)
@@ -455,6 +456,13 @@ class FdsVolConfig(FdsConfig):
             if am.nd_conf_dict['am-name'] == client:
                 self.nd_am_conf = am
                 self.nd_am_node = am.nd_am_node
+                return
+
+        # The system test framework does not use {sh|am] sections.
+        # So look at all nodes to bind the volume to an AM.
+        for n in all_nodes:
+            if n.nd_conf_dict['node-name'] == client:
+                self.nd_am_node = n
                 return
 
         print('Can not find matching AM node in %s' % self.nd_conf_dict['vol-name'])
@@ -696,12 +704,7 @@ class FdsConfigFile(object):
             if re.match('user', section) != None:
                 self.cfg_user.append(FdsUserConfig('user', items, verbose))
 
-            # OM uses "Node-#" for auto-generated names which we might like
-            # to use as node names in the config file. A difficulty may arise
-            # if several PMs log into OM to be registered and they are registered
-            # out of the order expected by the names given them in the config file.
-            # One might fix this by putting a sleep in between starting PMs.
-            elif (re.match('node', section) != None) or (re.match('Node-', section) != None):
+            elif re.match('node', section) != None:
                 n = None
                 items_d = dict(items)
                 if 'enable' in items_d:
@@ -717,6 +720,12 @@ class FdsConfigFile(object):
 
                 if n is not None:
                     n.nd_nodeID = nodeID
+
+                    if "services" in n.nd_conf_dict:
+                        n.nd_services = n.nd_conf_dict["services"]
+                    else:
+                        n.nd_services = "dm,sm,am"
+
                     self.cfg_nodes.append(n)
                     nodeID = nodeID + 1
 
@@ -745,7 +754,7 @@ class FdsConfigFile(object):
             am.am_connect_node(self.cfg_nodes)
 
         for vol in self.cfg_volumes:
-            vol.vol_connect_to_am(self.cfg_am)
+            vol.vol_connect_to_am(self.cfg_am, self.cfg_nodes)
 
         for sce in self.cfg_scenarios:
             sce.sce_bind_sections(self.cfg_user, self.cfg_nodes,

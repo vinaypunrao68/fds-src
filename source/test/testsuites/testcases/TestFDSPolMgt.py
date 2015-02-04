@@ -110,6 +110,92 @@ class TestPolicyCreate(TestCase.FDSTestCase):
         return True
 
 
+# This class contains the attributes and methods to test
+# volume policy deletion.
+class TestPolicyDelete(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, policy=None):
+        super(self.__class__, self).__init__(parameters)
+
+        self.passedPolicy = policy
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_PolicyDelete():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Policy deletion caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_PolicyDelete(self):
+        """
+        Test Case:
+        Attempt to delete a policy.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # Currently, all policies are created using our one well-known OM.
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
+
+        policies = fdscfg.rt_get_obj('cfg_vol_pol')
+        for policy in policies:
+            # If we were passed a policy, create that one and exit.
+            if self.passedPolicy is not None:
+                policy = self.passedPolicy
+
+            if 'id' not in policy.nd_conf_dict:
+                raise Exception('Policy section %s must have an id.' % policy.nd_conf_dict['pol_name'])
+
+            pol = policy.nd_conf_dict['id']
+            cmd = (' --policy-delete policy_%s -p %s' % (pol, pol))
+
+            self.log.info("Delete a policy %s on OM node %s." %
+                          (policy.nd_conf_dict['pol-name'], om_node.nd_conf_dict['node-name']))
+
+            cur_dir = os.getcwd()
+            os.chdir(bin_dir)
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s %s > '
+                                          '%s/cli.out 2>&1) \"' %
+                                          (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."))
+
+            os.chdir(cur_dir)
+
+            if status != 0:
+                self.log.error("Policy %s deletion on %s returned status %d." %
+                               (policy.nd_conf_dict['pol-name'], om_node.nd_conf_dict['node-name'], status))
+                return False
+            elif self.passedPolicy is not None:
+                break
+
+        return True
+
+
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
     unittest.main()
