@@ -48,6 +48,7 @@
 /source/stor_hvisor/*.mod.*
 /source/stor_hvisor/.tmp_versions/*
 /source/stor_hvisor/?odule*
+/source/test/integration-framework/test-reports
 /source/tools/install/.pkg.cache
 /source/tools/pharos/*
 /source/tools/pharos/libposix-aio-0.8.1/*
