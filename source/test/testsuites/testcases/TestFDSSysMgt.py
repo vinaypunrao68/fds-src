@@ -76,7 +76,18 @@ class TestClusterActivate(TestCase.FDSTestCase):
         os.chdir(cur_dir)
 
         if status != 0:
-            self.log.error("Cluster activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            self.log.error("Cluster activation on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        # After activation we should be able to spin through our nodes to obtain
+        # some useful information about them.
+        for n in fdscfg.rt_obj.cfg_nodes:
+            status = n.nd_populate_metadata(_bin_dir=bin_dir)
+            if status != 0:
+                break
+
+        if status != 0:
+            self.log.error("Node meta-data lookup for %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
         return True

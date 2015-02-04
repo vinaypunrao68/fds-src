@@ -43,6 +43,8 @@ class FdsNodeConfig(FdsConfig):
         self.nd_agent = None
         self.nd_package   = None
         self.nd_local_env = None
+        self.nd_assigned_name = None
+        self.nd_uuid = None
 
         # Is the node local or remote?
         if 'ip' not in self.nd_conf_dict:
@@ -217,7 +219,55 @@ class FdsNodeConfig(FdsConfig):
         else:
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
                                             ' > %s/pm.out' % log_dir)
-        time.sleep(4)
+
+        if status == 0:
+            time.sleep(4)
+
+        return status
+
+    ###
+    # Capture the node's assigned name and UUID.
+    #
+    def nd_populate_metadata(self, _bin_dir=None):
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
+
+        if 'fds_port' in self.nd_conf_dict:
+            port = self.nd_conf_dict['fds_port']
+        else:
+            port = 7000  # PM default.
+
+        fds_dir = self.nd_conf_dict['fds_root']
+
+        if _bin_dir is None:
+            bin_dir = fds_dir + '/bin'
+        else:
+            bin_dir = _bin_dir
+
+        # From the --list-services output we can determine node name
+        # and node UUID.
+        cur_dir = os.getcwd()
+        os.chdir(bin_dir)
+        status, stdout = self.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root=%s --list-services) \"' % (fds_dir),
+                                                 return_stdin=True)
+        os.chdir(cur_dir)
+
+        if status == 0:
+            for line in stdout.split('\n'):
+                if line.count("Node UUID") > 0:
+                    uuid = line.split()[2]
+                if line.count("Name") > 0:
+                    assigned_name = line.split()[1]
+                if line.count("Control") > 0:
+                    if int(line.split()[2]) - 1 == int(port):
+                        self.nd_assigned_name = assigned_name
+                        self.nd_uuid = uuid
+                        break
+
+            log.debug("Node %s has assigned name %s and UUID 0x%s." %
+                      (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
+        else:
+            log.error("status = %s" % status)
+            log.error(stdout)
 
         return status
 
