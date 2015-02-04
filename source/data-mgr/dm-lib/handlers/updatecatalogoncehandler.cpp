@@ -132,6 +132,7 @@ void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
     DmIoCommitBlobOnce* commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
     DmIoUpdateCatOnce* parent = commitOnceReq->parent;
     parent->cb(e, dmRequest);
+    delete parent;
 }
 
 void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -145,7 +146,6 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     if (dataMgr->testUturnAll || dataMgr->testUturnUpdateCat) {
         fds_verify(dmRequest == nullptr);
     } else {
-        // FIXME(DAC): Looks like a memory leak here.
         delete dmRequest;
     }
 }
