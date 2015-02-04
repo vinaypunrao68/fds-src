@@ -10,7 +10,7 @@
     copy: src={{ item }}
       dest=/root/fds-platform.deb
     with_fileglob:
-      - '../../../source/tools/install/pkg-{{ build }}/fds-platform_*{{ build }}*.deb'
+      - '../../../omnibus/omnibus-fds-platform/pkg/fds-platform_*{{ build }}*.deb'
     tags:
       - install-local
 

@@ -24,12 +24,12 @@ struct DeltaTest : public ::testing::Test {
 
       using namespace fds; // NOLINT
       ObjectBuf buf;
-      ObjMetaData().serializeTo(buf);
-      std::string& omd = *buf.data;
-      ldb->Put(writeOption, "test_30", omd);
-      ldb->Put(writeOption, "test_20", omd);
-      ldb->Put(writeOption, "test_10", omd);
-      ldb->Put(writeOption, "test_25", omd);
+      ObjMetaData omd;
+      omd.serializeTo(buf);
+      ldb->Put(writeOption, "test_30", *buf.data);
+      ldb->Put(writeOption, "test_20", *buf.data);
+      ldb->Put(writeOption, "test_10", *buf.data);
+      ldb->Put(writeOption, "test_25", *buf.data);
       init_state = ldb->GetSnapshot();
   }
 
@@ -57,10 +57,10 @@ TEST_F(DeltaTest, equivalentSnapshotsYieldsEmptyList) {
 TEST_F(DeltaTest, additionsAtFrontAreFound) {
     using namespace fds; // NOLINT
     ObjectBuf buf;
-    ObjMetaData().serializeTo(buf);
-    std::string& omd = *buf.data;
+    ObjMetaData omd;
+    omd.serializeTo(buf);
 
-    ldb->Put(writeOption, "test_00", omd);
+    ldb->Put(writeOption, "test_00", *buf.data);
 
     auto snap = ldb->GetSnapshot();
 
@@ -77,12 +77,12 @@ TEST_F(DeltaTest, additionsAtFrontAreFound) {
 TEST_F(DeltaTest, additionsAtBackAreFound) {
     using namespace fds; // NOLINT
     ObjectBuf buf;
-    ObjMetaData().serializeTo(buf);
-    std::string& omd = *buf.data;
+    ObjMetaData omd;
+    omd.serializeTo(buf);
 
-    ldb->Put(writeOption, "test_31", omd);
-    ldb->Put(writeOption, "test_32", omd);
-    ldb->Put(writeOption, "test_50", omd);
+    ldb->Put(writeOption, "test_31", *buf.data);
+    ldb->Put(writeOption, "test_32", *buf.data);
+    ldb->Put(writeOption, "test_50", *buf.data);
 
     auto snap = ldb->GetSnapshot();
 
@@ -99,11 +99,11 @@ TEST_F(DeltaTest, additionsAtBackAreFound) {
 TEST_F(DeltaTest, additionsInMiddleAreFound) {
     using namespace fds; // NOLINT
     ObjectBuf buf;
-    ObjMetaData().serializeTo(buf);
-    std::string& omd = *buf.data;
+    ObjMetaData omd;
+    omd.serializeTo(buf);
 
-    ldb->Put(writeOption, "test_23", omd);
-    ldb->Put(writeOption, "test_13", omd);
+    ldb->Put(writeOption, "test_23", *buf.data);
+    ldb->Put(writeOption, "test_13", *buf.data);
 
     auto snap = ldb->GetSnapshot();
 
@@ -120,13 +120,13 @@ TEST_F(DeltaTest, additionsInMiddleAreFound) {
 TEST_F(DeltaTest, additionsScatteredAreFound) {
     using namespace fds; // NOLINT
     ObjectBuf buf;
-    ObjMetaData().serializeTo(buf);
-    std::string& omd = *buf.data;
+    ObjMetaData omd;
+    omd.serializeTo(buf);
 
-    ldb->Put(writeOption, "test_00", omd);
-    ldb->Put(writeOption, "test_13", omd);
-    ldb->Put(writeOption, "test_23", omd);
-    ldb->Put(writeOption, "test_33", omd);
+    ldb->Put(writeOption, "test_00", *buf.data);
+    ldb->Put(writeOption, "test_13", *buf.data);
+    ldb->Put(writeOption, "test_23", *buf.data);
+    ldb->Put(writeOption, "test_33", *buf.data);
 
     auto snap = ldb->GetSnapshot();
 

@@ -252,6 +252,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     updCatMsg->volume_id    = amReq->io_vol_id;
     updCatMsg->txId         = blobReq->tx_desc->getValue();
     updCatMsg->blob_mode    = blobReq->blob_mode;
+    updCatMsg->dmt_version  = dmtMgr->getCommittedVersion();
 
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update

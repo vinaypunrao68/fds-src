@@ -118,16 +118,12 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         if (is_forwarding) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
-                if (dataMgr->feature.isCatSyncEnabled()) {
-                    LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
-                               << " because our DMT is " << dataMgr->omClient->getDMTVersion();
-                    helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
-                                                                            blob_version,
-                                                                            blob_obj_list,
-                                                                            meta_list);
-                } else {
-                    LOGWARN << "catalog sync feature - NOT enabled";
-                }
+                LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
+                           << " because our DMT is " << dataMgr->omClient->getDMTVersion();
+                helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
+                                                                       blob_version,
+                                                                       blob_obj_list,
+                                                                       meta_list);
                 if (helper.err.ok()) {
                     // we forwarded the request!!!
                     // if forwarding -- do not reply to AM yet, will reply when we receive response
