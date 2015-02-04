@@ -57,7 +57,11 @@ public class XdiAuthorizer {
     }
 
     public boolean hasToplevelPermission(AuthenticationToken token, Intent intent) {
-        return !token.equals(AuthenticationToken.ANONYMOUS);
+        if (authenticator.allowAll()) {
+            return true;
+        } else {
+            return !token.equals(AuthenticationToken.ANONYMOUS);
+        }
     }
 
     public long tenantId(AuthenticationToken token) {
