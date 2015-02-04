@@ -27,8 +27,8 @@ public class VertX extends Verticle {
         vertx.createHttpServer().requestHandler(new Handler<HttpServerRequest>() {
             public void handle(HttpServerRequest req) {
                 HttpServerResponse response = req.response();
-                response.end(new Buffer(BUF));
                 response.setWriteQueueMaxSize(Integer.MAX_VALUE);
+                response.end(new Buffer(BUF));
             }
         }).listen(8000);
         System.out.println("Started VertX");
