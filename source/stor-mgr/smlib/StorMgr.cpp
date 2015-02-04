@@ -1054,7 +1054,7 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
      *  However, moving the delete call into the smio_compactobj_resp_cb() make valgrind
      *  happy.  Need to investigate why this is.  Could be that 1% false positive valgrind
      *  can report.
-     * /
+     */
 }
 
 void
