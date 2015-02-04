@@ -10,6 +10,7 @@ import org.vertx.java.core.http.HttpServerResponse;
 import org.vertx.java.platform.Verticle;
 
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 
 public class VertX extends Verticle {
     private static final byte[] BUF = new byte[4096];
@@ -30,5 +31,11 @@ public class VertX extends Verticle {
                 response.setWriteQueueMaxSize(Integer.MAX_VALUE);
             }
         }).listen(8000);
+        System.out.println("Started VertX");
+        try {
+            new CountDownLatch(100).await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
