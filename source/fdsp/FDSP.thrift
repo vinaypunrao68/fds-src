@@ -378,90 +378,35 @@ struct FDSP_DMT_Resp_Type {
   1: i64 DMT_version
 }
 
-struct FDSP_VolumeInfoType {
-
-  1: string 		 vol_name,  /* Name of the volume or bucket*/
-  2: i32 	 		 tennantId,  // Tennant id that owns the volume
-  3: i32    		 localDomainId,  // Local domain id that owns vol
-  4: i32	 		 globDomainId,
-  // double	 	 volUUID,
-
-// Basic operational properties
-
-  5: FDSP_VolType        volType,
-  6: i32                 maxObjSizeInBytes,
-  7: double        	 capacity,
-  8: double        	 maxQuota,  // Quota % of capacity tho should alert
-
-// Consistency related properties
-
-  9: i32        		 defReplicaCnt,  // Number of replicas reqd for this volume
-  10: i32        		 defWriteQuorum,  // Quorum number of writes for success
-  11: i32        		 defReadQuorum,  // This will be 1 for now
-  12: FDSP_ConsisProtoType 	 defConsisProtocol,  // Read-Write consistency protocol
-
-// Other policies
-
-  13: i32        		 volPolicyId,
-  14: i32         		 archivePolicyId,
-  15: i32        		 placementPolicy,  // Can change placement policy
-  16: FDSP_AppWorkload     	 appWorkload,
-  17: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
-
-  18: i32         		 backupVolume,  // UUID of backup volume
-  19: bool                       fSnapshot,
-  20: i64                        srcVolumeId,
-  21: i64                        qosQueueId,
-  22: i64                        contCommitlogRetention,
-  23: i64                        timelineTime,
-  24: i64                        createTime
-}
-
 struct FDSP_VolumeDescType {
+  1: required string            vol_name,  /* Name of the volume */
+  2: i32                        tennantId,  // Tennant id that owns the volume
+  3: i32                        localDomainId,  // Local domain id that owns vol
+  4: required i64               volUUID,
 
-  1: string 		 vol_name,  /* Name of the volume */
-  2: i32 	 		 tennantId,  // Tennant id that owns the volume
-  3: i32    		 localDomainId,  // Local domain id that owns vol
-  4: i32	 		 globDomainId,
-  5: i64	 	 volUUID,
+  // Basic operational properties
+  5: required FDSP_VolType      volType,
+  6: i32                        maxObjSizeInBytes,
+  7: required double            capacity,
 
-// Basic operational properties
+  // Other policies
+  8: i32                        volPolicyId,
+  9: i32                        placementPolicy,  // Can change placement policy
 
-  6: FDSP_VolType		 volType,
-  7: i32                 maxObjSizeInBytes,
-  8: double        	 capacity,
-  9: double        	 maxQuota,  // Quota % of capacity tho should alert
+  // volume policy details
+  10: double                    iops_min, /* minimum (guaranteed) iops */
+  11: double                    iops_max, /* maximum iops */
+  12: i32                       rel_prio, /* relative priority */
+  13: required FDSP_MediaPolicy mediaPolicy   /* media policy */
 
-// Consistency related properties
-
-  10: i32        		 defReplicaCnt,  // Number of replicas reqd for this volume
-  11: i32        		 defWriteQuorum,  // Quorum number of writes for success
-  12: i32        		 defReadQuorum,  // This will be 1 for now
-  13: FDSP_ConsisProtoType 	 defConsisProtocol,  // Read-Write consistency protocol
-
-// Other policies
-
-  14: i32        		 volPolicyId,
-  15: i32         		 archivePolicyId,
-  16: i32        		 placementPolicy,  // Can change placement policy
-  17: FDSP_AppWorkload     	 appWorkload,
-
-  18: i32         		 backupVolume,  // UUID of backup volume
-
-// volume policy details
-  19: double                 iops_min, /* minimum (guaranteed) iops */
-  20: double                 iops_max, /* maximum iops */
-  21: i32                    rel_prio, /* relative priority */
-  22: FDSP_MediaPolicy       mediaPolicy   /* media policy */
-  23: bool                       fSnapshot,
-  24: i64                        srcVolumeId,
-  25: i64                        qosQueueId,
-  26: common.ResourceState              state,
-  27: i64                        contCommitlogRetention,
-  28: i64                        timelineTime,
-  29: i64                        createTime,
-  30: i32                    iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed*/
+  14: bool                      fSnapshot,
+  15: common.ResourceState      state,
+  16: i64                       contCommitlogRetention,
+  17: i64                       timelineTime,
+  18: i64                       createTime,
+  19: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
 }
+
 
 struct FDSP_CreateDomainType {
 
@@ -476,14 +421,14 @@ struct FDSP_GetDomainStatsType {
 
 struct FDSP_CreateVolType {
 
-  1: string 		 vol_name,
-  2: FDSP_VolumeInfoType 	 vol_info, /* Volume properties and attributes */
+  1: string                  vol_name,
+  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
 
 }
 
 struct FDSP_TestBucket {
-  1: string 		 bucket_name,
-  2: FDSP_VolumeInfoType 	 vol_info, /* Bucket properties and attributes */
+  1: string                 bucket_name,
+  2: FDSP_VolumeDescType    vol_info, /* Bucket properties and attributes */
   3: bool                   attach_vol_reqd, /* Should OMgr send out an attach volume if the bucket is accessible, etc */
   4: string                 accessKeyId,
   5: string                 secretAccessKey,

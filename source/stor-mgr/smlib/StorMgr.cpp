@@ -957,8 +957,13 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     qosCtrl->markIODone(*cobjs_req, diskio::diskTier);
 
     cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
-
-    delete cobjs_req;
+    
+    /** TODO(Sean)
+     *  Originally cobjs_req was deleted here, but valgrind detected is as memory leak.
+     *  However, moving the delete call into the smio_compactobj_resp_cb() make valgrind
+     *  happy.  Need to investigate why this is.  Could be that 1% false positive valgrind
+     *  can report.
+     */
 }
 
 void
