@@ -298,6 +298,7 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         LOGERROR << "Failed to compact a set of objects, cannot continue"
                  << " with token GC copy, completing with error " << error;
         handleCompactionDone(error);
+        delete req;
         return;
     }
 
@@ -320,6 +321,8 @@ void TokenCompactor::objsCompactedCb(const Error& error,
             handleCompactionDone(error);
         }
     }
+
+    delete req;
 }
 
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)
