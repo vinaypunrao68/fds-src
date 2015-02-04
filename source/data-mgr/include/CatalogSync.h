@@ -96,7 +96,7 @@ namespace fds {
 
         /**
          * Actually start catalog sync process for given set of
-         * volumes to node for which this CatalogSync is reponsible for.
+         * volumes to node for which this CatalogSync is responsible for.
          * @param[in] done_evt_hdlr a callback CatalogSync will call
          * when initial sync and delta sync is finished.
          * @param[in] volumes is set of volumes which this CatalogSync
@@ -163,7 +163,7 @@ namespace fds {
         void handleVolumeDone(fds_volid_t volid);
 
         /**
-         * @return true if CatalogSync is reponsible for syncing
+         * @return true if CatalogSync is responsible for syncing
          * given volume 'volid'
          */
         inline fds_bool_t hasVolume(fds_volid_t volid) {
@@ -278,7 +278,7 @@ namespace fds {
 
         /**
          * Called when forwarding can be finished for volume 'volid'
-         * so volume-related datastucts can be freed
+         * so volume-related data structures can be freed
          * @return true if all volumes finished forwarding metadata
          */
         fds_bool_t finishedForwardVolmeta(fds_volid_t volid);
