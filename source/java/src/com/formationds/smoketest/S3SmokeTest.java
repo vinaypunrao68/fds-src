@@ -392,8 +392,7 @@ public class S3SmokeTest {
         assertEquals(403, response.getStatusLine().getStatusCode());
     }
 
-    // Commented pending FS-835
-    // @Test
+    @Test
     public void testMissingObject() throws Exception {
         try {
             userClient.getObject(userBucket, UUID.randomUUID().toString());
