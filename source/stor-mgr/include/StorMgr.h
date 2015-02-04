@@ -347,14 +347,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      Error deleteObjectInternal(SmIoDeleteObjectReq* delReq);
      Error addObjectRefInternal(SmIoAddObjRefReq* addRefReq);
 
-     void putTokenObjectsInternal(SmIoReq* ioReq);
-     void getTokenObjectsInternal(SmIoReq* ioReq);
      void snapshotTokenInternal(SmIoReq* ioReq);
-     void applySyncMetadataInternal(SmIoReq* ioReq);
-     void resolveSyncEntryInternal(SmIoReq* ioReq);
-     void applyObjectDataInternal(SmIoReq* ioReq);
-     void readObjectDataInternal(SmIoReq* ioReq);
-     void readObjectMetadataInternal(SmIoReq* ioReq);
      void compactObjectsInternal(SmIoReq* ioReq);
      void moveTierObjectsInternal(SmIoReq* ioReq);
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
@@ -372,7 +365,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();
-     TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
 
      Error putTokenObjects(const fds_token_id &token,
                            FDSP_MigrateObjectList &obj_list);

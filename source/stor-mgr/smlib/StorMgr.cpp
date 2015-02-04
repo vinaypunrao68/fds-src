@@ -474,10 +474,6 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
     return (*mySvcUuid == nodes->get(0));
 }
 
-fds_token_id ObjectStorMgr::getTokenId(const ObjectID& objId) {
-    return omClient->getCurrentDLT()->getToken(objId);
-}
-
 void ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
@@ -841,15 +837,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     }
 
     switch (ioReq->io_type) {
-        case FDS_SM_WRITE_TOKEN_OBJECTS:
-        case FDS_SM_READ_TOKEN_OBJECTS:
-        {
-            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
-            fds_assert(smVol);
-            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
-                    static_cast<FDS_IOType*>(ioReq));
-            break;
-        }
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
@@ -877,26 +864,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_DELETE_OBJECT:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
-        case FDS_SM_SYNC_APPLY_METADATA:
-            objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
-            objectId = static_cast<SmIoResolveSyncEntry*>(ioReq)->object_id;
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        case FDS_SM_APPLY_OBJECTDATA:
-            objectId = static_cast<SmIoApplyObjectdata*>(ioReq)->obj_id;
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        case FDS_SM_READ_OBJECTDATA:
-            objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjId();
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        case FDS_SM_READ_OBJECTMETADATA:
-            objectId = static_cast<SmIoReadObjectMetadata*>(ioReq)->getObjId();
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
         default:
             LOGERROR << "Unknown message: " << ioReq->io_type;
             fds_panic("Unknown message");
@@ -909,44 +876,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     return err;
 }
 
-
-/**
- * @brief Does a bulk put of objects+metadata from obj_list
- * @param the request structure ptr
- * @return any associated error
- */
-void
-ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
-{
-    Error err(ERR_OK);
-    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
-    FDSP_MigrateObjectList &objList = putTokReq->obj_list;
-    fds_panic("deprecated");
-
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*putTokReq,
-                        diskio::diskTier);
-
-    putTokReq->response_cb(err, putTokReq);
-    /* NOTE: We expect the caller to free up ioReq */
-}
-
-void
-ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
-{
-    Error err(ERR_OK);
-    fds_panic("need to be ported to new SM org");
-    SmIoGetTokObjectsReq *getTokReq = static_cast<SmIoGetTokObjectsReq*>(ioReq);
-    // smObjDb->iterRetrieveObjects(getTokReq->token_id,
-    //                             getTokReq->max_size, getTokReq->obj_list, getTokReq->itr);
-
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*getTokReq,
-                        diskio::diskTier);
-
-    getTokReq->response_cb(err, getTokReq);
-    /* NOTE: We expect the caller to free up ioReq */
-}
 /**
  * Takes snapshot of sm object metadata db identifed by
  * token
@@ -972,26 +901,6 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
-}
-
-void
-ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
-{
-    fds_panic("need to be ported to new SM org");
-    SmIoApplySyncMetadata *applyMdReq =  static_cast<SmIoApplySyncMetadata*>(ioReq);
-    // Error e = smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
-    //                                applyMdReq->md, applyMdReq->dataExists);
-    Error e(ERR_OK);
-    if (e != ERR_OK) {
-        fds_assert(!"error");
-        LOGERROR << "Error in applying sync metadata.  Object Id: "
-                 << applyMdReq->md.object_id.digest;
-    }
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*applyMdReq,
-            diskio::diskTier);
-
-    applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
 }
 
 void
@@ -1206,136 +1115,6 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
     delete moveReq;
 }
 
-void
-ObjectStorMgr::resolveSyncEntryInternal(SmIoReq* ioReq)
-{
-    fds_panic("need to be ported to new SM org");
-    SmIoResolveSyncEntry *resolve_entry =  static_cast<SmIoResolveSyncEntry*>(ioReq);
-    Error e(ERR_OK);  //  = smObjDb->resolveEntry(resolve_entry->object_id);
-    if (e != ERR_OK) {
-        fds_assert(!"error");
-        LOGERROR << "Error in resolving metadata entry.  Object Id: "
-                << resolve_entry->object_id;
-    }
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*resolve_entry,
-            diskio::diskTier);
-
-    resolve_entry->smio_resolve_resp_cb(e, resolve_entry);
-}
-
-void
-ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
-{
-    SmIoApplyObjectdata *applydata_entry =  static_cast<SmIoApplyObjectdata*>(ioReq);
-    ObjectID objId = applydata_entry->obj_id;
-    ObjMetaData objMetadata;
-    fds_panic("need to be ported to new SM org");
-    Error err(ERR_OK);  //  = smObjDb->get(objId, objMetadata);
-    if (err != ERR_OK && err != ERR_NOT_FOUND) {
-        fds_assert(!"ObjMetadata read failed");
-        LOGERROR << "Failed to write the object: " << objId;
-        qosCtrl->markIODone(*applydata_entry,
-                diskio::diskTier);
-        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
-        return;
-    }
-
-    err = ERR_OK;
-
-    if (objMetadata.dataPhysicallyExists()) {
-        /* No need to write the object data.  It already exits */
-        LOGDEBUG << "Object already exists. Id: " << objId;
-        qosCtrl->markIODone(*applydata_entry,
-                diskio::diskTier);
-        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
-        return;
-    }
-
-    /* Moving the data to not incur copy penalty */
-    DBG(std::string temp_data = applydata_entry->obj_data);
-    ObjectBuf objData;
-    *(objData.data) = std::move(applydata_entry->obj_data);
-    fds_assert(temp_data == *(objData.data));
-    applydata_entry->obj_data.clear();
-
-    /* write data to storage tier */
-    obj_phy_loc_t phys_loc;
-    fds_panic("need to port back to new SM org");
-    // err = writeObjectDataToTier(objId, objData, diskio::diskTier, phys_loc);
-    if (err != ERR_OK) {
-        fds_assert(!"Failed to write");
-        LOGERROR << "Failed to write the object: " << objId;
-        qosCtrl->markIODone(*applydata_entry,
-                diskio::diskTier);
-        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
-        return;
-    }
-
-    /* write the metadata */
-    objMetadata.updatePhysLocation(&phys_loc);
-    // smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
-
-    qosCtrl->markIODone(*applydata_entry,
-            diskio::diskTier);
-
-    applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
-}
-
-void
-ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
-{
-    SmIoReadObjectdata *read_entry =  static_cast<SmIoReadObjectdata*>(ioReq);
-    ObjectBuf        objData;
-    ObjMetaData objMetadata;
-    diskio::DataTier tierUsed;
-
-    /*
-    Error err = readObject(SmObjDb::NON_SYNC_MERGED, read_entry->getObjId(),
-                           objMetadata, objData, tierUsed, 0);
-    */
-    Error err(ERR_OK);
-    fds_panic("This method should not be called");
-    if (err != ERR_OK) {
-        fds_assert(!"failed to read");
-        LOGERROR << "Failed to read object id: " << read_entry->getObjId();
-        qosCtrl->markIODone(*read_entry,
-                diskio::diskTier);
-        read_entry->smio_readdata_resp_cb(err, read_entry);
-    }
-    // TODO(Rao): use std::move here
-    read_entry->obj_data.data = *(objData.data);
-    fds_assert(read_entry->obj_data.data.size() > 0);
-
-    qosCtrl->markIODone(*read_entry,
-            diskio::diskTier);
-
-    read_entry->smio_readdata_resp_cb(err, read_entry);
-}
-
-void
-ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
-{
-    SmIoReadObjectMetadata *read_entry =  static_cast<SmIoReadObjectMetadata*>(ioReq);
-    ObjMetaData objMetadata;
-
-    fds_panic("need to be ported to new SM org");
-    Error err(ERR_OK);  //  = smObjDb->get(read_entry->getObjId(), objMetadata);
-    if (err != ERR_OK) {
-        fds_assert(!"failed to read");
-        LOGERROR << "Failed to read object metadata id: " << read_entry->getObjId();
-        qosCtrl->markIODone(*read_entry,
-                diskio::diskTier);
-        read_entry->smio_readmd_resp_cb(err, read_entry);
-        return;
-    }
-
-    qosCtrl->markIODone(*read_entry,
-            diskio::diskTier);
-
-    read_entry->smio_readmd_resp_cb(err, read_entry);
-}
-
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
@@ -1373,16 +1152,6 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
                                  static_cast<SmIoAddObjRefReq *>(io));
             break;
         }
-        case FDS_SM_WRITE_TOKEN_OBJECTS:
-        {
-            LOGDEBUG << "Processing a write token ibjects";
-            threadPool->schedule(&ObjectStorMgr::putTokenObjectsInternal, objStorMgr, io);
-            break;
-        }
-        case FDS_SM_READ_TOKEN_OBJECTS:
-            LOGDEBUG << "Processing a read token objects";
-            threadPool->schedule(&ObjectStorMgr::getTokenObjectsInternal, objStorMgr, io);
-            break;
         case FDS_SM_SNAPSHOT_TOKEN:
         {
             LOGDEBUG << "Processing snapshot";
@@ -1405,36 +1174,6 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_READ_DELTA_SET:
             threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
             break;
-        case FDS_SM_SYNC_APPLY_METADATA:
-        {
-            LOGDEBUG << "Processing sync apply metadata";
-            threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
-            break;
-        }
-        case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
-        {
-            LOGDEBUG << "Processing sync resolve";
-            threadPool->schedule(&ObjectStorMgr::resolveSyncEntryInternal, objStorMgr, io);
-            break;
-        }
-        case FDS_SM_APPLY_OBJECTDATA:
-        {
-            LOGDEBUG << "Processing sync apply object metadata";
-            threadPool->schedule(&ObjectStorMgr::applyObjectDataInternal, objStorMgr, io);
-            break;
-        }
-        case FDS_SM_READ_OBJECTDATA:
-        {
-            LOGDEBUG << "Processing read object data";
-            threadPool->schedule(&ObjectStorMgr::readObjectDataInternal, objStorMgr, io);
-            break;
-        }
-        case FDS_SM_READ_OBJECTMETADATA:
-        {
-            LOGDEBUG << "Processing read object metadata";
-            threadPool->schedule(&ObjectStorMgr::readObjectMetadataInternal, objStorMgr, io);
-            break;
-        }
         default:
             fds_assert(!"Unknown message");
             break;
