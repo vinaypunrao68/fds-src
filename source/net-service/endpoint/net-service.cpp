@@ -11,6 +11,7 @@
 #include <fdsp/AMSvc.h>
 #include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/Streaming.h>
+#include <fdsp/fds_service_types.h>
 #include <net/BaseAsyncSvcHandler.h>
 #include <net/SvcMgr.h>
 
@@ -58,7 +59,7 @@ NetMgr::ep_get_task_executor() {
 int
 NetMgr::mod_init(SysParams const *const p)
 {
-    svcMgr = new SvcMgr(nullptr);
+    svcMgr = new SvcMgr(nullptr, fpi::SvcInfo());
     static Module *ep_mgr_mods[] = {
         svcMgr,
         gl_EpShmPlatLib,

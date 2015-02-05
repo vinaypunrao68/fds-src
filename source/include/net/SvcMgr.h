@@ -53,7 +53,7 @@ struct SvcUuidHash {
 * @brief Overall manager class for service layer
 */
 struct SvcMgr : public Module {
-    explicit SvcMgr(fpi::PlatNetSvcProcessorPtr processor);
+    explicit SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInfo);
     virtual ~SvcMgr();
 
     /* Module overrides */
@@ -118,20 +118,6 @@ struct SvcMgr : public Module {
     */
     fpi::OMSvcClientPtr getNewOMSvcClient() const;
 
-    /**
-    * @brief allocates thrift rpc client
-    *
-    * @tparam T
-    * @param ip
-    * @param port
-    * @param blockOnConnect - if set, will block until connection succeeds
-    *
-    * @return 
-    */
-    template<class T>
-    static boost::shared_ptr<T> allocRpcClient(const std::string ip,
-                                               const int &port,
-                                               const bool &blockOnConnect = false);
  protected:
     /**
     * @brief For getting service handle.
@@ -157,20 +143,9 @@ struct SvcMgr : public Module {
     int omPort_;
     fpi::SvcUuid omSvcUuid_;
 
-    /* Service base uuid */
-    fpi::SvcUuid svcUuid_;
-    /* Service port */
-    int port_;
+    /* Service information */
+    fpi::SvcInfo svcInfo_;
 };
-template<>
-boost::shared_ptr<fpi::PlatNetSvcClient> SvcMgr::allocRpcClient(
-    const std::string ip,
-    const int &port,
-    const bool &blockOnConnect);
-template<>
-boost::shared_ptr<fpi::OMSvcClient> SvcMgr::allocRpcClient(const std::string ip,
-                                                                  const int &port,
-                                                                  const bool &blockOnConnect);
 
 /**
 * @brief Wrapper around service information and service rpc client.

@@ -3,6 +3,7 @@
  */
 #include <fds_process.h>
 #include <fdsp/PlatNetSvc.h>
+#include <fdsp/OMSvc.h>
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
 
@@ -34,6 +35,9 @@ void SvcProcess::init(int argc, char *argv[],
     /* Setup Config db for persistence */
     setupConfigDb_();
 
+    /* Populate service information */
+    setupSvcInfo_();
+
     /* Set up service layer */
     setupSvcMgr_(processor);
 
@@ -42,26 +46,48 @@ void SvcProcess::init(int argc, char *argv[],
      */
     registerSvcProcess();
 
-    /* After registraion is complete other modules can proceed */
+    /* After registraion is complete other modules can proceed.  See FdsProcess::main() */
+}
+
+void SvcProcess::registerSvcProcess()
+{
+    LOGNOTIFY;
+
+    do {
+        try {
+            /* This will block until we get a connection */
+            auto omSvcRpc = svcMgr_->getNewOMSvcClient();
+            omSvcRpc->registerService(svcInfo_);
+            break;
+        } catch (Exception &e) {
+            LOGWARN << "Failed to register: " << e.what() << ".  Retrying...";
+        } catch (...) {
+            LOGWARN << "Failed to register: unknown excpeption" << ".  Retrying...";
+        }
+    } while (true);
 }
 
 void SvcProcess::setupConfigDb_()
 {
     LOGNOTIFY;
     // TODO(Rao): Set up configdb
+    fds_panic("Unimpl");
+}
+
+void SvcProcess::setupSvcInfo_()
+{
+    auto config = gModuleProvider->get_conf_helper();
+    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(config.get<long long>("svc.uuid"));
+    svcInfo_.svc_port = config.get<int>("svc.port");
+    // TODO(Rao): set up svc info
 }
 
 void SvcProcess::setupSvcMgr_(fpi::PlatNetSvcProcessorPtr processor)
 {
     LOGNOTIFY;
-    svcMgr_.reset(new SvcMgr(processor));
+    svcMgr_.reset(new SvcMgr(processor, svcInfo_));
     /* This will start SvcServer instance */
     svcMgr_->mod_init(nullptr);
-}
-
-void SvcProcess::registerSvcProcess()
-{
-    LOGNOTIFY;
 }
 
 }  // namespace fds
