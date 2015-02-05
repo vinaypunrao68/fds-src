@@ -44,6 +44,7 @@ class Disk:
         self.dsk_typ  = Disk.dsk_typ_unknown
         self.dsk_formatted = 'Unknown'
         self.dsk_index_use = False
+        self.dsk_tiered = False
 
         if path == '/dev/sda' or path == '/dev/sdb':
             self.dsk_os_use = True
@@ -69,6 +70,10 @@ class Disk:
     def set_index(self):
         self.dsk_index_use = True
 
+    # set_tiered, Mark this device as tiered storage device
+    def set_tiered(self):
+        self.dsk_tiered = True
+
     # print all the parsed fields
     def print_disk(self, disk_file = None):
         global header_output
@@ -78,9 +83,9 @@ class Disk:
             dest = disk_file
 
         if not header_output:
-            print >>dest, '#path      os_use  index_use  type  capacity (GB)'
+            print >>dest, '#path      os_use  index_use  tier_use  type  capacity (GB)'
             header_output = True
-        print >>dest, '%-11s%-8s%-11s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_cap)
+        print >>dest, '%-11s%-8s%-11s%-10s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_tiered, self.dsk_typ, self.dsk_cap)
 
 ## ----------------------------------------------------------------
 
@@ -330,13 +335,19 @@ if __name__ == "__main__":
 
     # add enough HDDs to ensure two drives are marked as index drives
     while len (index_device_list) < 2:
-        index_device_list.append (hddd_device_list.pop())
-
-    print "index_count =", index_device_list
+        index_device_list.append (hdd_device_list.pop())
 
     for disk in dev_list:
         if disk.get_path() in index_device_list:
             disk.set_index()
+
+    # Now determine if all non OS disks are SSDs
+    # if so, there is no tiered storage.
+    # otherwise, the two disks with the meta data index are used for tiered data
+    if any (x for x in dev_list if x.get_type() == Disk.dsk_typ_hdd and x.get_type() != Disk.dsk_typ_unknown and not x.get_os_use()):
+        for disk in dev_list:
+            if disk.get_path() in index_device_list:
+                disk.set_tiered()
 
     if print_disk:
         print "=============================================================================================="
