@@ -230,11 +230,17 @@ void
 OmSvcHandler::    GetSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::GetSvcMapMsg> &msg)
 {
+    Error err(ERR_OK);
     LOGDEBUG << " received " << hdr->msg_code
              << " from:" << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
 
     // get the  serice map from config DB.
-    // we will have to  define the  configDB interafce to service  map
+
+    // Send the response.
+    fpi::GetSvcMapRespMsg msg(new fpi::GetSvcMapRespMsg());
+    // init the Resp message with the service map
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *msg);
 
 }
 
