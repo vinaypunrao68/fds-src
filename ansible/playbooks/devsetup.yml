@@ -152,3 +152,9 @@
         owner=root
         mode=0777
         state=directory
+
+    - name: create omnibus install directory for fds-deploy
+      file: path=/opt/fds-deploy
+        owner=root
+        mode=0777
+        state=directory
