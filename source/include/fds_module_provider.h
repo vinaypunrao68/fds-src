@@ -18,6 +18,7 @@ class FdsRootDir;
 class fds_threadpool;
 class Platform;
 class TracebufferPool;
+struct SvcMgr;
 
 /* Interface for providing common process modules
  * NOTES
@@ -49,6 +50,8 @@ class CommonModuleProviderIf {
     virtual Platform* get_plf_manager() { return nullptr; }
 
     virtual TracebufferPool* getTracebufferPool() {return nullptr; }
+
+    virtual SvcMgr* getSvcMgr() {return nullptr;}
 };
 
 extern CommonModuleProviderIf* gModuleProvider;

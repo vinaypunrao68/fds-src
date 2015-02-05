@@ -4,6 +4,8 @@ user_rtime_env   := user
 user_build_dir   :=
 user_incl_dir    := $(topdir) . ../include
 user_cpp         := \
+	SvcMgr.cpp \
+	SvcServer.cpp \
 	SvcRequestTracker.cpp \
 	SvcRequestPool.cpp \
 	SvcRequest.cpp
