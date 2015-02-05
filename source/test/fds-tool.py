@@ -2,9 +2,10 @@
 
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+import optparse, sys, time
+sys.path.append("/fds/lib/python2.7/dist-packages")
 import fdslib.FdsSetup as inst
 import fdslib.BringUpCfg as fdscfg
-import optparse, sys, time
 import os
 import pdb
 

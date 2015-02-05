@@ -1,4 +1,4 @@
-angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_service', '$authentication', '$state', '$timeout', function( $scope, $node_service, $authentication, $state, $timeout ){
+angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_service', '$authentication', '$state', '$timeout', '$filter', '$rootScope', function( $scope, $node_service, $authentication, $state, $timeout, $filter, $rootScope ){
 
     $scope.addingnode = false;
     $scope.nodes = $node_service.nodes;
@@ -10,8 +10,28 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
     };
     
     $scope.removeNode = function( node ){
+        var confirm = {
+            type: 'CONFIRM',
+            text: $filter( 'translate' )( 'system.desc_remove_node' ),
+            confirm: function( result ){
+                if ( result === false ){
+                    return;
+                }
+                
+                $node_service.removeNode( node,
+                    function(){ 
+                        var $event = {
+                            type: 'INFO',
+                            text: $filter( 'translate' )( 'system.desc_node_removed' )
+                        };
+
+                        $rootScope.$emit( 'fds::alert', $event );
+                    });
+            }
+        };
         
-        $node_service.removeNode( node );
+        $rootScope.$emit( 'fds::confirm', confirm );
+        
     };
     
     $scope.getOverallStatus = function( node ){

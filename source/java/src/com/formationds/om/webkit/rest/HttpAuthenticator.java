@@ -56,7 +56,7 @@ public class HttpAuthenticator implements RequestHandler {
                 }
             }  else {
                 try {
-                    token = authenticator.resolveToken(result.get().getValue());
+                    token = authenticator.parseToken(result.get().getValue());
                 } catch (LoginException e) {
                     if (authenticator.allowAll()) {
                         LOG.error("Authentication error ignored - auth is disabled");
@@ -88,7 +88,7 @@ public class HttpAuthenticator implements RequestHandler {
         }
 
         try {
-            return Optional.of(authenticator.resolveToken(headerValue));
+            return Optional.of(authenticator.parseToken(headerValue));
         } catch (Exception e) {
             return Optional.empty();
         }

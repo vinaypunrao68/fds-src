@@ -14,12 +14,10 @@
 #include <DmBlobTypes.h>
 #include <dm-tvc/CommitLog.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
-#include <dm-vol-cat/DmVolumeDirectory.h>
 #include <util/Log.h>
 #include <util/timeutils.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 
-// #define DM_VOLUME_CATALOG_TYPE DmVolumeCatalog
 #define DM_VOLUME_CATALOG_TYPE DmVolumeDirectory
 
 namespace fds {
@@ -42,7 +40,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     std::unordered_map<fds_volid_t, DmCommitLog::ptr> commitLogs_;
 
     /**
-     * For executing certain blob operatins (commit, delete) in a
+     * For executing certain blob operations (commit, delete) in a
      * synchronized manner
      */
     SynchronizedTaskExecutor<std::string> opSynchronizer_;
@@ -120,7 +118,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * This could be either completely new volume or volume
      * that was previously managed by other DMs. When this method
      * returns, TVC is not ready to accept requests for the volume
-     * untill activateVolume() is called.
+     * until activateVolume() is called.
      * @param[in] voldesc descriptor of new volume
      * @return ERR_OK if TVC and Volume Catalog is ready
      * for volume activate
@@ -128,7 +126,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error addVolume(const VolumeDesc& voldesc);
 
     /**
-     * Create copy of the volmume  for snapshot/clone
+     * Create copy of the volume for snapshot/clone
      */
     Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = 0);
 
@@ -139,7 +137,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                              util::TimeStamp fromTime, util::TimeStamp toTime);
 
     /**
-     * Increment object reference counts for all objects refered by source
+     * Increment object reference counts for all objects referred by source
      * volume. Sends message to SM with list of object IDs.
      */
     void incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId, fds_token_id token,
@@ -164,7 +162,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Removes volume marked as deleted
      * @return ERR_OK if volume is deleted; ERR_NOT_READY if volume not marked
-     * as delted
+     * as deleted
      */
     Error deleteEmptyVolume(fds_volid_t volId);
 
@@ -196,7 +194,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                        const fpi::FDSP_BlobObjectList &objList);
 
     /**
-     * Applies a new medatadata update to an
+     * Applies a new metadata update to an
      * existing transaction
      * @param[in] volId volume ID
      * @param[in] txDesc  Transaction ID

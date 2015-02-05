@@ -13,7 +13,7 @@
 #include <dm-platform.h>
 #include <net/net-service.h>
 
-#include <dm-vol-cat/DmPersistVolDir.h>
+#include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace fds {
 const fds_uint64_t INVALID_BLOB_ID = 0;
@@ -70,7 +70,7 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     }
 
     // rsync
-    LOGMIGRATE << "Migrating catalog " << getVolIdStr() << "  with rsync command: " << rsyncCmd;
+    LOGMIGRATE << "Migrating catalog " << getVolIdStr() << " with rsync";
     ret = std::system(rsyncCmd.c_str());
     if (ret) {
         LOGERROR << "rsync command failed '" << rsyncCmd << "', code: '" << ret << "'";

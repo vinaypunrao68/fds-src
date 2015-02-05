@@ -1,9 +1,9 @@
-<div class="dialog-page" ng-controller="addNodeController">
+<div class="add-node-dialog-page" ng-controller="addNodeController">
     
     <div class="header" style="height: 52px;">
         <span translate class="create-volume-create-title">system.l_nodes</span>
         <div class="pull-right flex">
-            <button class="btn btn-primary skinny" style="display: inline-block;margin-right: 8px;" ng-click="addNodes()">
+            <button class="btn btn-primary skinny add-node-button" style="display: inline-block;margin-right: 8px;" ng-click="addNodes()">
                 <span translate>system.l_add_node</span>
             </button>
             <button class="btn btn-secondary cancel-creation skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
@@ -26,11 +26,11 @@
 
         </thead>
         <tbody>
-            <tr class="no-border" ng-repeat="detachedNode in detachedNodes">
+            <tr class="no-border detached-nodes" ng-repeat="detachedNode in detachedNodes">
                 <td>
                     <div class="flex">
                         <tri-state-check check-state="detachedNode.addAll" ng-click="nodeStateChanged( detachedNode )" style="top: 3px;"></tri-state-check>
-                        <div style="margin-left: 4px;">{{ detachedNode.name }}</div>
+                        <div style="margin-left: 4px;" class="node-name">{{ detachedNode.name }}</div>
                     </div>
                 </td>
                 <td>

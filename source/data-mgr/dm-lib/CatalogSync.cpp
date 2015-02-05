@@ -13,6 +13,7 @@
 #include <DataMgr.h>
 #include <VolumeMeta.h>
 #include <DMSvcHandler.h>
+#include "../include/CatalogSync.h"
 
 namespace fds {
 
@@ -86,8 +87,8 @@ void CatalogSync::doDeltaSync() {
                   node_uuid.uuid_get_val());
     }
 
-    LOGNORMAL << "Start delta sync to destination node "
-              << std::hex << node_uuid.uuid_get_val() << std::dec;
+    LOGMIGRATE << "Start delta sync to destination node "
+               << std::hex << node_uuid.uuid_get_val() << std::dec;
 
     // at this point, we must have meta client and done evt handler
     fds_verify(done_evt_handler != NULL);
@@ -429,15 +430,24 @@ Error CatalogSyncMgr::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
 Error CatalogSyncMgr::issueServiceVolumeMsg(fds_volid_t volid) {
     Error err(ERR_OK);
     fds_mutex::scoped_lock l(cat_sync_lock);
-    fds_verify(sync_in_progress);
+    // TODO(Andrew): Commenting out because there is a race here between
+    // finishing the forwarding and actually getting the close event from OM.
+    // fds_verify(sync_in_progress);
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
          cit != cat_sync_map.cend();
          ++cit) {
         if ((cit->second)->hasVolume(volid)) {
             err = (cit->second)->issueVolSyncStateMsg(volid, true);
             if (!err.ok()) return err;
+            // TODO(Andrew): We're not erasing anything if there's
+            // an error. I guess it's just gonna sit there?
+            // Lets erase later.
+            // cat_sync_map.erase(cit);
         }
     }
+
+    // TODO(Andrew): We're calling the callback in a different spot.
+    // dataMgr->sendDmtCloseCb(err);
     return err;
 }
 
@@ -459,6 +469,8 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
                 LOGMIGRATE << "Completed forwarding for volume " << std::hex << volid << std::dec
                            << " and removed from syncing volumes list";
                 if (((cit->second)->emptyVolume())) {
+                    // TODO(Andrew): Clean this stuff up since the map
+                    // and flags should be set on a later call.
                     cat_sync_map.erase(cit);
                     LOGMIGRATE << "cat sync map erase: " << std::hex
                                << volid << std::dec;
@@ -473,6 +485,8 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
         sync_in_progress = !send_dmt_close_ack;
     }  // end of scoped lock
 
+    // TODO(Andrew): Clean this stuff up since the callback is made
+    // in a later call.
     if (send_dmt_close_ack) {
         if (dataMgr->sendDmtCloseCb != nullptr) {
             Error err(ERR_OK);
@@ -568,5 +582,44 @@ Error CatalogSync::issueVolSyncStateMsg(fds_volid_t volId,
 
     return err;
 }
+
+Error CatalogSyncMgr::abortMigration()
+{
+    Error err(ERR_OK);
+    for (auto iter : cat_sync_map) {
+        iter.second->abortMigration(ERR_DM_MIGRATION_ABORTED);
+    }
+
+    return err;
+}
+
+/**
+* Abort current migration when error state is reached.
+* @param[in] err Error code that caused the abort
+*
+*/
+void CatalogSync::abortMigration(Error err)
+{
+    LOGNOTIFY << "Aborting volcat migration " << err;
+
+    // Set migration state to aborted
+    csStateType expected_initial = CSSTATE_INITIAL_SYNC;
+    csStateType expected_delta = CSSTATE_DELTA_SYNC;
+    // We should be in INITIAL_SYNC or DELTA_SYNC
+    if (!std::atomic_compare_exchange_strong(&state, &expected_initial, CSSTATE_ABORT) ||
+            !std::atomic_compare_exchange_strong(&state, &expected_delta, CSSTATE_ABORT)) {
+        csStateType curState = atomic_load(&state);
+        if (curState == CSSTATE_READY) {
+            // nothing to do, migration was not in progress
+            LOGNOTIFY << "Migration was idle, nothing to abort";
+        } else if (curState == CSSTATE_ABORT) {
+            LOGNOTIFY << "Migration already aborted, nothing else to do";
+        }
+        return;  // this is ok
+    }
+
+    // TODO(xxx): What to do here?
+}
+
 
 }  // namespace fds

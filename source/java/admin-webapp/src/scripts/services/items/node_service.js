@@ -47,10 +47,16 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
         });
     };
     
-    service.removeNode = function( node ){
+    service.removeNode = function( node, callback ){
         
         // right now we stop all services when we deactivate a node
-        $http_fds.put( '/api/config/services/' + node.uuid, { am: false, sm: false, dm: false } ).then( getNodes );
+        $http_fds.put( '/api/config/services/' + node.uuid, { am: false, sm: false, dm: false } )
+            .then( function(){
+                if ( angular.isFunction( callback ) ){
+                    callback();
+                }
+            })
+            .then( getNodes );
     };
 
     var getNodes = function(){

@@ -165,7 +165,7 @@ class VolumeInfo : public Resource, public HasState
         return static_cast<VolumeInfo *>(get_pointer(ptr));
     }
 
-    void vol_mk_description(const fpi::FDSP_VolumeInfoType &info);
+    void vol_mk_description(const fpi::FDSP_VolumeDescType &info);
     void vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const;
     void vol_fmt_message(om_vol_msg_t *out);
 

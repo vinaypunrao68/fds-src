@@ -32,28 +32,6 @@ extern "C" {
 namespace fds {
 
 
-struct SyncMetaData : public serialize::Serializable {
-    SyncMetaData();
-    void reset();
-
-    /* Overrides from Serializable */
-    virtual uint32_t write(serialize::Serializer* serializer) const override;
-    virtual uint32_t read(serialize::Deserializer* deserializer) override;
-    virtual uint32_t getEstimatedSize() const override;
-
-    bool operator== (const SyncMetaData &rhs) const;
-    bool operator!= (const SyncMetaData &rhs) const
-    { return !(this->operator==(rhs)); }
-    SyncMetaData& operator=(const SyncMetaData &rhs);
-
-    /* Born timestamp */
-    uint64_t born_ts;
-    /* Modification timestamp */
-    uint64_t mod_ts;
-    /* Association entries */
-    std::vector<obj_assoc_entry_t> assoc_entries;
-};
-
 /*
  * Persistent class for storing MetaObjMap, which
  * maps an object ID to its locations in the persistent
@@ -67,6 +45,7 @@ class ObjMetaData : public serialize::Serializable {
     ObjMetaData();
     explicit ObjMetaData(const ObjectBuf& buf);
     explicit ObjMetaData(const ObjMetaData::const_ptr &rhs);
+    explicit ObjMetaData(const ObjMetaData &rhs);
     virtual ~ObjMetaData();
 
     void initialize(const ObjectID& objid, fds_uint32_t obj_size);
@@ -89,26 +68,13 @@ class ObjMetaData : public serialize::Serializable {
 
     uint64_t getModificationTs() const;
 
-    void apply(const fpi::FDSP_MigrateObjectMetadata& data);
-
-    void extractSyncData(fpi::FDSP_MigrateObjectMetadata& md) const;
-
     void diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData);
     void propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData,
                                  bool reconcileMetaDataOnly);
     Error updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
 
-    void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
-
-    void setSyncMask();
     void setObjCorrupted();
-
-    bool syncDataExists() const;
     fds_bool_t isObjCorrupted() const;
-
-    void applySyncData(const fpi::FDSP_MigrateObjectMetadata& data);
-
-    void mergeNewAndUnsyncedData();
 
     bool dataPhysicallyExists() const;
 
@@ -170,13 +136,13 @@ class ObjMetaData : public serialize::Serializable {
 
     /* Volume association entries */
     std::vector<obj_assoc_entry_t> assoc_entry;
-
-    /* Sync related metadata. Valid only when SYNCMETADATA_MASK is set */
-    SyncMetaData sync_data;
 };
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
     ObjectID oid(objMd.obj_map.obj_id.metaDigest);
+
+    fds_assert(meta_obj_map_magic_value == objMd.obj_map.obj_magic);
+
     out << "Object MetaData: Version " << (fds_uint16_t)objMd.obj_map.obj_map_ver
         << " " << oid
         << "  obj_size " << objMd.obj_map.obj_size

@@ -49,6 +49,9 @@ SMChkDriver::SMChkDriver(int argc, char *argv[],
             ("list-metadata,p",
                     po::bool_switch()->default_value(false),
                     "Print all metadata.")
+            ("list-active-metadata,l",
+                    po::bool_switch()->default_value(false),
+                    "Print all metadata with refcnt > 0.")
             ("gc,g",
                     po::bool_switch()->default_value(false),
                     "Calculate and print bytes reclaimable by garbage collector.");
@@ -89,6 +92,10 @@ int SMChkDriver::run() {
             break;
         case RunFunc::PRINT_MD:
             checker->list_metadata();
+            success = true;
+            break;
+        case RunFunc::PRINT_ACTIVE_MD:
+            checker->list_active_metadata();
             success = true;
             break;
         case RunFunc::PRINT_PATH_BY_TOK:

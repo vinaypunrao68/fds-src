@@ -109,31 +109,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
      netDataPathServerSession *datapath_session_;
 
-     /* To indicate whether tokens were migrated or not for the dlt. Based on this
-      * flag we simulate sync/io close notification to OM.  We shouldn't need this
-      * flag once we start doing per token copy/syncs
-      */
-     bool tok_migrated_for_dlt_;
-
      /** Helper for accessing datapth response client */
      DPRespClientPtr fdspDataPathClient(const std::string& session_uuid);
-
-     /*
-      * Service UUID to Session UUID mapping stuff. Used to support
-      * proxying where SM doesn't know the session UUID because it
-      * was proxyed from another node. We can use service UUID instead.
-      */
-     typedef std::string SessionUuid;
-     typedef std::unordered_map<NodeUuid, SessionUuid, UuidHash> SvcToSessMap;
-     /** Maps service UUIDs to established session id */
-     SvcToSessMap svcSessMap;
-     /** Protects the service to session map */
-     fds_rwlock svcSessLock;
-     /** Stores mapping from service uuid to session uuid */
-     void addSvcMap(const NodeUuid    &svcUuid,
-                    const SessionUuid &sessUuid);
-     SessionUuid getSvcSess(const NodeUuid &svcUuid);
-
      NodeAgentDpClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
 
      /*
@@ -347,14 +324,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      Error deleteObjectInternal(SmIoDeleteObjectReq* delReq);
      Error addObjectRefInternal(SmIoAddObjRefReq* addRefReq);
 
-     void putTokenObjectsInternal(SmIoReq* ioReq);
-     void getTokenObjectsInternal(SmIoReq* ioReq);
      void snapshotTokenInternal(SmIoReq* ioReq);
-     void applySyncMetadataInternal(SmIoReq* ioReq);
-     void resolveSyncEntryInternal(SmIoReq* ioReq);
-     void applyObjectDataInternal(SmIoReq* ioReq);
-     void readObjectDataInternal(SmIoReq* ioReq);
-     void readObjectMetadataInternal(SmIoReq* ioReq);
      void compactObjectsInternal(SmIoReq* ioReq);
      void moveTierObjectsInternal(SmIoReq* ioReq);
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
@@ -372,7 +342,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();
-     TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
 
      Error putTokenObjects(const fds_token_id &token,
                            FDSP_MigrateObjectList &obj_list);
@@ -447,8 +416,6 @@ class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
      }
 
      /* user defined methods */
-     void GetObjectMetadataCb(const Error &e, SmIoReadObjectMetadata *read_data);
-
      void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
                                  const FDSP_MsgHdrType& fdsp_msg) {
          // Don't do anything here. This stub is just to keep cpp compiler happy

@@ -62,7 +62,7 @@ class FdsEnv(object):
                               self.get_fds_root() + 'lib:'
                               '/usr/local/lib:/opt/fds-deps/embedded/jre/lib/amd64:'
                               '/opt/fds-deps/embedded/lib; '
-                              'export PATH=/opt/fds-deps/embedded/bin:$PATH:' + self.get_fds_root() + 'bin; ')
+                              'export PATH=/opt/fds-deps/embedded/jre/bin:/opt/fds-deps/embedded/bin:$PATH:' + self.get_fds_root() + 'bin; ')
 
         # Try to determine an FDS source directory if specified as empty.
         if self.env_fdsSrc == "":
