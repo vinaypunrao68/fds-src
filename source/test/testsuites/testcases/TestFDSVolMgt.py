@@ -19,38 +19,12 @@ import os
 # volume creation.
 class TestVolumeCreate(TestCase.FDSTestCase):
     def __init__(self, parameters=None, volume=None):
-        super(TestVolumeCreate, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VolumeCreate,
+                                             "Volume creation")
 
         self.passedVolume = volume
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_VolumeCreate():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Volume creation caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_VolumeCreate(self):
         """
@@ -120,38 +94,12 @@ class TestVolumeCreate(TestCase.FDSTestCase):
 # volume attachment.
 class TestVolumeAttach(TestCase.FDSTestCase):
     def __init__(self, parameters=None, volume=None):
-        super(TestVolumeAttach, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VolumeAttach,
+                                             "Attach volume")
 
         self.passedVolume = volume
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_VolumeAttach():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Attach volume caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_VolumeAttach(self):
         """
@@ -205,38 +153,12 @@ class TestVolumeAttach(TestCase.FDSTestCase):
 # volume delete.
 class TestVolumeDelete(TestCase.FDSTestCase):
     def __init__(self, parameters=None, volume=None):
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VolumeDelete,
+                                             "Delete volume")
 
         self.passedVolume = volume
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_VolumeDelete():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Delete volume caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_VolumeDelete(self):
         """

@@ -19,38 +19,12 @@ import os
 # volume policy creation.
 class TestPolicyCreate(TestCase.FDSTestCase):
     def __init__(self, parameters=None, policy=None):
-        super(TestPolicyCreate, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PolicyCreate,
+                                             "Policy creation")
 
         self.passedPolicy = policy
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PolicyCreate():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Policy creation caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_PolicyCreate(self):
         """
@@ -114,38 +88,12 @@ class TestPolicyCreate(TestCase.FDSTestCase):
 # volume policy deletion.
 class TestPolicyDelete(TestCase.FDSTestCase):
     def __init__(self, parameters=None, policy=None):
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PolicyDelete,
+                                             "Policy deletion")
 
         self.passedPolicy = policy
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PolicyDelete():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Policy deletion caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_PolicyDelete(self):
         """

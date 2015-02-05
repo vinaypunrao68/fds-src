@@ -97,7 +97,7 @@ def pidWaitParent(pid, child_count, node):
 
 def modWait(mod, node, forShutdown = False):
     """
-    Wait for the named module to become active.
+    Wait for the named service to become active.
     """
     log = logging.getLogger('TestFDSModMgt' + '.' + 'modWait')
 
@@ -125,11 +125,11 @@ def modWait(mod, node, forShutdown = False):
             found = True
 
             if not forShutdown:
-                # For module orchMgr, there should be one child process.
+                # For process orchMgr, there should be one child process.
                 if mod == "orchMgr":
                     orchMgrPID = pid
 
-                # For module AMAgent, there should be two child processes.
+                # For process AMAgent, there should be two child processes.
                 if mod == "AMAgent":
                     AMAgentPID = pid
         else:
@@ -161,7 +161,7 @@ def modWait(mod, node, forShutdown = False):
 
 
 # This class contains the attributes and methods to test
-# bringing up a Data Manager (DM) module.
+# bringing up a Data Manager (DM) service.
 class TestDMBringUp(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -169,50 +169,17 @@ class TestDMBringUp(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestDMBringUp, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DMBringUp,
+                                             "DM service bringup")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_DMBringUp():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("DM module bringup caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_DMBringUp(self):
         """
         Test Case:
-        Attempt to start the DM module(s)
+        Attempt to start the DM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -256,7 +223,7 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# waiting for a Data Manager (DM) module to start.
+# waiting for a Data Manager (DM) service to start.
 class TestDMWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -264,50 +231,17 @@ class TestDMWait(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestDMWait, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DMWait,
+                                             "Wait for DM service to start")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_DMWait():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Wait for DM module to start caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_DMWait(self):
         """
         Test Case:
-        Wait for the DM module(s) to start
+        Wait for the DM service(s) to start
         """
 
         # Get the FdsConfigRun object for this test.
@@ -339,7 +273,7 @@ class TestDMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing a Data Manager (DM) module.
+# killing a Data Manager (DM) service.
 class TestDMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -347,43 +281,17 @@ class TestDMKill(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestDMKill, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DMKill,
+                                             "DM service kill")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_DMKill():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("DM service kill caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_DMKill(self):
         """
         Test Case:
-        Attempt to shutdown the DM module(s)
+        Attempt to shutdown the DM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -437,50 +345,17 @@ class TestDMVerifyDown(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestDMVerifyDown, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DMVerifyDown,
+                                             "Verify a DM service is down")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_DMVerifyDown():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verify a DM module is down caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_DMVerifyDown(self):
         """
         Test Case:
-        Wait for the DM module(s) to start
+        Wait for the DM service(s) to start
         """
 
         # Get the FdsConfigRun object for this test.
@@ -504,7 +379,7 @@ class TestDMVerifyDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# bringing up a Storage Manager (SM) module.
+# bringing up a Storage Manager (SM) service.
 class TestSMBringUp(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -512,50 +387,17 @@ class TestSMBringUp(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestSMBringUp, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_SMBringUp,
+                                             "SM service bringup")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_SMBringUp():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("SM module bringup caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_SMBringUp(self):
         """
         Test Case:
-        Attempt to start the SM module(s)
+        Attempt to start the SM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -597,7 +439,7 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# waiting for a Storage Manager (SM) module to start.
+# waiting for a Storage Manager (SM) service to start.
 class TestSMWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -605,50 +447,17 @@ class TestSMWait(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestSMWait, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_SMWait,
+                                             "Wait for SM service to start")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_SMWait():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Wait for SM module to start caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_SMWait(self):
         """
         Test Case:
-        Wait for the SM module(s) to start
+        Wait for the SM service(s) to start
         """
 
         # Get the FdsConfigRun object for this test.
@@ -681,7 +490,7 @@ class TestSMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing a Storage Manager (SM) module.
+# killing a Storage Manager (SM) service.
 class TestSMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -689,43 +498,17 @@ class TestSMKill(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestSMKill, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_SMKill,
+                                             "SM service kill")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_SMKill():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("SM service kill caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_SMKill(self):
         """
         Test Case:
-        Attempt to shutdown the SM module(s)
+        Attempt to shutdown the SM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -779,50 +562,17 @@ class TestSMVerifyDown(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestSMVerifyDown, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_SMVerifyDown,
+                                             "Verify the SM service is down")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_SMVerifyDown():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verify the SM module is down caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_SMVerifyDown(self):
         """
         Test Case:
-        Wait for the SM module(s) to start
+        Wait for the SM service(s) to start
         """
 
         # Get the FdsConfigRun object for this test.
@@ -854,43 +604,17 @@ class TestPMBringUp(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMBringUp, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PMBringUp,
+                                             "PM service bringup")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PMBringUp():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("PM module bringup caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_PMBringUp(self):
         """
         Test Case:
-        Attempt to start the PM module(s)
+        Attempt to start the PM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -929,7 +653,7 @@ class TestPMBringUp(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# waiting for a Platform Manager (PM) module to start.
+# waiting for a Platform Manager (PM) service to start.
 class TestPMWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -937,50 +661,17 @@ class TestPMWait(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMWait, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PMWait,
+                                             "Wait for PM service to start")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PMWait():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Wait for PM module to start caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_PMWait(self):
         """
         Test Case:
-        Wait for the PM module(s) to start
+        Wait for the PM service(s) to start
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1012,7 +703,7 @@ class TestPMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing a Platform Manager (PM) module.
+# killing a Platform Manager (PM) service.
 class TestPMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1020,43 +711,17 @@ class TestPMKill(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMKill, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PMKill,
+                                             "PM service kill")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PMKill():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("PM service kill caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_PMKill(self):
         """
         Test Case:
-        Attempt to shutdown the PM module(s)
+        Attempt to shutdown the PM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1100,7 +765,7 @@ class TestPMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# whether a Platform Manager (PM) module is down .
+# whether a Platform Manager (PM) service is down .
 class TestPMVerifyDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1108,45 +773,12 @@ class TestPMVerifyDown(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMVerifyDown, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PMVerifyDown,
+                                             "Verify a PM service is down")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PMVerifyDown():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verify a PM module is down caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_PMVerifyDown(self):
         """
@@ -1189,36 +821,10 @@ class TestPMForOMBringUp(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMForOMBringUp, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PMForOMBringUp():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("PM for OM module bringup caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PMForOMBringUp,
+                                             "PM for OM service bringup")
 
     def test_PMForOMBringUp(self):
         """
@@ -1248,7 +854,7 @@ class TestPMForOMBringUp(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# waiting for the Platform Manager (PM) module for the OM node to start.
+# waiting for the Platform Manager (PM) service for the OM node to start.
 class TestPMForOMWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1256,50 +862,17 @@ class TestPMForOMWait(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMForOMWait, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PMForOMWait,
+                                             "Wait for PM service on OM node to start")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PMForOMWait():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Wait for PM module on POM node to start caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_PMForOMWait(self):
         """
         Test Case:
-        Wait for the PM module on the OM node to start
+        Wait for the PM service on the OM node to start
         """
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
@@ -1327,7 +900,7 @@ class TestPMForOMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing the Platform Manager (PM) module on the OM node.
+# killing the Platform Manager (PM) service on the OM node.
 class TestPMForOMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         """
@@ -1335,41 +908,15 @@ class TestPMForOMKill(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMForOMKill, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PMForOMKill():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("PM service for OM node kill caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PMForOMKill,
+                                             "PM service for OM node kill")
 
     def test_PMForOMKill(self):
         """
         Test Case:
-        Attempt to shutdown the PM module for the OM node
+        Attempt to shutdown the PM service for the OM node
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1397,45 +944,12 @@ class TestPMForOMVerifyDown(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestPMForOMVerifyDown, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_PMForOMVerifyDown,
+                                             "Verifying the PM service for the OM's node is down")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_PMForOMVerifyDown():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verifying the PM service for the OM's node is down caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_PMForOMVerifyDown(self):
         """
@@ -1467,7 +981,7 @@ class TestPMForOMVerifyDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# bringing up an Orchestration Manager (OM) module.
+# bringing up an Orchestration Manager (OM) service.
 class TestOMBringUp(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1475,43 +989,17 @@ class TestOMBringUp(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestOMBringUp, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_OMBringUp,
+                                             "OM service bringup")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_OMBringUp():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("OM module bringup caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_OMBringUp(self):
         """
         Test Case:
-        Attempt to start the OM module(s)
+        Attempt to start the OM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1544,7 +1032,7 @@ class TestOMBringUp(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to wait
-# for the Orchestration Manager (OM) module to become active.
+# for the Orchestration Manager (OM) service to become active.
 class TestOMWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1552,43 +1040,17 @@ class TestOMWait(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestOMWait, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_OMWait,
+                                             "OM service wait")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_OMWait():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("OM module wait caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_OMWait(self):
         """
         Test Case:
-        Wait for the named module to become active.
+        Wait for the named service to become active.
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1614,7 +1076,7 @@ class TestOMWait(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Orchestration Manager (OM) module.
+# killing an Orchestration Manager (OM) service.
 class TestOMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1622,43 +1084,17 @@ class TestOMKill(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestOMKill, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_OMKill,
+                                             "OM service kill")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_OMKill():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("OM service kill caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_OMKill(self):
         """
         Test Case:
-        Attempt to shutdown the OM module(s)
+        Attempt to shutdown the OM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1699,7 +1135,7 @@ class TestOMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to
-# verify that the the Orchestration Manager (OM) module is down.
+# verify that the the Orchestration Manager (OM) service is down.
 class TestOMVerifyDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1707,38 +1143,12 @@ class TestOMVerifyDown(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestOMVerifyDown, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_OMVerifyDown,
+                                             "OM service verify down")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_OMVerifyDown():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("OM module verify down caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_OMVerifyDown(self):
         """
@@ -1777,43 +1187,17 @@ class TestAMBringup(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestAMBringup, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AMBringUp,
+                                             "AM service bringup")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_AMBringUp():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("AM module bringup caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_AMBringUp(self):
         """
         Test Case:
-        Attempt to start the AM module(s)
+        Attempt to start the AM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1867,36 +1251,10 @@ class TestAMActivate(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_AMActivate():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("AM service activation caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AMActivate,
+                                             "AM service activation")
 
     def test_AMActivate(self):
         """
@@ -1931,7 +1289,7 @@ class TestAMActivate(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# waiting for an Access Manager (AM) module to start.
+# waiting for an Access Manager (AM) service to start.
 class TestAMWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1939,50 +1297,17 @@ class TestAMWait(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestAMWait, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AMWait,
+                                             "Wait for AM service to start")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_AMWait():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Wait for AM module to start caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_AMWait(self):
         """
         Test Case:
-        Wait for the AM module(s) to start
+        Wait for the AM service(s) to start
         """
 
         # Get the FdsConfigRun object for this test.
@@ -2024,43 +1349,17 @@ class TestAMKill(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestAMKill, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AMKill,
+                                             "AM service kill")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_AMKill():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("AM service kill caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_AMKill(self):
         """
         Test Case:
-        Attempt to shutdown the AM module(s)
+        Attempt to shutdown the AM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -2131,6 +1430,7 @@ class TestAMKill(TestCase.FDSTestCase):
 
         return True
 
+
 # This class contains the attributes and methods to test
 # whether an Access Manager (AM) service is down.
 class TestAMVerifyDown(TestCase.FDSTestCase):
@@ -2140,45 +1440,12 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestAMVerifyDown, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AMVerifyDown,
+                                             "Verify the AM service is down")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_AMVerifyDown():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verify the AM module is down:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_AMVerifyDown(self):
         """

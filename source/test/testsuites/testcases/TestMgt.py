@@ -18,7 +18,10 @@ import time
 # coordination has been implemented, this can be removed.
 class TestWait(TestCase.FDSTestCase):
     def __init__(self, parameters=None, delay=None, reason=None):
-        super(TestWait, self).__init__(parameters)
+        super(TestWait, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_Wait,
+                                             "Wait")
 
         if delay is not None:
             if isinstance(delay, int):
@@ -29,35 +32,6 @@ class TestWait(TestCase.FDSTestCase):
             self.passedDelay = delay
 
         self.passedReason = reason
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_Wait():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Wait caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_Wait(self):
         """

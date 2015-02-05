@@ -20,38 +20,12 @@ from TestFDSModMgt import TestAMBringup
 # services on each node.
 class TestClusterActivate(TestCase.FDSTestCase):
     def __init__(self, parameters=None, services="dm,sm,am"):
-        super(TestClusterActivate, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_ClusterActivate,
+                                             "Cluster activation")
 
         self.passedServices = services
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_ClusterActivate():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Cluster activation caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_ClusterActivate(self):
         """
@@ -100,39 +74,13 @@ class TestClusterActivate(TestCase.FDSTestCase):
 # the kill the services of an FDS node.
 class TestNodeKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
-        super(TestNodeKill, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeKill,
+                                             "Node kill",
+                                             True)  # Always run.
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        # We'll continue to shutdown the nodes even in the event of failure upstream.
-        if TestCase.pyUnitTCFailure and not True:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_NodeKill():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Node kill caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_NodeKill(self):
         """
@@ -207,38 +155,12 @@ class TestNodeKill(TestCase.FDSTestCase):
 # services.)
 class TestNodeActivate(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeActivateService,
+                                             "Node services activation")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_NodeActivateService():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Node services activation caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_NodeActivateService(self):
         """
@@ -314,38 +236,12 @@ class TestNodeActivate(TestCase.FDSTestCase):
 # the cluster.)
 class TestNodeRemoveServices(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
-        super(TestNodeRemoveServices, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeRemoveService,
+                                             "Node services removal")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_NodeRemoveService():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Node services removal caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_NodeRemoveService(self):
         """
@@ -397,36 +293,10 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
 # domain shutdown
 class TestDomainShutdown(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(self.__class__, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_DomainShutdown():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Domain shutdown caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DomainShutdown,
+                                             "Domain shutdown")
 
     def test_DomainShutdown(self):
         """
@@ -464,36 +334,10 @@ class TestDomainShutdown(TestCase.FDSTestCase):
 # domain create
 class TestDomainCreate(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(self.__class__, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_DomainCreate():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Domain create caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DomainCreate,
+                                             "Domain create")
 
     def test_DomainCreate(self):
         """

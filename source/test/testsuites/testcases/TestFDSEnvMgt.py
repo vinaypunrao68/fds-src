@@ -23,45 +23,12 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_FDSCreateInstDir,
+                                             "FDS installation directory creation")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_FDSCreateInstDir():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("FDS installation directory creation caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_FDSCreateInstDir(self):
         """
@@ -177,43 +144,10 @@ class TestFDSPkgInst(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
-
-
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_FDSPkgInst():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("FDS package installation caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_FDSPkgInst,
+                                             "FDS package installation")
 
     def test_FDSPkgInst(self):
         """
@@ -245,46 +179,12 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_FDSDeleteInstDir,
+                                             "FDS installation directory deletion")
 
         self.passedNode = node
-
-
-    @unittest.expectedFailure
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_FDSDeleteInstDir():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("FDS installation directory deletion caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_FDSDeleteInstDir(self):
         """
@@ -337,46 +237,12 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_FDSSelectiveInstDirClean,
+                                             "Selective FDS installation directory clean")
 
         self.passedNode = node
-
-
-    @unittest.expectedFailure
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_FDSSelectiveInstDirClean():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Selective FDS installation directory clean caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_FDSSelectiveInstDirClean(self):
         """
@@ -428,38 +294,12 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(TestRestartRedisClean, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RestartRedisClean,
+                                             "Restart Redis clean")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_RestartRedisClean():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Restart Redis clean caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_RestartRedisClean(self):
         """
@@ -520,38 +360,12 @@ class TestBootRedis(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BootRedis,
+                                             "Boot Redis")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BootRedis():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Boot Redis caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_BootRedis(self):
         """
@@ -598,39 +412,13 @@ class TestShutdownRedis(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_ShutdownRedis,
+                                             "Shutdown Redis",
+                                             True)  # Always execute.
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        # We'll continue to shutdown Redis even in the event of failure upstream.
-        if TestCase.pyUnitTCFailure and not True:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_ShutdownRedis():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Shutdown Redis caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_ShutdownRedis(self):
         """
@@ -677,38 +465,12 @@ class TestVerifyRedisUp(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifyRedisUp,
+                                             "Verify Redis is up")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_VerifyRedisUp():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verify Redis is up caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_VerifyRedisUp(self):
         """
@@ -760,38 +522,12 @@ class TestVerifyRedisDown(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifyRedisDown,
+                                             "Verify Redis is down")
 
         self.passedNode = node
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_VerifyRedisDown():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verify Redis is down caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_VerifyRedisDown(self):
         """
