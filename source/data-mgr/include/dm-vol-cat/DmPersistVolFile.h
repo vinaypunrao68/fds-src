@@ -13,7 +13,7 @@
 
 #include <cache/SharedKvCache.h>
 
-#include <dm-vol-cat/DmPersistVolDir.h>
+#include <dm-vol-cat/DmPersistVolCat.h>
 #include <dm-vol-cat/DmOIDArrayMmap.h>
 
 namespace fds {

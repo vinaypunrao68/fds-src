@@ -126,10 +126,10 @@ def get_user_token(user, password, host, port, secure, validate):
 
     url = '%s://%s:%d/api/auth/token?login=%s&password=%s' % (proto, host,port,
                                                               user, password)
-    log.info("Getting credentials from: ", url)
+    #log.info("Getting credentials from: ", url)
     r = requests.get(url, verify=validate)
     rjson = r.json()
-    log.info(rjson)
+    #log.info(rjson)
     return rjson['token']
 
 

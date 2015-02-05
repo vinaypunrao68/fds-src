@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDIR_H_
-#define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDIR_H_
+#ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_
+#define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_
 
 #include <map>
 #include <string>
@@ -25,7 +25,7 @@ namespace fds {
 extern const fds_uint64_t INVALID_BLOB_ID;
 extern const fds_uint32_t BLOB_META_INDEX;
 
-struct BlobObjKey {
+struct __attribute__((packed)) BlobObjKey {
     fds_uint64_t blobId;
     fds_uint32_t objIndex;
 
@@ -180,4 +180,4 @@ class DmPersistVolDir {
     std::string rsyncPasswd;
 };
 }  // namespace fds
-#endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDIR_H_
+#endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_

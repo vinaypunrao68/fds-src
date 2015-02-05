@@ -181,7 +181,7 @@ class OMgrClient {
     // int tennant_id, int domain_id, int omc_port_num= 0);
     int startAcceptingControlMessages();
     int registerNodeWithOM(Platform *plat);
-    int pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo);
+    int pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& volInfo);
     int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
     int pushModifyBucketToOM(const std::string& bucket_name,
                              const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
@@ -221,7 +221,7 @@ class OMgrClient {
                           int stat_slot_len,
                           const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);
     int testBucket(const std::string& bucket_name,
-                   const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& vol_info,
+                   const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_info,
                    fds_bool_t attach_vol_reqd,
                    const std::string& accessKeyId,
                    const std::string& secretAccessKey);
