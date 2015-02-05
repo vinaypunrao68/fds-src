@@ -115,7 +115,7 @@ var en_US = {
         tt_firebreak_never: 'This volume has never had a firebreak.',
         
         desc_firebreak: 'Events in the past 24 hours',
-        desc_performance: 'Average IOPs',
+        desc_performance: 'Transactions per Second',
         desc_capacity_used: 'Total capacity used',
         desc_dedup_ratio: 'Deduplication ratio',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
