@@ -1428,6 +1428,14 @@ bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId
 bool ConfigDB::createSvcMap(fpi::SvcInfo& svcinfo) {
     TRACKMOD();
     try {
+        if (r.hexists("svcmap", svcinfo.svc_id)) {
+            throw ConfigException("another snapshot exists with Svc ID:" + svcinfo.svc_id); //NOLINT
+        }
+
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(svcinfo, serialized);
+
+        r.hset("svcmap", svcinfo.svc_id, *serialized); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         NOMOD();
