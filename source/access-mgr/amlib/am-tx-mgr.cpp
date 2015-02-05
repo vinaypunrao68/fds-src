@@ -158,8 +158,7 @@ AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
 Error
 AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
                                     const ObjectID &objectId,
-                                    boost::shared_ptr<std::string> objectData,
-                                    fds_uint32_t dataLen) {
+                                    boost::shared_ptr<std::string> objectData) {
     SCOPEDWRITE(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
@@ -182,8 +181,7 @@ AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
 
 Error
 AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
-                                  boost::shared_ptr<
-                                  fpi::FDSP_MetaDataList> metaDataList) {
+                                  fpi::FDSP_MetaDataList const& metaDataList) {
     SCOPEDWRITE(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
@@ -194,42 +192,9 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
     fds_verify(txMapIt->second->stagedBlobDesc->kvMetaBegin() ==
                txMapIt->second->stagedBlobDesc->kvMetaEnd());
 
-    for (auto const & meta : *metaDataList) {
+    for (auto const & meta : metaDataList) {
         txMapIt->second->stagedBlobDesc->addKvMeta(meta.key, meta.value);
     }
-    return ERR_OK;
-}
-
-Error
-AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
-                                  boost::shared_ptr<
-                                  std::map<std::string, std::string>> &metadata) {
-    SCOPEDWRITE(txMapLock);
-    TxMap::iterator txMapIt = txMap.find(txId);
-    if (txMapIt == txMap.end()) {
-        return ERR_NOT_FOUND;
-    }
-    fds_verify(txId == txMapIt->second->txId);
-    // Verify that we're not overwriting previously staged metadata
-    fds_verify(txMapIt->second->stagedBlobDesc->kvMetaBegin() ==
-               txMapIt->second->stagedBlobDesc->kvMetaEnd());
-
-    for (auto const & meta : *metadata) {
-        txMapIt->second->stagedBlobDesc->addKvMeta(meta.first, meta.second);
-    }
-    return ERR_OK;
-}
-
-Error
-AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
-                                  fds_uint64_t len) {
-    SCOPEDWRITE(txMapLock);
-    TxMap::iterator txMapIt = txMap.find(txId);
-    if (txMapIt == txMap.end()) {
-        return ERR_NOT_FOUND;
-    }
-    fds_verify(txId == txMapIt->second->txId);
-    txMapIt->second->stagedBlobDesc->updateBlobSize(len);
     return ERR_OK;
 }
 

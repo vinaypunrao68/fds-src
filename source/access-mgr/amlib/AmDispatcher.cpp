@@ -303,6 +303,10 @@ AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
                  << " blob name: " << amReq->getBlobName()
                  << " offset: " << amReq->blob_offset
                  << " Error: " << error;
+    } else {
+        LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
+        blobReq->final_blob_size = updCatRsp->byteCount;
+        blobReq->final_meta_data.swap(updCatRsp->meta_list);
     }
     blobReq->notifyResponse(error);
 }
@@ -705,6 +709,11 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
     fpi::CommitBlobTxRspMsgPtr response =
         net::ep_deserialize<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
     LOGDEBUG << svcReq->logString();
+    if (ERR_OK == error) {
+        auto blobReq =  static_cast<CommitBlobTxReq *>(amReq);
+        blobReq->final_blob_size = response->byteCount;
+        blobReq->final_meta_data.swap(response->meta_list);
+    }
     // Notify upper layers that the request is done.
     amReq->proc_cb(error);
 }

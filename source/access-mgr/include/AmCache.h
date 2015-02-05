@@ -87,7 +87,7 @@ class AmCache : public Module, public boost::noncopyable {
      * transaction. Any previously existing info will be
      * overwritten.
      */
-    Error putTxDescriptor(const AmTxDescriptor::ptr txDesc);
+    Error putTxDescriptor(const AmTxDescriptor::ptr txDesc, fds_uint64_t const blobSize);
 
     /**
      * Updates a blob descriptor in the cache for given volume id
