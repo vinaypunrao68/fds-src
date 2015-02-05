@@ -8,7 +8,6 @@
 #include <unordered_map>
 #include <fds_module.h>
 #include <boost/shared_ptr.hpp>
-#include <fdsp/fds_service_types.h>
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -16,7 +15,6 @@ namespace apache { namespace thrift { namespace transport {
     class TTransport;
 }}}  // namespace apache::thrift::transport
 
-#if 0
 namespace FDS_ProtocolInterface {
     class PlatNetSvcClient;
     class SvcInfo;
@@ -25,7 +23,6 @@ namespace FDS_ProtocolInterface {
     class AsyncHdr;
     using AsyncHdrPtr = boost::shared_ptr<AsyncHdr>;
 }  // namespace FDS_ProtocolInterface
-#endif
 namespace FDS_ProtocolInterface {
 class PlatNetSvcClient;
 using PlatNetSvcClientPtr = boost::shared_ptr<PlatNetSvcClient>;
@@ -49,9 +46,7 @@ using SvcHandlePtr = boost::shared_ptr<SvcHandle>;
 using StringPtr = boost::shared_ptr<std::string>;
 
 struct SvcUuidHash {
-    std::size_t operator()(const fpi::SvcUuid& svcId) const {
-        return svcId.svc_uuid;
-    }
+    std::size_t operator()(const fpi::SvcUuid& svcId) const;
 };
 
 /**
