@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fdsp/PlatNetSvc.h>
+#include <fdsp/OMSvc.h>
 #include <net/fdssocket.h>
 #include <fdsp/fds_service_types.h>
 #include <fdsp_utils.h>
@@ -17,12 +18,17 @@
 #include <net/SvcMgr.h>
 
 namespace fds {
+
 SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor)
     : Module("SvcMgr")
 {
+    auto config = gModuleProvider->get_conf_helper();
+    omIp_ = config.get_abs<std::string>("fds.common.om_ip_list");
+    omPort_ = config.get_abs<int>("fds.common.om_port");
+    omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<long long>("fds.common.om_uuid"));
+    svcUuid_.svc_uuid= static_cast<int64_t>(config.get<long long>("svc.uuid"));
+    port_ = config.get<int>("svc.port");
     /* Create the server */
-    svcUuid_.svc_uuid= gModuleProvider->get_conf_helper().get<int64_t>("svc.uuid");
-    port_ = gModuleProvider->get_conf_helper().get<int>("svc.port");
     svcServer_ = boost::make_shared<SvcServer>(port_, processor);
 
     // TODO(Rao): Don't make this global
@@ -125,11 +131,28 @@ int SvcMgr::getSvcPort() const
     return port_;
 }
 
+void SvcMgr::getOmIPPort(std::string &omIp, int &port)
+{
+    omIp = omIp_;
+    port_ = port;
+}
+
 fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
 {
-    // TODO(Rao): return om client
-    fds_panic("Not implemented");
-    return nullptr;
+    fpi::OMSvcClientPtr omClient;
+    while (true) {
+        try {
+            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, true);
+        } catch (std::exception &e) {
+            GLOGWARN << "allocRpcClient failed.  Exception: " << e.what()
+                << ".  ip: "  << omIp_ << " port: " << omPort_;
+        } catch (...) {
+            GLOGWARN << "allocRpcClient failed.  Unknown exception. ip: "
+                << omIp_ << " port: " << omPort_;
+        }
+    }
+
+    return omClient;
 }
 
 SvcHandle::SvcHandle()
@@ -160,14 +183,16 @@ void SvcHandle::sendAsyncSvcRequest(fpi::AsyncHdrPtr &header,
         }
         try {
             if (!svcClient_) {
-                allocSvcClient_();
+                svcClient_ = SvcMgr::allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
+                                                                           svcInfo_.svc_port,
+                                                                           false);
             }
         } catch (std::exception &e) {
-            GLOGWARN << "Failed to send.  Excepction: " << e.what() << ".  "  << header;
+            GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
             bSendFailed = true;
             markSvcDown_();
         } catch (...) {
-            GLOGWARN << "Failed to send.  Unknown excepction." << header;
+            GLOGWARN << "allocRpcClient failed.  Unknown exception." << header;
             bSendFailed = true;
             markSvcDown_();
         }
@@ -216,17 +241,6 @@ std::string SvcHandle::logString(const fpi::SvcInfo &info)
     return ss.str();
 }
 
-void SvcHandle::allocSvcClient_()
-{
-    /* NOTE: Assumes this function is invoked under lock */
-    auto sock = bo::make_shared<net::Socket>(svcInfo_.ip, svcInfo_.svc_port);
-    auto trans = bo::make_shared<tt::TFramedTransport>(sock);
-    auto proto = bo::make_shared<tp::TBinaryProtocol>(trans);
-    svcClient_ = bo::make_shared<fpi::PlatNetSvcClient>(proto);
-    /* This may throw an exception.  Caller is expected to handle the exception */
-    sock->open();
-}
-
 bool SvcHandle::isSvcDown_() const
 {
     /* NOTE: Assumes this function is invoked under lock */
@@ -239,6 +253,25 @@ void SvcHandle::markSvcDown_()
     svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE;
     svcClient_.reset();
     GLOGDEBUG << logString();
+}
+
+template<class T>
+boost::shared_ptr<T> SvcMgr::allocRpcClient(const std::string ip, const int &port,
+                                            const bool &blockOnConnect)
+{
+    auto sock = bo::make_shared<net::Socket>(ip, port);
+    auto trans = bo::make_shared<tt::TFramedTransport>(sock);
+    auto proto = bo::make_shared<tp::TBinaryProtocol>(trans);
+    boost::shared_ptr<T> client = bo::make_shared<T>(proto);
+    if (!blockOnConnect) {
+        /* This may throw an exception when trying to open.  Caller is expected to handle
+         * the exception
+         */
+        sock->open();
+    } else {
+        sock->connect();
+    }
+    return client;
 }
 
 }  // namespace fds
