@@ -18,8 +18,6 @@
 #include <util/timeutils.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 
-#define DM_VOLUME_CATALOG_TYPE DmVolumeDirectory
-
 namespace fds {
 
 /**
@@ -51,7 +49,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Internal volume catalog pointer. The actual catalog is owned by
      * the TVC and only a query interface is exposed
      */
-    DM_VOLUME_CATALOG_TYPE::ptr volcat;
+    DmVolumeCatalog::ptr volcat;
 
     // as the configuration will not be refreshed frequently, we can read it without lock
     FdsConfigAccessor config_helper_;
@@ -106,7 +104,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     typedef std::function<void (const Error &)> FwdCommitCb;
 
     /// Allow sync related interface to volume catalog
-    friend class DM_VOLUME_CATALOG_TYPE;
+    friend class DmVolumeCatalog;
 
     inline void cancelLogMonitoring() {
         stopLogMonitoring_ = true;

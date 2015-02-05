@@ -17,8 +17,6 @@
 
 namespace fds {
 
-#define DM_CATALOG_TYPE DmVolumeDirectory
-
 class DmChecker : public FdsProcess {
   public:
     /// TODO(Andrew): The checker is only taking a single
@@ -43,7 +41,7 @@ class DmChecker : public FdsProcess {
 
   private:
     boost::shared_ptr<VolumeDesc> volDesc;
-    boost::shared_ptr<DM_CATALOG_TYPE> volCat;
+    boost::shared_ptr<DmVolumeCatalog> volCat;
 };
 
 }  // Namespace fds

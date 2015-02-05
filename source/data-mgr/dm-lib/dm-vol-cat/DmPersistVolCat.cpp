@@ -23,7 +23,7 @@ const BlobObjKey OP_TIMESTAMP_KEY(INVALID_BLOB_ID, 0);
 const Record OP_TIMESTAMP_REC(reinterpret_cast<const char *>(&OP_TIMESTAMP_KEY),
         sizeof(BlobObjKey));
 
-Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
+Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     std::string destIP;
     if (NetMgr::ep_mgr_singleton()->ep_uuid_binding(dmUuid.toSvcUuid(), 0, 0, &destIP) < 0) {
         LOGERROR << "Failed to sync catalog: Failed to get IP address for destination DM "

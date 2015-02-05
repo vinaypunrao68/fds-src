@@ -46,7 +46,7 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
           config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp), stopLogMonitoring_(false),
           logMonitorThread_(std::bind(&DmTimeVolCatalog::monitorLogs, this))
 {
-    volcat = DM_VOLUME_CATALOG_TYPE::ptr(new DM_VOLUME_CATALOG_TYPE("DM Volume Catalog"));
+    volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
 
     // TODO(Andrew): The module vector should be able to take smart pointers.
     // To get around this for now, we're extracting the raw pointer and
@@ -636,7 +636,7 @@ Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog *destCat,
                 break;
             }
             if (ts > toTime) {
-                // we dont care about further records.
+                // we don't care about further records.
                 break;
             }
             if (ts >= fromTime && ts <= toTime) {
@@ -683,15 +683,15 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
     }
 
     // get the correct catalog
-    DmVolumeDirectory::ptr volDirPtr =  boost::dynamic_pointer_cast
-            <DmVolumeDirectory>(volcat);
+    DmVolumeCatalog::ptr volDirPtr =  boost::dynamic_pointer_cast
+            <DmVolumeCatalog>(volcat);
 
     if (volDirPtr.get() == NULL) {
         LOGERROR << "unable to get the vol dir ptr";
         return ERR_NOT_FOUND;
     }
 
-    DmPersistVolDir::ptr persistVolDirPtr = volDirPtr->getVolume(destVolId);
+    DmPersistVolCat::ptr persistVolDirPtr = volDirPtr->getVolume(destVolId);
     if (persistVolDirPtr.get() == NULL) {
         LOGERROR << "unable to get the persist vol dir ptr for vol:" << destVolId;
         return ERR_NOT_FOUND;
@@ -708,7 +708,7 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
 
     /**
      * TODO(dm-team) : How will the replay work if there are no txns
-     * at the start time. As commitlogs are retained only for a specifed
+     * at the start time. As commitlogs are retained only for a specified
      * amount of time, there might be a gap . Eg.
      *                  T----------------------- commitlog
      *  ======S1===a======b======S2===c====== snapshots
