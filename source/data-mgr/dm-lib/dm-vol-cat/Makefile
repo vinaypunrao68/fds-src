@@ -8,8 +8,6 @@ user_build_dir    :=
 user_incl_dir     := $(topdir) ../../include
 user_cpp_flags    :=
 user_cpp          := \
-	DmVcCache.cpp \
-	DmExtentTypes.cpp \
 	DmVolumeCatalog.cpp \
 	DmPersistVolCat.cpp \
 	DmPersistVolDB.cpp \

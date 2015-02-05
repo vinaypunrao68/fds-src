@@ -14,7 +14,7 @@ DmChecker::DmChecker(int argc,
                      const std::string &moduleName,
                      fds_volid_t volumeUuid)
         : FdsProcess(argc, argv, config, basePath, vec) {
-    volCat = boost::make_shared<DM_CATALOG_TYPE>(moduleName.c_str());
+    volCat = boost::make_shared<DmVolumeCatalog>(moduleName.c_str());
     volDesc = boost::make_shared<VolumeDesc>(std::to_string(volumeUuid), volumeUuid);
     // TODO(Andrew): We're just making up a max object size because the catalog add
     // is going to expect it. For basic blob traversal, it's not used so doesn't matter.
