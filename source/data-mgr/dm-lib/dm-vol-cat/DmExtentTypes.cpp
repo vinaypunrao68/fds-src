@@ -228,7 +228,7 @@ std::ostream& operator<<(std::ostream& out, const BlobExtent& extent) {
     return out;
 }
 
-//--------- BlobExtent0 implementatin ----------//
+//--------- BlobExtent0 implementation ----------//
 
 //
 // Constructs extent 0 with uninitialized entries

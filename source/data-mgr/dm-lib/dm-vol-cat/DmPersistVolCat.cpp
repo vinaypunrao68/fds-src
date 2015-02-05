@@ -44,7 +44,7 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     char* tempdir = mkdtemp(const_cast<char*>(snapDir.c_str()));
 
     if (!tempdir) {
-        LOGERROR << "unable to create a temp dir with error " << errno;
+        LOGERROR << "unable to create a temp directory with error " << errno;
         return ERR_NOT_FOUND;
     }
 
@@ -78,7 +78,7 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     }
     LOGMIGRATE << "Migrated catalog " << getVolIdStr() << " successfully";
 
-    // remove the temp dir
+    // remove the temp directory
     ret = std::system(rmCmd.c_str());
     if (ret) {
         LOGWARN << "rm command failed '" << rmCmd << "', code: '" << ret << "'";
