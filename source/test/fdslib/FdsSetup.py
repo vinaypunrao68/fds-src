@@ -449,8 +449,9 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
-    def exec_wait(self, cmd, return_stdin = False):
-        return self.ssh_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin)
+    def exec_wait(self, cmd, return_stdin = False, cmd_input=None, wait_compl=True):
+        # Not currently supporting command input over ssh.
+        return self.ssh_exec(cmd, wait_compl=wait_compl, fds_bin=False, output=True, return_stdin=return_stdin)
 
     def ssh_close(self):
         self.env_ssh_clnt.close()

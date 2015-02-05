@@ -119,7 +119,6 @@ cc_assert(vio1, fds_offset_of(meta_vol_adr_t, vol_uuid) ==
  */
 #define MAX_PHY_LOC_MAP 3
 #define MAX_ASSOC_ENTRY 64
-#define SYNCMETADATA_MASK    0x1
 #define OBJ_FLAG_CORRUPTED   0x40
 
 // magic value for meta_obj_map.  mainly used to assert that data address is correct.
@@ -146,7 +145,7 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     fds_uint32_t         obj_map_ver;         /* current version.            */
     fds_uint32_t         obj_map_len;         /* UNUSED?????                 */
     meta_obj_id_t        obj_id;              /* check sum for data.         */
-    fds_uint8_t          obj_flags;            /* flags / status */
+    fds_uint32_t         obj_flags;           /* flags / status */
     fds_uint8_t          compress_type;       /* Obj Compression type */
     fds_uint32_t         compress_len;        /* If compressed the obj compress length */
     fds_uint16_t         obj_blk_len;         /* var blk: 512 to 32M.        */

@@ -41,6 +41,7 @@ E() {
     exit 1
 }
 
+PATH=$PATH:/opt/fds-deploy/embedded/bin
 inventory="${1}"
 deploy_source="${2}"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"

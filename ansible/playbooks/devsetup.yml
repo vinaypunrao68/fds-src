@@ -147,14 +147,14 @@
         mode=0777
         state=directory
 
-    - name: create omnibus install directory for fds-platform
+    - name: create omnibus install directory for fds-deps
       file: path=/opt/fds-deps
         owner=root
         mode=0777
         state=directory
 
-    - name: create omnibus cache directory with liberal permissions
-      file: path=/var/cache/omnibus
+    - name: create omnibus install directory for fds-deploy
+      file: path=/opt/fds-deploy
         owner=root
         mode=0777
         state=directory
