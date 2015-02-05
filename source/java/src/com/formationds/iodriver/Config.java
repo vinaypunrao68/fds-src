@@ -138,12 +138,13 @@ public final class Config
         int buckets = 4;
         int remainingAssured = getSystemIopsMin();
         final int throttle = getSystemIopsMax();
+        final int hardMinAssured = 20;
 
-        if (remainingAssured < buckets)
+        if (remainingAssured < buckets * hardMinAssured)
         {
             throw new ConfigurationException("Min IOPS of " + remainingAssured
-                                             + " does not allow a guaranteed IOPS to each of the "
-                                             + buckets + " buckets.");
+                                             + " does not allow a guaranteed " + hardMinAssured
+                                             + "IOPS to each of the " + buckets + " buckets.");
         }
         if (throttle < remainingAssured)
         {
@@ -159,7 +160,7 @@ public final class Config
                                              + remainingAssured + ".");
         }
 
-        int reservedAssured = buckets;
+        int reservedAssured = buckets * hardMinAssured;
         remainingAssured -= reservedAssured;
 
         List<S3QosTestWorkload.IoParams> bucketParams = new ArrayList<>(buckets);
@@ -172,7 +173,7 @@ public final class Config
             }
             else
             {
-                int myReservedAssured = 1;
+                int myReservedAssured = hardMinAssured;
                 int myNonreservedAssured = Fds.Random.nextInt(remainingAssured);
                 reservedAssured -= myReservedAssured;
                 remainingAssured -= myNonreservedAssured;

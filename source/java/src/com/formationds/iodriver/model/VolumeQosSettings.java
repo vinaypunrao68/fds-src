@@ -59,6 +59,19 @@ public final class VolumeQosSettings
         return _priority;
     }
 
+    @Override
+    public String toString()
+    {
+        return "VolumeQosSettings("
+               + "id:" + _id
+               + ", iops_assured:" + _iops_assured
+               + ", iops_throttle:" + _iops_throttle
+               + ", priority:" + _priority
+               + ", commit_log_retention:" + _commit_log_retention
+               + ", mediaPolicy:" + _mediaPolicy
+               + ")";
+    }
+
     private final long _commit_log_retention;
 
     private final long _id;
