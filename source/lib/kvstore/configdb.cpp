@@ -1447,6 +1447,16 @@ bool ConfigDB::createSvcMap(fpi::SvcInfo& svcinfo) {
 bool ConfigDB::deleteSvcMap(const int64_t svcId) {
     TRACKMOD();
     try {
+        fpi::SvcInfo svcinfo;
+        svcinfo.svc_id = svcId;
+
+        if (!getSnapshot(snapshot)) {
+            LOGWARN << "unable to fetch service map ["snap:" << svcId <<"]";
+            NOMOD();
+            return false;
+        }
+
+        r.hdel("svcmap", svcId); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         NOMOD();
@@ -1467,6 +1477,10 @@ bool ConfigDB::listSvcMap(std::vector<fpi::SvcInfo> & vecSvcInfo, const int64_t 
 
 bool ConfigDB::getSvcMap(fpi::SvcInfo& svcinfo) {
     try {
+        Reply reply = r.hget("svcmap", svcinfo.svc_id); //NOLINT
+        if (reply.isNil()) return false;
+        std::string value = reply.getString();
+        fds::deserializeFdspMsg(value, svcinfo);
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         NOMOD();
