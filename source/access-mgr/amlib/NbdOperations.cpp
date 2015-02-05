@@ -22,8 +22,11 @@ NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
 
     if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
                      (err != ERR_BLOB_NOT_FOUND)) {
+        // Note, we're always setting the most recent
+        // responses's error code.
         opError = err;
-        return true;
+        fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
+        return ((doneCnt + 1) == objCount);
     }
 
     fds_uint32_t iOff = offset % maxObjectSizeInBytes;
@@ -300,6 +303,7 @@ NbdOperations::getBlobResp(const Error &error,
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
     fds_bool_t done = false;
+    response_map_type::iterator it;
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
              << error << ", handle " << handle
@@ -309,7 +313,6 @@ NbdOperations::getBlobResp(const Error &error,
         fds_mutex::scoped_lock l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
-        response_map_type::iterator it;
         it = responses.find(handle);
         if (responses.end() == it) {
             LOGWARN << "Not waiting for response for handle " << handle
@@ -356,13 +359,7 @@ NbdOperations::getBlobResp(const Error &error,
             // nbd connector will free resp
             // remove from the wait list
             fds_mutex::scoped_lock l(respLock);
-            response_map_type::iterator it;
-            // if the response doesn't exist, we probably already
-            // returned an error
-            it = responses.find(handle);
-            if (responses.end() != it) {
-                responses.erase(it);
-            }
+            responses.erase(it);
         }
 
         // we are done collecting responses for this handle, notify nbd connector
@@ -376,6 +373,7 @@ NbdOperations::updateBlobResp(const Error &error,
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
+    response_map_type::iterator it;
 
     LOGDEBUG << "Reponse for updateBlobOnce, "
              << error << ", handle " << handle
@@ -385,7 +383,6 @@ NbdOperations::updateBlobResp(const Error &error,
         fds_mutex::scoped_lock l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
-        response_map_type::iterator it;
         it = responses.find(handle);
         if (responses.end() == it) {
             LOGWARN << "Not waiting for response for handle " << handle
@@ -424,13 +421,7 @@ NbdOperations::updateBlobResp(const Error &error,
             // nbd connector will free resp
             // remove from the wait list
             fds_mutex::scoped_lock l(respLock);
-            response_map_type::iterator it;
-            // if the response doesn't exist, we probably already
-            // returned an error
-            it = responses.find(handle);
-            if (responses.end() != it) {
-                responses.erase(it);
-            }
+            responses.erase(it);
         }
 
         // we are done collecting responses for this handle, notify nbd connector
