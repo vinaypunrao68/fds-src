@@ -14,6 +14,7 @@
 
 import sys
 import unittest
+import logging
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
@@ -24,45 +25,66 @@ import testcases.TestMgt
 import NodeWaitSuite
 
 
-def suiteConstruction(self):
+def suiteConstruction(self, action="installbootactivate"):
     """
-    Construct the ordered set of test cases that comprise the
-    Two Node Cluster Setup test suite.
+    Construct the ordered set of test cases that install,
+    boot, and activate a cluster defined in the input FDS
+    Scenario config file, according to the specified action.
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS infrastructure.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
-    suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
+    # By constructing a generic test case at this point, we gain
+    # access to the FDS config file from which
+    # we'll pull node configuration.
+    genericTestCase = testcases.TestCase.FDSTestCase()
+    fdscfg = genericTestCase.parameters["fdscfg"]
+    log = logging.getLogger("ClusterBootSuite")
 
-    # Start the the OM's PM.
-    suite.addTest(testcases.TestFDSModMgt.TestPMForOMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
+    if action.count("install") > 0:
+        # Build the necessary FDS infrastructure.
+        suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+        suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
 
-    # Now start OM.
-    suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestOMWait())
+    if action.count("boot") > 0:
+        # Start the the OM's PM.
+        suite.addTest(testcases.TestFDSModMgt.TestPMForOMBringUp())
+        suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
 
-    # Start the remaining PMs
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
+        # Now start OM.
+        suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
+        suite.addTest(testcases.TestFDSModMgt.TestOMWait())
 
-    # Give the nodes some time to initialize.
-    suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the nodes initialize"))
+        # Start the remaining PMs
+        suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
+        suite.addTest(testcases.TestFDSModMgt.TestPMWait())
 
-    # Activate the cluster.
-    suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
-    suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the cluster activate"))
+        # Give the nodes some time to initialize.
+        suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the nodes initialize"))
 
-    # Bring up any AMs.
-    suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
+    if action.count("activate") > 0:
+        # Depending upon whether any node have specific services configured for them,
+        # activation works differently.
+        specifiedServices = False
+        for n in fdscfg.rt_obj.cfg_nodes:
+            if "services" in n.nd_conf_dict:
+                specifiedServices = True
+                break
 
-    # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
-    suite.addTest(nodeUpSuite)
+        # Not doing TestClusterActivate for a multi-node
+        # cluster allows us to avoid FS-879.
+        if specifiedServices or (len(fdscfg.rt_obj.cfg_nodes) > 1):
+            # Activate the cluster one node at a time with configured services.
+            suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
+        else:
+            # Activate the cluster with default services.
+            suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
 
-    # Give the nodes some time to initialize.
-    suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the cluster initialize"))
+        suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the cluster activate"))
+
+    if (action.count("boot") > 0) or (action.count("activate") > 0):
+        # Check that all nodes are up.
+        nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
+        suite.addTest(nodeUpSuite)
 
     return suite
 
