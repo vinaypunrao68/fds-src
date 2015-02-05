@@ -171,10 +171,6 @@ public class QueryHelper {
 	
 	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
 	            	
-	            	// normalize it because the sums will look arbitrarily higher if the
-	            	// sampling period is longer.
-//	            	normalizeDatapoints( queryResults );
-	            	
 	            	series.addAll(
 	            		new SeriesHelper().getRollupSeries( queryResults, 
 	            										 	query,
@@ -342,29 +338,6 @@ public class QueryHelper {
         } );
 
         return series;
-    }
-
-    /**
-     * This method will run through all the results and normailze the
-     * values so that the are reduced to values per second.
-     * @param points
-     */
-    protected void normalizeDatapoints( final List<VolumeDatapoint> points ){
-    	
-    	points.stream().forEach( point -> {
-    		
-    		/**
-    		 * In the future we'll have a calculation interval per datapoint
-    		 * that is tied in to the data rollup strategy
-    		 * and we can use that to normalize the data into per seconds.
-    		 * 
-    		 * For now we always do 1 minute intervals
-    		 */
-//    		long intervalInSeconds = point.getCalculationInterval();
-    		final Double intervalInSeconds = new Double(60);
-    		
-    		point.setValue( point.getValue() / intervalInSeconds );
-    	});
     }
     
     /**
