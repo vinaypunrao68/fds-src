@@ -3,6 +3,7 @@
  */
 #include <fds_process.h>
 #include <fdsp/PlatNetSvc.h>
+#include <net/PlatNetSvcHandler.h>
 #include <fdsp/OMSvc.h>
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
@@ -10,6 +11,19 @@
 namespace fds {
 
 SvcProcess::SvcProcess()
+{
+}
+
+SvcProcess::SvcProcess(int argc, char *argv[],
+                       const std::string &def_cfg_file,
+                       const std::string &base_path,
+                       const std::string &def_log_file,
+                       fds::Module **mod_vec)
+    : SvcProcess(argc, argv, def_cfg_file,
+                 base_path, def_log_file,
+                 mod_vec,
+                 boost::make_shared<fpi::PlatNetSvcProcessor>(
+                     boost::make_shared<PlatNetSvcHandler>()))
 {
 }
 

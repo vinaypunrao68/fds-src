@@ -20,20 +20,14 @@ struct SvcProcess;
 * @brief OMSvcProcess
 */
 struct OMSvcProcess : SvcProcess {
-    OMSvcProcess(int argc, char *argv[],
-                   const std::string &def_cfg_file,
-                   const std::string &base_path,
-                   const std::string &def_log_file,
-                   fds::Module **mod_vec);
+    OMSvcProcess(int argc, char *argv[]);
     virtual ~OMSvcProcess();
 
-    void init(int argc, char *argv[],
-         const std::string &def_cfg_file,
-         const std::string &base_path,
-         const std::string &def_log_file,
-         fds::Module **mod_vec);
+    void init(int argc, char *argv[]);
 
     virtual void registerSvcProcess() override;
+
+    virtual int run() override;
 
  protected:
     /**

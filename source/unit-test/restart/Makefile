@@ -24,13 +24,16 @@ user_non_fds_libs := \
 user_ld_flags     := -shared
 
 user_cpp          := \
-    OMSvcProcess.cpp
+    OMSvcProcess.cpp \
+    TestSvcProcess.cpp
 
 user_no_style     :=
 
 user_bin_exe      := \
-	omsvc
+	omsvc \
+	testsvc
 
 omsvc := OMSvcProcess.cpp 
+testsvc := TestSvcProcess.cpp
 
 include $(test_topdir)/Makefile.svc
