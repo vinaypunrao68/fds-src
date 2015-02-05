@@ -32,7 +32,7 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
         }
     } else if (catalog_action == fds_catalog_dmt_commit) {
         fds_panic("We moved to new service layer, must not be called!");
-        // thsi will ignore this msg if catalog sync is not in progress
+        // this will ignore this msg if catalog sync is not in progress
         if (dataMgr->feature.isCatSyncEnabled()) {
             err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid, NULL);
         } else {
@@ -434,7 +434,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                     err = timeVolCat_->addVolume(*vdesc);
                 }
 
-                // now replay neccessary commit logs as needed
+                // now replay necessary commit logs as needed
                 // TODO(dm-team): check for validity of TxnLogs
                 bool fHasValidTxnLogs = (util::getTimeStampMicros() - snapshotTime) <=
                         volmeta->vol_desc->contCommitlogRetention * 1000*1000;
@@ -474,7 +474,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     }
 
     if (err.ok() && vdesc->isClone() && fPrimary) {
-        // all actions were successfull now rsync it to other DMs
+        // all actions were successful now rsync it to other DMs
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
         Error err1;
         for (uint i = 1; i < nodes->getLength(); i++) {
@@ -657,7 +657,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     // mark volume as deleted if it's not empty
     if (check_only) {
         // check if not empty and mark volume as deleted to
-        // prevent futher updates to the volume as we are going
+        // prevent further updates to the volume as we are going
         // to remove it
         err = timeVolCat_->markVolumeDeleted(vol_uuid);
         if (!err.ok()) {
@@ -670,7 +670,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
         // if notify delete asked to only check if deleting volume
         // was ok; so we return here; DM will get
         // another notify volume delete with check_only == false to
-        // actually cleanup all other datastructures for this volume
+        // actually cleanup all other data structures for this volume
         return err;
     }
 
@@ -815,7 +815,7 @@ DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
         : Module("dm"),
           modProvider_(modProvider)
 {
-    // NOTE: Don't put much stuff in the constuctor.  Move any construction
+    // NOTE: Don't put much stuff in the constructor.  Move any construction
     // into mod_init()
 }
 
