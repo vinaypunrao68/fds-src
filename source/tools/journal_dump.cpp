@@ -22,8 +22,6 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <DmBlobTypes.h>
-#include <dm-vol-cat/DmExtentTypes.h>
-
 #include <dm-vol-cat/DmPersistVolCat.h>
 
 #define USE_NEW_LDB_STRUCTURES

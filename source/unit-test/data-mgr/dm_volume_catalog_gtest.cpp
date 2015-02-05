@@ -13,9 +13,6 @@
 #include <util/color.h>
 #include <PerfTrace.h>
 
-#define DM_CATALOG_TYPE DmVolumeDirectory
-// #define DM_CATALOG_TYPE DmVolumeCatalog
-
 boost::shared_ptr<LatencyCounter> tpPutCounter(new LatencyCounter("threadpool put", 0, 0));
 boost::shared_ptr<LatencyCounter> tpGetCounter(new LatencyCounter("threadpool get", 0, 0));
 boost::shared_ptr<LatencyCounter> tpDeleteCounter(new LatencyCounter("threadpool delete", 0, 0));
@@ -38,14 +35,14 @@ class DmVolumeCatalogTest : public ::testing::Test {
 
     void testDeleteBlob(fds_volid_t volId, const std::string blobName, blob_version_t version);
 
-    boost::shared_ptr<DM_CATALOG_TYPE> volcat;
+    boost::shared_ptr<DmVolumeCatalog> volcat;
 
     std::vector<boost::shared_ptr<VolumeDesc> > volumes;
 };
 
 void DmVolumeCatalogTest::SetUp() {
-    volcat.reset(new DM_CATALOG_TYPE("dm_volume_catallog_gtest.ldb"));
-    ASSERT_NE(static_cast<DM_CATALOG_TYPE*>(0), volcat.get());
+    volcat.reset(new DmVolumeCatalog("dm_volume_catallog_gtest.ldb"));
+    ASSERT_NE(static_cast<DmVolumeCatalog*>(0), volcat.get());
 
     volcat->registerExpungeObjectsCb(&expungeObjects);
 

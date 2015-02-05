@@ -23,6 +23,7 @@ import testcases.TestFDSPolMgt
 import testcases.TestFDSVolMgt
 import testcases.TestMgt
 import NodeWaitSuite
+import NodeVerifyDownSuite
 import ClusterBootSuite
 import ClusterShutdownSuite
 import logging
@@ -106,38 +107,69 @@ def suiteConstruction(self):
 
         # Based on the script defined in the scenario, take appropriate
         # action which typically includes executing one or more test cases.
-        if (re.match('\[node.+\]', script) is not None) or (re.match('\[Node-.+\]', script) is not None):
-            # What action should be taken against the node? If not stated, assume "bootup".
+
+        # Based on the script defined in the scenario, take appropriate
+        # action which typically includes executing one or more test cases.
+        if re.match('\[cluster\]', script) is not None:
+            # What action should be taken against the cluster? If not stated, assume "install-boot-activate".
             if "action" in scenario.nd_conf_dict:
                 action = scenario.nd_conf_dict['action']
             else:
-                action = "bootup"
+                action = "install-boot-activate"
 
-            if action == "bootup":
-                # Start this node. That is, start it's Platform Manager.
+            if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
+                # Start this cluster as indicated by the action.
+                clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None, action=action)
+                suite.addTest(clusterBootSuite)
+            elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
+                    (action.count("uninst") > 0):
+                # Shutdown the cluster as indicated by the action.
+                clusterShutdownSuite = ClusterShutdownSuite.suiteConstruction(self=None, action=action)
+                suite.addTest(clusterShutdownSuite)
+            else:
+                log.error("Unrecognized cluster action '%s' for scenario %s" %
+                          (action, scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+
+        elif re.match('\[node.+\]', script) is not None:
+            # What action should be taken against the node? If not stated, assume "install-boot".
+            if "action" in scenario.nd_conf_dict:
+                action = scenario.nd_conf_dict['action']
+            else:
+                action = "install-boot"
+
+            if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
+                # Start this node according to the specified action.
                 found = False
                 for node in scenario.cfg_sect_nodes:
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
 
-                        # First, build out the installation directory and start Redis.
-                        suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir(node=node,
-                                                                                   nodeID=node.nd_nodeID))
+                        if (action.count("install") > 0):
+                            # First, build out the installation directory and start Redis.
+                            suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir(node=node))
 
-                        # Boot Redis on the machine if requested.
-                        if 'redis' in node.nd_conf_dict:
-                            if node.nd_conf_dict['redis'] == 'true':
-                                suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean(node=node))
+                            # Boot Redis on the machine if requested.
+                            if 'redis' in node.nd_conf_dict:
+                                if node.nd_conf_dict['redis'] == 'true':
+                                    suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean(node=node))
 
-                        # Now bring up PM.
-                        suite.addTest(testcases.TestFDSModMgt.TestPMBringUp(node=node))
-                        suite.addTest(testcases.TestFDSModMgt.TestPMWait(node=node))
+                        if (action.count("boot") > 0):
+                            # Now bring up PM.
+                            suite.addTest(testcases.TestFDSModMgt.TestPMBringUp(node=node))
+                            suite.addTest(testcases.TestFDSModMgt.TestPMWait(node=node))
 
-                        # If the node also supports an OM, start the OM
-                        # as well.
-                        if node.nd_run_om():
-                            suite.addTest(testcases.TestFDSModMgt.TestOMBringUp(node=node))
-                            suite.addTest(testcases.TestFDSModMgt.TestOMWait(node=node))
+                            # If the node also supports an OM, start the OM
+                            # as well.
+                            if node.nd_run_om():
+                                suite.addTest(testcases.TestFDSModMgt.TestOMBringUp(node=node))
+                                suite.addTest(testcases.TestFDSModMgt.TestOMWait(node=node))
+                                suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let OM initialize"))
+
+                        if (action.count("activate") > 0):
+                            # Now activate the node's configured services.
+                            suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate(node=node))
+                            suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the node activate"))
 
                         break
 
@@ -150,13 +182,26 @@ def suiteConstruction(self):
                     log.error("Node not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
-            elif action == "remove":
-                # Remove the node from its cluster.
+            elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
+                # Shutdown the node according to the specified action.
                 found = False
                 for node in scenario.cfg_sect_nodes:
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
-                        suite.addTest(testcases.TestFDSSysMgt.TestNodeRemoveServices(node=node))
+                        if (action.count("remove") > 0):
+                            suite.addTest(testcases.TestFDSSysMgt.TestNodeRemoveServices(node=node))
+
+                        if (action.count("kill") > 0):
+                            suite.addTest(testcases.TestFDSSysMgt.TestNodeKill(node=node))
+
+                        if (action.count("uninst") > 0):
+                            suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
+
+                            # Shutdown Redis on the machine if we started it.
+                            if 'redis' in node.nd_conf_dict:
+                                if node.nd_conf_dict['redis'] == 'true':
+                                    suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis(node=node))
+
                         break
 
                 if found:
@@ -168,43 +213,8 @@ def suiteConstruction(self):
                     log.error("Node not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
-            elif action == "shutdown":
-                # Shutdown the node.
-                found = False
-                for node in scenario.cfg_sect_nodes:
-                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
-                        found = True
-                        suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown(node=node))
 
-                        # Shutdown Redis on the machine if we started it.
-                        if 'redis' in node.nd_conf_dict:
-                            if node.nd_conf_dict['redis'] == 'true':
-                                suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis(node=node))
-
-                        break
-
-                if found:
-                    # Give the cluster some time to reinitialize if requested.
-                    if 'delay_wait' in scenario.nd_conf_dict:
-                        suite.addTest(testcases.TestMgt.TestWait(delay=delay,
-                                                                 reason="to allow cluster " + script + " to reinitialize"))
-                else:
-                    log.error("Node not found for scenario '%s'" %
-                              (scenario.nd_conf_dict['scenario-name']))
-                    raise Exception
-            elif action == "deletefds":
-                # Delete the installation area built during bootup.
-                found = False
-                for node in scenario.cfg_sect_nodes:
-                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
-                        found = True
-                        suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
-                        break
-
-                if not found:
-                    log.error("Node not found for scenario '%s'" %
-                              (scenario.nd_conf_dict['scenario-name']))
-                    raise Exception
+            # Not sure this one has any usefulness.
             elif action == "cleaninst":
                 # Selectively clean up the installation area built during bootup.
                 found = False
@@ -223,73 +233,130 @@ def suiteConstruction(self):
                           (action, scenario.nd_conf_dict['scenario-name']))
                 raise Exception
 
-        # Based on the script defined in the scenario, take appropriate
-        # action which typically includes executing one or more test cases.
-        elif re.match('\[cluster\]', script) is not None:
-            # What action should be taken against the cluster? If not stated, assume "bootup".
+        elif re.match('\[service\]', script) is not None:
+            # What action should be taken against the service? If not stated, assume "boot".
             if "action" in scenario.nd_conf_dict:
                 action = scenario.nd_conf_dict['action']
             else:
-                action = "bootup"
+                action = "boot"
 
-            if action == "bootup":
-                # Start this cluster.
-                clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None)
-                suite.addTest(clusterBootSuite)
-            elif action == "activate":
-                # Activate the cluster.
-                suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
-
-                # Give the activation some time to complete if requested.
-                if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(testcases.TestMgt.TestWait(delay=delay,
-                                                                   reason="to allow the activation to complete"))
-            elif action == "shutdown":
-                # Shutdown the cluster.
-                clusterShutdownSuite = ClusterShutdownSuite.suiteConstruction(self=None)
-                suite.addTest(clusterShutdownSuite)
-            else:
-                log.error("Unrecognized cluster action '%s' for scenario %s" %
-                          (action, scenario.nd_conf_dict['scenario-name']))
-                raise Exception
-
-        elif re.match('\[am.+\]', script) is not None:
-            # What action should be taken against the AM? If not stated, assume "activate".
-            if "action" in scenario.nd_conf_dict:
-                action = scenario.nd_conf_dict['action']
-            else:
-                action = "activate"
-
-            if action == "activate":
-                suite.addTest(testcases.TestFDSModMgt.TestAMActivate())
-
-                # Give the AM some time to initialize if requested.
-                if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(testcases.TestMgt.TestWait(delay=delay,
-                                                             reason="to allow AM " + script + " to initialize"))
-            elif action == "bootup":
+            # Find the node in question
+            if "fds_node" in scenario.nd_conf_dict:
                 found = False
-                for am in scenario.cfg_sect_ams:
-                    if '[' + am.nd_conf_dict['am-name'] + ']' == script:
+                for node in scenario.cfg_sect_nodes:
+                    if node.nd_conf_dict['node-name'] == scenario.nd_conf_dict['fds_node']:
                         found = True
-                        suite.addTest(testcases.TestFDSModMgt.TestAMBringup(am=am))
                         break
 
-                if found:
-                    # Give the AM some time to initialize if requested.
-                    if 'delay_wait' in scenario.nd_conf_dict:
-                        suite.addTest(testcases.TestMgt.TestWait(delay=delay,
-                                                                 reason="to allow AM " + script + " to initialize"))
-                else:
-                    log.error("AM not found for scenario '%s'" %
+                if not found:
+                    log.error("Node not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
-            elif action == "shutdown":
-                pass
             else:
-                log.error("Unrecognized node action '%s' for scenario %s" %
-                          (action, scenario.nd_conf_dict['scenario-name']))
+                log.error("fds_node option not found for scenario '%s'" %
+                          (scenario.nd_conf_dict['scenario-name']))
                 raise Exception
+
+            # Validate the service in question
+            if "service" in scenario.nd_conf_dict:
+                if scenario.nd_conf_dict['service'] not in ['pm', 'dm', 'sm', 'am', 'om']:
+                    log.error("Service %s is not valid for scenario '%s'." %
+                              (scenario.nd_conf_dict['service'], scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
+            else:
+                log.error("service option not found for scenario '%s'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+
+            if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
+                # Start this service according to the specified action.
+                if (action.count("install") > 0):
+                    # First, build out the installation directory and start Redis.
+                    suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir(node=node))
+                    # Boot Redis on the machine if requested.
+                    if 'redis' in node.nd_conf_dict:
+                        if node.nd_conf_dict['redis'] == 'true':
+                            suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean(node=node))
+
+                if (action.count("boot") > 0):
+                    # Now bring up PM.
+                    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp(node=node))
+                    suite.addTest(testcases.TestFDSModMgt.TestPMWait(node=node))
+
+                    # If the node also supports an OM, start the OM
+                    # as well.
+                    if node.nd_run_om():
+                        suite.addTest(testcases.TestFDSModMgt.TestOMBringUp(node=node))
+                        suite.addTest(testcases.TestFDSModMgt.TestOMWait(node=node))
+
+                if (action.count("activate") > 0):
+                    # Now activate the node's configured services.
+                    suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate(node=node))
+                    suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the node activate"))
+
+                # Give the node some time to initialize if requested.
+                if 'delay_wait' in scenario.nd_conf_dict:
+                    suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                                 reason="to allow node " + script + " to initialize"))
+            elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
+                # Shutdown the node according to the specified action.
+                if (action.count("remove") > 0):
+                    suite.addTest(testcases.TestFDSSysMgt.TestNodeRemoveServices(node=node))
+
+                if (action.count("kill") > 0):
+                    suite.addTest(testcases.TestFDSSysMgt.TestNodeKill(node=node))
+
+                if (action.count("uninst") > 0):
+                    suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
+
+                    # Shutdown Redis on the machine if we started it.
+                    if 'redis' in node.nd_conf_dict:
+                        if node.nd_conf_dict['redis'] == 'true':
+                            suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis(node=node))
+
+        # We'll leave this here in case a need arises to treat AM's separately (for example
+        # booting them on nodes without a PM), but for now AM sections will be flagged.
+        elif re.match('\[am.+\]', script) is not None:
+                log.error("For scenario %s, don't use AM sections. Instead, specify 'am<,and other services>' in "
+                          "the node's definition with a 'services' configuration. By default you get 'services=am,dm,sm'." %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+#            # What action should be taken against the AM? If not stated, assume "activate".
+#            if "action" in scenario.nd_conf_dict:
+#                action = scenario.nd_conf_dict['action']
+#            else:
+#                action = "activate"
+#
+#            if action == "activate":
+#                suite.addTest(testcases.TestFDSModMgt.TestAMActivate())
+#
+#                # Give the AM some time to initialize if requested.
+#                if 'delay_wait' in scenario.nd_conf_dict:
+#                    suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+#                                                             reason="to allow AM " + script + " to initialize"))
+#            elif action == "bootup":
+#                found = False
+#                for am in scenario.cfg_sect_ams:
+#                    if '[' + am.nd_conf_dict['am-name'] + ']' == script:
+#                        found = True
+#                        suite.addTest(testcases.TestFDSModMgt.TestAMBringup(am=am))
+#                        break
+#
+#                if found:
+#                    # Give the AM some time to initialize if requested.
+#                    if 'delay_wait' in scenario.nd_conf_dict:
+#                        suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+#                                                                 reason="to allow AM " + script + " to initialize"))
+#                else:
+#                    log.error("AM not found for scenario '%s'" %
+#                              (scenario.nd_conf_dict['scenario-name']))
+#                    raise Exception
+#            elif action == "shutdown":
+#                pass
+#            else:
+#                log.error("Unrecognized node action '%s' for scenario %s" %
+#                          (action, scenario.nd_conf_dict['scenario-name']))
+#                raise Exception
 
         elif re.match('\[verify\]', script) is not None:
             # What state should be verified for the given nodes? If not stated, assume "up".
@@ -313,7 +380,19 @@ def suiteConstruction(self):
                 nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None, fdsNodes=fdsNodes)
                 suite.addTest(nodeUpSuite)
             elif state == "down":
-                pass
+                # Check that the specified node(s) is(are) down. If no node
+                # specified, check that all defined are down.
+                if "fds_nodes" in scenario.nd_conf_dict:
+                    fdsNodeNames = scenario.nd_conf_dict['fds_nodes'].split(",")
+                    fdsNodes = []
+                    for node in scenario.cfg_sect_nodes:
+                        if node.nd_conf_dict['node-name'] in fdsNodeNames:
+                            fdsNodes.append(node)
+                else:
+                    fdsNodes = None
+
+                nodeDownSuite = NodeVerifyDownSuite.suiteConstruction(self=None, fdsNodes=fdsNodes)
+                suite.addTest(nodeDownSuite)
             else:
                 log.error("Unrecognized node state '%s' for scenario %s" %
                           (state, scenario.nd_conf_dict['scenario-name']))
@@ -339,13 +418,29 @@ def suiteConstruction(self):
                     # Give the volume policy some time to propagate if requested.
                     if 'delay_wait' in scenario.nd_conf_dict:
                         suite.addTest(testcases.TestMgt.TestWait(delay=delay,
-                                                                 reason="to allow volume policy " + script + " to propagate"))
+                                                                 reason="to allow volume policy create " + script + " to propagate"))
                 else:
                     log.error("Volume policy not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
             elif action == "delete":
-                pass
+                # Set the specified volume policy.
+                found = False
+                for policy in scenario.cfg_sect_vol_pol:
+                    if '[' + policy.nd_conf_dict['pol-name'] + ']' == script:
+                        found = True
+                        suite.addTest(testcases.TestFDSPolMgt.TestPolicyDelete(policy=policy))
+                        break
+
+                if found:
+                    # Give the volume policy delete some time to propagate if requested.
+                    if 'delay_wait' in scenario.nd_conf_dict:
+                        suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                                 reason="to allow volume policy delete " + script + " to propagate"))
+                else:
+                    log.error("Volume policy not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
             else:
                 log.error("Unrecognized node action '%s' for scenario %s" %
                           (action, scenario.nd_conf_dict['scenario-name']))
@@ -393,7 +488,22 @@ def suiteConstruction(self):
                               (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
             elif action == "delete":
-                pass
+                found = False
+                for volume in scenario.cfg_sect_volumes:
+                    if '[' + volume.nd_conf_dict['vol-name'] + ']' == script:
+                        found = True
+                        suite.addTest(testcases.TestFDSVolMgt.TestVolumeDelete(volume=volume))
+                        break
+
+                if found:
+                    # Give the volume deletion some time to propagate if requested.
+                    if 'delay_wait' in scenario.nd_conf_dict:
+                        suite.addTest(testcases.TestMgt.TestWait(delay=delay,
+                                                                 reason="to allow volume deletion " + script + " to propagate"))
+                else:
+                    log.error("Volume not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
             else:
                 log.error("Unrecognized node action '%s' for scenario %s" %
                           (action, scenario.nd_conf_dict['scenario-name']))
