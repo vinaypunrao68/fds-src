@@ -313,14 +313,23 @@ public class SeriesHelper {
         	
         	switch( operation ) {
         		case RATE:
-        			rolledupValue = ds.average().getAsDouble() / TimeUnit.MINUTES.toSeconds( distribution );
+        			rolledupValue = ds.sum() / TimeUnit.MINUTES.toSeconds( distribution );
         			break;
-        		default:
-        			// the data has already been acted on, so everything in this bucket
-        			// is already the sum of previous roll ups.  Therefore, the most recent
-        			// value is what we want to use.  This is an assumption that things aren't
-        			// getting smaller within the window.
+        		case MAX:
+        			// capacity is an example of using max for bucket calculation
+        			// each time capacity is reported, it's the current state of the system
+        			// so summing each value in this list makes no sense - so we take the last
+        			// value (or max) in the list and use it for our indicator of the 
+        			// state of the system at this time.
         			rolledupValue = ds.max().getAsDouble();
+        			break;
+        		case SUM:
+        			// the default case is to sum everything in this bucket assuming the values
+        			// are related only to activity within the time that this bucket
+        			// encapsulates.  Performance # of gets is a good example of why you would use
+        			// SUM
+        		default:
+        			rolledupValue = ds.sum();
         			break;
         	}
         	
