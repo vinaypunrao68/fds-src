@@ -89,9 +89,9 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     QueueHelper helper(commitBlobReq);
     helper.err = e;
 
-    LOGDEBUG << "Dmt version: " << commitBlobReq->dmt_version << " blob "
+    LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
              << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
-             << " ; current DMT version " << dataMgr->omClient->getDMTVersion();
+             << " current DMT version " << dataMgr->omClient->getDMTVersion();
 
     // 'finish this io' for qos accounting purposes, if we are
     // forwarding, the main time goes to waiting for response
@@ -115,27 +115,21 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         is_forwarding = vol_meta->isForwarding();
         dataMgr->vol_map_mtx->unlock();
 
-        // move the state, once we drain  planned queue contents
-        LOGTRACE << "is_forwarding ? " << is_forwarding << " req DMT ver "
-                 << commitBlobReq->dmt_version << " DMT ver " << dataMgr->omClient->getDMTVersion();
-
         if (is_forwarding) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
-                if (dataMgr->feature.isCatSyncEnabled()) {
-                    helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
-                                                                            blob_version,
-                                                                            blob_obj_list,
-                                                                            meta_list);
-                } else {
-                    LOGWARN << "catalog sync feature - NOT enabled";
-                }
+                LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
+                           << " because our DMT is " << dataMgr->omClient->getDMTVersion();
+                helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
+                                                                       blob_version,
+                                                                       blob_obj_list,
+                                                                       meta_list);
                 if (helper.err.ok()) {
                     // we forwarded the request!!!
                     // if forwarding -- do not reply to AM yet, will reply when we receive response
                     // for fwd cat update from destination DM
                     // TODO(DAC): Actually sent the above mentioned response.
-                    commitBlobReq->cb = NULL;
+                    helper.skipImplicitCb = true;
                 }
             }
         } else {

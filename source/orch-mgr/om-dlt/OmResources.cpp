@@ -162,6 +162,18 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
             LOGDEBUG << "DST_DomainUp. Evt: " << e.logString();
         }
     };
+    struct DST_DomainShutdown : public msm::front::state<>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_DomainShutdown. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_DomainShutdown. Evt: " << e.logString();
+        }
+    };
 
     /**
      * Define the initial state.
@@ -212,6 +224,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_Shutdown
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
 
     /**
      * Guard conditions.
@@ -247,8 +264,10 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         msf::Row< DST_WaitNds, RegNodeEvt  ,DST_WaitDltDmt, DACT_NodesUp , GRD_NdsUp   >,  // NOLINT
         msf::Row< DST_WaitNds, TimeoutEvt  ,DST_WaitDltDmt, DACT_UpdDlt , GRD_EnoughNds>,  // NOLINT
         // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_WaitDltDmt, DltDmtUpEvt, DST_DomainUp, DACT_LoadVols, GRD_DltDmtUp >
-        // +------------------+-------------+------------+---------------+-------------+
+        msf::Row<DST_WaitDltDmt, DltDmtUpEvt, DST_DomainUp, DACT_LoadVols, GRD_DltDmtUp>,
+        // +-----------------+-------------+------------+---------------+--------------+
+        msf::Row<DST_DomainUp, ShutdownEvt , DST_DomainShutdown, DACT_Shutdown, msf::none >
+        // +-----------------+-------------+------------+---------------+--------------+
         >{};  // NOLINT
 
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
@@ -546,7 +565,7 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     dp->commitDlt();
 
     // broadcast DLT to SMs only (so they know the diff when we update the DLT)
-    dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true);
+    dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true, false, false);
 
     // at this point there should be no pending add/rm nodes in cluster map
     fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
@@ -610,6 +629,28 @@ NodeDomainFSM::GRD_DltDmtUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         return false;
     }
 }
+
+/**
+ * DACT_Shutdown
+ * ------------
+ * Send shutdown command to all services
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
+    LOGDEBUG << "Will send shutdown msg to all services";
+
+    // broadcast shutdown msg to all services
+    dom_ctrl->om_bcast_shutdown_msg();
+
+    // TODO(Anna) we are not currently waiting for responses. Implement waiting
+    // for acks to confirm that each service shut down
+    LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
+}
+
 //--------------------------------------------------------------------
 // OM Node Domain
 //--------------------------------------------------------------------
@@ -691,6 +732,10 @@ void OM_NodeDomainMod::local_domain_event(TimeoutEvt const &evt) {
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(NoPersistEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
+    domain_fsm->process_event(evt);
+}
+void OM_NodeDomainMod::local_domain_event(ShutdownEvt const &evt) {
     fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
@@ -1026,6 +1071,15 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             LOGDEBUG << "Unregistered SM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result: " << err.GetErrstr();
+
+            // send shutdown msg to SM
+            if (err.ok()) {
+                err = smAgent->om_send_shutdown();
+            } else {
+                LOGERROR << "Failed to unregister SM node " << node_name << ":"
+                         << std::dec << node_uuid.uuid_get_val() << std::hex << " " << err
+                         << ". Not sending shutdown message to SM";
+            }
         }
         if (om_local_domain_up()) {
             om_dlt_update_cluster();
@@ -1040,6 +1094,14 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             LOGDEBUG << "Unregistered DM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result: " << err.GetErrstr();
+            // send shutdown msg to DM
+            if (err.ok()) {
+                err = dmAgent->om_send_shutdown();
+            } else {
+                LOGERROR << "Failed to unregister DM node " << node_name << ":"
+                         << std::dec << node_uuid.uuid_get_val() << std::hex << " " << err
+                         << ". Not sending shutdown message to DM";
+            }
         }
         om_dmt_update_cluster();
     }
@@ -1052,8 +1114,36 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             LOGDEBUG << "Unregistered AM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result " << err.GetErrstr();
+
+            // send shutdown msg to AM
+            if (err.ok()) {
+                err = amAgent->om_send_shutdown();
+            } else {
+                LOGERROR << "Failed to unregister AM node " << node_name << ":"
+                         << std::dec << node_uuid.uuid_get_val() << std::hex << " " << err
+                         << ". Not sending shutdown message to AM";
+            }
         }
     }
+
+    return err;
+}
+
+// om_shutdown_domain
+// ------------------------
+//
+Error
+OM_NodeDomainMod::om_shutdown_domain()
+{
+    Error err(ERR_OK);
+    if (!om_local_domain_up()) {
+        LOGWARN << "Domain is not up yet.. not going to shutdown, try again soon";
+        return ERR_NOT_READY;
+    }
+
+    LOGNOTIFY << "Shutting down domain, will stop processing node add/remove"
+              << " and other commands for the domain";
+    local_domain_event(ShutdownEvt());
 
     return err;
 }
@@ -1082,7 +1172,6 @@ OM_NodeDomainMod::om_dmt_update_cluster() {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     dmtMod->dmt_deploy_event(DmtDeployEvt());
-
     // in case there are no vol acks to wait
     dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }
@@ -1129,11 +1218,22 @@ OM_NodeDomainMod::om_dlt_waiting_timeout() {
     dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
 }
 
+void
+OM_NodeDomainMod::om_service_down(const Error& error,
+                                  const NodeUuid& svcUuid) {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    dltMod->dlt_deploy_event(DltErrorFoundEvt(svcUuid, error));
+    dmtMod->dmt_deploy_event(DmtErrorFoundEvt(svcUuid, error));
+}
+
 // Called when OM receives notification that the rebalance is
 // done on node with uuid 'uuid'.
 Error
 OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
-                                         fds_uint64_t dlt_version) {
+                                         fds_uint64_t dlt_version,
+                                         const Error& migrError) {
     LOGDEBUG << "Receiving migration done...";
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
@@ -1141,11 +1241,9 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     DataPlacement *dp = om->om_dataplace_mod();
     OM_SmAgent::pointer agent = om_sm_agent(uuid);
     if (agent == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::error)
-                << "OM: Received migration done event from unknown node "
-                << ": uuid " << uuid.uuid_get_val();
-        err = Error(ERR_NOT_FOUND);
-        return err;
+        LOGERROR << "OM: Received migration done event from unknown node "
+                 << ": uuid " << uuid.uuid_get_val();
+        return ERR_NOT_FOUND;
     }
 
     // for now we shouldn't move to new dlt version until
@@ -1154,17 +1252,23 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
     fds_verify(cur_dlt_ver == dlt_version);
 
-    // Set node's state to 'node_up'
-    agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+    if (migrError.ok()) {
+        // Set node's state to 'node_up'
+        agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
-    // update node's dlt version so we don't send this dlt again
-    agent->set_node_dlt_version(dlt_version);
+        // update node's dlt version so we don't send this dlt again
+        agent->set_node_dlt_version(dlt_version);
 
-    // 'rebal ok' event, once all nodes sent migration done
-    // notification, the state machine will commit the DLT
-    // to other nodes.
-    ClusterMap* cm = om->om_clusmap_mod();
-    dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
+        // 'rebal ok' event, once all nodes sent migration done
+        // notification, the state machine will commit the DLT
+        // to other nodes.
+        ClusterMap* cm = om->om_clusmap_mod();
+        dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
+    } else {
+        LOGNOTIFY << "Received migration error " << migrError
+                  << " will notify DLT state machine";
+        dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, migrError));
+    }
 
     return err;
 }
@@ -1174,7 +1278,8 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
 // Called when OM received push meta response from DM service
 //
 Error
-OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid) {
+OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid,
+                                         const Error& respError) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
@@ -1185,7 +1290,11 @@ OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid) {
     LOGNOTIFY << "TEST: Finished sleeping, will process push meta ack";
 #endif
 
-    dmtMod->dmt_deploy_event(DmtPushMetaAckEvt(uuid));
+    if (respError.ok()) {
+        dmtMod->dmt_deploy_event(DmtPushMetaAckEvt(uuid));
+    } else {
+        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
+    }
     return err;
 }
 
@@ -1195,7 +1304,8 @@ OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid) {
 Error
 OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
-                                          fds_uint32_t dmt_version) {
+                                          fds_uint32_t dmt_version,
+                                          const Error& respError) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
@@ -1203,15 +1313,21 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
     AgentContainer::pointer agent_container = local->dc_container_frm_msg(node_type);
     NodeAgent::pointer agent = agent_container->agent_info(uuid);
     if (agent == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::error)
-                << "OM: Received DMT commit ack from unknown node: uuid "
-                << std::hex << uuid.uuid_get_val() << std::dec;
-        err = Error(ERR_NOT_FOUND);
-        return err;
+        LOGERROR << "OM: Received DMT commit ack from unknown node: uuid "
+                 << std::hex << uuid.uuid_get_val() << std::dec;
+        return ERR_NOT_FOUND;
     }
 
-    dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
-
+    // if this is timeout and not DM, we should not stop migration,
+    // node is probably down... In current implementation, we will stop
+    // migration if DM is down, because this could be DM that is source
+    // for migration.
+    if (respError.ok() ||
+        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_STOR_MGR))) {
+        dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
+    } else {
+        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
+    }
     return err;
 }
 
@@ -1220,14 +1336,18 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
 //
 Error
 OM_NodeDomainMod::om_recv_dmt_close_resp(const NodeUuid& uuid,
-                                         fds_uint64_t dmt_version) {
+                                         fds_uint64_t dmt_version,
+                                         const Error& respError) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     // tell state machine that we received ack for close
-    dmtMod->dmt_deploy_event(DmtCloseOkEvt(dmt_version));
-
+    if (respError.ok()) {
+        dmtMod->dmt_deploy_event(DmtCloseOkEvt(dmt_version));
+    } else {
+        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
+    }
     return err;
 }
 
@@ -1238,7 +1358,8 @@ OM_NodeDomainMod::om_recv_dmt_close_resp(const NodeUuid& uuid,
 Error
 OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
-                                          fds_uint64_t dlt_version) {
+                                          fds_uint64_t dlt_version,
+                                          const Error& respError) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
@@ -1247,11 +1368,9 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
     AgentContainer::pointer agent_container = local->dc_container_frm_msg(node_type);
     NodeAgent::pointer agent = agent_container->agent_info(uuid);
     if (agent == NULL) {
-        FDS_PLOG_SEV(g_fdslog, fds_log::error)
-                << "OM: Received DLT commit ack from unknown node: uuid "
-                << std::hex << uuid.uuid_get_val() << std::dec;
-        err = Error(ERR_NOT_FOUND);
-        return err;
+        LOGERROR << "OM: Received DLT commit ack from unknown node: uuid "
+                 << std::hex << uuid.uuid_get_val() << std::dec;
+        return ERR_NOT_FOUND;
     }
 
     // for now we shouldn't move to new dlt version until
@@ -1263,12 +1382,25 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
         return err;
     }
 
-    // set node's confirmed dlt version to this version
-    agent->set_node_dlt_version(dlt_version);
+    // if this is timeout and not SM, we should not stop migration,
+    // node is probably down... In current implementation, we will stop
+    // migration if SM is down, because this could be SM that is source
+    // for migration.
+    if (respError.ok() ||
+        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_STOR_MGR))) {
+        // set node's confirmed dlt version to this version
+        agent->set_node_dlt_version(dlt_version);
 
-    // commit ok event, will transition to next state when
-    // when all 'up' nodes acked this dlt commit
-    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, uuid));
+        // commit ok event, will transition to next state when
+        // when all 'up' nodes acked this dlt commit
+        dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, uuid));
+    } else {
+        dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
+    }
+
+    // in case dlt is in error mode, also send recover ack, since OM sends
+    // dlt commit for previously commited DLT as part of recovery
+    dltMod->dlt_deploy_event(DltRecoverAckEvt(false, uuid, respError));
 
     return err;
 }
@@ -1278,7 +1410,8 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
 //
 Error
 OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
-                                         fds_uint64_t dlt_version) {
+                                         fds_uint64_t dlt_version,
+                                         const Error& respError) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
@@ -1294,7 +1427,11 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     fds_verify(cur_dlt_ver == dlt_version);
 
     // tell state machine that we received ack for close
-    dltMod->dlt_deploy_event(DltCloseOkEvt());
+    if (respError.ok()) {
+        dltMod->dlt_deploy_event(DltCloseOkEvt());
+    } else {
+        dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
+    }
 
     return err;
 }
@@ -1548,18 +1685,21 @@ void
 OM_ControlRespHandler::NotifyDMTCloseResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
-
+    Error respError(fdsp_msg->err_code);
     LOGNOTIFY << "OM received response for NotifyDMTClose from node "
             << fdsp_msg->src_node_name << ":"
             << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
-            << " for DMT version " << dmt_resp->DMT_version;
+            << " for DMT version " << dmt_resp->DMT_version
+              << " " << respError;
 
     fds_verify(fdsp_msg->src_id == fpi::FDSP_DATA_MGR);
 
     // notify DMT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
-    domain->om_recv_dmt_close_resp(node_uuid, dmt_resp->DMT_version);
+    domain->om_recv_dmt_close_resp(node_uuid,
+                                   dmt_resp->DMT_version,
+                                   respError);
 }
 
 void
@@ -1573,16 +1713,18 @@ void
 OM_ControlRespHandler::PushMetaDMTResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp) {
+    Error respError(fdsp_msg->err_code);
     LOGNOTIFY << "Received PushMeta response from node "
-            << fdsp_msg->src_node_name << ":"
-            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
+              << fdsp_msg->src_node_name << ":"
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+              << " " << respError;
 
     fds_verify(fdsp_msg->src_id == fpi::FDSP_DATA_MGR);
 
     // notify DMT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
-    domain->om_recv_push_meta_resp(node_uuid);
+    domain->om_recv_push_meta_resp(node_uuid, respError);
 }
 
 void
@@ -1596,16 +1738,19 @@ void
 OM_ControlRespHandler::NotifyDLTCloseResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "OM received response for NotifyDltClose from node "
-            << fdsp_msg->src_node_name << ":"
-            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
-            << " for DLT version " << dlt_resp->DLT_version;
+    Error respError(fdsp_msg->err_code);
+    LOGNOTIFY << "OM received response for NotifyDltClose from node "
+              << fdsp_msg->src_node_name << ":"
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+              << " for DLT version " << dlt_resp->DLT_version
+              << " " << respError;
 
     // notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
-    domain->om_recv_dlt_close_resp(node_uuid, dlt_resp->DLT_version);
+    domain->om_recv_dlt_close_resp(node_uuid,
+                                   dlt_resp->DLT_version,
+                                   respError);
 }
 
 void
@@ -1619,17 +1764,23 @@ void
 OM_ControlRespHandler::NotifyDMTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
+    Error respError(fdsp_msg->err_code);
+    LOGNOTIFY << "OM received response for NotifyDmtUpdate from node "
+              << fdsp_msg->src_node_name << ":"
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+              << " for DLT version " << dmt_resp->DMT_version
+              << " " << respError;
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "OM received response for NotifyDmtUpdate from node "
-            << fdsp_msg->src_node_name << ":"
-            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
-            << " for DLT version " << dmt_resp->DMT_version;
+    // ok to receive ERR_CATSYNC_NOT_PROGRESS error
+    if (respError == ERR_CATSYNC_NOT_PROGRESS) {
+        respError = ERR_OK;
+    }
 
     // notify DLT state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
-    domain->om_recv_dmt_commit_resp(fdsp_msg->src_id, node_uuid, dmt_resp->DMT_version);
+    domain->om_recv_dmt_commit_resp(fdsp_msg->src_id, node_uuid,
+                                    dmt_resp->DMT_version, respError);
 }
 
 }  // namespace fds

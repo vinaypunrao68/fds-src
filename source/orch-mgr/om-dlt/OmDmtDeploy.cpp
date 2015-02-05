@@ -63,6 +63,30 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
             LOGDEBUG << "DST_Idle. Evt: " << e.logString();
         }
     };
+    struct DST_Error : public msm::front::interrupt_state<DmtRecoveryEvt>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+        }
+    };
+    struct DST_AllOk : public msm::front::state<>
+    {
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+        }
+    };
     struct DST_Waiting : public msm::front::state<>
     {
         DST_Waiting() : waitingTimer(new FdsTimer()),
@@ -191,7 +215,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     /**
      * Define the initial state.
      */
-    typedef DST_Idle initial_state;
+    typedef mpl::vector<DST_Idle, DST_AllOk> initial_state;
     struct MyInitEvent {
         std::string logString() const {
             return "MyInitEvent";
@@ -203,6 +227,16 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
      * Transition actions.
      */
     struct DACT_Start
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_Error
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_Recovery
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -287,16 +321,26 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_BcastAM , DACT_Commit   ,   msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Waiting , DmtTimeoutEvt  , DST_Compute , DACT_Start    ,  msf::none   >,
+    msf::Row< DST_Waiting , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Compute , DmtVolAckEvt   , DST_Commit  , DACT_Compute  ,GRD_DmtCompute>,
+    msf::Row< DST_Compute , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Commit , DmtPushMetaAckEvt, DST_BcastAM, DACT_Commit   , GRD_Commit   >,
+    msf::Row< DST_Commit  , DmtPushMetaAckEvt, DST_BcastAM, DACT_Commit   , GRD_Commit  >,
+    msf::Row< DST_Commit  , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_BcastAM , DmtCommitAckEvt, DST_Close   , DACT_BcastAM  , GRD_BcastAM  >,
+    msf::Row< DST_BcastAM , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Close   , DmtCommitAckEvt, DST_Done    , DACT_Close    , GRD_Close    >,
+    msf::Row< DST_Close   , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Done    , DmtCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_Done     >
+    msf::Row< DST_Done    , DmtCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_Done     >,
+    msf::Row< DST_Done    , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_AllOk   ,DmtErrorFoundEvt, DST_Error   , DACT_Error    , msf::none    >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_Error   , DmtRecoveryEvt , DST_AllOk   , DACT_Recovery , msf::none    >
     // +------------------+----------------+-------------+---------------+--------------+
     >{};  // NOLINT
 
@@ -395,6 +439,20 @@ OM_DMTMod::dmt_deploy_event(DmtVolAckEvt const &evt)
 
 void
 OM_DMTMod::dmt_deploy_event(DmtLoadedDbEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dmt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DMTMod::dmt_deploy_event(DmtErrorFoundEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dmt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DMTMod::dmt_deploy_event(DmtRecoveryEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
     dmt_dply_fsm->process_event(evt);
@@ -623,12 +681,13 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     VolumePlacement* vp = om->om_volplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
 
+    // We commit DMT as an 'official' version, but not yet persist it in
+    // redis nor reset pending services in cluster map. We do that on
+    // DMT close, just before moving back to idle state. If shutdown
+    // happens between commit and close, we will redo the migration
+
     // commit DMT
     vp->commitDMT();
-
-    // since we accounted for added/removed nodes in DMT, reset pending nodes in
-    // cluster map
-    cm->resetPendServices(fpi::FDSP_DATA_MGR);
 
     // broadcast DMT to DMs first, once we receove acks, will bcast to AMs
     dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR,
@@ -835,6 +894,13 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     VolumePlacement* vp = om->om_volplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
 
+    // persist commited DMT
+    vp->persistCommitedTargetDmt();
+
+    // since we accounted for added/removed nodes in DMT, reset pending nodes in
+    // cluster map
+    cm->resetPendServices(fpi::FDSP_DATA_MGR);
+
     LOGNOTIFY << "OM deployed DMT with "
               << cm->getNumMembers(fpi::FDSP_DATA_MGR) << " DMs";
 
@@ -845,6 +911,42 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         LOGWARN << "Failed to start try again timer!!!"
                 << " DM additions/deletions may be pending for long time";
     }
+}
+
+// DACT_Error
+// -----------
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "DACT_Error fired.";
+
+    /*
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+
+    if(vp->hasNoTargetDmt()) {
+        LOGNORMAL << "No target DMT computed/commited, nothing to recover";
+        fsm.process_event(DmtRecoveryEvt());
+    } else {
+        OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
+
+        // Revert to previous DMT
+        vp->undoTargetDmtCommit();
+        // Need to send abort migration msg
+        LOGNORMAL << "Already computed or commited target DMT, will send abort now";
+    }
+    */
+    fsm.process_event(DmtRecoveryEvt());
+}
+// DACT_Recovery
+// -----------
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DmtDplyFSM::DACT_Recovery::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "DACT_Recovery fired.";
 }
 
 }  // namespace fds

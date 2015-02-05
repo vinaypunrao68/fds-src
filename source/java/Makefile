@@ -3,7 +3,7 @@ user_target       := lib
 user_rtime_env    := user
 user_build_dir    :=
 
-user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/apis/apis.thrift $(topdir)/fdsp/fds_stream.thrift $(topdir)/fdsp/snapshot.thrift
+user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/apis/apis.thrift $(topdir)/fdsp/fds_stream.thrift $(topdir)/fdsp/snapshot.thrift $(topdir)/fdsp/fds_service.thrift
 user_thrift_flag  := -r --gen java
 
 user_postdep      := compile

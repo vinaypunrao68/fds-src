@@ -34,11 +34,13 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     };
 
     $rootScope.$on( 'fds::authentication_logout', function(){
+        
         $interval.cancel( pollerId );
         api.volume = [];
     });
 
     $rootScope.$on( 'fds::authentication_success', function(){
+        
         getVolumes().then( startPoller );
     });
 
@@ -69,6 +71,11 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         // the original one
         var id = volume.id;
         volume.id = '';
+        
+        // convert timelineTime from MS to seconds and adding 1 so that it makes sure to get the right snapshot
+        var timelineTime = Math.round( volume.timelineTime / 1000 ) + 1;
+        volume.timelineTime = timelineTime;
+        
         return $http_fds.post( '/api/config/volumes/clone/' + id + '/' + volume.name + '/' + volume.timelineTime, volume,
             function( response ){
 

@@ -172,6 +172,13 @@ class AmDispatcher : public Module, public boost::noncopyable {
                            boost::shared_ptr<std::string> payload);
 
     /**
+     * Callback for catalog query error checks from service layer.
+     */
+    fds_bool_t getQueryCatalogAppStatusCb(AmRequest* amReq,
+                                          const Error& error,
+                                          boost::shared_ptr<std::string> payload);
+
+    /**
      * Callback for set metadata on blob responses.
      */
     void setBlobMetadataCb(AmRequest *amReq,

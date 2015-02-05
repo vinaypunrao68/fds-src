@@ -128,8 +128,10 @@ void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
                                         FDSP_ScavengerTypePtr& gc_info) {
 }
 
+
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                                      FDSP_DMT_TypePtr& dmt_info) {
+    #if 0
     Error err(ERR_OK);
     err = om_client->recvDMTUpdate(dmt_info, msg_hdr->session_uuid);
     if (om_client->getNodeType() == fpi::FDSP_DATA_MGR) {
@@ -144,7 +146,9 @@ void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
         // DMT commit is sync for all other services, send response now
         om_client->sendDMTCommitAck(err, msg_hdr->session_uuid);
     }
+    #endif
 }
+
 
 void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_DltCloseTypePtr& dlt_close) {
@@ -153,8 +157,11 @@ void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
 
 void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_DmtCloseTypePtr& dmt_close) {
+#if 0
     om_client->recvDMTClose(dmt_close->DMT_version, fdsp_msg->session_uuid);
+#endif
 }
+
 
 void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_PushMetaPtr& push_meta_resp) {
@@ -419,7 +426,7 @@ int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
 }
 
 int OMgrClient::testBucket(const std::string& bucket_name,
-                           const fpi::FDSP_VolumeInfoTypePtr& vol_info,
+                           const fpi::FDSP_VolumeDescTypePtr& vol_info,
                            fds_bool_t attach_vol_reqd,
                            const std::string& accessKeyId,
                            const std::string& secretAccessKey)
@@ -464,7 +471,7 @@ int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
     return 0;
 }
 
-int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeInfoTypePtr& volInfo)
+int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeDescTypePtr& volInfo)
 {
     if (fNoNetwork) return 0;
     try {
@@ -476,21 +483,13 @@ int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeInfoTypePtr& volInfo)
         volData->vol_info.vol_name = volInfo->vol_name;
         volData->vol_info.tennantId = volInfo->tennantId;
         volData->vol_info.localDomainId = volInfo->localDomainId;
-        volData->vol_info.globDomainId = volInfo->globDomainId;
 
-        volData->vol_info.capacity = volInfo->capacity;
-        volData->vol_info.maxQuota = volInfo->maxQuota;
         volData->vol_info.volType = volInfo->volType;
-
-        volData->vol_info.defReplicaCnt = volInfo->defReplicaCnt;
-        volData->vol_info.defWriteQuorum = volInfo->defWriteQuorum;
-        volData->vol_info.defReadQuorum = volInfo->defReadQuorum;
-        volData->vol_info.defConsisProtocol = volInfo->defConsisProtocol;
+        volData->vol_info.maxObjSizeInBytes = volInfo->maxObjSizeInBytes;
+        volData->vol_info.capacity = volInfo->capacity;
 
         volData->vol_info.volPolicyId = 50;  //  default policy
-        volData->vol_info.archivePolicyId = volInfo->archivePolicyId;
         volData->vol_info.placementPolicy = volInfo->placementPolicy;
-        volData->vol_info.appWorkload = volInfo->appWorkload;
         volData->vol_info.mediaPolicy = volInfo->mediaPolicy;
 
         req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlCreateBucket), pkt);
@@ -787,6 +786,7 @@ int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
     return err;
 }
 
+#if 0
 /**
  * DMT close event notifies that nodes in the cluster received
  * the commited (new) DMT
@@ -843,7 +843,7 @@ int OMgrClient::sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
 
     return (0);
 }
-
+#endif
 
 Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
     Error err(ERR_OK);
@@ -879,7 +879,7 @@ Error OMgrClient::updateDmt(bool dmt_type, std::string& dmt_data) {
 
     return err;
 }
-
+#if 0
 Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
                                 const std::string& session_uuid) {
     Error err(ERR_OK);
@@ -903,6 +903,7 @@ Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
 
     return err;
 }
+#endif
 
 int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
                                 const FDSP_BucketStatsRespTypePtr& stats_msg)
@@ -944,6 +945,12 @@ const DLT* OMgrClient::getCurrentDLT() {
     omc_lock.read_unlock();
 
     return dlt;
+}
+
+void OMgrClient::setCurrentDLTClosed() {
+    omc_lock.write_lock();
+    dltMgr->setCurrentDltClosed();
+    omc_lock.write_unlock();
 }
 
 const DLT*

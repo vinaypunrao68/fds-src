@@ -189,6 +189,7 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
                                .withTenantId( tenantId )
                                .withCommitLogRetention(
                                    volumeSettings.getContCommitlogRetention() )
+                               .withMediaPolicy( volumeSettings.getMediaPolicy() )
                                .withData_connector( connector )
                                .build();
 

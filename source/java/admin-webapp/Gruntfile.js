@@ -12,7 +12,7 @@ module.exports = function( grunt ){
     var proxySetting = {
         port: 7777,
         host: '127.0.0.1'
-//        host: '10.2.30.118'
+//        host: '10.3.70.237'
 //        host: '192.168.1.9'
 //        host: 'localhost'
     };

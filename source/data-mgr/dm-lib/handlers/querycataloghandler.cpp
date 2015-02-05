@@ -59,9 +59,8 @@ void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
 void QueryCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::QueryCatalogMsg>& message,
                                          Error const& e, dmCatReq* dmRequest) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
-
     asyncHdr->msg_code = e.GetErrno();
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     // TODO(Rao): We should have a separate response message for QueryCatalogMsg for
     // consistency

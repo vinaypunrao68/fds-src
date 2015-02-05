@@ -3,7 +3,7 @@ user_target       := exe
 user_std_libs     := true
 speedup           = -j $(threads)
 user_rtime_env    := user
-user_build_dir    := include dm-lib platform
+user_build_dir    := include dm-lib platform utils
 
 user_incl_dir     := include $(topdir)
 user_cpp_flags    :=

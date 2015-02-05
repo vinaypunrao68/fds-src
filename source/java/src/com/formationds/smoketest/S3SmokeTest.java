@@ -25,7 +25,6 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
-import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -113,7 +112,7 @@ public class S3SmokeTest {
         host = Fds.getFdsHost();
 
         String omUrl = "https://" + host + ":7443";
-        turnLog4jOff();
+        SmokeTestRunner.turnLog4jOff();
         JSONObject adminUserObject =
                 getObject(Uris.withQueryParameters(Fds.Api.getAuthToken(),
                                                    Fds.USERNAME_QUERY_PARAMETER,
@@ -130,7 +129,7 @@ public class S3SmokeTest {
         String password = UUID.randomUUID().toString();
 
         long userId = doPost(omUrl + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
-        userToken = getObject( omUrl + "/api/system/token/" + userId, adminToken ).getString( "token" );
+        userToken = getObject(omUrl + "/api/system/token/" + userId, adminToken).getString("token");
         doPut(omUrl + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
 
         adminClient = s3Client(host, ADMIN_USERNAME, adminToken);
@@ -168,8 +167,10 @@ public class S3SmokeTest {
     //    }
     //
     private void deleteBucketIgnoreErrors(AmazonS3Client client, String bucket) {
-        try { client.deleteBucket(bucket); }
-        catch (Exception ignored) {}
+        try {
+            client.deleteBucket(bucket);
+        } catch (Exception ignored) {
+        }
     }
 
     public void testBucketExists(String bucketName, boolean fProgress) {
@@ -217,7 +218,7 @@ public class S3SmokeTest {
 
     @Test
     public void testRecreateVolume() {
-        String bucketName = "test-recreate-bucket-"+userBucket;
+        String bucketName = "test-recreate-bucket-" + userBucket;
         try {
             try {
                 userClient.createBucket(bucketName);
@@ -228,10 +229,10 @@ public class S3SmokeTest {
             userClient.deleteBucket(bucketName);
             testBucketNotExists(bucketName, true);
             userClient.createBucket(bucketName);
-            testBucketExists( bucketName, true );
+            testBucketExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient,
-                                     bucketName);
+                    bucketName);
         }
     }
 
@@ -246,7 +247,7 @@ public class S3SmokeTest {
             }
             testBucketExists(bucketName, true);
             userClient.deleteBucket(bucketName);
-            testBucketNotExists( bucketName, true );
+            testBucketNotExists(bucketName, true);
         } finally {
             deleteBucketIgnoreErrors(adminClient, bucketName);
         }
@@ -280,7 +281,9 @@ public class S3SmokeTest {
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
                     byte[] buf = new byte[(1 + i) * (1024 * 1024)];
-                    rng.nextBytes(buf);
+                    for (int j = 0; j < buf.length; j++) {
+                        buf[j] = (byte) -1;
+                    }
                     UploadPartRequest request = new UploadPartRequest()
                             .withBucketName(userBucket)
                             .withKey(key)
@@ -395,6 +398,119 @@ public class S3SmokeTest {
         HttpResponse response = httpClient.execute(httpGet);
         byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
         assertArrayEquals(buf, bytes);
+    }
+
+    @Test
+    public void testForbiddenAnonymousPut() throws Exception {
+        String key = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(new byte[42]), new ObjectMetadata());
+        HttpResponse response = anonymousGet(userBucket, key);
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatusLine().getStatusCode());
+    }
+
+    @Test
+    public void testForbiddenAnonymousListBuckets() throws Exception {
+        String url = "https://" + host + ":8443/";
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        HttpResponse response = httpClient.execute(httpGet);
+        assertEquals(403, response.getStatusLine().getStatusCode());
+    }
+
+    @Test
+    public void testMissingObject() throws Exception {
+        try {
+            userClient.getObject(userBucket, UUID.randomUUID().toString());
+            fail("Should have gotten an AmazonS3Exception");
+        } catch (AmazonS3Exception e) {
+            String error = e.toString();
+            assertTrue(error.contains("Status Code: 404"));
+        }
+    }
+
+    @Test
+    public void testForbiddenAnonymousCreateBucket() throws Exception {
+        String url = "https://" + host + ":8443/" + UUID.randomUUID().toString();
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpPut put = new HttpPut(url);
+        HttpResponse response = httpClient.execute(put);
+        assertEquals(403, response.getStatusLine().getStatusCode());
+    }
+
+    @Test
+    public void testObjectAclReads() throws Exception {
+        String key = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+
+        // Try anonymous GET on object, expect failure
+        HttpResponse response = anonymousGet(userBucket, key);
+        assertEquals(403, response.getStatusLine().getStatusCode());
+
+        // Set ACL
+        userClient.setObjectAcl(userBucket, key, CannedAccessControlList.PublicRead);
+
+        // Try anonymous GET again, expect success
+        response = anonymousGet(userBucket, key);
+        assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
+        byte[] result = IOUtils.toByteArray(response.getEntity().getContent());
+        assertArrayEquals(randomBytes, result);
+    }
+
+    @Test
+    public void testObjectAclWrites() throws Exception {
+        String key = UUID.randomUUID().toString();
+
+        // Put object as admin
+        adminClient.putObject(adminBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+
+        // Try and update same object as user, expect failure
+        assertSecurityFailure(() -> userClient.putObject(adminBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata()));
+
+        // Set ACL
+        adminClient.setObjectAcl(adminBucket, key, CannedAccessControlList.PublicReadWrite);
+
+        // Try and update same object as user, expect success
+        byte[] bytes = new byte[42];
+        userClient.putObject(adminBucket, key, new ByteArrayInputStream(bytes), new ObjectMetadata());
+        S3Object object = userClient.getObject(adminBucket, key);
+        assertEquals(42l, object.getObjectMetadata().getContentLength());
+    }
+
+    @Test
+    public void testBucketAclReads() throws Exception {
+        adminClient.putObject(adminBucket, "someKey", new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        assertSecurityFailure(() -> userClient.listObjects(adminBucket));
+        adminClient.setBucketAcl(adminBucket, CannedAccessControlList.PublicRead);
+        assertEquals(1, userClient.listObjects(adminBucket).getObjectSummaries().size());
+    }
+
+    @Test
+    public void testBucketAclWrites() throws Exception {
+        assertSecurityFailure(() -> userClient.putObject(adminBucket, "someKey", new ByteArrayInputStream(randomBytes), new ObjectMetadata()));
+
+        adminClient.setBucketAcl(adminBucket, CannedAccessControlList.PublicRead);
+        assertEquals(0, userClient.listObjects(adminBucket).getObjectSummaries().size());
+        assertSecurityFailure(() -> userClient.putObject(adminBucket, "someKey", new ByteArrayInputStream(randomBytes), new ObjectMetadata()));
+
+        adminClient.setBucketAcl(adminBucket, CannedAccessControlList.PublicReadWrite);
+        userClient.putObject(adminBucket, "someKey", new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        assertEquals(1, userClient.listObjects(adminBucket).getObjectSummaries().size());
+    }
+
+    @Test
+    public void testAnonymousBucketAclReads() throws Exception {
+        String key = "someKey";
+        adminClient.putObject(adminBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        assertEquals(403, anonymousGet(adminBucket, key).getStatusLine().getStatusCode());
+        adminClient.setBucketAcl(adminBucket, CannedAccessControlList.PublicRead);
+        assertEquals(200, anonymousGet(adminBucket, key).getStatusLine().getStatusCode());
+    }
+
+    private HttpResponse anonymousGet(String bucket, String key) throws Exception {
+        String url = "https://" + host + ":8443/" + bucket + "/" + key;
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        return httpClient.execute(httpGet);
     }
 
     @Test
@@ -528,21 +644,13 @@ public class S3SmokeTest {
                 .getContent()));
     }
 
-    private void turnLog4jOff() {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "OFF, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        PropertyConfigurator.configure(properties);
-    }
-
-    private void turnLog4jOn() {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "DEBUG, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        PropertyConfigurator.configure(properties);
+    private void assertSecurityFailure(Supplier action) {
+        try {
+            action.get();
+            fail("Should have gotten an AmazonS3Exception");
+        } catch (AmazonS3Exception e) {
+            String error = e.toString();
+            assertTrue(error.contains("Status Code: 403"));
+        }
     }
 }

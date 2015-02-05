@@ -7,42 +7,74 @@
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ###
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ###
 ################################################################################
-
+{#
+   fds. specific entries
+#}
 {% set default_nic = fds_default_nic if fds_default_nic is defined else 'eth0' %}
 {% set authentication = fds_authentication if fds_authentication is defined else 'true' %}
+{#
+   Shared across several sections
+#}
 {% set om_host = fds_om_host if fds_om_host is defined else '127.0.0.1' %}
 {% set om_ip = hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_om_host is defined and fds_default_nic is defined else '127.0.0.1' %}
 {% set perf_tracing = fds_perf_tracing if fds_perf_tracing is defined else 'true' %}
 {% set metrics_enabled = fds_metrics_enabled if fds_metrics_enabled is defined else 'false' %}
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
-{% set ssh_user = fds_ssh_user if fds_ssh_user is defined else 'root' %}
-{% set ssh_password = fds_ssh_password if fds_ssh_password is defined else 'passwd' %}
-{% set am_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
-{% set sm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
-{% set dm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
-{% set om_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{#
+   fds.plat. specific entries
+#}
 {% set pm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
-{% set checker_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set svc_plat_lftp_enable = fds_svc_plat_lftp_enable if fds_svc_plat_lftp_enable is defined else 'false' %}
+{% set svc_plat_thrift_message_timeout = fds_svc_plat_timeout_thrift_message if fds_svc_plat_timeout_thrift_message is defined else '5000' %}
+{% set force_disk_simulation = fds_force_disk_simulation if fds_force_disk_simulation is defined else 'false' %}
+{#
+   fds.dm. specific entries
+#}
+{% set dm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
+{% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
+{#
+   fds.sm. specific entries
+#}
+{% set sm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set sm_data_verify = fds_sm_data_verify if fds_sm_data_verify is defined else 'true' %}
 {% set sm_data_verify_background = fds_sm_data_verify_background if fds_sm_data_verify_background is defined else 'true' %}
 {% set sm_sync_meta_write = fds_sm_sync_meta_write if fds_sm_sync_meta_write is defined else 'false' %}
+{% set sm_cache_default_data_entries = fds_sm_cache_default_data_entries if fds_sm_cache_default_data_entries is defined else '0' %}
+{#
+   fds.am. specific entries
+#}
+{% set am_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set am_cache_max_data_entries = fds_am_cache_max_data_entries if fds_am_cache_max_data_entries is defined else '200' %}
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}
-{% set sm_cache_default_data_entries = fds_sm_cache_default_data_entries if fds_sm_cache_default_data_entries is defined else '0' %}
-{% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
-{% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
-{% set svc_plat_lftp_enable = fds_svc_plat_lftp_enable if fds_svc_plat_lftp_enable is defined else 'false' %}
-{% set svc_plat_thrift_message_timeout = fds_svc_plat_timeout_thrift_message if fds_svc_plat_timeout_thrift_message is defined else '5000' %}
-{% set am_host = am_host if am_host is defined else 'localhost' %}
+{#
+   fds.om. specific entries
+#}
+{% set om_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
 {#
+   fds.xdi. specific entries
+#}
+{% set am_host = am_host if am_host is defined else 'localhost' %}
+{#
+   fds.checker. specific entries
+#}
+{% set checker_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{#
+   Ansible specfic entries
+#}
+{% set ssh_user = fds_ssh_user if fds_ssh_user is defined else 'root' %}
+{% set ssh_password = fds_ssh_password if fds_ssh_password is defined else 'passwd' %}
+{#
+   fds.feature_toggle specific entries
+
    These settings configure feature toggles (for c++ code)
 
    In the inventory files they all begin fds_ft_ for fds_feature_toggle_.  Internally, we strip off the fds_.
 #}
-{% set ft_common_enable_multi_om_support    = fds_ft_common_enable_multi_om_support    if fds_ft_common_enable_multi_om_support    is defined else 'false' %}
-{% set ft_platform_use_disk_hints           = fds_ft_platform_use_disk_hints           if fds_ft_platform_use_disk_hints           is defined else 'false' %}
-{% set ft_platform_force_simulation_mode    = fds_ft_platform_force_simulation_mode    if fds_ft__platform_force_simulation_mode   is defined else 'false' %}
+{% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
+{% set ft_platform_use_disk_hints                 = fds_ft_platform_use_disk_hints                 if fds_ft_platform_use_disk_hints                 is defined else 'false' %}
+{% set ft_platform_control_disk_simulation_mode   = fds_ft_platform_control_disk_simulation_mode   if fds_ft_platform_control_disk_simulation_mode   is defined else 'false' %}
 {% block content %}{% endblock %}

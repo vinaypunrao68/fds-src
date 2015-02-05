@@ -2,7 +2,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
-test_list = "test_list.json"
+test_list = "fast_integration_test.json"
 log_dir = "test-reports"
 test_sets = "testsets"
 setup = "setup.cfg"
@@ -17,12 +17,17 @@ S3_PASSWORD = 'bIEYKCPzDKtQDDBomnAKTKRA'
 #FDS_DEFAULT_KEY_ID = 'AKIAJAWXAU57VVTDDWAA'
 #FDS_DEFAULT_SECRET_ACCESS_KEY = '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'
 
-FDS_DEFAULT_KEY_ID            = 'AKIAJCNNNWKKBQU667CQ'
-FDS_DEFAULT_SECRET_ACCESS_KEY = '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'
-FDS_DEFAULT_HOST             = 's3.amazonaws.com'
+#FDS_DEFAULT_KEY_ID            = 'AKIAJCNNNWKKBQU667CQ'
+#FDS_DEFAULT_SECRET_ACCESS_KEY = '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'
+#FDS_DEFAULT_HOST             = 's3.amazonaws.com'
 
-FDS_DEFAULT_PORT              = 443
-FDS_AUTH_DEFAULT_PORT         = 443
+FDS_DEFAULT_ADMIN_USER        = 'admin'
+FDS_DEFAULT_ADMIN_PASS        = 'admin'
+FDS_DEFAULT_HOST              = '127.0.0.1'
+
+FDS_SSL_PORT                  = 443
+FDS_REST_PORT                 = 7777
+FDS_S3_PORT                   = 8443
 FDS_DEFAULT_IS_SECURE         = True
 
 FDS_DEFAULT_BUCKET_NAME       = "demo_volume2"
@@ -65,3 +70,7 @@ LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202",
                           "10.2.10.203")
 
 CONFIG_DIR = "./config/"
+SYSTEM_FRAMEWORK = "testsuites"
+SYSTEM_CMD = "../%s/ClusterBootSuite.py -q ../%s/StaticMigration.ini -d dummy --verbose"
+DEFAULT_INVENTORY_FILE = "integration-framework-cluster"
+CMD_CONFIG = ['./setup_module.py', '-q', './BuildSmokeTest.ini', '-d', 'dummy', '--verbose']

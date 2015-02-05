@@ -29,7 +29,7 @@ static const fds_extent_id fds_extentid_meta = 0;
  * mapping. It is the base class for extent 0 (that also contains
  * blob meta) and class for all remaining extents.
  *
- * Current imlementation assumes that all offsets are max_obj_size
+ * Current implementation assumes that all offsets are max_obj_size
  * aligned. So any access to unaligned offset currently asserts
  * BlobExtent is unaware of each object size
  */
@@ -106,7 +106,7 @@ class BlobExtent: public serialize::Serializable {
 
     /**
      * Removes all objects from this extents; non-null objects that are
-     * remoces are returned in the rm_list
+     * removed are returned in the rm_list
      * @param[in,out] ret_rm_list list of non-null objects that were removed,
      * the list gets updated, not cleared first
      */
@@ -156,7 +156,7 @@ class BlobExtent: public serialize::Serializable {
     fds_uint32_t last_offset;
 
     // TODO(xxx) consider managing total obj size inside this
-    // data struct (size of part of the blob)
+    // data structures (size of part of the blob)
 };
 
 /**

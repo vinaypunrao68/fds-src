@@ -20,7 +20,7 @@ class DmWorkItem : public NodeWorkItem
         : NodeWorkItem(peer, did, owner, tab, mod) {}
 
     /*
-     * Generic action functions; provided by derrived class.
+     * Generic action functions; provided by derived class.
      */
     virtual void act_node_down(NodeWrkEvent::ptr, fpi::NodeDownPtr &);
     virtual void act_node_started(NodeWrkEvent::ptr, fpi::NodeInfoMsgPtr &);

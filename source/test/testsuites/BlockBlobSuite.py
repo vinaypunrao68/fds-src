@@ -13,7 +13,7 @@ import testcases.TestFDSSysMgt
 import testcases.TestBlockIntFace
 import NodeWaitSuite
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
     test cases necessary to test handling a large BLOB.
@@ -21,7 +21,7 @@ def suiteConstruction():
     suite = unittest.TestSuite()
 
     # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
     suite.addTest(nodeUpSuite)
 
     # Create a block volume
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     # Get a test runner that will output an xUnit XML report for Jenkins
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
 
     runner.run(test_suite)
 

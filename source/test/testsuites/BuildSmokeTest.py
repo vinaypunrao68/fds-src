@@ -17,7 +17,7 @@ import BotoBLOBSuite
 import NodeResilienceSuite
 import BlockBlobSuite
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
     Build Smoke Test suite.
@@ -26,29 +26,29 @@ def suiteConstruction():
 
     # Build the necessary FDS infrastructure and boot the cluster
     # according to configuration.
-    clusterBootSuite = ClusterBootSuite.suiteConstruction()
+    clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None)
     suite.addTest(clusterBootSuite)
 
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
 
     # Small/Large BLOB test using Boto.
-    blobSuite = BotoBLOBSuite.suiteConstruction()
+    blobSuite = BotoBLOBSuite.suiteConstruction(self=None)
     suite.addTest(blobSuite)
 
     # Everyone should still be up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
     suite.addTest(nodeUpSuite)
 
     # Block Blob test.
-    blockSuite = BlockBlobSuite.suiteConstruction()
+    blockSuite = BlockBlobSuite.suiteConstruction(self=None)
     suite.addTest(blockSuite)
 
     # Everyone should still be up.
     suite.addTest(nodeUpSuite)
 
     # Node Resiliency suite.
-    nodeResilienceSuite = NodeResilienceSuite.suiteConstruction()
+    nodeResilienceSuite = NodeResilienceSuite.suiteConstruction(self=None)
     suite.addTest(nodeResilienceSuite)
 
     suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
@@ -77,6 +77,6 @@ if __name__ == '__main__':
     #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
     runner.run(test_suite)
 

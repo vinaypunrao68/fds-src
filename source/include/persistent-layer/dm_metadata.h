@@ -119,8 +119,15 @@ cc_assert(vio1, fds_offset_of(meta_vol_adr_t, vol_uuid) ==
  */
 #define MAX_PHY_LOC_MAP 3
 #define MAX_ASSOC_ENTRY 64
-#define SYNCMETADATA_MASK    0x1
 #define OBJ_FLAG_CORRUPTED   0x40
+
+// magic value for meta_obj_map.  mainly used to assert that data address is correct.
+const fds_uint32_t meta_obj_map_magic_value = 0xdeadbeef;
+
+// Current version of meta object map version.
+// This represents the ondisk version of levelDB's <key,value>.
+const fds_uint32_t meta_obj_map_version = 0U;
+
 struct __attribute__((__packed__)) obj_phy_loc_v0 {
     fds_int8_t           obj_tier;            /* tier location               */
     fds_uint16_t         obj_stor_loc_id;     /* physical location in tier   */
@@ -134,21 +141,29 @@ typedef obj_phy_loc_t     ObjPhyLoc;
 
 struct __attribute__((__packed__)) meta_obj_map_v0
 {
-    fds_uint8_t          obj_map_ver;         /* current version.            */
-    fds_uint32_t         obj_map_len;
-    fds_uint8_t          obj_rsvd;
+    fds_uint32_t         obj_magic;           /* magic value for object */
+    fds_uint32_t         obj_map_ver;         /* current version.            */
+    fds_uint32_t         obj_map_len;         /* UNUSED?????                 */
+    meta_obj_id_t        obj_id;              /* check sum for data.         */
+    fds_uint32_t         obj_flags;           /* flags / status */
     fds_uint8_t          compress_type;       /* Obj Compression type */
     fds_uint32_t         compress_len;        /* If compressed the obj compress length */
-    meta_obj_id_t        obj_id;              /* check sum for data.         */
     fds_uint16_t         obj_blk_len;         /* var blk: 512 to 32M.        */
     fds_uint32_t         obj_size;            /* var, size in bytes */
-    fds_uint64_t          obj_refcnt;          /* de-dupe refcnt.             */
-    fds_uint16_t         obj_num_assoc_entry; /* Number association entries in the arr.*/
+    fds_uint64_t         obj_refcnt;          /* de-dupe refcnt.             */
+
+    /* version of sm token migration for reconcile_ref_cnt.  This version
+     * determines whether the reconcile_ref_cnt is current or stale
+     */
+    fds_uint64_t         migration_ver;
+    /* ref_cnt reconciliation during the token migration + active IO */
+    fds_int64_t          migration_reconcile_ref_cnt;
+
+    fds_uint32_t         obj_num_assoc_entry; /* Number association entries in the arr.*/
     fds_uint64_t         obj_create_time;     /* creation time.         */
     fds_uint64_t         obj_del_time;        /* deletion time.         */
     fds_uint64_t         assoc_mod_time;      /* Modification time.         */
     fds_uint64_t         expire_time;         /* Object Expiration time */
-    fds_uint8_t          obj_flags;            /* flags / status */
 
     /* Object transition time to a archive tier */
     fds_uint64_t         transition_time;
@@ -159,8 +174,13 @@ struct __attribute__((__packed__)) meta_obj_map_v0
 };
 
 struct __attribute__((__packed__)) obj_assoc_entry_v0 {
-    fds::fds_volid_t    vol_uuid;
-    fds_uint64_t         ref_cnt;
+    fds::fds_volid_t    vol_uuid;   /* volume unique identifier */
+    fds_uint64_t        ref_cnt;    /* ref_cnt association to this volume */
+    /* ref_cnt reconciliation during the token migration.
+     * see meta_obj_map_t's migration_ver to determine
+     * if the version is current or not.
+     */
+    fds_int64_t         vol_migration_reconcile_ref_cnt;
 };
 
 /*

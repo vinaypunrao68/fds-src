@@ -33,9 +33,6 @@ public class PutObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        if(request.getQueryParameters().containsKey("acl"))
-            return new TextResource(200, "");
-
         String domain  = S3Endpoint.FDS_S3;
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");

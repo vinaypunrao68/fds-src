@@ -7,6 +7,7 @@
 #include <sys/statvfs.h>
 #include <utility>
 
+#include "platform/platform_consts.h"
 #include "platform/platform.h"
 
 namespace fds {
@@ -99,7 +100,7 @@ void SmDiskMap::getDiskMap() {
     std::string   path, dev;
 
     const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
-    std::ifstream map(dir->dir_dev() + std::string("/disk-map"), std::ifstream::in);
+    std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
 
     fds_verify(map.fail() == false);
     while (!map.eof()) {
@@ -158,12 +159,26 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt) {
     LOGDEBUG << "Will handle new DLT, bits per token " << bitsPerToken_;
     LOGTRACE << *dlt;
 
-    // get list of SM tokens that this SM is responsible for
+    // TODO(Anna) get list of SM tokens that this SM is responsible for
+    // this is code below. For now commenting out and pretending SM is
+    // responsible for all SM tokens. The behavior is correct, except not
+    // very efficient -- we will have to open levelDBs for tokens that we
+    // know SM will not receive any data, GC will try to run for these
+    // tokens (but it will find out that there is nothing to GC), etc.
+    // We have to implement actual token ownership after beta 2
     SmTokenSet sm_toks;
+    /*
+     * this is code we want to have, but need to implement updating
+     * superblock and other SM state when we gain or lose ownership
+     * of an SM token...
     for (TokenList::const_iterator cit = dlt_toks.cbegin();
          cit != dlt_toks.cend();
          ++cit) {
         sm_toks.insert(smTokenId(*cit));
+    }
+    */
+    for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
+        sm_toks.insert(tokId);
     }
 
     if (first_dlt) {
@@ -175,13 +190,22 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt) {
         err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, sm_toks);
         LOGDEBUG << "Loaded superblock " << err << " " << *superblock;
     } else {
-        // TODO(Anna) before beta, we are supporting 4-node cluster, so
-        // expecting no changes in SM owned tokens; will have to handle this
-        // properly by 1.0
-        // so make sure token ownership did not change
+        // TODO(Anna) implement updating sm tokens in superblock when
+        // SM token ownership changes; for now it is correct if SM loses
+        // tokens but superblock still thinks we have them (GC maybe less
+        // efficient, but still correct). However, we will still assert if
+        // SM gains tokens...
+        // make sure that new SM tokens are subset of what superblock thinks
+        // are SM's owned tokens
         SmTokenSet ownToks = superblock->getSmOwnedTokens();
-        fds_verify(ownToks == sm_toks);
-        LOGNOTIFY << "No change in SM tokens or disk map";
+        fds_bool_t newToksSubsetOfOldToks = std::includes(ownToks.begin(),
+                                                          ownToks.end(),
+                                                          sm_toks.begin(),
+                                                          sm_toks.end());
+        fds_verify(newToksSubsetOfOldToks);
+        LOGNOTIFY << "New SM tokens are same or a subset of old SM tokens "
+                  << "owned by this SM. # of previous SM tokens "
+                  << ownToks.size() << ", # of new SM tokens " << sm_toks.size();
         return ERR_DUPLICATE;  // to indicate we already set disk map/superblock
     }
 

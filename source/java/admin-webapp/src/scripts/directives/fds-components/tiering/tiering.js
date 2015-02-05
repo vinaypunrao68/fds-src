@@ -5,7 +5,7 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
         transclude: false,
         replace: true,
         templateUrl: 'scripts/directives/fds-components/tiering/tiering.html',
-        scope: { policy: '=ngModel' },
+        scope: { policy: '=ngModel', disabled: '=?' },
         controller: function( $scope, $filter ){
             
             $scope.tieringChoices = [
@@ -14,6 +14,10 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                 { label: $filter( 'translate' )( 'volumes.tiering.l_disk_only' ), value: 'HDD_ONLY' }
 //                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_preferred' ), value: 'HDD_PREFERRED' }
             ];
+            
+            if ( !angular.isDefined( $scope.disabled ) ){
+                $scope.disabled = false;
+            }
             
             var fixPolicySetting = function(){
                 
@@ -34,10 +38,33 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                 }
             };
             
-            $scope.$watch( 'policy', function(){
+            $scope.$watch( 'policy', function( newVal, oldVal ){
+                
+                if ( newVal === oldVal ){
+                    return;
+                }
+                
+                // get the actual policy name
+                var oldName = oldVal;
+                var newName = newVal;
+                
+                if ( angular.isDefined( newVal.value ) ){
+                    newName = newVal.value;
+                }
+                
+                if ( angular.isDefined( oldVal.value ) ){
+                    oldName = oldVal.value;
+                }
+                
+                if ( oldName == newName ){
+                    return;
+                }
+                
                 fixPolicySetting();
                  $scope.$emit( 'fds::media_policy_changed' );
             });
+            
+            fixPolicySetting();
         }
     };
 });

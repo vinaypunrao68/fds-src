@@ -27,6 +27,7 @@ namespace fds {
 DataPlacement::DataPlacement()
         : Module("Data Placement Engine"),
           placeAlgo(NULL),
+          prevDlt(NULL),
           commitedDlt(NULL),
           newDlt(NULL) {
     placementMutex = new fds_mutex("data placement mutex");
@@ -130,11 +131,6 @@ DataPlacement::beginRebalance() {
     Error err(ERR_OK);
     fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
 
-    // FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
-    //        new FDS_ProtocolInterface::FDSP_MsgHdrType());
-    // FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
-    //        new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
-
     placementMutex->lock();
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
@@ -237,12 +233,12 @@ DataPlacement::beginRebalance() {
         om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,
                 std::placeholders::_1, std::placeholders::_2,
                 std::placeholders::_3));
+        // really long timeout for migration = 10 hours
+        om_req->setTimeoutMs(10*60*60*1000);
         om_req->invoke();
 
-
-        FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-                << "Sending the DLT migration request to node 0x"
-                << std::hex << uuid.uuid_get_val() << std::dec;
+        LOGNOTIFY << "Sending the DLT migration request to node 0x"
+                  << std::hex << uuid.uuid_get_val() << std::dec;
     }
     placementMutex->unlock();
 
@@ -258,19 +254,19 @@ void DataPlacement::startMigrationResp(NodeUuid uuid,
         EPSvcRequest* svcReq,
         const Error& error,
         boost::shared_ptr<std::string> payload) {
-    LOGDEBUG << "Received cb response for startMigration";
+    Error err(ERR_OK);
     try {
         LOGNOTIFY << "Received migration done notification from node "
-                    << std::hex << uuid << std::dec;
+                  << std::hex << uuid << std::dec << " " << error;
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        LOGDEBUG << "Domain set";
 
         fpi::CtrlNotifyMigrationStatusPtr status =
                 net::ep_deserialize<fpi::CtrlNotifyMigrationStatus>(
                 const_cast<Error&>(error), payload);
-        LOGDEBUG << "Deserialize complete";
-        Error err = domain->om_recv_migration_done(uuid, status->status.DLT_version);
+        err = domain->om_recv_migration_done(uuid,
+                                             status->status.DLT_version,
+                                             error);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -278,6 +274,39 @@ void DataPlacement::startMigrationResp(NodeUuid uuid,
     }
 
     LOGDEBUG << "Sent om_recv_migration_done msg";
+}
+
+/**
+ * Returns true if there is no target DLT computed or committed
+ * as official version (but not to persistent store)
+ */
+fds_bool_t DataPlacement::hasNoTargetDlt() const {
+    return (newDlt == NULL);
+}
+
+/**
+ * Returns true if there is target DLT computed, but not yet commited
+ * as official version
+ */
+fds_bool_t DataPlacement::hasNonCommitedTarget() const {
+    if (newDlt != NULL) {
+        if ((commitedDlt == NULL) ||
+            (commitedDlt->getVersion() != newDlt->getVersion())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Returns true if there is target DLT that is commited as official
+ * version but not persisted yet
+ */
+fds_bool_t DataPlacement::hasCommitedNotPersistedTarget() const {
+    if (newDlt && (newDlt->getVersion() == commitedDlt->getVersion())) {
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -292,27 +321,64 @@ DataPlacement::commitDlt() {
     fds_uint64_t oldVersion = -1;
     if (commitedDlt) {
         oldVersion = commitedDlt->getVersion();
-        delete commitedDlt;
-        commitedDlt = NULL;
+        if (prevDlt) {
+            delete prevDlt;
+            prevDlt = NULL;
+        }
+        prevDlt = commitedDlt;
     }
+
+    commitedDlt = newDlt;
+    placementMutex->unlock();
+}
+
+///  only reverts if we did not persist it..
+void
+DataPlacement::undoTargetDltCommit() {
+    placementMutex->lock();
+    if (newDlt) {
+        if (!hasNonCommitedTarget()) {
+            // we already assigned commitedDlt target, revert back
+            commitedDlt = prevDlt;
+            prevDlt = NULL;
+        }
+
+        // forget about target DLT
+        delete newDlt;
+        newDlt = NULL;
+
+        // also forget target DLT in persistent store
+        if (!configDB->setDltType(0, "next")) {
+            LOGWARN << "unable to store dlt type to config db "
+                    << "[" << commitedDlt->getVersion() << "]";
+        }
+    }
+    placementMutex->unlock();
+}
+
+void
+DataPlacement::persistCommitedTargetDlt() {
+    placementMutex->lock();
+    fds_verify(newDlt != NULL);
+    fds_verify(commitedDlt != NULL);
+    fds_verify(newDlt->getVersion() == commitedDlt->getVersion());
 
     // both the new & the old dlts should already be in the config db
     // just set their types
 
-    if (!configDB->setDltType(newDlt->getVersion(), "current")) {
+    if (!configDB->setDltType(commitedDlt->getVersion(), "current")) {
         LOGWARN << "unable to store dlt type to config db "
-                << "[" << newDlt->getVersion() << "]";
+                << "[" << commitedDlt->getVersion() << "]";
     }
 
     if (!configDB->setDltType(0, "next")) {
         LOGWARN << "unable to store dlt type to config db "
-                << "[" << newDlt->getVersion() << "]";
+                << "[" << commitedDlt->getVersion() << "]";
     }
 
     // TODO(prem) do we need to remove the old dlt from the config db ??
     // oldVersion ?
 
-    commitedDlt = newDlt;
     newDlt = NULL;
     placementMutex->unlock();
 }
@@ -320,6 +386,11 @@ DataPlacement::commitDlt() {
 const DLT*
 DataPlacement::getCommitedDlt() const {
     return commitedDlt;
+}
+
+const DLT*
+DataPlacement::getTargetDlt() const {
+    return newDlt;
 }
 
 fds_uint64_t
@@ -336,6 +407,14 @@ fds_uint64_t
 DataPlacement::getCommitedDltVersion() const {
     if (commitedDlt) {
         return commitedDlt->getVersion();
+    }
+    return DLT_VER_INVALID;
+}
+
+fds_uint64_t
+DataPlacement::getTargetDltVersion() const {
+    if (newDlt) {
+        return newDlt->getVersion();
     }
     return DLT_VER_INVALID;
 }

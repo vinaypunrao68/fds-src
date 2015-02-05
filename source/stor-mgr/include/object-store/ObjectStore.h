@@ -99,6 +99,10 @@ class ObjectStore : public Module, public boost::noncopyable {
                                                    const ObjectID &objId,
                                                    diskio::DataTier& usedTier,
                                                    Error& err);
+    boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
+                                                   const ObjectID &objId,
+                                                   ObjMetaData::const_ptr objMetaData,
+                                                   Error& err);
 
     /**
      * Deletes a specific object. The object is marked as deleted,
@@ -119,6 +123,13 @@ class ObjectStore : public Module, public boost::noncopyable {
                            fds_bool_t relocateFlag);
 
     /**
+     * @brief Updates the object location from flash to disk
+     * NOTE: This implementation is valid for beta-2 time.  As tiering evolves this code
+     * needs to be re-visited.
+     */
+    Error updateLocationFromFlashToDisk(const ObjectID& objId,
+                                        ObjMetaData::const_ptr objMeta);
+    /**
      * Copies associated volumes from source to destination volume
      */
     Error copyAssociation(fds_volid_t srcVolId,
@@ -128,10 +139,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * If given object still valid (refcount > 0), copies the object
      * to new file from the file that is being garbage collected
+     * @param objOwned false if object is not owned by this SM anymore
+     * and can be garbage collected even if refcnt > 0
      */
     Error copyObjectToNewLocation(const ObjectID& objId,
                                   diskio::DataTier tier,
-                                  fds_bool_t verifyData);
+                                  fds_bool_t verifyData,
+                                  fds_bool_t objOwned);
 
 
     /**
@@ -151,11 +165,16 @@ class ObjectStore : public Module, public boost::noncopyable {
                                   const fpi::CtrlObjectMetaDataPropagate& msg);
 
     /**
+     * Read data from given object metadata.
+     */
+
+    /**
      * Make a snapshot of metadata of given SM token and
      * calls notifFn method
      */
     void snapshotMetadata(fds_token_id smTokId,
-                          SmIoSnapshotObjectDB::CbType notifFn);
+                          SmIoSnapshotObjectDB::CbType notifFn,
+                          SmIoSnapshotObjectDB* snapReq);
 
 
     /**

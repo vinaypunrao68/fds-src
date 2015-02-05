@@ -2,9 +2,10 @@
 
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+import optparse, sys, time
+sys.path.append("/fds/lib/python2.7/dist-packages")
 import fdslib.FdsSetup as inst
 import fdslib.BringUpCfg as fdscfg
-import optparse, sys, time
 import os
 import pdb
 
@@ -146,33 +147,6 @@ if __name__ == '__main__':
         om.nd_start_om()
 	time.sleep(8)
 
-    # activa nodes activates all services in the domain. Only
-    # need to call it once
-    """
-    for n in nodes:
-        if n.nd_conf_dict['node-name'] == 'node1':
-            cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
-        else:
-            cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
-        print "Waiting for node %s to come up" % n.nd_host
-    	time.sleep(3)
-    """
-
-    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm,am')
     print "Waiting for services to come up"
     time.sleep(8)
-
-    for am in ams:
-        am.am_start_service()
-    print "Waiting for all commands to complete before existing"
-    time.sleep(30) # Do not remove this sleep
-
-    #TODO: Add support for scenarios
-    #for p in pols:
-    #    p.policy_apply_cfg(cli)
-
-    # If we have scenarios to run steps, run them
-    #if len(steps):
-    #    for sce in steps:
-    #        sce.start_scenario()
-    #    sys.exit(0)

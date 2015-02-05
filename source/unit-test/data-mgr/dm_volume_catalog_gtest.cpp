@@ -9,7 +9,7 @@
 #include <string>
 #include <thread>
 
-#include <dm-vol-cat/DmVolumeDirectory.h>
+#include <dm-vol-cat/DmVolumeCatalog.h>
 #include <util/color.h>
 #include <PerfTrace.h>
 

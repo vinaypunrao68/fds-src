@@ -99,7 +99,6 @@ void SvcRequestIf::complete(const Error& error) {
 
     fds_assert(state_ != SVC_REQUEST_COMPLETE);
     state_ = SVC_REQUEST_COMPLETE;
-    error_ = error;
 
     if (timer_) {
         NetMgr::ep_mgr_singleton()->ep_get_timer()->cancel(timer_);
@@ -276,7 +275,7 @@ void SvcRequestIf::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             {
             // The who, what and result of the event
             fpi::CtrlSvcEventPtr pkt(new fpi::CtrlSvcEvent());
-            pkt->evt_src_svc_uuid = header->msg_dst_uuid;
+            pkt->evt_src_svc_uuid = header->msg_src_uuid;
             pkt->evt_code = header->msg_code;
             pkt->evt_msg_type_id  = header->msg_type_id;
 
@@ -424,7 +423,6 @@ void SvcRequestIf::sendRespWork(EpSvcHandle::pointer eph,
 */
 void EPSvcRequest::invokeWork_()
 {
-    fds_verify(error_ == ERR_OK);
     fds_verify(state_ == PRIOR_INVOCATION);
 
     // TODO(Rao): Determine endpoint is healthy or not
@@ -460,6 +458,8 @@ void EPSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
          */
         return;
     }
+    /* Complete the request */
+    complete(header->msg_code);
 
     /* Notify actionable error to endpoint manager */
     if (header->msg_code != ERR_OK &&
@@ -480,9 +480,6 @@ void EPSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
     } else {
         gSvcRequestCntrs->apperrors.incr();
     }
-
-    /* Complete the request */
-    complete(header->msg_code);
 }
 
 /**
@@ -705,7 +702,6 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
 
     /* Handle the error */
     if (header->msg_code != ERR_OK) {
-        GLOGWARN << fds::logString(*header);
         /* Notify actionable error to endpoint manager */
         if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
             NetMgr::ep_mgr_singleton()->ep_handle_error(
@@ -716,15 +712,16 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
                 bSuccess = epAppStatusCb_(header->msg_code, payload);
             }
         }
+        if (!bSuccess) GLOGWARN << fds::logString(*header);
     }
 
     /* Handle the case where response from this endpoint is considered success */
     if (bSuccess) {
+        complete(ERR_OK);
         if (respCb_) {
             SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
-            respCb_(this, ERR_OK, payload);
+            respCb_(this, header->msg_code, payload);
         }
-        complete(ERR_OK);
         gSvcRequestCntrs->appsuccess.incr();
         return;
     }
@@ -732,11 +729,11 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
     /* Move to the next healhy endpoint and invoke */
     bool healthyEpExists = moveToNextHealthyEndpoint_();
     if (!healthyEpExists) {
+        complete(ERR_SVC_REQUEST_FAILED);
         if (respCb_) {
             /* NOTE: We are using last failure code in this case */
             respCb_(this, header->msg_code, payload);
         }
-        complete(ERR_SVC_REQUEST_FAILED);
         gSvcRequestCntrs->apperrors.incr();
         return;
     }
@@ -948,20 +945,19 @@ void QuorumSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& head
 
     /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
+        complete(ERR_OK);
         if (respCb_) {
             SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
         }
-        complete(ERR_OK);
         gSvcRequestCntrs->appsuccess.incr();
     } else if (errorAckd_ > (epReqs_.size() - quorumCnt_)) {
+        complete(ERR_SVC_REQUEST_FAILED);
         if (respCb_) {
             /* NOTE: We are using last failure code in this case */
             respCb_(this, header->msg_code, payload);
         }
-        complete(ERR_SVC_REQUEST_FAILED);
         gSvcRequestCntrs->apperrors.incr();
-        return;
     }
 }
 

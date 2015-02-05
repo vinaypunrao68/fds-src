@@ -49,7 +49,7 @@
 
 -   name: render_init_scripts
     template:
-        src=../templates/{{item}}-init.conf.j2
+        src=../templates/deploy_fds/{{item}}-init.conf.j2
         dest=/etc/init/{{item}}.conf
         owner=root
         group=root
@@ -62,13 +62,3 @@
     tags:
         - post-install
         - init
-
--   name: java_symlink
-    file:
-        src=/usr/lib/jvm/jdk-8-oracle-x64/
-        dest=/usr/lib/jvm/jdk-8-oracle
-        owner=root
-        group=root
-        state=link
-    tags:
-        - post-install

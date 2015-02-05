@@ -2,15 +2,20 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
+import fcntl
 import logging
 import os
 import random
+import re
 import requests
+import socket
+import struct
 import subprocess
 import sys
 import time
 from subprocess import list2cmdline
 
+import config_parser
 import testsets.testcases.fdslib.TestUtils as TestUtils 
 
 
@@ -18,7 +23,47 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-                    
+interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
+
+def is_valid_ip(ip):
+    '''
+    Check if an user specified ip address is valid.
+    
+    Attributes:
+    -----------
+    ip : str
+        the ip address to be sanitized
+    
+    Returns:
+    --------
+    bool : if the ip address is valid or not
+    '''
+    m = re.match(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$", ip)
+    return bool(m) and all(map(lambda n: 0 <= int(n) <= 255, m.groups()))
+
+def get_ip_address(ifname):
+    '''
+    Given the eth0 or eth1 of the local host machine
+    picks up its ip address
+    
+    Arguments:
+    ----------
+    ifname : str
+        ethernet card, such as eth0
+    
+    Returns:
+    --------
+    str : the local machine's ip address.
+    '''
+    if ifname not in interfaces:
+        raise ValueError, "Unknown interface %s" % ifname
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915, # SIOCGIFADDR
+            struct.pack('256s', ifname[:15])
+        )[20:24])
+         
 def percent_cb(complete, total):
     sys.stdout.write('.')
     sys.stdout.flush()
@@ -81,10 +126,10 @@ def get_user_token(user, password, host, port, secure, validate):
 
     url = '%s://%s:%d/api/auth/token?login=%s&password=%s' % (proto, host,port,
                                                               user, password)
-    log.info("Getting credentials from: ", url)
+    #log.info("Getting credentials from: ", url)
     r = requests.get(url, verify=validate)
     rjson = r.json()
-    log.info(rjson)
+    #log.info(rjson)
     return rjson['token']
 
 

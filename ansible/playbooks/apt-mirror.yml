@@ -5,7 +5,7 @@
     sudo: true
     remote_user: deploy
     vars:
-        - ansible_ssh_key: ~/.ssh/fds-deploy_rsa
+        - ansible_ssh_private_key_file: ~/.ssh/fds-deploy_rsa
 
     tasks:
 
@@ -27,7 +27,7 @@
             - "set base_path /apt-mirror/"
             - "set nthreads 20"
             - "set _tilde 0"
-            - "set limit_rate 450k"
+#            - "set limit_rate 450k"
 
     -   name: add main ubuntu repos if specified in inventory
         lineinfile: dest=/etc/apt/mirror.list
@@ -52,6 +52,12 @@
         - "skip-clean http://artifacts.artifactoryonline.com/artifacts/formation-apt/dists/"
         - "skip-clean http://artifacts.artifactoryonline.com/artifacts/third-party-deps/dists/"
         when: apt_mirror_private_artifactory is defined and apt_mirror_private_artifactory == "true"
+
+    -   name: copy postmirror.sh
+        copy: src=../files/apt-mirror/postmirror.sh
+            dest=/apt-mirror/var/postmirror.sh
+            owner=root
+            mode=0700
 
     -   name: add cron job to update apt-mirror nightly
         cron: name="apt-mirror update" minute=43 hour=12

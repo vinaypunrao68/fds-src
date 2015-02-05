@@ -244,7 +244,7 @@ Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
     LOGNORMAL << "bucket: " << bucket_name;
 
     // send test bucket message to OM
-    FDSP_VolumeInfoTypePtr vol_info(new FDSP_VolumeInfoType());
+    FDSP_VolumeDescTypePtr vol_info(new FDSP_VolumeDescType());
     initVolInfo(vol_info, bucket_name);
     om_err = om_client->testBucket(bucket_name,
                                                vol_info,
@@ -257,27 +257,18 @@ Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
     return err;
 }
 
-void StorHvCtrl::initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
+void StorHvCtrl::initVolInfo(FDSP_VolumeDescTypePtr vol_info,
                              const std::string& bucket_name) {
     vol_info->vol_name = std::string(bucket_name);
     vol_info->tennantId = 0;
     vol_info->localDomainId = 0;
-    vol_info->globDomainId = 0;
 
     // Volume capacity is in MB
     vol_info->capacity = (1024*10);  // for now presetting to 10GB
-    vol_info->maxQuota = 0;
     vol_info->volType = FDSP_VOL_S3_TYPE;
 
-    vol_info->defReplicaCnt = 0;
-    vol_info->defWriteQuorum = 0;
-    vol_info->defReadQuorum = 0;
-    vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
-
     vol_info->volPolicyId = 50;  // default S3 policy desc ID
-    vol_info->archivePolicyId = 0;
     vol_info->placementPolicy = 0;
-    vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
     vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
 }
 
@@ -304,6 +295,10 @@ void
 StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
                              CallbackPtr cb) {
     LOGDEBUG << "Attach request for volume " << volumeName;
+    if (am->isShuttingDown()) {
+        cb->call(ERR_SHUTTING_DOWN);
+        return;
+    }
 
     // check if volume is already attached
     fds_volid_t volId = invalid_vol_id;
@@ -361,6 +356,10 @@ StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
 
 void
 StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
+    if (am->isShuttingDown()) {
+        blobReq->cb->call(ERR_SHUTTING_DOWN);
+        return;
+    }
     fds_verify(blobReq->magicInUse() == true);
 
     // check if volume is attached to this AM
@@ -385,6 +384,15 @@ processBlobReq(AmRequest *amReq) {
 
     fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(amReq->magicInUse() == true);
+
+    /*
+     * Drain the queue if we are shutting down.
+     */
+    if (am->isShuttingDown()) {
+        Error err(ERR_SHUTTING_DOWN);
+        amReq->cb->call(err);
+        return;
+    }
 
     switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:

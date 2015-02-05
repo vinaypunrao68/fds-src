@@ -16,6 +16,8 @@ namespace fds {
 
 extern StorHvQosCtrl *storHvQosCtrl;
 
+AccessMgr::unique_ptr am;
+
 AMSvcHandler::~AMSvcHandler() {}
 AMSvcHandler::AMSvcHandler()
 {
@@ -28,6 +30,7 @@ AMSvcHandler::AMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, DetachVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownMODMsg, shutdownAM);
 }
 
 // notifySvcChange
@@ -58,9 +61,21 @@ void
 AMSvcHandler::QoSControl(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
                      boost::shared_ptr<fpi::CtrlNotifyQoSControl> &msg)
 {
+    Error err(ERR_OK);
+
     LOGNORMAL << "qos ctrl set total rate " << msg->qosctrl.total_rate;
-    Error err = storHvQosCtrl->htb_dispatcher->modifyTotalRate(msg->qosctrl.total_rate);
-    hdr->msg_code = err.GetErrno();  // no error but want to ack remote side
+
+    if (am->isShuttingDown())
+    {
+        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        err = ERR_SHUTTING_DOWN;
+    }
+    else
+    {
+        err = storHvQosCtrl->htb_dispatcher->modifyTotalRate(msg->qosctrl.total_rate);
+    }
+
+    hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyQoSControl), *msg);
 }
 
@@ -86,11 +101,23 @@ void
 AMSvcHandler::SetThrottleLevel(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
                                boost::shared_ptr<fpi::CtrlNotifyThrottle> &msg)
 {
-    // XXX ignore domain_id right now?
+    Error err(ERR_OK);
+
     LOGNORMAL << " set throttle as " << msg->throttle.throttle_level;
-    float  throttle_level = msg->throttle.throttle_level;
-    storHvQosCtrl->htb_dispatcher->setThrottleLevel(throttle_level);
-    hdr->msg_code = 0;  // no error but want to ack remote side
+
+    if (am->isShuttingDown())
+    {
+        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        err = ERR_SHUTTING_DOWN;
+    }
+    else
+    {
+        // XXX ignore domain_id right now?
+        float  throttle_level = msg->throttle.throttle_level;
+        storHvQosCtrl->htb_dispatcher->setThrottleLevel(throttle_level);
+    }
+
+    hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyThrottle), *msg);
 }
 
@@ -101,16 +128,28 @@ void
 AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                            boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg)
 {
+    Error err(ERR_OK);
+
     auto vol_uuid = vol_msg->vol_desc.volUUID;
     VolumeDesc vdesc(vol_msg->vol_desc), * vdb = &vdesc;
     GLOGNOTIFY << "StorHvVolumeTable - Received volume modify  event from OM"
                << " for volume " << vdb->name << ":" << std::hex
                << vol_uuid << std::dec;
-    // XXX We have to wait for locks to be acquired do the following, should we wait?
-    // If this channel has threadpool on this we do not block though.
-    // A real nonblocking could install callback upon read-lock acquiring...
-    // and continue on next step...
-    auto err = storHvisor->vol_table->modifyVolumePolicy(vol_uuid, vdesc);
+
+    if (am->isShuttingDown())
+    {
+        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        err = ERR_SHUTTING_DOWN;
+    }
+    else
+    {
+        // XXX We have to wait for locks to be acquired do the following, should we wait?
+        // If this channel has threadpool on this we do not block though.
+        // A real nonblocking could install callback upon read-lock acquiring...
+        // and continue on next step...
+        err = storHvisor->vol_table->modifyVolumePolicy(vol_uuid, vdesc);
+    }
+
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), *vol_msg);
 }
@@ -122,28 +161,38 @@ void
 AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                         boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
 {
+    Error err(ERR_OK);
+
     auto vol_uuid = vol_msg->vol_desc.volUUID;
-    VolumeDesc vdesc(vol_msg->vol_desc);
     GLOGNOTIFY << "StorHvVolumeTable - Received volume attach event from OM"
                        << " for volume " << std::hex << vol_uuid << std::dec;
 
-    Error err(ERR_OK);
-    if (vol_uuid != invalid_vol_id) {
-        err = storHvisor->vol_table->registerVolume(vdesc);
-        // TODO(Anna) remove this assert when we implement response handling in AM
-        // for crete bucket, if err not ok, it is most likely QOS admission control issue
-        fds_verify(err.ok());
-        // Create cache structures for volume
-        err = storHvisor->amCache->createCache(vdesc);
-        fds_verify(err == ERR_OK);
-    } else {
-        /* complete all requests that are waiting on bucket to attach with error */
-        GLOGNOTIFY << "Requested volume "
-                   << vdesc.name << " does not exist";
-        storHvisor->vol_table->
-                moveWaitBlobsToQosQueue(vol_uuid,
-                                        vdesc.name,
-                                        ERR_NOT_FOUND);
+    if (am->isShuttingDown())
+    {
+        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        err = ERR_SHUTTING_DOWN;
+    }
+    else
+    {
+        VolumeDesc vdesc(vol_msg->vol_desc);
+
+        if (vol_uuid != invalid_vol_id) {
+            err = storHvisor->vol_table->registerVolume(vdesc);
+            // TODO(Anna) remove this assert when we implement response handling in AM
+            // for crete bucket, if err not ok, it is most likely QOS admission control issue
+            fds_verify(err.ok());
+            // Create cache structures for volume
+            err = storHvisor->amCache->createCache(vdesc);
+            fds_verify(err == ERR_OK);
+        } else {
+            /* complete all requests that are waiting on bucket to attach with error */
+            GLOGNOTIFY << "Requested volume "
+                       << vdesc.name << " does not exist";
+            storHvisor->vol_table->
+                    moveWaitBlobsToQosQueue(vol_uuid,
+                                            vdesc.name,
+                                            ERR_NOT_FOUND);
+        }
     }
 
     // we return without wait for that to be clearly finish, not big deal.
@@ -158,10 +207,22 @@ void
 AMSvcHandler::DetachVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                         boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg)
 {
+    Error err(ERR_OK);
+
     auto vol_uuid = vol_msg->vol_desc.volUUID;
     GLOGNOTIFY << "StorHvVolumeTable - Received volume detach event from OM"
                << " for volume " << std::hex << vol_uuid << std::dec;
-    Error err = storHvisor->vol_table->removeVolume(vol_uuid);
+
+    if (am->isShuttingDown())
+    {
+        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        err = ERR_SHUTTING_DOWN;
+    }
+    else
+    {
+        err = storHvisor->vol_table->removeVolume(vol_uuid);
+    }
+
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
 }
@@ -170,12 +231,22 @@ void
 AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg)
 {
-#if 0
-    Error err = storHvisor->om_client->addSerialized(msg->dmt_data.dmt_data, DMT_COMMITTED);
+    Error err(ERR_OK);
+
+    LOGNOTIFY << "OMClient received notify DMT update " << hdr->msg_code;
+
+    if (am->isShuttingDown())
+    {
+        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        err = ERR_SHUTTING_DOWN;
+    }
+    else
+    {
+        err = storHvisor->om_client->updateDmt(msg->dmt_data.dmt_type, msg->dmt_data.dmt_data);
+    }
+
     hdr->msg_code = err.GetErrno();
-    LOGDEBUG << "Notify DMT update " << hdr->msg_code;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *msg);
-#endif
 }
 
 // NotifyDLTUpdate
@@ -186,11 +257,45 @@ AMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt)
 {
     Error err(ERR_OK);
+
     LOGNOTIFY << "OMClient received new DLT commit version  "
             << dlt->dlt_data.dlt_type;
-    err = storHvisor->om_client->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
+
+    if (am->isShuttingDown())
+    {
+        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        err = ERR_SHUTTING_DOWN;
+    }
+    else
+    {
+        err = storHvisor->om_client->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
+    }
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
+}
+
+/**
+ * Initiate cleanup in preparation for shutdown
+ */
+void
+AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
+                         boost::shared_ptr<fpi::ShutdownMODMsg>     &shutdownMsg)
+{
+    Error err(ERR_OK);
+
+    LOGNOTIFY << "OMClient received shutdown message ... AM shutting down...";
+
+     /**
+      * Block any more requests.
+      * Drain queues and allow outstanding requests to complete.
+      */
+     am->setShutDown();
+
+     /*
+      * It's an async shutdown as we cleanup. So acknowledge the message now.
+      */
+     hdr->msg_code = err.GetErrno();
+     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ShutdownMODMsg), *shutdownMsg);
 }
 
 }  // namespace fds

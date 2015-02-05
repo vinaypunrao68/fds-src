@@ -9,7 +9,6 @@
 #include <StatStreamAggregator.h>
 
 namespace fds {
-
 DMSvcHandler::DMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
@@ -25,11 +24,11 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, NotifyAddVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, NotifyRmVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
-#if 1
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTClose, NotifyDMTClose);
-#endif
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyDMAbortMigration);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownMODMsg, shutdownDM);
 }
 
 // notifySvcChange
@@ -295,16 +294,102 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &dmt)
 {
     Error err(ERR_OK);
-    LOGNOTIFY << "OMClient received new DMT commit version  "
+    LOGNOTIFY << "DMSvcHandler received new DMT commit version  "
               << dmt->dmt_data.dmt_type;
     err = dataMgr->omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    if (!err.ok()) {
+        LOGERROR << "failed to update DMT " << err;
+        NotifyDMTUpdateCb(hdr, err);
+        return;
+    }
+
+    // see if DM sync feature is enabled
+    if (dataMgr->feature.isCatSyncEnabled()) {
+        err = dataMgr->catSyncMgr->startCatalogSyncDelta("",
+                                                         std::bind(
+                                                             &DMSvcHandler::NotifyDMTUpdateCb,
+                                                             this, hdr,
+                                                             std::placeholders::_1));
+    } else {
+        LOGWARN << "catalog sync feature - NOT enabled";
+        // ok we just respond...
+        NotifyDMTUpdateCb(hdr, err);
+        return;
+    }
+
+    if (!err.ok()) {
+        NotifyDMTUpdateCb(hdr, err);
+    }
+}
+
+void DMSvcHandler::NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                     const Error &err)
+{
+    LOGDEBUG << "Sending async DMT update ack " << err;
     hdr->msg_code = err.GetErrno();
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *dmt);
+    fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *msg);
 }
 
 void
 DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                              boost::shared_ptr<fpi::CtrlNotifyDMTClose> &dmtClose)
-{
+                              boost::shared_ptr<fpi::CtrlNotifyDMTClose> &dmtClose) {
+    LOGNOTIFY << "DMSvcHandler received DMT close.";
+    Error err(ERR_OK);
+
+    // TODO(xxx) notify volume sync that we can stop forwarding
+    // updates to other DM
+
+    dataMgr->sendDmtCloseCb = std::bind(&DMSvcHandler::NotifyDMTCloseCb, this,
+            hdr, dmtClose, std::placeholders::_1);
+    err = dataMgr->volcat_evt_handler(fds_catalog_dmt_close, FDSP_PushMetaPtr(), "0");
+
+    if (!err.ok()) {
+        LOGERROR << "DMT Close, volume meta may not be synced properly";
+        // ignore not ready errors
+        if (err == ERR_CATSYNC_NOT_PROGRESS)
+            err = ERR_OK;
+        hdr->msg_code = err.GetErrno();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
+    }
 }
+
+void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        boost::shared_ptr<fpi::CtrlNotifyDMTClose>& dmtClose,
+        Error &err)
+{
+    LOGDEBUG << "Sending async DMT close ack";
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
+}
+
+void DMSvcHandler::shutdownDM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+        boost::shared_ptr<fpi::ShutdownMODMsg>& shutdownMsg) {
+    LOGDEBUG << "Received shutdown message DM ... shuttting down...";
+    dataMgr->mod_shutdown();
+}
+
+void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+        boost::shared_ptr<fpi::CtrlNotifyDMAbortMigration>& abortMsg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << "Got abort migration, reverting to DMT version" << abortMsg->DMT_version;
+
+
+    // revert to DMT version provided in abort message ??
+    // need to discuss semantics here
+    if (abortMsg->DMT_version > 0) {
+        // dataMgr->omClient->getDmtManager()->setCurrent(abortMsg->DMT_version);
+    }
+
+    // Tell the DMT manager
+    err = dataMgr->catSyncMgr->abortMigration();
+
+    // TODO(xxx): make abort cb
+    fpi::CtrlNotifyDMAbortMigrationPtr msg(new fpi::CtrlNotifyDMAbortMigration());
+    msg->DMT_version = abortMsg->DMT_version;
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMAbortMigration), *msg);
+}
+
 }  // namespace fds

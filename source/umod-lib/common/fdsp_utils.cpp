@@ -96,7 +96,30 @@ std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
 std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
 {
     std::ostringstream oss;
-    oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest);
+    oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest)
+	<< " Volume UUID " << std::hex << putObj.volume_id << std::dec
+	<< " Object length " << putObj.data_obj_len
+	<< " DLT version " << putObj.dlt_version;
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
+{
+    std::ostringstream oss;
+    oss << " CtrlObjectMetaDataPropagate for object " << ObjectID(msg.objectID.digest)
+	<< " reconcile " << msg.isObjectMetaDataReconcile
+        << " refcnt " << msg.objectRefCnt
+        << " objectCompressType " << msg.objectCompressType
+        << " objectCompressLen " << msg.objectCompressLen
+        << " objectBlkLen " << msg.objectBlkLen
+        << " objectSize " << msg.objectSize
+        << " objectFlags " << (fds_uint16_t)msg.objectFlags
+        << " objectExpireTime" << msg.objectExpireTime << std::endl;
+    for (auto volAssoc : msg.objectVolumeAssoc) {
+        oss << "CtrlObjectMetaDataPropagate vol assoc "
+            << std::hex << volAssoc.volumeAssoc << std::dec
+            << " refcnt " << volAssoc.volumeRefCnt;
+    }
     return oss.str();
 }
 
@@ -179,7 +202,9 @@ std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& setMDR
 std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
 {
     std::ostringstream oss;
-    oss < " DeleteObjectMsg";
+    oss << " DeleteObjectMsg " << ObjectID(delMsg.objId.digest)
+	<< " Volume UUID " << std::hex << delMsg.volId << std::dec
+	<< " DLT Version " << delMsg.dlt_version;
     return oss.str();
 }
 
@@ -221,18 +246,18 @@ std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg) {
     return "GetVolumeMetaDataMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternMsg& msg) {
+std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {
     std::ostringstream oss;
-    oss << " ListBlobsByPatternMsg(volume_id: " << msg.volume_id
-            << ", maxKeys: " << msg.maxKeys
+    oss << " GetBucketMsg(volume_id: " << msg.volume_id
+            << ", count: " << msg.count
             << ", startPos: " << msg.startPos
             << ", pattern: " << msg.pattern << ")";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternRspMsg& msg) {
+std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
     std::ostringstream oss;
-    oss << " ListBlobsByPatternRspMsg(count: " << msg.blobDescriptors.size() << ")";
+    oss << " GetBucketRspMsg(count: " << msg.blob_info_list.size() << ")";
     return oss.str();
 }
 

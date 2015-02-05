@@ -265,7 +265,10 @@ class SmIoDeleteObjectReq : public SmIoReq {
     typedef std::function<void (const Error&, SmIoDeleteObjectReq *resp)> CbType;
     virtual std::string log_string() override;
 
-    int64_t origin_timestamp;
+    fds_uint64_t dltVersion;
+
+    /// Service layer put request
+    boost::shared_ptr<fpi::DeleteObjectMsg> delObjectNetReq;
 
     CbType response_cb;
 };
@@ -282,8 +285,8 @@ class SmIoPutObjectReq : public SmIoReq {
             : putObjectNetReq(msg) {
     }
 
-    /// TODO(Andrew): Client assigned timestamp. Can this be removed?
-    int64_t origin_timestamp;
+    /// DLT version for the put request
+    fds_uint64_t dltVersion;
 
     /// Service layer put request
     boost::shared_ptr<fpi::PutObjectMsg> putObjectNetReq;
@@ -293,26 +296,6 @@ class SmIoPutObjectReq : public SmIoReq {
 };
 
 typedef boost::shared_ptr<FDSP_MigrateObjectList> FDSP_MigrateObjectListPtr;
-/**
- * @brief Putting token objects request
- */
-class SmIoPutTokObjectsReq : public SmIoReq {
- public:
-    typedef std::function<void (const Error&, SmIoPutTokObjectsReq *resp)> CbType;
-    virtual std::string log_string() override
-    {
-        std::stringstream ret;
-        ret << " SmIoPutTokObjectsReq";
-        return ret.str();
-    }
-
-    /* In: Token id that objects belong to */
-    fds_token_id token_id;
-    /* List objects and their metadata */
-    FDSP_MigrateObjectList obj_list;
-    /* Response callback */
-    CbType response_cb;
-};
 
 /**
  * @brief For GET object data
@@ -363,34 +346,6 @@ class SMTokenItr {
 };
 
 /**
- * @brief Getting token objects request
- */
-class SmIoGetTokObjectsReq : public SmIoReq {
- public:
-    typedef std::function<void (const Error&, SmIoGetTokObjectsReq *resp)> CbType;
- public:
-    virtual std::string log_string() override
-    {
-        std::stringstream ret;
-        ret << " SmIoGetTokObjectsReq Token id: " << token_id;
-        return ret.str();
-    }
-
-    /* In: Token id that objects belong to */
-    fds_token_id token_id;
-    /* Out: List objects and their metadata */
-    FDSP_MigrateObjectList obj_list;
-    /* In/Out: Iterator to keep track of where we were */
-    SMTokenItr itr;
-    /* In: Maximum size to populate */
-    size_t max_size;
-    /* Response callback */
-    CbType response_cb;
-};
-typedef boost::shared_ptr<SmIoGetTokObjectsReq> SmIoGetTokObjectReqSPtr;
-typedef std::unique_ptr<SmIoGetTokObjectsReq> SmIoGetTokObjectsReqUPtr;
-
-/**
  * @brief Takes snapshot of object db
  */
 class SmIoSnapshotObjectDB : public SmIoReq {
@@ -408,103 +363,6 @@ class SmIoSnapshotObjectDB : public SmIoReq {
     fds_token_id token_id;
     /* Response callback */
     CbType smio_snap_resp_cb;
-};
-
-/**
- * @brief Applies meta data transferred as part of sync
- */
-class SmIoApplySyncMetadata : public SmIoReq {
- public:
-    typedef std::function<void (const Error&,
-                                SmIoApplySyncMetadata *sync_md)> CbType;
- public:
-    SmIoApplySyncMetadata() {
-    }
-    virtual std::string log_string() override
-    {
-        std::stringstream ret;
-        ret << " SmIoApplySyncMetadata object id: " << md.object_id.digest;
-        return ret.str();
-    }
-
-    /* In: Sync metadata list */
-    FDSP_MigrateObjectMetadata md;
-    /* Out: data physically exists for this md or not */
-    bool dataExists;
-    /* Response callback */
-    CbType smio_sync_md_resp_cb;
-};
-
-/**
- * @brief Applies meta data transferred as part of sync
- */
-class SmIoResolveSyncEntry : public SmIoReq {
- public:
-    typedef std::function<void (const Error&, SmIoResolveSyncEntry*)> CbType;
- public:
-    SmIoResolveSyncEntry() {
-    }
-
-    /* In: Sync metadata list */
-    ObjectID object_id;
-    /* Response callback */
-    CbType smio_resolve_resp_cb;
-};
-
-/**
- * @brief Applies object data
- */
-class SmIoApplyObjectdata : public SmIoReq {
- public:
-    typedef std::function<void (const Error&,
-                                SmIoApplyObjectdata *sync_md)> CbType;
- public:
-    SmIoApplyObjectdata() {
-    }
-
-    /* In: object id */
-    ObjectID obj_id;
-    /* In: object_data */
-    std::string obj_data;
-
-    /* Response callback */
-    CbType smio_apply_data_resp_cb;
-};
-
-/**
- * @brief For reading object data
- */
-class SmIoReadObjectdata : public SmIoReq {
- public:
-    typedef std::function<void (const Error&,
-                                SmIoReadObjectdata *read_data)> CbType;
- public:
-    SmIoReadObjectdata() {
-    }
-    /* In/out: In is object id, out is object data */
-    FDSP_ObjectIdDataPair obj_data;
-
-    /* Response callback */
-    CbType smio_readdata_resp_cb;
-};
-
-/**
- * @brief For reading object metadata
- */
-class SmIoReadObjectMetadata : public SmIoReq {
- public:
-    typedef std::function<void (const Error&,
-                                SmIoReadObjectMetadata *read_data)> CbType;
- public:
-    SmIoReadObjectMetadata() {
-    }
-    /* In/out: In is object id, out is object meta data */
-    FDSP_MigrateObjectMetadata meta_data;
-    /* In: Cookie from the caller for caching any context info */
-    boost::shared_ptr<void> cookie;
-
-    /* Response callback */
-    CbType smio_readmd_resp_cb;
 };
 
 /**
@@ -541,6 +399,7 @@ class SmIoMoveObjsToTier: public SmIoReq {
     SmIoMoveObjsToTier() {
         moveObjsRespCb = NULL;
         relocate = false;
+        movedCnt = 0;
     }
 
     /// list of object ids
@@ -554,6 +413,9 @@ class SmIoMoveObjsToTier: public SmIoReq {
 
     /// if true, relocate objects (remove from fromTier)
     fds_bool_t relocate;
+
+    /// moved cnt
+    uint32_t movedCnt;
 
     /// response callback
     cbType moveObjsRespCb;
@@ -592,7 +454,8 @@ class SmIoReadObjDeltaSetReq: public SmIoReq {
 
     // Set of Object MetaData to be used to read objects and form
     // CtrlObjectRebalanceDeltaSet
-    std::vector<ObjMetaData> deltaSet;
+    // vector of a pair <ObjMetaPata::ptr, bool reconcileMetaData>
+    std::vector<std::pair<ObjMetaData::ptr, bool>> deltaSet;
 
     // Response callback for batch object read.
     cbType smioReadObjDeltaSetReqCb;
@@ -613,10 +476,10 @@ class SmIoApplyObjRebalDeltaSet: public SmIoReq {
     SmIoApplyObjRebalDeltaSet(fds_uint64_t execId,
                               fds_uint64_t seq,
                               fds_bool_t last,
-                              fds_uint32_t qosSeq,
-                              fds_uint32_t totalCnt)
+                              fds_uint64_t qosSeq,
+                              fds_bool_t qosLast)
             : executorId(execId), seqNum(seq), lastSet(last),
-            qosSeqNum(qosSeq), totalQosCount(totalCnt) {
+            qosSeqNum(qosSeq), qosLastSet(qosLast) {
     };
 
     /// MigrationExecutor ID
@@ -632,8 +495,8 @@ class SmIoApplyObjRebalDeltaSet: public SmIoReq {
     /// into one or more QoS requests with smaller delta set, we need to
     /// track when we finish those, so that when we apply the last set
     /// we notify token migration manager that we are done
-    fds_uint32_t qosSeqNum;
-    fds_uint32_t totalQosCount;
+    fds_uint64_t qosSeqNum;
+    fds_bool_t qosLastSet;
 
     /// set of data/metadata to apply
     std::vector<fpi::CtrlObjectMetaDataPropagate> deltaSet;

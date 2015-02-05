@@ -54,9 +54,8 @@ typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr        FdspNotVolPtr;
 typedef FDS_ProtocolInterface::FDSP_TestBucketPtr           FdspTestBucketPtr;
 typedef FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr  FdspMigrationStatusPtr;
 
-typedef FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
-typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
 typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr;
+typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
 typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
 typedef FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr FdspGetDomStatsPtr;
 typedef FDS_ProtocolInterface::FDSP_RemoveServicesTypePtr FdspRmServicesPtr;

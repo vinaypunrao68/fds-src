@@ -132,20 +132,20 @@ void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
     DmIoCommitBlobOnce* commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
     DmIoUpdateCatOnce* parent = commitOnceReq->parent;
     parent->cb(e, dmRequest);
+    delete parent;
 }
 
 void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
                                               Error const& e, dmCatReq* dmRequest) {
-    DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = e.GetErrno();
+    DBG(GLOGDEBUG << logString(*asyncHdr));
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::UpdateCatalogOnceRspMsgTypeId, updcatRspMsg);
 
     if (dataMgr->testUturnAll || dataMgr->testUturnUpdateCat) {
         fds_verify(dmRequest == nullptr);
     } else {
-        // FIXME(DAC): Looks like a memory leak here.
         delete dmRequest;
     }
 }

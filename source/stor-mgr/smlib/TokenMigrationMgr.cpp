@@ -5,14 +5,18 @@
 #include <vector>
 #include <object-store/SmDiskMap.h>
 #include <TokenMigrationMgr.h>
+#include <fds_process.h>
 
 namespace fds {
 
 SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
+          omStartMigrCb(NULL),
+          targetDltVersion(DLT_VER_INVALID),
+          numBitsPerDltToken(0),
           clientLock("Migration Client Map Lock") {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
-    nextExecutorId = ATOMIC_VAR_INIT(0);
+    nextLocalExecutorId = ATOMIC_VAR_INIT(0);
 
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapshotRequest.smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
@@ -21,6 +25,8 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
                                                   std::placeholders::_2,
                                                   std::placeholders::_3,
                                                   std::placeholders::_4);
+
+    enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
 }
 
 SmTokenMigrationMgr::~SmTokenMigrationMgr() {
@@ -33,20 +39,33 @@ SmTokenMigrationMgr::~SmTokenMigrationMgr() {
  */
 Error
 SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+                                    OmStartMigrationCbType cb,
+                                    const NodeUuid& mySvcUuid,
                                     fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
+
     // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
         LOGWARN << "We received empty migrations message from OM, nothing to do";
         return err;
     }
 
-    // we need to do migration, switch to 'in progress' state
+    // Check if the migraion feature is enabled or disabled.
+    if (false == enableMigrationFeature) {
+        LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
+        cb(ERR_OK);
+        return err;
+    }
+
+    // We need to do migration, switch to 'in progress' state
     MigrationState expectState = MIGR_IDLE;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
         LOGNOTIFY << "startMigration called in non-idle state " << migrState;
         return ERR_NOT_READY;
     }
+    targetDltVersion = migrationMsg->DLT_version;
+    numBitsPerDltToken = bitsPerDltToken;
+    omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
 
     // create migration executors for each <SM token, source SM> pair
     for (auto migrGroup : migrationMsg->migrations) {
@@ -63,16 +82,19 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
             if ((migrExecutors.count(smTok) == 0) ||
                 (migrExecutors.count(smTok) > 0 && migrExecutors[smTok].count(srcSmUuid) == 0)) {
                 LOGNORMAL << "Will create migration executor class";
-                fds_uint64_t eId = std::atomic_fetch_add(&nextExecutorId, (fds_uint64_t)1);
+                fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId, (fds_uint32_t)1);
+                fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);
+                LOGMIGRATE << "Will create migration executor class with executor ID "
+                           << std::hex << globalExecId << std::dec;
                 migrExecutors[smTok][srcSmUuid] = MigrationExecutor::unique_ptr(
                     new MigrationExecutor(smReqHandler,
                                           bitsPerDltToken,
                                           srcSmUuid,
-                                          smTok, eId,
+                                          smTok, globalExecId, targetDltVersion,
                                           std::bind(
                                               &SmTokenMigrationMgr::migrationExecutorDoneCb, this,
                                               std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3)));
+                                              std::placeholders::_3, std::placeholders::_4)));
             }
             // tell migration executor that it is responsible for this DLT token
             migrExecutors[smTok][srcSmUuid]->addDltToken(dltTok);
@@ -112,6 +134,10 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
                                                leveldb::ReadOptions& options,
                                                leveldb::DB *db) {
     Error err(ERR_OK);
+    if (atomic_load(&migrState) == MIGR_ABORTED) {
+        LOGNORMAL << "Migration was aborted, ignoring migration task";
+        return;
+    }
 
     // must match sm token id that is currently in progress
     fds_verify(snapRequest->token_id == smTokenInProgress);
@@ -145,8 +171,10 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
         abortMigration(err);
     }
 
-    // TODO(Anna) start snapshot of the next SM token when we finish
-    // migration of all DLT tokens belonging to this SM token
+    // At this point this SM (destination) sent rebalance set msgs to source SMs
+    // We are waiting for response(s) from source SMs to continue with migration
+    // or we will get abort migration from OM if we don't get response from SM
+    // because it is down (SL will timeout on these requests and send msg to OM)
 }
 
 /**
@@ -157,10 +185,25 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
                                           const fpi::SvcUuid &executorSmUuid,
                                           fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
-    LOGDEBUG << "Object Rebalance Initial Set executor SM Id " << std::hex
-             << executorSmUuid.svc_uuid << std::dec << " executor ID "
-             << rebalSetMsg->executorID << " seqNum " << rebalSetMsg->seqNum
-             << " last " << rebalSetMsg->lastFilterSet;
+    LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
+               << executorSmUuid.svc_uuid << " executor ID " << rebalSetMsg->executorID
+               << std::dec << " seqNum " << rebalSetMsg->seqNum
+               << " last " << rebalSetMsg->lastFilterSet;
+
+    // If this SM is just a source and does not get Start Migration from OM
+    // make sure that we set the migration state in progress
+    MigrationState expectState = MIGR_IDLE;
+    if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
+        // check if migration was aborted
+        if (atomic_load(&migrState) == MIGR_ABORTED) {
+            // Something happened, for now stopping migration on any error
+            LOGWARN << "Migration was already aborted, not going to handle object rebalance msg";
+            return ERR_SM_TOK_MIGRATION_ABORTED;
+        }
+        // else was already in progress
+    }
+    numBitsPerDltToken = bitsPerDltToken;
+    targetDltVersion = rebalSetMsg->targetDltVersion;
 
     MigrationClient::shared_ptr migrClient;
     int64_t executorId = rebalSetMsg->executorID;
@@ -169,16 +212,25 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
         if (migrClients.count(executorId) == 0) {
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
-            migrClient = MigrationClient::shared_ptr(new MigrationClient(smReqHandler,
-                                                                         executorNodeUuid,
-                                                                         bitsPerDltToken));
+            migrClient.reset(new MigrationClient(smReqHandler,
+                                                 executorNodeUuid,
+                                                 bitsPerDltToken));
             migrClients[executorId] = migrClient;
+            // The assumption here that all SMs do the same mapping of
+            // dlt token to SM token.. This is currently true; but if
+            // this behavior changes, we need to change the code below
+            fds_token_id smToken = SmDiskMap::smTokenId(rebalSetMsg->tokenId);
+            // TODO(Anna) we need to implement multiple migr clients responsible
+            // for migrating the same SM token (happens when multiple SMs are
+            // added to the domain at the same time)
+            fds_verify(smtokExecutorIdMap.count(smToken) == 0);
+            smtokExecutorIdMap[smToken] = executorId;
         } else {
             migrClient = migrClients[executorId];
         }
     }
     // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
-    migrClient->migClientAddObjToFilterSet(rebalSetMsg);
+    migrClient->migClientStartRebalanceFirstPhase(rebalSetMsg);
     return err;
 }
 
@@ -189,7 +241,35 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
 Error
 SmTokenMigrationMgr::startObjectRebalanceResp() {
     Error err(ERR_OK);
-    LOGDEBUG << "";
+    LOGMIGRATE << "";
+    return err;
+}
+
+/**
+ * Handle msg from destination SM to send data/metadata changes since the first delta set
+ */
+Error
+SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
+                                                const fpi::SvcUuid &executorSmUuid) {
+    Error err(ERR_OK);
+    LOGMIGRATE << "Request to receive the rebalance diff since the first rebalance from "
+               << std::hex << executorSmUuid.svc_uuid << " executor ID " << std::dec
+               << msg->executorID;
+
+    if (atomic_load(&migrState) == MIGR_ABORTED) {
+        // Something happened, for now stopping migration on any error
+        LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+    fds_verify(atomic_load(&migrState) == MIGR_IN_PROGRESS);
+
+    fds_mutex::scoped_lock l(clientLock);
+    // we must have migration client if we are in progress state
+    fds_verify(migrClients.count(msg->executorID) != 0);
+    // TODO(Sean):  Need to reset the double sequence for executor on the destion SM
+    //              before starting the second phase.
+    migrClients[msg->executorID]->migClientStartRebalanceSecondPhase(msg);
+
     return err;
 }
 
@@ -200,6 +280,12 @@ Error
 SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
     Error err(ERR_OK);
     fds_uint64_t executorId = deltaSet->executorID;
+
+    // if we receive this in IDLE or ABORTED state, just ignore
+    if (atomic_load(&migrState) != MIGR_IN_PROGRESS) {
+        LOGWARN << "Migration NOT in progress anymore, assuming was aborted!";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     // since we are doing one SM token at a time, search for executor in deltaSet
     fds_bool_t found = false;
@@ -221,16 +307,18 @@ SmTokenMigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& 
 Error
 SmTokenMigrationMgr::rebalanceDeltaSetResp() {
     Error err(ERR_OK);
-    LOGDEBUG << "";
+    LOGMIGRATE << "";
     return err;
 }
 
 void
 SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                                              fds_token_id smToken,
+                                             fds_bool_t isFirstRound,
                                              const Error& error) {
-    LOGNORMAL << "Migration executor " << executorId << " finished migration "
-              << error;
+    LOGNORMAL << "Migration executor " << std::hex << executorId << std::dec
+              << " finished migration round first? " << isFirstRound << " done? "
+              << !isFirstRound << error;
 
     fds_verify(smToken == smTokenInProgress);
 
@@ -256,7 +344,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
     for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smTokenInProgress].cbegin();
          cit != migrExecutors[smTokenInProgress].cend();
          ++cit) {
-        if (!cit->second->isDone()) {
+        if (!cit->second->isRoundDone(isFirstRound)) {
             finished = false;
             break;
         }
@@ -267,16 +355,101 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         ++it;
         if (it != migrExecutors.end()) {
             // we have more SM tokens to migrate
-            startSmTokenMigration(it->first);
+            if (isFirstRound) {
+                startSmTokenMigration(it->first);
+            } else {
+                startSecondRebalanceRound(it->first);
+            }
         } else {
-            /// we are done migrating, reply to start migration msg from OM
-            // TODO(Anna) revisit this when doing active IO
-            MigrationState expectState = MIGR_IN_PROGRESS;
-            if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_DONE)) {
-                fds_panic("Unexpected migration executor state!");
+            // we are done migrating, reply to start migration msg from OM
+            if (isFirstRound) {
+                // start with first executor to do the second round
+                startSecondRebalanceRound(migrExecutors.begin()->first);
+            } else {
+                // done with second round -- all done
+                omStartMigrCb(ERR_OK);
+                omStartMigrCb = NULL;  // we replied, so reset
             }
         }
     }
+}
+
+void
+SmTokenMigrationMgr::startSecondRebalanceRound(fds_token_id smToken) {
+    Error err(ERR_OK);
+    smTokenInProgress = smToken;
+    LOGNORMAL << "Starting second round of migration for SM token " << smToken;
+
+    // notify all migration executors responsible for this SM token to start
+    // second round of migration
+    for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smTokenInProgress].cbegin();
+         cit != migrExecutors[smTokenInProgress].cend();
+         ++cit) {
+        err = cit->second->startSecondObjectRebalanceRound();
+        if (!err.ok()) {
+            LOGERROR << "Failed to start second round of object rebalance for SM token "
+                     << smTokenInProgress << ", source SM " << std::hex
+                     << (cit->first).uuid_get_val() << std::dec << " " << err;
+            break;  // we are going to abort migration
+        }
+    }
+
+    if (!err.ok()) {
+        abortMigration(err);
+    }
+}
+
+fds_uint64_t 
+SmTokenMigrationMgr::getTargetDltVersion() const {
+    // this will be invalid if migration not in progress
+    return targetDltVersion;
+}
+
+Error
+SmTokenMigrationMgr::startForwarding(fds_token_id smTok) {
+    if (!isMigrationInProgress()) {
+        return ERR_NOT_READY;
+    }
+    // in this state, we must know about bits per tok
+    SmTokExecutorIdMap::iterator it = smtokExecutorIdMap.find(smTok);
+    if (it == smtokExecutorIdMap.end()) {
+        // we cannot start forwarding because there is no
+        // migration client (on source) that is migration this
+        // SM token
+        return ERR_NOT_READY;
+    }
+    fds_verify(migrClients.count(it->second) > 0);
+    // Tell migration client responsible for migrating SM token
+    LOGMIGRATE << "Setting forwarding flag for SM token " << smTok;
+    migrClients[it->second]->setForwardingFlag();
+    return ERR_OK;
+}
+
+fds_bool_t
+SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
+                                        fds_uint64_t reqDltVersion,
+                                        FDS_IOType* req) {
+    // we only do forwarding if migration is in progress
+    if (isMigrationInProgress()) {
+        if (reqDltVersion == targetDltVersion) {
+            // this request was also sent to the destination SM
+            // since AM sending the request is already on new DLT version
+            return false;
+        }
+        // in this state, we must know about bits per tok
+        fds_verify(numBitsPerDltToken != 0);
+        fds_token_id dltTok = DLT::getToken(objId, numBitsPerDltToken);
+        fds_token_id smTok = SmDiskMap::smTokenId(dltTok);
+        SmTokExecutorIdMap::iterator it = smtokExecutorIdMap.find(smTok);
+        if (it != smtokExecutorIdMap.end()) {
+            // migration client tells if we need to forward
+            fds_verify(migrClients.count(it->second) > 0);
+            return migrClients[it->second]->forwardIfNeeded(dltTok, req);
+        }
+        // else we don't have an executor so we are not doing
+        // migration of this DLT token
+    }
+    return false;
 }
 
 /**
@@ -294,26 +467,61 @@ SmTokenMigrationMgr::handleDltClose() {
         LOGNOTIFY << "DLT Close called in non- in progress state " << migrState;
         return ERR_OK;  // this is ok
     }
-    LOGDEBUG << "";
+    LOGMIGRATE << "Will cleanup executors and migr clients";
+    migrExecutors.clear();
+    {
+        fds_mutex::scoped_lock l(clientLock);
+        migrClients.clear();
+        smtokExecutorIdMap.clear();
+    }
+    targetDltVersion = DLT_VER_INVALID;
     return err;
 }
 
+/**
+ * Handles message from OM to abort migration
+ */
+Error
+SmTokenMigrationMgr::abortMigration() {
+    Error err(ERR_OK);
+    LOGNOTIFY << "Will abort token migration per OM request";
+    abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
+    return err;
+}
+
+/// local method that actually aborts migration
 void
 SmTokenMigrationMgr::abortMigration(const Error& error) {
     LOGNOTIFY << "Aborting token migration " << error;
-    if (atomic_load(&migrState) == MIGR_ABORTED) {
-        LOGNOTIFY << "Migration already aborted, nothing else to do";
-        return;
+
+    // set migration state to aborted
+    MigrationState expectState = MIGR_IN_PROGRESS;
+    if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_ABORTED)) {
+        MigrationState curState = atomic_load(&migrState);
+        if (curState == MIGR_IDLE) {
+            // nothing to do, migration was not in progress
+            LOGNOTIFY << "Migration was idle, nothing to abort";
+        } else if (curState == MIGR_ABORTED) {
+            LOGNOTIFY << "Migration already aborted, nothing else to do";
+        }
+        return;  // this is ok
     }
 
-    // set state to 'aborted'
-    MigrationState newState = MIGR_ABORTED;
-    atomic_store(&migrState, newState);
-
-    // TODO(Anna) depending on current state, send ack with error to OM
-    // and do any necessary cleanup here...
+    // if we need to ack Start  Migration from OM, we will have a cb to reply to
+    if (omStartMigrCb) {
+        omStartMigrCb(error);
+        omStartMigrCb = NULL;
+    }
 
     migrExecutors.clear();
+    targetDltVersion = DLT_VER_INVALID;
+}
+
+fds_uint64_t
+SmTokenMigrationMgr::getExecutorId(fds_uint32_t localId,
+                                   const NodeUuid& smSvcUuid) const {
+    fds_uint64_t execId = smSvcUuid.uuid_get_val();
+    return ((execId << 32) | localId);
 }
 
 }  // namespace fds

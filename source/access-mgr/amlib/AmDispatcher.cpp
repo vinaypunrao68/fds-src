@@ -252,6 +252,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     updCatMsg->volume_id    = amReq->io_vol_id;
     updCatMsg->txId         = blobReq->tx_desc->getValue();
     updCatMsg->blob_mode    = blobReq->blob_mode;
+    updCatMsg->dmt_version  = dmtMgr->getCommittedVersion();
 
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
@@ -310,6 +311,7 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
 void
 AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    const DLT* dlt = dltMgr->getDLT();
     fds_verify(amReq->data_len > 0);
 
     fiu_do_on("am.uturn.dispatcher",
@@ -318,7 +320,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
 
     PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
     putObjMsg->volume_id        = amReq->io_vol_id;
-    putObjMsg->origin_timestamp = util::getTimeStampMillis();
+    putObjMsg->dlt_version      = dlt->getVersion();
     putObjMsg->data_obj.assign(blobReq->dataPtr->c_str(), amReq->data_len);
     putObjMsg->data_obj_len     = amReq->data_len;
     putObjMsg->data_obj_id.digest = std::string(
@@ -329,7 +331,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
 
     auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(
-            dltMgr->getDLT()->getNodes(amReq->obj_id)));
+            dlt->getNodes(amReq->obj_id)));
     asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
     asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb, amReq));
     asyncPutReq->invoke();
@@ -434,6 +436,7 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
         cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {
+        cb->returnSize = 0;
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
             << amReq->blob_offset << " Error: " << error;
     }
@@ -473,9 +476,26 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
             dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
     asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
     asyncQueryReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb, amReq));
+    asyncQueryReq->onEPAppStatusCb(std::bind(&AmDispatcher::getQueryCatalogAppStatusCb,
+                                             this, amReq, std::placeholders::_1,
+                                             std::placeholders::_2));
     asyncQueryReq->invoke();
 
     LOGDEBUG << asyncQueryReq->logString() << logString(*queryMsg);
+}
+
+fds_bool_t
+AmDispatcher::getQueryCatalogAppStatusCb(AmRequest* amReq,
+                                         const Error& error,
+                                         boost::shared_ptr<std::string> payload) {
+    // Tell service layer that it's OK to see these errors. These
+    // could mean we're just reading something we haven't written
+    // before.
+    if ((ERR_CAT_ENTRY_NOT_FOUND == error) ||
+        (ERR_BLOB_NOT_FOUND == error)) {
+        return true;
+    }
+    return false;
 }
 
 void
@@ -677,8 +697,11 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 
     GetBucketMsgPtr message = boost::make_shared<GetBucketMsg>();
     message->volume_id = amReq->io_vol_id;
-    message->startPos  = 0;
-    message->maxKeys   = static_cast<VolumeContentsReq *>(amReq)->maxkeys;
+    message->startPos  = static_cast<VolumeContentsReq *>(amReq)->offset;
+    message->count   = static_cast<VolumeContentsReq *>(amReq)->count;
+    message->pattern = static_cast<VolumeContentsReq *>(amReq)->pattern;
+    message->orderBy = static_cast<VolumeContentsReq *>(amReq)->orderBy;
+    message->descending = static_cast<VolumeContentsReq *>(amReq)->descending;
 
     auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
@@ -700,11 +723,11 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
     // Return if err
     if (ERR_OK == error) {
         // using the same structure for input and output
-        auto response = MSG_DESERIALIZE(GetBucketMsg, error, payload);
+        auto response = MSG_DESERIALIZE(GetBucketRspMsg, error, payload);
 
         GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
         size_t count = response->blob_info_list.size();
-        LOGDEBUG << " volid: " << response->volume_id << " numBlobs: " << count;
+        LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " << count;
         cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>();
         cb->vecBlobs->reserve(count);
         for (size_t i = 0; i < count; ++i) {

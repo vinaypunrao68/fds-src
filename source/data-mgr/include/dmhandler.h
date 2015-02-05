@@ -37,6 +37,7 @@ struct RequestHelper {
 struct QueueHelper {
     fds_bool_t ioIsMarkedAsDone;
     fds_bool_t cancelled;
+    fds_bool_t skipImplicitCb;
     dmCatReq *dmRequest;
     Error err = ERR_OK;
     explicit QueueHelper(dmCatReq *dmRequest);
@@ -60,7 +61,7 @@ struct GetBucketHandler : Handler {
                        boost::shared_ptr<fpi::GetBucketMsg>& message);
     void handleQueueItem(dmCatReq *dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::GetBucketMsg>& message,
+                        boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                         const Error &e, dmCatReq *dmRequest);
 };
 
@@ -189,6 +190,9 @@ struct ForwardCatalogUpdateHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
+    void handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
+                          Error const& e, dmCatReq* dmRequest);
 };
 
 struct GetVolumeMetaDataHandler : Handler {
@@ -201,13 +205,13 @@ struct GetVolumeMetaDataHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
-struct ListBlobsByPatternHandler : Handler {
-    ListBlobsByPatternHandler();
+struct ReloadVolumeHandler : Handler {
+    ReloadVolumeHandler();
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::ListBlobsByPatternMsg>& message);
+                       boost::shared_ptr<fpi::ReloadVolumeMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::ListBlobsByPatternMsg>& message,
+                        boost::shared_ptr<fpi::ReloadVolumeMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
 

@@ -22,11 +22,9 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _blob_name,  // same as objKey
                        CallbackPtr cb,
                        fds_uint64_t _blob_offset,
-                       fds_uint64_t _data_len,
-                       char* _data_buf)
-    : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset,
-                _data_len, _data_buf),
-      get_metadata(false) {
+                       fds_uint64_t _data_len)
+    : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset, _data_len),
+      get_metadata(false), oid_cached(false), metadata_cached(false) {
     stopwatch.start();
 
     std::string vol_str = std::string("volume: ") + std::to_string(io_vol_id);
@@ -64,7 +62,7 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        PutPropertiesPtr _put_props,
                        void* _req_context,
                        CallbackPtr _cb) :
-AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len, NULL),
+AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
     AmTxReq(_txDesc),
     last_buf(_last_buf),
     bucket_ctxt(_bucket_ctxt),
@@ -104,7 +102,7 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                        CallbackPtr _cb) :
     AmRequest(FDS_PUT_BLOB_ONCE, _volid, _volName, _blob_name, _cb,
-              _blob_offset, _data_len, NULL),
+              _blob_offset, _data_len),
     blob_mode(_blobMode),
     metadata(_metadata),
     resp_acks(2),

@@ -41,6 +41,10 @@ namespace fds {
      class OMgrClient;
      class CatalogSyncMgr;
 
+     // Callback to DM svc handler for any DMT migration events
+     // DMT update, DMT close and 
+     typedef std::function<void (const Error&)> OmDMTMsgCbType;
+
      typedef enum {
          CATSYNC_INITIAL_SYNC_DONE = 0,  // finished initial rsync
          CATSYNC_DELTA_SYNC_DONE         // finished second (delta) rsync
@@ -87,12 +91,13 @@ namespace fds {
             CSSTATE_INITIAL_SYNC,   // initial sync in progress
             CSSTATE_DELTA_SYNC ,    // second (delta) sync in progress
             CSSTATE_FORWARD_ONLY,   // all rsyncs done, only forwarding updates
-            CSSTATE_DONE            // done syncing
+            CSSTATE_DONE,            // done syncing
+            CSSTATE_ABORT           // aborting the sync
         } csStateType;
 
         /**
          * Actually start catalog sync process for given set of
-         * volumes to node for which this CatalogSync is reponsible for.
+         * volumes to node for which this CatalogSync is responsible for.
          * @param[in] done_evt_hdlr a callback CatalogSync will call
          * when initial sync and delta sync is finished.
          * @param[in] volumes is set of volumes which this CatalogSync
@@ -159,7 +164,7 @@ namespace fds {
         void handleVolumeDone(fds_volid_t volid);
 
         /**
-         * @return true if CatalogSync is reponsible for syncing
+         * @return true if CatalogSync is responsible for syncing
          * given volume 'volid'
          */
         inline fds_bool_t hasVolume(fds_volid_t volid) {
@@ -169,6 +174,9 @@ namespace fds {
         inline fds_bool_t emptyVolume() {
             return (sync_volumes.empty());
         }
+
+
+        void abortMigration(Error err);
 
   private:  // methods
         Error sendMetaSyncDone(fds_volid_t volid, fds_bool_t forward_done);
@@ -254,7 +262,8 @@ namespace fds {
          * @return ERR_NOT_READY if called in the middle of initial rsync; returns
          * ERR_OK if success.
          */
-        Error startCatalogSyncDelta(const std::string& context);
+        Error startCatalogSyncDelta(const std::string& context,
+                                    OmDMTMsgCbType cb);
 
         /**
          * Forward catalog update to DM to which we are pushing vol meta for the
@@ -273,7 +282,7 @@ namespace fds {
 
         /**
          * Called when forwarding can be finished for volume 'volid'
-         * so volume-related datastucts can be freed
+         * so volume-related data structures can be freed
          * @return true if all volumes finished forwarding metadata
          */
         fds_bool_t finishedForwardVolmeta(fds_volid_t volid);
@@ -298,6 +307,12 @@ namespace fds {
                         fds_volid_t volid,
                         OMgrClient* omclient,
                         const Error& error);
+
+        /**
+        * Aborts sync when error state is reached in DMT state machine
+        */
+        Error abortMigration();
+
 
   private:
         fds_bool_t sync_in_progress;
@@ -325,6 +340,9 @@ namespace fds {
          * Timestamp when DM received DMT close
          */
         fds_uint64_t dmtclose_ts;
+
+        // callback to svc handler to send ack for DMT update
+        OmDMTMsgCbType omDmtUpdateCb;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;

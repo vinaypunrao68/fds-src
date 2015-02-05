@@ -27,6 +27,8 @@ class TimelineDB : public HasLogger {
     Error addJournalFile(fds_volid_t volId,
                          TimeStamp startTime, const std::string& journalFile);
     Error removeJournalFile(fds_volid_t volId, const std::string& journalFile);
+    Error removeOldJournalFiles(fds_volid_t volId, TimeStamp until,
+                                std::vector<JournalFileInfo>& vecJournalFiles);
     Error getJournalFiles(fds_volid_t volId, TimeStamp fromTime, TimeStamp toTime,
                    std::vector<JournalFileInfo>& vecJournalFiles);
     Error addSnapshot(fds_volid_t volId, fds_volid_t snapshotId, TimeStamp createTime);

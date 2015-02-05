@@ -15,13 +15,15 @@ namespace fds
 struct GetBlobReq: public AmRequest {
     fds_bool_t get_metadata;
 
+    fds_bool_t oid_cached;
+    fds_bool_t metadata_cached;
+
     GetBlobReq(fds_volid_t _volid,
                const std::string& _volumeName,
                const std::string& _blob_name,
                CallbackPtr cb,
                fds_uint64_t _blob_offset,
-               fds_uint64_t _data_len,
-               char* _data_buf = nullptr);
+               fds_uint64_t _data_len);
 
     ~GetBlobReq();
 };

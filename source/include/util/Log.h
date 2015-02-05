@@ -54,6 +54,7 @@
 
 #define LOGTRACE    LEVELCHECK(trace)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace)        _ATLINE_
 #define LOGDEBUG    LEVELCHECK(debug)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug)        _ATLINE_
+#define LOGMIGRATE  LEVELCHECK(migrate)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::migrate)      _ATLINE_
 #define LOGIO       LEVELCHECK(io)           FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::io)           _ATLINE_
 #define LOGNORMAL   LEVELCHECK(normal)       FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal)       _ATLINE_
 #define LOGNOTIFY   LEVELCHECK(notification) FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification) _ATLINE_
@@ -64,6 +65,7 @@
 // for static functions inside classes
 #define GLOGTRACE    GLEVELCHECK(trace)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::trace)        _ATLINE_
 #define GLOGDEBUG    GLEVELCHECK(debug)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::debug)        _ATLINE_
+#define GLOGMIGRATE  GLEVELCHECK(migrate)      FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::migrate)      _ATLINE_
 #define GLOGIO       GLEVELCHECK(io)           FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::io)           _ATLINE_
 #define GLOGNORMAL   GLEVELCHECK(normal)       FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::normal)       _ATLINE_
 #define GLOGNOTIFY   GLEVELCHECK(notification) FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::notification) _ATLINE_
@@ -79,6 +81,7 @@ class fds_log {
     enum severity_level {
         trace,
         debug,
+        migrate,
         io,
         normal,
         notification,

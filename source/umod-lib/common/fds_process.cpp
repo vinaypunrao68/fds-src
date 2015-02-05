@@ -94,8 +94,6 @@ void FdsProcess::init(int argc, char *argv[],
 
     fds_verify(g_fdsprocess == NULL);
 
-    mod_shutdown_invoked_  = false;
-
     /* Initialize process wide globals */
     g_fdsprocess = this;
     gModuleProvider = g_fdsprocess;
@@ -226,10 +224,10 @@ int FdsProcess::main()
     /* Run the main loop. */
     ret = run();
 
-    /* Only do module shutdown once.  Module shutdown can happen in interrupt_cb() */
-    if (!mod_shutdown_invoked_) {
-        shutdown_modules();
-    }
+    std::call_once(mod_shutdown_invoked_,
+                    &FdsProcess::shutdown_modules,
+                    this);
+
     return ret;
 }
 
@@ -405,11 +403,9 @@ void FdsProcess::setup_graphite()
 
 void FdsProcess::interrupt_cb(int signum)
 {
-    mod_shutdown_invoked_ = true;
-    /* Do FDS shutdown sequence. */
-    mod_vectors_->mod_stop_services();
-    mod_vectors_->mod_shutdown_locksteps();
-    mod_vectors_->mod_shutdown();
+    std::call_once(mod_shutdown_invoked_,
+                    &FdsProcess::shutdown_modules,
+                    this);
 }
 
 void

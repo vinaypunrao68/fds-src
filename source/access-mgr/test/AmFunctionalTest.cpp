@@ -13,7 +13,7 @@
 #include <net/net-service.h>
 #include <AccessMgr.h>
 #include "AmAsyncXdi.h"
-#include "AmAsyncDataApi.cxx"
+#include "AmAsyncDataApi_impl.h"
 
 #include "boost/program_options.hpp"
 #include <boost/enable_shared_from_this.hpp>
@@ -23,8 +23,6 @@
 #include "fds_process.h"
 
 namespace fds {
-
-AccessMgr::unique_ptr am;
 
 class AmProcessWrapper : public FdsProcess {
   public:
@@ -444,11 +442,22 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                 boost::shared_ptr<int64_t> offset(
                     boost::make_shared<int64_t>());
                 *offset = 0;
+                boost::shared_ptr<std::string> pattern(new std::string());
+                boost::shared_ptr<fpi::BlobListOrder> orderBy(
+                    boost::make_shared<fpi::BlobListOrder>());
+                *orderBy = fpi::UNSPECIFIED;
+                boost::shared_ptr<bool> descending(
+                    boost::make_shared<bool>());
+                *descending = false;
+
                 asyncDataApi->volumeContents(reqId,
                                              domainName,
                                              volumeName,
                                              count,
-                                             offset);
+                                             offset,
+                                             pattern,
+                                             orderBy,
+                                             descending);
             } else {
                 fds_panic("Unknown op type");
             }

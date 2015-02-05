@@ -191,6 +191,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "Create domain: domain-create <domain name> -k <domain-id>")
             ("domain-delete", po::value<std::string>(),
              "Delete domain: domain-delete <domain name> -k <domain-id>")
+            ("domain-shutdown", po::value<std::string>(),
+             "Delete domain: domain-shutdown <domain name> -k <domain-id>")
             ("domain-stats", "Get domain stats: domain-stats -k <domain-id>")
             ("activate-nodes", po::value<std::string>(),
              "Activate discovered nodes: activate-nodes <domain name> -k <domain-id>"
@@ -198,6 +200,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("activate-services", po::value<std::string>(),
              "Activate nodes: activate-services <domain> -k <domain-id> -w <node-uuid>"
              "[ -e \"am,dm,sm\" ]")
+            ("list-services", "List Services")
             ("remove-services", po::value<std::string>(),
              "Remove services: remove-services <node_name> "
              "[ -e \"am,dm,sm\" ]")
@@ -255,10 +258,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_info.vol_name = vm["volume-create"].as<std::string>();
         volData.vol_info.tennantId = 0;
         volData.vol_info.localDomainId = 0;
-        volData.vol_info.globDomainId = 0;
 
         volData.vol_info.capacity = vm["volume-size"].as<double>();
-        volData.vol_info.maxQuota = 0;
         volData.vol_info.volType =
                 stringToVolType(vm.count("vol-type") ?
                                 vm["vol-type"].as<std::string>() : "");
@@ -269,16 +270,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             volData.vol_info.maxObjSizeInBytes = 4096;  // 4k
         }
 
-        volData.vol_info.defReplicaCnt = 0;
-        volData.vol_info.defWriteQuorum = 0;
-        volData.vol_info.defReadQuorum = 0;
-        volData.vol_info.defConsisProtocol =
-                FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
-
         volData.vol_info.volPolicyId = vm["volume-policy"].as<int>();
-        volData.vol_info.archivePolicyId = 0;
         volData.vol_info.placementPolicy = 0;
-        volData.vol_info.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
         volData.vol_info.mediaPolicy =
                 stringToMediaPolicy(vm.count("media-policy") ?
                                 vm["media-policy"].as<std::string>() : "");
@@ -330,11 +323,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             volData.vol_desc.maxObjSizeInBytes = 4096;  // 4k
         }
 
-        volData.vol_desc.defConsisProtocol =
-                FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
-        volData.vol_desc.archivePolicyId = 0;
         volData.vol_desc.placementPolicy = 0;
-        volData.vol_desc.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
         volData.vol_desc.mediaPolicy = vm.count("media_policy") ?
                 stringToMediaPolicy(vm["media-policy"].as<std::string>()) :
                 FDS_ProtocolInterface::FDSP_MEDIA_POLICY_UNSET;  // use current policy
@@ -489,6 +478,35 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_id = vm["domain-id"].as<int>();
 
         NETWORKCHECK(cfgPrx->CreateDomain(msg_hdr, domainData));
+
+    }  else if (vm.count("list-services")) {
+
+        LOGNOTIFY << " List services ";
+
+        std::vector<FDS_ProtocolInterface::FDSP_Node_Info_Type> vec;
+        NETWORKCHECK(cfgPrx->ListServices(vec, msg_hdr));
+
+        for (fds_uint32_t i = 0; i < vec.size(); ++i) {
+
+            cout << "Node UUID " << std::hex << vec[i].node_uuid << std::dec
+                 << std::endl
+                 << "\tState " << vec[i].node_state << std::endl
+                 << "\tType " << vec[i].node_type << std::endl
+                 << "\tName " << vec[i].node_name << std::endl
+                 << "\tUUID " << std::hex << vec[i].service_uuid << std::dec
+                 << std::endl
+                 << "\tIPv6 " << netSession::ipAddr2String(vec[i].ip_hi_addr)
+                 << std::endl
+                 << "\tIPv4 " << netSession::ipAddr2String(vec[i].ip_lo_addr)
+                 << std::endl
+                 << "\tControl Port " << vec[i].control_port << std::endl
+                 << "\tData Port " << vec[i].data_port << std::endl
+                 << "\tMigration Port " << vec[i].migration_port << std::endl
+                 << "\tMetasync Port " << vec[i].metasync_port << std::endl
+                 << "\tNode Root " << vec[i].node_root << std::endl
+                 << std::endl;
+        }
+
     }  else if (vm.count("remove-services")) {
         LOGNOTIFY << " Remove services ";
         LOGNOTIFY << vm["remove-services"].as<std::string>() << "- node name";
@@ -603,6 +621,15 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_id = vm["domain-id"].as<int>();
 
         NETWORKCHECK(cfgPrx->DeleteDomain(msg_hdr, domainData));
+    }  else if (vm.count("domain-shutdown") && vm.count("domain-id")) {
+        LOGNOTIFY << " Domain Shutdown ";
+        LOGNOTIFY << vm["domain-shutdown"].as<std::string>() << "-domain name";
+        LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
+
+        FDS_ProtocolInterface::FDSP_ShutdownDomainType domainData;
+        domainData.domain_id = vm["domain-id"].as<int>();
+
+        NETWORKCHECK(cfgPrx->ShutdownDomain(msg_hdr, domainData));
     } else if (vm.count("domain-stats") && vm.count("domain-id")) {
         LOGNOTIFY << " Domain Stats ";
         LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";

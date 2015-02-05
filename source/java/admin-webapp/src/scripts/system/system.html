@@ -22,36 +22,39 @@
                     <th><div translate>system.th_site</div></th>
                     <th><div translate>system.th_local_domain</div></th>
 -->
-                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'am' ) !== -1 && sortPredicate.length < 4 }" tool-tip text="{{ 'system.tt_am' | translate }}">
+                    <th class="process-width" ng-class="{ 'selected' : sortPredicate.indexOf( 'am' ) !== -1 && sortPredicate.length < 4 }" tool-tip text="{{ 'system.tt_am' | translate }}">
                         <sort-helper ng-model="sortPredicate" value="am">{{ 'system.th_am' | translate }}</sort-helper>
                     </th>
-                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'hw' ) !== -1 }" tool-tip text="{{ 'system.tt_pm' | translate }}">
+                    <th class="process-width" ng-class="{ 'selected' : sortPredicate.indexOf( 'hw' ) !== -1 }" tool-tip text="{{ 'system.tt_pm' | translate }}">
                         <sort-helper ng-model="sortPredicate" value="hw">{{ 'system.th_pm' | translate }}</sort-helper>
                     </th>
-                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'om' ) !== -1 }" tool-tip text="{{ 'system.tt_om' | translate }}">
+                    <th class="process-width" ng-class="{ 'selected' : sortPredicate.indexOf( 'om' ) !== -1 }" tool-tip text="{{ 'system.tt_om' | translate }}">
                         <sort-helper ng-model="sortPredicate" value="om">{{ 'system.th_om' | translate }}</sort-helper>
                     </th>
-                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'sm' ) !== -1 }" tool-tip text="{{ 'system.tt_sm' | translate }}">
+                    <th class="process-width" ng-class="{ 'selected' : sortPredicate.indexOf( 'sm' ) !== -1 }" tool-tip text="{{ 'system.tt_sm' | translate }}">
                         <sort-helper ng-model="sortPredicate" value="sm">{{ 'system.th_sm' | translate }}</sort-helper>
                     </th>
-                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'dm' ) !== -1 }" tool-tip text="{{ 'system.tt_dm' | translate }}">
+                    <th class="process-width" ng-class="{ 'selected' : sortPredicate.indexOf( 'dm' ) !== -1 }" tool-tip text="{{ 'system.tt_dm' | translate }}">
                         <sort-helper ng-model="sortPredicate" value="dm">{{ 'system.th_dm' | translate }}</sort-helper>
                     </th>
 
-                    <th></th>
+                    <th class="process-width" tool-tip text="{{ 'system.tt_remove' | translate }}">
+                        <div>{{ 'common.th_remove' | translate }}</div>
+                    </th>
                 </thead>
                 <tbody>
                     <tr ng-repeat="node in nodes | filter:searchText | orderBy:sortPredicate:reverse" class="node-item" >
-                        <td>{{node.node_name}}</td>
+                        <td class="node-name">{{node.name}}</td>
 <!--
                         <td>{{node.site}}</td>
                         <td>{{node.domain}}</td>
 -->
-                        <td><span class="{{getStatus( node.am )}}"></span></td>
-                        <td><span class="{{getStatus( node.hw )}}"></span></td>
-                        <td><span class="{{getStatus( node.om )}}"></span></td>
-                        <td><span class="{{getStatus( node.sm )}}"></span></td>
-                        <td><span class="{{getStatus( node.dm )}}"></span></td>
+                        <td class="process-cell process-width ams"><span class="{{getStatus( node.services.AM )}}"></span></td>
+                        <td class="process-cell process-width pms"><span class="{{getStatus( node.services.PM )}}"></span></td>
+                        <td class="process-cell process-width oms"><span class="{{getStatus( node.services.OM )}}"></span></td>
+                        <td class="process-cell process-width sms"><span class="{{getStatus( node.services.SM )}}"></span></td>
+                        <td class="process-cell process-width dms"><span class="{{getStatus( node.services.DM )}}"></span></td>
+                        <td class="process-cell process-width"><span class="icon-delete remove" ng-click="removeNode( node )"></span></td>
                     </tr>
                 </tbody>
             </table>

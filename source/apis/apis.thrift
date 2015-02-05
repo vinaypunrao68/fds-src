@@ -47,7 +47,8 @@ enum ErrorCode {
      BAD_REQUEST,
      RESOURCE_ALREADY_EXISTS,
      RESOURCE_NOT_EMPTY,
-     SERVICE_NOT_READY
+     SERVICE_NOT_READY,
+     SERVICE_SHUTTING_DOWN
 }
 
 exception ApiException {
@@ -69,8 +70,9 @@ service AmService {
 	void attachVolume(1: string domainName, 2:string volumeName)
              throws (1: ApiException e),
 
-        list<BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count, 4:i64 offset)
-             throws (1: ApiException e),
+        list<BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count,
+            4:i64 offset, 5:string pattern, 6:common.BlobListOrder orderBy, 7:bool descending)
+            throws (1: ApiException e),
 
        BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
              throws (1: ApiException e),
@@ -114,7 +116,8 @@ service AsyncAmServiceRequest {
 	       3:string volumeName),
 
         oneway void volumeContents(1:RequestId requestId, 2:string domainName, 
-	       3:string volumeName, 4:i32 count, 5:i64 offset),
+	       3:string volumeName, 4:i32 count, 5:i64 offset, 6:string pattern,
+           7:common.BlobListOrder orderBy, 8:bool descending),
 
 	oneway void statBlob(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName),

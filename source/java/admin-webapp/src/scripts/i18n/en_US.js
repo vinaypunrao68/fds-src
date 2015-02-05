@@ -25,6 +25,8 @@ var en_US = {
         l_no: 'No',
         l_none: 'None',
         l_ok: 'OK',
+        l_on: 'On',
+        l_off: 'Off',
         l_required: 'Required',
         l_save: 'Save',
         l_search: 'Search',
@@ -34,6 +36,7 @@ var en_US = {
         th_data_type: 'Data Type',
         th_name: 'Name',
         th_application: 'Application',
+        th_remove: 'Remove',
         th_tenant: 'Tenant',
         
         //time labels
@@ -301,7 +304,7 @@ var en_US = {
     },
     system: {
         title: 'System',
-        l_add_node: 'Add a Node',
+        l_add_node: 'Add Node',
         l_nodes: 'Nodes',
         th_am: 'AM',
         th_dm: 'DM',
@@ -312,13 +315,19 @@ var en_US = {
         th_site: 'Site',
         th_sm: 'SM',
         th_pm: 'PM',
+        th_ip_address: 'IP Address',
         
         tt_node_name: 'Name of the node',
         tt_am: 'Access manager status',
         tt_dm: 'Data manager status',
         tt_om: 'Orchestration manager status',
         tt_pm: 'Platform status',
-        tt_sm: 'Storage manager status'
+        tt_sm: 'Storage manager status',
+        tt_ip_address: 'The IP address for the discovered node',
+        tt_remove: 'Button to remove the selected node from the system',
+        
+        desc_remove_node: 'Are you sure you want to remove this node from the system?',
+        desc_node_removed: 'Node was removed successfully.'
     },
     tenants: {
         title: 'Tenants',

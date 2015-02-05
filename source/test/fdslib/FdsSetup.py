@@ -3,6 +3,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 #
 import os, errno, sys, pwd
+sys.path.append("/opt/fds-deps/embedded/lib/python2.7/site-packages")
 import logging
 import subprocess
 import shlex
@@ -59,8 +60,9 @@ class FdsEnv(object):
 
         self.env_ldLibPath = ("export LD_LIBRARY_PATH=" +
                               self.get_fds_root() + 'lib:'
-                              '/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64; '
-                              'export PATH=$PATH:' + self.get_fds_root() + 'bin; ')
+                              '/usr/local/lib:/opt/fds-deps/embedded/jre/lib/amd64:'
+                              '/opt/fds-deps/embedded/lib; '
+                              'export PATH=/opt/fds-deps/embedded/jre/bin:/opt/fds-deps/embedded/bin:$PATH:' + self.get_fds_root() + 'bin; ')
 
         # Try to determine an FDS source directory if specified as empty.
         if self.env_fdsSrc == "":
@@ -237,6 +239,8 @@ class FdsLocalEnv(FdsEnv):
 
         p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+        # Probably p.communicate() is forcing a wait for the process to complete
+        # regardless of wait_compl's setting.
         if cmd_input is not None:
             # Watch for a sudo password of "dummy". In that case we'll assume that the environment
             # will not request a password for sudo and so execute the command without providing it
@@ -250,6 +254,8 @@ class FdsLocalEnv(FdsEnv):
 
         if wait_compl:
             p.wait()
+        else:
+            log.info("Not waiting.")
 
         status = p.returncode
 
@@ -295,8 +301,8 @@ class FdsLocalEnv(FdsEnv):
     # Execute command and wait for result. We'll also log
     # output in this case.
     #
-    def exec_wait(self, cmd, return_stdin=False, cmd_input=None):
-        return self.local_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True):
+        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=False, output=True, return_stdin=return_stdin,
                                cmd_input=cmd_input)
 
     def local_close(self):

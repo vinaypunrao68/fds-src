@@ -18,7 +18,6 @@
 #include "util/Log.h"
 #include "StorMgrVolumes.h"
 #include "persistent-layer/dm_io.h"
-#include "fds_migration.h"
 #include "hash/md5.h"
 
 #include "fds_qos.h"
@@ -43,7 +42,6 @@
 #include "platform/typedefs.h"
 
 // #include "NetSession.h"
-#include "kvstore/tokenstatedb.h"
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>
@@ -111,41 +109,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
      netDataPathServerSession *datapath_session_;
 
-     /** Cluster communication manager */
-     ClusterCommMgrPtr clust_comm_mgr_;
-
-     /** Migrations related */
-     FdsMigrationSvcPtr migrationSvc_;
-
-     /** Token state db */
-     kvstore::TokenStateDBPtr tokenStateDb_;
-
-
-     /* To indicate whether tokens were migrated or not for the dlt. Based on this
-      * flag we simulate sync/io close notification to OM.  We shouldn't need this
-      * flag once we start doing per token copy/syncs
-      */
-     bool tok_migrated_for_dlt_;
-
      /** Helper for accessing datapth response client */
      DPRespClientPtr fdspDataPathClient(const std::string& session_uuid);
-
-     /*
-      * Service UUID to Session UUID mapping stuff. Used to support
-      * proxying where SM doesn't know the session UUID because it
-      * was proxyed from another node. We can use service UUID instead.
-      */
-     typedef std::string SessionUuid;
-     typedef std::unordered_map<NodeUuid, SessionUuid, UuidHash> SvcToSessMap;
-     /** Maps service UUIDs to established session id */
-     SvcToSessMap svcSessMap;
-     /** Protects the service to session map */
-     fds_rwlock svcSessLock;
-     /** Stores mapping from service uuid to session uuid */
-     void addSvcMap(const NodeUuid    &svcUuid,
-                    const SessionUuid &sessUuid);
-     SessionUuid getSvcSess(const NodeUuid &svcUuid);
-
      NodeAgentDpClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
 
      /*
@@ -221,12 +186,19 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
      SysParams *sysParams;
 
+     /**
+      * should be just enough to make sure system task makes progress
+      */
      inline fds_uint32_t getSysTaskIopsMin() {
-         return totalRate/10;  // 10% of total rate
+         return 10;
      }
 
+     /**
+      * We should not care about max iops -- if there is no other work
+      * in SM, we should be ok to take all available bandwidth
+      */
      inline fds_uint32_t getSysTaskIopsMax() {
-         return totalRate/5;  // 20% of total rate
+         return 0;
      }
 
      inline fds_uint32_t getSysTaskPri() {
@@ -324,19 +296,35 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void sampleSMStats(fds_uint64_t timestamp);
 
+     struct always_call {
+         using C = std::function<void()>;
+         always_call() = delete;
+         explicit always_call(C const& call) :
+             c(call)
+         {}
+         always_call(always_call const& rhs) = default;
+         always_call& operator=(always_call const& rhs) = default;
+         ~always_call()
+         { c(); }
+         C c;
+     };
+
+     always_call
+     getTokenLock(ObjectID const& id, bool exclusive = false)
+     {
+         fds_uint32_t b_p_t = getDLT()->getNumBitsForToken();
+         return getTokenLock(SmDiskMap::smTokenId(id, b_p_t), exclusive);
+     }
+
+     always_call
+     getTokenLock(fds_token_id const& id, bool exclusive = false);
+
      Error getObjectInternal(SmIoGetObjectReq *getReq);
      Error putObjectInternal(SmIoPutObjectReq* putReq);
      Error deleteObjectInternal(SmIoDeleteObjectReq* delReq);
      Error addObjectRefInternal(SmIoAddObjRefReq* addRefReq);
 
-     void putTokenObjectsInternal(SmIoReq* ioReq);
-     void getTokenObjectsInternal(SmIoReq* ioReq);
      void snapshotTokenInternal(SmIoReq* ioReq);
-     void applySyncMetadataInternal(SmIoReq* ioReq);
-     void resolveSyncEntryInternal(SmIoReq* ioReq);
-     void applyObjectDataInternal(SmIoReq* ioReq);
-     void readObjectDataInternal(SmIoReq* ioReq);
-     void readObjectMetadataInternal(SmIoReq* ioReq);
      void compactObjectsInternal(SmIoReq* ioReq);
      void moveTierObjectsInternal(SmIoReq* ioReq);
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
@@ -344,28 +332,16 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      void handleDltUpdate();
 
-     static void nodeEventOmHandler(int node_id,
-                                    unsigned int node_ip_addr,
-                                    int node_state,
-                                    fds_uint32_t node_port,
-                                    FDS_ProtocolInterface::FDSP_MgrIdType node_type);
      static Error volEventOmHandler(fds::fds_volid_t volume_id,
                                     fds::VolumeDesc *vdb,
                                     int vol_action,
                                     FDSP_NotifyVolFlag vol_flag,
                                     FDSP_ResultType resut);
-     static void migrationEventOmHandler(bool dlt_type);
-     static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
-                                      const std::string& session_uuid);
-     void migrationSvcResponseCb(const Error& err, const MigrationStatus& status);
 
      virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();
-     TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
-     TVIRTUAL kvstore::TokenStateDBPtr getTokenStateDb();
-     TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId);
 
      Error putTokenObjects(const fds_token_id &token,
                            FDSP_MigrateObjectList &obj_list);
@@ -440,8 +416,6 @@ class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
      }
 
      /* user defined methods */
-     void GetObjectMetadataCb(const Error &e, SmIoReadObjectMetadata *read_data);
-
      void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
                                  const FDSP_MsgHdrType& fdsp_msg) {
          // Don't do anything here. This stub is just to keep cpp compiler happy

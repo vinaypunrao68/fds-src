@@ -1,5 +1,5 @@
 name "parted"
-default_version "3.2"
+default_version "2.3"
 
 dependency "libiconv"
 dependency "readline"
@@ -8,6 +8,10 @@ dependency "lvm"
 dependency "util-linux"
 dependency "pcre"
 dependency "ncurses"
+
+version "2.3" do
+  source md5: "01d93eaaa3f290a17dd9d5dbfc7bb927"
+end
 
 version "3.2" do
   source md5: "0247b6a7b314f8edeb618159fa95f9cb"
@@ -24,7 +28,8 @@ build do
   command "./configure" \
           " --prefix=#{install_dir}/embedded", env: env
 
+  command "sed -i -e '/gets is a security/d' lib/stdio.in.h"
+
   make "-j #{workers}", env: env
-#env: { 'CFLAGS' => "-I#{install_dir}/embedded/include -liconv", 'CXXFLAGS' => "-I#{install_dir}/embedded/include -liconv"}
   make "install", env: env
 end

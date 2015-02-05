@@ -33,14 +33,14 @@ function deploy_to_artifactory () {
 }
 
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
-fds_platform_dir=${script_dir}/../source/tools/install/pkg
-
+fds_platform_dir=${script_dir}/../omnibus/omnibus-fds-platform/pkg
 pkgs_to_deploy=(
     fds-platform
 )
 
 
-fds_package_pattern='(fds-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]-[[:digit:]]+.deb)'
+fds_package_pattern='(fds-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]~nightly~(debug|release)-[[:alnum:]]+_amd64.deb)'
+# ${BUILD_TYPE} should be "debug" or "release" and is provided by Jenkins
 cd ${fds_platform_dir}
 
 for pkg in ${pkgs_to_deploy[@]}

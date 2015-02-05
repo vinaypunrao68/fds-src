@@ -83,6 +83,16 @@ void SMChk::list_metadata() {
     }
 }
 
+void SMChk::list_active_metadata() {
+    MetadataIterator md_iter(this);
+    for (md_iter.start(); !md_iter.end(); md_iter.next()) {
+        boost::shared_ptr<ObjMetaData> omd = md_iter.value();
+        if (omd->getRefCnt() > 0L) {
+            std::cout << *(md_iter.value()) << "\n";
+        }
+    }
+}
+
 int SMChk::bytes_reclaimable() {
     int bytes = 0;
     MetadataIterator md_it(this);
@@ -187,7 +197,12 @@ bool SMChk::full_consistency_check() {
         objs_count++;
         // omd will auto delete when it goes out of scope
     }
+
     GLOGNORMAL << objs_count << " objects checked, " << error_count << " errors were found.\n";
+
+    // For convenience, tests will look at stdout.
+    std::cout << objs_count << " objects checked, " << error_count << " errors were found." << std::endl;
+
     if (error_count > 0) {
         GLOGNORMAL << "WARNING: " << error_count << " errors were found. "
                 << objs_count << " objects were checked. \n";

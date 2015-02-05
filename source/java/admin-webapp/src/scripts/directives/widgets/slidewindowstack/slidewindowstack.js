@@ -19,7 +19,7 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
                 
                 if ( (!angular.isDefined( $scope.totalHeight ) || $scope.totalHeight === null || $scope.totalHeight === 0) &&
                    !angular.isDefined( checkBack ) ){
-                    checkBack = $interval( setTotalHeight, 100 );
+                    checkBack = $interval( setTotalHeight, 1000 );
                 }
                 else {
                     $interval.cancel( checkBack );

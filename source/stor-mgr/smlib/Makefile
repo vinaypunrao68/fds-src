@@ -22,14 +22,15 @@ user_cpp          :=                   \
     ObjStats.cpp                       \
     TierMigration.cpp                  \
     TierEngine.cpp                     \
+    HybridTierCtrlr.cpp		       \
     ObjMeta.cpp                        \
-    SmObjDb.cpp                        \
     SMSvcHandler.cpp                   \
     MockSMCallbacks.cpp                \
     TokenMigrationMgr.cpp              \
-	MigrationExecutor.cpp 			   \
-	MigrationClient.cpp 			   \
-	MigrationUtility.cpp 			   
+    MigrationExecutor.cpp              \
+    MigrationClient.cpp                \
+    MigrationUtility.cpp               \
+    MigrationTools.cpp
 
 user_ar_libs      := fds-smlib
 fds-smlib         := $(user_cpp)

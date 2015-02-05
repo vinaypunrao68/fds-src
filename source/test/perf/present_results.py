@@ -171,9 +171,6 @@ git version: %s\n\
 System: Xeon 1S 6-core HT, 32GB DRAM, 1GigE, 12HDD, 2SSDs \n\
 ---\n\
 " % (gitbranch, hostname, githead)
-#    epilogue = "\
-#Data uploaded to Influxdb @ 10.1.10.222:8083 - login guest - guest - database: perf\n\
-#Confluence: https://formationds.atlassian.net/wiki/display/ENG/InfluxDB+for+Performance"
     epilogue = "\n"
     text = "Results:\n"
     table = []

@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', '$authorization', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element, $authorization ){
+angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', '$authorization', '$timeout', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element, $authorization, $timeout ){
     
     $scope.searchText = '';
     $scope.sortPredicate = '';
@@ -140,6 +140,10 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
     $scope.$on( 'fds::authentication_logout', function(){
         $scope.volumes = [];
     });
+    
+    $scope.$on( 'fds::authentication_success', function(){
+        $timeout( $state.reload );
+    });
 
     $scope.$watch( function(){ return $volume_api.volumes; }, function(){
 
@@ -160,5 +164,4 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
 
     $scope.isAllowed = $authorization.isAllowed;
     $volume_api.refresh();
-
 }]);

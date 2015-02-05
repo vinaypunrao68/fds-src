@@ -3,9 +3,12 @@ import  fdslib.pyfdsp.apis as apis
 from apis import ttypes
 from apis.ttypes import ApiException
 from common.ttypes import ResourceState
+from platformservice import *
 
 import md5
 import os
+import FdspUtils 
+
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
@@ -119,6 +122,46 @@ class VolumeContext(Context):
         return 'delete volume failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('volname', help='-volume name')
+    @arg('pattern', help='-blob name pattern for search', nargs='?', default='')
+    @arg('count', help= "-max number for results", nargs='?' , type=long, default=1000)
+    @arg('startpos', help= "-starting index of the blob list", nargs='?' , type=long, default=0)
+    @arg('orderby', help= "-order by BLOBNAME or BLOBSIZE", nargs='?', default='UNSPECIFIED')
+    @arg('descending', help="-display in descending order", nargs='?')
+    def listblobs(self, volname, pattern, count, startpos, orderby, descending):
+        try:
+            dmClient = self.config.platform;
+
+            dmUuids = dmClient.svcMap.svcUuids('dm')
+            volId = dmClient.svcMap.omConfig().getVolumeId(volname)
+
+            getblobmsg = FdspUtils.newGetBucketMsg(volId, startpos, count);
+            getblobmsg.pattern = pattern;
+            if orderby == 'BLOBNAME':
+                getblobmsg.orderBy = 1;
+            elif orderby == 'BLOBSIZE':
+                getblobmsg.orderBy = 2;
+            else:
+                getblobmsg.orderBy = 0;
+            getblobmsg.descending = descending;
+            listcb = WaitedCallback();
+            dmClient.sendAsyncSvcReq(dmUuids[0], getblobmsg, listcb)
+
+            if not listcb.wait():
+                print 'async listblob request failed'
+
+            #import pdb; pdb.set_trace()
+            blobs = listcb.payload.blob_info_list;
+            # blobs.sort(key=attrgetter('blob_name'))
+            return tabulate([(x.blob_name, x.blob_size) for x in blobs],headers=
+                 ['blobname', 'blobsize'], tablefmt=self.config.getTableFormat())
+
+        except Exception, e:
+            log.exception(e)
+            return 'unable to get volume meta list'
+
+    #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('value', help='value' , nargs='?')
     def put(self, vol_name, key, value):
@@ -155,6 +198,40 @@ class VolumeContext(Context):
             return 'put {} failed on volume: {}'.format(key, vol_name)
 
 
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('cnt', help= "count of objs to get", type=long, default=100)
+    def bulkget(self, vol_name, cnt):
+        '''
+        Does bulk gets.
+        TODO: Make it do random gets as well
+        '''
+        b = self.s3api.get_bucket(vol_name)
+        i = 0
+        while i < cnt:
+            for key in b.list():
+                print "Getting object#: {}".format(i)
+                print self.get(vol_name, key.name.encode('ascii','ignore'))
+                i = i + 1
+                if i >= cnt:
+                    break
+        return 'Done!'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('cnt', help= "count of objs to put", type=long, default=100)
+    @arg('seed', help= "count of objs to put", default='seed')
+    def bulkput(self, vol_name, cnt, seed):
+        '''
+        Does bulk put
+        TODO: Make it do random put as well
+        '''
+        for i in xrange(0, cnt):
+            k = "key_{}_{}".format(seed, i)
+            v = "value_{}_{}".format(seed, i)
+            print "Putting object#: {}".format(i)
+            print self.put(vol_name, k, v)
+        return 'Done!'
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     def get(self, vol_name, key):
@@ -204,3 +281,4 @@ class VolumeContext(Context):
         except Exception, e:
             log.exception(e)
             return 'get {} failed on volume: {}'.format(key, vol_name)
+

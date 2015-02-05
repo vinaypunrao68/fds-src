@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-#include "AmAsyncDataApi.cxx"
+#include "AmAsyncDataApi_impl.h"
 
 namespace fds {
 

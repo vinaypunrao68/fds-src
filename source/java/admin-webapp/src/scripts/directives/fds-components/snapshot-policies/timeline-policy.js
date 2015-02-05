@@ -71,7 +71,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     end: 24,
                     segments: 1,
                     width: 5,
-                    min: 24,
+                    min: 1,
                     selectable: false
                 },
                 //1
@@ -202,7 +202,10 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             var setSliderValue = function( slider, days ){
                 
                 // years
-                if ( days >= 366 ){
+                if ( days < 1 ){
+                    slider.value = { value: Math.round( 24*days ), range: 0 };
+                }
+                else if ( days >= 366 ){
                     slider.value = { value: Math.round( days / 366 ), range: 4 };
                 }
                 // months
@@ -221,6 +224,23 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                 }
             };
             
+            var convertRangeSelectionToSeconds = function( slider ){
+                    switch( slider.value.range ){
+                        case 0:
+                            return slider.value.value * 60*60;
+                        case 1:
+                            return slider.value.value * 24*60*60;
+                        case 2:
+                            return slider.value.value * 7 * 24*60*60;
+                        case 3:
+                            return slider.value.value * 24*60*60;
+                        case 4:
+                            return slider.value.value * 366*24*60*60;
+                        default:
+                            return 0;
+                    }
+            };
+            
             var buildPolicies = function(){
                 
                 var policies = [];
@@ -231,24 +251,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     
                     policy.name = slider.policyName;
                     policy.id = slider.policyId;
-                    
-                    // find retention
-                    switch( slider.value.range ){
-                        case 1:
-                            policy.retention = slider.value.value * 24*60*60;
-                            break;
-                        case 2:
-                            policy.retention = slider.value.value * 7 * 24*60*60;
-                            break;
-                        case 3:
-                            policy.retention = slider.value.value * 24*60*60;
-                            break;
-                        case 4:
-                            policy.retention = slider.value.value * 366*24*60*60;
-                            break;
-                        default:
-                            policy.retention = 0;
-                    }
+                    policy.retention = convertRangeSelectionToSeconds( slider );
                     
                     // set the frequency
                     switch( i ){
@@ -394,7 +397,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     watcher();
                 }
                 
-                $scope.timelinePolicies.continuous = $scope.sliders[0].value.value * 60*60*24;
+                $scope.timelinePolicies.continuous = convertRangeSelectionToSeconds( $scope.sliders[0] );
                 
                 $scope.timelinePolicies.policies = buildPolicies();
                 initWatcher();

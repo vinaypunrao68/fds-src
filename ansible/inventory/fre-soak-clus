@@ -6,6 +6,8 @@ fre-clus-04 fds_node=node04
 
 [fre-soak-clus:vars]
 cluster_location=fre
+fds_build=release
+fds_log_severity=normal
 deploy_artifact=nightly
 fds_default_nic=em1
 fds_om_host=fre-clus-01

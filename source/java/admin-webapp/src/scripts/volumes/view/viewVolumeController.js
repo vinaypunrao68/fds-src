@@ -4,6 +4,8 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         return $filter( 'translate' )( key );
     };
     
+    $scope.disableTiering = true;
+    
     $scope.snapshots = [];
     $scope.snapshotPolicies = [];
     $scope.timelinePolicies = [];
@@ -298,7 +300,16 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.$on( 'fds::media_policy_changed', function(){
         
-        $scope.thisVolume.mediaPolicy = $scope.mediaPolicy.value;
+        
+        if ( angular.isString( $scope.mediaPolicy ) ){
+            $scope.thisVolume.mediaPolicy = $scope.mediaPolicy;
+        }
+        else if ( angular.isDefined( $scope.mediaPolicy.value ) ){
+            $scope.thisVolume.mediaPolicy = $scope.mediaPolicy.value;
+        }
+        else {
+            return;
+        }
         
         var temp = $scope.thisVolume;
         
