@@ -1425,5 +1425,47 @@ bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId
     return setSnapshotState(snapshot, state);
 }
 
+bool ConfigDB::createSvcMap(fpi::SvcInfo& svcinfo) {
+    TRACKMOD();
+    try {
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::deleteSvcMap(const int64_t svcId) {
+    TRACKMOD();
+    try {
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::listSvcMap(std::vector<fpi::SvcInfo> & vecSvcInfo, const int64_t svcId) {
+    try {
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::getSvcMap(fpi::SvcInfo& svcinfo) {
+    try {
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
 }  // namespace kvstore
 }  // namespace fds
