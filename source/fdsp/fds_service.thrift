@@ -1012,6 +1012,14 @@ service DMSvc extends PlatNetSvc {
 service AMSvc extends PlatNetSvc {
 }
 
+/**
+ * OM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ * message passing provided by BaseAsyncSvc
+ */
+service OMSvc extends PlatNetSvc {
+    void registerService(1: SvcInfo svcInfo);
+}
+
 
 /* Object + subset of MetaData to determine if either the object or
  * associated MetaData (subset) needs sync'ing.
