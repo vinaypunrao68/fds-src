@@ -4,7 +4,7 @@
 
 package com.formationds.commons.togglz.feature.flag;
 
-import com.formationds.commons.togglz.FdsFeatureManagerProvider;
+import com.formationds.commons.togglz.feature.FdsFeatureManagerProvider;
 import com.formationds.commons.togglz.feature.annotation.Activities;
 import com.formationds.commons.togglz.feature.annotation.Firebreak;
 import com.formationds.commons.togglz.feature.annotation.Snapshot;
