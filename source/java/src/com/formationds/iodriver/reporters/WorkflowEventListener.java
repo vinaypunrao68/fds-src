@@ -1,6 +1,7 @@
 package com.formationds.iodriver.reporters;
 
 import java.time.Instant;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -8,6 +9,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.patterns.Subject;
 import com.formationds.commons.util.Strings;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
@@ -39,6 +41,11 @@ public final class WorkflowEventListener
         }
     }
 
+    public final Subject<Void> finished;
+    public final Subject<Entry<String, Instant>> started;
+    public final Subject<Entry<String, Instant>> stopped;
+    public final Subject<Entry<String, VolumeQosSettings>> volumeAdded;
+
     public WorkflowEventListener()
     {
         this(new HashMap<>());
@@ -64,6 +71,11 @@ public final class WorkflowEventListener
             }
             _volumeOps.put(volumeName, new VolumeQosStats(value));
         }
+
+        finished = new Subject<>();
+        started = new Subject<>();
+        stopped = new Subject<>();
+        volumeAdded = new Subject<>();
     }
 
     public void addVolume(String name, VolumeQosSettings params)
@@ -77,8 +89,23 @@ public final class WorkflowEventListener
         }
 
         _volumeOps.put(name, new VolumeQosStats(params));
+        
+        volumeAdded.send(new SimpleEntry<>(name, params));
     }
 
+    public void finished()
+    {
+        for (VolumeQosStats volumeStats : _volumeOps.values())
+        {
+            if (!volumeStats.performance.isStopped())
+            {
+                throw new IllegalStateException("Not all operations have finished!");
+            }
+        }
+        
+        
+    }
+    
     public Instant getStart(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
@@ -90,12 +117,12 @@ public final class WorkflowEventListener
     public VolumeQosStats getStats(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
-        
+
         VolumeQosStats stats = getStatsInternal(volume);
-        
+
         return stats.copy();
     }
-    
+
     public Instant getStop(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
@@ -103,7 +130,7 @@ public final class WorkflowEventListener
         VolumeQosStats stats = getStatsInternal(volume);
         return stats.performance.getStop();
     }
-    
+
     public Set<String> getVolumes()
     {
         return new HashSet<>(_volumeOps.keySet());
@@ -122,7 +149,9 @@ public final class WorkflowEventListener
         if (volume == null) throw new NullArgumentException("volume");
 
         VolumeQosStats stats = getStatsInternal(volume);
-        stats.performance.startNow();
+        Instant start = stats.performance.startNow();
+        
+        started.send(new SimpleEntry<>(volume, start));
     }
 
     public void reportStop(String volume)
@@ -130,7 +159,9 @@ public final class WorkflowEventListener
         if (volume == null) throw new NullArgumentException("volume");
 
         VolumeQosStats stats = getStatsInternal(volume);
-        stats.performance.stopNow();
+        Instant stop = stats.performance.stopNow();
+        
+        stopped.send(new SimpleEntry<>(volume, stop));
     }
 
     private final Map<String, VolumeQosStats> _volumeOps;

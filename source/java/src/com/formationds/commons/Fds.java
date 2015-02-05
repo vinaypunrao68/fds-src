@@ -170,6 +170,13 @@ public final class Fds
     // consumers, it becomes more difficult to observe, predict, or have any control.
     public static final class Random
     {
+        public static void nextBytes(byte[] bytes)
+        {
+            if (bytes == null) throw new NullArgumentException("bytes");
+            
+            _random.nextBytes(bytes);
+        }
+        
         public static int nextInt(int minInclusive, int maxExclusive)
         {
             if (minInclusive < 0)
@@ -185,7 +192,7 @@ public final class Fds
 
             return minInclusive + nextInt(maxExclusive - minInclusive);
         }
-
+        
         public static int nextInt(int bound)
         {
             return _random.nextInt(bound);
@@ -201,6 +208,28 @@ public final class Fds
         static
         {
             _random = new java.util.Random();
+        }
+    }
+    
+    public static final class SecureRandom
+    {
+        public static void nextBytes(byte[] bytes)
+        {
+            if (bytes == null) throw new NullArgumentException("bytes");
+            
+            _secureRandom.nextBytes(bytes);
+        }
+        
+        private static final java.security.SecureRandom _secureRandom;
+        
+        private SecureRandom()
+        {
+            throw new UnsupportedOperationException("Instantiating a utility class.");
+        }
+
+        static
+        {
+            _secureRandom = new java.security.SecureRandom();
         }
     }
 

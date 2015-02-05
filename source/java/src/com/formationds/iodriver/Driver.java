@@ -81,14 +81,16 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>, WorkloadT ex
     public void runWorkload() throws ExecutionException
     {
         ensureSetUp();
+        WorkflowEventListener listener = getListener();
         try
         {
-            getWorkload().runOn(getEndpoint(), getListener());
+            getWorkload().runOn(getEndpoint(), listener);
         }
         finally
         {
             ensureTearDown();
         }
+        listener.finished();
     }
 
     private final EndpointT _endpoint;

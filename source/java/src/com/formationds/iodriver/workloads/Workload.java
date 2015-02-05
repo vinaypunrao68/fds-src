@@ -24,7 +24,10 @@ import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
-public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>, OperationT extends Operation<OperationT, EndpointT>>
+// @eclipseFormat:off
+public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
+                      OperationT extends Operation<OperationT, EndpointT>>
+// @eclipseFormat:on
 {
     public Workload()
     {}
