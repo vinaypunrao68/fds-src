@@ -44,6 +44,17 @@ angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_f
     
     service.getActivities = function( filter, callback ){
         
+        // if no ordering info is there, use this as the default
+        if ( !angular.isDefined( filter.orderBys ) ){
+            
+            filter.orderBys = [
+                {
+                    fieldName: 'initialTimestamp', 
+                    ascending: false
+                }
+            ];
+        }
+        
         return $http_fds.put( '/api/config/events', filter, callback );
     };
     

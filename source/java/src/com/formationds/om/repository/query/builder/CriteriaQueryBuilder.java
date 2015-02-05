@@ -310,8 +310,8 @@ public class CriteriaQueryBuilder<T> {
         
         // setting the default ordering if none was specified
         if ( getOrderPrecedence().isEmpty() ) {
-        	criteriaQuery = cq.orderBy( cb.asc( from.get( getContextName() ) ), 
-        								cb.asc( from.get( getTimestampField() ) ) );
+        	criteriaQuery = cq.orderBy( cb.asc( from.get( getTimestampField() ) ), 
+        								cb.asc( from.get( getContextName() ) ) );
         }
         // otherwise we use the list of specified order precedence
         else {

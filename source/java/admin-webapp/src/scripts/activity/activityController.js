@@ -1,7 +1,7 @@
 angular.module( 'activity-management' ).controller( 'activityController', ['$scope', '$activity_service', '$authorization', '$time_converter', function( $scope, $activity_service, $authorization, $time_converter ){
 
     $scope.activities = [];
-    $scope.filter = {points: 50, orderBy: { fieldName: 'initialTimestamp', ascending: false }};
+    $scope.filter = {points: 50};
 
     $scope.getActivities = function( filter, callback ){
         $activity_service.getActivities( filter, callback );
