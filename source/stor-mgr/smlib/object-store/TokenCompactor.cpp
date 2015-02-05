@@ -307,10 +307,10 @@ void TokenCompactor::objsCompactedCb(const Error& error,
     total_done = done_before + work_objs_done;
     fds_verify(total_done <= total_objs);
 
-    LOGNORMAL << "Finished compaction of " << work_objs_done << " objects"
-              << ", done so far " << total_done << " out of " << total_objs
-              << " (tok " << token_id << " tier " << (fds_uint16_t)cur_tier
-              << " disk_id " << cur_disk_id;
+    LOGDEBUG << "Finished compaction of " << work_objs_done << " objects"
+             << ", done so far " << total_done << " out of " << total_objs
+             << " (tok " << token_id << " tier " << (fds_uint16_t)cur_tier
+             << " disk_id " << cur_disk_id;
 
     if (total_done == total_objs) {
         // we are done!
