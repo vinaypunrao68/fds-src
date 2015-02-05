@@ -215,6 +215,7 @@ class FdsNodeConfig(FdsConfig):
                                              port))
             os.chdir(cur_dir)
         else:
+            self.nd_agent.exec_wait('bash -c \"(rm -rf /dev/shm/0x*)\"')
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
                                             ' > %s/pm.out' % log_dir)
         time.sleep(4)
