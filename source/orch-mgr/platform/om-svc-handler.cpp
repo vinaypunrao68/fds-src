@@ -234,14 +234,28 @@ OmSvcHandler::    GetSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     LOGDEBUG << " received " << hdr->msg_code
              << " from:" << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
 
-    // get the  serice map from config DB.
+    fpi::GetSvcMapRespMsgPtr respMsg(new fpi::GetSvcMapRespMsg());
+    boost::shared_ptr<int32_t> nullarg;
+    getSvcMap(respMsg->svcMap, nullarg);
 
-    // Send the response.
-    fpi::GetSvcMapRespMsg msg(new fpi::GetSvcMapRespMsg());
     // init the Resp message with the service map
-    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *msg);
+    hdr->msg_code = 0;
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
 
+}
+
+void OmSvcHandler::registerService(boost::shared_ptr<SvcInfo>& svcInfo)
+{
+    // TODO(Sanjay): Impl
+    fds_panic("Unimpl");
+}
+
+void OmSvcHandler::getSvcMap(std::vector<SvcInfo> & _return,
+                             boost::shared_ptr<int32_t>& nullarg)
+{
+    // TODO(Sanjay): Impl
+    // get the  serice map from config DB.
+    fds_panic("Unimpl");
 }
 
 }  //  namespace fds
