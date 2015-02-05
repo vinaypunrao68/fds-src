@@ -58,7 +58,6 @@
         - python2.7
         - python-dev
         - python-pip
-        - python-boto
         - libpcre3-dev
         - libpcre3
         - libssl-dev
@@ -95,7 +94,6 @@
         - python-paramiko
         - python-redis
         - python-requests
-        - python-boto
         - python-argh
         - python-thrift
         - fds-pkghelper
@@ -124,6 +122,7 @@
         - httplib2
         - docker-py
         - psutil
+        - "boto==2.28.0"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
