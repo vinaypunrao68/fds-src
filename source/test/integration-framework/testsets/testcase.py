@@ -27,7 +27,7 @@ class FDSTestCase(unittest.TestCase):
                               config.TEST_DEBUG)
 
     def __init__(self, parameters=None, config_file=None, test_failure=False,
-                 om_ip_address=None):
+                 om_ip_address=None, **kwargs):
         """
         When run by a qaautotest module test runner,
         this method provides the test fixture allocation.
@@ -44,6 +44,7 @@ class FDSTestCase(unittest.TestCase):
         self.test_failure = test_failure
         self.config = {}
         self.om_ip_address = om_ip_address
+        self.args = kwargs
 
         #Get the user token
         auth_token = str(utils.get_user_token(config.FDS_DEFAULT_ADMIN_USER,
