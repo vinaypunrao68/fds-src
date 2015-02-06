@@ -7,7 +7,7 @@
 [system-nodes:vars]
 ansible_ssh_user=ubuntu
 ansible_ssh_pass=ubuntu
-cluster_location=fre
+cluster_location=bld
 deploy_artifact=nightly
 fds_default_nic=eth0
 fds_om_host=10.2.10.200
