@@ -4,13 +4,13 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.codec.binary.Hex;
-import org.eclipse.jetty.server.Request;
 
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MultiPartUploadComplete implements RequestHandler {
+public class MultiPartUploadComplete implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -73,14 +73,14 @@ public class MultiPartUploadComplete implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucket = requiredString(routeParameters, "bucket");
-        String objectName = requiredString(routeParameters, "object");
-        String uploadId = request.getQueryParameters().getString("uploadId");
+    public Resource handle(HttpContext ctx) throws Exception {
+        String bucket = ctx.getRouteParameter("bucket");
+        String objectName = ctx.getRouteParameter("object");
+        String uploadId = ctx.getQueryString().get("uploadId").getFirst();
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
 
         //TODO: verify etag map
-        Map<Integer,String> etagMap = deserializeEtagMap(request.getInputStream());
+        Map<Integer, String> etagMap = deserializeEtagMap(ctx.getInputStream());
 
         // TODO: do this read asynchronously
         List<PartInfo> partInfoList = mops.getParts();
@@ -105,7 +105,7 @@ public class MultiPartUploadComplete implements RequestHandler {
 
         XmlElement response = new XmlElement("CompleteMultipartUploadResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")
-                .withValueElt("Location", "http://" + request.getServerName() + ":8000/" + bucket + "/" + objectName) // TODO: get real URI
+                .withValueElt("Location", "http://localhost:8000/" + bucket + "/" + objectName) // TODO: get real URI
                 .withValueElt("Bucket", bucket)
                 .withValueElt("Key", objectName)
                 .withValueElt("ETag", "\"" + Hex.encodeHexString(digest) + "\"");

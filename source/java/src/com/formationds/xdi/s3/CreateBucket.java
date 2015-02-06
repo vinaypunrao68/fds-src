@@ -7,16 +7,13 @@ import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 
-import org.eclipse.jetty.server.Request;
-
-import java.util.Map;
-
-public class CreateBucket implements RequestHandler {
+public class CreateBucket implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -26,8 +23,8 @@ public class CreateBucket implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucketName = requiredString(routeParameters, "bucket");
+    public Resource handle(HttpContext context) throws Exception {
+        String bucketName = context.getRouteParameter("bucket");
         long tenantId = xdi.getAuthorizer().tenantId(token);
         xdi.createVolume(token, S3Endpoint.FDS_S3, bucketName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, tenantId, 0, MediaPolicy.HDD_ONLY));
         return new TextResource("");

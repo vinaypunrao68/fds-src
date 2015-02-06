@@ -5,15 +5,15 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.apache.commons.codec.binary.Hex;
-import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -22,7 +22,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PutObject implements RequestHandler {
+public class PutObject implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -32,29 +32,29 @@ public class PutObject implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+    public Resource handle(HttpContext context) throws Exception {
         String domain  = S3Endpoint.FDS_S3;
-        String bucketName = requiredString(routeParameters, "bucket");
-        String objectName = requiredString(routeParameters, "object");
+        String bucketName = context.getRouteParameter("bucket");
+        String objectName = context.getRouteParameter("object");
 
-        String copySource = request.getHeader(S3Endpoint.X_AMZ_COPY_SOURCE);
+        String copySource = context.getRequestHeader(S3Endpoint.X_AMZ_COPY_SOURCE);
 
         String contentType = S3Endpoint.S3_DEFAULT_CONTENT_TYPE;
-        if(request.getContentType() != null)
-            contentType = request.getContentType();
+        if (context.getRequestContentType() != null)
+            contentType = context.getRequestContentType();
 
-        InputStream str = request.getInputStream();
+        InputStream str = context.getInputStream();
 
-        String uploadId = request.getQueryParameters().getString("uploadId");
+        String uploadId = context.getQueryString().get("uploadId").getFirst();
 
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
-        map.putAll(S3UserMetadataUtility.requestUserMetadata(request));
+        map.putAll(S3UserMetadataUtility.requestUserMetadata(context));
 
         // handle multi part upload
         if(uploadId != null) {
             MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
-            int partNumber = Integer.parseInt(request.getQueryParameters().getString("partNumber"));
+            int partNumber = Integer.parseInt(context.getQueryString().get("partNumber").getFirst());
 
             if(partNumber < 0 || partNumber > 10000)
                 throw new Exception("invalid part number");
@@ -68,11 +68,11 @@ public class PutObject implements RequestHandler {
             byte[] digest = xdi.writeStream(token, domain, bucketName, objectName, str, map);
             return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
         } else {
-            return copy(request, domain, bucketName, objectName, copySource, map);
+            return copy(context, domain, bucketName, objectName, copySource, map);
         }
     }
 
-    private Resource copy(Request request, String targetDomain, String targetBucketName, String targetBlobName, String copySource, HashMap<String, String> metadataMap) throws Exception {
+    private Resource copy(HttpContext context, String targetDomain, String targetBucketName, String targetBlobName, String copySource, HashMap<String, String> metadataMap) throws Exception {
         String[] copySourceParts = copySource.replaceFirst("^/", "").split("/", 2);
         if(copySourceParts.length != 2)
             throw new Exception("invalid copy source");
@@ -81,7 +81,7 @@ public class PutObject implements RequestHandler {
         String copySourceObject = copySourceParts[1];
         BlobDescriptor copySourceStat = xdi.statBlob(token, S3Endpoint.FDS_S3, copySourceBucket, copySourceObject);
 
-        String metadataDirective = request.getHeader("x-amz-metadata-directive");
+        String metadataDirective = context.getRequestHeader("x-amz-metadata-directive");
         if(metadataDirective != null && metadataDirective.equals("COPY")) {
             metadataMap = new HashMap<>(copySourceStat.getMetadata());
 
@@ -90,8 +90,8 @@ public class PutObject implements RequestHandler {
         }
 
         String copySourceETag = normalizeETag(copySourceStat.getMetadata().getOrDefault("etag", null));
-        String matchETag = normalizeETag(request.getHeader("x-amz-copy-source-if-match"));
-        String notMatchETag = normalizeETag(request.getHeader("x-amz-copy-source-if-match"));
+        String matchETag = normalizeETag(context.getRequestHeader("x-amz-copy-source-if-match"));
+        String notMatchETag = normalizeETag(context.getRequestHeader("x-amz-copy-source-if-match"));
 
         DateTime lastModifiedTemp;
         try {

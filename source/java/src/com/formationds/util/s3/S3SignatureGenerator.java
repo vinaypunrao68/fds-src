@@ -4,10 +4,9 @@ package com.formationds.util.s3;
  */
 
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.http.HttpMethodName;
+import com.formationds.spike.later.HttpContext;
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
-import org.eclipse.jetty.server.Request;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -25,8 +24,8 @@ public class S3SignatureGenerator {
 
     public static final String AUTHORIZATION_HEADER = "Authorization";
 
-    public static String hash(Request request, AWSCredentials credentials) {
-        return hash(request.getMethod(), request.getRequestURI(), getNormalizedJettyHeaders(request), request.getQueryString(), credentials);
+    public static String hash(HttpContext context, AWSCredentials credentials) {
+        return hash(context.getRequestMethod(), context.getRequestURI(), getNormalizedHeaders(context), context.getQueryString(), credentials);
     }
 
     public static String hash(HttpRequest request, AWSCredentials credentials) {
@@ -37,15 +36,13 @@ public class S3SignatureGenerator {
         return hash(request.getRequestLine().getMethod(), request.getRequestLine().getUri(), headers, credentials);
     }
 
-    private static Map<String, List<String>> getNormalizedJettyHeaders(Request request) {
+    private static Map<String, List<String>> getNormalizedHeaders(HttpContext context) {
         Map<String, List<String>> headers = new HashMap<>();
-        Enumeration<String> headersEnum = request.getHeaderNames();
-        while(headersEnum.hasMoreElements()) {
-            String headerKey = headersEnum.nextElement();
+        Collection<String> headerNames = context.getRequestHeaderNames();
+        for (String headerKey : headerNames) {
             List<String> headerValue = new ArrayList<>();
-            Enumeration<String> headerValuesEnum = request.getHeaders(headerKey);
-            while(headerValuesEnum.hasMoreElements()) {
-                String value = headerValuesEnum.nextElement();
+            Collection<String> headerValuesEnum = context.getRequestHeaderValues(headerKey);
+            for (String value : headerValuesEnum) {
                 if(headerKey.equals("Content-Type")) {
                     // horrid hack because jetty actually messes with the content type header
                     value = value.toLowerCase();
@@ -66,13 +63,13 @@ public class S3SignatureGenerator {
         return hash(method, path, headers, parseQueryString(queryString), credentials);
     }
 
-    public static String hash(String method, String path, Map<String, List<String>> headers, Map<String, List<String>> queryParameters, AWSCredentials credentials) {
+    public static String hash(String method, String path, Map<String, List<String>> headers, Map<String, Deque<String>> queryParameters, AWSCredentials credentials) {
         String stringToSign = buildSignatureString(method, path, headers, queryParameters);
         String signature = HmacSHA1(stringToSign, credentials.getAWSSecretKey());
         return "AWS " + credentials.getAWSAccessKeyId() + ":" + signature;
     }
 
-    private static String buildSignatureString(String method, String path, Map<String, List<String>> headers, Map<String, List<String>> queryParameters) {
+    private static String buildSignatureString(String method, String path, Map<String, List<String>> headers, Map<String, Deque<String>> queryParameters) {
         StringBuilder stringToSign = new StringBuilder();
         stringToSign.append(method.toUpperCase());
         stringToSign.append("\n");
@@ -117,7 +114,7 @@ public class S3SignatureGenerator {
         }
     }
 
-    private static String assembleCanonicalizedResource(String path, Map<String, List<String>> queryParameters) {
+    private static String assembleCanonicalizedResource(String path, Map<String, Deque<String>> queryParameters) {
         String canonicalizedResource = "";
         // TODO: doesn't support host syntax
         canonicalizedResource += path;
@@ -126,7 +123,7 @@ public class S3SignatureGenerator {
             if(queryParameters.containsKey(subResource)) {
                 if(queryParameters.get(subResource).size() != 1)
                     throw new IllegalArgumentException("queryParameters contains subresource with two values");
-                String value = queryParameters.get(subResource).get(0);
+                String value = queryParameters.get(subResource).getFirst();
                 if(value == null || value.isEmpty())
                     value = null;
 
@@ -149,15 +146,15 @@ public class S3SignatureGenerator {
         return "";
     }
 
-    private static Map<String,List<String>> parseQueryString(String query) {
-        Map<String, List<String>> params = new HashMap<>();
+    private static Map<String, Deque<String>> parseQueryString(String query) {
+        Map<String, Deque<String>> params = new HashMap<>();
         if(query == null)
             return params;
 
         String[] segments = query.split("&");
         for(String segment : segments) {
             String parts[] = segment.split("=", 2);
-            List<String> values = params.computeIfAbsent(parts[0], s -> new ArrayList<String>());
+            Deque<String> values = params.computeIfAbsent(parts[0], s -> new LinkedList<String>());
             if(parts.length == 1) {
                 values.add(null);
             } else {

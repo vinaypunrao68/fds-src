@@ -7,19 +7,18 @@ import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-public class ListObjects implements RequestHandler {
+public class ListObjects implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -29,8 +28,8 @@ public class ListObjects implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucket = requiredString(routeParameters, "bucket");
+    public Resource handle(HttpContext ctx) throws Exception {
+        String bucket = ctx.getRouteParameter("bucket");
 
         // [FS-745] We must return 404 if the bucket doesn't exist, regardless of authentication status.
         // Amazon S3 treats the existence (or non-existence) of a bucket as a public resource.

@@ -7,7 +7,7 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.io.PrintWriter;
 import java.util.Random;
 
 public class UndertowTest {
@@ -26,13 +26,14 @@ public class UndertowTest {
         };
 
         Undertow server = Undertow.builder()
-                .addHttpListener(8000, "localhost")
+                .addHttpListener(8001, "localhost")
                 .setHandler(new HttpHandler() {
                     @Override
                     public void handleRequest(final HttpServerExchange exchange) throws Exception {
-                        Sender responseSender = exchange.getResponseSender();
-                        responseSender.send(ByteBuffer.wrap(bytes), callback);
-                        responseSender.close(callback);
+                        exchange.startBlocking();
+                        PrintWriter pw = new PrintWriter(exchange.getOutputStream());
+                        pw.println("Hello, world!");
+                        pw.close();
                     }
                 }).build();
         server.start();
