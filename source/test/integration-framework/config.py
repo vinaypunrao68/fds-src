@@ -59,6 +59,7 @@ NUMBER_USERS = 30
 SAMPLE_FILE = "test.txt"
 ROOT = "/root/"
 ANSIBLE_ROOT = "../../../ansible/"
+ANSIBLE_INVENTORY = "%s/inventory/" % ANSIBLE_ROOT
 EC2_TEMPLATE = "./templates/ec2"
 BAREMETAL_TEMPLATE = "./templates/integration-framework-cluster"
 VAULT_PASS = ".vault_pass.txt"
