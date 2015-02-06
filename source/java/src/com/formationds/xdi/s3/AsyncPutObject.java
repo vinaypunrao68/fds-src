@@ -42,7 +42,10 @@ public class AsyncPutObject implements Function<HttpContext, CompletableFuture<V
             return filterAccess(ctx, bucket, object)
                     .thenApply(metadata -> updateMetadata(ctx, metadata))
                     .thenCompose(metadata -> xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, inputStream))
-                    .thenAccept(result -> ctx.addResponseHeader("etag", formatEtag(Hex.encodeHexString(result.digest))));
+                    .thenAccept(result -> {
+                        String etagValue = formatEtag(Hex.encodeHexString(result.digest));
+                        ctx.addResponseHeader("ETag", etagValue);
+                    });
         } catch (Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);
         }

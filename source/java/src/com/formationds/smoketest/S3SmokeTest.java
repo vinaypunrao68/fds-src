@@ -384,6 +384,17 @@ public class S3SmokeTest {
         assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatusLine().getStatusCode());
     }
 
+
+    @Test
+    public void testFoo() throws Exception {
+        String url = "https://" + host + ":8443/";
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        S3SignatureGenerator.hash(httpGet, new BasicAWSCredentials("admin", adminToken));
+        HttpResponse response = httpClient.execute(httpGet);
+        assertEquals(403, response.getStatusLine().getStatusCode());
+    }
+
     @Test
     public void testForbiddenAnonymousListBuckets() throws Exception {
         String url = "https://" + host + ":8443/";

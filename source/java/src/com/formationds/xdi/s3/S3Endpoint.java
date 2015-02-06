@@ -7,11 +7,11 @@ import com.formationds.apis.ApiException;
 import com.formationds.apis.ErrorCode;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.spike.later.*;
-import com.formationds.web.toolkit.HttpConfiguration;
-import com.formationds.web.toolkit.HttpMethod;
-import com.formationds.web.toolkit.HttpsConfiguration;
-import com.formationds.web.toolkit.Resource;
+import com.formationds.spike.later.AsyncWebapp;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.HttpPath;
+import com.formationds.spike.later.SyncRequestHandler;
+import com.formationds.web.toolkit.*;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiAsync;
 import org.joda.time.DateTime;
@@ -104,17 +104,16 @@ public class S3Endpoint {
         CompletableFuture<Void> cf = function.apply(ctx);
         return cf.exceptionally(e -> {
             String requestUri = ctx.getRequestURI();
-            AsyncBridge asyncBridge = new AsyncBridge((context) -> {
-                if (e.getCause() instanceof SecurityException) {
-                    return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestUri);
-                } else if (e.getCause() instanceof ApiException && ((ApiException) e.getCause()).getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
-                    return new S3Failure(S3Failure.ErrorCode.NoSuchKey, "No such key", requestUri);
-                } else {
-                    LOG.error("Error executing " + ctx.getRequestMethod() + " " + requestUri, e);
-                    return new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", requestUri);
-                }
-            });
-            asyncBridge.apply(ctx);
+            Resource resource = new TextResource("");
+            if (e.getCause() instanceof SecurityException) {
+                resource = new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestUri);
+            } else if (e.getCause() instanceof ApiException && ((ApiException) e.getCause()).getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
+                resource = new S3Failure(S3Failure.ErrorCode.NoSuchKey, "No such key", requestUri);
+            } else {
+                LOG.error("Error executing " + ctx.getRequestMethod() + " " + requestUri, e);
+                resource = new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", requestUri);
+            }
+            resource.renderTo(ctx);
             return null;
         });
     }
@@ -124,26 +123,23 @@ public class S3Endpoint {
     }
 
     private void syncRoute(HttpPath path, Function<AuthenticationToken, SyncRequestHandler> f) {
-        AsyncBridge bridge = new AsyncBridge(new SyncRequestHandler() {
-            @Override
-            public Resource handle(HttpContext ctx) throws Exception {
-                try {
-                    AuthenticationToken token = null;
-                    token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(ctx);
-                    AuthenticatedRequestContext.begin(token);
-                    Function<AuthenticationToken, SyncRequestHandler> errorHandler = new S3FailureHandler(f);
-                    return errorHandler.apply(token).handle(ctx);
-                } catch (SecurityException e) {
-                    return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", ctx.getRequestURI());
-                } catch (Exception e) {
-                    LOG.debug("Got an exception: ", e);
-                    return new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", ctx.getRequestURI());
-                } finally {
-                    AuthenticatedRequestContext.complete();
-                }
-            }
-        });
-
-        webApp.route(path, bridge);
+        webApp.route(path, ctx -> CompletableFuture.runAsync(() -> {
+                    Resource resource = new TextResource("");
+                    try {
+                        AuthenticationToken token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(ctx);
+                        AuthenticatedRequestContext.begin(token);
+                        Function<AuthenticationToken, SyncRequestHandler> errorHandler = new S3FailureHandler(f);
+                        resource = errorHandler.apply(token).handle(ctx);
+                    } catch (SecurityException e) {
+                        resource = new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", ctx.getRequestURI());
+                    } catch (Exception e) {
+                        LOG.debug("Got an exception: ", e);
+                        resource = new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", ctx.getRequestURI());
+                    } finally {
+                        AuthenticatedRequestContext.complete();
+                        resource.renderTo(ctx);
+                    }
+                })
+        );
     }
 }

@@ -137,8 +137,7 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
         CompletableFuture cf = pending.getIfPresent(requestId.getId());
         if (cf == null) {
             LOG.error("RequestId " + requestId.getId() + " had no pending requests");
-        } else {
-            cf.completeExceptionally(new ApiException(s, errorCode));
+            return;
         }
         pending.invalidate(requestId.getId());
     }

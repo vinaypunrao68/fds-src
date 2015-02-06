@@ -30,7 +30,6 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
         String object = ctx.getRouteParameters().get("object");
 
         try {
-            OutputStream outputStream = ctx.getOutputStream();
             return xdiAsync.getBlobInfo(S3Endpoint.FDS_S3, bucket, object).thenCompose(blobInfo -> {
                 if (!hasAccess(ctx, bucket, blobInfo.blobDescriptor.getMetadata())) {
                     return CompletableFutureUtility.exceptionFuture(new SecurityException());
@@ -44,6 +43,7 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
                     ctx.addResponseHeader("etag", AsyncPutObject.formatEtag(md.get("etag")));
                 S3UserMetadataUtility.extractUserMetadata(md).forEach((key, value) -> ctx.addResponseHeader(key, value));
 
+                OutputStream outputStream = ctx.getOutputStream();
                 return xdiAsync.getBlobToStream(blobInfo, outputStream);
             });
         } catch (Exception e) {

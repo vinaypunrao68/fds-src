@@ -4,11 +4,8 @@ import io.undertow.io.IoCallback;
 import io.undertow.io.Sender;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.Cookie;
-import io.undertow.util.HeaderMap;
 import io.undertow.util.HeaderValues;
 import io.undertow.util.HttpString;
-import org.xnio.channels.Channels;
-import org.xnio.channels.StreamSourceChannel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,10 +21,15 @@ public class HttpContext {
     private Map<String, String> routeParameters;
 
     private static final HttpString CONTENT_TYPE = new HttpString("Content-Type");
+    private Sender sender;
 
     public HttpContext(HttpServerExchange exchange, Map<String, String> routeParameters) {
         this.exchange = exchange;
         this.routeParameters = routeParameters;
+    }
+
+    public HttpServerExchange getExchange() {
+        return exchange;
     }
 
     public Map<String, String> getRouteParameters() {
@@ -57,11 +59,6 @@ public class HttpContext {
     public String getRequestURI() {
         return exchange.getRequestURI();
     }
-
-    public HeaderMap getRequestHeaders() {
-        return exchange.getRequestHeaders();
-    }
-
 
     public Collection<String> getRequestHeaderNames() {
         return exchange.getRequestHeaders().getHeaderNames()
@@ -104,34 +101,8 @@ public class HttpContext {
     }
 
     public InputStream getInputStream() {
-        StreamSourceChannel channel = exchange.getRequestChannel();
-        return new InputStream() {
-            @Override
-            public int read(byte[] b, int off, int len) throws IOException {
-                return Channels.readBlocking(channel, ByteBuffer.wrap(b, off, len));
-            }
-
-            @Override
-            public int read(byte[] b) throws IOException {
-                return read(b, 0, b.length);
-            }
-
-            @Override
-            public int read() throws IOException {
-                byte[] buf = new byte[1];
-                int length = read(buf);
-                if (length == 0) {
-                    return -1;
-                } else {
-                    return Byte.toUnsignedInt(buf[0]);
-                }
-            }
-
-            @Override
-            public void close() throws IOException {
-                channel.close();
-            }
-        };
+        exchange.startBlocking();
+        return exchange.getInputStream();
     }
 
 
