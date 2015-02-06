@@ -10,14 +10,13 @@ import io.undertow.util.HeaderMap;
 import io.undertow.util.HttpString;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.xnio.channels.StreamSinkChannel;
 
 import javax.net.ssl.SSLContext;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -28,6 +27,7 @@ public class AsyncWebapp {
     public static void main(String[] args) throws Exception {
         AsyncWebapp app = new AsyncWebapp(new HttpConfiguration(8080), null);
         app.route(new HttpPath(HttpMethod.GET, "/"), ctx -> {
+            ctx.addResponseHeader("Foo", "Bar");
             PrintWriter pw = new PrintWriter(ctx.getOutputStream());
             pw.println("Hello, world");
             pw.close();
@@ -55,30 +55,27 @@ public class AsyncWebapp {
     }
 
     public void start() {
-        Undertow.Builder builder = Undertow.builder();
-        ArrayList<NetworkInterface> interfaces = null;
-        try {
-            interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-        } catch (SocketException e) {
-            throw new RuntimeException(e);
-        }
-        SslContextFactory sslContextFactory = new SslContextFactory();
-        sslContextFactory.setKeyStorePath(httpsConfiguration.getKeyStore().getAbsolutePath());
-        sslContextFactory.setKeyStorePassword(httpsConfiguration.getKeystorePassword());
-        sslContextFactory.setKeyManagerPassword(httpsConfiguration.getKeystorePassword());
-        try {
-            sslContextFactory.start();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        SSLContext sslContext = sslContextFactory.getSslContext();
-
-        Undertow server = builder
+        Undertow.Builder builder = Undertow.builder()
                 .addHttpListener(httpConfiguration.getPort(), "0.0.0.0")
-                .addHttpsListener(httpsConfiguration.getPort(), "0.0.0.0", sslContext)
-                .setHandler(exchange -> service(exchange))
-                .build();
-        server.start();
+                .setHandler(exchange -> service(exchange));
+
+        if (httpsConfiguration != null) {
+            SslContextFactory sslContextFactory = new SslContextFactory();
+            sslContextFactory.setKeyStorePath(httpsConfiguration.getKeyStore().getAbsolutePath());
+            sslContextFactory.setKeyStorePassword(httpsConfiguration.getKeystorePassword());
+            sslContextFactory.setKeyManagerPassword(httpsConfiguration.getKeystorePassword());
+            try {
+                sslContextFactory.start();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            SSLContext sslContext = sslContextFactory.getSslContext();
+            builder.addHttpsListener(httpsConfiguration.getPort(), "0.0.0.0", sslContext);
+        }
+
+        Undertow undertow = builder.build();
+        undertow.start();
+
     }
 
     private Void handleError(Throwable ex, HttpServerExchange exchange) {
@@ -107,6 +104,15 @@ public class AsyncWebapp {
                 CompletableFuture<Void> cf = handler.apply(rc);
 
                 cf.exceptionally(ex -> handleError(ex, exchange));
+                cf.thenAccept(x -> {
+                    try {
+                        StreamSinkChannel responseChannel = exchange.getResponseChannel();
+                        responseChannel.flush();
+                        responseChannel.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
                 return;
             }
         }
