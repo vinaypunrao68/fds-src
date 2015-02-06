@@ -167,8 +167,9 @@ class NbdResponseVector {
     fds_bool_t handleWriteResponse(fds_uint32_t seqId, const Error& err) {
         fds_verify(operation == WRITE);
         if (!err.ok()) {
+            // Note, we're always setting the most recent
+            // responses's error code.
             opError = err;
-            return true;
         }
         uint32_t doneCnt = doneCount.fetch_add(1);
         return ((doneCnt + 1) == objCount);
