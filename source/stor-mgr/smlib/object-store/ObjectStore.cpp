@@ -150,7 +150,7 @@ ObjectStore::putObject(fds_volid_t volId,
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
 
     // either new data or dup, update assoc entry
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->updateAssocEntry(objId, volId);
     volumeTbl->updateDupObj(volId,
@@ -325,7 +325,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
 
     // Create new object metadata to update the refcnts
     updatedMeta.reset(new ObjMetaData(objMeta));
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     // remove volume assoc entry
     fds_bool_t change = updatedMeta->deleteAssocEntry(objId,
@@ -503,7 +503,7 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 
     // copy association entry
     updatedMeta.reset(new ObjMetaData(objMeta));
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->copyAssocEntry(objId, srcVolId, destVolId);
 
