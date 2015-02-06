@@ -327,7 +327,8 @@ var en_US = {
         tt_remove: 'Button to remove the selected node from the system',
         
         desc_remove_node: 'Are you sure you want to remove this node from the system?',
-        desc_node_removed: 'Node was removed successfully.'
+        desc_node_removed: 'Node was removed successfully.',
+        desc_add_partial_warning: 'You have additional nodes available that have not been selected. It is optimal to add all new nodes at one time. Are you sure you want to continue?'
     },
     tenants: {
         title: 'Tenants',

@@ -31,7 +31,13 @@
         if (!vol || vol->isMarkedDeleted()) { \
             LOGWARN << "Volume " << std::hex << volId << std::dec << " does not exist"; \
             return ERR_VOL_NOT_FOUND; \
-        } \
+        }
+
+#define HANDLE_VOL_NOT_ACTIVATED() \
+    if (!vol->isActivated()) { \
+        LOGWARN << "Volume " << std::hex << volId << std::dec << " is not activated"; \
+        return ERR_DM_VOL_NOT_ACTIVATED; \
+    }
 
 namespace fds {
 
@@ -42,6 +48,7 @@ DmVolumeCatalog::~DmVolumeCatalog() {}
 Error DmVolumeCatalog::getBlobMetaDesc(fds_volid_t volId, const std::string & blobName,
             BlobMetaDesc & blobMeta) {
     GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
 
     Error rc = vol->getBlobMetaDesc(blobName, blobMeta);
     if (rc.ok()) {
@@ -222,6 +229,7 @@ Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize,
 Error DmVolumeCatalog::getVolumeMetaInternal(fds_volid_t volId, fds_uint64_t * volSize,
             fds_uint64_t * blobCount, fds_uint64_t * objCount) {
     GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
 
     std::vector<BlobMetaDesc> blobMetaList;
     Error rc = vol->getAllBlobMetaDesc(blobMetaList);
@@ -249,6 +257,7 @@ Error DmVolumeCatalog::getVolumeMetaInternal(fds_volid_t volId, fds_uint64_t * v
 
 Error DmVolumeCatalog::getVolumeObjects(fds_volid_t volId, std::set<ObjectID> & objIds) {
     GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
 
     std::vector<BlobMetaDesc> blobMetaList;
     Error rc = vol->getAllBlobMetaDesc(blobMetaList);
@@ -290,9 +299,12 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volId, const std::string & blobNa
     Error rc = getBlobMetaDesc(volId, blobName, blobMeta);
     if (rc.ok()) {
         // fill in version, size and meta list
-        *blobVersion = blobMeta.desc.version;
-        *blobSize = blobMeta.desc.blob_size;
-        blobMeta.meta_list.toFdspPayload(*metaList);
+        if (blobVersion)
+            { *blobVersion = blobMeta.desc.version; }
+        if (blobSize)
+            { *blobSize = blobMeta.desc.blob_size; }
+        if (metaList)
+            { blobMeta.meta_list.toFdspPayload(*metaList); }
     }
 
     return rc;
@@ -347,6 +359,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
 
 Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bDescrList) {
     GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
 
     std::vector<BlobMetaDesc> blobMetaList;
     Error rc = vol->getAllBlobMetaDesc(blobMetaList);

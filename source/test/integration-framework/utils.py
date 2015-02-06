@@ -15,6 +15,7 @@ import sys
 import time
 from subprocess import list2cmdline
 
+import config
 import config_parser
 import testsets.testcases.fdslib.TestUtils as TestUtils 
 
@@ -24,6 +25,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
+
 
 def is_valid_ip(ip):
     '''

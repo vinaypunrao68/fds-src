@@ -27,11 +27,16 @@ struct CommitBlobTxReq :
                    BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
             AmRequest(FDS_COMMIT_BLOB_TX, _volid, _vol_name, _blob_name, _cb),
-            AmTxReq(_txDesc)
+            AmTxReq(_txDesc),
+            final_blob_size(0ULL),
+            final_meta_data()
     {
         e2e_req_perf_ctx.type = AM_COMMIT_BLOB_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
+
+    fds_uint64_t final_blob_size;
+    fpi::FDSP_MetaDataList final_meta_data;
 };
 
 }  // namespace fds

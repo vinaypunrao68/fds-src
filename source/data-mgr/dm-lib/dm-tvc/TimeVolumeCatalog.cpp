@@ -333,7 +333,11 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     if (e.ok()) {
         e = doCommitBlob(volid, blob_version, commit_data);
     }
-    cb(e, blob_version, commit_data->blobObjList, commit_data->metaDataList);
+    cb(e,
+       blob_version,
+       commit_data->blobObjList,
+       commit_data->metaDataList,
+       commit_data->blobSize);
 }
 
 Error
@@ -358,6 +362,14 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
         } else {
             e = volcat->putBlobMeta(volid, commit_data->name,
                                     commit_data->metaDataList, commit_data->txDesc);
+        }
+        // Update the blob size in the commit data
+        if (ERR_OK == e) {
+            e = volcat->getBlobMeta(volid,
+                                    commit_data->name,
+                                    nullptr,
+                                    &commit_data->blobSize,
+                                    nullptr);
         }
 #endif
     }
