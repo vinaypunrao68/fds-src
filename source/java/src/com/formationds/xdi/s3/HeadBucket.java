@@ -5,15 +5,13 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
 
-import java.util.Map;
-
-public class HeadBucket implements RequestHandler {
+public class HeadBucket implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -23,8 +21,8 @@ public class HeadBucket implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucketName = requiredString(routeParameters, "bucket");
+    public Resource handle(HttpContext context) throws Exception {
+        String bucketName = context.getRouteParameter("bucket");
         VolumeDescriptor descriptor = xdi.volumeConfiguration(token, S3Endpoint.FDS_S3, bucketName);
 
         if(descriptor == null)

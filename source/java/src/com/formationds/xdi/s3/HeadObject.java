@@ -5,18 +5,18 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.swift.SwiftUtility;
-import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
 
 import java.util.Map;
 
-public class HeadObject implements RequestHandler {
+public class HeadObject implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -26,9 +26,9 @@ public class HeadObject implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String volume = requiredString(routeParameters, "bucket");
-        String object = requiredString(routeParameters, "object");
+    public Resource handle(HttpContext contex) throws Exception {
+        String volume = contex.getRouteParameter("bucket");
+        String object = contex.getRouteParameter("object");
 
         BlobDescriptor stat = xdi.statBlob(token, S3Endpoint.FDS_S3, volume, object);
         Map<String, String> metadata = stat.getMetadata();

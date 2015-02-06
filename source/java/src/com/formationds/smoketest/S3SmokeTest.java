@@ -43,6 +43,7 @@ public class S3SmokeTest {
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
 
     public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
+    private final String adminToken;
 
     public static final Random loadRNG() {
         final String rngClassName = System.getProperty(RNG_CLASS);
@@ -95,7 +96,7 @@ public class S3SmokeTest {
         String omUrl = "https://" + host + ":7443";
         SmokeTestRunner.turnLog4jOff();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
-        String adminToken = adminUserObject.getString("token");
+        adminToken = adminUserObject.getString("token");
 
         String tenantName = UUID.randomUUID().toString();
         long tenantId = doPost(omUrl + "/api/system/tenants/" + tenantName, adminToken).getLong("id");

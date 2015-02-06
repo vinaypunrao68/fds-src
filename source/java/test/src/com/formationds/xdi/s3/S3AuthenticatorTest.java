@@ -1,8 +1,8 @@
 package com.formationds.xdi.s3;
 
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.HttpContext;
 import com.formationds.xdi.security.XdiAuthorizer;
-import org.eclipse.jetty.server.Request;
 import org.junit.Test;
 
 import javax.crypto.SecretKey;
@@ -18,7 +18,7 @@ public class S3AuthenticatorTest {
         XdiAuthorizer authorizer = mock(XdiAuthorizer.class);
         when(authorizer.allowAll()).thenReturn(false);
         S3Authenticator s3Authenticator = new S3Authenticator(authorizer, mock(SecretKey.class));
-        AuthenticationToken token = s3Authenticator.authenticate(mock(Request.class));
+        AuthenticationToken token = s3Authenticator.authenticate(mock(HttpContext.class));
         assertEquals(AuthenticationToken.ANONYMOUS, token);
     }
 }

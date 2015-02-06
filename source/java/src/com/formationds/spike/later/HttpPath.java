@@ -3,7 +3,7 @@ package com.formationds.spike.later;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.route.LexicalTrie;
 import com.formationds.web.toolkit.route.QueryResult;
-import org.eclipse.jetty.server.Request;
+import io.undertow.server.HttpServerExchange;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 public class HttpPath {
-    private final List<Predicate<Request>> predicates;
+    private final List<Predicate<HttpServerExchange>> predicates;
     private final Map<String, String> routeParameters;
 
     public HttpPath() {
@@ -27,7 +27,7 @@ public class HttpPath {
     }
 
     public HttpPath withMethod(HttpMethod method) {
-        predicates.add(request -> request.getMethod().toLowerCase().equals(method.name().toLowerCase()));
+        predicates.add(request -> request.getRequestMethod().toString().toLowerCase().equals(method.name().toLowerCase()));
         return this;
     }
 
@@ -58,18 +58,18 @@ public class HttpPath {
     }
 
     public HttpPath withHeader(String headerName) {
-        predicates.add(request -> request.getHeader(headerName) != null);
+        predicates.add(request -> request.getRequestHeaders().getFirst(headerName) != null);
         return this;
     }
 
 
-    public boolean matches(Request request) {
+    public boolean matches(HttpServerExchange exchange) {
         if (predicates.size() == 0) {
             return false;
         }
 
-        for (Predicate<Request> predicate : predicates) {
-            if (!predicate.test(request)) {
+        for (Predicate<HttpServerExchange> predicate : predicates) {
+            if (!predicate.test(exchange)) {
                 return false;
             }
         }

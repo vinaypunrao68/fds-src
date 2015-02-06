@@ -5,23 +5,23 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.util.MultiMap;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class MultiPartListParts implements RequestHandler {
+public class MultiPartListParts implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -31,11 +31,11 @@ public class MultiPartListParts implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucket = requiredString(routeParameters, "bucket");
-        String objectName = requiredString(routeParameters, "object");
-        MultiMap<String> qp = request.getQueryParameters();
-        String uploadId = qp.getString("uploadId");
+    public Resource handle(HttpContext context) throws Exception {
+        String bucket = context.getRouteParameter("bucket");
+        String objectName = context.getRouteParameter("object");
+        Map<String, Deque<String>> qp = context.getQueryString();
+        String uploadId = qp.get("uploadId").getFirst();
 
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
         Integer maxParts = getIntegerFromQueryParameters(qp, "max-parts");
@@ -97,8 +97,8 @@ public class MultiPartListParts implements RequestHandler {
         return new XmlResource(elt.documentString(), 200);
     }
 
-    public Integer getIntegerFromQueryParameters(MultiMap<String> qp, String key) {
-        String value = qp.getString(key);
+    public Integer getIntegerFromQueryParameters(Map<String, Deque<String>> qp, String key) {
+        String value = qp.get(key).getFirst();
         if(value == null)
             return null;
 

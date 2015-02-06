@@ -3,24 +3,18 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ErrorCode;
-import com.formationds.apis.MediaPolicy;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
+import com.formationds.apis.*;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 
-import org.eclipse.jetty.server.Request;
-
-import java.util.Map;
 import java.util.UUID;
 
-public class MultiPartUploadInitiate implements RequestHandler {
+public class MultiPartUploadInitiate implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -45,9 +39,9 @@ public class MultiPartUploadInitiate implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucket = requiredString(routeParameters, "bucket");
-        String objectName = requiredString(routeParameters, "object");
+    public Resource handle(HttpContext ctx) throws Exception {
+        String bucket = ctx.getRouteParameter("bucket");
+        String objectName = ctx.getRouteParameter("object");
         UUID txid = UUID.randomUUID();
         ensureSystemBucketCreated();
 

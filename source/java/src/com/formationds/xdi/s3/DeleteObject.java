@@ -4,16 +4,15 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
 
 import javax.servlet.http.HttpServletResponse;
-import java.util.Map;
 
-public class DeleteObject implements RequestHandler {
+public class DeleteObject implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -23,12 +22,12 @@ public class DeleteObject implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        if(request.getQueryParameters().containsKey("uploadId"))
-            return new MultiPartUploadAbort(xdi, token).handle(request, routeParameters);
+    public Resource handle(HttpContext ctx) throws Exception {
+        if (ctx.getQueryString().containsKey("uploadId"))
+            return new MultiPartUploadAbort(xdi, token).handle(ctx);
 
-        String bucketName = requiredString(routeParameters, "bucket");
-        String objectName = requiredString(routeParameters, "object");
+        String bucketName = ctx.getRouteParameter("bucket");
+        String objectName = ctx.getRouteParameter("object");
         xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, objectName);
         return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");
     }
