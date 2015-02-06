@@ -822,6 +822,8 @@ struct UpdateCatalogOnceMsg {
 
 /* Update catalog once response message */
 struct UpdateCatalogOnceRspMsg {
+   1: i64                       byteCount;  /* Blob size */
+   2: FDSP.FDSP_MetaDataList    meta_list;  /* sequence of arbitrary key/value pairs */
 }
 
 /* Forward catalog update request message */
@@ -862,6 +864,8 @@ struct CommitBlobTxMsg {
 
 /* Commit Blob traction response message */
 struct CommitBlobTxRspMsg {
+   1: i64                       byteCount;  /* Blob size */
+   2: FDSP.FDSP_MetaDataList    meta_list;  /* sequence of arbitrary key/value pairs */
 }
 
 /* Abort Blob  Transaction  request message */

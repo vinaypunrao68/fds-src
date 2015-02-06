@@ -290,9 +290,12 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volId, const std::string & blobNa
     Error rc = getBlobMetaDesc(volId, blobName, blobMeta);
     if (rc.ok()) {
         // fill in version, size and meta list
-        *blobVersion = blobMeta.desc.version;
-        *blobSize = blobMeta.desc.blob_size;
-        blobMeta.meta_list.toFdspPayload(*metaList);
+        if (blobVersion)
+            { *blobVersion = blobMeta.desc.version; }
+        if (blobSize)
+            { *blobSize = blobMeta.desc.blob_size; }
+        if (metaList)
+            { blobMeta.meta_list.toFdspPayload(*metaList); }
     }
 
     return rc;
