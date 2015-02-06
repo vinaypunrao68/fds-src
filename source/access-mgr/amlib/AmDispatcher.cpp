@@ -732,8 +732,8 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         cb->vecBlobs->reserve(count);
         for (size_t i = 0; i < count; ++i) {
             apis::BlobDescriptor bd;
-            bd.name = response->blob_info_list[i].blob_name;
-            bd.byteCount = response->blob_info_list[i].blob_size;
+            bd.name = response->blob_descr_list[i].name;
+            bd.byteCount = response->blob_descr_list[i].byteCount;
             cb->vecBlobs->push_back(bd);
         }
     }

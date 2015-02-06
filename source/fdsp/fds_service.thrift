@@ -923,7 +923,7 @@ struct GetBucketMsg {
 
 struct GetBucketRspMsg {
   //response
-  1: required FDSP.BlobInfoListType     blob_info_list;
+  1: required FDSP.BlobDescriptorListType     blob_descr_list;
 }
 
 struct GetDmStatsMsg {

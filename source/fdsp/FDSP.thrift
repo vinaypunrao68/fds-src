@@ -253,6 +253,9 @@ struct BlobDescriptor {
      3: required map<string, string> metadata
 }
 
+/* A detailed list of blob stats. */
+typedef list<BlobDescriptor> BlobDescriptorListType
+
 struct FDSP_QueryCatalogType {
 
   1: string   blob_name,           /* User visible name of the blob*/
@@ -272,17 +275,6 @@ struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId
   2: i64 blob_version, /* Version to delete */
   3: i32  dmt_version,
 }
-
-struct FDSP_BlobInfoType{
-  1: string blob_name,
-  2: i64 blob_size,
-  4: required map<string, string> metadata
-}
-
-typedef list<FDSP_BlobInfoType> BlobInfoListType
-
-/* A detailed list of blob stats. */
-typedef list<BlobDescriptor> BlobDescriptorListType
 
 struct FDSP_Uuid {
   1: i64          uuid,

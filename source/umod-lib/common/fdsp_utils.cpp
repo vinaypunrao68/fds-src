@@ -257,7 +257,7 @@ std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {
 
 std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
     std::ostringstream oss;
-    oss << " GetBucketRspMsg(count: " << msg.blob_info_list.size() << ")";
+    oss << " GetBucketRspMsg(count: " << msg.blob_descr_list.size() << ")";
     return oss.str();
 }
 

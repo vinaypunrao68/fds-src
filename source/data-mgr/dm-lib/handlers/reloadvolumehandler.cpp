@@ -17,7 +17,7 @@
 #include <string>
 
 using fpi::AsyncHdr;
-using fpi::BlobInfoListType;
+using fpi::BlobDescriptorListType;
 using fpi::FDSP_MetaDataList;
 using fpi::ReloadVolumeMsg;
 using fpi::ReloadVolumeMsgTypeId;
