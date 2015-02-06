@@ -25,7 +25,7 @@ namespace fds {
 extern const fds_uint64_t INVALID_BLOB_ID;
 extern const fds_uint32_t BLOB_META_INDEX;
 
-struct BlobObjKey {
+struct __attribute__((packed)) BlobObjKey {
     fds_uint64_t blobId;
     fds_uint32_t objIndex;
 
@@ -38,14 +38,14 @@ struct BlobObjKey {
 extern const BlobObjKey OP_TIMESTAMP_KEY;
 extern const Record OP_TIMESTAMP_REC;
 
-class DmPersistVolDir {
+class DmPersistVolCat {
   public:
     // types
-    typedef boost::shared_ptr<DmPersistVolDir> ptr;
-    typedef boost::shared_ptr<const DmPersistVolDir> const_ptr;
+    typedef boost::shared_ptr<DmPersistVolCat> ptr;
+    typedef boost::shared_ptr<const DmPersistVolCat> const_ptr;
 
     // ctor and dtor
-    DmPersistVolDir(fds_volid_t volId, fds_uint32_t objSize,
+    DmPersistVolCat(fds_volid_t volId, fds_uint32_t objSize,
                     fds_bool_t snapshot,
                     fds_bool_t readOnly,
                     fpi::FDSP_VolType volType = fpi::FDSP_VOL_S3_TYPE,
@@ -61,7 +61,7 @@ class DmPersistVolDir {
         }
     }
 
-    virtual ~DmPersistVolDir() {}
+    virtual ~DmPersistVolCat() {}
 
     // methods
     inline fds_bool_t isInitialized() const {

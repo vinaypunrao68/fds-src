@@ -27,7 +27,7 @@ for node in $hosts ; do
     ssh $node 'bash /tmp/redis.sh clean'
     ssh $node 'bash /tmp/redis.sh stop'
     echo "$node -> remove fds-platform"
-    ssh $node 'apt-get remove -y fds-platform'
+    ssh $node 'dpkg -P fds-platform'
     echo "$node -> clean up shared memory"
     ssh $node 'rm -f /dev/shm/0x*-0'
     echo "$node -> unmount FDS disks"

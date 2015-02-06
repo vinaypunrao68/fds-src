@@ -23,19 +23,19 @@ def suiteConstruction(self, fdsNodes=None):
     if fdsNodes is not None:
 
         for node in fdsNodes:
-            suite.addTest(testcases.TestFDSModMgt.TestPMForOMVerifyShutdown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestOMVerifyShutdown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestPMVerifyShutdown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestDMVerifyShutdown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestSMVerifyShutdown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestAMVerifyShutdown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestPMForOMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestOMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestPMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestSMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown(node=node))
     else:
-        suite.addTest(testcases.TestFDSModMgt.TestPMForOMVerifyShutdown())
-        suite.addTest(testcases.TestFDSModMgt.TestOMVerifyShutdown())
-        suite.addTest(testcases.TestFDSModMgt.TestPMVerifyShutdown())
-        suite.addTest(testcases.TestFDSModMgt.TestDMVerifyShutdown())
-        suite.addTest(testcases.TestFDSModMgt.TestSMVerifyShutdown())
-        suite.addTest(testcases.TestFDSModMgt.TestAMVerifyShutdown())
+        suite.addTest(testcases.TestFDSModMgt.TestPMForOMVerifyDown())
+        suite.addTest(testcases.TestFDSModMgt.TestOMVerifyDown())
+        suite.addTest(testcases.TestFDSModMgt.TestPMVerifyDown())
+        suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown())
+        suite.addTest(testcases.TestFDSModMgt.TestSMVerifyDown())
+        suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown())
 
     return suite
 

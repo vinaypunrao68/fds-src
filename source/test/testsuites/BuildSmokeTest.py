@@ -51,7 +51,7 @@ def suiteConstruction(self):
     nodeResilienceSuite = NodeResilienceSuite.suiteConstruction(self=None)
     suite.addTest(nodeResilienceSuite)
 
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
+    suite.addTest(testcases.TestFDSSysMgt.TestNodeKill())
 
     # Cleanup FDS installation directory.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())

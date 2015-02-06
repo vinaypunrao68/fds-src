@@ -64,7 +64,7 @@ Error TimelineDB::open() {
     CHECK_SQL_CODE("unable to create index on journal table");
 
     /**
-     * Create the Snaphot Table
+     * Create the Snapshot Table
      * Contains the list of snapshots and the time of creation
      */
     sql = "create table if not exists snapshottbl"
@@ -107,7 +107,7 @@ Error TimelineDB::removeOldJournalFiles(fds_volid_t volId, TimeStamp uptoTime,
                                         std::vector<JournalFileInfo>& vecJournalFiles) {
     DECLARE_DB_VARS();
     Error err(ERR_OK);
-    // get the latest file lesser than the upto time
+    // get the latest file lesser than the up to time
     sql = util::strformat("select starttime from journaltbl where volid=%ld and "
                           "starttime <= %ld order by starttime desc limit 1",
                           uptoTime);
