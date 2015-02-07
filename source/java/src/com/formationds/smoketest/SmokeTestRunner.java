@@ -39,11 +39,8 @@ public class SmokeTestRunner {
             System.out.println("running all tests");
             map.values().forEach(k -> runTest(k));
         } else {
-            //for(String item:args) {System.out.println(item);}
-            
             for(String arg : args) {
                 String parts[] = arg.split("\\.");
-                //for(String item:parts) {System.out.println(item);}
                 if (parts.length > 1) {
                     String className = parts[0].toLowerCase();
                     String methodName = parts[1];
@@ -53,7 +50,7 @@ public class SmokeTestRunner {
                             runTest(map.get(key), methodName);
                         }
                     }
-                } else if (parts.length == 1) {
+                } else {
                     String className = parts[0];
                     for(String key: map.keySet()) {
                         if (key.startsWith(className)) {
@@ -61,8 +58,6 @@ public class SmokeTestRunner {
                             runTest(map.get(key));
                         }
                     }
-                } else {
-                    System.out.println("invalid class name : " + arg);
                 }
             }
         }
@@ -90,7 +85,7 @@ public class SmokeTestRunner {
         } catch (InitializationError initializationError) {
             System.out.println("Error initializing tests");
             initializationError.printStackTrace();
-            System.exit(-1);
+            System.exit(1);
         }
 
         runner.run(new RunNotifier() {
@@ -98,7 +93,7 @@ public class SmokeTestRunner {
             public void fireTestFailure(Failure failure) {
                 System.out.println("Test failed: " + failure.getMessage());
                 System.out.println("Trace: " + failure.getTrace());
-                System.exit(-1);
+                System.exit(1);
             }
         });
     }
@@ -131,7 +126,7 @@ public class SmokeTestRunner {
         } catch (InitializationError initializationError) {
             System.out.println("Error initializing tests");
             initializationError.printStackTrace();
-            System.exit(-1);
+            System.exit(1);
         }
 
         runner.run(new RunNotifier() {
@@ -139,7 +134,7 @@ public class SmokeTestRunner {
             public void fireTestFailure(Failure failure) {
                 System.out.println("Test failed: " + failure.getMessage());
                 System.out.println("Trace: " + failure.getTrace());
-                System.exit(-1);
+                System.exit(1);
             }
         });
     }
