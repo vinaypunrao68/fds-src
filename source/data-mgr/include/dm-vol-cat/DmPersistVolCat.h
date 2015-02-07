@@ -51,7 +51,7 @@ class DmPersistVolCat {
                     fpi::FDSP_VolType volType = fpi::FDSP_VOL_S3_TYPE,
                     fds_volid_t srcVolId = invalid_vol_id) : volId_(volId), objSize_(objSize),
             volType_(volType), srcVolId_(srcVolId), snapshot_(snapshot), readOnly_(readOnly),
-            initialized_(false), deleted_(false) {
+            initialized_(false), deleted_(false), activated_(false) {
         fds_verify(objSize > 0);
         if (invalid_vol_id == srcVolId_) {
             srcVolId_ = volId;
@@ -94,6 +94,10 @@ class DmPersistVolCat {
 
     inline fds_bool_t isReadOnly() const {
         return readOnly_;
+    }
+
+    inline fds_bool_t isActivated() const {
+        return activated_;
     }
 
     // creation and deletion
@@ -170,6 +174,7 @@ class DmPersistVolCat {
 
     fds_bool_t initialized_;
     fds_bool_t deleted_;
+    fds_bool_t activated_;
 
     // TODO(Andrew): This is totally insecure. If we're gonna do this,
     // we need the other service's public key. Or we move the data over

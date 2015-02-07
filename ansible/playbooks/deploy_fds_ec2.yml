@@ -79,7 +79,16 @@
         copy: src={{ item }}
           dest=/home/deploy/deb_staging/{{ instance_name_tag }}/fds-platform.deb
         with_fileglob:
-          - '../../omnibus/omnibus-fds-platform//pkg/fds-platform_*{{ build }}*.deb'
+          - '../../omnibus/omnibus-fds-platform/pkg/fds-platform_*{{ build }}*.deb'
+        tags:
+          - install-local
+
+    -   name: stage local fds-deps deb on awo-bh-01
+        when: fds_deploy_local_deps is defined and fds_deploy_local_deps
+        copy: src={{ item }}
+          dest=/home/deploy/deb_staging/{{ instance_name_tag }}/fds-deps.deb
+        with_fileglob:
+          - '../../omnibus/omnibus-fds-deps/pkg/fds-deps*.deb'
         tags:
           - install-local
 

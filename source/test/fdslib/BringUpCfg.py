@@ -9,6 +9,9 @@ import subprocess
 import time
 import logging
 import os
+import os.path
+import glob
+import shutil
 import FdsSetup as inst
 
 ###
@@ -218,6 +221,7 @@ class FdsNodeConfig(FdsConfig):
                                              port))
             os.chdir(cur_dir)
         else:
+            self.nd_agent.exec_wait('bash -c \"(rm -rf /dev/shm/0x*)\"')
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
                                             ' > %s/pm.out' % log_dir)
 
@@ -329,57 +333,64 @@ class FdsNodeConfig(FdsConfig):
 
             cur_dir = os.getcwd()
 
-            status = self.nd_agent.exec_wait('ls ' + bin_dir)
-            if status == 0:
+            if os.path.exists(bin_dir):
+                log.info("Cleanup cores in: %s" % bin_dir)
                 os.chdir(bin_dir)
-                status = self.nd_agent.exec_wait('rm core *.core')
+                if os.path.exists("core"):
+                    os.remove("core")
 
-            status = self.nd_agent.exec_wait('ls ' + var_dir)
-            if status == 0:
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
+
+            if os.path.exists(var_dir):
+                log.info("Cleanup logs and stats in: %s" % var_dir)
                 os.chdir(var_dir)
-                status = self.nd_agent.exec_wait('rm -r logs stats')
+                if os.path.exists("logs"):
+                    shutil.rmtree("logs")
+                if os.path.exists("stats"):
+                    shutil.rmtree("stats")
 
-            status = self.nd_agent.exec_wait('ls ' + '/corefiles')
-            if status == 0:
+            if os.path.exists('/corefiles'):
+                log.info("Cleanup cores in: %s" % '/corefiles')
                 os.chdir('/corefiles')
-                status = self.nd_agent.exec_wait('rm *.core')
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
 
-            status = self.nd_agent.exec_wait('ls ' + var_dir + '/core')
-            if status == 0:
+            if os.path.exists(var_dir + '/core'):
+                log.info("Cleanup cores in: %s" % var_dir + '/core')
                 os.chdir(var_dir + '/core')
-                status = self.nd_agent.exec_wait('rm *.core')
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
 
-            status = self.nd_agent.exec_wait('ls ' + tools_dir)
-            if status == 0:
+            if os.path.exists(tools_dir):
+                log.info("Running ./fds clean -i in %s" % tools_dir)
                 os.chdir(tools_dir)
-                status = self.nd_agent.exec_wait('./fds clean -i')
+                self.nd_agent.exec_wait('./fds clean -i')
 
-            status = self.nd_agent.exec_wait('ls ' + dev_dir)
-            if status == 0:
+            if os.path.exists(dev_dir):
+                log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
                 os.chdir(dev_dir)
-                status = self.nd_agent.exec_wait('rm -rf hdd-*/*')
+                shutil.rmtree("hdd-*")
+                shutil.rmtree("ssd-*")
 
-            status = self.nd_agent.exec_wait('ls ' + dev_dir)
-            if status == 0:
-                os.chdir(dev_dir)
-                status = self.nd_agent.exec_wait('rm -f ssd-*/*')
-
-            status = self.nd_agent.exec_wait('ls ' + fds_dir)
-            if status == 0:
+            if os.path.exists(fds_dir):
+                log.info("Cleanup sys-repo and user-repo in: %s" % fds_dir)
                 os.chdir(fds_dir)
-                status = self.nd_agent.exec_wait('rm -r sys-repo/')
+                shutil.rmtree("sys-repo")
+                shutil.rmtree("user-repo")
 
-            status = self.nd_agent.exec_wait('ls ' + fds_dir)
-            if status == 0:
-                os.chdir(fds_dir)
-                status = self.nd_agent.exec_wait('rm -r user-repo/')
-
-            status = self.nd_agent.exec_wait('ls ' + '/dev/shm')
-            if status == 0:
+            if os.path.exists('/dev/shm'):
+                log.info("Cleanup 0x* in: %s" % '/dev/shm')
                 os.chdir('/dev/shm')
-                status = self.nd_agent.exec_wait('rm -f 0x*')
+                files = glob.glob("0x*")
+                for filename in files:
+                    os.remove(filename)
 
             os.chdir(cur_dir)
+            status = 0
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
             status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +

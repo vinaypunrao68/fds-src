@@ -84,6 +84,7 @@ Error DmPersistVolDB::activate() {
 
     catalog_->GetWriteOptions().sync = false;
 
+    activated_ = true;
     return ERR_OK;
 }
 

@@ -100,7 +100,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     typedef std::function<void (const Error &,
                                 blob_version_t,
                                 const BlobObjList::const_ptr&,
-                                const MetaDataList::const_ptr&)> CommitCb;
+                                const MetaDataList::const_ptr&,
+                                const fds_uint64_t)> CommitCb;
     typedef std::function<void (const Error &)> FwdCommitCb;
 
     /// Allow sync related interface to volume catalog
