@@ -57,7 +57,7 @@ class FDSTrace:
         return self.getName(ps[0].split()[3])
 
     def getPortOwner(self,port):
-        cmd=['lsof','-i','TCP:' + str(port)]
+        cmd=['lsof','-i','TCP:' + str(port) , '-P']
         output = self.getCmdOutput(cmd)
         #print output
         if len(output) == 0:
@@ -78,7 +78,7 @@ class FDSTrace:
         return -2
 
     def getPortInfo(self,port):
-        cmd=['lsof','-i','TCP:' + str(port)]
+        cmd=['lsof','-i','TCP:' + str(port), '-P']
         output = self.getCmdOutput(cmd)
         if len(output) == 0:
             return -1
