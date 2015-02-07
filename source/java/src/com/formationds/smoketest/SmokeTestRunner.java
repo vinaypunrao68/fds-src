@@ -7,25 +7,77 @@ import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
+import java.lang.reflect.Method;
 
 import java.util.Properties;
-
+import java.util.List;
+import java.util.Arrays;
+import java.util.HashMap;
 /**
  * Copyright (c) 2014 Formation Data Systems.
  * All rights reserved.
  */
 
 public class SmokeTestRunner {
+
+    HashMap<String, Class> map = new HashMap<String, Class>();
+
+    public SmokeTestRunner() {
+        addClass(S3SmokeTest.class);
+        addClass(HdfsSmokeTest.class);
+        addClass(AmTest.class);
+    }
+
+    void addClass(final Class klass) {
+        String parts[]=klass.getName().toLowerCase().split("\\.");
+        map.put(parts[parts.length-1], klass);
+    }
+
+    void run(String[] args) {
+        
+        if (args.length == 0) {
+            System.out.println("running all tests");
+            map.values().forEach(k -> runTest(k));
+        } else {
+            //for(String item:args) {System.out.println(item);}
+            
+            for(String arg : args) {
+                String parts[] = arg.split("\\.");
+                //for(String item:parts) {System.out.println(item);}
+                if (parts.length > 1) {
+                    String className = parts[0].toLowerCase();
+                    String methodName = parts[1];
+                    for(String key: map.keySet()) {
+                        if (key.startsWith(className)) {
+                            System.out.println("running test [" + methodName + "] for " + key);
+                            runTest(map.get(key), methodName);
+                        }
+                    }
+                } else if (parts.length == 1) {
+                    String className = parts[0];
+                    for(String key: map.keySet()) {
+                        if (key.startsWith(className)) {
+                            System.out.println("running all tests : " + className);
+                            runTest(map.get(key));
+                        }
+                    }
+                } else {
+                    System.out.println("invalid class name : " + arg);
+                }
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
-        turnLog4jOff();
-        Lists.newArrayList(HdfsSmokeTest.class, S3SmokeTest.class, AmTest.class)
-                .forEach(k -> runTest(k));
+        SmokeTestRunner testRunner = new SmokeTestRunner();
+        testRunner.turnLog4jOff();
+        testRunner.run(args);
         System.out.flush();
         System.out.println("Smoke tests done.");
         System.exit(0);
     }
 
-    private static void runTest(final Class klass) {
+    private void runTest(final Class klass) {
         BlockJUnit4ClassRunner runner = null;
         try {
             runner = new BlockJUnit4ClassRunner(klass) {
@@ -50,6 +102,49 @@ public class SmokeTestRunner {
             }
         });
     }
+
+    private void runTest(final Class klass, String methodName) {
+        BlockJUnit4ClassRunner runner = null;
+        try {
+            runner = new BlockJUnit4ClassRunner(klass) {
+                    @Override
+                    protected List<FrameworkMethod> computeTestMethods() {
+                        try {
+                            for(Method m : klass.getMethods()) {
+                                if (m.getName().equalsIgnoreCase(methodName)) {
+                                    return Arrays.asList(new FrameworkMethod(m));
+                                }
+                            }
+                            System.out.println("no matching methods : " + methodName);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    }
+                    
+                    @Override
+                    protected void runChild(FrameworkMethod method, RunNotifier notifier) {
+                        System.out.println("Running test " + klass.getName() + "." + method.getName());
+                        super.runChild(method, notifier);
+                    }
+                };
+        } catch (InitializationError initializationError) {
+            System.out.println("Error initializing tests");
+            initializationError.printStackTrace();
+            System.exit(-1);
+        }
+
+        runner.run(new RunNotifier() {
+            @Override
+            public void fireTestFailure(Failure failure) {
+                System.out.println("Test failed: " + failure.getMessage());
+                System.out.println("Trace: " + failure.getTrace());
+                System.exit(-1);
+            }
+        });
+    }
+
+
 
     public static void turnLog4jOff() {
         Properties properties = new Properties();
