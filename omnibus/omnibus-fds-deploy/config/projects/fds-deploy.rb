@@ -24,6 +24,7 @@ dependency "python"
 dependency "pip"
 dependency "boto"
 dependency "ansible"
+dependency "fds-deploy"
 
 # Version manifest file
 dependency "version-manifest"
