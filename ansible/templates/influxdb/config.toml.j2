@@ -84,11 +84,11 @@ default-engine = "rocksdb"
 
 # The default setting on this is 0, which means unlimited. Set this to something if you want to
 # limit the max number of open files. max-open-files is per shard so this * that will be max.
-max-open-shards = 5
+#max-open-shards = 5
 
 # The default setting is 100. This option tells how many points will be fetched from LevelDb before
 # they get flushed into backend.
-point-batch-size = 100
+point-batch-size = 1000
 
 # The number of points to batch in memory before writing them to leveldb. Lowering this number will
 # reduce the memory usage, but will result in slower writes.
@@ -158,19 +158,19 @@ protobuf_max_backoff = "10s" # the maxmimum backoff after a failed heartbeat att
 # How many write requests to potentially buffer in memory per server. If the buffer gets filled then writes
 # will still be logged and once the server has caught up (or come back online) the writes
 # will be replayed from the WAL
-write-buffer-size = 100
+write-buffer-size = 1000
 
 # the maximum number of responses to buffer from remote nodes, if the
 # expected number of responses exceed this number then querying will
 # happen sequentially and the buffer size will be limited to this
 # number
-max-response-buffer-size = 100
+max-response-buffer-size = 200
 
 # When queries get distributed out to shards, they go in parallel. This means that results can get buffered
 # in memory since results will come in any order, but have to be processed in the correct time order.
 # Setting this higher will give better performance, but you'll need more memory. Setting this to 1 will ensure
 # that you don't need to buffer in memory, but you won't get the best performance.
-concurrent-shard-query-limit = 10
+concurrent-shard-query-limit = 20
 
 [wal]
 
@@ -184,4 +184,4 @@ index-after = 100
 
 # the number of requests per one log file, if new requests came in a
 # new log file will be created
-requests-per-logfile = 1000
+requests-per-logfile = 5000
