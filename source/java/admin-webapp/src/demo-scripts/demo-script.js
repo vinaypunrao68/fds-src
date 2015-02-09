@@ -4,6 +4,7 @@ mockSnapshot();
 mockTenant();
 mockNode();
 mockStats();
+mockActivities();
 
 var createNewStat = function( vol ){
     
@@ -80,16 +81,18 @@ var addStats = function( volume, stat ){
     if ( stat.hour.length > 24 ){
         stat.hour = stat.hour.splice( 0, 1 );
     }
+    
+    return stat;
 };
 
 var computeStats = function(){
     
-    var vols = window.localStorage.getItem( 'volumes' );
+    var vols = JSON.parse( window.localStorage.getItem( 'volumes' ) );
     
     for ( var i = 0; i < vols.length; i++ ){
         
         var volume = vols[i];
-        var stat = window.localStorage.getItem( volume.id + '_stats' );
+        var stat = JSON.parse( window.localStorage.getItem( volume.id + '_stats' ) );
         
         if ( !angular.isDefined( stat ) || stat === null ){
             
@@ -100,10 +103,11 @@ var computeStats = function(){
             };
         }
         else {
-            stat = addStats( volId, stat );
+            stat = addStats( volume, stat );
         }
         
-        window.localStorage.setItem( vol.id + '_stats', stat );
+        console.log( 'putting: ' + volume.id + '_stats : ' + JSON.stringify( stat ) );
+        window.localStorage.setItem( volume.id + '_stats', JSON.stringify( stat ) );
     }
 };
 

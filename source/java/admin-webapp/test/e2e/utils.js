@@ -4,6 +4,7 @@ require( './mockVolume' );
 require( './mockTenant' );
 require( './mockNode' );
 require( './mockStats' );
+require( './mockActivities' );
 
 addModule = function( moduleName, module ){
 
