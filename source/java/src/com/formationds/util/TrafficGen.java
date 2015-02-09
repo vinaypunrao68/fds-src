@@ -101,7 +101,6 @@ public class TrafficGen {
     static long runtime = 0;
     static long timeout = Long.MAX_VALUE;
 
-    static RandomFile rf = null;
     private static String username;
     private static String token;
 
