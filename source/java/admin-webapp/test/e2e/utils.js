@@ -3,6 +3,7 @@ require( './mockSnapshot' );
 require( './mockVolume' );
 require( './mockTenant' );
 require( './mockNode' );
+require( './mockStats' );
 
 addModule = function( moduleName, module ){
 
@@ -16,6 +17,7 @@ addModule( 'volume-management', mockVolume );
 addModule( 'qos', mockSnapshot );
 addModule( 'tenant-management', mockTenant );
 addModule( 'node-management', mockNode );
+addModule( 'statistics', mockStats );
 
 login = function(){
     browser.get( '#/' );

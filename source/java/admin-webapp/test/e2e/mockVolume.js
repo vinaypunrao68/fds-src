@@ -4,6 +4,13 @@ mockVolume = function(){
         var volService = {};
         volService.volumes = [];
 
+        var saveVolumes = function(){
+            
+            if ( angular.isDefined( window.localStorage ) ){
+                window.localStorage.setItem( 'volumes', JSON.stringify( volService.volumes ) );
+            }
+        };
+        
         volService.delete = function( volume, callback ){
 
             var temp = [];
@@ -30,6 +37,8 @@ mockVolume = function(){
                     // edit
                     volService.volumes[i] = volume;
 
+                    saveVolumes();
+                    
                     if ( angular.isDefined( callback ) ){
                         callback();
                     }
@@ -39,9 +48,17 @@ mockVolume = function(){
             }
 
             volume.id = (new Date()).getTime();
+            volume.current_usage = {
+                size: 0,
+                unit: 'B'
+            };
+            
+            volume.rate = 100000;
             volume.snapshots = [];
             volService.volumes.push( volume );
-
+            
+            saveVolumes();
+            
             if ( angular.isDefined( callback ) ){
                 callback( volume );
             }
@@ -112,8 +129,21 @@ mockVolume = function(){
             }
         };
 
-        volService.refresh = function(){};
+        volService.refresh = function(){
+            
+            if ( angular.isDefined( window.localStorage ) ){
+                var vols = JSON.parse( window.localStorage.getItem( 'volumes' ) );
+                
+                if ( !angular.isDefined( vols ) || vols === null ){
+                    vols = [];
+                }
+                
+                volService.volumes = vols;
+            }
+        };
 
+        volService.refresh();
+        
         return volService;
     }]);
     

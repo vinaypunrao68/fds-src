@@ -65,9 +65,9 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         
         $scope.volumes = $volume_api.volumes;
         
-//        if ( !angular.isDefined( $scope.volumeVars.cloneFromVolume )) {
+        if ( angular.isDefined( $scope.volumes ) && $scope.volumes.length > 1 ){
             $scope.volumeVars.cloneFromVolume = $scope.volumes[0];
-//        }
+        }
         
         if ( newVal === 'clone' ){
             $scope.now = (new Date()).getTime();
