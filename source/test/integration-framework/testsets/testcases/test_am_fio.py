@@ -17,7 +17,7 @@ class TestAMFIO(testcase.FDSTestCase):
                 om_ip_address=None):
         super(TestAMFIO, self).__init__(parameters=parameters,
                                         config_file=config_file,
-                                        om_ip_address="10.2.10.200")
+                                        om_ip_address=om_ip_address)
         self.my_ssh = ssh.SSHConn("10.2.10.200", "root", "passwd")
         
     def runTest(self):
