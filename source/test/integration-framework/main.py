@@ -57,10 +57,14 @@ class Operation(object):
         if self.args.ipaddress is not None:
                 self.om_ip_address = self.args.ipaddress
 
-        elif self.args.inventory is not None:
+        if self.args.inventory is not None:
             # gets the op_ip_address from the inventory file
             self.om_ip_address = \
             config_parser.get_om_ipaddress_from_inventory(self.args.inventory)
+        else:
+            if self.args.test == 'multi':
+                self.om_ip_address = \
+                config_parser.get_om_ipaddress_from_inventory(config.DEFAULT_INVENTORY_FILE)
 
         # always check if the ip address is a valid one
         if not utils.is_valid_ip(self.om_ip_address):
