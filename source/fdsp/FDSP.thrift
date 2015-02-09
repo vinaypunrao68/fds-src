@@ -402,9 +402,10 @@ struct FDSP_VolumeDescType {
   14: bool                      fSnapshot,
   15: common.ResourceState      state,
   16: i64                       contCommitlogRetention,
-  17: i64                       timelineTime,
-  18: i64                       createTime,
-  19: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
+  17: i64                       srcVolumeId,
+  18: i64                       timelineTime,
+  19: i64                       createTime,
+  20: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
 }
 
 
