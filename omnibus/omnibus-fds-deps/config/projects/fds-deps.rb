@@ -12,7 +12,8 @@ homepage "https://CHANGE-ME.com"
 # and /opt/fds-deps on all other platforms
 install_dir "#{default_root}/#{name}"
 
-build_version Omnibus::BuildVersion.semver
+#build_version Omnibus::BuildVersion.semver
+build_version '0.7.0'
 build_iteration 1
 
 # Creates required build directories

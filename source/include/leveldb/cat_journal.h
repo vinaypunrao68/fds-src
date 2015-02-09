@@ -18,7 +18,7 @@
 #include <db/log_reader.h>
 #include <concurrency/Mutex.h>
 #include <fds_types.h>
-#include <dm-vol-cat/DmPersistVolDir.h>
+#include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace leveldb {
 

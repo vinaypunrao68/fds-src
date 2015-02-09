@@ -459,7 +459,7 @@ Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
 
     if (!objMeta->onTier(diskio::DataTier::diskTier)) {
         LOGNOTIFY << "Object " << objId << " hasn't made it to disk yet.  Ignoring move";
-        return ERR_SM_TIER_WRITEBACK_NOT_DONE; 
+        return ERR_SM_TIER_WRITEBACK_NOT_DONE;
     }
 
     /* Remove flash as the phsycal location */
@@ -593,10 +593,10 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         }
     } else {
         // not going to copy object to new location
-        LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
+        LOGDEBUG << "Will garbage-collect " << objId << " on tier " << tier;
         // remove entry from index db if data + meta is garbage
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
-            LOGNORMAL << "Removing metadata for " << objId
+            LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }

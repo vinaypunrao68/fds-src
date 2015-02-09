@@ -115,7 +115,7 @@ var en_US = {
         tt_firebreak_never: 'This volume has never had a firebreak.',
         
         desc_firebreak: 'Events in the past 24 hours',
-        desc_performance: 'Average IOPs',
+        desc_performance: 'Transactions per Second',
         desc_capacity_used: 'Total capacity used',
         desc_dedup_ratio: 'Deduplication ratio',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
@@ -324,7 +324,11 @@ var en_US = {
         tt_pm: 'Platform status',
         tt_sm: 'Storage manager status',
         tt_ip_address: 'The IP address for the discovered node',
-        tt_remove: 'Button to remove the selected node from the system'
+        tt_remove: 'Button to remove the selected node from the system',
+        
+        desc_remove_node: 'Are you sure you want to remove this node from the system?',
+        desc_node_removed: 'Node was removed successfully.',
+        desc_add_partial_warning: 'You have additional nodes available that have not been selected. It is optimal to add all new nodes at one time. Are you sure you want to continue?'
     },
     tenants: {
         title: 'Tenants',

@@ -22,8 +22,11 @@ NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
 
     if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
                      (err != ERR_BLOB_NOT_FOUND)) {
+        // Note, we're always setting the most recent
+        // responses's error code.
         opError = err;
-        return true;
+        fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
+        return ((doneCnt + 1) == objCount);
     }
 
     fds_uint32_t iOff = offset % maxObjectSizeInBytes;

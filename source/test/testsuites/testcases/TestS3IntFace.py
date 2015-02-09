@@ -36,37 +36,10 @@ class S3(object):
 # OM and stored it in fdscfg.rt_om_node.auth_token. See TestOMIntFace.TestGetAuthToken.
 class TestS3GetConn(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3GetConn, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3GetConn():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Getting an S3 connection caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3GetConn,
+                                             "Getting an S3 connection")
 
     def test_S3GetConn(self):
         """
@@ -109,37 +82,10 @@ class TestS3GetConn(TestCase.FDSTestCase):
 # and stored it in self.parameters["s3"].conn. See TestS3IntFace.TestS3GetConn.
 class TestS3CrtBucket(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3CrtBucket, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3CrtBucket():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Creating an S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3CrtBucket,
+                                             "Creating an S3 bucket")
 
     def test_S3CrtBucket(self):
         """
@@ -174,37 +120,10 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadZBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3LoadZBLOB, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3LoadZBLOB():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Upload a zero-length BLOB into an S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3LoadZBLOB,
+                                             "Upload a zero-length BLOB into an S3 bucket")
 
     def test_S3LoadZBLOB(self):
         """
@@ -262,37 +181,10 @@ class TestS3LoadZBLOB(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadSBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3LoadSBLOB, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3LoadSBLOB():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Upload a 'small' (<= 2MiB) BLOB into an S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3LoadSBLOB,
+                                             "Upload a 'small' (<= 2MiB) BLOB into an S3 bucket")
 
     def test_S3LoadSBLOB(self):
         """
@@ -358,37 +250,10 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadFBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3LoadFBLOB, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3LoadFBLOB():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Upload a 'largish' (<= 2MiB) BLOB into an S3 bucket in one piece caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3LoadFBLOB,
+                                             "Upload a 'largish' (<= 2MiB) BLOB into an S3 bucket in one piece")
 
     def test_S3LoadFBLOB(self):
         """
@@ -448,40 +313,12 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadMBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None, bucket=None):
-        super(TestS3LoadMBLOB, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3LoadMBLOB,
+                                             "Upload a 'largish' (<= 2MiB) BLOB into an S3 bucket in one piece with meta-data")
 
         self.passedBucket = bucket
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3LoadMBLOB():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Upload a 'largish' (<= 2MiB) BLOB into an S3 bucket in one piece with meta-data "
-                            "caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_S3LoadMBLOB(self):
         """
@@ -567,38 +404,10 @@ class TestS3LoadMBLOB(TestCase.FDSTestCase):
 # You must also have sucessfully executed test case TestS3LoadMBLOB,
 class TestS3VerifyMBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3VerifyMBLOB, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3VerifyMBLOB():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verify the 'largish' (<= 2MiB) BLOB with meta-data "
-                            "caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3VerifyMBLOB,
+                                             "Verify the 'largish' (<= 2MiB) BLOB with meta-data")
 
     def test_S3VerifyMBLOB(self):
         """
@@ -665,38 +474,12 @@ class TestS3VerifyMBLOB(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadLBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None, bucket=None):
-        super(TestS3LoadLBLOB, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3LoadLBLOB,
+                                             "Upload a 'large' (> 2MiB) BLOB into an S3 bucket")
 
         self.passedBucket=bucket
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3LoadLBLOB():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Upload a 'large' (> 2MiB) BLOB into an S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
 
     def test_S3LoadLBLOBCb(self, so_far, total):
         self.log.info(str(so_far) + "B Downloaded");
@@ -959,37 +742,10 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3ListBucketKeys(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3ListBucketKeys, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3ListBucketKeys():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Listing the keys of an S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3ListBucketKeys,
+                                             "Listing the keys of an S3 bucket")
 
     def test_S3ListBucketKeys(self):
         """
@@ -1032,37 +788,10 @@ class TestS3ListBucketKeys(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3DelBucketKeys(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3DelBucketKeys, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3DelBucketKeys():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Deleting all the keys of an S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3DelBucketKeys,
+                                             "Deleting all the keys of an S3 bucket")
 
     def test_S3DelBucketKeys(self):
         """
@@ -1098,38 +827,10 @@ class TestS3DelBucketKeys(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3DelBucket(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3DelBucket, self).__init__(parameters)
-
-
-    def runTest(self):
-        print self.parameters
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3DelBucket():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Deleting an S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3DelBucket,
+                                             "Deleting an S3 bucket")
 
     def test_S3DelBucket(self):
         """

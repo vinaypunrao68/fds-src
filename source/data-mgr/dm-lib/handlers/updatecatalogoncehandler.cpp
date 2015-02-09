@@ -109,7 +109,7 @@ void UpdateCatalogOnceHandler::handleQueueItem(dmCatReq* dmRequest) {
             std::bind(&CommitBlobTxHandler::volumeCatalogCb,
                       static_cast<CommitBlobTxHandler*>(dataMgr->handlers[FDS_COMMIT_BLOB_TX]),
                       std::placeholders::_1, std::placeholders::_2,
-                      std::placeholders::_3, std::placeholders::_4,
+                      std::placeholders::_3, std::placeholders::_4, std::placeholders::_5,
                       typedRequest->commitBlobReq));
     if (helper.err != ERR_OK) {
         LOGERROR << "Failed to commit transaction " << *typedRequest->ioBlobTxDesc << ": "
@@ -132,6 +132,7 @@ void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
     DmIoCommitBlobOnce* commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
     DmIoUpdateCatOnce* parent = commitOnceReq->parent;
     parent->cb(e, dmRequest);
+    delete parent;
 }
 
 void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -139,13 +140,18 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
                                               Error const& e, dmCatReq* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
     DBG(GLOGDEBUG << logString(*asyncHdr));
+
+    // Build response
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
+    auto commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
+    updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
+    updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
+
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::UpdateCatalogOnceRspMsgTypeId, updcatRspMsg);
 
     if (dataMgr->testUturnAll || dataMgr->testUturnUpdateCat) {
         fds_verify(dmRequest == nullptr);
     } else {
-        // FIXME(DAC): Looks like a memory leak here.
         delete dmRequest;
     }
 }

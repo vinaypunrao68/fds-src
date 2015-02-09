@@ -2,13 +2,14 @@
 
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+import sys
+sys.path.append("/fds/lib/python2.7/dist-packages")
 import fdslib.FdsSetup as inst
 import fdslib.BringUpCfg as fdscfg
 import fdslib.BasicCluster as BasicCluster
 
 import optparse as OptParse
 from optparse import SUPPRESS_HELP
-import sys
 import time
 
 #

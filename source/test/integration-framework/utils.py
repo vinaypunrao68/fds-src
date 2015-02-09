@@ -15,6 +15,7 @@ import sys
 import time
 from subprocess import list2cmdline
 
+import config
 import config_parser
 import testsets.testcases.fdslib.TestUtils as TestUtils 
 
@@ -24,6 +25,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
+
 
 def is_valid_ip(ip):
     '''
@@ -126,10 +128,10 @@ def get_user_token(user, password, host, port, secure, validate):
 
     url = '%s://%s:%d/api/auth/token?login=%s&password=%s' % (proto, host,port,
                                                               user, password)
-    log.info("Getting credentials from: ", url)
+    #log.info("Getting credentials from: ", url)
     r = requests.get(url, verify=validate)
     rjson = r.json()
-    log.info(rjson)
+    #log.info(rjson)
     return rjson['token']
 
 

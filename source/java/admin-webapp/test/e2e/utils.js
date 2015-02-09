@@ -52,6 +52,14 @@ goto = function( tab ){
     browser.sleep( 200 );
 };
 
+clickOk = function(){
+    element( by.css( '.fds-modal-ok' ) ).click();
+};
+
+clickCancel = function(){
+    element( by.css( '.fds-modal-cancel' ) ).click();
+};
+
 createTenant = function( name ){
     
     goto( 'tenants' );

@@ -46,28 +46,28 @@ def suiteConstruction(self):
     # our bucket and BLOB and meta-data.
     #
     # Currently (12/16/2014) the OM is not very resilient.
-    #suite.addTest(testcases.TestFDSModMgt.TestOMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestOMVerifyShutdown())
+    #suite.addTest(testcases.TestFDSModMgt.TestOMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestOMVerifyDown())
     #suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestOMWait())
 
-    #suite.addTest(testcases.TestFDSModMgt.TestAMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestAMVerifyShutdown())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown())
     #suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
     #suite.addTest(testcases.TestFDSModMgt.TestAMWait())
 
-    suite.addTest(testcases.TestFDSModMgt.TestSMShutDown())
-    suite.addTest(testcases.TestFDSModMgt.TestSMVerifyShutdown())
+    suite.addTest(testcases.TestFDSModMgt.TestSMKill())
+    suite.addTest(testcases.TestFDSModMgt.TestSMVerifyDown())
     suite.addTest(testcases.TestFDSModMgt.TestSMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestSMWait())
 
-    #suite.addTest(testcases.TestFDSModMgt.TestDMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestDMVerifyShutdown())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown())
     #suite.addTest(testcases.TestFDSModMgt.TestDMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestDMWait())
 
-    suite.addTest(testcases.TestFDSModMgt.TestPMShutDown())
-    suite.addTest(testcases.TestFDSModMgt.TestPMVerifyShutdown())
+    suite.addTest(testcases.TestFDSModMgt.TestPMKill())
+    suite.addTest(testcases.TestFDSModMgt.TestPMVerifyDown())
     suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestPMWait())
 

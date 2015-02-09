@@ -67,6 +67,7 @@ void CommitBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
                                                               std::placeholders::_2,
                                                               std::placeholders::_3,
                                                               std::placeholders::_4,
+                                                              std::placeholders::_5,
                                                               typedRequest));
     // Our callback, volumeCatalogCb(), will be called and will handle calling handleResponse().
     if (helper.err.ok()) {
@@ -85,7 +86,12 @@ void CommitBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
 void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_version,
                                           BlobObjList::const_ptr const& blob_obj_list,
                                           MetaDataList::const_ptr const& meta_list,
+                                          fds_uint64_t const blobSize,
                                           DmIoCommitBlobTx* commitBlobReq) {
+    if (e.ok()) {
+        meta_list->toFdspPayload(commitBlobReq->rspMsg.meta_list);
+        commitBlobReq->rspMsg.byteCount = blobSize;
+    }
     QueueHelper helper(commitBlobReq);
     helper.err = e;
 
@@ -118,16 +124,12 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         if (is_forwarding) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
-                if (dataMgr->feature.isCatSyncEnabled()) {
-                    LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
-                               << " because our DMT is " << dataMgr->omClient->getDMTVersion();
-                    helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
-                                                                            blob_version,
-                                                                            blob_obj_list,
-                                                                            meta_list);
-                } else {
-                    LOGWARN << "catalog sync feature - NOT enabled";
-                }
+                LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
+                           << " because our DMT is " << dataMgr->omClient->getDMTVersion();
+                helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
+                                                                       blob_version,
+                                                                       blob_obj_list,
+                                                                       meta_list);
                 if (helper.err.ok()) {
                     // we forwarded the request!!!
                     // if forwarding -- do not reply to AM yet, will reply when we receive response
@@ -172,8 +174,9 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
     // TODO(sanjay) - we will have to revisit  this call
-    fpi::CommitBlobTxRspMsg stBlobTxRsp;
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId, stBlobTxRsp);
+    DM_SEND_ASYNC_RESP(*asyncHdr,
+                       fpi::CommitBlobTxRspMsgTypeId,
+                       static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
     if (dataMgr->testUturnAll) {
         fds_verify(dmRequest == nullptr);

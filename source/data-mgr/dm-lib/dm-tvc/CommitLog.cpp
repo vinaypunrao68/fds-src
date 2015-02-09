@@ -9,7 +9,7 @@
 
 #include <fds_process.h>
 #include <dm-tvc/CommitLog.h>
-#include <dm-vol-cat/DmPersistVolDir.h>
+#include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace fds {
 
@@ -135,7 +135,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     ptx->name = blobName;
     ptx->blobMode = blobMode;
     ptx->started = util::getTimeStampNanos();
-    ptx->nameId = DmPersistVolDir::getBlobIdFromName(blobName);
+    ptx->nameId = DmPersistVolCat::getBlobIdFromName(blobName);
 
     return ERR_OK;
 }
@@ -232,7 +232,7 @@ CommitLogTx::ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & sta
 
     const BlobTxId & txId = *txDesc;
 
-    GLOGDEBUG << "Commiting blob transaction " << txId;
+    GLOGDEBUG << "Committing blob transaction " << txId;
 
     status = validateSubsequentTx(txId);
     if (!status.ok()) {

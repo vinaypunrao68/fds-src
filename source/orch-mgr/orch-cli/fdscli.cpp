@@ -258,10 +258,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_info.vol_name = vm["volume-create"].as<std::string>();
         volData.vol_info.tennantId = 0;
         volData.vol_info.localDomainId = 0;
-        volData.vol_info.globDomainId = 0;
 
         volData.vol_info.capacity = vm["volume-size"].as<double>();
-        volData.vol_info.maxQuota = 0;
         volData.vol_info.volType =
                 stringToVolType(vm.count("vol-type") ?
                                 vm["vol-type"].as<std::string>() : "");
@@ -272,16 +270,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             volData.vol_info.maxObjSizeInBytes = 4096;  // 4k
         }
 
-        volData.vol_info.defReplicaCnt = 0;
-        volData.vol_info.defWriteQuorum = 0;
-        volData.vol_info.defReadQuorum = 0;
-        volData.vol_info.defConsisProtocol =
-                FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
-
         volData.vol_info.volPolicyId = vm["volume-policy"].as<int>();
-        volData.vol_info.archivePolicyId = 0;
         volData.vol_info.placementPolicy = 0;
-        volData.vol_info.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
         volData.vol_info.mediaPolicy =
                 stringToMediaPolicy(vm.count("media-policy") ?
                                 vm["media-policy"].as<std::string>() : "");
@@ -333,11 +323,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             volData.vol_desc.maxObjSizeInBytes = 4096;  // 4k
         }
 
-        volData.vol_desc.defConsisProtocol =
-                FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
-        volData.vol_desc.archivePolicyId = 0;
         volData.vol_desc.placementPolicy = 0;
-        volData.vol_desc.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
         volData.vol_desc.mediaPolicy = vm.count("media_policy") ?
                 stringToMediaPolicy(vm["media-policy"].as<std::string>()) :
                 FDS_ProtocolInterface::FDSP_MEDIA_POLICY_UNSET;  // use current policy

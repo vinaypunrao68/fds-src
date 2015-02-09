@@ -71,6 +71,8 @@ class AmTxManager : public Module, public boost::noncopyable {
 
   public:
     explicit AmTxManager(const std::string &modName);
+    AmTxManager(AmTxManager const&) = delete;
+    AmTxManager& operator=(AmTxManager const&) = delete;
     ~AmTxManager();
     typedef std::unique_ptr<AmTxManager> unique_ptr;
     typedef std::shared_ptr<AmTxManager> shared_ptr;
@@ -127,30 +129,13 @@ class AmTxManager : public Module, public boost::noncopyable {
      */
     Error updateStagedBlobObject(const BlobTxId &txId,
                                  const ObjectID &objectId,
-                                 boost::shared_ptr<std::string> objectData,
-                                 fds_uint32_t dataLen);
+                                 boost::shared_ptr<std::string> objectData);
 
     /**
      * Updates an existing transactions staged metadata.
      */
     Error updateStagedBlobDesc(const BlobTxId &txId,
-                               boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList);
-
-    /**
-     * Updates an existing transactions staged metadata.
-     */
-    Error updateStagedBlobDesc(const BlobTxId &txId,
-                               boost::shared_ptr<
-                               std::map<std::string, std::string>> &metadata);
-
-    /**
-     * Updates an existing transactions staged update length.
-     * TODO(Andrew): This assumes that the transaction is going
-     * update the entire blob and that each offset update is unique.
-     * If this assumption is not true, the cached blob size will be incorrect.
-     */
-    Error updateStagedBlobDesc(const BlobTxId &txId,
-                               fds_uint64_t len);
+                               fpi::FDSP_MetaDataList const& metaDataList);
 };
 
 }  // namespace fds
