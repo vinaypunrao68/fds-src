@@ -575,38 +575,13 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
     def __init__(self, parameters=None, bucket=None):
-        super(TestS3LoadVerifiableObject, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3LoadVerifiableObject,
+                                             "Load a verifiable object into S3 bucket")
 
         self.passedBucket=bucket
         self.verifiableObjectSha=None
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3LoadVerifiableObject():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Creating a verifiable object in S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
 
     def test_S3LoadVerifiableObject(self):
         """
@@ -664,36 +639,12 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
 class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
     def __init__(self, parameters=None, bucket=None):
         super(TestS3CheckVerifiableObject, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3CheckVerifiableObject,
+                                             "Check verifiable object in S3 bucket")
 
         self.passedBucket=bucket
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_S3LoadVerifiableObject():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Verifying verifiable object in S3 bucket caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
 
     def test_S3CheckVerifiableObject(self):
         """
