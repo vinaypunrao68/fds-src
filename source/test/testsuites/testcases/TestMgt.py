@@ -744,7 +744,7 @@ class TestFork(TestCase.FDSTestCase):
                 return False
 
             self.log.info("Building a test suite based upon FDS Scenario config file %s." %
-                           self.passedScenario.nd_conf_dict['scenario-name'])
+                           self.passedScenario.nd_conf_dict['fds-scenario'])
 
             # Reset the scenario section based upon the contents of the
             # specified FDS Scenario config.
