@@ -927,7 +927,7 @@ struct GetBucketMsg {
 
 struct GetBucketRspMsg {
   //response
-  1: required FDSP.BlobDescriptorListType     blob_descr_list;
+  1: required common.BlobDescriptorListType     blob_descr_list;
 }
 
 struct GetDmStatsMsg {
