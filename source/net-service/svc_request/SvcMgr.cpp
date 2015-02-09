@@ -19,6 +19,10 @@
 
 namespace fds {
 
+std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
+    return svcId.svc_uuid;
+}
+
 SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor)
     : Module("SvcMgr")
 {
