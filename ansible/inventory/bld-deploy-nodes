@@ -6,7 +6,9 @@
 
 [bld-deploy-nodes:vars]
 deploy_artifact=nightly
+fds_build=debug
 clean_fds=yes
+force=true
 fds_default_nic=eth0
 fds_om_host=10.2.10.75
 fds_metrics_enables=false

@@ -1,4 +1,8 @@
 ---
+-   name: set variable build defined in inventory file (release or debug)
+		set_fact:
+				build: "{% if fds_build is defined and fds_build == 'debug' %}dbg{% else %}rel{% endif %}"
+
 -   include: install_fds_from_repo.yml
     when: deploy_artifact is defined and deploy_artifact != "local"
 

@@ -23,13 +23,11 @@
 
 -   name: install fds platform from repo
     when: deploy_artifact == "nightly"
-    apt: name={{item}}
+		apt: name=fds-platform-{{ build }}
         force=yes
         state=present
         update_cache=yes
         default_release=platform
-    with_items:
-        - fds-platform
     register: fdsinstall_pkg
     tags:
       - install-repo

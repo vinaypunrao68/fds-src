@@ -39,7 +39,7 @@ pkgs_to_deploy=(
 )
 
 
-fds_package_pattern='(fds-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]~nightly~(debug|release)-[[:alnum:]]+_amd64.deb)'
+fds_package_pattern='(fds-platform-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]-[[:alnum:]]+_amd64.deb)'
 # ${BUILD_TYPE} should be "debug" or "release" and is provided by Jenkins
 cd ${fds_platform_dir}
 

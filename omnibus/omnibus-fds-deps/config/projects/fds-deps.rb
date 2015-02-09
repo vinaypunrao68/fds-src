@@ -5,8 +5,8 @@
 #
 
 name "fds-deps"
-maintainer "CHANGE ME"
-homepage "https://CHANGE-ME.com"
+maintainer "Formation Data Systems"
+homepage "http://www.formationds.com"
 
 # Defaults to C:/fds-deps on Windows
 # and /opt/fds-deps on all other platforms
