@@ -496,7 +496,7 @@ class TestVerifyRedisUp(TestCase.FDSTestCase):
             self.log.error("Verify Redis is up on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        self.log.error(stdout)
+        self.log.info(stdout)
 
         if stdout.count("NOT") > 0:
             return False
