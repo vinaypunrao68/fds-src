@@ -238,36 +238,12 @@ class TestFDSSharedMemoryClean(TestCase.FDSTestCase):
         "parameters" will have been populated with
         .ini configuration.
         """
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_FDSSharedMemoryClean,
+                                             "Remove /dev/shm/0x* entries")
 
         self.passedNode = node
-
-
-    @unittest.expectedFailure
-    def runTest(self):
-        """
-        Used by qaautotest module's test runner to run the test case
-        and clean up the fixture as necessary.
-
-        With PyUnit, the same method is run although PyUnit will also
-        call any defined tearDown method to do test fixture cleanup as well.
-        """
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_FDSSharedMemoryClean():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Shared Memory cleanup caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
 
     def test_FDSSharedMemoryClean(self):
         """
@@ -285,26 +261,19 @@ class TestFDSSharedMemoryClean(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
-            # Check to see if shared memory segments exist
-            status = n.nd_agent.exec_wait('ls /dev/shm/0x*')
+            # Delete any shared memory segments found
+            status = n.nd_agent.exec_wait('find /dev/shm -name "0x*" -exec rm {} \;')
             if status == 0:
                 # Try to delete it.
-                self.log.info("Shared memory segments exist, attempting to remove them on node %s" %
+                self.log.info("Shared memory segments deleted on node %s" %
                               (n.nd_conf_dict['node-name']))
-
-                status = n.nd_agent.exec_wait('rm /dev/shm/0x*')
-                if status != 0:
-                    self.log.error("Shared memory cleanup on node %s returned status %d." %
-                                   (n.nd_conf_dict['node-name'], status))
-                    return False
             else:
-                self.log.warn("Shared memory segments nonexistent on node %s." %
+                self.log.warn("Failed to delete shared memory segments on node %s." %
                               (n.nd_conf_dict['node-name']))
 
             if self.passedNode is not None:
                 # We're done with the specified node. Get out.
                 break
-
         return True
 
 # This class contains attributes and methods to test
