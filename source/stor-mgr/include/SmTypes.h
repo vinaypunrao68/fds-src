@@ -25,5 +25,8 @@ namespace fds {
 
 typedef std::set<fds_token_id> SmTokenSet;
 
+/// Migration types
+#define SM_INVALID_EXECUTOR_ID     0
+
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMTYPES_H_

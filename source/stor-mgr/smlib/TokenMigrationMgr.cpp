@@ -16,7 +16,7 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
           numBitsPerDltToken(0),
           clientLock("Migration Client Map Lock") {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
-    nextLocalExecutorId = ATOMIC_VAR_INIT(0);
+    nextLocalExecutorId = ATOMIC_VAR_INIT(1);
 
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapshotRequest.smio_snap_resp_cb = std::bind(&SmTokenMigrationMgr::smTokenMetadataSnapshotCb,
@@ -216,15 +216,6 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
                                                  executorNodeUuid,
                                                  bitsPerDltToken));
             migrClients[executorId] = migrClient;
-            // The assumption here that all SMs do the same mapping of
-            // dlt token to SM token.. This is currently true; but if
-            // this behavior changes, we need to change the code below
-            fds_token_id smToken = SmDiskMap::smTokenId(rebalSetMsg->tokenId);
-            // TODO(Anna) we need to implement multiple migr clients responsible
-            // for migrating the same SM token (happens when multiple SMs are
-            // added to the domain at the same time)
-            fds_verify(smtokExecutorIdMap.count(smToken) == 0);
-            smtokExecutorIdMap[smToken] = executorId;
         } else {
             migrClient = migrClients[executorId];
         }
@@ -405,51 +396,50 @@ SmTokenMigrationMgr::getTargetDltVersion() const {
     return targetDltVersion;
 }
 
-Error
-SmTokenMigrationMgr::startForwarding(fds_token_id smTok) {
+void
+SmTokenMigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok) {
+    // ignore invalid executor id
+    if (executorId == SM_INVALID_EXECUTOR_ID) {
+        LOGDEBUG << "Invalid executor ID, ok if called when there is no migration";
+        return;
+    }
     if (!isMigrationInProgress()) {
-        return ERR_NOT_READY;
+        return;
     }
-    // in this state, we must know about bits per tok
-    SmTokExecutorIdMap::iterator it = smtokExecutorIdMap.find(smTok);
-    if (it == smtokExecutorIdMap.end()) {
-        // we cannot start forwarding because there is no
-        // migration client (on source) that is migration this
-        // SM token
-        return ERR_NOT_READY;
-    }
-    fds_verify(migrClients.count(it->second) > 0);
+    // since executorID is valid, this request must have come from
+    // migration client; so we must have it
+    fds_verify(migrClients.count(executorId) > 0);
     // Tell migration client responsible for migrating SM token
-    LOGMIGRATE << "Setting forwarding flag for SM token " << smTok;
-    migrClients[it->second]->setForwardingFlag();
-    return ERR_OK;
+    LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
+               << " executorId " << executorId;
+    migrClients[executorId]->setForwardingFlag(smTok);
 }
 
 fds_bool_t
 SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
                                         fds_uint64_t reqDltVersion,
                                         FDS_IOType* req) {
+    fds_bool_t forwarded = false;
+
     // we only do forwarding if migration is in progress
     if (isMigrationInProgress()) {
         if (reqDltVersion == targetDltVersion) {
             // this request was also sent to the destination SM
             // since AM sending the request is already on new DLT version
-            return false;
+            return forwarded;
         }
         // in this state, we must know about bits per tok
         fds_verify(numBitsPerDltToken != 0);
         fds_token_id dltTok = DLT::getToken(objId, numBitsPerDltToken);
-        fds_token_id smTok = SmDiskMap::smTokenId(dltTok);
-        SmTokExecutorIdMap::iterator it = smtokExecutorIdMap.find(smTok);
-        if (it != smtokExecutorIdMap.end()) {
-            // migration client tells if we need to forward
-            fds_verify(migrClients.count(it->second) > 0);
-            return migrClients[it->second]->forwardIfNeeded(dltTok, req);
+        // tell each migration client reponsible for migrating this DLT
+        // token to forward the request to the destination
+        for (MigrClientMap::iterator it = migrClients.begin();
+             it != migrClients.end();
+             ++it) {
+            forwarded = forwarded || it->second->forwardIfNeeded(dltTok, req);
         }
-        // else we don't have an executor so we are not doing
-        // migration of this DLT token
     }
-    return false;
+    return forwarded;
 }
 
 /**
@@ -472,7 +462,6 @@ SmTokenMigrationMgr::handleDltClose() {
     {
         fds_mutex::scoped_lock l(clientLock);
         migrClients.clear();
-        smtokExecutorIdMap.clear();
     }
     targetDltVersion = DLT_VER_INVALID;
     return err;
