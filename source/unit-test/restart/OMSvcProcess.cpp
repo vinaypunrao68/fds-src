@@ -6,36 +6,40 @@
 #include <net/SvcProcess.h>
 #include <fdsp/PlatNetSvc.h>
 #include <fdsp/OMSvc.h>
+#include <net/PlatNetSvcHandler.h>
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
+#include <fdsp_utils.h>
 #include <OMSvcProcess.h>
 // #include <OMSvcHandler2.h>
 
 namespace fds {
 struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
-  OMSvcHandler2() {
-    // Your initialization goes here
-  }
+    explicit OMSvcHandler2(OMSvcProcess *om) {
+        om_ = om;
+    }
 
-  void registerService(const fpi::SvcInfo& svcInfo) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-  }
-
-
-  void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo) {
-    // Your implementation goes here
-    printf("registerService\n");
-  }
-
-  void getSvcMap(std::vector<fpi::SvcInfo> & _return, const int32_t nullarg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-  }
+    void registerService(const fpi::SvcInfo& svcInfo) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
 
 
-  void getSvcMap(std::vector<fpi::SvcInfo> & _return, boost::shared_ptr<int32_t>& nullarg) {
-    // Your implementation goes here
-    printf("getSvcMap\n");
-  }
+    void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo) {
+        // Your implementation goes here
+        om_->registerService(svcInfo);
+    }
+
+    void getSvcMap(std::vector<fpi::SvcInfo> & _return, const int32_t nullarg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+
+    void getSvcMap(std::vector<fpi::SvcInfo> & _return, boost::shared_ptr<int32_t>& nullarg) {
+        // Your implementation goes here
+        om_->getSvcMap(_return);
+    }
+
+    OMSvcProcess *om_;
 
 };
 
@@ -52,7 +56,7 @@ OMSvcProcess::~OMSvcProcess()
 void OMSvcProcess::init(int argc, char *argv[])
 {
     /* Set up OMsvcProcessor for handling messages */
-    boost::shared_ptr<OMSvcHandler2> handler = boost::make_shared<OMSvcHandler2>();
+    boost::shared_ptr<OMSvcHandler2> handler = boost::make_shared<OMSvcHandler2>(this);
     boost::shared_ptr<fpi::OMSvcProcessor> processor = boost::make_shared<fpi::OMSvcProcessor>(handler);
 
     /* Set up process related services such as logger, timer, etc. */
@@ -82,25 +86,53 @@ int OMSvcProcess::run() {
 
 void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
-    GLOGNOTIFY << "Incoming update: " << fds::logString(svcInfo);
+    GLOGNOTIFY << "Incoming update: " << fds::logString(*svcInfo);
 
-    fds_scoped_lock l(svcMapLock_);
-    auto mapItr = svcMap_.find(svcInfo->svc_id.svc_uuid);
-    if (mapItr == svcMap_.end()) {
-        GLOGNOTIFY << "Added new service";
-        svcMap_.emplace(std::make_pair(svcInfo->svc_id.svc_uuid, *svcInfo));
-    } else if (mapItr->second.incarnationNo < svcInfo->incarnationNo) {
-        GLOGNOTIFY << "Updated service";
-        mapItr->second = *svcInfo;
-    } else {
-        GLOGNOTIFY << "Ignored service";
+    bool updated = false;
+    {
+        /* admit and update peristence */
+        fds_scoped_lock l(svcMapLock_);
+        auto mapItr = svcMap_.find(svcInfo->svc_id.svc_uuid);
+        if (mapItr == svcMap_.end()) {
+            GLOGNOTIFY << "Added new service";
+            svcMap_.emplace(std::make_pair(svcInfo->svc_id.svc_uuid, *svcInfo));
+            updated = true;
+        } else if (mapItr->second.incarnationNo < svcInfo->incarnationNo) {
+            GLOGNOTIFY << "Updated service";
+            mapItr->second = *svcInfo;
+            updated = true;
+        } else {
+            GLOGNOTIFY << "Ignored service";
+        }
     }
+
+    if (updated) {
+        /* Prepare update svc map message */
+        boost::shared_ptr<std::string>buf;
+        auto header = SvcRequestPool::newSvcRequestHeaderPtr(
+            SvcRequestPool::SVC_UNTRACKED_REQ_ID,
+            FDSP_MSG_TYPEID(fpi::UpdateSvcMapMsg),
+            svcMgr_->getSvcUuid(),
+            fpi::SvcUuid());
+        fpi::UpdateSvcMapMsgPtr updateMsg = boost::make_shared<fpi::UpdateSvcMapMsg>(); 
+        updateMsg->updates.push_back(*svcInfo);
+        fds::serializeFdspMsg(*updateMsg, buf);
+
+        /* First update svcMgr in OM */
+        svcMgr_->updateSvcMap(updateMsg->updates);
+
+        /* Update the domain by broadcasting */
+        svcMgr_->broadcastasyncSvcMessage(header, buf,
+                                          [](const fpi::SvcInfo& info) {return true;});
+        LOGDEBUG << "Broadcasted svcInfo: " << fds::logString(*svcInfo);
+    }
+
 }
 
 void OMSvcProcess::getSvcMap(std::vector<fpi::SvcInfo> & svcMap)
 {
     fds_scoped_lock l(svcMapLock_);
-    for (auto &kv : svcMap) {
+    for (auto &kv : svcMap_) {
         svcMap.push_back(kv.second);
     }
 }

@@ -177,7 +177,7 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
         break;
     }
 
-    if (header->msg_src_id == SVC_UNTRACKED_REQ_ID) {
+    if (header->msg_src_id == static_cast<int64_t>(SVC_UNTRACKED_REQ_ID)) {
         /* Ignore posting error for untracked requests */
         return;
     }

@@ -51,14 +51,11 @@ SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInf
     omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<long long>("fds.common.om_uuid"));
 
     svcInfo_ = svcInfo;
-    // svcUuid_.svc_uuid= static_cast<int64_t>(config.get<long long>("svc.uuid"));
-    // port_ = config.get<int>("svc.port");
     /* Create the server */
     svcServer_ = boost::make_shared<SvcServer>(svcInfo_.svc_port, processor);
 
     // TODO(Rao): Don't make this global
     gSvcRequestPool = new SvcRequestPool();
-
 }
 
 SvcMgr::~SvcMgr()
@@ -155,9 +152,9 @@ void SvcMgr::broadcastasyncSvcMessage(fpi::AsyncHdrPtr &h,
     for (auto &kv : map) {
         /* Create header for the target */
         auto header = boost::make_shared<fpi::AsyncHdr>(*h);
-        header->msg_dst_uuid = kv->first;
+        header->msg_dst_uuid = kv.first;
 
-        kv->second->sendAsyncSvcMessageOnPredicate(header, payload, predicate);
+        kv.second->sendAsyncSvcMessageOnPredicate(header, payload, predicate);
     }
 }
 
@@ -257,7 +254,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
 
     if (isSvcDown_()) {
         /* No point trying to send when service is down */
-        return false
+        return false;
     }
     try {
         if (!svcClient_) {
@@ -269,14 +266,12 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
         return true;
     } catch (std::exception &e) {
         GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
-        bSendFailed = true;
         markSvcDown_();
     } catch (...) {
         GLOGWARN << "allocRpcClient failed.  Unknown exception." << header;
-        bSendFailed = true;
         markSvcDown_();
     }
-    return true;
+    return false;
 }
 
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
