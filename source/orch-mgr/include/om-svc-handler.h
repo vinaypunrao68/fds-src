@@ -6,12 +6,21 @@
 
 #include <OmResources.h>
 #include <fdsp/fds_service_types.h>
+#include <fdsp/OMSvc.h>
 #include <net/PlatNetSvcHandler.h>
 #include <OmEventTracker.h>
 
+/* Forward declarations */
+namespace FDS_ProtocolInterface {
+    class PlatNetSvcProcessor;
+    using PlatNetSvcProcessorPtr = boost::shared_ptr<PlatNetSvcProcessor>;
+    class OMSvcIf;
+}  // namespace FDS_ProtocolInterface
+namespace fpi = FDS_ProtocolInterface;
+
 namespace fds {
 
-class OmSvcHandler : virtual public PlatNetSvcHandler
+class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
 {
   public:
     OmSvcHandler();
@@ -54,6 +63,12 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
     virtual void
     GetSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
+
+    /* Overrides from OMSvcIf */
+    virtual void registerService(const SvcInfo& svcInfo) override {}
+    virtual void getSvcMap(std::vector<SvcInfo> & _return, const int32_t nullarg) override {}
+    virtual void registerService(boost::shared_ptr<SvcInfo>& svcInfo) override;
+    virtual void getSvcMap(std::vector<SvcInfo> & _return, boost::shared_ptr<int32_t>& nullarg) override;
 
   protected:
     OM_NodeDomainMod         *om_mod;
