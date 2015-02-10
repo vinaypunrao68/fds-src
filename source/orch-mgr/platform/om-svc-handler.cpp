@@ -52,6 +52,7 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcMapMsg, GetSvcMap);
 
     // TODO(bszmyd): Tue 20 Jan 2015 10:24:45 PM PST
     // This isn't probably where this should go, but for now it doesn't make
@@ -223,6 +224,24 @@ OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         return;
     }
     event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
+}
+
+void
+OmSvcHandler::    GetSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::GetSvcMapMsg> &msg)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << " received " << hdr->msg_code
+             << " from:" << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
+
+    // get the  serice map from config DB.
+
+    // Send the response.
+    fpi::GetSvcMapRespMsg msg(new fpi::GetSvcMapRespMsg());
+    // init the Resp message with the service map
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *msg);
+
 }
 
 }  //  namespace fds
