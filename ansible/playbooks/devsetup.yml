@@ -95,6 +95,7 @@
         - python-redis
         - python-requests
         - python-argh
+        - python-boto
         - python-thrift
         - fds-pkghelper
         - fds-pkg
@@ -122,7 +123,6 @@
         - httplib2
         - docker-py
         - psutil
-        - "boto==2.28.0"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
