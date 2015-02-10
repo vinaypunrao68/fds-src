@@ -139,6 +139,19 @@ void SvcMgr::sendAsyncSvcRequest(const fpi::SvcUuid &svcUuid,
     }
 }
 
+void SvcMgr::broadcastSvcMsg(StringPtr &payload, const SvcInfoPredicate& predicate)
+{
+    SvcHandleMap map;
+    {
+        fds_scoped_lock lock(svcHandleMapLock_);
+        map = svcHandleMap_;
+    }
+    for (auto &kv : map) {
+        // if (predicate(kv.second->getSvcInfo())) {
+        // }
+    }
+}
+
 void SvcMgr::postSvcSendError(fpi::AsyncHdrPtr &header)
 {
     swapAsyncHdr(header);
@@ -168,6 +181,7 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
     while (true) {
         try {
             omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, true);
+            break;
         } catch (std::exception &e) {
             GLOGWARN << "allocRpcClient failed.  Exception: " << e.what()
                 << ".  ip: "  << omIp_ << " port: " << omPort_;
@@ -203,6 +217,7 @@ void SvcHandle::sendAsyncSvcRequest(fpi::AsyncHdrPtr &header,
     do {
         fds_scoped_lock lock(lock_);
         if (isSvcDown_()) {
+            /* No point trying to send when service is down */
             bSendFailed = true;
             break;
         }
@@ -212,14 +227,17 @@ void SvcHandle::sendAsyncSvcRequest(fpi::AsyncHdrPtr &header,
                                                                    svcInfo_.svc_port,
                                                                    false);
             }
+            svcClient_->asyncReqt(*header, *payload);
         } catch (std::exception &e) {
             GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
             bSendFailed = true;
             markSvcDown_();
+            break;
         } catch (...) {
             GLOGWARN << "allocRpcClient failed.  Unknown exception." << header;
             bSendFailed = true;
             markSvcDown_();
+            break;
         }
     } while (false);
 
@@ -230,7 +248,7 @@ void SvcHandle::sendAsyncSvcRequest(fpi::AsyncHdrPtr &header,
 
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
-    GLOGDEBUG << "Incoming update: " << logString(newInfo);
+    GLOGDEBUG << "Incoming update: " << fds::logString(newInfo);
 
     fds_scoped_lock lock(lock_);
     if (svcInfo_.incarnationNo < newInfo.incarnationNo) {
@@ -254,16 +272,7 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 std::string SvcHandle::logString() const
 {
     /* NOTE: not protected by lock */
-    return logString(svcInfo_);
-}
-
-std::string SvcHandle::logString(const fpi::SvcInfo &info)
-{
-    std::stringstream ss;
-    ss << "Svc handle svc_uuid: " << info.svc_id.svc_uuid.svc_uuid << " ip: " << info.ip
-        << " port: " << info.svc_port << " incarnation: " << info.incarnationNo
-        << " status: " << info.svc_status;
-    return ss.str();
+    return fds::logString(svcInfo_);
 }
 
 bool SvcHandle::isSvcDown_() const

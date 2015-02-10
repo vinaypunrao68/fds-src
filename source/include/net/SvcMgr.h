@@ -49,6 +49,9 @@ struct SvcUuidHash {
     std::size_t operator()(const fpi::SvcUuid& svcId) const;
 };
 
+using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
+using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
+
 /**
 * @brief Overall manager class for service layer
 */
@@ -79,6 +82,14 @@ struct SvcMgr : public Module {
     */
     void sendAsyncSvcRequest(const fpi::SvcUuid &svcUuid,
                              fpi::AsyncHdrPtr &header, StringPtr &payload);
+    /**
+    * @brief Brodcasts the payload to all services matching predicate
+    *
+    * @param payload
+    * @param predicate
+    */
+    void broadcastSvcMsg(StringPtr &payload, const SvcInfoPredicate& predicate);
+
     /**
     * @brief For posting errors when we fail to send on service handle
     *
@@ -133,7 +144,7 @@ struct SvcMgr : public Module {
     /* This lock protects svcHandleMap_ */
     fds_mutex svcHandleMapLock_;
     /* Map of service handles */
-    std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash> svcHandleMap_;
+    SvcHandleMap svcHandleMap_;
 
     /* Server that accepts service layer messages */
     boost::shared_ptr<SvcServer> svcServer_;
@@ -157,11 +168,13 @@ struct SvcHandle {
 
     void sendAsyncSvcRequest(fpi::AsyncHdrPtr &header, StringPtr &payload);
 
+    // void sendAsyncSvcRequestOnPredicate(fpi::AsyncHdrPtr &header, StringPtr &payload);
+
     void updateSvcHandle(const fpi::SvcInfo &newInfo);
 
-    std::string logString() const;
+    fpi::SvcInfo getSvcInfo();
 
-    static std::string logString(const fpi::SvcInfo &info);
+    std::string logString() const;
 
  protected:
     bool isSvcDown_() const;

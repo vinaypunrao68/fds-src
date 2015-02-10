@@ -71,6 +71,15 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
+{
+    std::stringstream ss;
+    ss << "Svc handle svc_uuid: " << info.svc_id.svc_uuid.svc_uuid << " ip: " << info.ip
+        << " port: " << info.svc_port << " incarnation: " << info.incarnationNo
+        << " status: " << info.svc_status;
+    return ss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj)
 {
     std::ostringstream oss;

@@ -20,6 +20,8 @@ SvcRequestPool *gSvcRequestPool;
 SvcRequestCounters* gSvcRequestCntrs;
 SvcRequestTracker* gSvcRequestTracker;
 
+uint64_t SvcRequestPool::SVC_UNTRACKED_REQ_ID = 0;
+
 template<typename T>
 T SvcRequestPool::get_config(std::string const& option)
 { return gModuleProvider->get_fds_config()->get<T>(option); }
@@ -32,7 +34,7 @@ SvcRequestPool::SvcRequestPool()
     gSvcRequestTracker = new SvcRequestTracker();
     gSvcRequestCntrs = new SvcRequestCounters("SvcReq", g_cntrs_mgr.get());
 
-    nextAsyncReqId_ = 0;
+    nextAsyncReqId_ = SVC_UNTRACKED_REQ_ID + 1;
     finishTrackingCb_ = std::bind(&SvcRequestTracker::popFromTracking,
             gSvcRequestTracker, std::placeholders::_1);
 
@@ -50,7 +52,7 @@ SvcRequestPool::SvcRequestPool()
  */
 SvcRequestPool::~SvcRequestPool()
 {
-    nextAsyncReqId_ = 0;
+    nextAsyncReqId_ = SVC_UNTRACKED_REQ_ID;
 }
 
 /**

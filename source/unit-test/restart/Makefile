@@ -21,17 +21,17 @@ user_non_fds_libs := \
     leveldb \
     ical \
     hiredis
-user_ld_flags     := -shared
+#user_ld_flags     := -shared
 
 user_cpp          := \
+    TestSvcProcess.cpp \
     OMSvcProcess.cpp \
-    TestSvcProcess.cpp
 
 user_no_style     :=
 
 user_bin_exe      := \
+	testsvc \
 	omsvc \
-	testsvc
 
 omsvc := OMSvcProcess.cpp 
 testsvc := TestSvcProcess.cpp

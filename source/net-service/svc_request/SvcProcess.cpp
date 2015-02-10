@@ -71,12 +71,16 @@ void SvcProcess::init(int argc, char *argv[],
 void SvcProcess::registerSvcProcess()
 {
     LOGNOTIFY;
+    std::vector<fpi::SvcInfo> svcMap;
 
     do {
         try {
-            /* This will block until we get a connection */
+            /* This will block until we get a connection.  All the call below should be
+             * idempotent.  In case of failure we just retry until we succeed
+             */
             auto omSvcRpc = svcMgr_->getNewOMSvcClient();
             omSvcRpc->registerService(svcInfo_);
+            omSvcRpc->getSvcMap(svcMap, 0);
             break;
         } catch (Exception &e) {
             LOGWARN << "Failed to register: " << e.what() << ".  Retrying...";
@@ -84,13 +88,15 @@ void SvcProcess::registerSvcProcess()
             LOGWARN << "Failed to register: unknown excpeption" << ".  Retrying...";
         }
     } while (true);
+
+    svcMgr_->updateSvcMap(svcMap);
 }
 
 void SvcProcess::setupConfigDb_()
 {
     LOGNOTIFY;
     // TODO(Rao): Set up configdb
-    fds_panic("Unimpl");
+    // fds_panic("Unimpl");
 }
 
 void SvcProcess::setupSvcInfo_()

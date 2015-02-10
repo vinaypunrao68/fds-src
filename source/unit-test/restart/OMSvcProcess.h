@@ -29,17 +29,18 @@ struct OMSvcProcess : SvcProcess {
 
     virtual int run() override;
 
+    /* Messages invoked by handler */
+    void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
+    void getSvcMap(std::vector<fpi::SvcInfo> & svcMap);
+
  protected:
     /**
     * @brief Sets up configdb used for persistence
     */
     virtual void setupConfigDb_() override;
 
-    /**
-    * @brief Populates service information
-    */
-    virtual void setupSvcInfo_() override;
-
+    fds_mutex svcMapLock_;
+    std::unordered_map<fpi::SvcUuid, fpi::SvcInfo, SvcUuidHash> svcMap_;
 };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_OMSVCPROCESS_H_

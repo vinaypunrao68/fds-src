@@ -55,7 +55,7 @@ fds: {
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
     om_port = 9999
-    om_uuid = 1
+    om_uuid = 1L
     }
 
     plat: {
@@ -111,7 +111,7 @@ fds: {
         }
         /* Service layer stanza */
         svc: {
-	    uuid = 10000
+	    uuid = 10000L
 	    port = 10000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -127,7 +127,7 @@ fds: {
 
     dm: {
         svc: {
-	    uuid = 10002
+	    uuid = 10002L
 	    port = 12000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -223,7 +223,7 @@ fds: {
 
     sm: {
         svc: {
-	    uuid = 10001
+	    uuid = 10001L
 	    port = 12000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -364,7 +364,7 @@ fds: {
 
     am: {
         svc: {
-	    uuid = 10003
+	    uuid = 10003L
 	    port = 13000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -468,6 +468,20 @@ fds: {
 
     om:
     {
+        /* Service layer stanza */
+        svc: {
+	    uuid = 1L
+	    port = 9999
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         id="om"
         prefix=""
         log_severity = "{{ om_log_severity }}"

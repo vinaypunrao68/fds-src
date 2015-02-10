@@ -78,6 +78,7 @@ assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
 void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header);
 
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header);
+std::string logString(const FDS_ProtocolInterface::SvcInfo &info);
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
 std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
 std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);

@@ -20,6 +20,8 @@ namespace fds {
  */
 class SvcRequestPool {
  public:
+    static uint64_t SVC_UNTRACKED_REQ_ID;
+
     SvcRequestPool();
     ~SvcRequestPool();
 
