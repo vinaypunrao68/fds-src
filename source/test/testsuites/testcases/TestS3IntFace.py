@@ -25,7 +25,7 @@ class S3(object):
         self.conn = conn
         self.bucket1 = None
         self.keys = []  # As we add keys to the bucket, add them here as well.
-        self.verifiers = [] # As we track objects to verify, add object name 
+        self.verifiers = {} # As we track objects to verify, add object name 
                             # and hash here
 
 
@@ -609,21 +609,23 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
             return False
         else:
             self.log.info("Load an object with verifiable contents into an S3 bucket.")
-            s3 = self.parameters["s3"]
+            bucket = self.parameters["s3"].bucket1
 
             verifiable_file_contents = "a" * 1024
-            verifiable_object = s3.bucket.new_key('s3VerifiableObject')
+            verifiable_object = bucket.new_key('s3VerifiableObject')
             verifiable_object.set_contents_from_string(verifiable_file_contents)
 
             # Grab the object and capture the hash for verification
 
             try:
-                obj = s3.bucket.get_key('s3VerifiableObject')
+                obj = bucket.get_key('s3VerifiableObject')
             except:
                 self.log.error("Could not verify object")
             else:
                 if obj:
-                    self.verifiers['s3VerifiableObject'] = hashlib.sha1(obj).hexdigest()
+                    stored_hash = hashlib.sha1(obj.get_contents_as_string()).hexdigest()
+                    self.log.info("Hash of object stored in FDS: %s" % stored_hash)
+                    self.parameters["s3"].verifiers['s3VerifiableObject'] = stored_hash
                     test_passed = True
                 else:
                     test_passed = False
@@ -638,7 +640,6 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
     def __init__(self, parameters=None, bucket=None):
-        super(TestS3CheckVerifiableObject, self).__init__(parameters)
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3CheckVerifiableObject,
@@ -673,11 +674,14 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
             return False
         else:
             self.log.info("Verify contents of verifiable object in an S3 bucket.")
-            s3 = self.parameters["s3"]
+            bucket = self.parameters["s3"].bucket1
 
-            verifiable_object = s3.bucket.get_key('s3VerifiableObject')
-            verify_hash = hashlib.sha1(verifiable_object).hexdigest()
-            if self.verifiers['s3VerifiableObject'] == verify_hash:
+            verifiable_object = bucket.get_key('s3VerifiableObject')
+            verify_hash = hashlib.sha1(verifiable_object.get_contents_as_string()).hexdigest()
+            self.log.info("Hash of object read from FDS: %s" % verify_hash)
+            stored_verify_hash = self.parameters['s3'].verifiers['s3VerifiableObject']
+            self.log.info("Hash of object stored from LoadVerifiableObject: %s" % stored_verify_hash)
+            if stored_verify_hash == verify_hash:
                 test_passed = True
             else:
                 self.log.error("S3 Verifiable Object hash did not match")
