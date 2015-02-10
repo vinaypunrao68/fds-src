@@ -260,23 +260,14 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
-            fds_dir = n.nd_conf_dict['fds_root']
+            self.log.info("Attempting to selectively clean node %s." % n.nd_conf_dict['node-name'])
 
-            # Check to see if the FDS root directory is already there.
-            status = n.nd_agent.exec_wait('ls ' + fds_dir)
-            if status == 0:
-                # Try to delete it.
-                self.log.info("FDS installation directory, %s, exists on node %s. Attempting to selectively clean." %
-                              (fds_dir, n.nd_conf_dict['node-name']))
-                print fds_dir
-                status = n.nd_cleanup_node(test_harness=True, _bin_dir=bin_dir)
-                if status != 0:
-                    self.log.error("FDS installation directory selective clean on node %s returned status %d." %
-                                   (n.nd_conf_dict['node-name'], status))
-                    return False
-            else:
-                self.log.warn("FDS installation directory, %s, nonexistent on node %s." %
-                              (fds_dir, n.nd_conf_dict['node-name']))
+            status = n.nd_cleanup_node(test_harness=True, _bin_dir=bin_dir)
+
+            if status != 0:
+                self.log.error("FDS installation directory selective clean on node %s returned status %d." %
+                               (n.nd_conf_dict['node-name'], status))
+                return False
 
             if self.passedNode is not None:
                 # We're done with the specified node. Get out.
@@ -505,7 +496,7 @@ class TestVerifyRedisUp(TestCase.FDSTestCase):
             self.log.error("Verify Redis is up on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        self.log.error(stdout)
+        self.log.info(stdout)
 
         if stdout.count("NOT") > 0:
             return False

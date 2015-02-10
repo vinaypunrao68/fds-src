@@ -9,6 +9,9 @@ import subprocess
 import time
 import logging
 import os
+import os.path
+import glob
+import shutil
 import FdsSetup as inst
 
 ###
@@ -330,57 +333,64 @@ class FdsNodeConfig(FdsConfig):
 
             cur_dir = os.getcwd()
 
-            status = self.nd_agent.exec_wait('ls ' + bin_dir)
-            if status == 0:
+            if os.path.exists(bin_dir):
+                log.info("Cleanup cores in: %s" % bin_dir)
                 os.chdir(bin_dir)
-                status = self.nd_agent.exec_wait('rm core *.core')
+                if os.path.exists("core"):
+                    os.remove("core")
 
-            status = self.nd_agent.exec_wait('ls ' + var_dir)
-            if status == 0:
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
+
+            if os.path.exists(var_dir):
+                log.info("Cleanup logs and stats in: %s" % var_dir)
                 os.chdir(var_dir)
-                status = self.nd_agent.exec_wait('rm -r logs stats')
+                if os.path.exists("logs"):
+                    shutil.rmtree("logs")
+                if os.path.exists("stats"):
+                    shutil.rmtree("stats")
 
-            status = self.nd_agent.exec_wait('ls ' + '/corefiles')
-            if status == 0:
+            if os.path.exists('/corefiles'):
+                log.info("Cleanup cores in: %s" % '/corefiles')
                 os.chdir('/corefiles')
-                status = self.nd_agent.exec_wait('rm *.core')
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
 
-            status = self.nd_agent.exec_wait('ls ' + var_dir + '/core')
-            if status == 0:
+            if os.path.exists(var_dir + '/core'):
+                log.info("Cleanup cores in: %s" % var_dir + '/core')
                 os.chdir(var_dir + '/core')
-                status = self.nd_agent.exec_wait('rm *.core')
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
 
-            status = self.nd_agent.exec_wait('ls ' + tools_dir)
-            if status == 0:
+            if os.path.exists(tools_dir):
+                log.info("Running ./fds clean -i in %s" % tools_dir)
                 os.chdir(tools_dir)
-                status = self.nd_agent.exec_wait('./fds clean -i')
+                self.nd_agent.exec_wait('./fds clean -i')
 
-            status = self.nd_agent.exec_wait('ls ' + dev_dir)
-            if status == 0:
+            if os.path.exists(dev_dir):
+                log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
                 os.chdir(dev_dir)
-                status = self.nd_agent.exec_wait('rm -rf hdd-*/*')
+                shutil.rmtree("hdd-*")
+                shutil.rmtree("ssd-*")
 
-            status = self.nd_agent.exec_wait('ls ' + dev_dir)
-            if status == 0:
-                os.chdir(dev_dir)
-                status = self.nd_agent.exec_wait('rm -f ssd-*/*')
-
-            status = self.nd_agent.exec_wait('ls ' + fds_dir)
-            if status == 0:
+            if os.path.exists(fds_dir):
+                log.info("Cleanup sys-repo and user-repo in: %s" % fds_dir)
                 os.chdir(fds_dir)
-                status = self.nd_agent.exec_wait('rm -r sys-repo/')
+                shutil.rmtree("sys-repo")
+                shutil.rmtree("user-repo")
 
-            status = self.nd_agent.exec_wait('ls ' + fds_dir)
-            if status == 0:
-                os.chdir(fds_dir)
-                status = self.nd_agent.exec_wait('rm -r user-repo/')
-
-            status = self.nd_agent.exec_wait('ls ' + '/dev/shm')
-            if status == 0:
+            if os.path.exists('/dev/shm'):
+                log.info("Cleanup 0x* in: %s" % '/dev/shm')
                 os.chdir('/dev/shm')
-                status = self.nd_agent.exec_wait('rm -f 0x*')
+                files = glob.glob("0x*")
+                for filename in files:
+                    os.remove(filename)
 
             os.chdir(cur_dir)
+            status = 0
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
             status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +
@@ -768,6 +778,35 @@ class FdsConfigFile(object):
 
         # Why do we want to do this? Just execute the scenarios in the order listed.
         #self.cfg_scenarios.sort()
+
+    def config_parse_scenario(self):
+        """
+        Parse a potentially new FDS Scenario config file looking
+        just for scenario sections. This one supports running
+        different scenarios against the same resources and topology
+        of a given FDS Scenario config but in a forked process.
+        """
+        verbose = {
+            'verbose': self.cfg_verbose,
+            'dryrun' : self.cfg_dryrun
+        }
+
+        self.cfg_parser.read(self.cfg_file)
+        if len (self.cfg_parser.sections()) < 1:
+            print 'ERROR:  Unable to open or parse the config file "%s".' % (self.cfg_file)
+            sys.exit (1)
+
+        for section in self.cfg_parser.sections():
+            items = self.cfg_parser.items(section)
+            if re.match('scenario', section)!= None:
+                self.cfg_scenarios.append(FdsScenarioConfig(section, items, verbose))
+
+        for sce in self.cfg_scenarios:
+            sce.sce_bind_sections(self.cfg_user, self.cfg_nodes,
+                                  self.cfg_am, self.cfg_vol_pol,
+                                  self.cfg_volumes, [self.cfg_cli],
+                                  self.cfg_om)
+
 
 ###
 # Parse the config file and setup runtime env for it.

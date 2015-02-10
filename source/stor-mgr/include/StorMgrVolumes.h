@@ -81,7 +81,7 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
 
     public:
      /*
-      * perf stats 
+      * perf stats
       */
      std::atomic<fds_uint64_t> ssdByteCnt;
      std::atomic<fds_uint64_t> hddByteCnt;
@@ -93,7 +93,7 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
      double dedupBytes_;
 
      /*
-      *  per volume stats 
+      *  per volume stats
       */
      CounterHist8bit  objStats;
      fds_uint64_t   averageObjectsRead;
@@ -154,7 +154,7 @@ class StorMgrVolumeTable : public HasLogger {
                        const ObjectID &objId,
                        fds_uint32_t obj_size,
                        fds_bool_t incr,
-                       std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
+                       std::map<fds_volid_t, fds_uint64_t>& vol_refcnt);
      double getDedupBytes(fds_volid_t volid);
 
      inline fds_bool_t isSnapshot(fds_volid_t volid) {
@@ -200,7 +200,7 @@ class StorMgrVolumeTable : public HasLogger {
      fds_rwlock map_rwlock;
 
      /*
-      * Pointer to logger to use 
+      * Pointer to logger to use
       */
      fds_bool_t created_log;
 };
