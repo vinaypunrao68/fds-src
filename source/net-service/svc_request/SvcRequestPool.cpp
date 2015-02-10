@@ -177,6 +177,11 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
         break;
     }
 
+    if (header->msg_src_id == SVC_UNTRACKED_REQ_ID) {
+        /* Ignore posting error for untracked requests */
+        return;
+    }
+
     /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
     Platform::platf_singleton()->getBaseAsyncSvcHandler()->asyncResp(header, payload);

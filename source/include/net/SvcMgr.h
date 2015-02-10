@@ -74,21 +74,23 @@ struct SvcMgr : public Module {
     
 
     /**
-    * @brief For sending async request via message passing
+    * @brief For sending async message via message passing
     *
-    * @param svcUuid
     * @param header
     * @param payload
     */
-    void sendAsyncSvcRequest(const fpi::SvcUuid &svcUuid,
-                             fpi::AsyncHdrPtr &header, StringPtr &payload);
+    void sendAsyncSvcMessage(fpi::AsyncHdrPtr &header, StringPtr &payload);
+
     /**
     * @brief Brodcasts the payload to all services matching predicate
     *
+    * @param header
     * @param payload
     * @param predicate
     */
-    void broadcastSvcMsg(StringPtr &payload, const SvcInfoPredicate& predicate);
+    void broadcastasyncSvcMessage(fpi::AsyncHdrPtr &header,
+                                  StringPtr &payload,
+                                  const SvcInfoPredicate& predicate);
 
     /**
     * @brief For posting errors when we fail to send on service handle
@@ -122,7 +124,7 @@ struct SvcMgr : public Module {
     * disconnects and reconnects.  Service layer will not do this for you.  If you use
     * svc handle async interfaces service layer will handle disconnects/reconnects.
     * Primary use case for this call is during registration with OM.  All other interactions
-    * with OM should go through sendAsyncSvcRequest()
+    * with OM should go through sendAsyncSvcMessage()
     * NOTE: This call always creates brand new connection against OM.
     *
     * @return OMSvcClient
@@ -166,17 +168,18 @@ struct SvcHandle {
     explicit SvcHandle(const fpi::SvcInfo &info);
     virtual ~SvcHandle();
 
-    void sendAsyncSvcRequest(fpi::AsyncHdrPtr &header, StringPtr &payload);
-
-    // void sendAsyncSvcRequestOnPredicate(fpi::AsyncHdrPtr &header, StringPtr &payload);
+    void sendAsyncSvcMessage(fpi::AsyncHdrPtr &header, StringPtr &payload);
+    void sendAsyncSvcMessageOnPredicate(fpi::AsyncHdrPtr &header,
+                                        StringPtr &payload,
+                                        const SvcInfoPredicate& predicate);
 
     void updateSvcHandle(const fpi::SvcInfo &newInfo);
-
-    fpi::SvcInfo getSvcInfo();
 
     std::string logString() const;
 
  protected:
+    bool sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
+                                    StringPtr &payload);
     bool isSvcDown_() const;
     void markSvcDown_();
     /* Lock for protecting svcInfo_ and rpcClient_ */

@@ -119,11 +119,12 @@ bool SvcMgr::getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) co
     return true;
 }
 
-void SvcMgr::sendAsyncSvcRequest(const fpi::SvcUuid &svcUuid,
-                                 fpi::AsyncHdrPtr &header,
+void SvcMgr::sendAsyncSvcMessage(fpi::AsyncHdrPtr &header,
                                  StringPtr &payload)
 {
     SvcHandlePtr svcHandle;
+    fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
+
     do {
         fds_scoped_lock lock(svcHandleMapLock_);
         if (!getSvcHandle_(svcUuid, svcHandle)) {
@@ -133,22 +134,30 @@ void SvcMgr::sendAsyncSvcRequest(const fpi::SvcUuid &svcUuid,
     } while (false);
 
     if (svcHandle) {
-        svcHandle->sendAsyncSvcRequest(header, payload);
+        svcHandle->sendAsyncSvcMessage(header, payload);
     } else {
         postSvcSendError(header);
     }
 }
 
-void SvcMgr::broadcastSvcMsg(StringPtr &payload, const SvcInfoPredicate& predicate)
+void SvcMgr::broadcastasyncSvcMessage(fpi::AsyncHdrPtr &h,
+                                      StringPtr &payload,
+                                      const SvcInfoPredicate& predicate)
 {
     SvcHandleMap map;
+
     {
+        /* Make a copy of the service map */
         fds_scoped_lock lock(svcHandleMapLock_);
         map = svcHandleMap_;
     }
+
     for (auto &kv : map) {
-        // if (predicate(kv.second->getSvcInfo())) {
-        // }
+        /* Create header for the target */
+        auto header = boost::make_shared<fpi::AsyncHdr>(*h);
+        header->msg_dst_uuid = kv->first;
+
+        kv->second->sendAsyncSvcMessageOnPredicate(header, payload, predicate);
     }
 }
 
@@ -210,40 +219,64 @@ SvcHandle::~SvcHandle()
     GLOGDEBUG << logString();
 }
 
-void SvcHandle::sendAsyncSvcRequest(fpi::AsyncHdrPtr &header,
+void SvcHandle::sendAsyncSvcMessage(fpi::AsyncHdrPtr &header,
                                     StringPtr &payload)
 {
-    bool bSendFailed = false;
-    do {
+    bool bSendSuccess = true;
+    {
         fds_scoped_lock lock(lock_);
-        if (isSvcDown_()) {
-            /* No point trying to send when service is down */
-            bSendFailed = true;
-            break;
-        }
-        try {
-            if (!svcClient_) {
-                svcClient_ = allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
-                                                                   svcInfo_.svc_port,
-                                                                   false);
-            }
-            svcClient_->asyncReqt(*header, *payload);
-        } catch (std::exception &e) {
-            GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
-            bSendFailed = true;
-            markSvcDown_();
-            break;
-        } catch (...) {
-            GLOGWARN << "allocRpcClient failed.  Unknown exception." << header;
-            bSendFailed = true;
-            markSvcDown_();
-            break;
-        }
-    } while (false);
-
-    if (bSendFailed) {
+        bSendSuccess  = sendAsyncSvcMessageCommon_(header, payload);
+    }
+    if (!bSendSuccess) {
         gModuleProvider->getSvcMgr()->postSvcSendError(header);
     }
+}
+
+void SvcHandle::sendAsyncSvcMessageOnPredicate(fpi::AsyncHdrPtr &header,
+                                               StringPtr &payload,
+                                               const SvcInfoPredicate& predicate)
+{
+    bool bSendSuccess = true;
+    {
+        fds_scoped_lock lock(lock_);
+        /* Only send to services matching predicate */
+        if (predicate(svcInfo_)) {
+            bSendSuccess  = sendAsyncSvcMessageCommon_(header, payload);
+        }
+    }
+
+    if (!bSendSuccess) {
+        gModuleProvider->getSvcMgr()->postSvcSendError(header);
+    }
+}
+
+bool SvcHandle::sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
+                                           StringPtr &payload)
+{
+    /* NOTE: This code assumes lock is held */
+
+    if (isSvcDown_()) {
+        /* No point trying to send when service is down */
+        return false
+    }
+    try {
+        if (!svcClient_) {
+            svcClient_ = allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
+                                                               svcInfo_.svc_port,
+                                                               false);
+        }
+        svcClient_->asyncReqt(*header, *payload);
+        return true;
+    } catch (std::exception &e) {
+        GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
+        bSendFailed = true;
+        markSvcDown_();
+    } catch (...) {
+        GLOGWARN << "allocRpcClient failed.  Unknown exception." << header;
+        bSendFailed = true;
+        markSvcDown_();
+    }
+    return true;
 }
 
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
