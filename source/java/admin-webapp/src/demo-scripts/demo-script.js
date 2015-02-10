@@ -6,6 +6,27 @@ mockNode();
 mockStats();
 mockActivities();
 
+/*
+* The volume size has changed - update that so the volume screen sees that too
+*/
+var updateVolume = function( vol ){
+    
+    var volumes = JSON.parse( window.localStorage.getItem( 'volumes' ) );
+    
+    for ( var i = 0; i < volumes.length; i++ ){
+        
+        if ( volumes[i].id === vol.id ){
+            volumes[i] = vol;
+            break;
+        }
+    }
+    
+    window.localStorage.setItem( 'volumes', JSON.stringify( volumes ) );
+};
+
+/**
+* Create a new stat objcet
+**/
 var createNewStat = function( vol ){
     
     var limit = parseInt( vol.limit );
@@ -16,11 +37,24 @@ var createNewStat = function( vol ){
     
     var iops = limit - ( Math.random()*(limit * 0.15) );
     var puts = Math.round( iops * 0.4 );
-    var ssd = Math.round( iops * 0.55 );
-    var gets = Math.round( iops * 0.05 );
+    var ssd;
+    var gets;
+    
+    if ( vol.mediaPolicy === 'SSD_ONLY' ){
+        ssd = Math.round( iops * 0.6 );
+        gets = 0;
+    }
+    else if ( vol.mediaPolicy === 'HDD_ONLY' ){
+        ssd = 0;
+        gets = Math.round( iops * 0.6 );
+    }
+    else {
+        ssd = Math.round( iops * 0.35 );
+        gets = Math.round( iops * 0.25 );
+    }
     
     // rationalize usage to correct values
-    vol.current_usage.size += (vol.rate / 60);
+    vol.current_usage.size = parseInt( vol.current_usage.size ) + parseInt((vol.rate / 60).toFixed( 0 ));
 
     var minute = {
         time: (new Date()).getTime(),
@@ -32,9 +66,14 @@ var createNewStat = function( vol ){
         ROLLPOINT: true
     };
     
+    updateVolume( vol );
+    
     return minute;
 };
 
+/**
+* Sum many stats together to form a roll up stat view
+**/
 var sumStats = function( statArray ){
     
     var result = {
@@ -59,9 +98,13 @@ var sumStats = function( statArray ){
     return result;
 };
 
+/**
+* A new stat is added - handle the deletion of data and rolling items up to a longer time interval
+**/
 var addStats = function( volume, stat ){
     
     var newStat = createNewStat( volume );
+    newStat.ROLLPOINT = false;
     
     // add to minute section
     stat.minute.push( newStat );
@@ -85,6 +128,9 @@ var addStats = function( volume, stat ){
     return stat;
 };
 
+/**
+* Add a new stat value for all of our volumes
+**/
 var computeStats = function(){
     
     var vols = JSON.parse( window.localStorage.getItem( 'volumes' ) );
@@ -106,7 +152,6 @@ var computeStats = function(){
             stat = addStats( volume, stat );
         }
         
-        console.log( 'putting: ' + volume.id + '_stats : ' + JSON.stringify( stat ) );
         window.localStorage.setItem( volume.id + '_stats', JSON.stringify( stat ) );
     }
 };

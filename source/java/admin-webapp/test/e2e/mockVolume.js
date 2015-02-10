@@ -53,7 +53,7 @@ mockVolume = function(){
                 unit: 'B'
             };
             
-            volume.rate = 100000;
+            volume.rate = 10000;
             volume.snapshots = [];
             volService.volumes.push( volume );
             

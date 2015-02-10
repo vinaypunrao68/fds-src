@@ -35,7 +35,13 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
     $scope.healthReturned = function( data ){
+    
+        for ( var i = 0; i < data.status.length; i++ ){
+            data.status[i].message = $filter( 'translate' )( 'status.' + data.status[i].message );
+        }
+        
         $scope.health = data;
+        
         $scope.healthStatus = [{ number: $filter( 'translate' )( 'status.l_' + data.overall.toLowerCase() )}];
     };
     

@@ -175,7 +175,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     };
     
     var pollPerformance = function(){
-        $stats_service.getPerformanceSummary( performanceQuery, $scope.performanceReturned );
+        $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned );
     };
     
     $scope.$watch( 'capacityTimeChoice', function(){
