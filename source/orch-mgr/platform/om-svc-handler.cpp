@@ -237,10 +237,10 @@ OmSvcHandler::    GetSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     // get the  serice map from config DB.
 
     // Send the response.
-    fpi::GetSvcMapRespMsg msg(new fpi::GetSvcMapRespMsg());
+    fpi::GetSvcMapRespMsgPtr respMsg(new fpi::GetSvcMapRespMsg());
     // init the Resp message with the service map
-    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *msg);
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
 
 }
 
