@@ -28,6 +28,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
         GLOGWARN << "volume id is invalid";
     }
     fSnapshot = volinfo.fSnapshot;
+    srcVolumeId = volinfo.srcVolumeId;
     contCommitlogRetention = volinfo.contCommitlogRetention;
     timelineTime = volinfo.timelineTime;
     createTime   = volinfo.createTime;
@@ -49,6 +50,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     iops_guarantee = vdesc.iops_guarantee;
     relativePrio = vdesc.relativePrio;
     fSnapshot = vdesc.fSnapshot;
+    srcVolumeId = vdesc.srcVolumeId;
     state = vdesc.state;
     contCommitlogRetention = vdesc.contCommitlogRetention;
     timelineTime = vdesc.timelineTime;
@@ -73,6 +75,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     iops_guarantee = voldesc.iops_guarantee;
     relativePrio = voldesc.rel_prio;
     fSnapshot = voldesc.fSnapshot;
+    srcVolumeId = voldesc.srcVolumeId;
     state = voldesc.state;
     contCommitlogRetention = voldesc.contCommitlogRetention;
     timelineTime = voldesc.timelineTime;
@@ -104,6 +107,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     iops_max = 0;
     iops_guarantee = 0;
     fSnapshot = false;
+    srcVolumeId = invalid_vol_id;
     relativePrio = 0;
     contCommitlogRetention = 0;
     timelineTime = 0;
@@ -134,6 +138,7 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     volPolicyId = 0;
     placementPolicy = 0;
     fSnapshot = false;
+    srcVolumeId = invalid_vol_id;
     mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     contCommitlogRetention = 0;
     timelineTime = 0;
@@ -199,6 +204,7 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
     this->placementPolicy = volinfo.placementPolicy;
     this->mediaPolicy = volinfo.mediaPolicy;
     this->fSnapshot = volinfo.fSnapshot;
+    this->srcVolumeId = volinfo.srcVolumeId;
     this->contCommitlogRetention = volinfo.contCommitlogRetention;
     this->timelineTime = volinfo.timelineTime;
     this->createTime = volinfo.createTime;
@@ -236,6 +242,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " iops.guarantee:" << vol.iops_guarantee
               << " rel.prio:" << vol.relativePrio
               << " isSnapshot:" << vol.fSnapshot
+              << " srcVolumeId:" << vol.srcVolumeId
               << " state:" << vol.getState()
               << " qosQueueId:" << vol.contCommitlogRetention
               << " timelineTime:" << vol.timelineTime
