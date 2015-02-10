@@ -20,7 +20,7 @@
 
 namespace fds {
 
-extern boost::shared_ptr<apis::BlobDescriptor>
+extern boost::shared_ptr<fpi::BlobDescriptor>
     transform_descriptor(boost::shared_ptr<BlobDescriptor> descriptor);
 
 template<typename T, typename C>

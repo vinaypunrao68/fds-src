@@ -103,7 +103,7 @@ Error CatSyncReceiver::enqueueFwdUpdate(DmIoFwdCat* fwdReq) {
     fds_verify(vol_recv_map.count(fwdReq->volId) > 0);
     VolReceiverPtr volrecv = vol_recv_map[fwdReq->volId];
     // fwd update can arrive in any state, even before we unblock
-    // shadow queeu and set state to FWD_INPROG
+    // shadow queue and set state to FWD_INPROG
 
     // enqueue request into shadow queue
     err = dm_req_handler->enqueueMsg(shadowVolUuid(fwdReq->volId), fwdReq);

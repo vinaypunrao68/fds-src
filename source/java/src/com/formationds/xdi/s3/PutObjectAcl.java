@@ -1,6 +1,6 @@
 package com.formationds.xdi.s3;
 
-import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;

@@ -156,19 +156,15 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# writing block data
+# writing block data.
 #
 class TestBlockFioSeqW(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, waitComplete="TRUE"):
+    def __init__(self, parameters=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_BlockFioWrite,
                                              "Writing a block volume")
 
-        if waitComplete == "TRUE":
-            self.passedWaitComplete = True
-        else:
-            self.passedWaitComplete = False
 
     def test_BlockFioWrite(self):
         """
@@ -180,10 +176,21 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --size=16m --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
+        if self.childPID is None:
+            # Not running in a forked process.
+            # Stop on failures.
+            verify_fatal = 1
+        else:
+            # Running in a forked process. Don't
+            # stop on failures.
+            verify_fatal = 0
 
-        status = om_node.nd_agent.exec_wait(fioCmd, wait_compl=self.passedWaitComplete)
+        # TODO(Andrew): Don't hard code all of this stuff...
+        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k " \
+                 "--iodepth=128 --numjobs=1 --size=16m --filename=%s --verify=md5 --verify_fatal=%d" %\
+                 (nbd_device, verify_fatal)
+
+        status = om_node.nd_agent.exec_wait(fioCmd)
 
         if status != 0:
             self.log.error("Failed to run write workload with status %s." % status)
