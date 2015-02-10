@@ -27,6 +27,7 @@ struct SvcMgr;
 * 2. Service registration
 */
 struct SvcProcess : FdsProcess {
+    SvcProcess();
     SvcProcess(int argc, char *argv[],
                    const std::string &def_cfg_file,
                    const std::string &base_path,

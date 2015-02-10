@@ -8,6 +8,11 @@
 #include <net/SvcProcess.h>
 
 namespace fds {
+
+SvcProcess::SvcProcess()
+{
+}
+
 SvcProcess::SvcProcess(int argc, char *argv[],
                                const std::string &def_cfg_file,
                                const std::string &base_path,
