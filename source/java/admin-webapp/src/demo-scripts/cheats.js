@@ -4,7 +4,7 @@ var setFirebreak = function( volumeName, state ){
     var volume;
     
     for ( var i = 0; i < volumes.length; i++ ){
-        if ( volumes[i].name = volumeName ){
+        if ( volumes[i].name === volumeName ){
             volume = volumes[i];
             break;
         }
@@ -15,7 +15,7 @@ var setFirebreak = function( volumeName, state ){
         return;
     }
     
-    var time = (new Date()).getTime() / 1000;
+    var time = ((new Date()).getTime() / 1000).toFixed( 0 );
     
     if ( !angular.isDefined( state ) ){
         state = 'red';
@@ -78,4 +78,8 @@ var listVolumes = function( full ){
         
         console.log( str );
     }
+};
+
+var clean = function(){
+    window.localStorage.clear();
 };

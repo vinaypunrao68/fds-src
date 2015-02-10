@@ -63,7 +63,7 @@ mockStats = function(){
             
             for ( var i = 0; i < stats.length; i++ ){
                 
-                for ( var j = 0; j < stats[i][time].length; j++ ){
+                for ( var j = 0; stats[1] !== null && j < stats[i][time].length; j++ ){
                     
                     var stat = stats[i][time][j];
                     var timeInSeconds = Math.floor( stat.time / 1000 );
@@ -122,7 +122,7 @@ mockStats = function(){
             for ( var i = 0; i < volumes.length; i++ ){
                 
                 var fbEvent = JSON.parse( window.localStorage.getItem( volumes[i].id + '_fb' ) );
-                var point = { x: volumes[i].current_usage.size, y: 0 };
+                var point = { x: volumes[i].current_usage.size, y: 3600*24 };
                 
                 if ( angular.isDefined( fbEvent ) && fbEvent !== null ){
                     point.y = fbEvent.time;

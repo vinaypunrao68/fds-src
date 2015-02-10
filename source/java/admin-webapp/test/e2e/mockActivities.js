@@ -45,9 +45,47 @@ mockActivities = function(){
         };
 
         service.getActivities = function( filter, callback ){
+            
+            var events = JSON.parse( window.localStorage.getItem( 'activities' ));
+            
+            if ( !angular.isDefined( events ) || events === null ){
+                events = [];
+            }
+            
+            if ( angular.isDefined( filter.points ) && filter.points !== 0 ){
+                var index = events.length - filter.points;
+                
+                if ( index > 0 ){
+                    events = events.slice( index, filter.points );
+                }
+            }
+            
+            callback( {events: events} );
         };
 
         service.getSystemHealth = function( callback ){
+            var rz = {
+                "status": [
+                    {
+                    "state": "GOOD",
+                    "category": "SERVICES",
+                    "message": "l_services_good"
+                    },
+                    {
+                    "state": "GOOD",
+                    "category": "CAPACITY",
+                    "message": "l_capacity_good"
+                    },
+                    {
+                    "state": "GOOD",
+                    "category": "FIREBREAK",
+                    "message": "l_firebreak_good"
+                    }
+                ],
+                "overall": "EXCELLENT"
+            };
+            
+            callback( rz );
         };
 
         return service;
