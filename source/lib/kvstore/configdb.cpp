@@ -1425,5 +1425,80 @@ bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId
     return setSnapshotState(snapshot, state);
 }
 
+bool ConfigDB::createSvcMap(fpi::SvcInfo& svcinfo) {
+    TRACKMOD();
+    try {
+        if (r.hexists("svcmap", svcinfo.svc_id.svc_uuid.svc_uuid)) {
+            throw ConfigException("another snapshot exists with Svc ID:" + svcinfo.svc_id.svc_uuid.svc_uuid); //NOLINT
+        }
+
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(svcinfo, serialized);
+
+        r.hset("svcmap", svcinfo.svc_id.svc_uuid.svc_uuid, *serialized); //NOLINT
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::deleteSvcMap(const int64_t svcId) {
+    TRACKMOD();
+    try {
+        fpi::SvcInfo svcinfo;
+        svcinfo.svc_id.svc_uuid.svc_uuid = svcId;
+
+        if (!getSvcMap(svcinfo)) {
+            LOGWARN << "unable to fetch service map [snap:" << svcId <<"]";
+            NOMOD();
+            return false;
+        }
+
+        r.hdel("svcmap", svcId); //NOLINT
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::listSvcMap(std::vector<fpi::SvcInfo> & vecSvcInfo, const int64_t svcId) {
+    TRACKMOD();
+    try {
+        Reply reply = r.sendCommand("svcmap", svcId);
+        StringList strings;
+        reply.toVector(strings);
+        fpi::SvcInfo svcinfo;
+
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, svcinfo);
+            vecSvcInfo.push_back(svcinfo);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::getSvcMap(fpi::SvcInfo& svcinfo) {
+    TRACKMOD();
+    try {
+        Reply reply = r.hget("svcmap", svcinfo.svc_id.svc_uuid.svc_uuid); //NOLINT
+        if (reply.isNil()) return false;
+        std::string value = reply.getString();
+        fds::deserializeFdspMsg(value, svcinfo);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
 }  // namespace kvstore
 }  // namespace fds
