@@ -1,16 +1,12 @@
 ---
--   name: Deploy InfluxDB to EC2
-    connection: local
-    hosts: localhost
-    gather_facts: False
-
 -   name: Deploy InfluxDB
     hosts: influxdb-hosts
     remote_user: deploy
     gather_facts: true
     sudo: true
     vars:
-        influxdb_version: 0.8.7
+        influxdb_version: 0.8.8
+        ansible_ssh_private_key_file: ~/.ssh/fds-deploy_rsa
 
     handlers:
     -   name: restart influxdb
@@ -20,6 +16,7 @@
     -   name: get InfluxDB package
         get_url: url=https://s3.amazonaws.com/influxdb/influxdb_{{ influxdb_version }}_amd64.deb
             dest=/root/influxdb_{{ influxdb_version }}_amd64.deb
+            validate_certs=no
             sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
 
     -   name: create influxdb user and group
@@ -29,70 +26,29 @@
             createhome=no
             group=influxdb
 
-#    -   name: check for data LogVol presence
-#        stat: path=/dev/mapper/{{data_vg_name}}-{{data_vol_name}}
-#        register: data_vol
-#
-#    -   name: create /opt/influxdb with root ownership
-#        when: not data_vol.stat.exists
-#        file: path=/opt/influxdb
-#            state=directory
-#            owner=root
-#            group=root
-#            mode=0755
-#
-#    -   name: install lvm2
-#        apt: name=lvm2
-#            state=present
-#
-#    -   name: set up data VolGroup
-#        lvg: vg={{data_vg_name}}
-#            pvs=/dev/xvdb
-#            state=present
-#
-#    -   name: set up data LogVol
-#        lvol: lv={{data_vol_name}}
-#            vg={{data_vg_name}}
-#            size=100%FREE
-#
-#    -   name: create ext4 filesystem on data volume
-#        filesystem: dev=/dev/mapper/{{data_vg_name}}-{{data_vol_name}}
-#            fstype=ext4
-#
-#    -   name: mount data volume at /opt/influxdb
-#        mount: name=/opt/influxdb
-#            src=/dev/mapper/{{data_vg_name}}-{{data_vol_name}}
-#            fstype=ext4
-#            state=mounted
-
-#    -   name: fix ownership of /opt/influxdb
-#        file: path=/opt/influxdb
-#            state=directory
-#            owner=influxdb
-#            group=influxdb
-#            mode=0755
-
     -   name: install InfluxDB
         apt: deb=/root/influxdb_{{ influxdb_version }}_amd64.deb
+        register: install
 
     -   name: render influxdb config
         template: src=../templates/influxdb/config.toml.j2
             dest=/opt/influxdb/shared/config.toml
             owner=influxdb
+        register: config
         notify: restart influxdb
 
-    -   name: ensure InfluxDB service is started
+    -   name: start first node to enable other nodes to join cluster
         service: name=influxdb
             state=started
             enabled=yes
+        when: inventory_hostname == groups['influxdb-hosts'][0]
 
-#    -   name: register InfluxDB node in ELB
-#        local_action: 
-#            module: ec2_elb
-#            aws_access_key: "{{ aws_access_key }}"
-#            aws_secret_key: "{{ aws_secret_key }}"
-#            state: present
-#            ec2_elbs: influxdb-elb
-#            instance_id: "{{ ansible_ec2_instance_id }}"
-#            region: us-west-2
-#            wait: yes
+    -   name: start all other nodes which will join the cluster
+        service: name=influxdb
+            state=started
+            enabled=yes
+        when: inventory_hostname != groups['influxdb-hosts'][0]
+
+    -   name: short pause on initial install to let the cluster settle down before restarting again after config has changed
+        pause: seconds=30
+        when: install.changed and config.changed
