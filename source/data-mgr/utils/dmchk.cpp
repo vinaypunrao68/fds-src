@@ -30,17 +30,17 @@ DmChecker::DmChecker(int argc,
 
 void
 DmChecker::listBlobs() {
-    fpi::BlobInfoListType blobInfoList;
-    Error err = volCat->listBlobs(volDesc->volUUID, &blobInfoList);
+    fpi::BlobDescriptorListType blobDescrList;
+    Error err = volCat->listBlobs(volDesc->volUUID, &blobDescrList);
     if (!err.ok()) {
         LOGNORMAL << "Unable to list blobs for volume " << volDesc->volUUID;
         return;
     }
 
     fds_uint32_t counter = 0;
-    for (const auto &it : blobInfoList) {
-        std::cout << "Blob " << counter++ << ": " << it.blob_name
-                  << ", " << it.blob_size << " bytes" << std::endl;
+    for (const auto &it : blobDescrList) {
+        std::cout << "Blob " << counter++ << ": " << it.name
+                  << ", " << it.byteCount << " bytes" << std::endl;
     }
     std::cout << "Listed all " << counter << " blobs" << std::endl;
 }

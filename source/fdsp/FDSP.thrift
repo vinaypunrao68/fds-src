@@ -246,13 +246,6 @@ struct FDSP_UpdateCatalogType {
   11: i32 dmt_version,
 }
 
-/* Can be consolidated when apis and fdsp merge or whatever */
-struct BlobDescriptor {
-     1: required string name,
-     2: required i64 byteCount,
-     3: required map<string, string> metadata
-}
-
 struct FDSP_QueryCatalogType {
 
   1: string   blob_name,           /* User visible name of the blob*/
@@ -272,17 +265,6 @@ struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId
   2: i64 blob_version, /* Version to delete */
   3: i32  dmt_version,
 }
-
-struct FDSP_BlobInfoType{
-  1: string blob_name,
-  2: i64 blob_size,
-  4: required map<string, string> metadata
-}
-
-typedef list<FDSP_BlobInfoType> BlobInfoListType
-
-/* A detailed list of blob stats. */
-typedef list<BlobDescriptor> BlobDescriptorListType
 
 struct FDSP_Uuid {
   1: i64          uuid,
@@ -961,7 +943,7 @@ service FDSP_MetaDataPathResp {
     oneway void DeleteCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
 
     /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
-    oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:BlobDescriptor blobDesc)
+    oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:common.BlobDescriptor blobDesc)
     oneway void SetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName)
     oneway void GetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName, 3:FDSP_MetaDataList metaDataList)
     oneway void GetVolumeMetaDataResp(1:FDSP_MsgHdrType header, 2:FDSP_VolumeMetaData volumeMeta)

@@ -232,7 +232,7 @@ AmAsyncXdiResponse::deleteBlobResp(const Error &error,
 void
 AmAsyncXdiResponse::statBlobResp(const Error &error,
                                  boost::shared_ptr<apis::RequestId>& requestId,
-                                 boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+                                 boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
     checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
@@ -275,7 +275,7 @@ void
 AmAsyncXdiResponse::volumeContentsResp(const Error &error,
                                        boost::shared_ptr<apis::RequestId>& requestId,
                                        boost::shared_ptr<
-                                       std::vector<apis::BlobDescriptor>>& volContents) {
+                                       std::vector<fpi::BlobDescriptor>>& volContents) {
     checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
@@ -321,7 +321,7 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                         boost::shared_ptr<apis::RequestId>& requestId,
                                         boost::shared_ptr<std::string> buf,
                                         fds_uint32_t& length,
-                                        boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+                                        boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
     checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
@@ -340,9 +340,9 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
     }
 }
 
-boost::shared_ptr<apis::BlobDescriptor>
+boost::shared_ptr<fpi::BlobDescriptor>
 transform_descriptor(boost::shared_ptr<fds::BlobDescriptor> descriptor) {
-    auto retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
+    auto retBlobDesc = boost::make_shared<fpi::BlobDescriptor>();
     retBlobDesc->name = descriptor->getBlobName();
     retBlobDesc->byteCount = descriptor->getBlobSize();
 

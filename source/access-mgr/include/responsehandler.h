@@ -45,10 +45,10 @@ struct SimpleResponseHandler : ResponseHandler {
 };
 
 struct StatBlobResponseHandler : ResponseHandler , StatBlobCallback {
-    explicit StatBlobResponseHandler(apis::BlobDescriptor &retVal);
+    explicit StatBlobResponseHandler(fpi::BlobDescriptor &retVal);
     typedef boost::shared_ptr<StatBlobResponseHandler> ptr;
 
-    apis::BlobDescriptor &retBlobDesc;
+    fpi::BlobDescriptor &retBlobDesc;
 
     virtual void process();
     virtual ~StatBlobResponseHandler();
@@ -99,9 +99,9 @@ struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
 };
 
 struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
-    explicit ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
+    explicit ListBucketResponseHandler(std::vector<fpi::BlobDescriptor> & vecBlobs);
     TYPE_SHAREDPTR(ListBucketResponseHandler);
-    std::vector<apis::BlobDescriptor> & retVecBlobs;
+    std::vector<fpi::BlobDescriptor> & retVecBlobs;
     virtual void process();
     virtual ~ListBucketResponseHandler();
 };
