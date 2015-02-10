@@ -67,20 +67,25 @@ struct SvcProcess : FdsProcess {
 
  protected:
     /**
+    * @brief Sets up configdb used for persistence
+    */
+    virtual void setupConfigDb_();
+
+    /**
+    * @brief Populates service information
+    */
+    virtual void setupSvcInfo_();
+
+    /**
     * @brief Sets up service layer manager
     *
     * @param processor
     */
     virtual void setupSvcMgr_(fpi::PlatNetSvcProcessorPtr processor);
-    
-    /**
-    * @brief Sets up configdb used for persistence
-    */
-    virtual void setupConfigDb_();
 
     /* TODO(Rao): Include persistence as well */
-
     boost::shared_ptr<SvcMgr> svcMgr_;
+    fpi::SvcInfo              svcInfo_;
 };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_SVCPROCESS_H_

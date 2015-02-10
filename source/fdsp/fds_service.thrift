@@ -1012,12 +1012,16 @@ service DMSvc extends PlatNetSvc {
 service AMSvc extends PlatNetSvc {
 }
 
+exception OmRegisterException {
+}
+
 /**
  * OM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
 service OMSvc extends PlatNetSvc {
-    void registerService(1: SvcInfo svcInfo);
+    void registerService(1: SvcInfo svcInfo) throws (1: OmRegisterException e);
+    list<SvcInfo> getSvcMap(1: i32 nullarg);
 }
 
 

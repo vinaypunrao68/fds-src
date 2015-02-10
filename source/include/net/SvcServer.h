@@ -1,8 +1,8 @@
 /*
  * Copyright 2015 by Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_NET_SVCSERVER_H
-#define SOURCE_INCLUDE_NET_SVCSERVER_H
+#ifndef SOURCE_INCLUDE_NET_SVCSERVER_H_
+#define SOURCE_INCLUDE_NET_SVCSERVER_H_
 
 #include <boost/shared_ptr.hpp>
 #include <thread>
@@ -51,4 +51,4 @@ struct SvcServer {
 };
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_NET_SVCSERVER_H
+#endif  // SOURCE_INCLUDE_NET_SVCSERVER_H_

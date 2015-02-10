@@ -23,17 +23,38 @@ std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
     return svcId.svc_uuid;
 }
 
-SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor)
+template<class T>
+boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
+                                    const bool &blockOnConnect)
+{
+    auto sock = bo::make_shared<net::Socket>(ip, port);
+    auto trans = bo::make_shared<tt::TFramedTransport>(sock);
+    auto proto = bo::make_shared<tp::TBinaryProtocol>(trans);
+    boost::shared_ptr<T> client = bo::make_shared<T>(proto);
+    if (!blockOnConnect) {
+        /* This may throw an exception when trying to open.  Caller is expected to handle
+         * the exception
+         */
+        sock->open();
+    } else {
+        sock->connect();
+    }
+    return client;
+}
+
+SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInfo)
     : Module("SvcMgr")
 {
     auto config = gModuleProvider->get_conf_helper();
     omIp_ = config.get_abs<std::string>("fds.common.om_ip_list");
     omPort_ = config.get_abs<int>("fds.common.om_port");
     omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<long long>("fds.common.om_uuid"));
-    svcUuid_.svc_uuid= static_cast<int64_t>(config.get<long long>("svc.uuid"));
-    port_ = config.get<int>("svc.port");
+
+    svcInfo_ = svcInfo;
+    // svcUuid_.svc_uuid= static_cast<int64_t>(config.get<long long>("svc.uuid"));
+    // port_ = config.get<int>("svc.port");
     /* Create the server */
-    svcServer_ = boost::make_shared<SvcServer>(port_, processor);
+    svcServer_ = boost::make_shared<SvcServer>(svcInfo_.svc_port, processor);
 
     // TODO(Rao): Don't make this global
     gSvcRequestPool = new SvcRequestPool();
@@ -127,18 +148,18 @@ void SvcMgr::postSvcSendError(fpi::AsyncHdrPtr &header)
 
 fpi::SvcUuid SvcMgr::getSvcUuid() const
 {
-    return svcUuid_;
+    return svcInfo_.svc_id.svc_uuid;
 }
 
 int SvcMgr::getSvcPort() const
 {
-    return port_;
+    return svcInfo_.svc_port;
 }
 
 void SvcMgr::getOmIPPort(std::string &omIp, int &port)
 {
     omIp = omIp_;
-    port_ = port;
+    port = omPort_;
 }
 
 fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
@@ -187,9 +208,9 @@ void SvcHandle::sendAsyncSvcRequest(fpi::AsyncHdrPtr &header,
         }
         try {
             if (!svcClient_) {
-                svcClient_ = SvcMgr::allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
-                                                                           svcInfo_.svc_port,
-                                                                           false);
+                svcClient_ = allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
+                                                                   svcInfo_.svc_port,
+                                                                   false);
             }
         } catch (std::exception &e) {
             GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
@@ -259,23 +280,5 @@ void SvcHandle::markSvcDown_()
     GLOGDEBUG << logString();
 }
 
-template<class T>
-boost::shared_ptr<T> SvcMgr::allocRpcClient(const std::string ip, const int &port,
-                                            const bool &blockOnConnect)
-{
-    auto sock = bo::make_shared<net::Socket>(ip, port);
-    auto trans = bo::make_shared<tt::TFramedTransport>(sock);
-    auto proto = bo::make_shared<tp::TBinaryProtocol>(trans);
-    boost::shared_ptr<T> client = bo::make_shared<T>(proto);
-    if (!blockOnConnect) {
-        /* This may throw an exception when trying to open.  Caller is expected to handle
-         * the exception
-         */
-        sock->open();
-    } else {
-        sock->connect();
-    }
-    return client;
-}
 
 }  // namespace fds
