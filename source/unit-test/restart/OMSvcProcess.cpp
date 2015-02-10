@@ -12,31 +12,25 @@
 #include <OMSvcProcess.h>
 
 namespace fds {
-OMSvcProcess::OMSvcProcess(int argc, char *argv[],
-                               const std::string &def_cfg_file,
-                               const std::string &base_path,
-                               const std::string &def_log_file,
-                               fds::Module **mod_vec)
+
+OMSvcProcess::OMSvcProcess(int argc, char *argv[])
+                               
 {
-    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
+    init(argc, argv);
 }
 
 OMSvcProcess::~OMSvcProcess()
 {
 }
 
-void OMSvcProcess::init(int argc, char *argv[],
-                        const std::string &def_cfg_file,
-                        const std::string &base_path,
-                        const std::string &def_log_file,
-                        fds::Module **mod_vec)
+void OMSvcProcess::init(int argc, char *argv[])
 {
     /* Set up OMsvcProcessor for handling messages */
     boost::shared_ptr<OmSvcHandler> handler = boost::make_shared<OmSvcHandler>();
     boost::shared_ptr<OMSvcProcessor> processor = boost::make_shared<OMSvcProcessor>(handler);
 
     /* Set up process related services such as logger, timer, etc. */
-    SvcProcess::init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec, processor);
+    SvcProcess::init(argc, argv, "platform.conf", "fds.om", "om.log", nullptr, processor);
 }
 
 void OMSvcProcess::registerSvcProcess()
@@ -57,9 +51,18 @@ void OMSvcProcess::setupSvcInfo_()
     /* For now nothing to do */
 }
 
+int OMSvcProcess::run() {
+    while (true) {
+        sleep(1000);
+    }
+    return 0;
+}
+
 }  // namespace fds
 
-int main()
+int main(int argc, char* argv[])
 {
+    std::unique_ptr<fds::OMSvcProcess> process(new fds::OMSvcProcess(argc, argv));
+    process->main();
     return 0;
 }

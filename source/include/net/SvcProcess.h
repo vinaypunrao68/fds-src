@@ -32,6 +32,11 @@ struct SvcProcess : FdsProcess {
                    const std::string &def_cfg_file,
                    const std::string &base_path,
                    const std::string &def_log_file,
+                   fds::Module **mod_vec);
+    SvcProcess(int argc, char *argv[],
+                   const std::string &def_cfg_file,
+                   const std::string &base_path,
+                   const std::string &def_log_file,
                    fds::Module **mod_vec,
                    fpi::PlatNetSvcProcessorPtr processor);
     virtual ~SvcProcess();
