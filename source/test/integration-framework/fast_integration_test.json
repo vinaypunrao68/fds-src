@@ -1,4 +1,13 @@
 {
 	"test_sets" : {
+		"fio_tests" : [
+			{
+				"name" : "TestAMFIO",
+				"file" : "test_am_fio.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}
+		]
 	}
 }

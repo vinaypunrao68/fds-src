@@ -43,6 +43,11 @@ static inline std::size_t fds_disk_sector_to_byte(std::size_t sector)
 const uint32_t DISK_ALPHA_COUNT_SSD     = 2;
 const uint32_t DISK_ALPHA_COUNT_HDD     = 12;
 const uint32_t DISK_ALPHA_COUNT_HDD_MIN = 4;
-const uint32_t DISK_ALPHA_CAPACITY_GB   = 220;    // Small enough to pick up a 250G SSD
+
+#ifndef DEBUG
+const uint32_t DISK_ALPHA_CAPACITY_GB   = 220;   // Small enough to pick up a 250G SSD
+#else
+const uint32_t DISK_ALPHA_CAPACITY_GB   = 10;    // Enhance testability on VMs rather than real hardware
+#endif // DEBUG
 
 #endif  // SOURCE_PLATFORM_INCLUDE_DISK_CONSTANTS_H_

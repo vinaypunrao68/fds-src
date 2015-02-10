@@ -32,16 +32,20 @@ def get_om_ipaddress_from_inventory(inventory_file):
     Given an inventory file for ansible, parses that inventory file and finds
     the ip address of the OM node.
     '''
-    if inventory_file == None:
-        inventory_file = config.DEFAULT_INVENTORY_FILE
-    inventory_path = "inventory/" + inventory_file        
-    params = parse(fname=inventory_path,
-                   file_dir=config.ANSIBLE_ROOT)
-    if 'fds_om_host' not in params:
+    inventory_path = os.path.join(config.ANSIBLE_INVENTORY,
+                                  inventory_file)
+    fds_om_host = None
+    with open(inventory_path, 'r') as f:
+        records = f.readlines()
+        for record in records:
+            if record.startswith('fds_om_host'):
+                fds_om_host = record.strip().split("=")[1]
+                break
+    if fds_om_host is None:
         raise KeyError, "fds_om_host not present in %s" % inventory_file
         sys.exit(1)
     else:
-        return params['fds_om_host']
+        return fds_om_host
     
 def get_ips_from_inventory(inventory_file):
     '''

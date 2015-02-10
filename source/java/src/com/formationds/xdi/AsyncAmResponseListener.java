@@ -1,6 +1,7 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;

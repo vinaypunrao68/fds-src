@@ -94,7 +94,7 @@ AmDataApi::volumeStatus(apis::VolumeStatus& _return,
 }
 
 void
-AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
+AmDataApi::volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                           const std::string& domainName,
                           const std::string& volumeName,
                           const int32_t count,
@@ -106,7 +106,7 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
 }
 
 void
-AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
+AmDataApi::volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                           boost::shared_ptr<std::string>& domainName,
                           boost::shared_ptr<std::string>& volumeName,
                           boost::shared_ptr<int32_t>& count,
@@ -130,7 +130,7 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
 }
 
 void
-AmDataApi::statBlob(apis::BlobDescriptor& _return,
+AmDataApi::statBlob(fpi::BlobDescriptor& _return,
                     const std::string& domainName,
                     const std::string& volumeName,
                     const std::string& blobName) {
@@ -138,7 +138,7 @@ AmDataApi::statBlob(apis::BlobDescriptor& _return,
 }
 
 void
-AmDataApi::statBlob(apis::BlobDescriptor& _return,
+AmDataApi::statBlob(fpi::BlobDescriptor& _return,
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
