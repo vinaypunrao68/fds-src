@@ -1,6 +1,6 @@
 package com.formationds.hadoop;
 
-import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;

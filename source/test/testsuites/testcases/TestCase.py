@@ -4,6 +4,7 @@
 #
 
 import sys
+import os
 import getopt
 import traceback
 import unittest
@@ -99,7 +100,8 @@ class FDSTestCase(unittest.TestCase):
                  testCaseName=None,
                  testCaseDriver=None,
                  testCaseDescription=None,
-                 testCaseAlwaysExecute=False):
+                 testCaseAlwaysExecute=False,
+                 fork=False):
         """
         When run by a qaautotest module test runner,
         this method provides the test fixture allocation.
@@ -117,7 +119,9 @@ class FDSTestCase(unittest.TestCase):
         self.passedTestCaseDriver = testCaseDriver
         self.passedTestCaseDescription = testCaseDescription
         self.passTestCaseAlwaysExecute = testCaseAlwaysExecute
+        self.passedFork = fork
 
+        self.childPID = None
 
     def setUp(self, parameters=None):
         """
@@ -181,6 +185,15 @@ class FDSTestCase(unittest.TestCase):
         self.reportTestCaseResult(test_passed)
 
         # If there is any test fixture teardown to be done, do it here.
+
+        # Were we forking?
+        if self.childPID is not None:
+            # Yes we were.
+            # If this is the child, we'll
+            # exit here. The parent falls
+            # through.
+            if self.childPID == 0:
+                os._exit(0 if test_passed else -1)
 
         if self.parameters["pyUnit"]:
             self.assertTrue(test_passed)

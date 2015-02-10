@@ -1,6 +1,7 @@
 package com.formationds.xdi.security;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;

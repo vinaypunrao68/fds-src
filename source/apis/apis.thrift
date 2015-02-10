@@ -56,12 +56,6 @@ exception ApiException {
        2: ErrorCode errorCode;
 }
 
-struct BlobDescriptor {
-       1: required string name,
-       2: required i64 byteCount,
-       4: required map<string, string> metadata
-}
-
 struct TxDescriptor {
        1: required i64 txId
 }
@@ -70,11 +64,11 @@ service AmService {
 	void attachVolume(1: string domainName, 2:string volumeName)
              throws (1: ApiException e),
 
-        list<BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count,
+        list<common.BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count,
             4:i64 offset, 5:string pattern, 6:common.BlobListOrder orderBy, 7:bool descending)
             throws (1: ApiException e),
 
-       BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
+       common.BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
              throws (1: ApiException e),
 
         TxDescriptor startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 blobMode)
@@ -159,9 +153,9 @@ service AsyncAmServiceResponse {
 
 	oneway void attachVolumeResponse(1:RequestId requestId),
 
-        oneway void volumeContents(1:RequestId requestId, 2:list<BlobDescriptor> response),
+        oneway void volumeContents(1:RequestId requestId, 2:list<common.BlobDescriptor> response),
 
-        oneway void statBlobResponse(1:RequestId requestId, 2:BlobDescriptor response),
+        oneway void statBlobResponse(1:RequestId requestId, 2:common.BlobDescriptor response),
 
         oneway void startBlobTxResponse(1:RequestId requestId, 2:TxDescriptor response),
 
@@ -171,7 +165,7 @@ service AsyncAmServiceResponse {
 
         oneway void getBlobResponse(1:RequestId requestId, 2:binary response),
 
-	oneway void getBlobWithMetaResponse(1:RequestId requestId, 2:binary data, 3:BlobDescriptor blobDesc),
+	oneway void getBlobWithMetaResponse(1:RequestId requestId, 2:binary data, 3:common.BlobDescriptor blobDesc),
 
         oneway void updateMetadataResponse(1:RequestId requestId),
 
