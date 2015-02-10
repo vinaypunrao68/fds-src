@@ -173,7 +173,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * @param[out] binfoList list of blobs
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      */
-    Error listBlobs(fds_volid_t volId, fpi::BlobInfoListType* binfoList);
+    Error listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bdescrList);
 
     /**
      * Updates committed blob in the Volume Catalog.

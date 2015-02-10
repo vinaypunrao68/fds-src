@@ -357,7 +357,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
     return rc;
 }
 
-Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobInfoListType* binfoList) {
+Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bDescrList) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
@@ -370,11 +370,11 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobInfoListType* binfo
     }
 
     for (const auto & it : blobMetaList) {
-        fpi::FDSP_BlobInfoType binfo;
-        binfo.blob_name = it.desc.blob_name;
-        binfo.blob_size = it.desc.blob_size;
-        binfo.metadata = it.meta_list;
-        binfoList->push_back(binfo);
+        fpi::BlobDescriptor bdescr;
+        bdescr.name = it.desc.blob_name;
+        bdescr.byteCount = it.desc.blob_size;
+        bdescr.metadata = it.meta_list;
+        bDescrList->push_back(bdescr);
     }
     return rc;
 }
