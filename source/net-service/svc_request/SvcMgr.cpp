@@ -54,12 +54,15 @@ SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInf
     /* Create the server */
     svcServer_ = boost::make_shared<SvcServer>(svcInfo_.svc_port, processor);
 
+    taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*gModuleProvider->proc_thrpool());
+
     // TODO(Rao): Don't make this global
     gSvcRequestPool = new SvcRequestPool();
 }
 
 SvcMgr::~SvcMgr()
 {
+    delete taskExecutor_;
     delete gSvcRequestPool;
 }
 
@@ -206,6 +209,21 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
     }
 
     return omClient;
+}
+
+SynchronizedTaskExecutor<uint64_t>*
+SvcMgr::getTaskExecutor() {
+    return taskExecutor_;
+}
+
+bool SvcMgr::isSvcActionableError(const Error &e)
+{
+    // TODO(Rao): Implement
+    return false;
+}
+
+void SvcMgr::handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e)
+{
 }
 
 SvcHandle::SvcHandle()

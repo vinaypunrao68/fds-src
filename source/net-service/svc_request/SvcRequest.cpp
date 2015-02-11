@@ -5,7 +5,8 @@
 #include <thread>
 
 #include <concurrency/ThreadPool.h>
-#include <net/net-service.h>
+#include <fdsp/fds_service_types.h>
+#include <net/SvcMgr.h>
 #include <net/BaseAsyncSvcHandler.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
@@ -45,7 +46,7 @@ SvcRequestTimer::SvcRequestTimer(const SvcRequestId &id,
                                  const fpi::FDSPMsgTypeId &msgTypeId,
                                  const fpi::SvcUuid &myEpId,
                                  const fpi::SvcUuid &peerEpId)
-    : FdsTimerTask(*NetMgr::ep_mgr_singleton()->ep_mgr_singleton()->ep_get_timer())
+    : FdsTimerTask(*(gModuleProvider->getTimer()))
 {
     header_.reset(new fpi::AsyncHdr());
     *header_ = gSvcRequestPool->newSvcRequestHeader(id, msgTypeId, peerEpId, myEpId);
@@ -101,7 +102,7 @@ void SvcRequestIf::complete(const Error& error) {
     state_ = SVC_REQUEST_COMPLETE;
 
     if (timer_) {
-        NetMgr::ep_mgr_singleton()->ep_get_timer()->cancel(timer_);
+        gModuleProvider->getTimer()->cancel(timer_);
         timer_.reset();
     }
 
@@ -144,7 +145,7 @@ void SvcRequestIf::setCompletionCb(SvcRequestCompletionCb &completionCb)
 /**
  * Common invocation method for all async requess.
  * In order to synchronize invocation and response handling  we use
- * NetMgr::ep_task_executor to schedule request specific invocatio work here.
+ * SvcMgr:getTaskExecutor to schedule request specific invocatio work here.
  */
 void SvcRequestIf::invoke()
 {
@@ -154,8 +155,8 @@ void SvcRequestIf::invoke()
               gSvcRequestPool->getSvcWorkerThreadpool()->\
               scheduleWithAffinity(id_, &SvcRequestIf::invoke2, this); return;);
 
-    static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
-        NetMgr::ep_mgr_singleton()->ep_get_task_executor();
+    static SynchronizedTaskExecutor<uint64_t>* taskExecutor = 
+        gModuleProvider->getSvcMgr()->getTaskExecutor();
     /* Execute on synchronized task exector so that invocation and response
      * handling is synchronized.
      */
@@ -167,49 +168,27 @@ void SvcRequestIf::invoke()
  * Common send handler across all async requests
  * Make sure access to this function is synchronized.  Sending and handling
  * of the response SHOULDN'T happen simultaneously.  Currently we ensure this by
- * using NetMgr::ep_task_executor
+ * using SvcMgr::taskExecutor_
  * @param epId
  */
-int injerr_socket_close = 0;  // gdb set this value to trigger remote connection down error
-using boost::lockfree::detail::unlikely;
 void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 {
-    auto header = SvcRequestPool::newSvcRequestHeader(id_, msgTypeId_, myEpId_, peerEpId);
-    header.msg_type_id = msgTypeId_;
+    auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, myEpId_, peerEpId);
+    header->msg_type_id = msgTypeId_;
 
-    DBG(GLOGDEBUG << fds::logString(header));
+    DBG(GLOGDEBUG << fds::logString(*header));
 
     try {
         /* Fault injection */
         fiu_do_on("svc.fail.sendpayload_before",
                   throw util::FiuException("svc.fail.sendpayload_before"));
         /* send the payload */
- do_again:
-        auto ep = NetMgr::ep_mgr_singleton()->\
-                  svc_get_handle<fpi::BaseAsyncSvcClient>(header.msg_dst_uuid, 0 , minor_version);
-        if (!ep) {
-            throw std::runtime_error("Null client");
-        }
-        if (unlikely(injerr_socket_close)) {
-            int fd = ep->ep_sock->getSocketFD();
-            close(fd);  // mimick remote gone TCP channe tear-down
-            injerr_socket_close = 0;
-            LOGNORMAL << " injected one socket connection losing error ";
-            goto do_again;
-        }
-        SVCPERF(util::StopWatch sw; sw.start());
-        SVCPERF(ts.rqSendStartTs = util::getTimeStampNanos());
-        ep->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(header, *payloadBuf_);
-        SVCPERF(ts.rqSendEndTs = util::getTimeStampNanos());
-        SVCPERF(gSvcRequestCntrs->sendLat.update(sw.getElapsedNanos()));
-        GLOGDEBUG << fds::logString(header) << " sent payload size: " << payloadBuf_->size();
-        fiu_do_on("svc.fail.sendpayload_after",
-                  throw util::FiuException("svc.fail.sendpayload_after"));
+        gModuleProvider->getSvcMgr()->sendAsyncSvcMessage(header, payloadBuf_);
 
        /* start the timer */
        if (timeoutMs_) {
            timer_.reset(new SvcRequestTimer(id_, msgTypeId_, myEpId_, peerEpId));
-           bool ret = NetMgr::ep_mgr_singleton()->ep_get_timer()->\
+           bool ret = gModuleProvider->getTimer()->\
                       schedule(timer_, std::chrono::milliseconds(timeoutMs_));
            fds_assert(ret == true);
        }
@@ -308,118 +287,19 @@ EPSvcRequest::~EPSvcRequest()
 
 void EPSvcRequest::invoke2()
 {
-    auto ep = NetMgr::ep_mgr_singleton()->\
-            svc_get_handle<fpi::BaseAsyncSvcClient>(peerEpId_, 0 , minor_version);
-    auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
-            myEpId_, peerEpId_);
-    gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
-            ep->getAffinity(),
-            &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
-    // TODO(Rao): Start a timer
 }
 
 void FailoverSvcRequest::invoke2()
 {
-    bool healthyEpExists = moveToNextHealthyEndpoint_();
-    state_ = INVOCATION_PROGRESS;
-
-    if (healthyEpExists) {
-        epReqs_[curEpIdx_]->invoke2();
-    } else {
-        DBG(GLOGDEBUG << logString() << " No healthy endpoints left");
-        fds_assert(curEpIdx_ == epReqs_.size() - 1);
-        /* No healthy endpoints left.  Lets post an error.  This error
-         * We will simulate as if the error is from last endpoint
-         */
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_,
-                                                              msgTypeId_,
-                                                              epReqs_[curEpIdx_]->peerEpId_,
-                                                              myEpId_);
-        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
-        gSvcRequestPool->postError(respHdr);
-    }
 }
-
-#if 0
-void FailoverSvcRequest::invoke2()
-{
-    fds_verify(curEpIdx_ == 0);
-
-    auto ep = NetMgr::ep_mgr_singleton()->\
-            svc_get_handle<fpi::BaseAsyncSvcClient>(
-                    epReqs_[curEpIdx_]->peerEpId_, 0 , minor_version);
-    auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
-            myEpId_, epReqs_[curEpIdx_]->peerEpId_);
-
-    gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
-        ep->getAffinity(),
-        &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
-    // TODO(Rao):
-    // 1. Start timer
-    // 2. Handle failover cases
-}
-#endif
 
 void QuorumSvcRequest::invoke2()
 {
-    for (auto epReq : epReqs_) {
-        auto ep = NetMgr::ep_mgr_singleton()->\
-                svc_get_handle<fpi::BaseAsyncSvcClient>(epReq->peerEpId_, 0 , minor_version);
-        auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
-                myEpId_, epReq->peerEpId_);
-        gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
-                ep->getAffinity(),
-                &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
-    }
-    // TODO(Rao):
-    // 1. Start timer
-}
-
-// TODO(Rao): This should move into svc handle class
-void SvcRequestIf::sendReqWork(EpSvcHandle::pointer eph,
-                               SvcRequestIf *req,
-                               boost::shared_ptr<fpi::AsyncHdr> header,
-                               StringPtr payload)
-{
-    fiu_do_on("svc.fail.sendpayload_before", \
-        SVCPERF(req->ts.rqSendStartTs = req->ts.rqSendEndTs = util::getTimeStampNanos());
-        swapAsyncHdr(header); \
-        header->msg_code = ERR_SVC_REQUEST_INVOCATION; \
-        gSvcRequestPool->postError(header););
-
-    try {
-        // TODO(Rao): Do your own send here for better peformance
-        SVCPERF(req->ts.rqSendStartTs = util::getTimeStampNanos());
-        eph->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(*header, *payload);
-        SVCPERF(req->ts.rqSendEndTs = util::getTimeStampNanos());
-    } catch(std::exception &e) {
-        swapAsyncHdr(header);
-        header->msg_code = ERR_SVC_REQUEST_INVOCATION;
-        GLOGERROR << fds::logString(*header) << " exception: " << e.what();
-        gSvcRequestPool->postError(header);
-        fds_assert(!"Unknown exception");
-    }
-}
-// TODO(Rao): Consolidate this function with above function
-void SvcRequestIf::sendRespWork(EpSvcHandle::pointer eph,
-        fpi::AsyncHdr header,
-        bo::shared_ptr<tt::TMemoryBuffer> memBuffer)
-{
-    try {
-        // TODO(Rao): Do your own send here for better peformance
-        SVCPERF(header.rspSendStartTs = util::getTimeStampNanos());
-        eph->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncResp(
-            header,
-            memBuffer->getBufferAsString());
-    } catch(std::exception &e) {
-        GLOGERROR << fds::logString(header) << " exception: " << e.what();
-        fds_assert(!"Unknown exception");
-    }
 }
 
 /**
 * @brief Worker function for doing the invocation work
-* NOTE this function is executed on NetMgr::ep_task_executor for synchronization
+* NOTE this function is executed on SvcMgr::taskExecutor_ for synchronization
 */
 void EPSvcRequest::invokeWork_()
 {
@@ -445,7 +325,7 @@ void EPSvcRequest::invokeWork_()
  *
  * @param header
  * @param payload
- * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
+ * NOTE this function is exectued on SvcMgr::taskExecutor_ for synchronization
  */
 void EPSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
@@ -463,9 +343,8 @@ void EPSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* Notify actionable error to endpoint manager */
     if (header->msg_code != ERR_OK &&
-        NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
-        NetMgr::ep_mgr_singleton()->ep_handle_error(
-            header->msg_src_uuid, header->msg_code);
+        gModuleProvider->getSvcMgr()->isSvcActionableError(header->msg_code)) {
+        gModuleProvider->getSvcMgr()->handleSvcError(header->msg_src_uuid, header->msg_code);
     }
 
     /* Invoke response callback */
@@ -630,7 +509,7 @@ FailoverSvcRequest::~FailoverSvcRequest()
 
 /**
  * Invocation work function
- * NOTE this function is executed on NetMgr::ep_task_executor for synchronization
+ * NOTE this function is executed on SvcMgr::taskExecutor_ for synchronization
  */
 void FailoverSvcRequest::invokeWork_()
 {
@@ -671,7 +550,7 @@ void FailoverSvcRequest::invokeWork_()
  *
  * @param header
  * @param payload
- * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
+ * NOTE this function is exectued on SvcMgr::taskExecutor_ for synchronization
  */
 // TODO(Rao): logging, invoking cb, error for each endpoint
 void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
@@ -703,9 +582,9 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
     /* Handle the error */
     if (header->msg_code != ERR_OK) {
         /* Notify actionable error to endpoint manager */
-        if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
-            NetMgr::ep_mgr_singleton()->ep_handle_error(
-                header->msg_src_uuid, header->msg_code);
+        if (gModuleProvider->getSvcMgr()->isSvcActionableError(header->msg_code)) {
+            gModuleProvider->getSvcMgr()->\
+                handleSvcError(header->msg_src_uuid, header->msg_code);
         } else {
             /* Handle Application specific errors here */
             if (epAppStatusCb_) {
@@ -882,7 +761,7 @@ void QuorumSvcRequest::setQuorumCnt(const uint32_t cnt)
 
 /**
 * @brief Inovcation work function
-* NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
+* NOTE this function is exectued on SvcMgr::taskExecutor_ for synchronization
 */
 void QuorumSvcRequest::invokeWork_()
 {
@@ -898,7 +777,7 @@ void QuorumSvcRequest::invokeWork_()
 *
 * @param header
 * @param payload
-* NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
+* NOTE this function is exectued on SvcMgr::taskExecutor_ for synchronization
 */
 void QuorumSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
                                           boost::shared_ptr<std::string>& payload)
@@ -924,10 +803,10 @@ void QuorumSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& head
     /* Handle the error */
     if (header->msg_code != ERR_OK) {
         GLOGWARN << fds::logString(*header);
-        /* Notify actionable error to endpoint manager */
-        if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
-            NetMgr::ep_mgr_singleton()->ep_handle_error(
-                header->msg_src_uuid, header->msg_code);
+        /* Notify actionable error to service manager */
+        if (gModuleProvider->getSvcMgr()->isSvcActionableError(header->msg_code)) {
+            gModuleProvider->getSvcMgr()->\
+                handleSvcError(header->msg_src_uuid, header->msg_code);
         } else {
             /* Handle Application specific errors here */
             if (epAppStatusCb_) {

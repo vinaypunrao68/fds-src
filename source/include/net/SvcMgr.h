@@ -7,7 +7,24 @@
 #include <vector>
 #include <unordered_map>
 #include <fds_module.h>
+// TODO(Rao): Do forward decl here
+#include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <boost/shared_ptr.hpp>
+
+#define EpInvokeRpc(SendIfT, func, svc_id, maj, min, ...)                       \
+    do {                                                                        \
+        try {                                                                   \
+            /* TODO(Rao): Fix this*/                                            \
+            fds_panic("not imple");                                             \
+            GLOGDEBUG << "[Svc] sent RPC "                                      \
+                << std::hex << svc_id.svc_uuid << std::dec;                     \
+        } catch(std::exception &e) {                                            \
+            GLOGDEBUG << "[Svc] RPC error " << e.what();                        \
+        } catch(...) {                                                          \
+            GLOGDEBUG << "[Svc] Unknown RPC error ";                            \
+            fds_assert(!"Unknown exception");                                   \
+        }                                                                       \
+    } while (0)
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -130,6 +147,30 @@ struct SvcMgr : public Module {
     */
     fpi::OMSvcClientPtr getNewOMSvcClient() const;
 
+    /**
+    * @brief Returns task executor
+    *
+    * @return 
+    */
+    SynchronizedTaskExecutor<uint64_t>* getTaskExecutor();
+
+    /**
+    * @brief Return true if e is an error service layer should handle
+    *
+    * @param e
+    *
+    * @return 
+    */
+    bool isSvcActionableError(const Error &e);
+
+    /**
+    * @brief Handle error e from source service srcSvc
+    *
+    * @param srcSvc
+    * @param e
+    */
+    void handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e);
+
  protected:
     /**
     * @brief For getting service handle.
@@ -157,6 +198,8 @@ struct SvcMgr : public Module {
 
     /* Self service information */
     fpi::SvcInfo svcInfo_;
+
+    SynchronizedTaskExecutor<uint64_t> *taskExecutor_;
 };
 
 /**

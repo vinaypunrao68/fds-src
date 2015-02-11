@@ -14,7 +14,6 @@
 #include <fds_error.h>
 #include <fds_dmt.h>
 #include <dlt.h>
-#include <net/net-service.h>
 #include <fdsp_utils.h>
 #include <concurrency/taskstatus.h>
 #include <fds_counters.h>
@@ -254,14 +253,6 @@ struct SvcRequestIf {
 
     void setCompletionCb(SvcRequestCompletionCb &completionCb);
 
-    static void sendReqWork(EpSvcHandle::pointer eph,
-                            SvcRequestIf *req,
-                            boost::shared_ptr<fpi::AsyncHdr> header,
-                            StringPtr payload);
-    static void sendRespWork(EpSvcHandle::pointer eph,
-                             fpi::AsyncHdr header,
-                             bo::shared_ptr<tt::TMemoryBuffer> memBuffer);
-
  public:
     struct SvcReqTs {
         /* Request latency stop watch */
@@ -308,23 +299,6 @@ struct SvcRequestIf {
             boost::shared_ptr<std::string>& payload) = 0;
 
 };
-
-#define EpInvokeRpc(SendIfT, func, svc_id, maj, min, ...)                       \
-    do {                                                                        \
-        auto net = NetMgr::ep_mgr_singleton();                                  \
-        auto eph = net->svc_get_handle<SendIfT>(svc_id, maj, min);              \
-        fds_verify(eph != NULL);                                                \
-        try {                                                                   \
-            eph->svc_rpc<SendIfT>()->func(__VA_ARGS__);                         \
-            GLOGDEBUG << "[Svc] sent RPC "                                      \
-                << std::hex << svc_id.svc_uuid << std::dec;                     \
-        } catch(std::exception &e) {                                            \
-            GLOGDEBUG << "[Svc] RPC error " << e.what();                        \
-        } catch(...) {                                                          \
-            GLOGDEBUG << "[Svc] Unknown RPC error ";                            \
-            fds_assert(!"Unknown exception");                                   \
-        }                                                                       \
-    } while (0)
 
 /**
  * Wrapper around asynchronous svc request

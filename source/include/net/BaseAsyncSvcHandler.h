@@ -131,12 +131,6 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
             GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;
         }
-        fiu_do_on("svc.use.lftp",
-                  gSvcRequestPool->getSvcSendThreadpool()->\
-                  scheduleWithAffinity(ep->getAffinity(), \
-                                       &SvcRequestIf::sendRespWork, \
-                                       ep, resp_hdr, buffer); \
-                  return;);
 
         NET_SVC_RPC_CALL(ep, ep->svc_rpc<fpi::BaseAsyncSvcClient>(),
                         fpi::BaseAsyncSvcClient::asyncResp,
