@@ -2,6 +2,18 @@ require( '../utils' );
 
 describe( 'Testing the timeline settings', function(){
     
+    
+/**
+* This test is completely commented out because of a strangeness with the protractor / selenium harness.
+* The problem lies in the fact that the combo box list expands larger than the perceived height of the page
+* (I say perceived because it's actually within the bounds...).  Because the pop-up list representing the
+* combo options is an absolutely positioned element, it won't get calculated into the size so when we try
+* to programmatically focus on the element the page doesn't scroll and protractor can't find the selection.
+*
+* We want this to work, but so far it is not consistent so it's commented out until we can correct this.
+**/
+    
+    
 //    var checkValues = function( volumeName, values ){
 //        
 //        var row = element( by.cssContainingText( '.name', volumeName ));
