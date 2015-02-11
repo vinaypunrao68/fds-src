@@ -639,7 +639,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                 }
 
                 // sum up volume refcnt to sum for validation.
-                sumVolRefcnt += newRefcnt;
+                sumVolRefCnt += newRefcnt;
             } else {
                 // this is a new association..
                 if (volAssoc.volumeRefCnt >= 0) {
@@ -652,7 +652,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
 
-                sumVolRefcnt += new_association_ref_cnt;
+                sumVolRefCnt += new_association_ref_cnt;
             }
 
             if (!err.ok()) {
