@@ -26,10 +26,12 @@ public class PlatformManagerServices {
         new HashMap<>();
 
     private static Optional<List<PMServiceClient>> by( Long domainId ) {
-
-        return SERVICES.containsKey( domainId )
-            ? Optional.of( SERVICES.get( domainId ) )
-            : Optional.empty();
+        // simpler debugging.
+        if( SERVICES.containsKey( domainId ) ) {
+            return Optional.of( SERVICES.get( domainId ) );
+        } else {
+            return Optional.empty();
+        }
     }
 
     private static Optional<PMServiceClient> by( final Long domainId,
