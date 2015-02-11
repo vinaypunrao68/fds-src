@@ -56,9 +56,9 @@ void * FdsShmem::shm_attach(int flags)
         fd = shm_open(sh_name, O_RDWR, S_IRUSR);
         if (fd == -1) {
             std::error_condition econd = std::system_category().default_error_condition(errno);
-            if (-2 == errno)
+            if (2 == errno)
             {
-                GLOGWARN << "Shared memory segment " << sh_name << " does not exist."
+                GLOGNORMAL << "Shared memory segment " << sh_name << " does not exist. "
                          << "The shared memory segment will be created.";
             } else {
                 GLOGWARN << "Failed to open shared memory segment " << sh_name << "."
