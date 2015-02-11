@@ -22,24 +22,29 @@ public class PlatformManagerServices {
     private static final Logger logger =
         LoggerFactory.getLogger( PlatformManagerServices.class );
 
-    private static Map<Long, List<PMServiceClient>> services = new HashMap<>();
+    private static final Map<Long, List<PMServiceClient>> SERVICES = 
+        new HashMap<>();
 
     private static Optional<List<PMServiceClient>> by( Long domainId ) {
 
-        return services.containsKey( domainId )
-            ? Optional.of( services.get( domainId ) )
+        return SERVICES.containsKey( domainId )
+            ? Optional.of( SERVICES.get( domainId ) )
             : Optional.empty();
     }
 
     private static Optional<PMServiceClient> by( final Long domainId,
                                                  final HostAndPort host ) {
 
-        if( services.containsKey( domainId ) ) {
+        if( SERVICES.containsKey( domainId ) ) {
 
-            for( final PMServiceClient client : services.get( domainId ) ) {
+            for( final PMServiceClient client : SERVICES.get( domainId ) ) {
 
                 if( client.getHost().equals( host ) ) {
 
+                    logger.debug( 
+                        "The service client {}, exists within the service cache", 
+                        client.getHost().getHostText() );
+                    
                     return Optional.of( client );
                 }
             }
@@ -47,7 +52,7 @@ public class PlatformManagerServices {
         }
 
         logger.warn(
-            "The specified PM service client {} already exists within the " +
+            "The specified PM service client {} doesn't exists within the " +
             "service cache.",
             host );
 
@@ -56,17 +61,13 @@ public class PlatformManagerServices {
 
     public static void put( final Long domainId, final HostAndPort host ) {
 
-        if( !by( domainId ).isPresent( ) ) {
+        if( !by( domainId ).isPresent( ) ||
+            !by( domainId, host ).isPresent() ) {
+            
+            logger.debug( "Adding platform client {} to service cache.", host );
+            SERVICES.put( domainId, new ArrayList<>() );
+            SERVICES.get( domainId ).add( new PMServiceClient( host ) );
 
-            services.put( domainId, new ArrayList<>() );
-            services.get( domainId ).add( new PMServiceClient( host ) );
-
-        } else if( !by( domainId, host ).isPresent()) {
-
-            logger.debug( "Adding platform service client {}", host );
-
-            services.put( domainId, new ArrayList<>() );
-            services.get( domainId ).add( new PMServiceClient( host ) );
         }
 
     }
