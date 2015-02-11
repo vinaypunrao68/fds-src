@@ -58,7 +58,6 @@
         - python2.7
         - python-dev
         - python-pip
-        - python-boto
         - libpcre3-dev
         - libpcre3
         - libssl-dev
@@ -95,8 +94,8 @@
         - python-paramiko
         - python-redis
         - python-requests
-        - python-boto
         - python-argh
+        - python-boto
         - python-thrift
         - libcryptopp-dev
         - lintian

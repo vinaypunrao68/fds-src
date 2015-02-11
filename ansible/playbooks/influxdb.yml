@@ -1,0 +1,54 @@
+---
+-   name: Deploy InfluxDB
+    hosts: influxdb-hosts
+    remote_user: deploy
+    gather_facts: true
+    sudo: true
+    vars:
+        influxdb_version: 0.8.8
+        ansible_ssh_private_key_file: ~/.ssh/fds-deploy_rsa
+
+    handlers:
+    -   name: restart influxdb
+        service: name=influxdb state=restarted
+
+    tasks:
+    -   name: get InfluxDB package
+        get_url: url=https://s3.amazonaws.com/influxdb/influxdb_{{ influxdb_version }}_amd64.deb
+            dest=/root/influxdb_{{ influxdb_version }}_amd64.deb
+            validate_certs=no
+            sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
+
+    -   name: create influxdb user and group
+        group: name=influxdb
+
+    -   user: name=influxdb
+            createhome=no
+            group=influxdb
+
+    -   name: install InfluxDB
+        apt: deb=/root/influxdb_{{ influxdb_version }}_amd64.deb
+        register: install
+
+    -   name: render influxdb config
+        template: src=../templates/influxdb/config.toml.j2
+            dest=/opt/influxdb/shared/config.toml
+            owner=influxdb
+        register: config
+        notify: restart influxdb
+
+    -   name: start first node to enable other nodes to join cluster
+        service: name=influxdb
+            state=started
+            enabled=yes
+        when: inventory_hostname == groups['influxdb-hosts'][0]
+
+    -   name: start all other nodes which will join the cluster
+        service: name=influxdb
+            state=started
+            enabled=yes
+        when: inventory_hostname != groups['influxdb-hosts'][0]
+
+    -   name: short pause on initial install to let the cluster settle down before restarting again after config has changed
+        pause: seconds=30
+        when: install.changed and config.changed
