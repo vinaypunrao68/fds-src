@@ -18,6 +18,7 @@
 #include "qos_ctrl.h"
 #include "PerfTrace.h"
 
+#include "EclipseWorkarounds.h"
 
 namespace fds {
 

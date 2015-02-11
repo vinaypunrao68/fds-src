@@ -2,6 +2,8 @@
 #include <map>
 #include <atomic>
 
+#include "EclipseWorkarounds.h"
+
 namespace fds {
 
   const unsigned int MAX_PENDING_IOS_PER_VOLUME = 1024;

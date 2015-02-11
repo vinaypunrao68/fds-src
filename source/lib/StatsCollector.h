@@ -6,8 +6,9 @@
 #define SOURCE_INCLUDE_STATSCOLLECTOR_H_
 
 #include <PerfHistory.h>
-// #include <lib/OMgrClient.h>
 #include <fds_timer.h>
+
+#include "EclipseWorkarounds.h"
 
 namespace fds {
 

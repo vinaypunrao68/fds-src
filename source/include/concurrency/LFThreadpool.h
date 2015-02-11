@@ -18,6 +18,8 @@
 #include <linux/futex.h>
 #include <sys/time.h>
 
+#include "EclipseWorkarounds.h"
+
 namespace fds {
 typedef std::function<void()> LockFreeTask;
 
