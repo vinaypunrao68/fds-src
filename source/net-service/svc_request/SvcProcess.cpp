@@ -5,7 +5,9 @@
 #include <fdsp/PlatNetSvc.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/OMSvc.h>
+#include <util/timeutils.h>
 #include <net/SvcMgr.h>
+#include <net/net_utils.h>
 #include <net/SvcProcess.h>
 
 namespace fds {
@@ -79,8 +81,12 @@ void SvcProcess::registerSvcProcess()
              * idempotent.  In case of failure we just retry until we succeed
              */
             auto omSvcRpc = svcMgr_->getNewOMSvcClient();
+
             omSvcRpc->registerService(svcInfo_);
+            LOGNOTIFY << "registerService() call completed";
+
             omSvcRpc->getSvcMap(svcMap, 0);
+            LOGNOTIFY << "got service map.  size: " << svcMap.size();
             break;
         } catch (Exception &e) {
             LOGWARN << "Failed to register: " << e.what() << ".  Retrying...";
@@ -90,6 +96,10 @@ void SvcProcess::registerSvcProcess()
     } while (true);
 
     svcMgr_->updateSvcMap(svcMap);
+}
+
+SvcMgr* SvcProcess::getSvcMgr() {
+    return svcMgr_.get();
 }
 
 void SvcProcess::setupConfigDb_()
@@ -103,8 +113,11 @@ void SvcProcess::setupSvcInfo_()
 {
     auto config = gModuleProvider->get_conf_helper();
     svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(config.get<long long>("svc.uuid"));
+    svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
     svcInfo_.svc_port = config.get<int>("svc.port");
-    // TODO(Rao): set up svc info
+
+    // TODO(Rao): set up correct incarnation no
+    svcInfo_.incarnationNo = util::getTimeStampSeconds();
 }
 
 void SvcProcess::setupSvcMgr_(fpi::PlatNetSvcProcessorPtr processor)

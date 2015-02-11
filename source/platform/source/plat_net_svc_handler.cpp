@@ -13,6 +13,8 @@
 
 #include <fiu-control.h>
 #include <fds_process.h>
+#include <fdsp/fds_service_types.h>
+#include <net/SvcMgr.h>
 #include <net/PlatNetSvcHandler.h>
 #include "platform/platform.h"
 #include "platform/platform_process.h"
@@ -22,6 +24,7 @@ namespace fds
 {
     PlatNetSvcHandler::PlatNetSvcHandler()
     {
+        // TODO(Rao): These are not needed. Get rid of them
         REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, notify_node_info);
         REGISTER_FDSP_MSG_HANDLER(fpi::NodeQualify, notify_node_qualify);
         REGISTER_FDSP_MSG_HANDLER(fpi::NodeUpgrade, notify_node_upgrade);
@@ -30,6 +33,9 @@ namespace fds
         REGISTER_FDSP_MSG_HANDLER(fpi::NodeFunctional, notify_node_functional);
         REGISTER_FDSP_MSG_HANDLER(fpi::NodeDown, notify_node_down);
         REGISTER_FDSP_MSG_HANDLER(fpi::NodeEvent, notify_node_event);
+        ////////////////////////////////////////////////////////////////////
+
+        REGISTER_FDSP_MSG_HANDLER(fpi::UpdateSvcMapMsg, updateSvcMap);
     }
 
     PlatNetSvcHandler::~PlatNetSvcHandler()
@@ -315,6 +321,12 @@ namespace fds
             LOGDEBUG << "Disable fault: " << name;
         }
         return true;
+    }
+
+    void PlatNetSvcHandler::updateSvcMap(fpi::AsyncHdrPtr &header,
+                                            fpi::UpdateSvcMapMsgPtr &svcMapMsg)
+    {
+        gModuleProvider->getSvcMgr()->updateSvcMap(svcMapMsg->updates);
     }
 
     /*

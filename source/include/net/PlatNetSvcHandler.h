@@ -62,10 +62,13 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
 
     virtual bool setFault(const std::string& command);
     virtual bool setFault(boost::shared_ptr<std::string>& command);  // NOLINT
+    virtual void updateSvcMap(fpi::AsyncHdrPtr &header,
+                              fpi::UpdateSvcMapMsgPtr &svcMapMsg);
 
     /**
      * Common messages.
      */
+    // TODO(Rao): These are not needed. Get rid of them
     virtual void notify_node_info(fpi::AsyncHdrPtr &hdr, fpi::NodeInfoMsgPtr &m);
     virtual void notify_node_qualify(fpi::AsyncHdrPtr &hdr, fpi::NodeQualifyPtr &m);
     virtual void notify_node_upgrade(fpi::AsyncHdrPtr &hdr, fpi::NodeUpgradePtr &m);
@@ -74,6 +77,7 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual void notify_node_functional(fpi::AsyncHdrPtr &hdr, fpi::NodeFunctionalPtr &m);
     virtual void notify_node_down(fpi::AsyncHdrPtr &hdr, fpi::NodeDownPtr &m);
     virtual void notify_node_event(fpi::AsyncHdrPtr &hdr, fpi::NodeEventPtr &m);
+    ////////////////////////////////////////////////////////////////////
 };
 
 using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;

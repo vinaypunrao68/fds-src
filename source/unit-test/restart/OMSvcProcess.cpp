@@ -86,7 +86,7 @@ int OMSvcProcess::run() {
 
 void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
-    GLOGNOTIFY << "Incoming update: " << fds::logString(*svcInfo);
+    GLOGNOTIFY << "Regiser svc request.  Svcinfo: " << fds::logString(*svcInfo);
 
     bool updated = false;
     {
@@ -94,11 +94,11 @@ void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         fds_scoped_lock l(svcMapLock_);
         auto mapItr = svcMap_.find(svcInfo->svc_id.svc_uuid);
         if (mapItr == svcMap_.end()) {
-            GLOGNOTIFY << "Added new service";
+            GLOGNOTIFY << "Persisted new service";
             svcMap_.emplace(std::make_pair(svcInfo->svc_id.svc_uuid, *svcInfo));
             updated = true;
         } else if (mapItr->second.incarnationNo < svcInfo->incarnationNo) {
-            GLOGNOTIFY << "Updated service";
+            GLOGNOTIFY << "Persisted service update";
             mapItr->second = *svcInfo;
             updated = true;
         } else {

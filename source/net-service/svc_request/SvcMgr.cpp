@@ -89,8 +89,15 @@ void SvcMgr::mod_shutdown()
 
 void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
 {
+    GLOGDEBUG << "Updating service map. Incoming entries size: " << entries.size();
+
     fds_scoped_lock lock(svcHandleMapLock_);
     for (auto &e : entries) {
+        /* Ignore self service map entry.  We don't need a handle for self yet */
+        if (e.svc_id.svc_uuid == svcInfo_.svc_id.svc_uuid) {
+            continue;
+        }
+
         auto svcHandleItr = svcHandleMap_.find(e.svc_id.svc_uuid);
         if (svcHandleItr == svcHandleMap_.end()) {
             /* New service handle entry.  Note, we don't allocate rpcClient.  We do this lazily
@@ -98,12 +105,13 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
              */
             auto svcHandle = boost::make_shared<SvcHandle>(e);
             svcHandleMap_.emplace(std::make_pair(e.svc_id.svc_uuid, svcHandle));
-            GLOGDEBUG << "svc update.  svcuuid: " << e.svc_id.svc_uuid.svc_uuid
+            GLOGDEBUG << "svcmap update.  svcuuid: " << e.svc_id.svc_uuid.svc_uuid
                     << " is new.  Incarnation: " << e.incarnationNo;
         } else {
             svcHandleItr->second->updateSvcHandle(e);
         }
     }
+    GLOGDEBUG << "After update.  Servic map size: " << svcHandleMap_.size();
 }
 
 bool SvcMgr::getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) const
@@ -258,6 +266,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
     }
     try {
         if (!svcClient_) {
+            GLOGDEBUG << "Allocating PlatNetSvcClient for: " << logString();
             svcClient_ = allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
                                                                svcInfo_.svc_port,
                                                                false);
@@ -276,7 +285,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
 
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
-    GLOGDEBUG << "Incoming update: " << fds::logString(newInfo);
+    GLOGDEBUG << "Svchandle incoming update: " << fds::logString(newInfo);
 
     fds_scoped_lock lock(lock_);
     if (svcInfo_.incarnationNo < newInfo.incarnationNo) {

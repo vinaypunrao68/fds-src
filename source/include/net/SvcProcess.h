@@ -71,6 +71,8 @@ struct SvcProcess : FdsProcess {
     */
     virtual void registerSvcProcess();
 
+    virtual SvcMgr* getSvcMgr() override;
+
  protected:
     /**
     * @brief Sets up configdb used for persistence

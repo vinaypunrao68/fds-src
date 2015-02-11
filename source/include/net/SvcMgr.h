@@ -19,7 +19,6 @@ namespace FDS_ProtocolInterface {
     class PlatNetSvcClient;
     class SvcInfo;
     class SvcUuid;
-    class SvcUuid;
     class AsyncHdr;
     using AsyncHdrPtr = boost::shared_ptr<AsyncHdr>;
 }  // namespace FDS_ProtocolInterface
@@ -156,7 +155,7 @@ struct SvcMgr : public Module {
     int omPort_;
     fpi::SvcUuid omSvcUuid_;
 
-    /* Service information */
+    /* Self service information */
     fpi::SvcInfo svcInfo_;
 };
 
