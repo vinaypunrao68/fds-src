@@ -634,12 +634,12 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                         assoc_entry.erase(it);
                         obj_map.obj_num_assoc_entry = assoc_entry.size();
                     }
+                    // sum up volume refcnt to sum for validation later.
+                    sumVolRefCnt += newRefcnt;
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
 
-                // sum up volume refcnt to sum for validation.
-                sumVolRefCnt += newRefcnt;
             } else {
                 // this is a new association..
                 if (volAssoc.volumeRefCnt >= 0) {
@@ -648,11 +648,12 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                     new_association.ref_cnt = volAssoc.volumeRefCnt;
                     assoc_entry.push_back(new_association);
                     obj_map.obj_num_assoc_entry = assoc_entry.size();
+                    
+                    // sum up volume refcnt to sum for validation later.
+                    sumVolRefCnt += new_association.ref_cnt;
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
-
-                sumVolRefCnt += new_association_ref_cnt;
             }
 
             if (!err.ok()) {
