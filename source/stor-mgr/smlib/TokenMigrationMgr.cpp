@@ -436,7 +436,7 @@ SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
         for (MigrClientMap::iterator it = migrClients.begin();
              it != migrClients.end();
              ++it) {
-            forwarded = forwarded || it->second->forwardIfNeeded(dltTok, req);
+            forwarded |= it->second->forwardIfNeeded(dltTok, req);
         }
     }
     return forwarded;

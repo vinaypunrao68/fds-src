@@ -128,6 +128,7 @@ MigrationClient::migClientSnapshotMetaData()
     /* Should already have a valid sm token
      */
     fds_verify(SMTokenID != SMTokenInvalidID);
+    fds_verify(executorID != SM_INVALID_EXECUTOR_ID);
     snapshotRequest.token_id = SMTokenID;
     snapshotRequest.executorId = executorID;
 
