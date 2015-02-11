@@ -65,7 +65,7 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         
         $scope.volumes = $volume_api.volumes;
         
-        if ( angular.isDefined( $scope.volumes ) && $scope.volumes.length > 1 ){
+        if ( angular.isDefined( $scope.volumes ) && $scope.volumes.length > 0 ){
             $scope.volumeVars.cloneFromVolume = $scope.volumes[0];
         }
         
