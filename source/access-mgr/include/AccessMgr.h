@@ -8,13 +8,13 @@
 #include <fds_types.h>
 #include <fds_module_provider.h>
 #include <fds_volume.h>
-#include <fdsn-server.h>
-#include <AmAsyncService.h>
 #include <AmDataApi.h>
 #include <OmConfigService.h>
 
 namespace fds {
 
+struct AsyncDataServer;
+struct FdsnServer;
 struct NbdConnector;
 
 /**
@@ -42,15 +42,16 @@ class AccessMgr : public Module, public boost::noncopyable {
 
     // Set AM in shutdown mode.
     void setShutDown();
+    void stop();
 
     // Check whether AM is in shutdown mode.
     bool isShuttingDown();
 
     /// Unique ptr to the fdsn server that communicates with XDI
-    FdsnServer::unique_ptr fdsnServer;
+    std::unique_ptr<FdsnServer> fdsnServer;
 
     /// Unique ptr to the async server that communicates with XDI
-    AsyncDataServer::unique_ptr asyncServer;
+    std::unique_ptr<AsyncDataServer> asyncServer;
 
     /// Shared ptr to AM's data API. It's public so that
     /// other components (e.g., unit tests, perf tests) can

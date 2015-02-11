@@ -2,7 +2,6 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <string>
-#include <fdsn-server.h>
 #include <util/fds_stat.h>
 #include <am-platform.h>
 #include <net/net-service.h>

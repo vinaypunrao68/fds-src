@@ -13,6 +13,9 @@
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
+
+#include "connector/xdi/AmAsyncService.h"
+#include "connector/xdi/fdsn-server.h"
 #include "connector/block/NbdConnector.h"
 
 extern AmPlatform gl_AmPlatform;
@@ -115,11 +118,16 @@ AccessMgr::setShutDown() {
      */
     if (storHvisor->qos_ctrl->htb_dispatcher->num_outstanding_ios == 0)
     {
-        LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
-        storHvisor->qos_ctrl->htb_dispatcher->stop();
-        asyncServer->getTTServer()->stop();
-        fdsnServer->getNBServer()->stop();
+        stop();
     }
+}
+
+void
+AccessMgr::stop() {
+    LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
+    storHvisor->qos_ctrl->htb_dispatcher->stop();
+    asyncServer->getTTServer()->stop();
+    fdsnServer->getNBServer()->stop();
 }
 
 // Check whether AM is in shutdown mode.

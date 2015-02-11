@@ -51,10 +51,7 @@ AmProcessor::respond(AmRequest *amReq, const Error& error) {
     if (am->isShuttingDown() &&
             (qosCtrl->htb_dispatcher->num_outstanding_ios == 0))
     {
-        LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
-        qosCtrl->htb_dispatcher->stop();
-        am->asyncServer->getTTServer()->stop();
-        am->fdsnServer->getNBServer()->stop();
+        am->stop();
     }
 }
 
