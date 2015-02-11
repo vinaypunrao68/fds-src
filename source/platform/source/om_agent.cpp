@@ -125,7 +125,7 @@ namespace fds
         if (!om_cfg_svc)
         {
             boost::shared_ptr<TTransport>    socket(new TSocket(
-                                                        *gModuleProvider->get_plf_manager()->
+                                                        *MODULEPROVIDER()->get_plf_manager()->
                                                         plf_get_om_ip(), 9090));
             boost::shared_ptr<TTransport>    transport(new TFramedTransport(socket));
             boost::shared_ptr<TProtocol>     protocol(new TBinaryProtocol(transport));

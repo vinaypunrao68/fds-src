@@ -24,7 +24,7 @@ uint64_t SvcRequestPool::SVC_UNTRACKED_REQ_ID = 0;
 
 template<typename T>
 T SvcRequestPool::get_config(std::string const& option)
-{ return gModuleProvider->get_fds_config()->get<T>(option); }
+{ return MODULEPROVIDER()->get_fds_config()->get<T>(option); }
 
 /**
  * Constructor

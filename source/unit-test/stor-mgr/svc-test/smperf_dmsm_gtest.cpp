@@ -273,9 +273,9 @@ TEST_F(SMApi, dmsmPerf)
     fpi::SvcUuid sm_svcUuid;
     fpi::SvcUuid dm_svcUuid;
 
-    sm_svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager(), 
+    sm_svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager(),
                                                        uuid_hack);
-    dm_svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager(),
+    dm_svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager(),
                                                        uuid_hack);
 
     ASSERT_NE(sm_svcUuid.svc_uuid, 0);
@@ -500,7 +500,7 @@ TEST_F(SMApi, putsPerf)
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
     if (svcUuid.svc_uuid == 0) {
-        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     }
     ASSERT_NE(svcUuid.svc_uuid, 0);;
     DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(1);

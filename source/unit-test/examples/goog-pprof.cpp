@@ -97,7 +97,7 @@ TEST_F(SMApi, DISABLED_putsPerf)
     bool uturnPuts = this->getArg<bool>("uturn");
 
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* Set fault to uturn all puts */

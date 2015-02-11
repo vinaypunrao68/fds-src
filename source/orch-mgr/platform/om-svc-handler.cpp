@@ -21,7 +21,7 @@ namespace fds {
 template<typename T>
 static T
 get_config(std::string const& option, T const& default_value)
-{ return gModuleProvider->get_fds_config()->get<T>(option, default_value); }
+{ return MODULEPROVIDER()->get_fds_config()->get<T>(option, default_value); }
 
 template <typename T, typename Cb>
 static std::unique_ptr<TrackerBase<NodeUuid>>

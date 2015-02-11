@@ -92,7 +92,7 @@ void invokeWork(SMApi *smapi,
         // respHdr.msg_code = ERR_SVC_REQUEST_INVOCATION;
         // smapi->putCb(opStartTs, nullptr, ERR_OK, nullptr);
         // gSvcRequestPool->postError(respHdr);
-        gModuleProvider->proc_thrpool()->schedule(&SMApi::putCb, smapi,
+        MODULEPROVIDER()->proc_thrpool()->schedule(&SMApi::putCb, smapi,
                                                   opStartTs, nullptr, ERR_OK, nullptr);
         // smapi->tp->enqueue(std::bind(&SMApi::putCb, smapi, opStartTs, nullptr, ERR_OK, nullptr));
     } catch (std::exception &e) {

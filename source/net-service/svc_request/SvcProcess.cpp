@@ -111,7 +111,7 @@ void SvcProcess::setupConfigDb_()
 
 void SvcProcess::setupSvcInfo_()
 {
-    auto config = gModuleProvider->get_conf_helper();
+    auto config = MODULEPROVIDER()->get_conf_helper();
     svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(config.get<long long>("svc.uuid"));
     svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
     svcInfo_.svc_port = config.get<int>("svc.port");

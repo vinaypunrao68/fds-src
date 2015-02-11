@@ -24,9 +24,9 @@ extern ObjectStorMgr    *objStorMgr;
 
 SMSvcHandler::SMSvcHandler()
 {
-    mockTimeoutEnabled = gModuleProvider->get_fds_config()->\
+    mockTimeoutEnabled = MODULEPROVIDER()->get_fds_config()->\
                          get<bool>("fds.sm.testing.enable_mocking");
-    mockTimeoutUs = gModuleProvider->get_fds_config()->\
+    mockTimeoutUs = MODULEPROVIDER()->get_fds_config()->\
                     get<uint32_t>("fds.sm.testing.mocktimeout");
     if (true == mockTimeoutEnabled) {
         mockHandler.reset(new MockSvcHandler());

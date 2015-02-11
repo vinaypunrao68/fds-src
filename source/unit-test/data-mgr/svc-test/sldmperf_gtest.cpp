@@ -143,7 +143,7 @@ TEST_F(DMPerfApi, putsPerf)
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("dmuuid");
     if (svcUuid.svc_uuid == 0) {
-        svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+        svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     }
     ASSERT_NE(svcUuid.svc_uuid, 0);;
 

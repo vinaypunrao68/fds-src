@@ -46,7 +46,7 @@ SvcRequestTimer::SvcRequestTimer(const SvcRequestId &id,
                                  const fpi::FDSPMsgTypeId &msgTypeId,
                                  const fpi::SvcUuid &myEpId,
                                  const fpi::SvcUuid &peerEpId)
-    : FdsTimerTask(*(gModuleProvider->getTimer()))
+    : FdsTimerTask(*(MODULEPROVIDER()->getTimer()))
 {
     header_.reset(new fpi::AsyncHdr());
     *header_ = gSvcRequestPool->newSvcRequestHeader(id, msgTypeId, peerEpId, myEpId);
@@ -102,7 +102,7 @@ void SvcRequestIf::complete(const Error& error) {
     state_ = SVC_REQUEST_COMPLETE;
 
     if (timer_) {
-        gModuleProvider->getTimer()->cancel(timer_);
+        MODULEPROVIDER()->getTimer()->cancel(timer_);
         timer_.reset();
     }
 
@@ -156,7 +156,7 @@ void SvcRequestIf::invoke()
               scheduleWithAffinity(id_, &SvcRequestIf::invoke2, this); return;);
 
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor = 
-        gModuleProvider->getSvcMgr()->getTaskExecutor();
+        MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     /* Execute on synchronized task exector so that invocation and response
      * handling is synchronized.
      */
@@ -183,12 +183,12 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
         fiu_do_on("svc.fail.sendpayload_before",
                   throw util::FiuException("svc.fail.sendpayload_before"));
         /* send the payload */
-        gModuleProvider->getSvcMgr()->sendAsyncSvcReqMessage(header, payloadBuf_);
+        MODULEPROVIDER()->getSvcMgr()->sendAsyncSvcReqMessage(header, payloadBuf_);
 
        /* start the timer */
        if (timeoutMs_) {
            timer_.reset(new SvcRequestTimer(id_, msgTypeId_, myEpId_, peerEpId));
-           bool ret = gModuleProvider->getTimer()->\
+           bool ret = MODULEPROVIDER()->getTimer()->\
                       schedule(timer_, std::chrono::milliseconds(timeoutMs_));
            fds_assert(ret == true);
        }
@@ -343,8 +343,8 @@ void EPSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* Notify actionable error to endpoint manager */
     if (header->msg_code != ERR_OK &&
-        gModuleProvider->getSvcMgr()->isSvcActionableError(header->msg_code)) {
-        gModuleProvider->getSvcMgr()->handleSvcError(header->msg_src_uuid, header->msg_code);
+        MODULEPROVIDER()->getSvcMgr()->isSvcActionableError(header->msg_code)) {
+        MODULEPROVIDER()->getSvcMgr()->handleSvcError(header->msg_src_uuid, header->msg_code);
     }
 
     /* Invoke response callback */
@@ -582,8 +582,8 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
     /* Handle the error */
     if (header->msg_code != ERR_OK) {
         /* Notify actionable error to endpoint manager */
-        if (gModuleProvider->getSvcMgr()->isSvcActionableError(header->msg_code)) {
-            gModuleProvider->getSvcMgr()->\
+        if (MODULEPROVIDER()->getSvcMgr()->isSvcActionableError(header->msg_code)) {
+            MODULEPROVIDER()->getSvcMgr()->\
                 handleSvcError(header->msg_src_uuid, header->msg_code);
         } else {
             /* Handle Application specific errors here */
@@ -804,8 +804,8 @@ void QuorumSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& head
     if (header->msg_code != ERR_OK) {
         GLOGWARN << fds::logString(*header);
         /* Notify actionable error to service manager */
-        if (gModuleProvider->getSvcMgr()->isSvcActionableError(header->msg_code)) {
-            gModuleProvider->getSvcMgr()->\
+        if (MODULEPROVIDER()->getSvcMgr()->isSvcActionableError(header->msg_code)) {
+            MODULEPROVIDER()->getSvcMgr()->\
                 handleSvcError(header->msg_src_uuid, header->msg_code);
         } else {
             /* Handle Application specific errors here */

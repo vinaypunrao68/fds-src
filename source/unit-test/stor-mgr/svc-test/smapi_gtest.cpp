@@ -78,7 +78,7 @@ TEST_F(SMApi, put_get)
 
     fpi::SvcUuid svcUuid;
     std::list<ObjectID> objIds;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* To generate random data between 10 to 100 bytes */
@@ -133,7 +133,7 @@ TEST_F(SMApi, drop_puts)
     int nPuts =  this->getArg<int>("puts-cnt");
 
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* Set fault to drop all puts */

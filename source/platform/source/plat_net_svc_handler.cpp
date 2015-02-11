@@ -295,6 +295,6 @@ namespace fds
     void PlatNetSvcHandler::updateSvcMap(fpi::AsyncHdrPtr &header,
                                             fpi::UpdateSvcMapMsgPtr &svcMapMsg)
     {
-        gModuleProvider->getSvcMgr()->updateSvcMap(svcMapMsg->updates);
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcMapMsg->updates);
     }
 }  // namespace fds

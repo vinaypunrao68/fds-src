@@ -55,6 +55,7 @@ class CommonModuleProviderIf {
 };
 
 extern CommonModuleProviderIf* gModuleProvider;
+#define MODULEPROVIDER() gModuleProvider
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_MODULE_PROVIDER_H_

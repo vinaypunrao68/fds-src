@@ -118,7 +118,7 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
 
         fds::serializeFdspMsg(payload, respBuf);
 
-        gModuleProvider->getSvcMgr()->sendAsyncSvcRespMessage(respHdr, respBuf);
+        MODULEPROVIDER()->getSvcMgr()->sendAsyncSvcRespMessage(respHdr, respBuf);
     }
 
     // protected:

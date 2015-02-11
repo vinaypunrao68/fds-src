@@ -45,7 +45,7 @@ boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
 SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInfo)
     : Module("SvcMgr")
 {
-    auto config = gModuleProvider->get_conf_helper();
+    auto config = MODULEPROVIDER()->get_conf_helper();
     omIp_ = config.get_abs<std::string>("fds.common.om_ip_list");
     omPort_ = config.get_abs<int>("fds.common.om_port");
     omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<long long>("fds.common.om_uuid"));
@@ -54,7 +54,7 @@ SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInf
     /* Create the server */
     svcServer_ = boost::make_shared<SvcServer>(svcInfo_.svc_port, processor);
 
-    taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*gModuleProvider->proc_thrpool());
+    taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*MODULEPROVIDER()->proc_thrpool());
 
     // TODO(Rao): Don't make this global
     gSvcRequestPool = new SvcRequestPool();
@@ -273,7 +273,7 @@ void SvcHandle::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
         bSendSuccess  = sendAsyncSvcMessageCommon_(true, header, payload);
     }
     if (!bSendSuccess) {
-        gModuleProvider->getSvcMgr()->postSvcSendError(header);
+        MODULEPROVIDER()->getSvcMgr()->postSvcSendError(header);
     }
 }
 
@@ -286,7 +286,7 @@ void SvcHandle::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
         bSendSuccess  = sendAsyncSvcMessageCommon_(false, header, payload);
     }
     if (!bSendSuccess) {
-        gModuleProvider->getSvcMgr()->postSvcSendError(header);
+        MODULEPROVIDER()->getSvcMgr()->postSvcSendError(header);
     }
 }
 
@@ -304,7 +304,7 @@ void SvcHandle::sendAsyncSvcReqMessageOnPredicate(fpi::AsyncHdrPtr &header,
     }
 
     if (!bSendSuccess) {
-        gModuleProvider->getSvcMgr()->postSvcSendError(header);
+        MODULEPROVIDER()->getSvcMgr()->postSvcSendError(header);
     }
 }
 

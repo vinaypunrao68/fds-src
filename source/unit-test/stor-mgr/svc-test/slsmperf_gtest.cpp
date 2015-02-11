@@ -144,7 +144,7 @@ TEST_F(SMApi, putsPerf)
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
     if (svcUuid.svc_uuid == 0) {
-        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     }
     ASSERT_NE(svcUuid.svc_uuid, 0);;
     DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(1);

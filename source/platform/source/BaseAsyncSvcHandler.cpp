@@ -106,7 +106,7 @@ namespace fds
         fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
 
         static SynchronizedTaskExecutor<uint64_t>  * taskExecutor =
-            gModuleProvider->getSvcMgr()->getTaskExecutor();
+            MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
 
         GLOGDEBUG << logString(*header);
 

@@ -52,9 +52,9 @@ void traceFunc() {
  */
 TEST(Tracebuffer, trace1)
 {
-    gModuleProvider = new TracebufferPoolProvider(100);
+    MODULEPROVIDER() = new TracebufferPoolProvider(100);
     traceFunc();
-    delete gModuleProvider;
+    delete MODULEPROVIDER();
 }
 
 /**
@@ -65,7 +65,7 @@ TEST(Tracebuffer, trace1)
 TEST(Tracebuffer, trace2)
 {
     uint32_t maxTraceCnt = 5;
-    gModuleProvider = new TracebufferPoolProvider(maxTraceCnt);
+    MODULEPROVIDER() = new TracebufferPoolProvider(maxTraceCnt);
 
     Tracebuffer tb(TB_RINGBUFFER);
     for (uint32_t i = 0; i < maxTraceCnt+5; i++) {
@@ -75,7 +75,7 @@ TEST(Tracebuffer, trace2)
     }
     EXPECT_TRUE(tb.size() == maxTraceCnt);
 
-    delete gModuleProvider;
+    delete MODULEPROVIDER();
 }
 
 /**
@@ -85,7 +85,7 @@ TEST(Tracebuffer, trace2)
  */
 TEST(Tracebuffer, trace3)
 {
-    gModuleProvider = new TracebufferPoolProvider(100);
+    MODULEPROVIDER() = new TracebufferPoolProvider(100);
 
     std::thread t1(traceFunc);
     std::thread t2(traceFunc);
@@ -96,7 +96,7 @@ TEST(Tracebuffer, trace3)
     t3.join();
     t4.join();
 
-    delete gModuleProvider;
+    delete MODULEPROVIDER();
 }
 
 

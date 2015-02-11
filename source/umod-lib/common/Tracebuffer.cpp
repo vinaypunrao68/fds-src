@@ -88,7 +88,7 @@ uint32_t Tracebuffer::size() const
 
 TraceEntry* Tracebuffer::alloc_()
 {
-    auto *pool = gModuleProvider->getTracebufferPool();
+    auto *pool = MODULEPROVIDER()->getTracebufferPool();
     if (traceCntr_ >= MAX_TRACEBUFFER_ENTRY_CNT) {
         return popFront_();
     }

@@ -11,7 +11,7 @@
 namespace fds {
 
 ObjectDataStoreCounters::ObjectDataStoreCounters(const std::string &id)
-    : FdsCounters(id, gModuleProvider ? gModuleProvider->get_cntrs_mgr().get() : nullptr),
+    : FdsCounters(id, MODULEPROVIDER() ? MODULEPROVIDER()->get_cntrs_mgr().get() : nullptr),
     ssd_reads("ssd_reads", this),
     ssd_writes("ssd_writes", this),
     hdd_reads("hdd_reads", this),
