@@ -495,9 +495,21 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
      *       - update it with *negative* value of old entry.
      * 3) volume association exists in new, but not in old
      *       - do nothing.
+     * NOTE: old iter cannot be empty, since we selected objects with >0 refcnt.  However,
+     *       but new iter can be empty, since the object could've been deleted, resulting in
+     *       empty volume association.
      */
     while (oldIter != oldObjMetaData->assoc_entry.end()) {
-        if (oldIter->vol_uuid == newIter->vol_uuid) {
+        if (newIter == assoc_entry.end()) {
+            /* We've reached the end of the new iter, or the new iter was
+             * empty to begin with.  If that's the case, we need to add
+             * the entries from the old volume association entry to new volume association.
+             */
+            oldIter->ref_cnt = (uint64_t)((int64_t)-(oldIter->ref_cnt));
+            assoc_entry.push_back(*oldIter);
+
+            ++oldIter;
+        } else if (oldIter->vol_uuid == newIter->vol_uuid) {
             /* This is a case where volume association appears on both obj metadata.
              * Get the *signed* value and update it with the diff.
              */
