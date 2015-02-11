@@ -22,17 +22,21 @@ parser.add_option("-c", "--connect", metavar="NAME" )
 
 DOCKER_PORT=2375
 DOCKER_SLAVES = {
-        "10.1.10.43": {
-            "jenkins-slave01": "10041",
-            "jenkins-slave02": "10042"
+        "fre-build-01": {
+            "builder01": "10051",
+            "builder02": "10052"
             },
-        "10.1.10.42": {
-            "jenkins-slave03": "10043",
-            "jenkins-slave04": "10044"
+        "fre-build-02": {
+            "builder03": "10053",
+            "builder04": "10054"
             },
-        "10.2.10.22": {
-            "jenkins-slave05": "10046",
-            "jenkins-slave06": "10047"
+        "fre-build-03": {
+            "builder05": "10055",
+            "builder06": "10056"
+            },
+        "fre-build-04": {
+            "builder07": "10057",
+            "builder08": "10058"
             }
         }
 IMAGE="registry.formationds.com:5000/fds_dev"
@@ -78,12 +82,13 @@ def get_conn(name):
     return conn
 
 def create_container(conn, name):
-    container = conn.create_container(IMAGE, name=name)
+    container = conn.create_container(IMAGE, name=name, volumes=["/mnt/ccache"])
     return(container)
 
 def start_slave(name):
     print "Starting slave %s" % name
     ssh_port = get_slave_port(name)
+    shm_dir = "/dev/shm/ccache-%s" % name
     conn = get_conn(name)
     if not exists(conn, name):
         container = create_container(conn, name)
@@ -91,7 +96,7 @@ def start_slave(name):
         container = get_container_by_name(conn, name)
 
     conn.start(container, port_bindings={22: ssh_port}, publish_all_ports=True,
-            privileged=True)
+            privileged=True, binds={shm_dir: { 'bind': '/mnt/ccache', 'ro': False } })
 
 def restart_slave(name):
     print "Restarting slave %s" % name
@@ -150,7 +155,7 @@ def list_slaves():
             conn = get_conn(slave)
             slave_container = get_container_by_name(conn, slave, die=False)
             if slave_container:
-                print "Name: %s Status: %s" % (slave, slave_container['Status'])
+                print "Name: %s Port: %s Status: %s" % (slave, port, slave_container['Status'])
             else:
                 print "Name: %s not found" % slave
 
