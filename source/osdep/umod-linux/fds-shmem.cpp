@@ -59,7 +59,7 @@ void * FdsShmem::shm_attach(int flags)
             if (-2 == errno)
             {
                 GLOGWARN << "Shared memory segment " << sh_name << " does not exist."
-                         << "The shared memory segment will be created."
+                         << "The shared memory segment will be created.";
             } else {
                 GLOGWARN << "Failed to open shared memory segment " << sh_name << "."
                          << " Category: " << econd.category().name() << "."
