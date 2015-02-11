@@ -467,7 +467,8 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
     LOGMIGRATE << "OLD Object MetaData: " << oldObjMetaData->logString();
     LOGMIGRATE << "NEW Object MetaData: " << logString();
 
-    fds_assert(memcmp(obj_map.obj_id.metaDigest, oldObjMetaData->obj_map.obj_id.metaDigest,
+    fds_assert(memcmp(obj_map.obj_id.metaDigest,
+               oldObjMetaData->obj_map.obj_id.metaDigest,
                sizeof(obj_map.obj_id.metaDigest)) == 0);
 
     /* calculate the refcnt change */
@@ -763,7 +764,7 @@ bool ObjMetaData::operator==(const ObjMetaData &rhs) const
     /* Add assert for debug code only */
     fds_assert(0 == memcmp(obj_map.obj_id.metaDigest,
                            rhs.obj_map.obj_id.metaDigest,
-                           sizeof(obj_map.obj_id.metaDigest));
+                           sizeof(obj_map.obj_id.metaDigest)));
 
     /* If any of the field do not match, then return false */
     if ((0 != memcmp(obj_map.obj_id.metaDigest,
@@ -807,7 +808,7 @@ std::string ObjMetaData::logString() const
 
     oss << "id=" << obj_id
         << " refcnt=" << obj_map.obj_refcnt
-        << " flags=" << obj_map.obj_flags
+        << " flags=" << std::hex << obj_map.obj_flags << std::dec
         << " compression_type=" << (uint32_t)obj_map.compress_type
         << " compress_len=" << obj_map.compress_len
         << " blk_len=" << obj_map.obj_blk_len
