@@ -183,7 +183,7 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
         fiu_do_on("svc.fail.sendpayload_before",
                   throw util::FiuException("svc.fail.sendpayload_before"));
         /* send the payload */
-        gModuleProvider->getSvcMgr()->sendAsyncSvcMessage(header, payloadBuf_);
+        gModuleProvider->getSvcMgr()->sendAsyncSvcReqMessage(header, payloadBuf_);
 
        /* start the timer */
        if (timeoutMs_) {

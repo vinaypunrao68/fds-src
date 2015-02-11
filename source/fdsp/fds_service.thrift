@@ -437,7 +437,6 @@ service PlatNetSvc extends BaseAsyncSvc {
 
     list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast);
     DomainNodes getDomainNodes(1: DomainNodes dom);
-    NodeEvent   getSvcEvent(1: NodeEvent input);
 
     ServiceStatus getStatus(1: i32 nullarg);
     map<string, i64> getCounters(1: string id);

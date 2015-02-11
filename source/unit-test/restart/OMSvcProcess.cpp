@@ -122,7 +122,7 @@ void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         svcMgr_->updateSvcMap(updateMsg->updates);
 
         /* Update the domain by broadcasting */
-        svcMgr_->broadcastasyncSvcMessage(header, buf,
+        svcMgr_->broadcastAsyncSvcReqMessage(header, buf,
                                           [](const fpi::SvcInfo& info) {return true;});
         LOGDEBUG << "Broadcasted svcInfo: " << fds::logString(*svcInfo);
     }

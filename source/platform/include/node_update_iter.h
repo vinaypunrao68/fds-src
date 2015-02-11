@@ -27,7 +27,7 @@ namespace fds
 
                 if (rpc != NULL)
                 {
-                    NET_SVC_RPC_CALL(eph, rpc, notifyNodeInfo, ret, *(nd_reg_msg.get()), false);
+                    // NET_SVC_RPC_CALL(eph, rpc, notifyNodeInfo, ret, *(nd_reg_msg.get()), false);
                 }
 
                 return true;

@@ -52,6 +52,7 @@ class SvcRequestPool {
             const fpi::FDSPMsgTypeId &msgTypeId,
             const fpi::SvcUuid &srcUuid,
             const fpi::SvcUuid &dstUuid);
+    static fpi::AsyncHdr swapSvcReqHeader(const fpi::AsyncHdr &reqHdr);
 
     LFMQThreadpool* getSvcSendThreadpool();
     LFMQThreadpool* getSvcWorkerThreadpool();

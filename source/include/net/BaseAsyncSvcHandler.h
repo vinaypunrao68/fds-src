@@ -8,8 +8,8 @@
 #include <fdsp/fds_service_types.h>
 #include <fdsp/BaseAsyncSvc.h>
 #include <fdsp_utils.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
+#include <fds_module_provider.h>
+#include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcRequest.h>
 
@@ -96,45 +96,29 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     * @param payload - payload to send
     */
     template<class PayloadT>
-    static void sendAsyncResp(boost::shared_ptr<fpi::AsyncHdr>& req_hdr,
+    static void sendAsyncResp(boost::shared_ptr<fpi::AsyncHdr>& reqHdr,
                               const fpi::FDSPMsgTypeId &msgTypeId,
                               boost::shared_ptr<PayloadT>& payload) {
-        sendAsyncResp(*req_hdr, msgTypeId, *payload);
+        sendAsyncResp(*reqHdr, msgTypeId, *payload);
     }
 
     template<class PayloadT>
-    static void sendAsyncResp(const fpi::AsyncHdr& req_hdr,
+    static void sendAsyncResp(const fpi::AsyncHdr& reqHdr,
                               const fpi::FDSPMsgTypeId &msgTypeId,
                               const PayloadT& payload)
     {
         GLOGDEBUG;
-        int minor;
-        auto resp_hdr = NetMgr::ep_swap_header(req_hdr);
-        resp_hdr.msg_type_id = msgTypeId;
-        SVCPERF(resp_hdr.rspSerStartTs = util::getTimeStampNanos());
 
-        bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
-        bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
+        boost::shared_ptr<std::string> respBuf;
+        auto respHdr = boost::make_shared<fpi::AsyncHdr>(
+            std::move(SvcRequestPool::swapSvcReqHeader(reqHdr)));
+        respHdr->msg_type_id = msgTypeId;
 
-        auto written = payload.write(binary_buf.get());
-        fds_verify(written > 0);
+        SVCPERF(respHdr->rspSerStartTs = util::getTimeStampNanos());
 
-        extern const NodeUuid gl_OmUuid;
-        if (resp_hdr.msg_dst_uuid.svc_uuid == gl_OmUuid.uuid_get_val()) {
-            minor = 1;  // NET_SVC_CTRL;
-        } else {
-            minor = 0;
-        }
-        auto ep = NetMgr::ep_mgr_singleton()->\
-                  svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, 0 , minor);
-        if (ep == nullptr) {
-            GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
-            return;
-        }
+        fds::serializeFdspMsg(payload, respBuf);
 
-        NET_SVC_RPC_CALL(ep, ep->svc_rpc<fpi::BaseAsyncSvcClient>(),
-                        fpi::BaseAsyncSvcClient::asyncResp,
-                        resp_hdr, buffer->getBufferAsString());
+        gModuleProvider->getSvcMgr()->sendAsyncSvcRespMessage(respHdr, respBuf);
     }
 
     // protected:

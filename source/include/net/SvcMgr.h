@@ -95,7 +95,15 @@ struct SvcMgr : public Module {
     * @param header
     * @param payload
     */
-    void sendAsyncSvcMessage(fpi::AsyncHdrPtr &header, StringPtr &payload);
+    void sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header, StringPtr &payload);
+
+    /**
+    * @brief 
+    *
+    * @param header
+    * @param payload
+    */
+    void sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header, StringPtr &payload);
 
     /**
     * @brief Brodcasts the payload to all services matching predicate
@@ -104,10 +112,9 @@ struct SvcMgr : public Module {
     * @param payload
     * @param predicate
     */
-    void broadcastasyncSvcMessage(fpi::AsyncHdrPtr &header,
+    void broadcastAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
                                   StringPtr &payload,
                                   const SvcInfoPredicate& predicate);
-
     /**
     * @brief For posting errors when we fail to send on service handle
     *
@@ -140,7 +147,7 @@ struct SvcMgr : public Module {
     * disconnects and reconnects.  Service layer will not do this for you.  If you use
     * svc handle async interfaces service layer will handle disconnects/reconnects.
     * Primary use case for this call is during registration with OM.  All other interactions
-    * with OM should go through sendAsyncSvcMessage()
+    * with OM should go through sendAsyncSvcReqMessage()
     * NOTE: This call always creates brand new connection against OM.
     *
     * @return OMSvcClient
@@ -199,6 +206,7 @@ struct SvcMgr : public Module {
     /* Self service information */
     fpi::SvcInfo svcInfo_;
 
+    /* For executing task in a threadpool in a synchronized manner */
     SynchronizedTaskExecutor<uint64_t> *taskExecutor_;
 };
 
@@ -210,20 +218,70 @@ struct SvcHandle {
     explicit SvcHandle(const fpi::SvcInfo &info);
     virtual ~SvcHandle();
 
-    void sendAsyncSvcMessage(fpi::AsyncHdrPtr &header, StringPtr &payload);
-    void sendAsyncSvcMessageOnPredicate(fpi::AsyncHdrPtr &header,
+    /**
+    * @brief Use it for sending async request messages.  This uses asynReqt() interface for 
+    * sending the message
+    *
+    * @param header
+    * @param payload
+    */
+    void sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header, StringPtr &payload);
+
+    /**
+    * @brief Use it for sending async response messages.  This uses asynResp() interface for
+    * sending the message
+    *
+    * @param header
+    * @param payload
+    */
+    void sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header, StringPtr &payload);
+
+    /**
+    * @brief Use it for sending async request messages based on predicate.  This uses
+    * asynReqt() interface for 
+    * sending the message
+    *
+    * @param header
+    * @param payload
+    * @param predicate
+    */
+    void sendAsyncSvcReqMessageOnPredicate(fpi::AsyncHdrPtr &header,
                                         StringPtr &payload,
                                         const SvcInfoPredicate& predicate);
 
+    /**
+    * @brief Updates the service handle based on newInfo
+    *
+    * @param newInfo
+    */
     void updateSvcHandle(const fpi::SvcInfo &newInfo);
 
     std::string logString() const;
 
  protected:
-    bool sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
+    /**
+    * @brief Common interface for sending asyn service messages.  isAsyncReqt determines
+    * whether it's a request or response
+    *
+    * @param isAsyncReqt
+    * @param header
+    * @param payload
+    *
+    * @return 
+    */
+    bool sendAsyncSvcMessageCommon_(bool isAsyncReqt,
+                                    fpi::AsyncHdrPtr &header,
                                     StringPtr &payload);
+    /**
+    * @brief Checks if service is down or not
+    */
     bool isSvcDown_() const;
+
+    /**
+    * @brief Marks the service down.  Set rpcClient_ to null
+    */
     void markSvcDown_();
+
     /* Lock for protecting svcInfo_ and rpcClient_ */
     fds_mutex lock_;
     /* Service information */

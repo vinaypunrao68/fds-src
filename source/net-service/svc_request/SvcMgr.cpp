@@ -127,7 +127,7 @@ bool SvcMgr::getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) co
     return true;
 }
 
-void SvcMgr::sendAsyncSvcMessage(fpi::AsyncHdrPtr &header,
+void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
                                  StringPtr &payload)
 {
     SvcHandlePtr svcHandle;
@@ -142,13 +142,35 @@ void SvcMgr::sendAsyncSvcMessage(fpi::AsyncHdrPtr &header,
     } while (false);
 
     if (svcHandle) {
-        svcHandle->sendAsyncSvcMessage(header, payload);
+        svcHandle->sendAsyncSvcReqMessage(header, payload);
     } else {
         postSvcSendError(header);
     }
 }
 
-void SvcMgr::broadcastasyncSvcMessage(fpi::AsyncHdrPtr &h,
+void SvcMgr::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
+                                     StringPtr &payload)
+{
+    SvcHandlePtr svcHandle;
+    fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
+
+    do {
+        fds_scoped_lock lock(svcHandleMapLock_);
+        if (!getSvcHandle_(svcUuid, svcHandle)) {
+            GLOGWARN << "Svc handle for svcuuid: " << svcUuid.svc_uuid << " not found";
+            break;
+        }
+    } while (false);
+
+    if (svcHandle) {
+        svcHandle->sendAsyncSvcRespMessage(header, payload);
+    } else {
+        GLOGWARN << "Failed to get svc handle: " << fds::logString(*header)
+                << ".  Dropping the respone";
+    }
+}
+
+void SvcMgr::broadcastAsyncSvcReqMessage(fpi::AsyncHdrPtr &h,
                                       StringPtr &payload,
                                       const SvcInfoPredicate& predicate)
 {
@@ -165,7 +187,7 @@ void SvcMgr::broadcastasyncSvcMessage(fpi::AsyncHdrPtr &h,
         auto header = boost::make_shared<fpi::AsyncHdr>(*h);
         header->msg_dst_uuid = kv.first;
 
-        kv.second->sendAsyncSvcMessageOnPredicate(header, payload, predicate);
+        kv.second->sendAsyncSvcReqMessageOnPredicate(header, payload, predicate);
     }
 }
 
@@ -242,20 +264,33 @@ SvcHandle::~SvcHandle()
     GLOGDEBUG << logString();
 }
 
-void SvcHandle::sendAsyncSvcMessage(fpi::AsyncHdrPtr &header,
+void SvcHandle::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
                                     StringPtr &payload)
 {
     bool bSendSuccess = true;
     {
         fds_scoped_lock lock(lock_);
-        bSendSuccess  = sendAsyncSvcMessageCommon_(header, payload);
+        bSendSuccess  = sendAsyncSvcMessageCommon_(true, header, payload);
     }
     if (!bSendSuccess) {
         gModuleProvider->getSvcMgr()->postSvcSendError(header);
     }
 }
 
-void SvcHandle::sendAsyncSvcMessageOnPredicate(fpi::AsyncHdrPtr &header,
+void SvcHandle::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
+                                        StringPtr &payload)
+{
+    bool bSendSuccess = true;
+    {
+        fds_scoped_lock lock(lock_);
+        bSendSuccess  = sendAsyncSvcMessageCommon_(false, header, payload);
+    }
+    if (!bSendSuccess) {
+        gModuleProvider->getSvcMgr()->postSvcSendError(header);
+    }
+}
+
+void SvcHandle::sendAsyncSvcReqMessageOnPredicate(fpi::AsyncHdrPtr &header,
                                                StringPtr &payload,
                                                const SvcInfoPredicate& predicate)
 {
@@ -264,7 +299,7 @@ void SvcHandle::sendAsyncSvcMessageOnPredicate(fpi::AsyncHdrPtr &header,
         fds_scoped_lock lock(lock_);
         /* Only send to services matching predicate */
         if (predicate(svcInfo_)) {
-            bSendSuccess  = sendAsyncSvcMessageCommon_(header, payload);
+            bSendSuccess  = sendAsyncSvcMessageCommon_(true, header, payload);
         }
     }
 
@@ -273,7 +308,8 @@ void SvcHandle::sendAsyncSvcMessageOnPredicate(fpi::AsyncHdrPtr &header,
     }
 }
 
-bool SvcHandle::sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
+bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
+                                           fpi::AsyncHdrPtr &header,
                                            StringPtr &payload)
 {
     /* NOTE: This code assumes lock is held */
@@ -289,7 +325,11 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(fpi::AsyncHdrPtr &header,
                                                                svcInfo_.svc_port,
                                                                false);
         }
-        svcClient_->asyncReqt(*header, *payload);
+        if (isAsyncReqt) {
+            svcClient_->asyncReqt(*header, *payload);
+        } else {
+            svcClient_->asyncResp(*header, *payload);
+        }
         return true;
     } catch (std::exception &e) {
         GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;

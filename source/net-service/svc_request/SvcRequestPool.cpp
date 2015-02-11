@@ -96,6 +96,21 @@ boost::shared_ptr<fpi::AsyncHdr> SvcRequestPool::newSvcRequestHeaderPtr(
 }
 
 /**
+* @brief Swaps request header
+*
+* @param req_hdr
+*
+* @return 
+*/
+fpi::AsyncHdr
+SvcRequestPool::swapSvcReqHeader(const fpi::AsyncHdr &reqHdr)
+{
+    auto respHdr = reqHdr;
+    respHdr.msg_src_uuid = reqHdr.msg_dst_uuid;
+    respHdr.msg_dst_uuid = reqHdr.msg_src_uuid;
+    return respHdr;
+}
+/**
  * Common handling as part of any async request creation
  * @param req
  */

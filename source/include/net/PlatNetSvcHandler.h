@@ -33,9 +33,6 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &d);
     virtual void getDomainNodes(fpi::DomainNodes &ret, fpi::DomainNodesPtr &d);
 
-    virtual void getSvcEvent(fpi::NodeEvent &ret, const fpi::NodeEvent &in);
-    virtual void getSvcEvent(fpi::NodeEvent &ret, fpi::NodeEventPtr &in);
-
     virtual fpi::ServiceStatus getStatus(const int32_t nullarg);
     virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg);  // NOLINT
 
@@ -64,20 +61,6 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual bool setFault(boost::shared_ptr<std::string>& command);  // NOLINT
     virtual void updateSvcMap(fpi::AsyncHdrPtr &header,
                               fpi::UpdateSvcMapMsgPtr &svcMapMsg);
-
-    /**
-     * Common messages.
-     */
-    // TODO(Rao): These are not needed. Get rid of them
-    virtual void notify_node_info(fpi::AsyncHdrPtr &hdr, fpi::NodeInfoMsgPtr &m);
-    virtual void notify_node_qualify(fpi::AsyncHdrPtr &hdr, fpi::NodeQualifyPtr &m);
-    virtual void notify_node_upgrade(fpi::AsyncHdrPtr &hdr, fpi::NodeUpgradePtr &m);
-    virtual void notify_node_integrate(fpi::AsyncHdrPtr &hdr, fpi::NodeIntegratePtr &m);
-    virtual void notify_node_deploy(fpi::AsyncHdrPtr &hdr, fpi::NodeDeployPtr &m);
-    virtual void notify_node_functional(fpi::AsyncHdrPtr &hdr, fpi::NodeFunctionalPtr &m);
-    virtual void notify_node_down(fpi::AsyncHdrPtr &hdr, fpi::NodeDownPtr &m);
-    virtual void notify_node_event(fpi::AsyncHdrPtr &hdr, fpi::NodeEventPtr &m);
-    ////////////////////////////////////////////////////////////////////
 };
 
 using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
