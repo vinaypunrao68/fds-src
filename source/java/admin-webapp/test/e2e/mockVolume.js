@@ -4,6 +4,55 @@ mockVolume = function(){
         var volService = {};
         volService.volumes = [];
 
+        var saveVolumes = function(){
+            
+            if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
+                window.localStorage.setItem( 'volumes', JSON.stringify( volService.volumes ) );
+            }
+        };
+        
+        var saveVolumeEvent = function( volume ){
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            var event = {
+                userId: 1,
+                id: (new Date()).getTime(),
+                type: 'USER_ACTIVITY',
+                category: 'VOLUMES',
+                severity: 'CONFIG',
+                state: 'SOFT',
+                initialTimestamp: (new Date()).getTime(),
+                modifiedTimestamp: (new Date()).getTime(),
+                messageKey: 'CREATE_VOLUME',
+                messageArgs: [
+                    "",
+                    "test",
+                    "0",
+                    "OBJECT",
+                    "2097152"
+                ],
+                messageFormat: 'Created volume: domain\u003d{0}; name\u003d{1}; tenantId\u003d{2}; type\u003d{3}; size\u003d{4}',
+                defaultMessage: 'Created volume: domain\u003d; name\u003dtest; tenantId\u003d0; type\u003dOBJECT; size\u003d2097152'
+            };
+            
+            var events = JSON.parse( window.localStorage.getItem( 'activities' ) );
+            
+            if ( !angular.isDefined( events ) || events === null ){
+                events = [];
+            }
+            
+            if ( events.length > 30 ){
+                events.splice( 0, 1 );
+            }
+            
+            events.push( event );
+            
+            window.localStorage.setItem( 'activities', JSON.stringify( events ) );
+        };
+        
         volService.delete = function( volume, callback ){
 
             var temp = [];
@@ -15,6 +64,8 @@ mockVolume = function(){
             }
 
             volService.volumes = temp;
+            
+            saveVolumes();
             
             if ( angular.isFunction( callback ) ){
                 callback();
@@ -30,6 +81,8 @@ mockVolume = function(){
                     // edit
                     volService.volumes[i] = volume;
 
+                    saveVolumes();
+                    
                     if ( angular.isDefined( callback ) ){
                         callback();
                     }
@@ -39,9 +92,18 @@ mockVolume = function(){
             }
 
             volume.id = (new Date()).getTime();
+            volume.current_usage = {
+                size: 0,
+                unit: 'B'
+            };
+            
+            volume.rate = 10000;
             volume.snapshots = [];
             volService.volumes.push( volume );
-
+            saveVolumeEvent( volume );
+            
+            saveVolumes();
+            
             if ( angular.isDefined( callback ) ){
                 callback( volume );
             }
@@ -112,8 +174,21 @@ mockVolume = function(){
             }
         };
 
-        volService.refresh = function(){};
+        volService.refresh = function(){
+            
+            if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
+                var vols = JSON.parse( window.localStorage.getItem( 'volumes' ) );
+                
+                if ( !angular.isDefined( vols ) || vols === null ){
+                    vols = [];
+                }
+                
+                volService.volumes = vols;
+            }
+        };
 
+        volService.refresh();
+        
         return volService;
     }]);
     

@@ -4,6 +4,8 @@ describe( 'Testing the timeline settings', function(){
     
     var volPage = element( by.css( '.volume-page' ) );
     
+    clean();
+    
     it( 'should be able to sort the volumes by name', function(){
         login();
         
@@ -119,5 +121,10 @@ describe( 'Testing the timeline settings', function(){
         rows.count().then( function( rows ){
             expect( rows ).toBe( 0 );
         });
+        
+        searchBox.clear();
+        
+        deleteVolume( 0 );
+        deleteVolume( 0 );
     });
 });
