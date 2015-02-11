@@ -415,6 +415,8 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
         volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID;
         volAssoc2.volumeRefCnt = 3;
         msg.objectRefCnt = 3;
+        // setting it to 0, so volume[0] doesn't factor into reconciling.
+        msg.objectVolumeAssoc[0].volumeRefCnt = 0;
         msg.objectVolumeAssoc.push_back(volAssoc2);
         err = objectStore->applyObjectMetadataData(oid, msg);
         EXPECT_TRUE(err.ok());
