@@ -84,6 +84,7 @@ Error DmPersistVolDB::activate() {
 
     catalog_->GetWriteOptions().sync = false;
 
+    activated_ = true;
     return ERR_OK;
 }
 
@@ -93,7 +94,7 @@ Error DmPersistVolDB::copyVolDir(const std::string & destName) {
 
 Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
         BlobMetaDesc & blobMeta) {
-    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
@@ -128,7 +129,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offse
         ObjectID & obj) {
     fds_verify(0 == offset % objSize_);
 
-    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), offset / objSize_);
+    const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), offset / objSize_);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
@@ -151,7 +152,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     fds_verify(0 == startOffset % objSize_);
     fds_verify(0 == endOffset % objSize_);
 
-    fds_uint64_t blobId = DmPersistVolDir::getBlobIdFromName(blobName);
+    fds_uint64_t blobId = DmPersistVolCat::getBlobIdFromName(blobName);
     fds_uint32_t startObjIndex = startOffset / objSize_;
     fds_uint32_t endObjIndex = endOffset / objSize_;
 
@@ -189,7 +190,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     fds_verify(0 == startOffset % objSize_);
     fds_verify(0 == endOffset % objSize_);
 
-    fds_uint64_t blobId = DmPersistVolDir::getBlobIdFromName(blobName);
+    fds_uint64_t blobId = DmPersistVolCat::getBlobIdFromName(blobName);
     fds_uint32_t startObjIndex = startOffset / objSize_;
     fds_uint32_t endObjIndex = endOffset / objSize_;
 
@@ -222,7 +223,7 @@ Error DmPersistVolDB::putBlobMetaDesc(const std::string & blobName,
         const BlobMetaDesc & blobMeta) {
     IS_OP_ALLOWED();
 
-    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
@@ -247,7 +248,7 @@ Error DmPersistVolDB::putObject(const std::string & blobName, fds_uint64_t offse
 
     fds_verify(0 == offset % objSize_);
 
-    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), offset / objSize_);
+    const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), offset / objSize_);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
     const Record valRec(reinterpret_cast<const char *>(obj.GetId()), obj.GetLen());
 
@@ -265,7 +266,7 @@ Error DmPersistVolDB::putObject(const std::string & blobName, const BlobObjList 
         return rc;
     }
 
-    fds_uint64_t blobId = DmPersistVolDir::getBlobIdFromName(blobName);
+    fds_uint64_t blobId = DmPersistVolCat::getBlobIdFromName(blobName);
 
     CatWriteBatch batch;
     TIMESTAMP_OP(batch);
@@ -292,7 +293,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         const BlobObjList & puts, const std::vector<fds_uint64_t> & deletes) {
     IS_OP_ALLOWED();
 
-    fds_uint64_t blobId = DmPersistVolDir::getBlobIdFromName(blobName);
+    fds_uint64_t blobId = DmPersistVolCat::getBlobIdFromName(blobName);
     CatWriteBatch batch;
     TIMESTAMP_OP(batch);
 
@@ -340,7 +341,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
 
     TIMESTAMP_OP(wb);
 
-    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
@@ -364,7 +365,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
 Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t offset) {
     IS_OP_ALLOWED();
 
-    fds_uint64_t blobId = DmPersistVolDir::getBlobIdFromName(blobName);
+    fds_uint64_t blobId = DmPersistVolCat::getBlobIdFromName(blobName);
     const BlobObjKey key(blobId, offset / objSize_);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
@@ -384,7 +385,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
         fds_uint64_t endOffset) {
     IS_OP_ALLOWED();
 
-    fds_uint64_t blobId = DmPersistVolDir::getBlobIdFromName(blobName);
+    fds_uint64_t blobId = DmPersistVolCat::getBlobIdFromName(blobName);
     CatWriteBatch batch;
     TIMESTAMP_OP(batch);
     for (fds_uint64_t i = startOffset; i <= endOffset; i += objSize_) {
@@ -407,7 +408,7 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     LOGDEBUG << "Deleting metadata for blob: '" << blobName << "' volume: '" << std::hex
             << volId_ << std::dec << "'";
 
-    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    const BlobObjKey key(DmPersistVolCat::getBlobIdFromName(blobName), BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     CatWriteBatch batch;

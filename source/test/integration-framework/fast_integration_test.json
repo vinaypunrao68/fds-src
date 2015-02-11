@@ -1,57 +1,13 @@
 {
 	"test_sets" : {
-		"test_basic_op" : [
-				{
-					"name" : "TestCreateMultipleBuckets",
-					"file" : "test_create_multiple_buckets.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3GetConn",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3CrtBucket",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3LoadSBLOB",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3DelBucketKeys",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3DelBucket",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : ["TestS3DelBucketKeys"],
-					"config" : ""
-				}
-		],
-		"system_framework_migration" : [
+		"fio_tests" : [
 			{
-				"name" : "TestGetAuthToken",
-				"file" : "TestOMIntFace.py",
+				"name" : "TestAMFIO",
+				"file" : "test_am_fio.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
-			}	
+			}
 		]
 	}
 }

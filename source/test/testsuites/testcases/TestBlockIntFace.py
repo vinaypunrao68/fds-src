@@ -22,37 +22,10 @@ pwd = ""
 #
 class TestBlockCrtVolume(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestBlockCrtVolume, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockCrtVolume():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Creating an block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockCrtVolume,
+                                             "Creating an block volume")
 
     def test_BlockCrtVolume(self):
         """
@@ -98,39 +71,12 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
 #
 class TestBlockAttachVolume(TestCase.FDSTestCase):
     def __init__(self, parameters=None, volume=None):
-        super(TestBlockAttachVolume, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockAttVolume,
+                                             "Attaching a block volume")
 
         self.passedVolume = volume
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockAttVolume():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Attaching a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_BlockAttVolume(self):
         """
@@ -171,38 +117,12 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
 #
 class TestBlockDetachVolume(TestCase.FDSTestCase):
     def __init__(self, parameters=None, volume=None):
-        super(TestBlockDetachVolume, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockDetachVolume,
+                                             "Disconnecting a block volume")
 
         self.passedVolume = volume
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockDetachVolume():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Disconnecting a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_BlockDetachVolume(self):
         """
@@ -236,44 +156,14 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# writing block data
+# writing block data.
 #
 class TestBlockFioSeqW(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, waitComplete="TRUE"):
-        super(TestBlockFioSeqW, self).__init__(parameters)
-
-        if waitComplete == "TRUE":
-            self.passedWaitComplete = True
-        else:
-            self.passedWaitComplete = False
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockFioWrite():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Writing a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockFioWrite,
+                                             "Writing a block volume")
 
 
     def test_BlockFioWrite(self):
@@ -286,10 +176,21 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --size=16m --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
+        if self.childPID is None:
+            # Not running in a forked process.
+            # Stop on failures.
+            verify_fatal = 1
+        else:
+            # Running in a forked process. Don't
+            # stop on failures.
+            verify_fatal = 0
 
-        status = om_node.nd_agent.exec_wait(fioCmd, wait_compl=self.passedWaitComplete)
+        # TODO(Andrew): Don't hard code all of this stuff...
+        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k " \
+                 "--iodepth=128 --numjobs=1 --size=16m --filename=%s --verify=md5 --verify_fatal=%d" %\
+                 (nbd_device, verify_fatal)
+
+        status = om_node.nd_agent.exec_wait(fioCmd)
 
         if status != 0:
             self.log.error("Failed to run write workload with status %s." % status)
@@ -302,39 +203,12 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
 #
 class TestBlockFioRandW(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestBlockFioRandW, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockFioRandW,
+                                             "Randomly writing a block volume")
 
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockFioWrite():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Writing a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
-
-    def test_BlockFioWrite(self):
+    def test_BlockFioRandW(self):
         """
         Test Case:
         Attempt to write to a block volume.
@@ -355,37 +229,10 @@ class TestBlockFioRandW(TestCase.FDSTestCase):
 #
 class TestBlockFioRW(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestBlockFioRW, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockFioReadWrite():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Reading/writing a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockFioReadWrite,
+                                             "Reading/writing a block volume")
 
     def test_BlockFioReadWrite(self):
         """
@@ -402,6 +249,7 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         time.sleep(5)
 
         return True
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

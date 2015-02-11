@@ -40,12 +40,7 @@ def suiteConstruction(self, fdsNodes=None):
 
             suite.addTest(testcases.TestFDSModMgt.TestDMWait(node=node))
             suite.addTest(testcases.TestFDSModMgt.TestSMWait(node=node))
-
-            # If this node should have an AM, check for it.
-            amNodes = fdscfg.rt_get_obj('cfg_am')
-            for amNode in amNodes:
-                if amNode.nd_am_node.nd_conf_dict['node-name'] == node.nd_conf_dict['node-name']:
-                    suite.addTest(testcases.TestFDSModMgt.TestAMWait(node=node))
+            suite.addTest(testcases.TestFDSModMgt.TestAMWait(node=node))
     else:
         suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
         suite.addTest(testcases.TestFDSModMgt.TestOMWait())

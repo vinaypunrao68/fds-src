@@ -13,9 +13,6 @@
 #include <util/color.h>
 #include <PerfTrace.h>
 
-#define DM_CATALOG_TYPE DmVolumeDirectory
-// #define DM_CATALOG_TYPE DmVolumeCatalog
-
 boost::shared_ptr<LatencyCounter> tpPutCounter(new LatencyCounter("threadpool put", 0, 0));
 boost::shared_ptr<LatencyCounter> tpGetCounter(new LatencyCounter("threadpool get", 0, 0));
 boost::shared_ptr<LatencyCounter> tpDeleteCounter(new LatencyCounter("threadpool delete", 0, 0));
@@ -38,14 +35,14 @@ class DmVolumeCatalogTest : public ::testing::Test {
 
     void testDeleteBlob(fds_volid_t volId, const std::string blobName, blob_version_t version);
 
-    boost::shared_ptr<DM_CATALOG_TYPE> volcat;
+    boost::shared_ptr<DmVolumeCatalog> volcat;
 
     std::vector<boost::shared_ptr<VolumeDesc> > volumes;
 };
 
 void DmVolumeCatalogTest::SetUp() {
-    volcat.reset(new DM_CATALOG_TYPE("dm_volume_catallog_gtest.ldb"));
-    ASSERT_NE(static_cast<DM_CATALOG_TYPE*>(0), volcat.get());
+    volcat.reset(new DmVolumeCatalog("dm_volume_catallog_gtest.ldb"));
+    ASSERT_NE(static_cast<DmVolumeCatalog*>(0), volcat.get());
 
     volcat->registerExpungeObjectsCb(&expungeObjects);
 
@@ -182,7 +179,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         EXPECT_EQ(size, static_cast<fds_uint64_t>(blobCount) * BLOB_SIZE);
 
         // get list of blobs for volume
-        fpi::BlobInfoListType blobList;
+        fpi::BlobDescriptorListType blobList;
         rc = volcat->listBlobs(vdesc->volUUID, &blobList);
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(blobList.size(), blobCount);
@@ -195,9 +192,9 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         taskCount.reset(taskCount.getNumTasks() + blobCount);
         fds_uint64_t e2eStatTs = util::getTimeStampNanos();
         for (auto it : blobList) {
-            PerfTracer::tracePointBegin(it.blob_name, DM_VOL_CAT_READ, vdesc->volUUID);
+            PerfTracer::tracePointBegin(it.name, DM_VOL_CAT_READ, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testGetBlob,
-                    this, vdesc->volUUID, it.blob_name);
+                    this, vdesc->volUUID, it.name);
         }
         taskCount.await();
         fds_uint64_t e2eEndTs = util::getTimeStampNanos();
@@ -210,7 +207,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
             fds_uint64_t blobSize = 0;
             fpi::FDSP_MetaDataList metaList;
 
-            rc = volcat->getBlobMeta(vdesc->volUUID, it.blob_name, &version, &blobSize, &metaList);
+            rc = volcat->getBlobMeta(vdesc->volUUID, it.name, &version, &blobSize, &metaList);
             EXPECT_EQ(blobSize, BLOB_SIZE);
             EXPECT_EQ(metaList.size(), NUM_TAGS);
 
@@ -219,9 +216,9 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
                 continue;
             }
 
-            PerfTracer::tracePointBegin(it.blob_name, DM_TX_OP, vdesc->volUUID);
+            PerfTracer::tracePointBegin(it.name, DM_TX_OP, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testDeleteBlob,
-                    this, vdesc->volUUID, it.blob_name, version);
+                    this, vdesc->volUUID, it.name, version);
         }
         taskCount.await();
         e2eEndTs = util::getTimeStampNanos();

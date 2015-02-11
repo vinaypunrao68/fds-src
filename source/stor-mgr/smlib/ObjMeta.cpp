@@ -339,14 +339,14 @@ fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds
     if (it == assoc_entry.end()) return false;
 
     // found association, decrement ref counts
-    fds_verify((*it).ref_cnt > 0L);
+    fds_verify((*it).ref_cnt > 0UL);
     (*it).ref_cnt--;
-    if ((*it).ref_cnt == 0L) {
+    if ((*it).ref_cnt == 0UL) {
         assoc_entry.erase(it);
     }
     obj_map.obj_num_assoc_entry = assoc_entry.size();
     obj_map.obj_refcnt--;
-    if (obj_map.obj_refcnt == 0L) {
+    if (obj_map.obj_refcnt == 0UL) {
         obj_map.obj_del_time = ts;
     }
     return true;
@@ -354,13 +354,13 @@ fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds
 
 void
 ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
-                           fds_uint32_t>& vol_refcnt) const {
+                           fds_uint64_t>& vol_refcnt) const {
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (assoc_entry[i].ref_cnt > 0L) {
-            if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0) {
-                vol_refcnt[assoc_entry[i].vol_uuid] = 0;
+        if (assoc_entry[i].ref_cnt > 0UL) {
+            if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0UL) {
+                vol_refcnt[assoc_entry[i].vol_uuid] = 0UL;
             }
             vol_refcnt[assoc_entry[i].vol_uuid] += assoc_entry[i].ref_cnt;
         }
@@ -495,9 +495,21 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
      *       - update it with *negative* value of old entry.
      * 3) volume association exists in new, but not in old
      *       - do nothing.
+     * NOTE: old iter cannot be empty, since we selected objects with >0 refcnt.  However,
+     *       but new iter can be empty, since the object could've been deleted, resulting in
+     *       empty volume association.
      */
     while (oldIter != oldObjMetaData->assoc_entry.end()) {
-        if (oldIter->vol_uuid == newIter->vol_uuid) {
+        if (newIter == assoc_entry.end()) {
+            /* We've reached the end of the new iter, or the new iter was
+             * empty to begin with.  If that's the case, we need to add
+             * the entries from the old volume association entry to new volume association.
+             */
+            oldIter->ref_cnt = (uint64_t)((int64_t)-(oldIter->ref_cnt));
+            assoc_entry.push_back(*oldIter);
+
+            ++oldIter;
+        } else if (oldIter->vol_uuid == newIter->vol_uuid) {
             /* This is a case where volume association appears on both obj metadata.
              * Get the *signed* value and update it with the diff.
              */
@@ -559,7 +571,7 @@ ObjMetaData::propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaDa
 
     fds_verify(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (assoc_entry[i].ref_cnt > 0L) {
+        if (assoc_entry[i].ref_cnt > 0UL) {
             fds_verify(assoc_entry[i].vol_uuid != 0);
             fpi::MetaDataVolumeAssoc volAssoc;
             volAssoc.volumeAssoc = assoc_entry[i].vol_uuid;

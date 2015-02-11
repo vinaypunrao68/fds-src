@@ -4,7 +4,7 @@ package com.formationds.xdi.s3;
  */
 
 import com.amazonaws.services.s3.internal.ServiceUtils;
-import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.XmlElement;

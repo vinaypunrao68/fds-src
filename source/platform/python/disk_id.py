@@ -22,7 +22,7 @@ class Disk:
     dsk_typ_hdd = 'HDD'
     dsk_typ_unknown = 'UKN'
 
-    p_dev   = re.compile('sd[a-z]$')
+    p_dev = re.compile('sd[a-z]$')
 
     # We are using 1000*1000
     # device size with M = 1024*1024:     1907729 MBytes
@@ -30,7 +30,7 @@ class Disk:
     dsk_gsize = 1000 * 1000 * 1000
 
     # Save lshw result once
-    dsk_lshw_xml  = None
+    dsk_lshw_xml = None
 
 ## Public member functions
 ## -----------------------
@@ -43,6 +43,13 @@ class Disk:
         self.dsk_cap  = 0
         self.dsk_typ  = Disk.dsk_typ_unknown
         self.dsk_formatted = 'Unknown'
+        self.dsk_index_use = False
+        self.dsk_tiered = False
+
+        if path == '/dev/sda' or path == '/dev/sdb':
+            self.dsk_os_use = True
+        else:
+            self.dsk_os_use = False
 
         # parse disk information
         self.__parse_with_lshw(path, virtualized)
@@ -51,13 +58,21 @@ class Disk:
     def get_type(self):
         return self.dsk_typ
 
-    # disk capacity in GB
-    def get_capacity(self):
-        return self.dsk_cap
+    # get os_use
+    def get_os_use(self):
+        return self.dsk_os_use
 
     # file system path of disk
     def get_path(self):
         return self.dsk_path
+
+    # set_index, Mark this device as an index storage device
+    def set_index(self):
+        self.dsk_index_use = True
+
+    # set_tiered, Mark this device as tiered storage device
+    def set_tiered(self):
+        self.dsk_tiered = True
 
     # print all the parsed fields
     def print_disk(self, disk_file = None):
@@ -68,9 +83,9 @@ class Disk:
             dest = disk_file
 
         if not header_output:
-            print >>dest, '#path     type  capacity (GB)'
+            print >>dest, '#path      os_use  index_use  tier_use  type  capacity (GB)'
             header_output = True
-        print >>dest, '%-10s%-5s%-5d' % (self.get_path(), self.get_type(), self.get_capacity())
+        print >>dest, '%-11s%-8s%-11s%-10s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_tiered, self.dsk_typ, self.dsk_cap)
 
 ## ----------------------------------------------------------------
 
@@ -79,7 +94,7 @@ class Disk:
     def sys_disks(virtualized):
         dev_list  = []
         path_list = Disk.__get_sys_disks_path()
-    
+
         for path in path_list:
             disk = Disk(path, virtualized)
             dev_list.append(disk)
@@ -100,7 +115,6 @@ class Disk:
             if node.get('id') == 'cdrom':
                 continue
             node_logicalname = node.find('logicalname')
-            print "node_logicalname.text = ", node_logicalname.text
             assert node_logicalname != None
 
             if node_logicalname.text != path:
@@ -130,9 +144,9 @@ class Disk:
             self.dsk_typ = Disk.dsk_typ_ssd
         elif rotation > '6000':                # HDD
             self.dsk_typ = Disk.dsk_typ_hdd
-        elif virtualized:                      # Virtualized treated as HDD's
+        elif virtualized:                      # Virtualized treated as HDD's, can tune in the hints file
             self.dsk_typ = Disk.dsk_typ_hdd
-                                               # else this device is on a hardware controller, 
+                                               # else this device is on a hardware controller,
                                                # so leave the dsk_typ set to the default UKN (unknown)
 
     @staticmethod
@@ -224,7 +238,7 @@ if __name__ == "__main__":
     parser.add_option('-s', '--stor', dest = 'stor_cli', default='/usr/local/MegaRAID Storage Manager/StorCLI/storcli64', help = 'Full path and file name of the StorCli binary')
     parser.add_option('-p', '--print', dest = 'print_disk', action = 'store_true', help = 'Display the disk information on screen and do not write to the config file')
     parser.add_option('-D', '--debug', dest = 'debug', action = 'store_true', help = 'Turn on debugging')
-    parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment (Treats all detected drives as HDD), also disables the check for storcli64')
+    parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs and disables checking for storage controller tools')
 
     (options, args) = parser.parse_args()
     debug_on     = options.debug
@@ -271,7 +285,7 @@ if __name__ == "__main__":
             sys.stdout.write ("Complete")
             sys.stdout.flush()
 
-            break;
+            break
     print ''
 
     dbg_print ("controller_disk_list = " + ', '.join(controller_disk_list))
@@ -288,8 +302,52 @@ if __name__ == "__main__":
     # no more devices are known in /dev/sd*, but we have more drives documented on hardware controllers
     if len (controller_disk_list) > 0:
         print ( "Error:  Unexpected devices remain identified.  Are raid devices present on controller cards?  Can not continue.")
-        #### DJN ADD THIS BACK
-        #sys.exit(1)
+        sys.exit(1)
+
+    # Now figure out which drives will hold the meta data index
+    # Three scenarios are possible
+    #     first 2 SSDs
+    #     only SSD and first HDD
+    #     first 2 HDDs
+    #
+    ssd_device_list = []
+    hdd_device_list = []
+    for disk in dev_list:
+        if True == disk.get_os_use():
+            continue
+        if Disk.dsk_typ_ssd == disk.get_type():
+            ssd_device_list.append (disk.get_path())
+            if 2 == len(ssd_device_list):
+                break
+        else:
+            if len(hdd_device_list) < 2:
+                hdd_device_list.append (disk.get_path())
+
+    # reverse these two lists -- pop() works from the tail of the list
+    ssd_device_list.reverse()
+    hdd_device_list.reverse()
+
+    index_device_list = []
+
+    # copy all the SSDs into the index_device_list
+    while len (ssd_device_list) > 0:
+        index_device_list.append (ssd_device_list.pop())
+
+    # add enough HDDs to ensure two drives are marked as index drives
+    while len (index_device_list) < 2:
+        index_device_list.append (hdd_device_list.pop())
+
+    for disk in dev_list:
+        if disk.get_path() in index_device_list:
+            disk.set_index()
+
+    # Now determine if all non OS disks are SSDs
+    # if so, there is no tiered storage.
+    # otherwise, the two disks with the meta data index are used for tiered data
+    if any (x for x in dev_list if x.get_type() == Disk.dsk_typ_hdd and x.get_type() != Disk.dsk_typ_unknown and not x.get_os_use()):
+        for disk in dev_list:
+            if disk.get_path() in index_device_list:
+                disk.set_tiered()
 
     if print_disk:
         print "=============================================================================================="
@@ -299,7 +357,7 @@ if __name__ == "__main__":
             disk.print_disk()
     else:  # store the disk.hints map
         hints_file = destination_dir + '/disk-hints.conf'
-        file_on_disk = open (hints_file, 'w')  
+        file_on_disk = open (hints_file, 'w')
         for disk in dev_list:
             disk.print_disk(file_on_disk)
         file_on_disk.close()

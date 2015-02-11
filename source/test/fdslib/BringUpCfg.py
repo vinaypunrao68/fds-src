@@ -9,6 +9,9 @@ import subprocess
 import time
 import logging
 import os
+import os.path
+import glob
+import shutil
 import FdsSetup as inst
 
 ###
@@ -43,6 +46,9 @@ class FdsNodeConfig(FdsConfig):
         self.nd_agent = None
         self.nd_package   = None
         self.nd_local_env = None
+        self.nd_assigned_name = None
+        self.nd_uuid = None
+        self.nd_services = None
 
         # Is the node local or remote?
         if 'ip' not in self.nd_conf_dict:
@@ -215,9 +221,58 @@ class FdsNodeConfig(FdsConfig):
                                              port))
             os.chdir(cur_dir)
         else:
+            self.nd_agent.exec_wait('bash -c \"(rm -rf /dev/shm/0x*)\"')
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
                                             ' > %s/pm.out' % log_dir)
-        time.sleep(4)
+
+        if status == 0:
+            time.sleep(4)
+
+        return status
+
+    ###
+    # Capture the node's assigned name and UUID.
+    #
+    def nd_populate_metadata(self, _bin_dir=None):
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
+
+        if 'fds_port' in self.nd_conf_dict:
+            port = self.nd_conf_dict['fds_port']
+        else:
+            port = 7000  # PM default.
+
+        fds_dir = self.nd_conf_dict['fds_root']
+
+        if _bin_dir is None:
+            bin_dir = fds_dir + '/bin'
+        else:
+            bin_dir = _bin_dir
+
+        # From the --list-services output we can determine node name
+        # and node UUID.
+        cur_dir = os.getcwd()
+        os.chdir(bin_dir)
+        status, stdout = self.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root=%s --list-services) \"' % (fds_dir),
+                                                 return_stdin=True)
+        os.chdir(cur_dir)
+
+        if status == 0:
+            for line in stdout.split('\n'):
+                if line.count("Node UUID") > 0:
+                    uuid = line.split()[2]
+                if line.count("Name") > 0:
+                    assigned_name = line.split()[1]
+                if line.count("Control") > 0:
+                    if int(line.split()[2]) - 1 == int(port):
+                        self.nd_assigned_name = assigned_name
+                        self.nd_uuid = uuid
+                        break
+
+            log.debug("Node %s has assigned name %s and UUID 0x%s." %
+                      (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
+        else:
+            log.error("status = %s" % status)
+            log.error(stdout)
 
         return status
 
@@ -278,57 +333,64 @@ class FdsNodeConfig(FdsConfig):
 
             cur_dir = os.getcwd()
 
-            status = self.nd_agent.exec_wait('ls ' + bin_dir)
-            if status == 0:
+            if os.path.exists(bin_dir):
+                log.info("Cleanup cores in: %s" % bin_dir)
                 os.chdir(bin_dir)
-                status = self.nd_agent.exec_wait('rm core *.core')
+                if os.path.exists("core"):
+                    os.remove("core")
 
-            status = self.nd_agent.exec_wait('ls ' + var_dir)
-            if status == 0:
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
+
+            if os.path.exists(var_dir):
+                log.info("Cleanup logs and stats in: %s" % var_dir)
                 os.chdir(var_dir)
-                status = self.nd_agent.exec_wait('rm -r logs stats')
+                if os.path.exists("logs"):
+                    shutil.rmtree("logs")
+                if os.path.exists("stats"):
+                    shutil.rmtree("stats")
 
-            status = self.nd_agent.exec_wait('ls ' + '/corefiles')
-            if status == 0:
+            if os.path.exists('/corefiles'):
+                log.info("Cleanup cores in: %s" % '/corefiles')
                 os.chdir('/corefiles')
-                status = self.nd_agent.exec_wait('rm *.core')
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
 
-            status = self.nd_agent.exec_wait('ls ' + var_dir + '/core')
-            if status == 0:
+            if os.path.exists(var_dir + '/core'):
+                log.info("Cleanup cores in: %s" % var_dir + '/core')
                 os.chdir(var_dir + '/core')
-                status = self.nd_agent.exec_wait('rm *.core')
+                files = glob.glob("*.core")
+                for filename in files:
+                    os.remove(filename)
 
-            status = self.nd_agent.exec_wait('ls ' + tools_dir)
-            if status == 0:
+            if os.path.exists(tools_dir):
+                log.info("Running ./fds clean -i in %s" % tools_dir)
                 os.chdir(tools_dir)
-                status = self.nd_agent.exec_wait('./fds clean -i')
+                self.nd_agent.exec_wait('./fds clean -i')
 
-            status = self.nd_agent.exec_wait('ls ' + dev_dir)
-            if status == 0:
+            if os.path.exists(dev_dir):
+                log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
                 os.chdir(dev_dir)
-                status = self.nd_agent.exec_wait('rm -rf hdd-*/*')
+                shutil.rmtree("hdd-*")
+                shutil.rmtree("ssd-*")
 
-            status = self.nd_agent.exec_wait('ls ' + dev_dir)
-            if status == 0:
-                os.chdir(dev_dir)
-                status = self.nd_agent.exec_wait('rm -f ssd-*/*')
-
-            status = self.nd_agent.exec_wait('ls ' + fds_dir)
-            if status == 0:
+            if os.path.exists(fds_dir):
+                log.info("Cleanup sys-repo and user-repo in: %s" % fds_dir)
                 os.chdir(fds_dir)
-                status = self.nd_agent.exec_wait('rm -r sys-repo/')
+                shutil.rmtree("sys-repo")
+                shutil.rmtree("user-repo")
 
-            status = self.nd_agent.exec_wait('ls ' + fds_dir)
-            if status == 0:
-                os.chdir(fds_dir)
-                status = self.nd_agent.exec_wait('rm -r user-repo/')
-
-            status = self.nd_agent.exec_wait('ls ' + '/dev/shm')
-            if status == 0:
+            if os.path.exists('/dev/shm'):
+                log.info("Cleanup 0x* in: %s" % '/dev/shm')
                 os.chdir('/dev/shm')
-                status = self.nd_agent.exec_wait('rm -f 0x*')
+                files = glob.glob("0x*")
+                for filename in files:
+                    os.remove(filename)
 
             os.chdir(cur_dir)
+            status = 0
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
             status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +
@@ -395,7 +457,7 @@ class FdsVolConfig(FdsConfig):
         self.nd_am_node = None
         self.nd_conf_dict['vol-name'] = name
 
-    def vol_connect_to_am(self, am_nodes):
+    def vol_connect_to_am(self, am_nodes, all_nodes):
         if 'client' not in self.nd_conf_dict:
             print('volume section must have "client" keyword')
             sys.exit(1)
@@ -405,6 +467,13 @@ class FdsVolConfig(FdsConfig):
             if am.nd_conf_dict['am-name'] == client:
                 self.nd_am_conf = am
                 self.nd_am_node = am.nd_am_node
+                return
+
+        # The system test framework does not use {sh|am] sections.
+        # So look at all nodes to bind the volume to an AM.
+        for n in all_nodes:
+            if n.nd_conf_dict['node-name'] == client:
+                self.nd_am_node = n
                 return
 
         print('Can not find matching AM node in %s' % self.nd_conf_dict['vol-name'])
@@ -646,12 +715,7 @@ class FdsConfigFile(object):
             if re.match('user', section) != None:
                 self.cfg_user.append(FdsUserConfig('user', items, verbose))
 
-            # OM uses "Node-#" for auto-generated names which we might like
-            # to use as node names in the config file. A difficulty may arise
-            # if several PMs log into OM to be registered and they are registered
-            # out of the order expected by the names given them in the config file.
-            # One might fix this by putting a sleep in between starting PMs.
-            elif (re.match('node', section) != None) or (re.match('Node-', section) != None):
+            elif re.match('node', section) != None:
                 n = None
                 items_d = dict(items)
                 if 'enable' in items_d:
@@ -667,6 +731,12 @@ class FdsConfigFile(object):
 
                 if n is not None:
                     n.nd_nodeID = nodeID
+
+                    if "services" in n.nd_conf_dict:
+                        n.nd_services = n.nd_conf_dict["services"]
+                    else:
+                        n.nd_services = "dm,sm,am"
+
                     self.cfg_nodes.append(n)
                     nodeID = nodeID + 1
 
@@ -695,7 +765,7 @@ class FdsConfigFile(object):
             am.am_connect_node(self.cfg_nodes)
 
         for vol in self.cfg_volumes:
-            vol.vol_connect_to_am(self.cfg_am)
+            vol.vol_connect_to_am(self.cfg_am, self.cfg_nodes)
 
         for sce in self.cfg_scenarios:
             sce.sce_bind_sections(self.cfg_user, self.cfg_nodes,
@@ -708,6 +778,35 @@ class FdsConfigFile(object):
 
         # Why do we want to do this? Just execute the scenarios in the order listed.
         #self.cfg_scenarios.sort()
+
+    def config_parse_scenario(self):
+        """
+        Parse a potentially new FDS Scenario config file looking
+        just for scenario sections. This one supports running
+        different scenarios against the same resources and topology
+        of a given FDS Scenario config but in a forked process.
+        """
+        verbose = {
+            'verbose': self.cfg_verbose,
+            'dryrun' : self.cfg_dryrun
+        }
+
+        self.cfg_parser.read(self.cfg_file)
+        if len (self.cfg_parser.sections()) < 1:
+            print 'ERROR:  Unable to open or parse the config file "%s".' % (self.cfg_file)
+            sys.exit (1)
+
+        for section in self.cfg_parser.sections():
+            items = self.cfg_parser.items(section)
+            if re.match('scenario', section)!= None:
+                self.cfg_scenarios.append(FdsScenarioConfig(section, items, verbose))
+
+        for sce in self.cfg_scenarios:
+            sce.sce_bind_sections(self.cfg_user, self.cfg_nodes,
+                                  self.cfg_am, self.cfg_vol_pol,
+                                  self.cfg_volumes, [self.cfg_cli],
+                                  self.cfg_om)
+
 
 ###
 # Parse the config file and setup runtime env for it.

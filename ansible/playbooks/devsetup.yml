@@ -12,7 +12,7 @@
       apt_repository: repo=ppa:chris-lea/redis-server state=present
 
     - name: add fds repo
-      apt_repository: repo='deb http://coke.formationds.com:8000 fds test' state=present
+      apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main" state=present
 
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
@@ -58,7 +58,6 @@
         - python2.7
         - python-dev
         - python-pip
-        - python-boto
         - libpcre3-dev
         - libpcre3
         - libssl-dev
@@ -95,14 +94,9 @@
         - python-paramiko
         - python-redis
         - python-requests
-        - python-boto
         - python-argh
+        - python-boto
         - python-thrift
-        - fds-pkghelper
-        - fds-pkg
-        - fds-pkgtools=0.3.2
-        - fds-systemdir
-        - fds-coredump
         - libcryptopp-dev
         - lintian
         - libhiredis0.10
@@ -147,14 +141,14 @@
         mode=0777
         state=directory
 
-    - name: create omnibus install directory for fds-platform
+    - name: create omnibus install directory for fds-deps
       file: path=/opt/fds-deps
         owner=root
         mode=0777
         state=directory
 
-    - name: create omnibus cache directory with liberal permissions
-      file: path=/var/cache/omnibus
+    - name: create omnibus install directory for fds-deploy
+      file: path=/opt/fds-deploy
         owner=root
         mode=0777
         state=directory

@@ -4,7 +4,7 @@ package com.formationds.hadoop;
  */
 
 import com.formationds.apis.AmService;
-import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
 import org.apache.thrift.TException;
 
