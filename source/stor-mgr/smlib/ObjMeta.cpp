@@ -474,6 +474,12 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
     obj_map.obj_refcnt = (uint64_t)((int64_t)obj_map.obj_refcnt -
                                     (int64_t)oldObjMetaData->obj_map.obj_refcnt);
 
+    /* Assert that obj_refcnt cannot be 0. Since we are currently only concerned about
+     * refcnt, if the recnt is 0, that means that the ref cnt is the same.
+     */
+    fds_assert(obj_map.obj_refcnt != 0);
+
+
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     fds_assert(oldObjMetaData->obj_map.obj_num_assoc_entry == oldObjMetaData->assoc_entry.size());
 
@@ -648,7 +654,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                     new_association.ref_cnt = volAssoc.volumeRefCnt;
                     assoc_entry.push_back(new_association);
                     obj_map.obj_num_assoc_entry = assoc_entry.size();
-                    
+
                     // sum up volume refcnt to sum for validation later.
                     sumVolRefCnt += new_association.ref_cnt;
                 } else {
@@ -754,15 +760,20 @@ fds_bool_t ObjMetaData::isObjCorrupted() const {
  */
 bool ObjMetaData::operator==(const ObjMetaData &rhs) const
 {
+    /* Add assert for debug code only */
+    fds_assert(0 == memcmp(obj_map.obj_id.metaDigest,
+                           rhs.obj_map.obj_id.metaDigest,
+                           sizeof(obj_map.obj_id.metaDigest));
+
     /* If any of the field do not match, then return false */
     if ((0 != memcmp(obj_map.obj_id.metaDigest,
                      rhs.obj_map.obj_id.metaDigest,
                      sizeof(obj_map.obj_id.metaDigest))) ||
+        (obj_map.obj_refcnt != rhs.obj_map.obj_refcnt) ||
         (obj_map.compress_type != rhs.obj_map.compress_type) ||
         (obj_map.compress_len != rhs.obj_map.compress_len) ||
         (obj_map.obj_blk_len != rhs.obj_map.obj_blk_len) ||
         (obj_map.obj_size != rhs.obj_map.obj_size) ||
-        (obj_map.obj_refcnt != rhs.obj_map.obj_refcnt) ||
         (obj_map.expire_time != rhs.obj_map.expire_time)) {
         return false;
     }
@@ -796,8 +807,8 @@ std::string ObjMetaData::logString() const
 
     oss << "id=" << obj_id
         << " refcnt=" << obj_map.obj_refcnt
-        << " flags=" << (uint32_t)obj_map.obj_flags
-        << " compression_type=" << obj_map.compress_type
+        << " flags=" << obj_map.obj_flags
+        << " compression_type=" << (uint32_t)obj_map.compress_type
         << " compress_len=" << obj_map.compress_len
         << " blk_len=" << obj_map.obj_blk_len
         << " len=" << obj_map.obj_size
