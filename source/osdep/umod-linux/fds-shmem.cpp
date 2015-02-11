@@ -57,7 +57,7 @@ void * FdsShmem::shm_attach(int flags)
         if (fd == -1) {
             std::error_condition econd =
                     std::system_category().default_error_condition(errno);
-            GLOGWARN << "Failed to open shared memory segment " << sh_name << "."
+            GLOGWARN << "This is a phantom scary message.  This message just means that a shared memory segment doesn't exist and will be created immediately following this message.  Failed to open shared memory segment " << sh_name << "." // nolint
                     << " Category: " << econd.category().name() << "."
                     << " errno: " << errno << "."
                     << " Message: " << econd.message() << ".";
