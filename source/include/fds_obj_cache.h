@@ -12,6 +12,8 @@
 #include <concurrency/Mutex.h>
 #include <concurrency/RwLock.h>
 
+#include "EclipseWorkarounds.h"
+
 using namespace std;
 
 namespace fds {
