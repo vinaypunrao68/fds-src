@@ -12,9 +12,10 @@
 #include <AmAsyncService.h>
 #include <AmDataApi.h>
 #include <OmConfigService.h>
-#include <NbdConnector.h>
 
 namespace fds {
+
+struct NbdConnector;
 
 /**
  * AM module class.
@@ -68,7 +69,7 @@ class AccessMgr : public Module, public boost::noncopyable {
     OmConfigApi::shared_ptr omConfigApi;
 
     /// Block connector
-    NbdConnector::shared_ptr blkConnector;
+    std::unique_ptr<NbdConnector> blkConnector;
 
     std::atomic_bool  shuttingDown;
 };

@@ -7,12 +7,14 @@
 #include <array>
 #include <utility>
 #include <string>
-#include <fds_types.h>
-#include <concurrency/Thread.h>
-#include <OmConfigService.h>
-#include <NbdOperations.h>
 #include <queue>
 #include <boost/lockfree/queue.hpp>
+
+#include "connector/block/NbdOperations.h"
+
+#include "fds_types.h"
+#include "concurrency/Thread.h"
+#include "OmConfigService.h"
 
 // Forward declare so we can hide the ev++.h include
 // in the cpp file so that it doesn't conflict with

@@ -13,6 +13,7 @@
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
+#include "connector/block/NbdConnector.h"
 
 extern AmPlatform gl_AmPlatform;
 
@@ -61,8 +62,7 @@ AccessMgr::mod_init(SysParams const *const param) {
         omConfigApi = boost::make_shared<OmConfigApi>();
     }
 
-    blkConnector = boost::shared_ptr<NbdConnector>(
-        boost::make_shared<NbdConnector>(omConfigApi));
+    blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(omConfigApi));
 
     // Update the AM's platform with our instance ID so that
     // common fields (e.g., ports) can be updated
