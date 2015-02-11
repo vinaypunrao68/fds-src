@@ -614,6 +614,12 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         }
         obj_map.obj_refcnt = newRefcnt;
 
+        // sum of all volume association should match the obj_refcnt.  If not,
+        // something is wrong.
+        // We will panic if obj_refcnt and sum of volume association ref_cnt do
+        // no match.
+        fds_uint64_t sumVolRefCnt = 0;
+
         // reconcile volume association
         std::vector<obj_assoc_entry_t>::iterator it;
         for (auto volAssoc : objMetaData.objectVolumeAssoc) {
@@ -621,6 +627,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
             if (it != assoc_entry.end()) {
                 // found volume association, reconcile
                 newRefcnt = it->ref_cnt + volAssoc.volumeRefCnt;
+
                 if (newRefcnt >= 0) {
                     it->ref_cnt = newRefcnt;
                     if (newRefcnt == 0) {
@@ -630,6 +637,9 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
+
+                // sum up volume refcnt to sum for validation.
+                sumVolRefcnt += newRefcnt;
             } else {
                 // this is a new association..
                 if (volAssoc.volumeRefCnt >= 0) {
@@ -641,6 +651,8 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
+
+                sumVolRefcnt += new_association_ref_cnt;
             }
 
             if (!err.ok()) {
@@ -652,7 +664,12 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                 return err;
             }
         }
+        // Verify that sum of all volume association ref cnt matches the
+        // per object refcnt.
+        // For now, the best thing is to panic if this occurs.
+        fds_verify(obj_map.obj_refcnt == sumVolRefCnt);
     } else {
+        // !metadatareconcileonly
         // over-write metadata
         if (objMetaData.objectRefCnt < 0) {
             LOGERROR << "Object refcnt must be > 0 if isObjectMetaDataReconcile is false "
