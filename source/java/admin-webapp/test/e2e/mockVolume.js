@@ -6,14 +6,14 @@ mockVolume = function(){
 
         var saveVolumes = function(){
             
-            if ( angular.isDefined( window.localStorage ) ){
+            if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
                 window.localStorage.setItem( 'volumes', JSON.stringify( volService.volumes ) );
             }
         };
         
         var saveVolumeEvent = function( volume ){
             
-            if ( !angular.isDefined( window.localStorage ) ){
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
                 return;
             }
             
@@ -64,6 +64,8 @@ mockVolume = function(){
             }
 
             volService.volumes = temp;
+            
+            saveVolumes();
             
             if ( angular.isFunction( callback ) ){
                 callback();
@@ -174,7 +176,7 @@ mockVolume = function(){
 
         volService.refresh = function(){
             
-            if ( angular.isDefined( window.localStorage ) ){
+            if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
                 var vols = JSON.parse( window.localStorage.getItem( 'volumes' ) );
                 
                 if ( !angular.isDefined( vols ) || vols === null ){

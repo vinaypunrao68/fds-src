@@ -9,26 +9,7 @@ describe( 'Testing volume creation permutations', function(){
     var newText;
     var viewEl;
     
-    var deleteVolume = function( row ){
-        element.all( by.css( '.volume-row' ) ).get( row ).click();
-        
-        browser.sleep( 500 );
-        
-        viewEl.element( by.css( '.delete-volume' ) ).click();
-        
-        browser.sleep( 200 );
-
-        //accept the warning
-        element( by.css( '.fds-modal-ok' ) ).click();
-
-        browser.sleep( 200 );
-
-        element.all( by.css( 'volume-row' )).then( function( rows ){
-            expect( rows.length ).toBe( 0 );
-        });
-        
-        browser.sleep( 200 );
-    };
+    clean();
 
     it( 'should not find any volumes in the table', function(){
 
@@ -43,7 +24,8 @@ describe( 'Testing volume creation permutations', function(){
         mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
         viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
         
-        newText = element( by.model( 'volumeName') );
+        newText = element( by.css( '.volume-name-input') );
+        newText = newText.element( by.tagName( 'input' ) );
 
         var volumeTable = $('tr');
 
@@ -59,6 +41,7 @@ describe( 'Testing volume creation permutations', function(){
     });
 
     it( 'should save with just a name', function(){
+        
         newText.sendKeys( 'Test Volume' );
         browser.sleep( 100 );
         
@@ -261,6 +244,8 @@ describe( 'Testing volume creation permutations', function(){
         element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
         browser.sleep( 300 );
 
+        deleteVolume( 0 );
+        
         element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){
             priorityCols.forEach( function( td ){
                 td.getText().then( function( txt ){
@@ -268,8 +253,6 @@ describe( 'Testing volume creation permutations', function(){
                 });
             });
         });
-
-        deleteVolume( 0 );
         
         logout();
     });

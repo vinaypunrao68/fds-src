@@ -18,7 +18,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityLineStipples = [ '2,2', 'none' ];
     $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];
     $scope.capacityColors = [ '#ABD3F5', '#72AEEB' ];
-    $scope.performanceColors = [ '#8784DE', '#606ED7', '#489AE1' ];
+    $scope.performanceColors = [ '#489AE1', '#606ED7', '#8784DE' ];
     $scope.performanceLine = ['#8784DE', 'white', 'white']; 
     
     $scope.dedupLabel = '';
@@ -150,9 +150,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
         $scope.performanceItems = [{number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )}];
-        $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.desc_iops_capacity' );
-        $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.desc_iops_capacity' );
-        $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.desc_iops_capacity' );
+        $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.l_avg_puts' );
+        $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.l_avg_gets' );
+        $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.l_avg_ssd_gets' );
     };
     
     var buildQueries = function(){

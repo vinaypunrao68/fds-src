@@ -20,6 +20,12 @@ addModule( 'tenant-management', mockTenant );
 addModule( 'node-management', mockNode );
 addModule( 'statistics', mockStats );
 
+clean = function(){
+    if ( browser.localStorage ){
+        browser.localStorage.clear();
+    }
+};
+
 login = function(){
     browser.get( '#/' );
 
@@ -151,7 +157,8 @@ createVolume = function( name, data_type, qos, timeline, timelineStartTimes ){
     
     var createEl = $('.create-panel.volumes');
     
-    var nameText = element( by.model( 'volumeName') );
+    var nameText = element( by.css( '.volume-name-input') );
+    nameText = nameText.element( by.tagName( 'input' ) );
     nameText.sendKeys( name );
     
     if ( data_type ){
@@ -252,4 +259,26 @@ createVolume = function( name, data_type, qos, timeline, timelineStartTimes ){
     
     element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
     browser.sleep( 300 );
+};
+
+deleteVolume = function( row ){
+    element.all( by.css( '.volume-row' ) ).get( row ).click();
+
+    browser.sleep( 500 );
+
+    var viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
+    viewEl.element( by.css( '.delete-volume' ) ).click();
+
+    browser.sleep( 200 );
+
+    //accept the warning
+    element( by.css( '.fds-modal-ok' ) ).click();
+
+    browser.sleep( 200 );
+
+    element.all( by.css( 'volume-row' )).then( function( rows ){
+        expect( rows.length ).toBe( 0 );
+    });
+
+    browser.sleep( 200 );
 };
