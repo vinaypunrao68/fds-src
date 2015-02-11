@@ -52,6 +52,7 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
 
     // TODO(bszmyd): Tue 20 Jan 2015 10:24:45 PM PST
     // This isn't probably where this should go, but for now it doesn't make
@@ -224,5 +225,20 @@ OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     }
     event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
 }
+
+void
+OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                  boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg)
+{
+    LOGNORMAL << "Received abort token migration msg from "
+              << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+
+    // tell DLT state machine about abort (error state)
+    dltMod->dlt_deploy_event(DltErrorFoundEvt(NodeUuid(hdr->msg_src_uuid),
+                                              Error(ERR_SM_TOK_MIGRATION_ABORTED)));
+}
+
 
 }  //  namespace fds

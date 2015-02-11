@@ -127,6 +127,7 @@ enum  FDSPMsgTypeId {
 
     /* Svc -> OM */
     CtrlSvcEventTypeId                 = 9000,
+    CtrlTokenMigrationAbortTypeId      = 9001,
 
     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
@@ -599,6 +600,10 @@ struct CtrlNotifyDLTClose {
 /* ---------------------  CtrlNotifySMAbortMigrationTypeId  ---------------------------- */
 struct CtrlNotifySMAbortMigration {
      1: i64  DLT_version;
+}
+
+/* ---------------------  CtrlTokenMigrationAbortTypeId  ---------------------------- */
+struct CtrlTokenMigrationAbort {
 }
 
 /* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
