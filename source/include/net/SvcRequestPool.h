@@ -13,6 +13,8 @@
 
 #include <platform/platform.h>
 
+#include "EclipseWorkarounds.h"
+
 namespace fds {
 
 /**

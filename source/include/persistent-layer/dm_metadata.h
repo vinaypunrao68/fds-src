@@ -8,6 +8,8 @@
 #include <shared/fds_types.h>
 #include <fds_types.h>
 
+#include "EclipseWorkarounds.h"
+
 /*
  * ----------------------------------------------------------------------------
  * On disk format for object ID.  DO NOT alter the structure layout.
