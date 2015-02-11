@@ -5,6 +5,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-qos-lib \
     fds-am-engine \
+    fds-am-connectors \
     fds-am-plat
 
 user_cc           := ngx_modules.c
