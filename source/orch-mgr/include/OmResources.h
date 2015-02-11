@@ -702,7 +702,8 @@ class OM_NodeDomainMod : public Module
      */
     virtual void
     om_service_down(const Error& error,
-                    const NodeUuid& svcUuid);
+                    const NodeUuid& svcUuid,
+                    fpi::FDSP_MgrIdType svcType);
 
     /**
      * Unregister the node matching uuid from the domain manager.
