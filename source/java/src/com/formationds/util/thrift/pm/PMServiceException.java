@@ -4,6 +4,7 @@
 
 package com.formationds.util.thrift.pm;
 
+
 /**
  * @author ptinius
  */
@@ -20,7 +21,7 @@ public class PMServiceException
 
     public PMServiceException( final Throwable cause,
                                final String message,
-                               final String[] messageArgs ) {
+                               final Object[] messageArgs ) {
 
         super( String.format( message, messageArgs ), cause );
     }
