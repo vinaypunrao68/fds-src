@@ -55,12 +55,17 @@ void * FdsShmem::shm_attach(int flags)
     if (sh_addr == NULL) {
         fd = shm_open(sh_name, O_RDWR, S_IRUSR);
         if (fd == -1) {
-            std::error_condition econd =
-                    std::system_category().default_error_condition(errno);
-            GLOGWARN << "This is a phantom scary message.  This message just means that a shared memory segment doesn't exist and will be created immediately following this message.  Failed to open shared memory segment " << sh_name << "." // nolint
-                    << " Category: " << econd.category().name() << "."
-                    << " errno: " << errno << "."
-                    << " Message: " << econd.message() << ".";
+            std::error_condition econd = std::system_category().default_error_condition(errno);
+            if (-2 == errno)
+            {
+                GLOGWARN << "Shared memory segment " << sh_name << " does not exist."
+                         << "The shared memory segment will be created."
+            } else {
+                GLOGWARN << "Failed to open shared memory segment " << sh_name << "."
+                         << " Category: " << econd.category().name() << "."
+                         << " errno: " << errno << "."
+                         << " Message: " << econd.message() << ".";
+            }
             return NULL;
         } else {
             sh_addr = mmap(NULL, sh_size, flags, MAP_SHARED, fd, 0);
