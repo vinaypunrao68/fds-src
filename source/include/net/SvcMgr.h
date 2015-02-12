@@ -224,6 +224,8 @@ struct SvcMgr : HasModuleProvider, Module {
     /* Map of service handles */
     SvcHandleMap svcHandleMap_;
 
+    /* Request handler */
+    PlatNetSvcHandlerPtr svcRequestHandler_;
     /* Server that accepts service layer messages */
     boost::shared_ptr<SvcServer> svcServer_;
 

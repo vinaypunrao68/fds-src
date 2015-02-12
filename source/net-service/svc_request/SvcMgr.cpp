@@ -55,6 +55,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     omPort_ = config.get_abs<int>("fds.common.om_port");
     omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<long long>("fds.common.om_uuid"));
 
+    svcRequestHandler_ = handler;
     svcInfo_ = svcInfo;
     /* Create the server */
     svcServer_ = boost::make_shared<SvcServer>(svcInfo_.svc_port, processor);
@@ -76,6 +77,7 @@ int SvcMgr::mod_init(SysParams const *const p)
 {
     GLOGNOTIFY;
 
+    svcRequestHandler_->setTaskExecutor(taskExecutor_);
     svcServer_->start();
 
     return 0;

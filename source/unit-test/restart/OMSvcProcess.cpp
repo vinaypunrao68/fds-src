@@ -8,6 +8,7 @@
 #include <fdsp/OMSvc.h>
 #include <net/PlatNetSvcHandler.h>
 #include <net/SvcMgr.h>
+#include <net/SvcRequestPool.h>
 #include <net/SvcProcess.h>
 #include <fdsp_utils.h>
 #include <OMSvcProcess.h>

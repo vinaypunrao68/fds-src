@@ -20,7 +20,6 @@ namespace fds
     BaseAsyncSvcHandler::BaseAsyncSvcHandler(CommonModuleProviderIf *provider)
     : HasModuleProvider(provider)
     {
-        taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     }
 
     /**
@@ -28,6 +27,16 @@ namespace fds
      */
     BaseAsyncSvcHandler::~BaseAsyncSvcHandler()
     {
+    }
+
+    /**
+    * @brief 
+    *
+    * @param taskExecutor
+    */
+    void BaseAsyncSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *taskExecutor)
+    {
+        taskExecutor_ = taskExecutor;
     }
 
     /**

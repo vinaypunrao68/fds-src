@@ -68,6 +68,7 @@ class BaseAsyncSvcHandler : public HasModuleProvider,
  public:
     explicit BaseAsyncSvcHandler(CommonModuleProviderIf *provider);
     virtual ~BaseAsyncSvcHandler();
+    void setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  * taskExecutor);
 
     void asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
                    const std::string& payload) override;
