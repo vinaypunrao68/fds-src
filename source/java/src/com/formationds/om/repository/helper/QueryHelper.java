@@ -215,8 +215,14 @@ public class QueryHelper {
 	            }
 	
 	            if( !series.isEmpty() ) {
-	                series.forEach( ( s ) ->
-	                    new DatapointHelper().sortByX( s.getDatapoints() ) );
+	            	
+	                series.forEach( ( s ) -> {
+	                	
+	                	// if the datapoints set is null, don't try to sort it.  Leave it alone
+	                	if ( s.getDatapoints() != null && !s.getDatapoints().isEmpty() ) {
+	                		new DatapointHelper().sortByX( s.getDatapoints() );
+	                	}
+	                });
 	                stats.setSeries( series );
 	            }
 	
@@ -345,6 +351,12 @@ public class QueryHelper {
 
         organized.forEach( ( key, volumeDatapoints ) -> {
             final Series s = new Series();
+            
+            // if a bogus metric was sent in, don't attempt to add it to the set
+            if ( metrics == null ){
+            	return;
+            }
+            
             s.setType( metrics.name() );
             volumeDatapoints.stream()
                             .distinct()
