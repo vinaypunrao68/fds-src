@@ -176,14 +176,15 @@ public class QueryHelper {
 	            										 	query,
 	            										 	StatOperation.RATE) );
 	            	
-	            	// GETS has the total # of gets/sec and SSD is a subset of those.
-	            	// This query wants GETS for HDD access and SSD access so we mutate the
-	            	// GETS series with a quick subtraction of the corresponding SSD field
-	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
-	            		.findFirst().get();
-	            	
 	            	// we could just test the query, but this captures more potential problems retrieving the list
 	            	try {
+	            		
+		            	// GETS has the total # of gets/sec and SSD is a subset of those.
+		            	// This query wants GETS for HDD access and SSD access so we mutate the
+		            	// GETS series with a quick subtraction of the corresponding SSD field
+		            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
+		            		.findFirst().get();
+	            		
 		            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
 		            		.findFirst().get();
 		            	
@@ -251,6 +252,11 @@ public class QueryHelper {
      *         {@link List} are of performance type. Otherwise {@code false}
      */
     protected boolean isPerformanceQuery( final List<Metrics> metrics ) {
+    	
+    	if ( metrics.size() != Metrics.PERFORMANCE.size() ){
+    		return false;
+    	}
+    	
         for( final Metrics m : metrics ) {
             if( !Metrics.PERFORMANCE.contains( m ) ) {
                 return false;
@@ -267,6 +273,11 @@ public class QueryHelper {
      *         {@link List} are of capacity type. Otherwise {@code false}
      */
     protected boolean isCapacityQuery( final List<Metrics> metrics ) {
+    	
+    	if ( metrics.size() != Metrics.CAPACITY.size() ){
+    		return false;
+    	}
+    	
         for( final Metrics m : metrics ) {
             if( !Metrics.CAPACITY.contains( m ) ) {
                 return false;
@@ -283,6 +294,11 @@ public class QueryHelper {
      *         {@link List} are of firebreak type. Otherwise {@code false}
      */
     protected boolean isFirebreakQuery( final List<Metrics> metrics ) {
+    	
+    	if ( metrics.size() != Metrics.FIREBREAK.size() ){
+    		return false;
+    	}
+    	
         for( final Metrics m : metrics ) {
             if( !Metrics.FIREBREAK.contains( m ) ) {
                 return false;
@@ -299,7 +315,12 @@ public class QueryHelper {
      * 
      * @return returns true if all {@link Metrics} are included in both sets
      */
-    protected boolean isPerformanceBreakdownQuery( final List<Metrics> metrics ) {    	
+    protected boolean isPerformanceBreakdownQuery( final List<Metrics> metrics ) { 
+    	
+    	if ( metrics.size() != Metrics.PERFORMANCE_BREAKDOWN.size() ){
+    		return false;
+    	}
+    	
     	for ( final Metrics m : metrics ) {
     		if ( !Metrics.PERFORMANCE_BREAKDOWN.contains( m ) ){
     			return false;
