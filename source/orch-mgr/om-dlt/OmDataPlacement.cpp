@@ -145,11 +145,16 @@ DataPlacement::beginRebalance() {
     for (ClusterMap::const_sm_iterator cit = curClusterMap->cbegin_sm();
          cit != curClusterMap->cend_sm();
          ++cit) {
-        TokenList new_toks, old_toks;
-        newDlt->getTokens(&new_toks, cit->first, 0);
-        if (commitedDlt) {
-            commitedDlt->getTokens(&old_toks, cit->first, 0);
+        // see if this node has any new tokens it is responsible for
+        // this includes primary, secondary, other responsibilities
+        const TokenList& new_toks = newDlt->getTokens(cit->first);
+        if (!commitedDlt) {
+            // this node did not have tokens before, and now it does
+            rebalanceNodes.insert(cit->first);
+            break;
         }
+        const TokenList& old_toks = commitedDlt->getTokens(cit->first);
+
         // TODO(anna) TokenList should be a set so we can easily
         // search rather than vector -- anyway we shouldn't have duplicate
         // tokens in the TokenList
