@@ -23,7 +23,7 @@
 
 -   name: install fds platform from repo
     when: deploy_artifact == "nightly"
-		apt: name=fds-platform-{{ build }}
+    apt: name=fds-platform-{{ build }}
         force=yes
         state=present
         update_cache=yes
