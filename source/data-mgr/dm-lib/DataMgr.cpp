@@ -1035,7 +1035,9 @@ void DataMgr::mod_enable_service() {
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
-    gSvcRequestPool->setDltManager(omClient->getDltManager());
+    if (!feature.isTestMode()) {
+        gSvcRequestPool->setDltManager(omClient->getDltManager());
+    }
 }
 
 void DataMgr::mod_shutdown()
