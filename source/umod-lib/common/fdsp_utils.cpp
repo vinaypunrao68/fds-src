@@ -261,6 +261,12 @@ std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg) {
+    std::ostringstream oss;
+    oss << " DeleteBlobMsg ";
+    return oss.str();
+}
+
 std::string quoteString(std::string const& text,
                         std::string const& delimiter,
                         std::string const& escape) {
