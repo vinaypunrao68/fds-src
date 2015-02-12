@@ -1217,7 +1217,7 @@ DataMgr::snapVolCat(dmCatReq *io) {
         // because we are serializing the updates to the same blob.
         // so they will also make it in order (assuming that sending
         // update A before update B will also cause receiving DM to receive
-        // udpdate A before update B -- otherwise we will have a race
+        // update A before update B -- otherwise we will have a race
         // which will also happen with other forwarded updates).
         vol_map_mtx->lock();
         fds_verify(vol_meta_map.count(snapReq->volId) > 0);
@@ -1289,7 +1289,7 @@ Error
 DataMgr::expungeObjectsIfPrimary(fds_volid_t volid,
                                  const std::vector<ObjectID>& oids) {
     Error err(ERR_OK);
-    if (runMode == TEST_MODE) return err;  // no SMs, noone to notify
+    if (runMode == TEST_MODE) return err;  // no SMs, no one to notify
     if (amIPrimary(volid) == false) return err;  // not primary
 
     for (std::vector<ObjectID>::const_iterator cit = oids.cbegin();
