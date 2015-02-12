@@ -23,10 +23,11 @@ public final class VolumeQosPerformance
         {
             if (stop != null && start.isAfter(stop))
             {
-                throw new IllegalArgumentException("Cannot stop before starting: " + start + " > " + stop);
+                throw new IllegalArgumentException("Cannot stop before starting: " + start + " > "
+                                                   + stop);
             }
         }
-        
+
         _ops = ops;
         _start = start;
         _stop = stop;
@@ -47,50 +48,50 @@ public final class VolumeQosPerformance
     {
         return new VolumeQosPerformance(_ops, _start, _stop);
     }
-    
+
     public int getOps()
     {
         verifyStopped();
-        
+
         return _ops;
     }
 
     public Instant getStart()
     {
         verifyStarted();
-        
+
         return _start;
     }
 
     public Instant getStop()
     {
         verifyStopped();
-        
+
         return _stop;
     }
-    
+
     public boolean isStarted()
     {
         return _start != null;
     }
-    
+
     public boolean isStopped()
     {
         return _stop != null;
     }
-    
+
     public Instant startNow()
     {
         verifyNotStarted();
-        
+
         return _start = Instant.now();
     }
-    
+
     public Instant stopNow()
     {
         verifyStarted();
         verifyNotStopped();
-        
+
         return _stop = Instant.now();
     }
 
@@ -101,7 +102,7 @@ public final class VolumeQosPerformance
             throw new IllegalStateException("Already started.");
         }
     }
-    
+
     public void verifyNotStopped()
     {
         if (isStopped())
@@ -109,15 +110,15 @@ public final class VolumeQosPerformance
             throw new IllegalStateException("Already stopped.");
         }
     }
-    
+
     public void verifyStarted()
     {
         if (!isStarted())
         {
-            throw new IllegalStateException("Not started yet.");
+`            throw new IllegalStateException("Not started yet.");
         }
     }
-    
+
     public void verifyStopped()
     {
         if (!isStopped())
@@ -125,7 +126,7 @@ public final class VolumeQosPerformance
             throw new IllegalStateException("Not stopped yet.");
         }
     }
-    
+
     private int _ops;
 
     private Instant _start;

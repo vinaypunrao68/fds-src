@@ -16,6 +16,7 @@ import com.codepoetics.protonpack.StreamUtils;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
+import com.formationds.iodriver.model.IoParams;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
@@ -29,43 +30,9 @@ import com.formationds.iodriver.operations.StatBucketVolume;
 
 public final class S3QosTestWorkload extends Workload<S3Endpoint, S3Operation>
 {
-    public static final class IoParams
-    {
-        public IoParams(int assured, int throttle)
-        {
-            if (assured < 0)
-            {
-                throw new IllegalArgumentException("assured must be >= 0. assured: " + assured);
-            }
-            if (throttle < assured)
-            {
-                throw new IllegalArgumentException("throttle must be > assured. assured: "
-                                                   + assured + ", throttle: " + throttle);
-            }
-
-            _assured = assured;
-            _throttle = throttle;
-        }
-
-        public int getAssured()
-        {
-            return _assured;
-        }
-
-        public int getThrottle()
-        {
-            return _throttle;
-        }
-
-        private final int _assured;
-
-        private final int _throttle;
-    }
-
     public S3QosTestWorkload(Collection<IoParams> bucketParams, Duration duration)
     {
         this(bucketParams, duration, null);
-
     }
 
     public S3QosTestWorkload(Collection<IoParams> bucketParams, ZonedDateTime stopTime)

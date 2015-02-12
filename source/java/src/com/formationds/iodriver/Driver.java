@@ -3,7 +3,7 @@ package com.formationds.iodriver;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.QosValidator;
+import com.formationds.iodriver.reporters.Validator;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.workloads.Workload;
 
@@ -12,7 +12,7 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>, WorkloadT ex
     public Driver(EndpointT endpoint,
                   WorkloadT workload,
                   WorkflowEventListener listener,
-                  QosValidator validator)
+                  Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (workload == null) throw new NullArgumentException("workload");
@@ -56,9 +56,9 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>, WorkloadT ex
     public int getResult()
     {
         WorkflowEventListener listener = getListener();
-        QosValidator validator = getValidator();
-        
-        if (validator.wereIopsInRange(listener))
+        Validator validator = getValidator();
+
+        if (validator.isValid(listener))
         {
             return 0;
         }
@@ -68,11 +68,11 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>, WorkloadT ex
         }
     }
 
-    public QosValidator getValidator()
+    public Validator getValidator()
     {
         return _validator;
     }
-    
+
     public WorkloadT getWorkload()
     {
         return _workload;
@@ -100,6 +100,6 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>, WorkloadT ex
     private final WorkflowEventListener _listener;
 
     private final WorkloadT _workload;
-    
-    private final QosValidator _validator;
+
+    private final Validator _validator;
 }

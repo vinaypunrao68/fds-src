@@ -5,7 +5,7 @@ import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
-import com.formationds.iodriver.workloads.S3QosTestWorkload;
+import com.formationds.iodriver.workloads.S3SingleVolumeRateLimitTestWorkload;
 
 public final class Main
 {
@@ -25,10 +25,11 @@ public final class Main
                                                 listener.volumeAdded))
             {
                 Driver<?, ?> driver =
-                        new Driver<S3Endpoint, S3QosTestWorkload>(config.getEndpoint(),
-                                                                  config.getWorkload(),
-                                                                  listener,
-                                                                  config.getValidator());
+                        new Driver<S3Endpoint,
+                        S3SingleVolumeRateLimitTestWorkload>(config.getEndpoint(),
+                                                             config.getWorkload(),
+                                                             listener,
+                                                             config.getValidator());
                 driver.runWorkload();
                 result = driver.getResult();
             }

@@ -89,7 +89,7 @@ public final class WorkflowEventListener
         }
 
         _volumeOps.put(name, new VolumeQosStats(params));
-        
+
         volumeAdded.send(new SimpleEntry<>(name, params));
     }
 
@@ -102,10 +102,9 @@ public final class WorkflowEventListener
                 throw new IllegalStateException("Not all operations have finished!");
             }
         }
-        
-        
+
     }
-    
+
     public Instant getStart(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
@@ -150,7 +149,7 @@ public final class WorkflowEventListener
 
         VolumeQosStats stats = getStatsInternal(volume);
         Instant start = stats.performance.startNow();
-        
+
         started.send(new SimpleEntry<>(volume, start));
     }
 
@@ -160,7 +159,7 @@ public final class WorkflowEventListener
 
         VolumeQosStats stats = getStatsInternal(volume);
         Instant stop = stats.performance.stopNow();
-        
+
         stopped.send(new SimpleEntry<>(volume, stop));
     }
 
