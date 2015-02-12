@@ -9,6 +9,7 @@
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <fiu-control.h>
@@ -256,10 +257,14 @@ TEST_F(DMPerfApi, putsPerf)
             << "Throughput: " << throughput << "\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "(ns) Avg put latency: " << avgPutLatency_.value() << std::endl
-            << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
-            << "svc sendPayloadLat: " << gSvcRequestCntrs->sendPayloadLat.value() << std::endl
-            << "svc serializ. latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
-            << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl;
+            << "svc sendLat: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->sendLat.value() << std::endl
+            << "svc sendPayloadLat: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->sendPayloadLat.value() << std::endl
+            << "svc serializ. latency: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->serializationLat.value() << std::endl
+            << "svc op latency: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->reqLat.value() << std::endl;
 
     std::cout << "putsIssued: " << putsIssued_
               << " putsSuccessCnt_: " << putsSuccessCnt_

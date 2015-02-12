@@ -11,32 +11,33 @@
 #include <net/SvcRequestTracker.h>
 #include <concurrency/LFThreadpool.h>
 
-#include <platform/platform.h>
+namespace FDS_ProtocolInterface {
+class SvcUuid;
+}
+namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
+
+/* Forward declarations */
+struct CommonModuleProviderIf;
+class PlatNetSvcHandler;
+using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 
 /**
  * Svc request factory. Use this class for constructing various Svc request objects
  */
-class SvcRequestPool {
+class SvcRequestPool : HasModuleProvider {
  public:
     static uint64_t SVC_UNTRACKED_REQ_ID;
 
-    SvcRequestPool();
+    SvcRequestPool(CommonModuleProviderIf *moduleProvider,
+                   const fpi::SvcUuid &selfUuid,
+                   PlatNetSvcHandlerPtr handler);
     ~SvcRequestPool();
 
     EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version);
     inline EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId) {
-        extern const NodeUuid gl_OmUuid;
-        if (peerEpId.svc_uuid == (int64_t)gl_OmUuid.uuid_get_val()) {
-            //  this is hack as doing incremental work with both old and new channels
-            //  retrace back when finish the work
-            //  The hard-coding version is at net-platform.cpp:317
-            //  XXX todo(liwu)
-            return newEPSvcRequest(peerEpId, NET_SVC_CTRL);
-        } else {
-            return newEPSvcRequest(peerEpId, 0);
-        }
+        return newEPSvcRequest(peerEpId, 0);
     }
     FailoverSvcRequestPtr newFailoverSvcRequest(const EpIdProviderPtr epProvider);
     QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider);
@@ -58,6 +59,9 @@ class SvcRequestPool {
     LFMQThreadpool* getSvcWorkerThreadpool();
     void dumpLFTPStats();
 
+    SvcRequestCounters* getSvcRequestCntrs() const;
+    SvcRequestTracker* getSvcRequestTracker() const;
+
  protected:
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);
 
@@ -74,6 +78,17 @@ class SvcRequestPool {
     std::unique_ptr<LFMQThreadpool> svcSendTp_;
     /* Lock free threadpool on which work is done */
     std::unique_ptr<LFMQThreadpool> svcWorkerTp_;
+
+    /* Cached self uuid */
+    fpi::SvcUuid selfUuid_;
+    /* Timeout */
+    uint32_t reqTimeout_;
+    /* Request tracker */
+    SvcRequestTracker *svcRequestTracker_;
+    /* Request counters */
+    SvcRequestCounters *svcRequestCntrs_;
+    /* Svc request handler */
+    PlatNetSvcHandlerPtr svcReqHandler_;
 };
 extern SvcRequestPool *gSvcRequestPool;
 }  // namespace fds

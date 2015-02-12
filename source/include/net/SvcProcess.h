@@ -18,6 +18,8 @@ namespace fds {
 /* Forward declarations */
 class FdsProcess;
 struct SvcMgr; 
+class PlatNetSvcHandler;
+using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 
 /**
 * @brief Base class for all Services
@@ -38,6 +40,7 @@ struct SvcProcess : FdsProcess {
                    const std::string &base_path,
                    const std::string &def_log_file,
                    fds::Module **mod_vec,
+                   PlatNetSvcHandlerPtr handler,
                    fpi::PlatNetSvcProcessorPtr processor);
     virtual ~SvcProcess();
 
@@ -62,6 +65,7 @@ struct SvcProcess : FdsProcess {
          const std::string &base_path,
          const std::string &def_log_file,
          fds::Module **mod_vec,
+         PlatNetSvcHandlerPtr handler,
          fpi::PlatNetSvcProcessorPtr processor);
 
     /**
@@ -89,7 +93,8 @@ struct SvcProcess : FdsProcess {
     *
     * @param processor
     */
-    virtual void setupSvcMgr_(fpi::PlatNetSvcProcessorPtr processor);
+    virtual void setupSvcMgr_(PlatNetSvcHandlerPtr handler,
+                              fpi::PlatNetSvcProcessorPtr processor);
 
     /* TODO(Rao): Include persistence as well */
     boost::shared_ptr<SvcMgr> svcMgr_;

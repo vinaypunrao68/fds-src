@@ -23,6 +23,9 @@ namespace fds {
 extern ObjectStorMgr    *objStorMgr;
 
 SMSvcHandler::SMSvcHandler()
+// NOTE: SMSvcHandler should take fds_module_provider as a param so that we don't need
+// any globals
+    : PlatNetSvcHandler(MODULEPROVIDER())
 {
     mockTimeoutEnabled = MODULEPROVIDER()->get_fds_config()->\
                          get<bool>("fds.sm.testing.enable_mocking");
@@ -338,11 +341,13 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
               getReq->getObjectNetResp = resp; \
               getObjectCb(asyncHdr, ERR_OK, getReq); return;);
 #endif
+#if 0
     fiu_do_on("svc.uturn.getobject", \
               mockHandler->schedule(mockTimeoutUs, \
-                                    std::bind(MockSMCallbacks::mockGetCb, \
+                                    std::bind(&MockSMCallbacks::mockGetCb, this,\
                                               asyncHdr)); \
               return;);
+#endif
 
     Error err(ERR_OK);
     auto getReq = new SmIoGetObjectReq(getObjMsg);
@@ -418,11 +423,13 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
     fiu_do_on("svc.drop.putobject", return);
     // fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
+#if 0
     fiu_do_on("svc.uturn.putobject", \
               mockHandler->schedule(mockTimeoutUs, \
-                                    std::bind(MockSMCallbacks::mockPutCb, \
+                                    std::bind(&MockSMCallbacks::mockPutCb, this,\
                                               asyncHdr)); \
               return;);
+#endif
 
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);

@@ -17,6 +17,9 @@
 
 namespace fds {
 
+/* Forward declarations */
+struct EPSvcRequest;
+
 const fds_token_id SMTokenInvalidID = 0xffffffff;
 const uint64_t invalidExecutorID = 0xffffffffffffffff;
 

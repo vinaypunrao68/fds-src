@@ -9,6 +9,7 @@
 #include <fds_module.h>
 // TODO(Rao): Do forward decl here
 #include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <net/PlatNetSvcHandler.h>
 #include <boost/shared_ptr.hpp>
 
 #define EpInvokeRpc(SendIfT, func, svc_id, maj, min, ...)                       \
@@ -56,10 +57,15 @@ namespace tt  = apache::thrift::transport;
 namespace tp  = apache::thrift::protocol;
 
 class fds_mutex;
+struct SvcRequestPool;
+struct SvcRequestCounters;
+struct SvcRequestTracker;
 struct SvcServer;
 struct SvcHandle;
 using SvcHandlePtr = boost::shared_ptr<SvcHandle>;
 using StringPtr = boost::shared_ptr<std::string>;
+class PlatNetSvcHandler;
+using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 
 struct SvcUuidHash {
     std::size_t operator()(const fpi::SvcUuid& svcId) const;
@@ -71,8 +77,11 @@ using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>
 /**
 * @brief Overall manager class for service layer
 */
-struct SvcMgr : public Module {
-    explicit SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInfo);
+struct SvcMgr : HasModuleProvider, Module {
+    SvcMgr(CommonModuleProviderIf *moduleProvider,
+           PlatNetSvcHandlerPtr handler,
+           fpi::PlatNetSvcProcessorPtr processor,
+           const fpi::SvcInfo &svcInfo);
     virtual ~SvcMgr();
 
     /* Module overrides */
@@ -80,6 +89,21 @@ struct SvcMgr : public Module {
     virtual void mod_startup() override;
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
+
+    /**
+    * @brief 
+    */
+    SvcRequestPool* getSvcRequestMgr() const;
+
+    /**
+    * @brief 
+    */
+    SvcRequestCounters* getSvcRequestCntrs() const;
+
+    /**
+    * @brief 
+    */
+    SvcRequestTracker* getSvcRequestTracker() const;
 
     /**
     * @brief Updates service handles based on the entries from service map
@@ -125,7 +149,7 @@ struct SvcMgr : public Module {
     /**
     * @brief Returns svc base uuid
     */
-    fpi::SvcUuid getSvcUuid() const;
+    fpi::SvcUuid getSelfSvcUuid() const;
 
     /**
     * @brief Return svc port
@@ -138,7 +162,12 @@ struct SvcMgr : public Module {
     * @param omIp
     * @param port
     */
-    void getOmIPPort(std::string &omIp, int &port);
+    void getOmIPPort(std::string &omIp, int &port) const;
+
+    /**
+    * @brief
+    */
+    fpi::SvcUuid getOmSvcUuid() const;
 
     /**
     * @brief Constructs new client against OM and returns it.  This call will block until
@@ -198,6 +227,9 @@ struct SvcMgr : public Module {
     /* Server that accepts service layer messages */
     boost::shared_ptr<SvcServer> svcServer_;
 
+    /* Manage for service requests */
+    SvcRequestPool *svcRequestMgr_;
+
     /* OM details */
     std::string omIp_;
     int omPort_;
@@ -213,9 +245,9 @@ struct SvcMgr : public Module {
 /**
 * @brief Wrapper around service information and service rpc client.
 */
-struct SvcHandle {
-    SvcHandle();
-    explicit SvcHandle(const fpi::SvcInfo &info);
+struct SvcHandle : HasModuleProvider {
+    SvcHandle(CommonModuleProviderIf *moduleProvider,
+              const fpi::SvcInfo &info);
     virtual ~SvcHandle();
 
     /**

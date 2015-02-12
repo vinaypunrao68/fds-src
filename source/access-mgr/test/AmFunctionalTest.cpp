@@ -7,6 +7,8 @@
 #include <vector>
 #include <map>
 #include <thread>
+#include <condition_variable>
+
 #include <fdsn-server.h>
 #include <util/fds_stat.h>
 #include <am-platform.h>

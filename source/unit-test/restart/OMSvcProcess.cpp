@@ -15,7 +15,9 @@
 
 namespace fds {
 struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
-    explicit OMSvcHandler2(OMSvcProcess *om) {
+    explicit OMSvcHandler2(OMSvcProcess *om) 
+    : PlatNetSvcHandler(om)
+    {
         om_ = om;
     }
 
@@ -60,7 +62,8 @@ void OMSvcProcess::init(int argc, char *argv[])
     boost::shared_ptr<fpi::OMSvcProcessor> processor = boost::make_shared<fpi::OMSvcProcessor>(handler);
 
     /* Set up process related services such as logger, timer, etc. */
-    SvcProcess::init(argc, argv, "platform.conf", "fds.om.", "om.log", nullptr, processor);
+    SvcProcess::init(argc, argv, "platform.conf", "fds.om.",
+                     "om.log", nullptr, handler, processor);
 }
 
 void OMSvcProcess::registerSvcProcess()
@@ -112,7 +115,7 @@ void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         auto header = SvcRequestPool::newSvcRequestHeaderPtr(
             SvcRequestPool::SVC_UNTRACKED_REQ_ID,
             FDSP_MSG_TYPEID(fpi::UpdateSvcMapMsg),
-            svcMgr_->getSvcUuid(),
+            svcMgr_->getSelfSvcUuid(),
             fpi::SvcUuid());
         fpi::UpdateSvcMapMsgPtr updateMsg = boost::make_shared<fpi::UpdateSvcMapMsg>(); 
         updateMsg->updates.push_back(*svcInfo);

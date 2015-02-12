@@ -9,6 +9,7 @@
 #include <ObjMeta.h>
 #include <dlt.h>
 #include <SMSvcHandler.h>
+#include <net/SvcRequestPool.h>
 #include <MigrationExecutor.h>
 
 namespace fds {

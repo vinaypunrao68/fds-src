@@ -9,9 +9,7 @@
 #include <fdsp/BaseAsyncSvc.h>
 #include <fdsp_utils.h>
 #include <fds_module_provider.h>
-#include <net/SvcMgr.h>
-#include <net/SvcRequestPool.h>
-#include <net/SvcRequest.h>
+#include <concurrency/SynchronizedTaskExecutor.hpp>
 
 /**
  * Use this macro for registering FDSP message handlers
@@ -58,12 +56,17 @@ namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
-class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf {
+/* Forward declarations */
+struct SvcRequestTracker;
+using StringPtr = boost::shared_ptr<std::string>;
+
+class BaseAsyncSvcHandler : public HasModuleProvider,
+    virtual public FDS_ProtocolInterface::BaseAsyncSvcIf {
     typedef std::function<void (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>&,
                                 boost::shared_ptr<std::string>&)> FdspMsgHandler;
 
  public:
-    BaseAsyncSvcHandler();
+    explicit BaseAsyncSvcHandler(CommonModuleProviderIf *provider);
     virtual ~BaseAsyncSvcHandler();
 
     void asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
@@ -71,8 +74,8 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
 
-    void asyncResp2(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
-                    boost::shared_ptr<std::string>& payload);
+    // void asyncResp2(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                    // boost::shared_ptr<std::string>& payload);
     void asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
             const std::string& payload) override;
     void asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
@@ -82,11 +85,14 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     void uuidBind(fpi::AsyncHdr &_return,
                           boost::shared_ptr<fpi::UuidBindMsg>& msg) override;
 
-    static void asyncRespHandler(
+    static void asyncRespHandler(SvcRequestTracker* reqTracker,
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload);
 
 
+    void sendAsyncResp_(const fpi::AsyncHdr& reqHdr,
+                        const fpi::FDSPMsgTypeId &msgTypeId,
+                        StringPtr &payload);
     /**
     * @brief Sends async response to the src identified by req_hdr
     *
@@ -96,33 +102,27 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     * @param payload - payload to send
     */
     template<class PayloadT>
-    static void sendAsyncResp(boost::shared_ptr<fpi::AsyncHdr>& reqHdr,
+    void sendAsyncResp(boost::shared_ptr<fpi::AsyncHdr>& reqHdr,
                               const fpi::FDSPMsgTypeId &msgTypeId,
                               boost::shared_ptr<PayloadT>& payload) {
         sendAsyncResp(*reqHdr, msgTypeId, *payload);
     }
 
     template<class PayloadT>
-    static void sendAsyncResp(const fpi::AsyncHdr& reqHdr,
+    void sendAsyncResp(const fpi::AsyncHdr& reqHdr,
                               const fpi::FDSPMsgTypeId &msgTypeId,
                               const PayloadT& payload)
     {
         GLOGDEBUG;
 
         boost::shared_ptr<std::string> respBuf;
-        auto respHdr = boost::make_shared<fpi::AsyncHdr>(
-            std::move(SvcRequestPool::swapSvcReqHeader(reqHdr)));
-        respHdr->msg_type_id = msgTypeId;
-
-        SVCPERF(respHdr->rspSerStartTs = util::getTimeStampNanos());
-
         fds::serializeFdspMsg(payload, respBuf);
-
-        MODULEPROVIDER()->getSvcMgr()->sendAsyncSvcRespMessage(respHdr, respBuf);
+        this->sendAsyncResp_(reqHdr, msgTypeId, respBuf);
     }
 
     // protected:
     std::unordered_map<fpi::FDSPMsgTypeId, FdspMsgHandler, std::hash<int>> asyncReqHandlers_;
+    SynchronizedTaskExecutor<uint64_t>  * taskExecutor_;
 };
 }  // namespace fds
 

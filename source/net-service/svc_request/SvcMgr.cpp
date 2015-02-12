@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fdsp/PlatNetSvc.h>
+#include <net/PlatNetSvcHandler.h>
 #include <fdsp/OMSvc.h>
 #include <net/fdssocket.h>
 #include <fdsp/fds_service_types.h>
@@ -42,8 +43,12 @@ boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
     return client;
 }
 
-SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInfo)
-    : Module("SvcMgr")
+SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
+               PlatNetSvcHandlerPtr handler,
+               fpi::PlatNetSvcProcessorPtr processor,
+               const fpi::SvcInfo &svcInfo)
+    : HasModuleProvider(moduleProvider),
+    Module("SvcMgr")
 {
     auto config = MODULEPROVIDER()->get_conf_helper();
     omIp_ = config.get_abs<std::string>("fds.common.om_ip_list");
@@ -56,14 +61,15 @@ SvcMgr::SvcMgr(fpi::PlatNetSvcProcessorPtr processor, const fpi::SvcInfo &svcInf
 
     taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*MODULEPROVIDER()->proc_thrpool());
 
-    // TODO(Rao): Don't make this global
-    gSvcRequestPool = new SvcRequestPool();
+    svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), handler);
+    gSvcRequestPool = svcRequestMgr_;
 }
 
 SvcMgr::~SvcMgr()
 {
     delete taskExecutor_;
-    delete gSvcRequestPool;
+    delete svcRequestMgr_;
+    svcRequestMgr_ = gSvcRequestPool = nullptr;
 }
 
 int SvcMgr::mod_init(SysParams const *const p)
@@ -90,6 +96,18 @@ void SvcMgr::mod_shutdown()
     GLOGNOTIFY;
 }
 
+SvcRequestPool* SvcMgr::getSvcRequestMgr() const {
+    return svcRequestMgr_;
+}
+
+SvcRequestCounters* SvcMgr::getSvcRequestCntrs() const {
+    return svcRequestMgr_->getSvcRequestCntrs();
+}
+
+SvcRequestTracker* SvcMgr::getSvcRequestTracker() const {
+    return svcRequestMgr_->getSvcRequestTracker();
+}
+
 void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
 {
     GLOGDEBUG << "Updating service map. Incoming entries size: " << entries.size();
@@ -106,7 +124,7 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
             /* New service handle entry.  Note, we don't allocate rpcClient.  We do this lazily
              * when needed to not incur the cost of socket creation.
              */
-            auto svcHandle = boost::make_shared<SvcHandle>(e);
+            auto svcHandle = boost::make_shared<SvcHandle>(MODULEPROVIDER(), e);
             svcHandleMap_.emplace(std::make_pair(e.svc_id.svc_uuid, svcHandle));
             GLOGDEBUG << "svcmap update.  svcuuid: " << e.svc_id.svc_uuid.svc_uuid
                     << " is new.  Incarnation: " << e.incarnationNo;
@@ -195,10 +213,10 @@ void SvcMgr::postSvcSendError(fpi::AsyncHdrPtr &header)
 {
     swapAsyncHdr(header);
     header->msg_code = ERR_SVC_REQUEST_INVOCATION;
-    gSvcRequestPool->postError(header);
+    svcRequestMgr_->postError(header);
 }
 
-fpi::SvcUuid SvcMgr::getSvcUuid() const
+fpi::SvcUuid SvcMgr::getSelfSvcUuid() const
 {
     return svcInfo_.svc_id.svc_uuid;
 }
@@ -208,10 +226,15 @@ int SvcMgr::getSvcPort() const
     return svcInfo_.svc_port;
 }
 
-void SvcMgr::getOmIPPort(std::string &omIp, int &port)
+void SvcMgr::getOmIPPort(std::string &omIp, int &port) const
 {
     omIp = omIp_;
     port = omPort_;
+}
+
+fpi::SvcUuid SvcMgr::getOmSvcUuid() const
+{
+    return omSvcUuid_;
 }
 
 fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
@@ -246,13 +269,12 @@ bool SvcMgr::isSvcActionableError(const Error &e)
 
 void SvcMgr::handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e)
 {
+    // TODO(Rao): Implement
 }
 
-SvcHandle::SvcHandle()
-{
-}
-
-SvcHandle::SvcHandle(const fpi::SvcInfo &info)
+SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
+                     const fpi::SvcInfo &info)
+: HasModuleProvider(moduleProvider)
 {
     svcInfo_ = info;
     GLOGDEBUG << "Operation: new service handle";

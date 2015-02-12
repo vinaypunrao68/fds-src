@@ -15,11 +15,13 @@
 #include <fds_process.h>
 #include <fdsp/fds_service_types.h>
 #include <net/SvcMgr.h>
+#include <net/SvcRequest.h>
 #include <net/PlatNetSvcHandler.h>
 
 namespace fds
 {
-    PlatNetSvcHandler::PlatNetSvcHandler()
+    PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
+    : BaseAsyncSvcHandler(provider)
     {
         REGISTER_FDSP_MSG_HANDLER(fpi::UpdateSvcMapMsg, updateSvcMap);
     }
@@ -127,7 +129,7 @@ namespace fds
     fpi::ServiceStatus PlatNetSvcHandler::
     getStatus(boost::shared_ptr<int32_t>& nullarg)  // NOLINT
     {
-        if (!g_fdsprocess)
+        if (!MODULEPROVIDER())
         {
             return fpi::SVC_STATUS_INVALID;
         }
@@ -142,7 +144,7 @@ namespace fds
     void PlatNetSvcHandler::getCounters(std::map<std::string, int64_t> & _return,
                                         boost::shared_ptr<std::string>& id)
     {
-        if (!g_fdsprocess)
+        if (!MODULEPROVIDER())
         {
             return;
         }
@@ -150,11 +152,11 @@ namespace fds
         if (*id == "*")
         {
             /* Request to return all counters */
-            g_fdsprocess->get_cntrs_mgr()->toMap(_return);
+            MODULEPROVIDER()->get_cntrs_mgr()->toMap(_return);
             return;
         }
 
-        auto    cntrs = g_fdsprocess->get_cntrs_mgr()->get_counters(*id);
+        auto    cntrs = MODULEPROVIDER()->get_cntrs_mgr()->get_counters(*id);
 
         if (cntrs == nullptr)
         {
@@ -169,7 +171,7 @@ namespace fds
      */
     void PlatNetSvcHandler::resetCounters(boost::shared_ptr<std::string>& id)
     {
-        if (!g_fdsprocess)
+        if (!MODULEPROVIDER())
         {
             return;
         }
@@ -177,7 +179,7 @@ namespace fds
         if (*id == "*")
         {
             /* Request to return all counters */
-            g_fdsprocess->get_cntrs_mgr()->reset();
+            MODULEPROVIDER()->get_cntrs_mgr()->reset();
         }
     }
     /**
@@ -189,14 +191,14 @@ namespace fds
     setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
                  boost::shared_ptr<int64_t>& val)
     {
-        if (!g_fdsprocess)
+        if (!MODULEPROVIDER())
         {
             return;
         }
 
         try
         {
-            g_fdsprocess->get_fds_config()->set(*id, *val);
+            MODULEPROVIDER()->get_fds_config()->set(*id, *val);
         } catch(...)
         {
             // TODO(Rao): Only ignore SettingNotFound exception

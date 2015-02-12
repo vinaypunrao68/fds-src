@@ -11,8 +11,8 @@
 namespace fds {
 
 struct MockSMCallbacks : SMSvcHandler {
-    static void mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
-    static void mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
+    void mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
+    void mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
 };
 }  // namespace fds
 

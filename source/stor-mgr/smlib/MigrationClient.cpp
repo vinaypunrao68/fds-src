@@ -3,6 +3,8 @@
  */
 #include <fds_assert.h>
 
+#include <net/SvcRequest.h>
+#include <net/SvcRequestPool.h>
 #include <SMSvcHandler.h>
 #include <ObjMeta.h>
 #include <dlt.h>

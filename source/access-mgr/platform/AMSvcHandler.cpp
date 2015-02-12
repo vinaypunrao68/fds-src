@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+ #include <net/SvcRequest.h>
 #include <net/BaseAsyncSvcHandler.h>
 
 #include <AMSvcHandler.h>
@@ -20,6 +21,9 @@ AccessMgr::unique_ptr am;
 
 AMSvcHandler::~AMSvcHandler() {}
 AMSvcHandler::AMSvcHandler()
+// NOTE: SMSvcHandler should take fds_module_provider as a param so that we don't need
+// any globals
+    : PlatNetSvcHandler(MODULEPROVIDER())
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyBucketStat, NotifyBucketStats);

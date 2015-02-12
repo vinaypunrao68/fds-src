@@ -22,8 +22,10 @@
 namespace fds {
 
 /* Processwide globals from fds_process.h */
+// TODO(Rao): Ideally we shouldn't have globals.  As we slowly migrate towards not having
+// globals, these should go away.  We shou
+
 FdsProcess *g_fdsprocess                    = NULL;
-CommonModuleProviderIf *MODULEPROVIDER()     = NULL;
 fds_log *g_fdslog                           = NULL;
 boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 const FdsRootDir                 *g_fdsroot;
@@ -39,6 +41,10 @@ void init_process_globals(fds_log *log)
     fds_verify(g_fdslog == nullptr);
     g_fdslog = log;
     g_cntrs_mgr.reset(new FdsCountersMgr(net::get_my_hostname()+".unknown"));
+}
+
+CommonModuleProviderIf* getModuleProvider() {
+    return g_fdsprocess;
 }
 
 /**
@@ -96,7 +102,6 @@ void FdsProcess::init(int argc, char *argv[],
 
     /* Initialize process wide globals */
     g_fdsprocess = this;
-    MODULEPROVIDER() = g_fdsprocess;
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
@@ -194,7 +199,6 @@ FdsProcess::~FdsProcess()
     }
     /* cleanup process wide globals */
     g_fdsprocess = nullptr;
-    MODULEPROVIDER() = nullptr;
     delete g_fdslog;
 
     /* Terminate signal handling thread */

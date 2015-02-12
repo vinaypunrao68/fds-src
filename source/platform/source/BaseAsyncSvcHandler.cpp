@@ -7,6 +7,8 @@
 #include <util/Log.h>
 #include <net/SvcRequest.h>
 #include <net/SvcRequestTracker.h>
+#include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <util/fiu_util.h>
 
@@ -15,8 +17,10 @@ namespace fds
     /**
      *
      */
-    BaseAsyncSvcHandler::BaseAsyncSvcHandler()
+    BaseAsyncSvcHandler::BaseAsyncSvcHandler(CommonModuleProviderIf *provider)
+    : HasModuleProvider(provider)
     {
+        taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     }
 
     /**
@@ -102,11 +106,10 @@ namespace fds
                                         boost::shared_ptr<std::string>& payload)
     {
         SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
-        fiu_do_on("svc.disable.schedule", asyncRespHandler(header, payload); return; );
-        fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
+        fiu_do_on("svc.disable.schedule", asyncRespHandler(\
+            MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(), header, payload); return; );
+        // fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
 
-        static SynchronizedTaskExecutor<uint64_t>  * taskExecutor =
-            MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
 
         GLOGDEBUG << logString(*header);
 
@@ -115,10 +118,13 @@ namespace fds
         /* Execute on synchronized task exector so that handling for requests
          * with same id gets serialized
          */
-        taskExecutor->schedule(header->msg_src_id,
-                               std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
+        taskExecutor_->schedule(header->msg_src_id,
+                               std::bind(&BaseAsyncSvcHandler::asyncRespHandler,
+                                         MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
+                                         header, payload));
     }
 
+#if 0
     void BaseAsyncSvcHandler::asyncResp2(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
@@ -136,6 +142,7 @@ namespace fds
                                        header,
                                        payload);
     }
+#endif
 
     /**
      * @brief Static async response handler. Making this static so that this function
@@ -144,14 +151,14 @@ namespace fds
      * @param header
      * @param payload
      */
-    void BaseAsyncSvcHandler::asyncRespHandler(
+    void BaseAsyncSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
     {
         // If we timed out we don't want the real response coming in behind us
         auto    asyncReq = header->msg_code == ERR_SVC_REQUEST_TIMEOUT ?
-            gSvcRequestTracker->popFromTracking(static_cast<SvcRequestId>(header->msg_src_id)) :
-            gSvcRequestTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
+            reqTracker->popFromTracking(static_cast<SvcRequestId>(header->msg_src_id)) :
+            reqTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
 
         if (!asyncReq)
         {
@@ -166,5 +173,16 @@ namespace fds
         SVCPERF(asyncReq->ts.rspRcvdTs = header->rspRcvdTs);
 
         asyncReq->handleResponse(header, payload);
+    }
+
+    void BaseAsyncSvcHandler::sendAsyncResp_(const fpi::AsyncHdr& reqHdr,
+                        const fpi::FDSPMsgTypeId &msgTypeId,
+                        StringPtr &payload)
+    {
+        auto respHdr = boost::make_shared<fpi::AsyncHdr>(
+            std::move(SvcRequestPool::swapSvcReqHeader(reqHdr)));
+        respHdr->msg_type_id = msgTypeId;
+
+        MODULEPROVIDER()->getSvcMgr()->sendAsyncSvcRespMessage(respHdr, payload);
     }
 }  // namespace fds

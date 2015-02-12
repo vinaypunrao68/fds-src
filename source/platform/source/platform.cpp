@@ -259,7 +259,8 @@ namespace fds
 
     void Platform::mod_startup()
     {
-        gSvcRequestPool = new SvcRequestPool();
+        fpi::SvcUuid svcUuid;
+        gSvcRequestPool = new SvcRequestPool(nullptr, plf_my_svc_uuid.toSvcUuid(), nullptr);
         Module::mod_startup();
     }
 

@@ -12,10 +12,11 @@
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
+
 class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHandler
 {
   public:
-    PlatNetSvcHandler();
+    explicit PlatNetSvcHandler(CommonModuleProviderIf *provider);
     virtual ~PlatNetSvcHandler();
 
     virtual void allUuidBinding(const fpi::UuidBindMsg& mine);

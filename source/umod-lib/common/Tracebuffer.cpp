@@ -49,7 +49,9 @@ void TracebufferPool::freeTraceEntry(TraceEntry *e)
     freelistHead_ = e;
 }
 
-Tracebuffer::Tracebuffer(TracebufferPolicy traceBufPolicy)
+Tracebuffer::Tracebuffer(CommonModuleProviderIf* moduleProvider,
+                         TracebufferPolicy traceBufPolicy)
+ : HasModuleProvider(moduleProvider)
 {
     head_ = nullptr;
     tail_ = nullptr;

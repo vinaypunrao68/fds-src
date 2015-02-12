@@ -7,6 +7,7 @@
 #include "node_platform.h"
 #include "node_info_iter.h"
 #include "node_update_iter.h"
+#include <net/SvcRequest.h>
 
 namespace fds
 {
@@ -19,7 +20,8 @@ namespace fds
     {
     }
 
-    PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc) : fpi::PlatNetSvcIf(), net_plat(svc)
+    PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
+        : PlatNetSvcHandler(nullptr), net_plat(svc)
     {
         REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
         REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);

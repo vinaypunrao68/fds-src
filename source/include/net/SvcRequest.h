@@ -17,6 +17,7 @@
 #include <fdsp_utils.h>
 #include <concurrency/taskstatus.h>
 #include <fds_counters.h>
+#include <fds_module_provider.h>
 
 #define SVCPERF(statement) statement
 
@@ -89,7 +90,6 @@ class SvcRequestCounters : public FdsCounters
     /* Request latency */
     LatencyCounter      reqLat;
 };
-extern SvcRequestCounters* gSvcRequestCntrs;
 
 template <class ReqT, class RespMsgT>
 struct SvcRequestCbTask : concurrency::TaskStatus {
@@ -123,8 +123,9 @@ struct SvcRequestCbTask : concurrency::TaskStatus {
 /**
 * @brief Timer task for Async svc requests
 */
-struct SvcRequestTimer : FdsTimerTask {
-    SvcRequestTimer(const SvcRequestId &id,
+struct SvcRequestTimer : HasModuleProvider, FdsTimerTask {
+    SvcRequestTimer(CommonModuleProviderIf* provider,
+                    const SvcRequestId &id,
                     const fpi::FDSPMsgTypeId &msgTypeId,
                     const fpi::SvcUuid &myEpId,
                     const fpi::SvcUuid &peerEpId);
@@ -209,10 +210,11 @@ struct DmtVolumeIdEpProvider : EpIdProvider {
 /**
  * Base class for async svc requests
  */
-struct SvcRequestIf {
+struct SvcRequestIf : HasModuleProvider {
     SvcRequestIf();
 
-    SvcRequestIf(const SvcRequestId &id, const fpi::SvcUuid &myEpId);
+    SvcRequestIf(CommonModuleProviderIf* provider,
+                 const SvcRequestId &id, const fpi::SvcUuid &myEpId);
 
     virtual ~SvcRequestIf();
 
@@ -224,7 +226,6 @@ struct SvcRequestIf {
         /* NOTE: Doing the serialization on calling thread */
         SVCPERF(util::StopWatch sw; sw.start());
         fds::serializeFdspMsg(*payload, buf);
-        SVCPERF(gSvcRequestCntrs->serializationLat.update(sw.getElapsedNanos()));
         setPayloadBuf(msgTypeId, buf);
     }
     void setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
@@ -306,9 +307,10 @@ struct SvcRequestIf {
 struct EPSvcRequest : SvcRequestIf {
     EPSvcRequest();
 
-    EPSvcRequest(const SvcRequestId &id,
-                      const fpi::SvcUuid &myEpId,
-                      const fpi::SvcUuid &peerEpId);
+    EPSvcRequest(CommonModuleProviderIf* provider,
+                 const SvcRequestId &id,
+                 const fpi::SvcUuid &myEpId,
+                 const fpi::SvcUuid &peerEpId);
 
     ~EPSvcRequest();
 
@@ -344,9 +346,10 @@ typedef boost::shared_ptr<EPSvcRequest> EPSvcRequestPtr;
 struct MultiEpSvcRequest : SvcRequestIf {
     MultiEpSvcRequest();
 
-    MultiEpSvcRequest(const SvcRequestId& id,
-            const fpi::SvcUuid &myEpId,
-            const std::vector<fpi::SvcUuid>& peerEpIds);
+    MultiEpSvcRequest(CommonModuleProviderIf* provider,
+                      const SvcRequestId& id,
+                      const fpi::SvcUuid &myEpId,
+                      const std::vector<fpi::SvcUuid>& peerEpIds);
 
     void addEndpoint(const fpi::SvcUuid& peerEpId);
 
@@ -369,13 +372,15 @@ struct MultiEpSvcRequest : SvcRequestIf {
 struct FailoverSvcRequest : MultiEpSvcRequest {
     FailoverSvcRequest();
 
-    FailoverSvcRequest(const SvcRequestId& id,
-            const fpi::SvcUuid &myEpId,
-            const std::vector<fpi::SvcUuid>& peerEpIds);
+    FailoverSvcRequest(CommonModuleProviderIf* provider,
+                       const SvcRequestId& id,
+                       const fpi::SvcUuid &myEpId,
+                       const std::vector<fpi::SvcUuid>& peerEpIds);
 
-    FailoverSvcRequest(const SvcRequestId& id,
-            const fpi::SvcUuid &myEpId,
-            const EpIdProviderPtr epProvider);
+    FailoverSvcRequest(CommonModuleProviderIf* provider,
+                       const SvcRequestId& id,
+                       const fpi::SvcUuid &myEpId,
+                       const EpIdProviderPtr epProvider);
 
 
     ~FailoverSvcRequest();
@@ -413,13 +418,15 @@ typedef boost::shared_ptr<FailoverSvcRequest> FailoverSvcRequestPtr;
 struct QuorumSvcRequest : MultiEpSvcRequest {
     QuorumSvcRequest();
 
-    QuorumSvcRequest(const SvcRequestId& id,
-            const fpi::SvcUuid &myEpId,
-            const std::vector<fpi::SvcUuid>& peerEpIds);
+    QuorumSvcRequest(CommonModuleProviderIf* provider,
+                     const SvcRequestId& id,
+                     const fpi::SvcUuid &myEpId,
+                     const std::vector<fpi::SvcUuid>& peerEpIds);
 
-    QuorumSvcRequest(const SvcRequestId& id,
-            const fpi::SvcUuid &myEpId,
-            const EpIdProviderPtr epProvider);
+    QuorumSvcRequest(CommonModuleProviderIf* provider,
+                     const SvcRequestId& id,
+                     const fpi::SvcUuid &myEpId,
+                     const EpIdProviderPtr epProvider);
 
     ~QuorumSvcRequest();
 

@@ -12,8 +12,7 @@
 #include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/Streaming.h>
 #include <fdsp/fds_service_types.h>
-#include <net/BaseAsyncSvcHandler.h>
-#include <net/SvcMgr.h>
+// #include <net/SvcMgr.h>
 
 
 // New includes
@@ -30,7 +29,7 @@ const fpi::SvcUuid  NullSvcUuid;
  * -----------------------------------------------------------------------------------
  */
 NetMgr::~NetMgr() {
-    delete svcMgr;
+    // delete svcMgr;
 }
 NetMgr::NetMgr(const char *name)
     : Module(name), plat_lib(NULL), ep_shm(NULL),
@@ -59,9 +58,9 @@ NetMgr::ep_get_task_executor() {
 int
 NetMgr::mod_init(SysParams const *const p)
 {
-    svcMgr = new SvcMgr(nullptr, fpi::SvcInfo());
+    // svcMgr = new SvcMgr(nullptr, nullptr, nullptr, fpi::SvcInfo());
     static Module *ep_mgr_mods[] = {
-        svcMgr,
+        // svcMgr,
         gl_EpShmPlatLib,
         gl_NetPlatSvc,
         NULL

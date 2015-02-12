@@ -748,7 +748,9 @@ int32_t FDSP_ConfigPathReqHandler::auditTierPolicy(
 
 
 FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
-    OrchMgr *oMgr) {
+    OrchMgr *oMgr)
+    : PlatNetSvcHandler(oMgr) 
+    {
     orchMgr = oMgr;
 
     // REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyMigrationStatus, migrationDone);

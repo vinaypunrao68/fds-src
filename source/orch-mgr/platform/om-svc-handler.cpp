@@ -38,6 +38,9 @@ create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_
 OmSvcHandler::~OmSvcHandler() {}
 
 OmSvcHandler::OmSvcHandler()
+// NOTE: Below MODULEPROVIDER() is globlal.  OmSvcHandler should take MODULEPROVIDER()
+// as param
+: PlatNetSvcHandler(MODULEPROVIDER())
 {
     om_mod = OM_NodeDomainMod::om_local_domain();
     // REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);

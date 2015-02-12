@@ -54,8 +54,30 @@ class CommonModuleProviderIf {
     virtual SvcMgr* getSvcMgr() {return nullptr;}
 };
 
-extern CommonModuleProviderIf* gModuleProvider;
-#define MODULEPROVIDER() gModuleProvider
+#define MODULEPROVIDER() getModuleProvider()
+
+/**
+* @brief Derive from this class to have access to moduel provider.
+* IMPORTANT - FOR ANY NEW CODE, DON'T USE GLOBALS.  INSTEAD DERIVE THIS CLASS.
+*/
+struct HasModuleProvider {
+    explicit HasModuleProvider(CommonModuleProviderIf* provider) {
+        setModuleProvider(provider);
+    }
+    void setModuleProvider(CommonModuleProviderIf* provider) {
+        moduleProvider_ = provider;
+    }
+    CommonModuleProviderIf* getModuleProvider() const {
+        return moduleProvider_;
+    }
+    CommonModuleProviderIf* moduleProvider_;
+};
+
+/*
+ * IMPORTANT - Don't use getModuleProvider() directly.  Instead use the MODULEPROVIDER() macro
+ */
+extern CommonModuleProviderIf* getModuleProvider();
+
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_MODULE_PROVIDER_H_
