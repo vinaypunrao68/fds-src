@@ -1032,6 +1032,10 @@ void DataMgr::mod_enable_service() {
         std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
     timeline.open();
+
+    // Register the DLT manager with service layer so that
+    // outbound requests have the correct dlt_version.
+    gSvcRequestPool->setDltManager(omClient->getDltManager());
 }
 
 void DataMgr::mod_shutdown()
