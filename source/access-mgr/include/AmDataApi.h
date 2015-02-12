@@ -55,7 +55,7 @@ class AmDataApi : public apis::AmServiceIf {
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName);
 
-    void volumeContents(std::vector<apis::BlobDescriptor> & _return,
+    void volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                         const std::string& domainName,
                         const std::string& volumeName,
                         const int32_t count,
@@ -63,7 +63,7 @@ class AmDataApi : public apis::AmServiceIf {
                         const std::string& pattern,
                         const fpi::BlobListOrder orderBy,
                         const bool descending);
-    void volumeContents(std::vector<apis::BlobDescriptor> & _return,
+    void volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<int32_t>& count,
@@ -72,11 +72,11 @@ class AmDataApi : public apis::AmServiceIf {
                         boost::shared_ptr<fpi::BlobListOrder>& orderBy,
                         boost::shared_ptr<bool>& descending);
 
-    void statBlob(apis::BlobDescriptor& _return,
+    void statBlob(fpi::BlobDescriptor& _return,
                   const std::string& domainName,
                   const std::string& volumeName,
                   const std::string& blobName);
-    void statBlob(apis::BlobDescriptor& _return,
+    void statBlob(fpi::BlobDescriptor& _return,
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName);

@@ -40,12 +40,19 @@ def suiteConstruction(self, action="installbootactivate"):
     fdscfg = genericTestCase.parameters["fdscfg"]
     log = logging.getLogger("ClusterBootSuite")
 
+    # Note: If installing, restart Redis in a clean state. If booting
+    # just boot Redis but don't mess with it's state.
     if action.count("install") > 0:
         # Build the necessary FDS infrastructure.
         suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
         suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
+        suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
 
     if action.count("boot") > 0:
+        if action.count("install") == 0:
+            suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
+
         # Start the the OM's PM.
         suite.addTest(testcases.TestFDSModMgt.TestPMForOMBringUp())
         suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())

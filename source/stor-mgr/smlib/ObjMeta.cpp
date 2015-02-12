@@ -339,14 +339,14 @@ fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds
     if (it == assoc_entry.end()) return false;
 
     // found association, decrement ref counts
-    fds_verify((*it).ref_cnt > 0L);
+    fds_verify((*it).ref_cnt > 0UL);
     (*it).ref_cnt--;
-    if ((*it).ref_cnt == 0L) {
+    if ((*it).ref_cnt == 0UL) {
         assoc_entry.erase(it);
     }
     obj_map.obj_num_assoc_entry = assoc_entry.size();
     obj_map.obj_refcnt--;
-    if (obj_map.obj_refcnt == 0L) {
+    if (obj_map.obj_refcnt == 0UL) {
         obj_map.obj_del_time = ts;
     }
     return true;
@@ -354,13 +354,13 @@ fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds
 
 void
 ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
-                           fds_uint32_t>& vol_refcnt) const {
+                           fds_uint64_t>& vol_refcnt) const {
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (assoc_entry[i].ref_cnt > 0L) {
-            if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0) {
-                vol_refcnt[assoc_entry[i].vol_uuid] = 0;
+        if (assoc_entry[i].ref_cnt > 0UL) {
+            if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0UL) {
+                vol_refcnt[assoc_entry[i].vol_uuid] = 0UL;
             }
             vol_refcnt[assoc_entry[i].vol_uuid] += assoc_entry[i].ref_cnt;
         }
@@ -467,12 +467,19 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
     LOGMIGRATE << "OLD Object MetaData: " << oldObjMetaData->logString();
     LOGMIGRATE << "NEW Object MetaData: " << logString();
 
-    fds_assert(memcmp(obj_map.obj_id.metaDigest, oldObjMetaData->obj_map.obj_id.metaDigest,
+    fds_assert(memcmp(obj_map.obj_id.metaDigest,
+               oldObjMetaData->obj_map.obj_id.metaDigest,
                sizeof(obj_map.obj_id.metaDigest)) == 0);
 
     /* calculate the refcnt change */
     obj_map.obj_refcnt = (uint64_t)((int64_t)obj_map.obj_refcnt -
                                     (int64_t)oldObjMetaData->obj_map.obj_refcnt);
+
+    /* Assert that obj_refcnt cannot be 0. Since we are currently only concerned about
+     * refcnt, if the recnt is 0, that means that the ref cnt is the same.
+     */
+    fds_assert(obj_map.obj_refcnt != 0);
+
 
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     fds_assert(oldObjMetaData->obj_map.obj_num_assoc_entry == oldObjMetaData->assoc_entry.size());
@@ -495,9 +502,21 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
      *       - update it with *negative* value of old entry.
      * 3) volume association exists in new, but not in old
      *       - do nothing.
+     * NOTE: old iter cannot be empty, since we selected objects with >0 refcnt.  However,
+     *       but new iter can be empty, since the object could've been deleted, resulting in
+     *       empty volume association.
      */
     while (oldIter != oldObjMetaData->assoc_entry.end()) {
-        if (oldIter->vol_uuid == newIter->vol_uuid) {
+        if (newIter == assoc_entry.end()) {
+            /* We've reached the end of the new iter, or the new iter was
+             * empty to begin with.  If that's the case, we need to add
+             * the entries from the old volume association entry to new volume association.
+             */
+            oldIter->ref_cnt = (uint64_t)((int64_t)-(oldIter->ref_cnt));
+            assoc_entry.push_back(*oldIter);
+
+            ++oldIter;
+        } else if (oldIter->vol_uuid == newIter->vol_uuid) {
             /* This is a case where volume association appears on both obj metadata.
              * Get the *signed* value and update it with the diff.
              */
@@ -559,7 +578,7 @@ ObjMetaData::propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaDa
 
     fds_verify(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (assoc_entry[i].ref_cnt > 0L) {
+        if (assoc_entry[i].ref_cnt > 0UL) {
             fds_verify(assoc_entry[i].vol_uuid != 0);
             fpi::MetaDataVolumeAssoc volAssoc;
             volAssoc.volumeAssoc = assoc_entry[i].vol_uuid;
@@ -602,6 +621,12 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         }
         obj_map.obj_refcnt = newRefcnt;
 
+        // sum of all volume association should match the obj_refcnt.  If not,
+        // something is wrong.
+        // We will panic if obj_refcnt and sum of volume association ref_cnt do
+        // no match.
+        fds_uint64_t sumVolRefCnt = 0;
+
         // reconcile volume association
         std::vector<obj_assoc_entry_t>::iterator it;
         for (auto volAssoc : objMetaData.objectVolumeAssoc) {
@@ -609,15 +634,19 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
             if (it != assoc_entry.end()) {
                 // found volume association, reconcile
                 newRefcnt = it->ref_cnt + volAssoc.volumeRefCnt;
+
                 if (newRefcnt >= 0) {
                     it->ref_cnt = newRefcnt;
                     if (newRefcnt == 0) {
                         assoc_entry.erase(it);
                         obj_map.obj_num_assoc_entry = assoc_entry.size();
                     }
+                    // sum up volume refcnt to sum for validation later.
+                    sumVolRefCnt += newRefcnt;
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
+
             } else {
                 // this is a new association..
                 if (volAssoc.volumeRefCnt >= 0) {
@@ -626,6 +655,9 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                     new_association.ref_cnt = volAssoc.volumeRefCnt;
                     assoc_entry.push_back(new_association);
                     obj_map.obj_num_assoc_entry = assoc_entry.size();
+
+                    // sum up volume refcnt to sum for validation later.
+                    sumVolRefCnt += new_association.ref_cnt;
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
@@ -640,7 +672,12 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                 return err;
             }
         }
+        // Verify that sum of all volume association ref cnt matches the
+        // per object refcnt.
+        // For now, the best thing is to panic if this occurs.
+        fds_verify(obj_map.obj_refcnt == sumVolRefCnt);
     } else {
+        // !metadatareconcileonly
         // over-write metadata
         if (objMetaData.objectRefCnt < 0) {
             LOGERROR << "Object refcnt must be > 0 if isObjectMetaDataReconcile is false "
@@ -724,15 +761,20 @@ fds_bool_t ObjMetaData::isObjCorrupted() const {
  */
 bool ObjMetaData::operator==(const ObjMetaData &rhs) const
 {
+    /* Add assert for debug code only */
+    fds_assert(0 == memcmp(obj_map.obj_id.metaDigest,
+                           rhs.obj_map.obj_id.metaDigest,
+                           sizeof(obj_map.obj_id.metaDigest)));
+
     /* If any of the field do not match, then return false */
     if ((0 != memcmp(obj_map.obj_id.metaDigest,
                      rhs.obj_map.obj_id.metaDigest,
                      sizeof(obj_map.obj_id.metaDigest))) ||
+        (obj_map.obj_refcnt != rhs.obj_map.obj_refcnt) ||
         (obj_map.compress_type != rhs.obj_map.compress_type) ||
         (obj_map.compress_len != rhs.obj_map.compress_len) ||
         (obj_map.obj_blk_len != rhs.obj_map.obj_blk_len) ||
         (obj_map.obj_size != rhs.obj_map.obj_size) ||
-        (obj_map.obj_refcnt != rhs.obj_map.obj_refcnt) ||
         (obj_map.expire_time != rhs.obj_map.expire_time)) {
         return false;
     }
@@ -766,8 +808,8 @@ std::string ObjMetaData::logString() const
 
     oss << "id=" << obj_id
         << " refcnt=" << obj_map.obj_refcnt
-        << " flags=" << (uint32_t)obj_map.obj_flags
-        << " compression_type=" << obj_map.compress_type
+        << " flags=" << std::hex << obj_map.obj_flags << std::dec
+        << " compression_type=" << (uint32_t)obj_map.compress_type
         << " compress_len=" << obj_map.compress_len
         << " blk_len=" << obj_map.obj_blk_len
         << " len=" << obj_map.obj_size

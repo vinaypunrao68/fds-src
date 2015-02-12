@@ -2,8 +2,8 @@ description     "fdsactivate"
 
 limit nofile 400000 400000
 limit core unlimited unlimited
-env LD_LIBRARY_PATH=/fds/lib:/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64 
-env PATH=$PATH:/fds/bin 
+env LD_LIBRARY_PATH=/fds/lib:/usr/local/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
+env PATH=$PATH:/opt/fds-deps/embedded/bin:/fds/bin 
 chdir /fds/bin
 
 exec fdscli --fds-root /fds/ --activate-nodes abc -k 1 -e am,sm,dm

@@ -628,11 +628,9 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         // forward this IO to destination SM if needed, but only if we succeeded locally
         if (err.ok() &&
             migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq)) {
-            // we forwarded request, we will respond to PUT on ack
-            // from the destination SM
-            LOGDEBUG << "Forwarded Put " << objId << " to destination SM "
-                     << "; waiting for ack to respond to AM";
-            return err;
+            // we forwarded request, however we will ack to AM right away, and if
+            // forwarded request fails, we will fail the migration
+            LOGMIGRATE << "Forwarded Put " << objId << " to destination SM ";
         }
     }
 
@@ -669,11 +667,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
         // forward this IO to destination SM if needed, but only if we succeeded locally
         if (err.ok() &&
             migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq)) {
-            // we forwarded request, we will respond to Delete on ack
-            // from the destination SM
-            LOGDEBUG << "Forwarded Delete " << objId << " to destination SM "
-                     << "; waiting for ack to respond to AM";
-            return err;
+            // we forwarded request, however we will ack to AM right away, and if
+            // forwarded request fails, we will fail the migration
+            LOGMIGRATE << "Forwarded Delete " << objId << " to destination SM ";
         }
     }
 
@@ -860,13 +856,15 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
+    LOGDEBUG << *snapReq;
 
     // When this lock is held, any put/delete request in that
     // object id range will block
     auto token_lock = getTokenLock(snapReq->token_id, true);
 
-    // start forwarding puts and deletes for this SM token
-    migrationMgr->startForwarding(snapReq->token_id);
+    // if this is snapshot for migration, start forwarding puts and deletes
+    // for this migration client (which is addressed by executorID on destination side)
+    migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
 
     objectStore->snapshotMetadata(snapReq->token_id,
                                   snapReq->smio_snap_resp_cb,
@@ -1133,7 +1131,6 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         }
         case FDS_SM_SNAPSHOT_TOKEN:
         {
-            LOGDEBUG << "Processing snapshot";
             threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
             break;
         }

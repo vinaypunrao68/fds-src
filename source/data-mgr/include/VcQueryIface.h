@@ -93,7 +93,7 @@ class VolumeCatalogQueryIface {
      * to volume catalog
      */
     virtual Error listBlobs(fds_volid_t volume_id,
-                            fpi::BlobInfoListType* binfo_list) = 0;
+                            fpi::BlobDescriptorListType* bdescr_list) = 0;
 
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'

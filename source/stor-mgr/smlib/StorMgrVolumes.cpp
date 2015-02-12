@@ -252,8 +252,8 @@ void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
                                       const ObjectID &objId,
                                       fds_uint32_t obj_size,
                                       fds_bool_t incr,
-                                      std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) {
-    fds_uint32_t total_refcnt = 0;
+                                      std::map<fds_volid_t, fds_uint64_t>& vol_refcnt) {
+    fds_uint64_t total_refcnt = 0;
     double dedup_bytes = 0;
     if (vol_refcnt.size() == 0) {
         // ignore this
@@ -264,12 +264,12 @@ void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
     if (incr && (vol_refcnt.count(volid) == 0)) {
       vol_refcnt[volid] = 0;
     }
-    for (std::map<fds_volid_t, fds_uint32_t>::const_iterator cit = vol_refcnt.cbegin();
+    for (std::map<fds_volid_t, fds_uint64_t>::const_iterator cit = vol_refcnt.cbegin();
          cit != vol_refcnt.cend();
          ++cit) {
         total_refcnt += cit->second;
     }
-    fds_uint32_t new_total_refcnt = total_refcnt;
+    fds_uint64_t new_total_refcnt = total_refcnt;
     if (incr) {
         ++new_total_refcnt;
     } else {
@@ -279,10 +279,10 @@ void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
 
     // dedupe bytes = ObjSize * (total_refcnt - 1) * refcnt[volid] / total_refcnt
 
-    for (std::map<fds_volid_t, fds_uint32_t>::const_iterator cit = vol_refcnt.cbegin();
+    for (std::map<fds_volid_t, fds_uint64_t>::const_iterator cit = vol_refcnt.cbegin();
          cit != vol_refcnt.cend();
          ++cit) {
-        fds_uint32_t my_refcnt = cit->second;
+        fds_uint64_t my_refcnt = cit->second;
         double old_dedup_bytes = 0;
         if (total_refcnt > 0) {
             old_dedup_bytes = obj_size * my_refcnt * (total_refcnt - 1) / total_refcnt;
@@ -339,7 +339,7 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
     }
 
     /*
-     * update the stats 
+     * update the stats
      */
     // TODO(Anna) -- remember why we need this, and when we do, uncomment or move
     // to appropriate place
@@ -409,7 +409,7 @@ StorMgrVolumeTable::deleteVolIndexEntry(fds_volid_t vol_uuid,
 *
 * @param inVols
 *
-* @return 
+* @return
 * NOTE: It's better to have a cached list of flash only volumes to avoid the lock.
 */
 bool StorMgrVolumeTable::hasFlashOnlyVolumes(const std::vector<fds_volid_t>& inVols)

@@ -1,6 +1,7 @@
 package com.formationds.hadoop;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.blob.Mode;

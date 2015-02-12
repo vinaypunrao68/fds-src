@@ -22,6 +22,20 @@
 
 #define DM_SEND_ASYNC_RESP(...) gl_DmPlatform.getDmRecv()->sendAsyncResp(__VA_ARGS__)
 
+#define HANDLE_INVALID_TX_ID() \
+    if (BlobTxId::txIdInvalid == message->txId) { \
+        LOGWARN << "Received invalid tx id with" << logString(*message); \
+        handleResponse(asyncHdr, message, ERR_DM_INVALID_TX_ID, nullptr); \
+        return; \
+    }
+
+#define HANDLE_U_TURN() \
+    if (dataMgr->testUturnAll) { \
+        LOGNOTIFY << "Uturn testing" << logString(*message); \
+        handleResponse(asyncHdr, message, ERR_OK, nullptr); \
+        return; \
+    }
+
 namespace fds { namespace dm {
 /**
  * ------ NOTE :: IMPORTANT ---

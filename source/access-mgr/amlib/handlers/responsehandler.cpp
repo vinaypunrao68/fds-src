@@ -100,7 +100,7 @@ GetObjectResponseHandler::~GetObjectResponseHandler() {
 }
 //================================================================================
 
-ListBucketResponseHandler::ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs)
+ListBucketResponseHandler::ListBucketResponseHandler(std::vector<fpi::BlobDescriptor> & vecBlobs)
         : retVecBlobs(vecBlobs) { //NOLINT
 }
 
@@ -140,7 +140,7 @@ BucketStatsResponseHandler::~BucketStatsResponseHandler() {
 }
 
 StatBlobResponseHandler::StatBlobResponseHandler(
-    apis::BlobDescriptor& retVal) : retBlobDesc(retVal) {
+    fpi::BlobDescriptor& retVal) : retBlobDesc(retVal) {
 }
 
 

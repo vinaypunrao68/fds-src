@@ -723,7 +723,7 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
               GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
-              cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>(); \
+              cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>(); \
               amReq->proc_cb(ERR_OK); \
               return;);
 
@@ -757,17 +757,12 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         // using the same structure for input and output
         auto response = MSG_DESERIALIZE(GetBucketRspMsg, error, payload);
 
+        LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " <<
+                response->blob_descr_list.size();
+
         GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
-        size_t count = response->blob_info_list.size();
-        LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " << count;
-        cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>();
-        cb->vecBlobs->reserve(count);
-        for (size_t i = 0; i < count; ++i) {
-            apis::BlobDescriptor bd;
-            bd.name = response->blob_info_list[i].blob_name;
-            bd.byteCount = response->blob_info_list[i].blob_size;
-            cb->vecBlobs->push_back(bd);
-        }
+        cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>();
+        cb->vecBlobs->swap(response->blob_descr_list);
     }
     amReq->proc_cb(error);
 }

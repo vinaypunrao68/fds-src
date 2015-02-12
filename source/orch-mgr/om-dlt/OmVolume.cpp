@@ -829,6 +829,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
+    pkt->srcVolumeId = pVol->srcVolumeId;
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
 }

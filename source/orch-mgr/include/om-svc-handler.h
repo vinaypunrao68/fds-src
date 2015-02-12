@@ -51,6 +51,10 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
     SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlSvcEvent> &msg);
 
+    virtual void
+    AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                        boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg);
+
   protected:
     OM_NodeDomainMod         *om_mod;
     EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;

@@ -5,6 +5,7 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;

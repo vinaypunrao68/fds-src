@@ -228,6 +228,54 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
         return True
 
 
+# This class contains attributes and methods to test clean shared memory.
+# A workaround that is presently required if you want to restart a cluster
+# that was previously started.
+class TestFDSSharedMemoryClean(TestCase.FDSTestCase):
+    def __init__(self, parameters = None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_FDSSharedMemoryClean,
+                                             "Remove /dev/shm/0x* entries")
+
+        self.passedNode = node
+
+    def test_FDSSharedMemoryClean(self):
+        """
+        Test Case:
+        Attempt to selectively delete from the FDS installation directory.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If we were passed a specific node, use it and get it.
+            if self.passedNode is not None:
+                n = self.passedNode
+
+            # Delete any shared memory segments found
+            status = n.nd_agent.exec_wait('find /dev/shm -name "0x*" -exec rm {} \;')
+            if status == 0:
+                # Try to delete it.
+                self.log.info("Shared memory segments deleted on node %s" %
+                              (n.nd_conf_dict['node-name']))
+            else:
+                self.log.warn("Failed to delete shared memory segments on node %s." %
+                              (n.nd_conf_dict['node-name']))
+
+            if self.passedNode is not None:
+                # We're done with the specified node. Get out.
+                break
+        return True
+
 # This class contains attributes and methods to test
 # clean selective parts of an FDS installation directory.
 class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
@@ -260,23 +308,14 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
 
-            fds_dir = n.nd_conf_dict['fds_root']
+            self.log.info("Attempting to selectively clean node %s." % n.nd_conf_dict['node-name'])
 
-            # Check to see if the FDS root directory is already there.
-            status = n.nd_agent.exec_wait('ls ' + fds_dir)
-            if status == 0:
-                # Try to delete it.
-                self.log.info("FDS installation directory, %s, exists on node %s. Attempting to selectively clean." %
-                              (fds_dir, n.nd_conf_dict['node-name']))
-                print fds_dir
-                status = n.nd_cleanup_node(test_harness=True, _bin_dir=bin_dir)
-                if status != 0:
-                    self.log.error("FDS installation directory selective clean on node %s returned status %d." %
-                                   (n.nd_conf_dict['node-name'], status))
-                    return False
-            else:
-                self.log.warn("FDS installation directory, %s, nonexistent on node %s." %
-                              (fds_dir, n.nd_conf_dict['node-name']))
+            status = n.nd_cleanup_node(test_harness=True, _bin_dir=bin_dir)
+
+            if status != 0:
+                self.log.error("FDS installation directory selective clean on node %s returned status %d." %
+                               (n.nd_conf_dict['node-name'], status))
+                return False
 
             if self.passedNode is not None:
                 # We're done with the specified node. Get out.
@@ -505,7 +544,7 @@ class TestVerifyRedisUp(TestCase.FDSTestCase):
             self.log.error("Verify Redis is up on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        self.log.error(stdout)
+        self.log.info(stdout)
 
         if stdout.count("NOT") > 0:
             return False

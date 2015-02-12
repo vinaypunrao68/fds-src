@@ -73,6 +73,8 @@ typedef enum {
     ERR_DM_FORWARD_FAILED     = 50,
     ERR_SHUTTING_DOWN         = 51,
     ERR_DM_MIGRATION_ABORTED  = 52,
+    ERR_DM_VOL_NOT_ACTIVATED  = 53,
+    ERR_DM_INVALID_TX_ID      = 54,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

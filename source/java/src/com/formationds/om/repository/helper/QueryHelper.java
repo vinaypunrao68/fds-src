@@ -182,18 +182,24 @@ public class QueryHelper {
 	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
 	            		.findFirst().get();
 	            	
-	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
-	            		.findFirst().get();
-	            	
-	            	gets.getDatapoints().forEach( 
-	            		gPoint -> {
-	            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
-	            				.forEach(
-		            				sPoint -> {
-		            					gPoint.setY( gPoint.getY() - sPoint.getY() );
-		            				}
-		            			);
-	            		});
+	            	// we could just test the query, but this captures more potential problems retrieving the list
+	            	try {
+		            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
+		            		.findFirst().get();
+		            	
+		            	gets.getDatapoints().forEach( 
+		            		gPoint -> {
+		            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
+		            				.forEach(
+			            				sPoint -> {
+			            					gPoint.setY( gPoint.getY() - sPoint.getY() );
+			            				}
+			            			);
+		            		});
+	            	}
+	            	catch( NoSuchElementException noEm ) {
+	            		logger.info( "The query either did not contain an SSD element, or one was not found.  Calculations will not include it." );
+	            	}
 	            	
 	            	calculatedList.add( getAverageIOPs( query.getRange(), series ) );
 	            	
@@ -293,7 +299,7 @@ public class QueryHelper {
      * 
      * @return returns true if all {@link Metrics} are included in both sets
      */
-    protected boolean isPerformanceBreakdownQuery( final List<Metrics> metrics ) {
+    protected boolean isPerformanceBreakdownQuery( final List<Metrics> metrics ) {    	
     	for ( final Metrics m : metrics ) {
     		if ( !Metrics.PERFORMANCE_BREAKDOWN.contains( m ) ){
     			return false;
