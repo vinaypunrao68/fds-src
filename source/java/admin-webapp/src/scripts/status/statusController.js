@@ -24,7 +24,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.firebreakDomain = [ 'max', 3600*12, 3600*6, 3600*3, 3600, 0 ];
     $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
     
-    $scope.performanceColors = [ '#8784DE', '#606ED7', '#489AE1' ];
+    $scope.performanceColors = [ '#489AE1', '#606ED7', '#8784DE' ];
     $scope.performanceLine = ['#8784DE', 'white', 'white'];
     $scope.fakeCapColors = [ '#ABD3F5', '#72AEEB' ];
     
@@ -35,7 +35,13 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
     $scope.healthReturned = function( data ){
+    
+        for ( var i = 0; i < data.status.length; i++ ){
+            data.status[i].message = $filter( 'translate' )( 'status.' + data.status[i].message );
+        }
+        
         $scope.health = data;
+        
         $scope.healthStatus = [{ number: $filter( 'translate' )( 'status.l_' + data.overall.toLowerCase() )}];
     };
     

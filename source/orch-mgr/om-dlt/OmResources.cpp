@@ -131,6 +131,8 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     };
     struct DST_WaitDltDmt : public msm::front::state<>
     {
+        typedef mpl::vector<RegNodeEvt> deferred_events;
+
         DST_WaitDltDmt() {
             dlt_up = false;
             dmt_up = false;
@@ -190,6 +192,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
      * Transition actions.
      */
     struct DACT_Wait
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_SendDltDmt
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -266,7 +273,8 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         // +-----------------+-------------+------------+---------------+--------------+
         msf::Row<DST_WaitDltDmt, DltDmtUpEvt, DST_DomainUp, DACT_LoadVols, GRD_DltDmtUp>,
         // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_DomainUp, ShutdownEvt , DST_DomainShutdown, DACT_Shutdown, msf::none >
+        msf::Row<DST_DomainUp, ShutdownEvt , DST_DomainShutdown, DACT_Shutdown, msf::none >,
+        msf::Row<DST_DomainUp, RegNodeEvt  ,DST_DomainUp,DACT_SendDltDmt,  msf::none   >
         // +-----------------+-------------+------------+---------------+--------------+
         >{};  // NOLINT
 
@@ -331,6 +339,40 @@ NodeDomainFSM::GRD_NdsUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 
     return b_ret;
 }
+
+/**
+* DACT_SendDltDmt
+* ------------
+* Send DLT/DMT to node that recently came online.
+*/
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_SendDltDmt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst) {
+    LOGDEBUG << "Sending DLT/DMT to recently onlined node "
+                << std::hex << evt.svc_uuid.uuid_get_val()
+                << std::dec;
+
+    OM_Module *om = OM_Module::om_singleton();
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+    // Get a NodeAgent::ptr to the new node
+    NodeAgent::pointer newNode = local->dc_find_node_agent(evt.svc_uuid);
+
+    // Send DLT to node
+    DataPlacement *dp = om->om_dataplace_mod();
+    OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
+
+
+    // Send DMT to node
+    VolumePlacement* vp = om->om_volplace_mod();
+    if (vp->hasCommittedDMT()) {
+        OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
+    } else {
+        LOGWARN << "Not sending DMT to new node, because no "
+                    << " committed DMT yet";
+    }
+
+};
 
 /**
  * DACT_NodesUp
@@ -1220,12 +1262,18 @@ OM_NodeDomainMod::om_dlt_waiting_timeout() {
 
 void
 OM_NodeDomainMod::om_service_down(const Error& error,
-                                  const NodeUuid& svcUuid) {
+                                  const NodeUuid& svcUuid,
+                                  fpi::FDSP_MgrIdType svcType) {
     OM_Module *om = OM_Module::om_singleton();
-    OM_DLTMod *dltMod = om->om_dlt_mod();
-    OM_DMTMod *dmtMod = om->om_dmt_mod();
-    dltMod->dlt_deploy_event(DltErrorFoundEvt(svcUuid, error));
-    dmtMod->dmt_deploy_event(DmtErrorFoundEvt(svcUuid, error));
+    // notify DLT state machine if this is SM
+    if (svcType == fpi::FDSP_STOR_MGR) {
+        OM_DLTMod *dltMod = om->om_dlt_mod();
+        dltMod->dlt_deploy_event(DltErrorFoundEvt(svcUuid, error));
+    } else if (svcType == fpi::FDSP_DATA_MGR) {
+        // this is DM -- notify DMT state machine
+        OM_DMTMod *dmtMod = om->om_dmt_mod();
+        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(svcUuid, error));
+    }
 }
 
 // Called when OM receives notification that the rebalance is
@@ -1323,7 +1371,7 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
     // migration if DM is down, because this could be DM that is source
     // for migration.
     if (respError.ok() ||
-        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_STOR_MGR))) {
+        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_DATA_MGR))) {
         dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
     } else {
         dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));

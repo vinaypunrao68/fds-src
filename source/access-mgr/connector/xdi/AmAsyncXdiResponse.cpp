@@ -4,8 +4,8 @@
 
 #include <string>
 #include <vector>
-#include <AmAsyncResponseApi.h>
-#include "AmAsyncXdi.h"
+#include "AmAsyncResponseApi.h"
+#include "connector/xdi/AmAsyncXdi.h"
 #include <blob/BlobTypes.h>
 
 #include <arpa/inet.h>
