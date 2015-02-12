@@ -162,6 +162,7 @@ class DmIoMetaRecvd: public dmCatReq {
 class DmIoCommitBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoCommitBlobTx *blobTx)> CbType;
+    fpi::CommitBlobTxRspMsg rspMsg;
 
   public:
     DmIoCommitBlobTx(const fds_volid_t  &_volId,
@@ -212,14 +213,8 @@ class DmIoCommitBlobTx: public dmCatReq {
 class DmIoUpdateCatOnce;
 class DmIoCommitBlobOnce : public  DmIoCommitBlobTx {
   public:
-    DmIoCommitBlobOnce(const fds_volid_t  &_volId,
-                       const std::string &_blobName,
-                       const blob_version_t &_blob_version,
-                       fds_uint64_t _dmt_version)
-            : DmIoCommitBlobTx(_volId, _blobName, _blob_version, _dmt_version) {
-    }
-
-    DmIoUpdateCatOnce *parent;
+   using DmIoCommitBlobTx::DmIoCommitBlobTx;
+   DmIoUpdateCatOnce *parent;
 };
 
 /**

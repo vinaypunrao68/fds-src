@@ -43,11 +43,11 @@ typedef std::unordered_map<fds_volid_t, DmVolumeSummary::ptr> DmVolumeSummaryMap
  * uses two sub-modules: persistent layer and a cache that
  * sits on top of persistent layer
  */
-class DmVolumeDirectory : public Module, public HasLogger,
+class DmVolumeCatalog : public Module, public HasLogger,
         public VolumeCatalogQueryIface {
   public:
-    typedef boost::shared_ptr<DmVolumeDirectory> ptr;
-    typedef boost::shared_ptr<const DmVolumeDirectory> const_ptr;
+    typedef boost::shared_ptr<DmVolumeCatalog> ptr;
+    typedef boost::shared_ptr<const DmVolumeCatalog> const_ptr;
 
     // static methods
     inline static fds_uint32_t getLastObjSize(fds_uint64_t blobSize, fds_uint32_t objSize) {
@@ -60,8 +60,8 @@ class DmVolumeDirectory : public Module, public HasLogger,
     }
 
     // ctor and dtor
-    explicit DmVolumeDirectory(char const * const name);
-    ~DmVolumeDirectory();
+    explicit DmVolumeCatalog(char const * const name);
+    ~DmVolumeCatalog();
 
     // Methods
     virtual void mod_startup() {}
@@ -173,7 +173,7 @@ class DmVolumeDirectory : public Module, public HasLogger,
      * @param[out] binfoList list of blobs
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      */
-    Error listBlobs(fds_volid_t volId, fpi::BlobInfoListType* binfoList);
+    Error listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bdescrList);
 
     /**
      * Updates committed blob in the Volume Catalog.
@@ -218,7 +218,7 @@ class DmVolumeDirectory : public Module, public HasLogger,
          return 0;
      }
 
-    DmPersistVolDir::ptr getVolume(fds_volid_t volId);
+    DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 
   private:
     // methods
@@ -235,7 +235,7 @@ class DmVolumeDirectory : public Module, public HasLogger,
     }
 
     // vars
-    std::unordered_map<fds_volid_t, DmPersistVolDir::ptr> volMap_;
+    std::unordered_map<fds_volid_t, DmPersistVolCat::ptr> volMap_;
     fds_mutex volMapLock_;
 
     expunge_objs_cb_t expungeCb_;

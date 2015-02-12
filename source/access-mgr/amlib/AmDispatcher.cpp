@@ -281,10 +281,34 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
         boost::make_shared<DmtVolumeIdEpProvider>(
             dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), updCatMsg);
-    asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogCb, amReq));
+    asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogOnceCb, amReq));
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << logString(*updCatMsg);
+}
+
+void
+AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
+                              QuorumSvcRequest* svcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload) {
+    fds_verify(amReq->magicInUse());
+    PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
+    fpi::UpdateCatalogOnceRspMsgPtr updCatRsp =
+        net::ep_deserialize<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
+
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
+    if (error != ERR_OK) {
+        LOGERROR << "Obj ID: " << amReq->obj_id
+                 << " blob name: " << amReq->getBlobName()
+                 << " offset: " << amReq->blob_offset
+                 << " Error: " << error;
+    } else {
+        LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
+        blobReq->final_blob_size = updCatRsp->byteCount;
+        blobReq->final_meta_data.swap(updCatRsp->meta_list);
+    }
+    blobReq->notifyResponse(error);
 }
 
 void
@@ -682,6 +706,14 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
+    fpi::CommitBlobTxRspMsgPtr response =
+        net::ep_deserialize<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
+    LOGDEBUG << svcReq->logString();
+    if (ERR_OK == error) {
+        auto blobReq =  static_cast<CommitBlobTxReq *>(amReq);
+        blobReq->final_blob_size = response->byteCount;
+        blobReq->final_meta_data.swap(response->meta_list);
+    }
     // Notify upper layers that the request is done.
     amReq->proc_cb(error);
 }
@@ -691,7 +723,7 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
               GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
-              cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>(); \
+              cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>(); \
               amReq->proc_cb(ERR_OK); \
               return;);
 
@@ -725,17 +757,12 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         // using the same structure for input and output
         auto response = MSG_DESERIALIZE(GetBucketRspMsg, error, payload);
 
+        LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " <<
+                response->blob_descr_list.size();
+
         GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
-        size_t count = response->blob_info_list.size();
-        LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " << count;
-        cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>();
-        cb->vecBlobs->reserve(count);
-        for (size_t i = 0; i < count; ++i) {
-            apis::BlobDescriptor bd;
-            bd.name = response->blob_info_list[i].blob_name;
-            bd.byteCount = response->blob_info_list[i].blob_size;
-            cb->vecBlobs->push_back(bd);
-        }
+        cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>();
+        cb->vecBlobs->swap(response->blob_descr_list);
     }
     amReq->proc_cb(error);
 }

@@ -139,7 +139,7 @@ class VolBasedChecker : public DirBasedChecker {
                      const std::string blob_name,
                      netMetaDataPathClientSession *md_session);
 
-    BlobInfoListType resp_vector;
+    BlobDescriptorListType resp_vector;
     FDSP_BlobDigestType resp_digest;
     FDSP_BlobObjectList resp_obj_list;
 };

@@ -4,6 +4,7 @@
 # philippe@formationds.com
 import paramiko
 
+
 class SSHConn(object):
     '''
     Class SSHConn is a wrapper around paramiko's ssh client. In order to make

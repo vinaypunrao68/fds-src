@@ -40,6 +40,12 @@ struct PutBlobReq
     /* Return status for completion callback */
     Error ret_status;
 
+    /* Final metadata view after catalog update */
+    fpi::FDSP_MetaDataList final_meta_data;
+
+    /* Final blob size after catalog update */
+    fds_uint64_t final_blob_size;
+
     /// Constructor used on regular putBlob requests.
     PutBlobReq(fds_volid_t _volid,
                const std::string& _volumeName,
@@ -78,7 +84,6 @@ struct PutBlobReq
     virtual ~PutBlobReq();
 
     void notifyResponse(const Error &e);
-    void notifyResponse(StorHvQosCtrl *qos_ctrl, const Error &e);
 
  private:
     PutPropertiesPtr put_properties;

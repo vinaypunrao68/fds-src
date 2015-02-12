@@ -41,10 +41,12 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
             
             var calculateNumbers = function( item ){
                 
-                if ( angular.isNumber( item.number ) ){
+                var pInt = parseFloat( item.number );
                 
-                    item.wholeNumber = Math.floor( item.number );
-                    item.decimals = Math.round( (item.number - item.wholeNumber)*100 );
+                if ( !isNaN( pInt ) && angular.isNumber( pInt ) ){
+                
+                    item.wholeNumber = Math.floor( pInt );
+                    item.decimals = Math.round( (pInt - item.wholeNumber)*100 );
                 }
                 else {
                     item.wholeNumber = item.number;

@@ -143,6 +143,7 @@ struct CommitBlobTxHandler : Handler {
     void volumeCatalogCb(Error const& e, blob_version_t blob_version,
                          BlobObjList::const_ptr const& blob_obj_list,
                          MetaDataList::const_ptr const& meta_list,
+                         fds_uint64_t const blobSize,
                          DmIoCommitBlobTx* commitBlobReq);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CommitBlobTxMsg>& message,

@@ -127,6 +127,7 @@ enum  FDSPMsgTypeId {
 
     /* Svc -> OM */
     CtrlSvcEventTypeId                 = 9000,
+    CtrlTokenMigrationAbortTypeId      = 9001,
 
     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
@@ -601,6 +602,10 @@ struct CtrlNotifySMAbortMigration {
      1: i64  DLT_version;
 }
 
+/* ---------------------  CtrlTokenMigrationAbortTypeId  ---------------------------- */
+struct CtrlTokenMigrationAbort {
+}
+
 /* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
 struct CtrlNotifyPushDMT {
      1: FDSP.FDSP_PushMeta        dmt_push;
@@ -822,6 +827,8 @@ struct UpdateCatalogOnceMsg {
 
 /* Update catalog once response message */
 struct UpdateCatalogOnceRspMsg {
+   1: i64                       byteCount;  /* Blob size */
+   2: FDSP.FDSP_MetaDataList    meta_list;  /* sequence of arbitrary key/value pairs */
 }
 
 /* Forward catalog update request message */
@@ -862,6 +869,8 @@ struct CommitBlobTxMsg {
 
 /* Commit Blob traction response message */
 struct CommitBlobTxRspMsg {
+   1: i64                       byteCount;  /* Blob size */
+   2: FDSP.FDSP_MetaDataList    meta_list;  /* sequence of arbitrary key/value pairs */
 }
 
 /* Abort Blob  Transaction  request message */
@@ -923,7 +932,7 @@ struct GetBucketMsg {
 
 struct GetBucketRspMsg {
   //response
-  1: required FDSP.BlobInfoListType     blob_info_list;
+  1: required common.BlobDescriptorListType     blob_descr_list;
 }
 
 struct GetDmStatsMsg {

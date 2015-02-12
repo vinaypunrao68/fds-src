@@ -197,6 +197,10 @@ class AmDispatcher : public Module, public boost::noncopyable {
     /**
      * Callback for update blob responses.
      */
+    void updateCatalogOnceCb(AmRequest* amReq,
+                             QuorumSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload);
     void updateCatalogCb(AmRequest* amReq,
                          QuorumSvcRequest* svcReq,
                          const Error& error,

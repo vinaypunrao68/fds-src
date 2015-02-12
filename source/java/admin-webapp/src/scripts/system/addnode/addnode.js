@@ -1,4 +1,4 @@
-angular.module( 'node-management' ).controller( 'addNodeController', ['$scope','$node_service', '$filter', function( $scope, $node_service, $filter ){
+angular.module( 'node-management' ).controller( 'addNodeController', ['$scope','$node_service', '$filter', '$rootScope', function( $scope, $node_service, $filter, $rootScope ){
 
     $scope.checkState = 'partial';
     $scope.addAllNodes = true;
@@ -22,10 +22,31 @@ angular.module( 'node-management' ).controller( 'addNodeController', ['$scope','
                 toAdd.push( node );
             }
         });
+        
+        // if we have a situation where we have multiple nodes in the list,
+        // but the user is only adding a portion of them we want to 
+        // warn them that it's best to add them all at once
+        if ( toAdd.length < $scope.detachedNodes.length || $scope.addAllNodes === 'partial' ){
+            
+            var confirm = {
+            type: 'CONFIRM',
+            text: $filter( 'translate' )( 'system.desc_add_partial_warning' ),
+            confirm: function( result ){
+                    if ( result === false ){
+                        return;
+                    }
 
-        $node_service.addNodes( toAdd );
-
-        $scope.cancel();
+                    $node_service.addNodes( toAdd );
+                    $scope.cancel();
+                }
+            };
+        
+            $rootScope.$emit( 'fds::confirm', confirm );
+        }
+        else {
+            $node_service.addNodes( toAdd );
+            $scope.cancel();
+        }
     };
 
     var rationalizeParentCheck = function(){

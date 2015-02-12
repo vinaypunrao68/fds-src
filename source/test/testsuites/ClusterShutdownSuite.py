@@ -21,29 +21,41 @@ import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import testcases.TestMgt
-import NodeVerifyShutdownSuite
+import NodeVerifyDownSuite
 
 
-def suiteConstruction(self):
+def suiteConstruction(self, action="kill-uninst"):
     """
     Construct the ordered set of test cases that comprise the
     Cluster Shutdown test suite.
     """
     suite = unittest.TestSuite()
 
-    # One test case to shutdown the cluster.
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
+    if action.count("remove") > 0:
+        # One test case to remove the cluster services.
+        suite.addTest(testcases.TestFDSSysMgt.TestNodeRemoveServices())
 
-    # Verify that all nodes are down.
-    nodeDownSuite = NodeVerifyShutdownSuite.suiteConstruction(self=None)
-    suite.addTest(nodeDownSuite)
+    if action.count("shutdown") > 0:
+        # One test case to remove the cluster services.
+        suite.addTest(testcases.TestFDSSysMgt.TestDomainShutdown())
 
-    # Shutdown Redis.
-    suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis())
-    suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
+    if action.count("kill") > 0:
+        # One test case to shutdown the cluster.
+        suite.addTest(testcases.TestFDSSysMgt.TestNodeKill())
 
-    # Cleanup FDS installation directory.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
+        # Verify that all nodes are down.
+        nodeDownSuite = NodeVerifyDownSuite.suiteConstruction(self=None)
+        suite.addTest(nodeDownSuite)
+
+        # Shutdown Redis.
+        suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis())
+        suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
+
+    if action.count("uninst") > 0:
+        # Cleanup FDS installation directory.
+        suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
+        # This one will take care of other product artifacts such as SHM files.
+        suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())
 
     return suite
 

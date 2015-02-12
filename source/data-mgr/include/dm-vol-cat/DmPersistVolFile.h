@@ -18,7 +18,7 @@
 
 namespace fds {
 
-class DmPersistVolFile : public HasLogger, public DmPersistVolDir {
+class DmPersistVolFile : public HasLogger, public DmPersistVolCat {
   public:
     // types
     typedef boost::shared_ptr<DmPersistVolFile> ptr;

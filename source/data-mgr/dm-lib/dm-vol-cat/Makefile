@@ -8,13 +8,11 @@ user_build_dir    :=
 user_incl_dir     := $(topdir) ../../include
 user_cpp_flags    :=
 user_cpp          := \
-	DmVcCache.cpp \
-	DmExtentTypes.cpp \
 	DmVolumeCatalog.cpp \
 	DmPersistVolCat.cpp \
 	DmPersistVolDB.cpp \
-	DmOIDArrayMmap.cpp \
-	DmPersistVolFile.cpp
+#	DmOIDArrayMmap.cpp \
+#	DmPersistVolFile.cpp
 
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)

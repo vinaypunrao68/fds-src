@@ -53,8 +53,6 @@ class SmTokenMigrationMgr {
     typedef std::unordered_map<fds_token_id, SrcSmExecutorMap> MigrExecutorMap;
     /// executorId -> migrationClient
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
-    /// SM token id -> executor ID map
-    typedef std::unordered_map<fds_token_id, fds_uint64_t> SmTokExecutorIdMap;
 
     /**
      * Matches OM state, just for sanity checks that we are getting
@@ -141,9 +139,12 @@ class SmTokenMigrationMgr {
 
     /**
      * Sets start forwarding flag on migration client responsible
-     * for given SM token
+     * for migrating tokens to given executor
+     * @param executorId executor ID that uniquely identifies destination
+     * SM and DLT tokens that are being migrated to destination SM
+     * @param smTok SM token id, used for sanity check
      */
-    Error startForwarding(fds_token_id smTok);
+    void startForwarding(fds_uint64_t executorId, fds_token_id smTok);
 
     /**
      * Handles DLT close event. At this point IO should not arrive
@@ -235,8 +236,6 @@ class SmTokenMigrationMgr {
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
     fds_mutex clientLock;
-    /// to be able to get migrClient from SM token on src side
-    SmTokExecutorIdMap smtokExecutorIdMap;
 
     /// maximum number of items in the delta set.
     fds_uint32_t maxDeltaSetSize;

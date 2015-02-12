@@ -513,6 +513,11 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         FDS_ProtocolInterface::FDSP_RemoveServicesType removeServiceData;
         removeServiceData.node_name = vm["remove-services"].as<std::string>();
         removeServiceData.node_uuid.uuid = 0;
+        if (vm.count("node-uuid")) {
+            removeServiceData.node_uuid.uuid = vm["node-uuid"].as<fds_uint64_t>();
+            LOGNOTIFY << "Node uuid " << std::hex
+                      << removeServiceData.node_uuid.uuid << std::dec;
+        }
         removeServiceData.remove_sm = false;
         removeServiceData.remove_dm = false;
         removeServiceData.remove_am = false;

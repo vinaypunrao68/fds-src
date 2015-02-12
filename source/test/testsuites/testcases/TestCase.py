@@ -4,6 +4,7 @@
 #
 
 import sys
+import os
 import getopt
 import traceback
 import unittest
@@ -94,7 +95,13 @@ def setUpModule():
 
 class FDSTestCase(unittest.TestCase):
 
-    def __init__(self, parameters=None):
+    def __init__(self,
+                 parameters=None,
+                 testCaseName=None,
+                 testCaseDriver=None,
+                 testCaseDescription=None,
+                 testCaseAlwaysExecute=False,
+                 fork=False):
         """
         When run by a qaautotest module test runner,
         this method provides the test fixture allocation.
@@ -108,6 +115,13 @@ class FDSTestCase(unittest.TestCase):
 
         self.setUp(parameters)
 
+        self.passedTestCaseName = testCaseName
+        self.passedTestCaseDriver = testCaseDriver
+        self.passedTestCaseDescription = testCaseDescription
+        self.passTestCaseAlwaysExecute = testCaseAlwaysExecute
+        self.passedFork = fork
+
+        self.childPID = None
 
     def setUp(self, parameters=None):
         """
@@ -138,6 +152,7 @@ class FDSTestCase(unittest.TestCase):
         """
         pass
 
+
     def runTest(self):
         """
         Define this one in your specific test case class to run or
@@ -147,9 +162,38 @@ class FDSTestCase(unittest.TestCase):
         For quautotest, return "True" if the test case passed, "False" otherwise.
         For PyUnit, use a unittest.assert* method to assess test case results.
         """
+        global pyUnitTCFailure
+
         test_passed = True
 
-        FDSTestCase.reportTestCaseResult(self, test_passed)
+        if pyUnitTCFailure and not self.passTestCaseAlwaysExecute:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.passedTestCaseDriver():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("%s caused exception:" % self.passedTestCaseDescription)
+            self.log.error(traceback.format_exc())
+            self.log.error(inst.message)
+            test_passed = False
+
+        self.reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        # Were we forking?
+        if self.childPID is not None:
+            # Yes we were.
+            # If this is the child, we'll
+            # exit here. The parent falls
+            # through.
+            if self.childPID == 0:
+                os._exit(0 if test_passed else -1)
 
         if self.parameters["pyUnit"]:
             self.assertTrue(test_passed)

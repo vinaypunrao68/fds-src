@@ -14,6 +14,7 @@
 
 import sys
 import unittest
+import logging
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
@@ -24,45 +25,73 @@ import testcases.TestMgt
 import NodeWaitSuite
 
 
-def suiteConstruction(self):
+def suiteConstruction(self, action="installbootactivate"):
     """
-    Construct the ordered set of test cases that comprise the
-    Two Node Cluster Setup test suite.
+    Construct the ordered set of test cases that install,
+    boot, and activate a cluster defined in the input FDS
+    Scenario config file, according to the specified action.
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS infrastructure.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
-    suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
+    # By constructing a generic test case at this point, we gain
+    # access to the FDS config file from which
+    # we'll pull node configuration.
+    genericTestCase = testcases.TestCase.FDSTestCase()
+    fdscfg = genericTestCase.parameters["fdscfg"]
+    log = logging.getLogger("ClusterBootSuite")
 
-    # Start the the OM's PM.
-    suite.addTest(testcases.TestFDSModMgt.TestPMForOMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
+    # Note: If installing, restart Redis in a clean state. If booting
+    # just boot Redis but don't mess with it's state.
+    if action.count("install") > 0:
+        # Build the necessary FDS infrastructure.
+        suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+        suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
+        suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
 
-    # Now start OM.
-    suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestOMWait())
+    if action.count("boot") > 0:
+        if action.count("install") == 0:
+            suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
 
-    # Start the remaining PMs
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
+        # Start the the OM's PM.
+        suite.addTest(testcases.TestFDSModMgt.TestPMForOMBringUp())
+        suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
 
-    # Give the nodes some time to initialize.
-    suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the nodes initialize"))
+        # Now start OM.
+        suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
+        suite.addTest(testcases.TestFDSModMgt.TestOMWait())
 
-    # Activate the cluster.
-    suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
-    suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the cluster activate"))
+        # Start the remaining PMs
+        suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
+        suite.addTest(testcases.TestFDSModMgt.TestPMWait())
 
-    # Bring up any AMs.
-    suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
+        # Give the nodes some time to initialize.
+        suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the nodes initialize"))
 
-    # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
-    suite.addTest(nodeUpSuite)
+    if action.count("activate") > 0:
+        # Depending upon whether any node have specific services configured for them,
+        # activation works differently.
+        specifiedServices = False
+        for n in fdscfg.rt_obj.cfg_nodes:
+            if "services" in n.nd_conf_dict:
+                specifiedServices = True
+                break
 
-    # Give the nodes some time to initialize.
-    suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the cluster initialize"))
+        # Not doing TestClusterActivate for a multi-node
+        # cluster allows us to avoid FS-879.
+        if specifiedServices or (len(fdscfg.rt_obj.cfg_nodes) > 1):
+            # Activate the cluster one node at a time with configured services.
+            suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
+        else:
+            # Activate the cluster with default services.
+            suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
+
+        suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the cluster activate"))
+
+    if (action.count("boot") > 0) or (action.count("activate") > 0):
+        # Check that all nodes are up.
+        nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
+        suite.addTest(nodeUpSuite)
 
     return suite
 

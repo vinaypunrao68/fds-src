@@ -41,8 +41,8 @@ class SMMain : public PlatformProcess
         setupSigHandler();
 
         /* Daemonize */
-        fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.sm.testing.test_mode", false);
-        if (noDaemon == false) {
+        fds_bool_t daemonizeProc = get_fds_config()->get<bool>("fds.sm.daemonize", true);
+        if (true == daemonizeProc) {
             daemonize();
         }
     }
