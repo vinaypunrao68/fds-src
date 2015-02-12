@@ -26,15 +26,19 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
                                        boost::shared_ptr<fpi::AbortBlobTxMsg>& message) {
     LOGDEBUG << logString(*asyncHdr) << logString(*message);
 
+    HANDLE_INVALID_TX_ID();
+
+    // Handle U-turn
+    HANDLE_U_TURN();
+
+    // Allocate a new Blob transaction class and queue to per volume queue.
     auto dmReq = new DmIoAbortBlobTx(message->volume_id,
                                      message->blob_name,
                                      message->blob_version);
     dmReq->cb = BIND_MSG_CALLBACK(AbortBlobTxHandler::handleResponse, asyncHdr, message);
+    dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
-    // Allocate a new Blob transaction class and queue to per volume queue.
-    dmReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(message->txId));
 
     addToQueue(dmReq);
 }
@@ -43,23 +47,15 @@ void AbortBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dmRequest);
     DmIoAbortBlobTx* typedRequest = static_cast<DmIoAbortBlobTx*>(dmRequest);
 
-    auto blobTxId = typedRequest->ioBlobTxDesc;
-    fds_verify(*blobTxId != blobTxIdInvalid);
-
     // Call TVC abortTx
-    dataMgr->timeVolCat_->abortBlobTx(typedRequest->volId, blobTxId);
+    helper.err = dataMgr->timeVolCat_->abortBlobTx(typedRequest->volId, typedRequest->ioBlobTxDesc);
 }
 
 void AbortBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::AbortBlobTxMsg>& message,
                                         Error const& e, dmCatReq* dmRequest) {
-    // We are not sending any response message in this call, instead we
-    // will send th estatus on async header
-    // TODO(sanjay) - we will have to add  call to  send the response without payload
-    // static response
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
-    // TODO(sanjay) - we will have to revisit  this call
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::AbortBlobTxRspMsgTypeId, fpi::AbortBlobTxRspMsg());
 
     delete dmRequest;

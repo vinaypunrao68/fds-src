@@ -1,6 +1,10 @@
 #!/usr/bin/python
 # coding: utf8
+from boto.s3.connection import S3Connection
+import utils
 '''
+:q
+:wq
 import boto
 from boto.s3.key import Key
 import boto.s3.connection
@@ -19,16 +23,11 @@ for i in xrange(1, 31):
     name = "hello_" + str(i)
     conn.delete_bucket(name)
 '''
-import argparse
+def main():
+    hash1 = utils.hash_file_content("./downloads/sample_file_1")
+    hash2 = utils.hash_file_content("./samples/sample_file_1")
 
-def main(args):
-    print args
+    print hash1, hash2
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Command line argument for'
-                                                 ' the integration framework')
-    parser.add_argument('-u', '--inventory', help='add an inventory')
-    parser.add_argument('-t', '--type', default='integration-framework-cluster',
-                        help='aws or baremetal')
-    args = parser.parse_args()
-    main(args)
+   main()

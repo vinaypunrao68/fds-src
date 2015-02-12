@@ -1,9 +1,9 @@
 {
 	"test_sets" : {
-		"fio_tests" : [
-			{
-				"name" : "TestAMFIO",
-				"file" : "test_am_fio.py",
+		"multi_am_tests" : [
+		 	{
+				"name" : "TestCreateMultivolume",
+				"file" : "test_create_multivolume.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
