@@ -862,7 +862,7 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     // object id range will block
     auto token_lock = getTokenLock(snapReq->token_id, true);
 
-    // if this is snapshot for migration, start forwarding puts and deletes
+    // if this is the second snapshot for migration, start forwarding puts and deletes
     // for this migration client (which is addressed by executorID on destination side)
     migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
 
