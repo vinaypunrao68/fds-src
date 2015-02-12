@@ -4,16 +4,15 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
 
 import javax.servlet.http.HttpServletResponse;
-import java.util.Map;
 
-public class MultiPartUploadAbort implements RequestHandler {
+public class MultiPartUploadAbort implements SyncRequestHandler {
 
     private Xdi xdi;
     private AuthenticationToken token;
@@ -24,10 +23,10 @@ public class MultiPartUploadAbort implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucket = requiredString(routeParameters, "bucket");
-        String objectName = requiredString(routeParameters, "object");
-        String uploadId = request.getQueryParameters().getString("uploadId");
+    public Resource handle(HttpContext context) throws Exception {
+        String bucket = context.getRouteParameter("bucket");
+        String objectName = context.getRouteParameter("object");
+        String uploadId = context.getQueryString().get("uploadId").getFirst();
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
 
         for(PartInfo pi : mops.getParts()) {
@@ -37,6 +36,4 @@ public class MultiPartUploadAbort implements RequestHandler {
 
         return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");
     }
-
-
 }

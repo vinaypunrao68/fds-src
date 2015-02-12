@@ -1,211 +1,152 @@
 package com.formationds.spike.later;
 
-import com.formationds.util.async.AsyncResourcePool;
+import com.formationds.spike.later.pathtemplate.RouteResult;
+import com.formationds.spike.later.pathtemplate.RoutingMap;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.HttpsConfiguration;
-import com.formationds.xdi.s3.VoidImpl;
+import io.undertow.Undertow;
+import io.undertow.io.IoCallback;
+import io.undertow.io.Sender;
+import io.undertow.server.HttpServerExchange;
+import io.undertow.util.HeaderMap;
+import io.undertow.util.HttpString;
 import org.apache.log4j.Logger;
-import org.eclipse.jetty.server.*;
-import org.eclipse.jetty.server.handler.HandlerCollection;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.eclipse.jetty.util.MultiMap;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.eclipse.jetty.util.thread.ExecutorThreadPool;
-import org.eclipse.jetty.util.thread.ThreadPool;
 
-import javax.servlet.AsyncContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
+import javax.net.ssl.SSLContext;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 
-public class AsyncWebapp extends HttpServlet {
+public class AsyncWebapp {
     private static final Logger LOG = Logger.getLogger(AsyncWebapp.class);
 
-    public static void main(String[] args) throws Exception {
+    public static void _main(String[] args) throws Exception {
         AsyncWebapp app = new AsyncWebapp(new HttpConfiguration(8080), null);
         app.route(new HttpPath(HttpMethod.GET, "/"), ctx -> {
-            CompletableFuture<Void> cf = null;
-            try {
-                cf = new CompletableFuture<>();
-                ServletOutputStream out = ctx.getResponse().getOutputStream();
-                out.write("Hello, world\n".getBytes());
-                out.close();
-                cf.complete(null);
-            } catch (IOException e) {
-                cf.completeExceptionally(e);
-            }
-            return cf;
+            return CompletableFuture.<Void>runAsync(() -> {
+                Sender responseSender = ctx.getExchange().getResponseSender();
+                responseSender.send("Foo\n");
+                responseSender.send("bar\n");
+                responseSender.close();
+            });
         });
 
         app.start();
     }
 
+
+    public static void main(final String[] args) {
+        IoCallback cb = new IoCallback() {
+            @Override
+            public void onComplete(HttpServerExchange exchange, Sender sender) {
+
+            }
+
+            @Override
+            public void onException(HttpServerExchange exchange, Sender sender, IOException exception) {
+
+            }
+        };
+
+        Undertow server = Undertow.builder()
+                .addHttpListener(8080, "localhost")
+                .setHandler(exchange -> {
+                    exchange.dispatch();
+                    exchange.setPersistent(true);
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            Thread.sleep(300);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        Sender sender = exchange.getResponseSender();
+                        sender.send(ByteBuffer.wrap("Hello, world!\n".getBytes()), cb);
+                        sender.send(ByteBuffer.wrap("Hello again!\n".getBytes()), cb);
+                        sender.close();
+                    });
+                }).build();
+        server.start();
+    }
+
     private HttpConfiguration httpConfiguration;
     private HttpsConfiguration httpsConfiguration;
-    private final AsyncResourcePool<Void> requestLimiter;
-    private List<HttpPath> paths;
-    private List<Function<HttpPathContext, CompletableFuture<Void>>> handlers;
+    private RoutingMap<Function<HttpContext, CompletableFuture<Void>>> routingMap;
 
-    public static final int CONCURRENCY = 500;
 
     public AsyncWebapp(HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration) {
         this.httpConfiguration = httpConfiguration;
         this.httpsConfiguration = httpsConfiguration;
-        paths = new ArrayList<>();
-        handlers = new ArrayList<>();
-        this.requestLimiter = new AsyncResourcePool<>(new VoidImpl(), CONCURRENCY);
+        routingMap = new RoutingMap<>();
     }
 
-    public void route(HttpPath httpPath, Function<HttpPathContext, CompletableFuture<Void>> handler) {
-        paths.add(httpPath);
-        handlers.add(handler);
+    public void route(HttpPath httpPath, Function<HttpContext, CompletableFuture<Void>> handler) {
+        routingMap.put(httpPath, handler);
     }
 
     public void start() {
-        System.setProperty("org.eclipse.jetty.server.Request.maxFormContentSize", "100000000");
-        ThreadPool tp = new ExecutorThreadPool(new ForkJoinPool(250));
-        Server server = new Server(tp);
-
-        ServerConnector connector = new ServerConnector(server);
-        connector.setPort(httpConfiguration.getPort());
-        connector.setHost(httpConfiguration.getHost());
-        server.addConnector(connector);
+        Undertow.Builder builder = Undertow.builder()
+                .addHttpListener(httpConfiguration.getPort(), "0.0.0.0")
+                .setHandler(exchange -> service(exchange));
 
         if (httpsConfiguration != null) {
-            org.eclipse.jetty.server.HttpConfiguration https = new org.eclipse.jetty.server.HttpConfiguration();
-            https.addCustomizer(new SecureRequestCustomizer());
-
             SslContextFactory sslContextFactory = new SslContextFactory();
             sslContextFactory.setKeyStorePath(httpsConfiguration.getKeyStore().getAbsolutePath());
             sslContextFactory.setKeyStorePassword(httpsConfiguration.getKeystorePassword());
             sslContextFactory.setKeyManagerPassword(httpsConfiguration.getKeystorePassword());
-
-            ServerConnector sslConnector = new ServerConnector(server,
-                    new SslConnectionFactory(sslContextFactory, "http/1.1"),
-                    new HttpConnectionFactory(https));
-            sslConnector.setPort(httpsConfiguration.getPort());
-            sslConnector.setHost(httpsConfiguration.getHost());
-            server.addConnector(sslConnector);
+            try {
+                sslContextFactory.start();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            SSLContext sslContext = sslContextFactory.getSslContext();
+            builder.addHttpsListener(httpsConfiguration.getPort(), "0.0.0.0", sslContext);
         }
+        Undertow undertow = builder.build();
+        undertow.start();
 
-        HandlerCollection handlers = new HandlerCollection(false);
-
-        ServletContextHandler contextHandler = new ServletContextHandler();
-        contextHandler.setContextPath("/");
-        contextHandler.addServlet(new ServletHolder(this), "/");
-        handlers.addHandler(contextHandler);
-        server.setHandler(handlers);
-
-        try {
-            server.start();
-            server.join();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        service(req, resp);
-    }
-
-    @Override
-    protected void doHead(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        service(req, resp);
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        service(req, resp);
-    }
-
-    @Override
-    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        service(req, resp);
-    }
-
-    @Override
-    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        service(req, resp);
-    }
-
-    @Override
-    protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        service(req, resp);
-    }
-
-    @Override
-    protected void doTrace(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        service(req, resp);
-    }
-
-    private Void handleError(Throwable ex, Response resp) {
-        try {
-            LOG.debug("Error: " + ex);
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            resp.setContentType("text/plain");
-            ServletOutputStream out = resp.getOutputStream();
-            PrintWriter pw = new PrintWriter(out);
-            ex.printStackTrace(pw);
-            pw.flush();
-            pw.close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    private Void handleError(Throwable ex, HttpServerExchange exchange) {
+        LOG.debug("Error executing handler for " + exchange.getRequestMethod() + " " + exchange.getRequestURI(), ex);
+        exchange.setResponseCode(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        exchange.getResponseHeaders().add(HttpString.tryFromString("Content-Type"), "text/plain");
+        PrintWriter pw = new PrintWriter(exchange.getOutputStream());
+        ex.printStackTrace(pw);
+        pw.close();
         return null;
     }
 
-    @Override
-    protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        Request request = (Request) req;
-        Response response = (Response) resp;
+    protected void service(HttpServerExchange exchange) {
+        RouteResult<Function<HttpContext, CompletableFuture<Void>>> matchResult = routingMap.get(exchange);
 
-        if (request.getQueryParameters() == null) {
-            MultiMap<String> qp = new MultiMap<>();
-            request.getUri().decodeQueryTo(qp);
-            request.setQueryParameters(qp);
+        if (matchResult.isRoutingSuccessful()) {
+            LOG.debug(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+            Function<HttpContext, CompletableFuture<Void>> handler = matchResult.getResult();
+            HttpContext rc = new HttpContext(exchange, matchResult.getRouteParameters());
+            HeaderMap responseHeaders = exchange.getResponseHeaders();
+            responseHeaders.add(new HttpString("Access-Control-Allow-Origin"), "*");
+            responseHeaders.add(new HttpString("Server"), "Formation");
+
+            exchange.dispatch();
+            CompletableFuture<Void> cf = handler.apply(rc);
+
+            cf.exceptionally(ex -> handleError(ex, exchange));
+            cf.thenAccept(x -> {
+                exchange.endExchange();
+            });
+
+            return;
         }
 
-        for (int i = 0; i < paths.size(); i++) {
-            HttpPath httpPath = paths.get(i);
-
-            if (httpPath.matches(request)) {
-                LOG.debug(request.getMethod() + " " + request.getRequestURI());
-                Function<HttpPathContext, CompletableFuture<Void>> handler = handlers.get(i);
-                HttpPathContext rc = new HttpPathContext(request, response, httpPath.getRouteParameters());
-                AsyncContext asyncContext = request.startAsync();
-                asyncContext.setTimeout(Long.MAX_VALUE);
-
-                response.addHeader("Access-Control-Allow-Origin", "*");
-                response.setHeader("Server", "Formation");
-
-                CompletableFuture<Void> cf = handler.apply(rc);
-
-                requestLimiter.use(_null ->
-                        cf.exceptionally(ex -> handleError(ex, response))
-                                .whenComplete((x, ex) -> {
-                                    asyncContext.complete();
-                                }));
-
-                return;
-            }
-        }
-
-        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        resp.setContentType("text/plain");
-        ServletOutputStream out = resp.getOutputStream();
-        out.write("Four, oh, four! Resource not found".getBytes());
-        out.close();
+        exchange.setResponseCode(HttpServletResponse.SC_NOT_FOUND);
+        exchange.getResponseHeaders().add(HttpString.tryFromString("Content-Type"), "text/plain");
+        Sender sender = exchange.getResponseSender();
+        sender.send("Four, oh, four! Resource not found");
+        sender.close();
     }
 }

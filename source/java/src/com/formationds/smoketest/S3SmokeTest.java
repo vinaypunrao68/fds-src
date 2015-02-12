@@ -43,6 +43,7 @@ public class S3SmokeTest {
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
 
     public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
+    private final String adminToken;
 
     public static final Random loadRNG() {
         final String rngClassName = System.getProperty(RNG_CLASS);
@@ -95,7 +96,7 @@ public class S3SmokeTest {
         String omUrl = "https://" + host + ":7443";
         SmokeTestRunner.turnLog4jOff();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
-        String adminToken = adminUserObject.getString("token");
+        adminToken = adminUserObject.getString("token");
 
         String tenantName = UUID.randomUUID().toString();
         long tenantId = doPost(omUrl + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
@@ -381,6 +382,17 @@ public class S3SmokeTest {
         userClient.putObject(userBucket, key, new ByteArrayInputStream(new byte[42]), new ObjectMetadata());
         HttpResponse response = anonymousGet(userBucket, key);
         assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatusLine().getStatusCode());
+    }
+
+
+    @Test
+    public void testFoo() throws Exception {
+        String url = "https://" + host + ":8443/";
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet(url);
+        S3SignatureGenerator.hash(httpGet, new BasicAWSCredentials("admin", adminToken));
+        HttpResponse response = httpClient.execute(httpGet);
+        assertEquals(403, response.getStatusLine().getStatusCode());
     }
 
     @Test
