@@ -28,11 +28,6 @@ struct FailoverSvcRequest;
 struct QuorumSvcRequest;
 typedef boost::shared_ptr<std::string> StringPtr;
 
-namespace net {
-template<class PayloadT> boost::shared_ptr<PayloadT>
-ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
-}
-
 /* Async svc request identifier */
 typedef uint64_t SvcRequestId;
 
@@ -95,7 +90,7 @@ template <class ReqT, class RespMsgT>
 struct SvcRequestCbTask : concurrency::TaskStatus {
     void respCb(ReqT* req, const Error &e, boost::shared_ptr<std::string> respPayload)
     {
-        response = net::ep_deserialize<RespMsgT>(const_cast<Error&>(e), respPayload);
+        response = fds::deserializeFdspMsg<RespMsgT>(const_cast<Error&>(e), respPayload);
         error = e;
         done();
     }

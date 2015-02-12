@@ -89,11 +89,34 @@ struct SvcMgrModuleProvider : CommonModuleProviderIf {
 */
 TEST(SvcMgr, basic)
 {
-    auto svcMgrProvider = boost::make_shared<SvcMgrModuleProvider>(
+    auto svcMgrProvider1 = boost::make_shared<SvcMgrModuleProvider>(
         "/fds/etc/platform.conf",
         0x100, 10000);
-    sleep(3);
-    svcMgrProvider.reset();
+    auto svcMgr1 = svcMgrProvider1->getSvcMgr();
+    auto svcMgrProvider2 = boost::make_shared<SvcMgrModuleProvider>(
+        "/fds/etc/platform.conf",
+        0x101, 10001);
+    auto svcMgr2 = svcMgrProvider2->getSvcMgr();
+
+    std::vector<fpi::SvcInfo> svcMap;
+    svcMap.push_back(svcMgr1->getSelfSvcInfo());
+    svcMap.push_back(svcMgr2->getSelfSvcInfo());
+
+    svcMgr1->updateSvcMap(svcMap);
+    svcMgr2->updateSvcMap(svcMap);
+
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(svcMgr2->getSelfSvcUuid());
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+    asyncReq->setTimeoutMs(1000000);
+    asyncReq->onResponseCb(svcStatusWaiter.cb);
+    asyncReq->invoke();
+
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
+    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter.response->status;
 }
 
 int main(int argc, char** argv) {

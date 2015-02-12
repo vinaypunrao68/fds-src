@@ -23,6 +23,7 @@ namespace fds
     PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
     : BaseAsyncSvcHandler(provider)
     {
+        REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcStatusMsg, getStatus);
         REGISTER_FDSP_MSG_HANDLER(fpi::UpdateSvcMapMsg, updateSvcMap);
     }
 
@@ -292,6 +293,15 @@ namespace fds
             LOGDEBUG << "Disable fault: " << name;
         }
         return true;
+    }
+
+    void PlatNetSvcHandler::getStatus(fpi::AsyncHdrPtr &header,
+                                      fpi::GetSvcStatusMsgPtr &statusMsg)
+    {
+        static boost::shared_ptr<int32_t> nullarg;
+        fpi::GetSvcStatusRespMsgPtr respMsg = boost::make_shared<fpi::GetSvcStatusRespMsg>();
+        respMsg->status = getStatus(nullarg);
+        sendAsyncResp(*header, FDSP_MSG_TYPEID(fpi::GetSvcStatusRespMsg), *respMsg);
     }
 
     void PlatNetSvcHandler::updateSvcMap(fpi::AsyncHdrPtr &header,

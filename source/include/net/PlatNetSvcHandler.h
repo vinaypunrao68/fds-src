@@ -60,6 +60,8 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
 
     virtual bool setFault(const std::string& command);
     virtual bool setFault(boost::shared_ptr<std::string>& command);  // NOLINT
+    void getStatus(fpi::AsyncHdrPtr &header,
+                   fpi::GetSvcStatusMsgPtr &statusMsg);
     virtual void updateSvcMap(fpi::AsyncHdrPtr &header,
                               fpi::UpdateSvcMapMsgPtr &svcMapMsg);
 };

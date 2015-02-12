@@ -46,6 +46,7 @@ struct SvcServer {
     void serve_();
     
     int port_;
+    boost::shared_ptr<tt::TServerTransport> serverTransport_;
     boost::shared_ptr<ts::TServer> server_;
     std::unique_ptr<std::thread> serverThread_;
 };

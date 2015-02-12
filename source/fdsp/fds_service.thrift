@@ -70,6 +70,8 @@ enum  FDSPMsgTypeId {
     UpdateSvcMapMsgTypeId              = 1015,
     GetSvcMapMsgTypeId                 = 1016,
     GetSvcMapRespMsgTypeId             = 1017,
+    GetSvcStatusMsgTypeId              = 1018,
+    GetSvcStatusRespMsgTypeId          = 1019,
 
 
     /* Volume messages; common for AM, DM, SM. */
@@ -309,6 +311,14 @@ struct GetSvcMapMsg {
 /* Reponse for GetSvcMap request */
 struct GetSvcMapRespMsg {
     1: required list<SvcInfo>       svcMap;
+}
+
+/* Message for requesting service status */
+struct GetSvcStatusMsg {
+}
+/* Response message for service status */
+struct GetSvcStatusRespMsg {
+    1: ServiceStatus status;
 }
 
 /**

@@ -68,6 +68,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
 SvcMgr::~SvcMgr()
 {
+    svcServer_->stop();
     delete taskExecutor_;
     delete svcRequestMgr_;
     svcRequestMgr_ = gSvcRequestPool = nullptr;
@@ -215,12 +216,17 @@ void SvcMgr::postSvcSendError(fpi::AsyncHdrPtr &header)
 {
     swapAsyncHdr(header);
     header->msg_code = ERR_SVC_REQUEST_INVOCATION;
+
     svcRequestMgr_->postError(header);
 }
 
 fpi::SvcUuid SvcMgr::getSelfSvcUuid() const
 {
     return svcInfo_.svc_id.svc_uuid;
+}
+
+fpi::SvcInfo SvcMgr::getSelfSvcInfo() const {
+    return svcInfo_;
 }
 
 int SvcMgr::getSvcPort() const

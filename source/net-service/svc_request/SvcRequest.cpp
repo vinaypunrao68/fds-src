@@ -66,7 +66,7 @@ void SvcRequestTimer::runTimerTask()
 }
 
 SvcRequestIf::SvcRequestIf()
-: SvcRequestIf(nullptr, 0, fpi::SvcUuid())
+: SvcRequestIf(nullptr, SvcRequestPool::SVC_UNTRACKED_REQ_ID, fpi::SvcUuid())
 {
 }
 

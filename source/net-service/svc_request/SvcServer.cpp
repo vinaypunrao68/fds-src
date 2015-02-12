@@ -16,11 +16,11 @@ SvcServer::SvcServer(int port, fpi::PlatNetSvcProcessorPtr processor)
 {
     port_ = port;
     boost::shared_ptr<tp::TProtocolFactory>  proto(new tp::TBinaryProtocolFactory());
-    boost::shared_ptr<tt::TServerTransport>  trans(new tt::TServerSocket(port));
+    serverTransport_.reset(new tt::TServerSocket(port));
     boost::shared_ptr<tt::TTransportFactory> tfact(new tt::TFramedTransportFactory());
 
     server_ = boost::shared_ptr<ts::TThreadedServer>(
-        new ts::TThreadedServer(processor, trans, tfact, proto));
+        new ts::TThreadedServer(processor, serverTransport_, tfact, proto));
 
 }
 
@@ -35,9 +35,13 @@ void SvcServer::start()
     serverThread_.reset(new std::thread([this] {this->serve_();}));
 }
 
-void SvcServer::stop() {
+void SvcServer::stop()
+{
     GLOGNOTIFY << logString();
+
     server_->stop();
+    serverTransport_->close();
+    serverThread_->join();
 }
 
 void SvcServer::serve_() {

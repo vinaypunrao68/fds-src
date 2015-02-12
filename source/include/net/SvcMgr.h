@@ -152,6 +152,12 @@ struct SvcMgr : HasModuleProvider, Module {
     fpi::SvcUuid getSelfSvcUuid() const;
 
     /**
+    * @brief 
+    *
+    */
+    fpi::SvcInfo getSelfSvcInfo() const;
+
+    /**
     * @brief Return svc port
     */
     int getSvcPort() const;
