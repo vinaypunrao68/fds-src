@@ -14,12 +14,6 @@ pyUnitConfig = "./../../source/test/testsuites/BuildSmokeTest.ini"
 
 S3_USER = 'fds_testing'
 S3_PASSWORD = 'bIEYKCPzDKtQDDBomnAKTKRA'
-#FDS_DEFAULT_KEY_ID = 'AKIAJAWXAU57VVTDDWAA'
-#FDS_DEFAULT_SECRET_ACCESS_KEY = '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'
-
-#FDS_DEFAULT_KEY_ID            = 'AKIAJCNNNWKKBQU667CQ'
-#FDS_DEFAULT_SECRET_ACCESS_KEY = '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'
-#FDS_DEFAULT_HOST             = 's3.amazonaws.com'
 
 FDS_DEFAULT_ADMIN_USER        = 'admin'
 FDS_DEFAULT_ADMIN_PASS        = 'admin'
@@ -56,7 +50,11 @@ params = {
 }
 
 NUMBER_USERS = 30
+MAX_NUM_VOLUMES = 1023
 SAMPLE_FILE = "test.txt"
+SAMPLE_DIR = "./samples/"
+BACKUP_DIR = "./backup/"
+DOWNLOAD_DIR = "./downloads/"
 ROOT = "/root/"
 ANSIBLE_ROOT = "../../../ansible/"
 ANSIBLE_INVENTORY = "%s/inventory/" % ANSIBLE_ROOT
