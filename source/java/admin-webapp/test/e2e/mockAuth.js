@@ -23,6 +23,13 @@ mockAuth = function() {
     angular.module( 'user-management', [] ).factory( '$authentication', function(){
 
         var service = {};
+        
+        var saveUser = function(){
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+        };
 
         service.login = function( username, password ){
 
@@ -30,11 +37,15 @@ mockAuth = function() {
                 service.isAuthenticated = true;
                 service.error = undefined;
                 user = admin;
+                
+                saveUser();
             }
             else if ( username === 'goldman' && password === 'goldman' ){
                 service.isAuthenticated = true;
                 service.error = undefined;
                 user = goldman;
+                
+                saveUser();
             }
             else {
                 service.isAuthenticated = false;
@@ -54,6 +65,15 @@ mockAuth = function() {
         service.isAuthenticated = false;
         service.error = undefined;
 
+        if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
+            var auth = JSON.parse( window.localStorage.getItem( 'authorized' ) );
+            
+            if ( auth !== null && angular.isDefined( auth ) ){
+                service.user = auth;
+                service.isAuthenticated = true;
+            }
+        }
+        
         return service;
     });
 
