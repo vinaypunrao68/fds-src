@@ -1,9 +1,9 @@
 {
 	"test_sets" : {
 		"multi_am_tests" : [
-			{
-				"name" : "TestDifferentBlobSizes",
-				"file" : "test_different_blob_sizes.py",
+		 	{
+				"name" : "TestCreateMultivolume",
+				"file" : "test_create_multivolume.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
