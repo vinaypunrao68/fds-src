@@ -20,7 +20,7 @@ mockStats = function(){
             }
             
             
-            for( var i = 0; i < volumes.length; i++ ){
+            for( var i = 0; volumes !== null && i < volumes.length; i++ ){
                 var raw =  window.localStorage.getItem( volumes[i].id + '_stats' );
                 var item = JSON.parse( raw );
                 stats.push( item );
@@ -119,7 +119,7 @@ mockStats = function(){
             
             var fbCount = 0;
             
-            for ( var i = 0; i < volumes.length; i++ ){
+            for ( var i = 0; volumes!== null && i < volumes.length; i++ ){
                 
                 var fbEvent = JSON.parse( window.localStorage.getItem( volumes[i].id + '_fb' ) );
                 var point = { x: volumes[i].current_usage.size, y: 3600*24 };
