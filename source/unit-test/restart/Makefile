@@ -26,14 +26,17 @@ user_non_fds_libs := \
 user_cpp          := \
     TestSvcProcess.cpp \
     OMSvcProcess.cpp \
+    SvcRequestMgr_gtest.cpp \
 
 user_no_style     :=
 
 user_bin_exe      := \
 	testsvc \
 	omsvc \
+	svcrequestmgr_gtest
 
 omsvc := OMSvcProcess.cpp 
 testsvc := TestSvcProcess.cpp
+svcrequestmgr_gtest := SvcRequestMgr_gtest.cpp
 
 include $(test_topdir)/Makefile.svc
