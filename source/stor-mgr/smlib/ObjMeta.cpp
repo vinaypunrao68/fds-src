@@ -729,6 +729,11 @@ bool ObjMetaData::dataPhysicallyExists() const
 
 void ObjMetaData::setObjCorrupted() {
     obj_map.obj_flags |= OBJ_FLAG_CORRUPTED;
+
+    ObjectID oid(obj_map.obj_id.metaDigest);
+
+    LOGCRITICAL << "CORRUPTION: Setting OBJ_FLAG_CORRUPTED flag on obj="
+                << oid;
 }
 
 fds_bool_t ObjMetaData::isObjCorrupted() const {
