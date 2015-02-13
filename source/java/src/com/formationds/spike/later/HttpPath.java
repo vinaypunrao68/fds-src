@@ -3,7 +3,6 @@ package com.formationds.spike.later;
 import com.formationds.spike.later.pathtemplate.PathTemplate;
 import com.formationds.spike.later.pathtemplate.RouteSignature;
 import com.formationds.web.toolkit.HttpMethod;
-import org.eclipse.jetty.server.Request;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -11,7 +10,7 @@ import java.util.function.Predicate;
 public class HttpPath {
     private HttpMethod method;
     private PathTemplate pathTemplate;
-    private final List<Predicate<Request>> predicates;
+    private final List<Predicate<HttpContext>> predicates;
 
     public HttpPath() {
         predicates = new ArrayList<>();
@@ -39,23 +38,23 @@ public class HttpPath {
     }
 
     public HttpPath withHeader(String headerName) {
-        predicates.add(request -> request.getHeader(headerName) != null);
+        predicates.add(request -> request.getRequestHeader(headerName) != null);
         return this;
     }
 
 
-    public MatchResult matches(Request request) {
+    public MatchResult matches(HttpContext context) {
         if (predicates.size() == 0 && method == null && pathTemplate == null) {
             return failedMatch;
         }
 
-        if (method != null && !request.getMethod().toString().equalsIgnoreCase(method.toString()))
+        if (method != null && !context.getRequestMethod().toString().equalsIgnoreCase(method.toString()))
             return failedMatch;
 
         Map<String, String> pathParams = null;
         if(pathTemplate != null) {
             //String path = exchange.getRequestPath().replaceAll("/$", "");
-            PathTemplate.TemplateMatch match = pathTemplate.match(request.getRequestURI());
+            PathTemplate.TemplateMatch match = pathTemplate.match(context.getRequestURI());
             if(!match.isMatch())
                 return failedMatch;
             pathParams = match.getParameters();
@@ -63,8 +62,8 @@ public class HttpPath {
             pathParams = Collections.emptyMap();
         }
 
-        for (Predicate<Request> predicate : predicates) {
-            if (!predicate.test(request)) {
+        for (Predicate<HttpContext> predicate : predicates) {
+            if (!predicate.test(context)) {
                 return failedMatch;
             }
         }

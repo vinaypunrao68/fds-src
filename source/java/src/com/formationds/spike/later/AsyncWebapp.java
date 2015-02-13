@@ -13,6 +13,7 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
 
+import javax.servlet.AsyncContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -102,18 +103,18 @@ public class AsyncWebapp extends HttpServlet {
     protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Request request = (Request) req;
         Response response = (Response) resp;
-        RouteResult<Function<HttpContext, CompletableFuture<Void>>> matchResult = routingMap.get(request);
+        HttpContext context = new HttpContext(request, response);
+        RouteResult<Function<HttpContext, CompletableFuture<Void>>> matchResult = routingMap.get(context);
 
         if (matchResult.isRoutingSuccessful()) {
+            AsyncContext asyncContext = request.startAsync();
             LOG.debug(req.getMethod() + " " + req.getRequestURI());
             Function<HttpContext, CompletableFuture<Void>> handler = matchResult.getResult();
-            HttpContext rc = new HttpContext(request, response, matchResult.getRouteParameters());
             response.addHeader("Access-Control-Allow-Origin", "*");
             response.addHeader("Server", "Formation");
-
-            CompletableFuture<Void> cf = handler.apply(rc);
-
-            cf.exceptionally(ex -> handleError(ex, rc));
+            CompletableFuture<Void> cf = handler.apply(context.withRouteParameters(matchResult.getRouteParameters()));
+            cf.exceptionally(ex -> handleError(ex, context));
+            cf.thenAccept(x -> asyncContext.complete());
             return;
         }
 

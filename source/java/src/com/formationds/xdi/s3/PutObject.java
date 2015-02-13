@@ -45,7 +45,7 @@ public class PutObject implements SyncRequestHandler {
 
         InputStream str = context.getInputStream();
 
-        String uploadId = context.getQueryString().get("uploadId").iterator().next();
+        String uploadId = context.getQueryParameters().get("uploadId").iterator().next();
 
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
@@ -54,7 +54,7 @@ public class PutObject implements SyncRequestHandler {
         // handle multi part upload
         if(uploadId != null) {
             MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
-            int partNumber = Integer.parseInt(context.getQueryString().get("partNumber").iterator().next());
+            int partNumber = Integer.parseInt(context.getQueryParameters().get("partNumber").iterator().next());
 
             if(partNumber < 0 || partNumber > 10000)
                 throw new Exception("invalid part number");

@@ -27,6 +27,7 @@ public class RealAsyncAm implements AsyncAm {
     private AsyncAmServiceRequest.Iface oneWayAm;
     private int port;
     private AsyncRequestStatistics statistics;
+    private Thread serverThread;
 
     public RealAsyncAm(AsyncAmServiceRequest.Iface oneWayAm, int port) throws Exception {
         this.oneWayAm = oneWayAm;
@@ -44,7 +45,8 @@ public class RealAsyncAm implements AsyncAm {
                 .transportFactory(new TFramedTransport.Factory())
                 .processor(processor));
 
-        new Thread(() -> server.serve(), "AM async listener thread").start();
+        serverThread = new Thread(() -> server.serve(), "AM async listener thread");
+        serverThread.start();
         handshake(port).get();
         LOG.info("Started async AM listener on port " + port);
     }

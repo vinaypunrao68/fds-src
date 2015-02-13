@@ -76,7 +76,7 @@ public class MultiPartUploadComplete implements SyncRequestHandler {
     public Resource handle(HttpContext ctx) throws Exception {
         String bucket = ctx.getRouteParameter("bucket");
         String objectName = ctx.getRouteParameter("object");
-        String uploadId = ctx.getQueryString().get("uploadId").iterator().next();
+        String uploadId = ctx.getQueryParameters().get("uploadId").iterator().next();
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
 
         //TODO: verify etag map

@@ -23,7 +23,7 @@ public class DeleteObject implements SyncRequestHandler {
 
     @Override
     public Resource handle(HttpContext ctx) throws Exception {
-        if (ctx.getQueryString().containsKey("uploadId"))
+        if (ctx.getQueryParameters().containsKey("uploadId"))
             return new MultiPartUploadAbort(xdi, token).handle(ctx);
 
         String bucketName = ctx.getRouteParameter("bucket");

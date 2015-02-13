@@ -3,8 +3,8 @@ package com.formationds.spike.later.pathtemplate;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
-import org.eclipse.jetty.server.Request;
 
 import java.util.*;
 
@@ -17,19 +17,19 @@ public class RoutingMap<T> {
         pathlessRoutes = new ArrayList<>();
     }
 
-    public RouteResult<T> get(Request request) {
-        String path = request.getRequestURI();
+    public RouteResult<T> get(HttpContext context) {
+        String path = context.getRequestURI();
         String[] segments = path.split("/");
-        RouteSignature signature = new RouteSignature(request.getMethod(), segments.length);
+        RouteSignature signature = new RouteSignature(context.getRequestMethod(), segments.length);
         List<KeyValuePair<HttpPath, T>> candidatePaths = signatureRoutingPathMap.getOrDefault(signature, Collections.emptyList());
         for(KeyValuePair<HttpPath, T> routingPath : candidatePaths) {
-            HttpPath.MatchResult result = routingPath.getKey().matches(request);
+            HttpPath.MatchResult result = routingPath.getKey().matches(context);
             if(result.isMatch())
                 return new RouteResult<>(routingPath.getValue(), result.getPathParameters(), true);
         }
 
         for(KeyValuePair<HttpPath,T> routingPath : pathlessRoutes) {
-            HttpPath.MatchResult result = routingPath.getKey().matches(request);
+            HttpPath.MatchResult result = routingPath.getKey().matches(context);
             if(result.isMatch())
                 return new RouteResult<>(routingPath.getValue(), Collections.emptyMap(), true);
         }

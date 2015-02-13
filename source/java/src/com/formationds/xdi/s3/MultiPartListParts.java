@@ -34,7 +34,7 @@ public class MultiPartListParts implements SyncRequestHandler {
     public Resource handle(HttpContext context) throws Exception {
         String bucket = context.getRouteParameter("bucket");
         String objectName = context.getRouteParameter("object");
-        Map<String, Collection<String>> qp = context.getQueryString();
+        Map<String, Collection<String>> qp = context.getQueryParameters();
         String uploadId = qp.get("uploadId").iterator().next();
 
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);

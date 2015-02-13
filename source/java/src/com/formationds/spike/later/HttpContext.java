@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -19,6 +20,10 @@ public class HttpContext {
     private Response response;
     private Map<String, String> routeParameters;
     private final Map<String, Collection<String>> queryParameters;
+
+    public HttpContext(Request request, Response response) {
+        this(request, response, new HashMap<>());
+    }
 
     public HttpContext(Request request, Response response, Map<String, String> routeParameters) {
         this.request = request;
@@ -30,6 +35,9 @@ public class HttpContext {
                 .collect(Collectors.toMap(k -> k, k -> (Collection) mm.getValues(k)));
     }
 
+    public HttpContext withRouteParameters(Map<String, String> routeParameters) {
+        return new HttpContext(request, response, routeParameters);
+    }
 
     public Map<String, String> getRouteParameters() {
         return routeParameters;
@@ -67,10 +75,9 @@ public class HttpContext {
         return Lists.newArrayList(value);
     }
 
-    public Map<String, Collection<String>> getQueryString() {
+    public Map<String, Collection<String>> getQueryParameters() {
         return queryParameters;
     }
-
 
     public String getRequestContentType() {
         return request.getContentType();

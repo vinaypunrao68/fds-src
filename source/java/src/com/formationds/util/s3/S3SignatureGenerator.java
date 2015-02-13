@@ -25,7 +25,7 @@ public class S3SignatureGenerator {
     public static final String AUTHORIZATION_HEADER = "Authorization";
 
     public static String hash(HttpContext context, AWSCredentials credentials) {
-        return hash(context.getRequestMethod(), context.getRequestURI(), getNormalizedHeaders(context), context.getQueryString(), credentials);
+        return hash(context.getRequestMethod(), context.getRequestURI(), getNormalizedHeaders(context), context.getQueryParameters(), credentials);
     }
 
     public static String hash(HttpRequest request, AWSCredentials credentials) {

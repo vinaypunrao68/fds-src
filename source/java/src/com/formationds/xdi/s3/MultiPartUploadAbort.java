@@ -26,7 +26,7 @@ public class MultiPartUploadAbort implements SyncRequestHandler {
     public Resource handle(HttpContext context) throws Exception {
         String bucket = context.getRouteParameter("bucket");
         String objectName = context.getRouteParameter("object");
-        String uploadId = context.getQueryString().get("uploadId").iterator().next();
+        String uploadId = context.getQueryParameters().get("uploadId").iterator().next();
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
 
         for(PartInfo pi : mops.getParts()) {
