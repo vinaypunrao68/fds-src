@@ -145,7 +145,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     value in the configuration.ini will be ignored even if *not* specified
     on the command line.
 
-    Following the import of the configuration, the settngs will be scrubbed.
+    Following the import of the configuration, the settings will be scrubbed.
     Strings will be converted to int or bool where appropriate.  Paths on
     the file system will be resolved to their absolute paths.
 
@@ -206,7 +206,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
             for item in config.items("harness"):
                 params[item[0]] = item[1].split()[0]
         except configparser.NoSectionError:
-            print("The configuration file %s has no section \"[cluster]\".  "
+            print("The configuration file %s has no section \"[domain]\".  "
                   "This section is required." %options.config)
             sys.exit(1)
 

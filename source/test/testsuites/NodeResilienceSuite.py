@@ -8,7 +8,7 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 import testcases.TestMgt
 import testcases.TestOMIntFace
@@ -56,20 +56,20 @@ def suiteConstruction(self):
     #suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
     #suite.addTest(testcases.TestFDSModMgt.TestAMWait())
 
-    suite.addTest(testcases.TestFDSModMgt.TestSMKill())
-    suite.addTest(testcases.TestFDSModMgt.TestSMVerifyDown())
-    suite.addTest(testcases.TestFDSModMgt.TestSMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestSMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMKill())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMVerifyDown())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMBringUp())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
 
     #suite.addTest(testcases.TestFDSModMgt.TestDMKill())
     #suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown())
     #suite.addTest(testcases.TestFDSModMgt.TestDMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestDMWait())
 
-    suite.addTest(testcases.TestFDSModMgt.TestPMKill())
-    suite.addTest(testcases.TestFDSModMgt.TestPMVerifyDown())
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMKill())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMBringUp())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMWait())
 
     # Verify everyone is up.
     suite.addTest(nodeUpSuite)
