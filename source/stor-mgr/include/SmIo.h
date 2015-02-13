@@ -369,22 +369,34 @@ class SmIoSnapshotObjectDB : public SmIoReq {
                                 SmIoSnapshotObjectDB*,
                                 leveldb::ReadOptions& options,
                                 leveldb::DB* db)> CbType;
+    typedef std::function<void (const Error&,
+                                SmIoSnapshotObjectDB*,
+                                std::string &snapDir)> CbTypePersist;
  public:
     SmIoSnapshotObjectDB() {
         token_id = 0;
+        isPersistent = false;
         executorId = SM_INVALID_EXECUTOR_ID;
     }
 
     /* In: Token to take snapshot of*/
     fds_token_id token_id;
+
+    /* In: Persistant or in-memory snapshot?
+     */
+    bool isPersistent;
+
     /**
      * ID of the executor for which this snapshort is taken for
      * 0 if we are taking snapshot not for token migration
      */
     fds_uint64_t executorId;
 
-    /* Response callback */
+    /* Response callback for in-memory snapshot request*/
     CbType smio_snap_resp_cb;
+
+    /* Response callback for persistent snapshot request */
+    CbTypePersist smio_persist_snap_resp_cb;
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const SmIoSnapshotObjectDB& snapReq) {

@@ -193,9 +193,15 @@ class ObjectBuf {
     inline const char* getData() const {
         return data->data();
     }
+
+    inline void setData(std::string &newData) {
+        data->assign(newData);
+    }
+
     inline void clear() {
         data->clear();
     }
+
 };
 
 fds_uint32_t str_to_ipv4_addr(std::string ip_str);

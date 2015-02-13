@@ -772,6 +772,13 @@ ObjectStore::snapshotMetadata(fds_token_id smTokId,
     metaStore->snapshot(smTokId, notifFn, snapReq);
 }
 
+void
+ObjectStore::snapshotMetadata(fds_token_id smTokId,
+                              SmIoSnapshotObjectDB::CbTypePersist notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
+    metaStore->snapshot(smTokId, notifFn, snapReq);
+}
+
 Error
 ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     return dataStore->scavengerControlCmd(scavCmd);

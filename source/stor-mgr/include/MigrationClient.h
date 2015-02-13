@@ -65,13 +65,11 @@ class MigrationClient {
      */
     void migClientSnapshotFirstPhaseCb(const Error& error,
                                        SmIoSnapshotObjectDB* snapRequest,
-                                       leveldb::ReadOptions& options,
-                                       leveldb::DB *db);
+                                       std::string &snapDir);
 
     void migClientSnapshotSecondPhaseCb(const Error& error,
                                         SmIoSnapshotObjectDB* snapRequest,
-                                        leveldb::ReadOptions& options,
-                                        leveldb::DB *db);
+                                        std::string &snapDir);
 
     /**
      * Add initial set of DLT and Objects to the clients
@@ -246,16 +244,14 @@ class MigrationClient {
     SmIoSnapshotObjectDB snapshotRequest;
 
     /**
-     * Pointer to first leveldb snapshot.  This is set in the snapshot callback.
+     * First persistent leveldb snapshot directory.  This is set in the snapshot callback.
      */
-    leveldb::DB *firstPhaseLevelDB;
-    leveldb::ReadOptions firstPhaseReadOptions;
+    std::string firstPhaseSnapshotDir;
 
     /**
-     * Pointer to second leveldb snapshot.  This is set in the snapshot callback.
+     * Second persistent leveldb snapshot directory.  This is set in the snapshot callback.
      */
-    leveldb::DB *secondPhaseLevelDB;
-    leveldb::ReadOptions secondPhaseReadOptions;
+    std::string secondPhaseSnapshotDir;
 
     /**
      * Maximum number of objects to send in delta set back to the destination SM.

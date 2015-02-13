@@ -11,6 +11,7 @@
 #include <MigrationClient.h>
 #include <fds_process.h>
 #include <MigrationTools.h>
+#include <lib/Catalog.h>
 
 #include <object-store/SmDiskMap.h>
 
@@ -32,6 +33,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
     seqNumDeltaSet = ATOMIC_VAR_INIT(0UL);
 
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
+    snapshotRequest.isPersistent = true;
     SMTokenID = SMTokenInvalidID;
     executorID = SM_INVALID_EXECUTOR_ID;
 
@@ -137,19 +139,17 @@ MigrationClient::migClientSnapshotMetaData()
     fds_assert((getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) ||
                (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET));
     if (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) {
-        snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotFirstPhaseCb,
+        snapshotRequest.smio_persist_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotFirstPhaseCb,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      std::placeholders::_4);
+                                                      std::placeholders::_3);
     } else {
-        snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotSecondPhaseCb,
+        snapshotRequest.smio_persist_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotSecondPhaseCb,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      std::placeholders::_4);
+                                                      std::placeholders::_3);
     }
 
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
@@ -222,8 +222,7 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bo
 void
 MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
-                                               leveldb::ReadOptions& options,
-                                               leveldb::DB *db)
+                                               std::string &snapDir)
 {
     // on error, set error state (abort migration)
     if (!error.ok()) {
@@ -236,13 +235,12 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
 
     std::vector<std::pair<ObjMetaData::ptr, bool>> objMetaDataSet;
 
-    firstPhaseLevelDB = db;
-    /* save off the ReadOptions from first snapshot.  The second snapshot
-     * information is store in options.
+    /* First phase snapshot directory
      */
-    firstPhaseReadOptions = options;
+    firstPhaseSnapshotDir = snapDir;
 
-    leveldb::Iterator *iterDB = firstPhaseLevelDB->NewIterator(options);
+    Catalog cat(firstPhaseSnapshotDir);
+    leveldb::Iterator *iterDB = cat.NewIterator();
 
     /* Iterate through level db and filter against the objectFilterSet.
      */
@@ -375,8 +373,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
 void
 MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
-                                               leveldb::ReadOptions& options,
-                                               leveldb::DB *db)
+                                               std::string &snapDir)
 {
     // on error, set error state (abort migration)
     if (!error.ok()) {
@@ -391,16 +388,9 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
 
     fds_verify(MIG_CLIENT_SECOND_PHASE_DELTA_SET == getMigClientState());
 
-    /* Save off pointer to the level DB.  This level DB should be the same as
-     * the first phase levelDB.
+    /* Second phase snapshot directory
      */
-    secondPhaseLevelDB = db;
-    fds_verify(secondPhaseLevelDB == firstPhaseLevelDB);
-
-    /* save off the ReadOptions from second snapshot.  The second snapshot
-     * information is store in options.
-     */
-    secondPhaseReadOptions = options;
+    secondPhaseSnapshotDir = snapDir;
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << "Starting diff between First and Second Phase snapshot.";
@@ -414,9 +404,8 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      *             consumption.
      */
     metadata::metadata_diff_type diffObjMetaData;
-    metadata::diff(db,
-                   firstPhaseReadOptions.snapshot,
-                   secondPhaseReadOptions.snapshot,
+    metadata::diff(firstPhaseSnapshotDir,
+                   secondPhaseSnapshotDir,
                    diffObjMetaData);
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
@@ -507,8 +496,8 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
 
     /* We no longer need these snapshots.  Release them now.
      */
-    db->ReleaseSnapshot(firstPhaseReadOptions.snapshot);
-    db->ReleaseSnapshot(secondPhaseReadOptions.snapshot);
+//    db->ReleaseSnapshot(firstPhaseReadOptions.snapshot);
+//    db->ReleaseSnapshot(secondPhaseReadOptions.snapshot);
 
     /* Set the migration client state to indicate the second delta set is sent. */
     setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE);

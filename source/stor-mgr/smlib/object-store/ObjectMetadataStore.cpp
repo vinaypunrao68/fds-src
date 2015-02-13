@@ -121,8 +121,20 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
     Error err(ERR_OK);
     leveldb::DB *db;
     leveldb::ReadOptions options;
+
     metaDb_->snapshot(smTokId, db, options);
     notifFn(err, snapReq, options, db);
+}
+
+void
+ObjectMetadataStore::snapshot(fds_token_id smTokId,
+                              SmIoSnapshotObjectDB::CbTypePersist notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
+    Error err(ERR_OK);
+    std::string snapDir;
+    
+    err = metaDb_->snapshot(smTokId, snapDir);
+    notifFn(err, snapReq, snapDir);
 }
 
 }  // namespace fds

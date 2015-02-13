@@ -4,7 +4,7 @@
 
 #include <list>
 #include <utility>
-#include <leveldb/db.h>
+#include <lib/Catalog.h>
 #include "ObjMeta.h"
 
 #include "MigrationTools.h"
@@ -24,6 +24,20 @@ tri_comp(int const c)
 { return (c <= 0) ? ((c == 0) ? cmp_result::exists : cmp_result::removal) : cmp_result::addition; }
 
 void
+diff(std::string &firstPhaseSnapshotDir, std::string &secondPhaseSnapshotDir, metadata_diff_type& diff) {
+
+    Catalog firstSnapCat(firstPhaseSnapshotDir);
+    Catalog secondSnapCat(secondPhaseSnapshotDir);
+
+
+    // Obtain iterators to the snapshots
+    auto l_it   = firstSnapCat.NewIterator();
+    auto r_it   = secondSnapCat.NewIterator();
+    
+    diffSnapshots(l_it, r_it, diff);
+}
+
+void
 diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff) {
     // Create the needed ReadOptions objects
     ReadOptions l_opts; l_opts.snapshot = lhs;
@@ -32,6 +46,11 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
     // Obtain iterators to the snapshots
     auto l_it   = db->NewIterator(l_opts);
     auto r_it   = db->NewIterator(r_opts);
+
+    diffSnapshots(l_it, r_it, diff);
+
+}
+void diffSnapshots(leveldb::Iterator *l_it, leveldb::Iterator *r_it, metadata_diff_type& diff) {
 
     l_it->SeekToFirst();
     r_it->SeekToFirst();

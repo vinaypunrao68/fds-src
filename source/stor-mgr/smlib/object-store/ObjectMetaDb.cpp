@@ -3,7 +3,6 @@
  */
 #include <string>
 #include <dlt.h>
-#include <odb.h>
 #include <PerfTrace.h>
 #include <fds_process.h>
 #include <object-store/SmDiskMap.h>
@@ -16,11 +15,11 @@ ObjectMetadataDb::ObjectMetadataDb()
 }
 
 ObjectMetadataDb::~ObjectMetadataDb() {
-    std::unordered_map<fds_token_id, osm::ObjectDB *>::iterator it;
+    std::unordered_map<fds_token_id, Catalog *>::iterator it;
     for (it = tokenTbl.begin();
          it != tokenTbl.end();
          ++it) {
-        osm::ObjectDB * objDb = it->second;
+        Catalog * objDb = it->second;
         delete objDb;
         it->second = NULL;
     }
@@ -73,7 +72,7 @@ Error
 ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
-    osm::ObjectDB *objdb = NULL;
+    Catalog *objdb = NULL;
     std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
     // LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
 
@@ -85,9 +84,10 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
     // create leveldb
     try
     {
-        objdb = new osm::ObjectDB(filename, syncWrite);
+//        objdb = new osm::ObjectDB(filename, syncWrite);
+        objdb = new Catalog(filename);
     }
-    catch(const osm::OsmException& e)
+    catch(const CatalogException& e)
     {
         LOGERROR << "Failed to create ObjectDB " << filename;
         LOGERROR << e.what();
@@ -101,7 +101,7 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
 //
 // returns object metadata DB, if it does not exist, creates it
 //
-osm::ObjectDB *ObjectMetadataDb::getObjectDB(const ObjectID& objId) {
+Catalog *ObjectMetadataDb::getObjectDB(const ObjectID& objId) {
     fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
 
     SCOPEDREAD(dbmapLock_);
@@ -114,20 +114,33 @@ void
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
                            leveldb::DB*& db,
                            leveldb::ReadOptions& opts) {
-    osm::ObjectDB *odb = NULL;
+    Catalog *objCat = NULL;
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
         fds_verify(iter != tokenTbl.end());
-        odb = iter->second;
+        objCat = iter->second;
     }
-    fds_verify(odb != NULL);
+    fds_verify(objCat != NULL);
 
-    db = odb->GetDB();
-    opts.snapshot = db->GetSnapshot();
+    objCat->GetSnapshot(opts);
+}
+
+Error
+ObjectMetadataDb::snapshot(fds_token_id smTokId,
+                           std::string &snapDir) {
+    Catalog *objCat = NULL;
+    read_synchronized(dbmapLock_) {
+        TokenTblIter iter = tokenTbl.find(smTokId);
+        fds_verify(iter != tokenTbl.end());
+        objCat = iter->second;
+    }
+    fds_verify(objCat != NULL);
+
+    return objCat->DbSnap(snapDir);
 }
 
 void ObjectMetadataDb::closeObjectDB(fds_token_id smTokId) {
-    osm::ObjectDB *objdb = NULL;
+    Catalog *objdb = NULL;
 
     SCOPEDWRITE(dbmapLock_);
     TokenTblIter iter = tokenTbl.find(smTokId);
@@ -147,21 +160,24 @@ ObjectMetadataDb::get(fds_volid_t volId,
                       Error &err) {
     err = ERR_OK;
     ObjectBuf buf;
+    std::string value = "";
 
-    osm::ObjectDB *odb = getObjectDB(objId);
-    fds_verify(odb != NULL);
+    Catalog *objCat = getObjectDB(objId);
+    fds_verify(objCat != NULL);
 
     // get meta from DB
     PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-    err = odb->Get(objId, buf);
-    if (!err.ok()) {
-        // Object not found. Return.
+
+    Record key((char *)objId.GetId(), objId.getDigestLength());
+    err = objCat->Query(key, &value);
+
+    if (err != ERR_OK) {
         return NULL;
     }
 
+    buf.setData(value);
     ObjMetaData::const_ptr objMeta(new ObjMetaData(buf));
-    // objMeta->deserializeFrom(buf);
 
     // TODO(Anna) token sync code -- objMeta.checkAndDemoteUnsyncedData;
 
@@ -171,15 +187,19 @@ ObjectMetadataDb::get(fds_volid_t volId,
 Error ObjectMetadataDb::put(fds_volid_t volId,
                             const ObjectID& objId,
                             ObjMetaData::const_ptr objMeta) {
-    osm::ObjectDB *odb = getObjectDB(objId);
-    fds_verify(odb != NULL);
+    Catalog *objCat = getObjectDB(objId);
+    fds_verify(objCat != NULL);
 
     // store gata
     PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     ObjectBuf buf;
     objMeta->serializeTo(buf);
-    return odb->Put(objId, buf);
+    
+    Record key((char *)objId.GetId(), objId.getDigestLength());
+    Record value(buf.getData(), buf.getSize());
+
+    return objCat->Update(key, value);
 }
 
 //
@@ -187,12 +207,14 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
 //
 Error ObjectMetadataDb::remove(fds_volid_t volId,
                                const ObjectID& objId) {
-    osm::ObjectDB *odb = getObjectDB(objId);
-    fds_verify(odb != NULL);
+    Catalog *objCat = getObjectDB(objId);
+    fds_verify(objCat != NULL);
 
     PerfContext tmp_pctx(SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-    return odb->Delete(objId);
+    
+    Record key((char *)objId.GetId(), objId.getDigestLength());
+    return objCat->Delete(key);
 }
 
 }  // namespace fds
