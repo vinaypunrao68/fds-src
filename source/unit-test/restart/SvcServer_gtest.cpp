@@ -14,7 +14,6 @@
 #include <net/SvcServer.h>
 #include <net/SvcMgr.h>
 #include <fdsp_utils.h>
-// #include <ObjectId.h>
 #include <fiu-control.h>
 #include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
@@ -25,7 +24,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <google/profiler.h>
-// #include "IThreadpool.h"
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -88,19 +86,31 @@ struct SvcMgrModuleProvider : CommonModuleProviderIf {
 using SvcMgrModuleProviderPtr = boost::shared_ptr<SvcMgrModuleProvider>;
 
 
-/**
-* @brief Test for SvcServer stop
-*/
 TEST(SvcServer, stop)
 {
     int port = 10000;
-    // auto svcMgrProvider = boost::make_shared<SvcMgrModuleProvider>(
-        // "/fds/etc/platform.conf", 0x100, port);
-    // auto handler = boost::make_shared<PlatNetSvcHandler>(svcMgrProvider.get());
     auto handler = boost::make_shared<PlatNetSvcHandler>(nullptr);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
 
-    for (int i = 0; i < 40; i++) {
+    auto server = boost::make_shared<SvcServer>(port, processor);
+    server->start();
+
+    sleep(1);
+
+    /* Stop the server.  This will block until stop() completes */
+    server->stop();
+}
+
+/**
+* @brief Test for SvcServer stop
+*/
+TEST(SvcServer, multi_stop)
+{
+    int port = 10000;
+    auto handler = boost::make_shared<PlatNetSvcHandler>(nullptr);
+    auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
+
+    for (int i = 0; i < 10; i++) {
         /* Create and start the server */
         auto server = boost::make_shared<SvcServer>(port, processor);
         server->start();

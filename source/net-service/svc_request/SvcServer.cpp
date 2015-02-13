@@ -3,6 +3,7 @@
  */
 #include <arpa/inet.h>
 #include <util/Log.h>
+#include <fds_assert.h>
 #include <fdsp/PlatNetSvc.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TBufferTransports.h>
@@ -39,7 +40,7 @@ SvcServer::SvcServer(int port, fpi::PlatNetSvcProcessorPtr processor)
 
     server_ = boost::shared_ptr<ts::TThreadedServer>(
         new ts::TThreadedServer(processor, serverTransport_, tfact, proto));
-    stopped_ = false;
+    stopped_ = true;
 }
 
 SvcServer::~SvcServer()
@@ -50,6 +51,9 @@ SvcServer::~SvcServer()
 void SvcServer::start()
 {
     GLOGNOTIFY << logString();
+    fds_verify(stopped_ == true);
+
+    stopped_ = false;
     server_->setServerEventHandler(shared_from_this());
     serverThread_.reset(new std::thread([this] {this->serve_();}));
 }
@@ -57,6 +61,11 @@ void SvcServer::start()
 void SvcServer::stop()
 {
     GLOGNOTIFY << logString();
+
+    if (stopped_) {
+        GLOGWARN << "Server is already stopped..ignoring";
+        return;
+    }
 
     /* Set stopped_ to true, so that any new connection/context creation after this flag is set
      * to true, we can close the connection.
@@ -79,9 +88,6 @@ void SvcServer::stop()
 #endif
 
     closeClientConnections_();
-    /* Not sure if the second stop is really needed */
-    server_->stop();
-    serverTransport_->close();
     /* Do a join on the thread */
     serverThread_->join();
 }

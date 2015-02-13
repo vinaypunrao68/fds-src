@@ -87,7 +87,7 @@ int SvcMgr::mod_init(SysParams const *const p)
     GLOGNOTIFY;
 
     svcRequestHandler_->setTaskExecutor(taskExecutor_);
-    svcServer_->start();
+    startServer();
 
     return 0;
 }
@@ -117,6 +117,16 @@ SvcRequestCounters* SvcMgr::getSvcRequestCntrs() const {
 
 SvcRequestTracker* SvcMgr::getSvcRequestTracker() const {
     return svcRequestMgr_->getSvcRequestTracker();
+}
+
+void SvcMgr::startServer()
+{
+    svcServer_->start();
+}
+
+void SvcMgr::stopServer()
+{
+    svcServer_->stop();
 }
 
 void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)

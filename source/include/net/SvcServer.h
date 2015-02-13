@@ -45,7 +45,16 @@ struct SvcServer : boost::enable_shared_from_this<SvcServer>,
 {
     SvcServer(int port, fpi::PlatNetSvcProcessorPtr processor);
     virtual ~SvcServer();
+
+    /**
+    * @brief Starts the server
+    */
     void start();
+
+    /**
+    * @brief This will stop the server.  Will block until all inbound connections to the server
+    * are closed and server stops.
+    */
     void stop();
 
     /**

@@ -15,11 +15,11 @@
 #include <fdsp_utils.h>
 // #include <ObjectId.h>
 #include <fiu-control.h>
-#include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
 #include <util/fiu_util.h>
+#include <SvcMgrModuleProvider.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -29,62 +29,6 @@
 using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
-
-struct SvcMgrModuleProvider : CommonModuleProviderIf {
-    SvcMgrModuleProvider(const std::string &configFile, long long uuid, int port) {
-        /* config */
-        std::string configBasePath = "fds.dm.";
-        boost::shared_ptr<FdsConfig> config(new FdsConfig(configFile, 0, {nullptr}));
-        configHelper_.init(config, configBasePath);
-        config->set("fds.dm.svc.uuid", uuid);
-        config->set("fds.dm.svc.port", port);
-
-        /* timer */
-        timer_.reset(new FdsTimer());
-
-        /* counters */
-        cntrsMgr_.reset(new FdsCountersMgr(configBasePath));
-
-        /* threadpool */
-        threadpool_.reset(new fds_threadpool(3));
-
-        /* service mgr */
-        auto handler = boost::make_shared<PlatNetSvcHandler>(this);
-        auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-        fpi::SvcInfo svcInfo;
-        svcInfo.svc_id.svc_uuid.svc_uuid = 
-            static_cast<int64_t>(configHelper_.get<long long>("svc.uuid"));
-        svcInfo.ip = net::get_local_ip(configHelper_.get_abs<std::string>("fds.nic_if"));
-        svcInfo.svc_port = configHelper_.get<int>("svc.port");
-        svcInfo.incarnationNo = util::getTimeStampSeconds();
-        svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo));
-        svcMgr_->mod_init(nullptr);
-    }
-
-    virtual FdsConfigAccessor get_conf_helper() const override {
-        return configHelper_;
-    }
-
-    virtual boost::shared_ptr<FdsConfig> get_fds_config() const override {
-        return configHelper_.get_fds_config();
-    }
-
-    virtual FdsTimerPtr getTimer() const override { return timer_; }
-
-    virtual boost::shared_ptr<FdsCountersMgr> get_cntrs_mgr() const override { return cntrsMgr_; }
-
-    virtual fds_threadpool *proc_thrpool() const override { return threadpool_.get(); }
-
-    virtual SvcMgr* getSvcMgr() override { return svcMgr_.get(); }
-
- protected:
-    FdsConfigAccessor configHelper_;
-    FdsTimerPtr timer_;
-    boost::shared_ptr<FdsCountersMgr> cntrsMgr_;
-    fds_threadpoolPtr threadpool_;
-    boost::shared_ptr<SvcMgr> svcMgr_;
-};
-using SvcMgrModuleProviderPtr = boost::shared_ptr<SvcMgrModuleProvider>;
 
 struct SvcRequestMgrTest : BaseTestFixture {
     SvcRequestMgrTest() {
@@ -119,6 +63,17 @@ struct SvcRequestMgrTest : BaseTestFixture {
         }
     }
 
+    static void sendGetStatusEpSvcRequest(SvcMgr* fromMgr, SvcMgr* toMgr,
+                                   SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
+    {
+        auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+        auto asyncReq = fromMgr->getSvcRequestMgr()->newEPSvcRequest(toMgr->getSelfSvcUuid());
+        asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+        asyncReq->setTimeoutMs(1000);
+        asyncReq->onResponseCb(cbHandle.cb);
+        asyncReq->invoke();
+    }
+
     static void TearDownTestCase() {
     }
 
@@ -137,13 +92,7 @@ TEST_F(SvcRequestMgrTest, epsvcrequest)
     auto svcMgr2 = svcMgrProviders[1]->getSvcMgr();
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
-    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(svcMgr2->getSelfSvcUuid());
-    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
-    asyncReq->setTimeoutMs(1000);
-    asyncReq->onResponseCb(svcStatusWaiter.cb);
-    asyncReq->invoke();
-
+    sendGetStatusEpSvcRequest(svcMgr1, svcMgr2, svcStatusWaiter);
     svcStatusWaiter.await();
     ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
     ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
@@ -178,20 +127,22 @@ TEST_F(SvcRequestMgrTest, epsvcrequest_downep)
     auto svcMgr1 = svcMgrProviders[0]->getSvcMgr();
     auto svcMgr2 = svcMgrProviders[1]->getSvcMgr();
 
-    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
-    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(svcMgr2->getSelfSvcUuid());
-    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
-    asyncReq->setTimeoutMs(1000);
-    asyncReq->onResponseCb(svcStatusWaiter.cb);
-    asyncReq->invoke();
+    svcMgr2->stopServer();
 
-    svcStatusWaiter.await();
-    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
-    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
-        << "Status: " << svcStatusWaiter.response->status;
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> cbWaiter1;
+    sendGetStatusEpSvcRequest(svcMgr1, svcMgr2, cbWaiter1);
+    cbWaiter1.await();
+    ASSERT_EQ(cbWaiter1.error, ERR_SVC_REQUEST_TIMEOUT) << "Error: " << cbWaiter1.error;
+
+    svcMgr2->startServer();
+
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> cbWaiter2;
+    sendGetStatusEpSvcRequest(svcMgr1, svcMgr2, cbWaiter2);
+    cbWaiter2.await();
+    ASSERT_EQ(cbWaiter2.error, ERR_SVC_REQUEST_INVOCATION) << "Error: " << cbWaiter2.error;
 }
 
+#if 0
 /* Tests basic failover style request */
 TEST_F(SvcRequestMgrTest, failoversvcrequest)
 {
@@ -247,6 +198,7 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
     ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
         << "Status: " << svcStatusWaiter.response->status;
 }
+#endif
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);

@@ -109,6 +109,16 @@ struct SvcMgr : HasModuleProvider, Module {
     SvcRequestTracker* getSvcRequestTracker() const;
 
     /**
+    * @brief 
+    */
+    void startServer();
+
+    /**
+    * @brief
+    */
+    void stopServer();
+
+    /**
     * @brief Updates service handles based on the entries from service map
     *
     * @param entries
