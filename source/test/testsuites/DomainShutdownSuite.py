@@ -3,10 +3,10 @@
 # Copyright 2015 by Formation Data Systems, Inc.
 #
 # From the .../source/test/testsuite directory run
-# ./ClusterShutdownSuite.py -q ./<QAAutotestConfig.ini> -d <sudo_pwd> --verbose
+# ./DomainShutdownSuite.py -q ./<QAAutotestConfig.ini> -d <sudo_pwd> --verbose
 #
 # where
-#  - <QAAutotestConfig.ini> - One of TwoNodeCluster.ini or FourNodeCluster.ini found in the
+#  - <QAAutotestConfig.ini> - One of TwoNodeDomain.ini or FourNodeDomain.ini found in the
 #  testsuite directory, or one of your own.
 #  - <sudo_pwd> - The password you use for executing sudo on your machine. Even
 #  if your machine does not require a password for sudo, you must provide something, e.g. "dummy".
@@ -17,7 +17,7 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import testcases.TestMgt
@@ -27,20 +27,20 @@ import NodeVerifyDownSuite
 def suiteConstruction(self, action="kill-uninst"):
     """
     Construct the ordered set of test cases that comprise the
-    Cluster Shutdown test suite.
+    Domain Shutdown test suite.
     """
     suite = unittest.TestSuite()
 
     if action.count("remove") > 0:
-        # One test case to remove the cluster services.
+        # One test case to remove the domain services.
         suite.addTest(testcases.TestFDSSysMgt.TestNodeRemoveServices())
 
     if action.count("shutdown") > 0:
-        # One test case to remove the cluster services.
+        # One test case to remove the domain services.
         suite.addTest(testcases.TestFDSSysMgt.TestDomainShutdown())
 
     if action.count("kill") > 0:
-        # One test case to shutdown the cluster.
+        # One test case to shutdown the domain.
         suite.addTest(testcases.TestFDSSysMgt.TestNodeKill())
 
         # Verify that all nodes are down.
