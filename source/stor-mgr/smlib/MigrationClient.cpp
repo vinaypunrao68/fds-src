@@ -459,7 +459,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
             if (objMD.first->getRefCnt() == 0) {
                 /* Treat this as a new object. */
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
-                           << ": First snapshot refcnt=0: Selecting object " << objMD.second->logString();
+                           << ": Object resurrected: Selecting object " << objMD.second->logString();
 
                 objMetaDataSet.emplace_back(objMD.second, false);
             } else {
