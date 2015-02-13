@@ -19,12 +19,12 @@ import xmlrunner
 
 import NodeWaitSuite
 import NodeVerifyDownSuite
-import ClusterBootSuite
-import ClusterShutdownSuite
+import DomainBootSuite
+import DomainShutdownSuite
 
 import TestFDSEnvMgt
 import TestFDSSysMgt
-import TestFDSModMgt
+import TestFDSServiceMgt
 import TestFDSPolMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
@@ -95,24 +95,24 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
     # Based on the script defined in the scenario, take appropriate
     # action which typically includes executing one or more test cases.
-    if re.match('\[cluster\]', script) is not None:
-        # What action should be taken against the cluster? If not stated, assume "install-boot-activate".
+    if re.match('\[domain\]', script) is not None:
+        # What action should be taken against the domain? If not stated, assume "install-boot-activate".
         if "action" in scenario.nd_conf_dict:
             action = scenario.nd_conf_dict['action']
         else:
             action = "install-boot-activate"
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
-            # Start this cluster as indicated by the action.
-            clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None, action=action)
-            suite.addTest(clusterBootSuite)
+            # Start this domain as indicated by the action.
+            domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
+            suite.addTest(domainBootSuite)
         elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
                 (action.count("uninst") > 0):
-            # Shutdown the cluster as indicated by the action.
-            clusterShutdownSuite = ClusterShutdownSuite.suiteConstruction(self=None, action=action)
-            suite.addTest(clusterShutdownSuite)
+            # Shutdown the domain as indicated by the action.
+            domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
+            suite.addTest(domainShutdownSuite)
         else:
-            log.error("Unrecognized cluster action '%s' for scenario %s" %
+            log.error("Unrecognized domain action '%s' for scenario %s" %
                       (action, scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
@@ -141,14 +141,14 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
                     if (action.count("boot") > 0):
                         # Now bring up PM.
-                        suite.addTest(TestFDSModMgt.TestPMBringUp(node=node))
-                        suite.addTest(TestFDSModMgt.TestPMWait(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
 
                         # If the node also supports an OM, start the OM
                         # as well.
                         if node.nd_run_om():
-                            suite.addTest(TestFDSModMgt.TestOMBringUp(node=node))
-                            suite.addTest(TestFDSModMgt.TestOMWait(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
                             suite.addTest(TestWait(delay=10, reason="to let OM initialize"))
 
                     if (action.count("activate") > 0):
@@ -190,10 +190,10 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                     break
 
             if found:
-                # Give the cluster some time to reinitialize if requested.
+                # Give the domain some time to reinitialize if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
                     suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow cluster " + script + " to reinitialize"))
+                                                             reason="to allow domain " + script + " to reinitialize"))
             else:
                 log.error("Node not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -266,14 +266,14 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
             if (action.count("boot") > 0):
                 # Now bring up PM.
-                suite.addTest(TestFDSModMgt.TestPMBringUp(node=node))
-                suite.addTest(TestFDSModMgt.TestPMWait(node=node))
+                suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
+                suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
 
                 # If the node also supports an OM, start the OM
                 # as well.
                 if node.nd_run_om():
-                    suite.addTest(TestFDSModMgt.TestOMBringUp(node=node))
-                    suite.addTest(TestFDSModMgt.TestOMWait(node=node))
+                    suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
+                    suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
 
             if (action.count("activate") > 0):
                 # Now activate the node's configured services.

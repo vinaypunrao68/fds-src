@@ -41,19 +41,24 @@ class SvcRequestPool {
 
     void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
 
-    static fpi::AsyncHdr newSvcRequestHeader(const SvcRequestId& reqId,
-                                             const fpi::FDSPMsgTypeId &msgTypeId,
-                                             const fpi::SvcUuid &srcUuid,
-                                             const fpi::SvcUuid &dstUuid);
-    static boost::shared_ptr<fpi::AsyncHdr> newSvcRequestHeaderPtr(
-            const SvcRequestId& reqId,
-            const fpi::FDSPMsgTypeId &msgTypeId,
-            const fpi::SvcUuid &srcUuid,
-            const fpi::SvcUuid &dstUuid);
+    fpi::AsyncHdr newSvcRequestHeader(const SvcRequestId& reqId,
+                                      const fpi::FDSPMsgTypeId &msgTypeId,
+                                      const fpi::SvcUuid &srcUuid,
+                                      const fpi::SvcUuid &dstUuid);
+    boost::shared_ptr<fpi::AsyncHdr> newSvcRequestHeaderPtr(
+        const SvcRequestId& reqId,
+        const fpi::FDSPMsgTypeId &msgTypeId,
+        const fpi::SvcUuid &srcUuid,
+        const fpi::SvcUuid &dstUuid);
 
     LFMQThreadpool* getSvcSendThreadpool();
     LFMQThreadpool* getSvcWorkerThreadpool();
     void dumpLFTPStats();
+
+    /// Sets a DLT manager with the pool so that it
+    /// be used to set DLT versions on created headers.
+    /// If it's not set, the version will default to invalid.
+    void setDltManager(DLTManagerPtr dltManager);
 
  protected:
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);
@@ -71,6 +76,8 @@ class SvcRequestPool {
     std::unique_ptr<LFMQThreadpool> svcSendTp_;
     /* Lock free threadpool on which work is done */
     std::unique_ptr<LFMQThreadpool> svcWorkerTp_;
+    /* DLT manager to use for setting/checking request routing */
+    DLTManagerPtr dltMgr;
 };
 extern SvcRequestPool *gSvcRequestPool;
 }  // namespace fds
