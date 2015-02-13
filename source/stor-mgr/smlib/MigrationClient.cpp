@@ -303,10 +303,12 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                            << ": Selecting object " << objMetaDataPtr->logString();
                 objMetaDataSet.emplace_back(objMetaDataPtr, false);
             } else {
-                LOGMIGRATE << "MigClientState=" << getMigClientState()
-                           << ": Skipping object ID " << objId
-                           << " due to corruption or 0 ref_cnt";
-
+                if (objMetaDataPtr->isObjCorrupted()) {
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMetaDataPtr->logString();
+                }
             }
 
         } else {
@@ -347,7 +349,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                                << ": Selecting object " << objMetaDataPtr->logString();
                     objMetaDataSet.emplace_back(objMetaDataPtr, false);
                 } else {
-                    LOGERROR << "CORRUPTION: Skipping object ID " << objId;
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
                 }
             }
         }
@@ -440,13 +442,24 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         if (objMD.first == nullptr) {
             fds_verify(objMD.second != nullptr);
 
-            /* only send if the object is not corrupted */
+            /* only send if the object is not corrupted, or have a positive refcnt.
+             * If object is new, but have refcnt == 0, then there is no need to migrate
+             * them.
+             */
             if (!objMD.second->isObjCorrupted() && (objMD.second->getRefCnt() > 0UL)) {
 
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                            << ": Selecting object " << objMD.second->logString();
 
+                /* Add to object metadata set */
                 objMetaDataSet.emplace_back(objMD.second, false);
+            } else {
+                if (objMD.second->isObjCorrupted()) {
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMD.second->logString();
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMD.second->logString();
+                }
             }
         } else {
             /* Here we have 2 possible cases.
