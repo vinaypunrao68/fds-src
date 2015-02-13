@@ -143,7 +143,11 @@ mockStats = function(){
             
             rz.calculated[0].count = fbCount;
             
-            callback( rz );
+            if ( angular.isFunction( callback ) ){
+                callback( rz );
+            }
+            
+            return rz;
         };
 
         service.getPerformanceBreakdownSummary = function( filter, callback ){
@@ -229,7 +233,7 @@ mockStats = function(){
                     {ratio: 0},
                     {total: 0},
                     {totalCapacity: 0 },
-                    {toFull: 0 }
+                    {toFull: 365*24*60*60 }
                 ]
             };
             
@@ -243,11 +247,13 @@ mockStats = function(){
             }
             
             var stats = getStatsToUse( filter );
+            var nodes = window.localStorage.getItem( 'nodes' );
             
-            if ( !angular.isDefined( stats ) || stats.length === 0 || stats[0] === null ){
+            if ( !angular.isDefined( stats ) || stats.length === 0 || stats[0] === null || nodes === null ){
                 return rz;
             }
             
+            nodes = JSON.parse( nodes );
             var bucketObj = bucketByTime( stats, time );
             
             // put the data into the result
@@ -282,15 +288,19 @@ mockStats = function(){
             }
             
             rz.calculated[1].total = pSum;
-            rz.calculated[2].totalCapacity = Math.pow( 1024, 5 );
+            rz.calculated[2].totalCapacity = Math.pow( 1024, 4 )*nodes.length;
             
             var slope = ( last - first ) / (( bucketObj.keyList[ bucketObj.keyList.length - 1] ) - bucketObj.keyList[0] );
             
-            rz.calculated[3].toFull = (Math.pow( 1024, 5 ) / (100*slope)).toFixed( 0 );
+            rz.calculated[3].toFull = (Math.pow( 1024, 4 ) / (100*slope)).toFixed( 0 );
             
             rz = fixTheZeros( filter, rz );
             
-            callback( rz );
+            if ( angular.isFunction( callback ) ){
+                callback( rz );
+            }
+            
+            return rz;
         };    
 
         return service;

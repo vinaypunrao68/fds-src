@@ -70,6 +70,15 @@ mockNode = function(){
                     "status": "INACTIVE",
                     "type": "FDSP_PLATFORM"
                   }
+                ],
+                "OM": [
+                  {
+                    "uuid": 7088430947183220035,
+                    "autoName": "OM",
+                    "port": 7001,
+                    "status": "ACTIVE",
+                    "type": "FDSP_ORCH_MGR"
+                  }
                 ]
               }
             }
@@ -160,6 +169,15 @@ mockNode = function(){
                             "port": 7001,
                             "status": "ACTIVE",
                             "type": "FDSP_PLATFORM"
+                        }
+                    ],
+                    "OM": [
+                        {
+                            "uuid": nodes[i].uuid + 5,
+                            "autoName": "OM",
+                            "port": 7001,
+                            "status": "ACTIVE",
+                            "type": "FDSP_ORCH_MGR"
                         }
                     ]
                 };
