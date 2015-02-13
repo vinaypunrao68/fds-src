@@ -11,8 +11,8 @@ import TestCase
 # Module-specific requirements
 import sys
 import os
-from TestFDSModMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
-from TestFDSModMgt import TestAMBringup
+from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
+from TestFDSServiceMgt import TestAMBringup
 
 
 # This class contains the attributes and methods to test

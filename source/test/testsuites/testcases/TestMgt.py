@@ -24,7 +24,7 @@ import DomainShutdownSuite
 
 import TestFDSEnvMgt
 import TestFDSSysMgt
-import TestFDSModMgt
+import TestFDSServiceMgt
 import TestFDSPolMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
@@ -141,14 +141,14 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
                     if (action.count("boot") > 0):
                         # Now bring up PM.
-                        suite.addTest(TestFDSModMgt.TestPMBringUp(node=node))
-                        suite.addTest(TestFDSModMgt.TestPMWait(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
 
                         # If the node also supports an OM, start the OM
                         # as well.
                         if node.nd_run_om():
-                            suite.addTest(TestFDSModMgt.TestOMBringUp(node=node))
-                            suite.addTest(TestFDSModMgt.TestOMWait(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
                             suite.addTest(TestWait(delay=10, reason="to let OM initialize"))
 
                     if (action.count("activate") > 0):
@@ -266,14 +266,14 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
             if (action.count("boot") > 0):
                 # Now bring up PM.
-                suite.addTest(TestFDSModMgt.TestPMBringUp(node=node))
-                suite.addTest(TestFDSModMgt.TestPMWait(node=node))
+                suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
+                suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
 
                 # If the node also supports an OM, start the OM
                 # as well.
                 if node.nd_run_om():
-                    suite.addTest(TestFDSModMgt.TestOMBringUp(node=node))
-                    suite.addTest(TestFDSModMgt.TestOMWait(node=node))
+                    suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
+                    suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
 
             if (action.count("activate") > 0):
                 # Now activate the node's configured services.

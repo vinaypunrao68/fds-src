@@ -18,7 +18,7 @@ import logging
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import testcases.TestMgt
@@ -54,16 +54,16 @@ def suiteConstruction(self, action="installbootactivate"):
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
 
         # Start the the OM's PM.
-        suite.addTest(testcases.TestFDSModMgt.TestPMForOMBringUp())
-        suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMWait())
 
         # Now start OM.
-        suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
-        suite.addTest(testcases.TestFDSModMgt.TestOMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestOMBringUp())
+        suite.addTest(testcases.TestFDSServiceMgt.TestOMWait())
 
         # Start the remaining PMs
-        suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-        suite.addTest(testcases.TestFDSModMgt.TestPMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMBringUp())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMWait())
 
         # Give the nodes some time to initialize.
         suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the nodes initialize"))

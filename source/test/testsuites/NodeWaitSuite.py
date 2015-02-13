@@ -8,7 +8,7 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 
 def suiteConstruction(self, fdsNodes=None):
@@ -33,21 +33,21 @@ def suiteConstruction(self, fdsNodes=None):
             # If it's the OM node, check it's PM and OM. Otherwise,
             # we're looking for a non-OM PM.
             if node.nd_conf_dict['node-name'] == fdscfg.rt_om_node.nd_conf_dict['node-name']:
-                suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait(node=node))
-                suite.addTest(testcases.TestFDSModMgt.TestOMWait(node=node))
+                suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMWait(node=node))
+                suite.addTest(testcases.TestFDSServiceMgt.TestOMWait(node=node))
             else:
-                suite.addTest(testcases.TestFDSModMgt.TestPMWait(node=node))
+                suite.addTest(testcases.TestFDSServiceMgt.TestPMWait(node=node))
 
-            suite.addTest(testcases.TestFDSModMgt.TestDMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestSMWait(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestAMWait(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestDMWait(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestSMWait(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestAMWait(node=node))
     else:
-        suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestPMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestDMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestSMWait())
-        suite.addTest(testcases.TestFDSModMgt.TestAMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestOMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestDMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestAMWait())
 
     return suite
 
