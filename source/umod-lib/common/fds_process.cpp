@@ -22,8 +22,8 @@
 namespace fds {
 
 /* Processwide globals from fds_process.h */
-// TODO(Rao): Ideally we shouldn't have globals.  As we slowly migrate towards not having
-// globals, these should go away.  We shou
+// TODO(Rao): Ideally we shouldn't have globals (g_fdslog maybe an exception).  As we slowly
+// migrate towards not having globals, these should go away.
 
 FdsProcess *g_fdsprocess                    = NULL;
 fds_log *g_fdslog                           = NULL;
@@ -43,6 +43,13 @@ void init_process_globals(fds_log *log)
     g_cntrs_mgr.reset(new FdsCountersMgr(net::get_my_hostname()+".unknown"));
 }
 
+void destroy_process_globals() {
+    if (g_fdslog) {
+        delete g_fdslog;
+        g_fdslog = nullptr;
+    }
+}
+
 CommonModuleProviderIf* getModuleProvider() {
     return g_fdsprocess;
 }
@@ -53,6 +60,9 @@ CommonModuleProviderIf* getModuleProvider() {
 */
 FdsProcess::FdsProcess()
 {
+    mod_vectors_ = nullptr;
+    proc_root = nullptr;
+    proc_thrp = nullptr;
 }
 
 /**
@@ -199,19 +209,18 @@ FdsProcess::~FdsProcess()
     }
     /* cleanup process wide globals */
     g_fdsprocess = nullptr;
-    delete g_fdslog;
 
     /* Terminate signal handling thread */
-    int rc = pthread_kill(sig_tid_, SIGTERM);
-    fds_assert(rc == 0);
-    rc = pthread_join(sig_tid_, NULL);
-    fds_assert(rc == 0);
-
-    if (proc_thrp != NULL) {
-        delete proc_thrp;
+    if (sig_tid_) {
+        int rc = pthread_kill(*sig_tid_, SIGTERM);
+        fds_assert(rc == 0);
+        rc = pthread_join(*sig_tid_, NULL);
+        fds_assert(rc == 0);
     }
-    delete proc_root;
-    delete mod_vectors_;
+
+    if (proc_thrp) delete proc_thrp;
+    if (proc_root) delete proc_root;
+    if (mod_vectors_) delete mod_vectors_;
 }
 
 void FdsProcess::proc_pre_startup() {}
@@ -350,7 +359,8 @@ void FdsProcess::setup_sig_handler()
     fds_assert(rc == 0);
 
     // Joinable thread
-    rc = pthread_create(&sig_tid_, 0, FdsProcess::sig_handler, 0);
+    sig_tid_.reset(new pthread_t);
+    rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, 0);
     fds_assert(rc == 0);
 }
 
