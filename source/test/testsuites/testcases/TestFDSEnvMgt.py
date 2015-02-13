@@ -229,7 +229,7 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
 
 
 # This class contains attributes and methods to test clean shared memory.
-# A workaround that is presently required if you want to restart a cluster
+# A workaround that is presently required if you want to restart a domain
 # that was previously started.
 class TestFDSSharedMemoryClean(TestCase.FDSTestCase):
     def __init__(self, parameters = None, node=None):

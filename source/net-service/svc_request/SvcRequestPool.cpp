@@ -70,6 +70,12 @@ SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
     header.msg_src_uuid = srcUuid;
     header.msg_dst_uuid = dstUuid;
     header.msg_code = 0;
+    // Set the header's dlt_version if we have actually have one. In cases
+    // where there isn't a data placement table we're expecting the receiver
+    // to ignore this field anyways.
+    if (dltMgr) {
+        header.dlt_version = dltMgr->getDLT()->getVersion();
+    }
     return header;
 }
 
@@ -203,6 +209,10 @@ void SvcRequestPool::dumpLFTPStats()
     for (auto &w : svcWorkerTp_->workers) {
         LOGDEBUG << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
     }
+}
+
+void SvcRequestPool::setDltManager(DLTManagerPtr dltManager) {
+    dltMgr = dltManager;
 }
 
 }  // namespace fds

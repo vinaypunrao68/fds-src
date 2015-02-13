@@ -429,7 +429,6 @@ SmLoadProc::putSm(fds_volid_t volId,
 
     boost::shared_ptr<fpi::PutObjectMsg> putObjMsg(new fpi::PutObjectMsg());
     putObjMsg->volume_id = volId;
-    putObjMsg->dlt_version = 1;
     putObjMsg->data_obj = *objData;
     putObjMsg->data_obj_len = (*objData).size();
     putObjMsg->data_obj_id.digest =

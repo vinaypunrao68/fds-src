@@ -70,6 +70,36 @@ SMSvcHandler::SMSvcHandler()
 }
 
 void
+SMSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                        boost::shared_ptr<std::string>& payload) {
+    // Requests to SM are relative to a DLT table that maps which
+    // SMs are responsible for which objects. If the DLT version
+    // being used by the sender is stale then this may not be the
+    // correct SM to contact. We know if other version are stale if
+    // our current version has been closed (see OM table propagation
+    // protocol). If we don't have a DLT version yet then have SM process
+    // the request.
+    // TODO(Andrew): For now, ignore the DLT version for messages from
+    // the OM because it's not easy for the OM to properly set the
+    // version (it doesn't have a DLTManagerPtr to set).
+    const DLT *curDlt = objStorMgr->getDLT();
+    if ((gl_OmUuid != header->msg_src_uuid) &&
+        (curDlt) &&
+        (curDlt->isClosed()) &&
+        (curDlt->getVersion() != (fds_uint64_t)header->dlt_version)) {
+        // Tell the sender that their DLT version is invalid.
+        DBG(LOGTRACE << "Returning DLT mismatch using version "
+            << (fds_uint64_t)header->dlt_version << " with current closed version "
+            << curDlt->getVersion());
+
+        header->msg_code = ERR_IO_DLT_MISMATCH;
+        sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg());
+    } else {
+        PlatNetSvcHandler::asyncReqt(header, payload);
+    }
+}
+
+void
 SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                 boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
 {
@@ -426,7 +456,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
-    putReq->dltVersion = putObjMsg->dlt_version;
+    putReq->dltVersion = asyncHdr->dlt_version;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
     putReq->putObjectNetReq = putObjMsg;
     // perf-trace related data
@@ -524,7 +554,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delReq->io_type = FDS_SM_DELETE_OBJECT;
 
     delReq->setVolId(expObjMsg->volId);
-    delReq->dltVersion = expObjMsg->dlt_version;
+    delReq->dltVersion = asyncHdr->dlt_version;
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));
     delReq->delObjectNetReq = expObjMsg;
     // perf-trace related data

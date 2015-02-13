@@ -27,26 +27,24 @@ CommitBlobTxHandler::CommitBlobTxHandler() {
 
 void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::CommitBlobTxMsg>& message) {
-    if (dataMgr->testUturnAll) {
-        LOGNOTIFY << "Uturn testing commit blob tx " << logString(*asyncHdr) << logString(*message);
-        handleResponse(asyncHdr, message, ERR_OK, nullptr);
-        return;
-    }
-
     LOGDEBUG << logString(*asyncHdr) << logString(*message);
+
+    HANDLE_INVALID_TX_ID();
+
+    // Handle U-turn
+    HANDLE_U_TURN();
 
     auto dmReq = new DmIoCommitBlobTx(message->volume_id,
                                       message->blob_name,
                                       message->blob_version,
                                       message->dmt_version);
-    dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
-
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
-    dmReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(message->txId));
+    dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
+    dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
+
+    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
     addToQueue(dmReq);
 }
@@ -88,12 +86,15 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                           MetaDataList::const_ptr const& meta_list,
                                           fds_uint64_t const blobSize,
                                           DmIoCommitBlobTx* commitBlobReq) {
-    if (e.ok()) {
-        meta_list->toFdspPayload(commitBlobReq->rspMsg.meta_list);
-        commitBlobReq->rspMsg.byteCount = blobSize;
-    }
     QueueHelper helper(commitBlobReq);
     helper.err = e;
+    if (!helper.err.ok()) {
+        LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
+        return;
+    }
+
+    meta_list->toFdspPayload(commitBlobReq->rspMsg.meta_list);
+    commitBlobReq->rspMsg.byteCount = blobSize;
 
     LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
              << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
@@ -109,7 +110,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     helper.markIoDone();
 
     // do forwarding if needed and commit was successful
-    if (helper.err.ok() && commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
+    if (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
         VolumeMeta* vol_meta = nullptr;
         fds_bool_t is_forwarding = false;
 
@@ -165,24 +166,13 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
                                          Error const& e, dmCatReq* dmRequest) {
-    /*
-     * we are not sending any response  message  in this call, instead we
-     * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload
-     * static response
-     */
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
-    // TODO(sanjay) - we will have to revisit  this call
-    DM_SEND_ASYNC_RESP(*asyncHdr,
-                       fpi::CommitBlobTxRspMsgTypeId,
-                       static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
-    if (dataMgr->testUturnAll) {
-        fds_verify(dmRequest == nullptr);
-    } else {
-        delete dmRequest;
-    }
+    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
+            static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
+
+    delete dmRequest;
 }
 
 }  // namespace dm

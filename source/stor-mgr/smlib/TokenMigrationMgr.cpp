@@ -47,6 +47,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
         LOGWARN << "We received empty migrations message from OM, nothing to do";
+        cb(ERR_OK);
         return err;
     }
 
@@ -71,17 +72,17 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     for (auto migrGroup : migrationMsg->migrations) {
         // migrGroup is <source SM, set of DLT tokens> pair
         NodeUuid srcSmUuid(migrGroup.source);
-        LOGNORMAL << "Will migrate tokens from source SM " << std::hex
-                  << srcSmUuid.uuid_get_val() << std::dec;
+        LOGMIGRATE << "Will migrate tokens from source SM " << std::hex
+                   << srcSmUuid.uuid_get_val() << std::dec;
         // iterate over DLT tokens for this source SM
         for (auto dltTok : migrGroup.tokens) {
             fds_token_id smTok = SmDiskMap::smTokenId(dltTok);
-            LOGNORMAL << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
-                      << " DLT token " << dltTok << " SM token " << smTok;
+            LOGMIGRATE << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
+                       << " DLT token " << dltTok << " SM token " << smTok;
             // if we don't know about this SM token and source SM, create migration executor
             if ((migrExecutors.count(smTok) == 0) ||
                 (migrExecutors.count(smTok) > 0 && migrExecutors[smTok].count(srcSmUuid) == 0)) {
-                LOGNORMAL << "Will create migration executor class";
+                LOGMIGRATE << "Will create migration executor class";
                 fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId, (fds_uint32_t)1);
                 fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);
                 LOGMIGRATE << "Will create migration executor class with executor ID "
@@ -113,7 +114,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
 void
 SmTokenMigrationMgr::startSmTokenMigration(fds_token_id smToken) {
     smTokenInProgress = smToken;
-    LOGNORMAL << "Starting migration for SM token " << smToken;
+    LOGMIGRATE << "Starting migration for SM token " << smToken;
 
     // enqueue snapshot work
     snapshotRequest.token_id = smTokenInProgress;
@@ -135,7 +136,7 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
                                                leveldb::DB *db) {
     Error err(ERR_OK);
     if (atomic_load(&migrState) == MIGR_ABORTED) {
-        LOGNORMAL << "Migration was aborted, ignoring migration task";
+        LOGMIGRATE << "Migration was aborted, ignoring migration task";
         return;
     }
 
@@ -307,9 +308,9 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                                              fds_token_id smToken,
                                              fds_bool_t isFirstRound,
                                              const Error& error) {
-    LOGNORMAL << "Migration executor " << std::hex << executorId << std::dec
-              << " finished migration round first? " << isFirstRound << " done? "
-              << !isFirstRound << error;
+    LOGMIGRATE << "Migration executor " << std::hex << executorId << std::dec
+               << " finished migration round first? " << isFirstRound << " done? "
+               << !isFirstRound << error;
 
     fds_verify(smToken == smTokenInProgress);
 
@@ -410,9 +411,8 @@ SmTokenMigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok
     // migration client; so we must have it
     fds_verify(migrClients.count(executorId) > 0);
     // Tell migration client responsible for migrating SM token
-    LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
-               << " executorId " << executorId;
-    migrClients[executorId]->setForwardingFlag(smTok);
+    // to set forwarding flag, if this is second snapshot
+    migrClients[executorId]->setForwardingFlagIfSecondPhase(smTok);
 }
 
 fds_bool_t

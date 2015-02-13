@@ -44,9 +44,11 @@ MigrationClient::~MigrationClient()
 }
 
 void
-MigrationClient::setForwardingFlag(fds_token_id smTok) {
-    fds_verify(smTok == SMTokenID);
-    if (getMigClientState() != MIG_CLIENT_ERROR) {
+MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
+    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET) {
+        fds_verify(smTok == SMTokenID);
+        LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
+                   << " executorId " << std::hex << executorID << std::dec;
         forwardingIO = true;
     }
 }
@@ -301,7 +303,10 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                            << ": Selecting object " << objMetaDataPtr->logString();
                 objMetaDataSet.emplace_back(objMetaDataPtr, false);
             } else {
-                LOGERROR << "CORRUPTION: Skipping object ID " << objId;
+                LOGMIGRATE << "MigClientState=" << getMigClientState()
+                           << ": Skipping object ID " << objId
+                           << " due to corruption or 0 ref_cnt";
+
             }
 
         } else {
@@ -444,17 +449,32 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                 objMetaDataSet.emplace_back(objMD.second, false);
             }
         } else {
-            /* Ok. There is change in object metadata.  Calculate the difference
-             * and stuff the diff (ref_cnt's only) to the second of a pair.
-             * Also, indicate that this is metadata update only when staging to
-             * form a delta set to be sent to the destination SM.
+            /* Here we have 2 possible cases.
+             * 1) the object was alive (i.e. ref_cnt > 0) on the first snapshot, and
+             *    the metadata and object was migrated to the destination SM during the first phase.
+             * 2) the object was dead (i.e. ref_cnt == 0) on the first snapshot, where the
+             *    metadata and object didn't migrate, but was resurrected before the second
+             *    snapshot.  In this case, we treat it as a new object.
              */
-            objMD.second->diffObjectMetaData(objMD.first);
+            if (objMD.first->getRefCnt() == 0) {
+                /* Treat this as a new object. */
+                LOGMIGRATE << "MigClientState=" << getMigClientState()
+                           << ": Object resurrected: Selecting object " << objMD.second->logString();
 
-            LOGMIGRATE << "MigClientState=" << getMigClientState()
-                       << ": Diff'ed MetaData " << objMD.second->logString();
+                objMetaDataSet.emplace_back(objMD.second, false);
+            } else {
+                /* Ok. There is change in object metadata.  Calculate the difference
+                 * and stuff the diff (ref_cnt's only) to the second of a pair.
+                 * Also, indicate that this is metadata update only when staging to
+                 * form a delta set to be sent to the destination SM.
+                 */
+                objMD.second->diffObjectMetaData(objMD.first);
 
-            objMetaDataSet.emplace_back(objMD.second, true);
+                LOGMIGRATE << "MigClientState=" << getMigClientState()
+                           << ": Diff'ed MetaData " << objMD.second->logString();
+
+                objMetaDataSet.emplace_back(objMD.second, true);
+            }
         }
 
         /* Once we fill up the delta set to max size, then send it
