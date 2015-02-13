@@ -39,6 +39,7 @@ SvcServer::SvcServer(int port, fpi::PlatNetSvcProcessorPtr processor)
 
     server_ = boost::shared_ptr<ts::TThreadedServer>(
         new ts::TThreadedServer(processor, serverTransport_, tfact, proto));
+    stopped_ = false;
 }
 
 SvcServer::~SvcServer()
@@ -57,9 +58,16 @@ void SvcServer::stop()
 {
     GLOGNOTIFY << logString();
 
+    /* Set stopped_ to true, so that any new connection/context creation after this flag is set
+     * to true, we can close the connection.
+     */
+    stopped_ = true;
+
     /* Stop the server so that we will not accept any new connections */
     server_->stop();
 
+#if 0
+    /* NOTE: Commented.  Uncomment if needed */
     /* Thi sleep is introduced so that any race with stop() and new connection context created
      * see TThreadedServer::tasks_, gets settled(not certain).  After this sleep any new context
      * created should be both in connections_ and TThreadedServer::tasks_.  Without this sleep
@@ -68,8 +76,10 @@ void SvcServer::stop()
      * implementation.
      */
     sleep(1);
+#endif
 
     closeClientConnections_();
+    /* Not sure if the second stop is really needed */
     server_->stop();
     serverTransport_->close();
     /* Do a join on the thread */
@@ -97,7 +107,7 @@ void SvcServer::closeClientConnections_()
         itr->close();
     }
 
-    /* Wait until all connections are closed */
+    /* Wait until all connections are closed.  NOTE, not lockng. Should be ok */
     int slept_time = 0;
     while (connections_.size() > 0 &&
            slept_time < 1000) {
@@ -125,13 +135,22 @@ void* SvcServer::createContext(
     boost::shared_ptr<tp::TProtocol> output)
 {
     auto transport = input->getTransport();
+
+    if (stopped_) {
+        /* Once stopped_ is set to true, we will not cache connections.  We will close
+         * them immediately, so that join() call in TThreadedServer::stop() will return.
+         */
+        transport->close();
+        return nullptr;;
+    }
+
     {
         fds_scoped_lock l(connectionsLock_);
         connections_.insert(transport);
     }
     LOGDEBUG << "New connection: " << getTransportKey(transport);
 
-    return NULL;
+    return nullptr;
 }
 
 void SvcServer::deleteContext(void* serverContext,

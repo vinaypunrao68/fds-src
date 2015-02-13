@@ -7,6 +7,7 @@
 #include <boost/shared_ptr.hpp>
 #include <thread>
 #include <memory>
+#include <atomic>
 #include <set>
 #include <boost/enable_shared_from_this.hpp>
 #include <concurrency/Mutex.h>
@@ -94,6 +95,7 @@ struct SvcServer : boost::enable_shared_from_this<SvcServer>,
     };
     std::set<tt::TTransportPtr, LtTransports> connections_;
     fds_mutex connectionsLock_;
+    std::atomic<bool> stopped_;
 };
 }  // namespace fds
 

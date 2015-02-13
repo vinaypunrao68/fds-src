@@ -100,18 +100,22 @@ TEST(SvcServer, stop)
     auto handler = boost::make_shared<PlatNetSvcHandler>(nullptr);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
 
-    /* Create and start the server */
-    auto server = boost::make_shared<SvcServer>(port, processor);
-    server->start();
+    for (int i = 0; i < 40; i++) {
+        /* Create and start the server */
+        auto server = boost::make_shared<SvcServer>(port, processor);
+        server->start();
 
-    sleep(2);
+        sleep(1);
 
-    /* Create two clients */
-    auto client1 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, true);
-    // auto client2 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, true);
+        /* Create two clients */
+        auto client1 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, true);
+        auto client2 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, true);
 
-    /* Stop the server.  This will block until stop() completes */
-    server->stop();
+        /* Stop the server.  This will block until stop() completes */
+        server->stop();
+
+        std::cout << "Iteration: " << i << " completed";
+    }
 }
 
 int main(int argc, char** argv) {
