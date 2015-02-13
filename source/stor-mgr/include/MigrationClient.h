@@ -102,7 +102,7 @@ class MigrationClient {
      * Will set forwarding flag to true
      * @param smToken is SM token, for sanity check
      */
-    void setForwardingFlag(fds_token_id smTok);
+    void setForwardingFlagIfSecondPhase(fds_token_id smTok);
 
     /**
      * Forwards requests if given DLT token is migrating and migration
