@@ -3,7 +3,7 @@
         ["cody-ec2","10.3.48.119:7777"]
     ],
     "interval": 60,
-    "timeout": 10,
+    "timeout": 5,
     "db": {
         "host": "bld-dev-02",
         "port": 8086,
