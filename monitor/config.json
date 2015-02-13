@@ -1,0 +1,15 @@
+{
+    "targets": [
+        ["cody-ec2","10.3.48.119:7777"]
+    ],
+    "interval": 60,
+    "timeout": 10,
+    "db": {
+        "host": "bld-dev-02",
+        "port": 8086,
+        "name": "codytest",
+        "user": "test",
+        "pass": "test"
+    },
+    "columns": ["cluster", "volume_name", "volume_id", "value", "time"]
+}
