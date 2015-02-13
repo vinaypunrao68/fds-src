@@ -3,9 +3,7 @@ package com.formationds.spike.later;
 import com.formationds.spike.later.pathtemplate.PathTemplate;
 import com.formationds.spike.later.pathtemplate.RouteSignature;
 import com.formationds.web.toolkit.HttpMethod;
-import com.formationds.web.toolkit.route.LexicalTrie;
-import com.formationds.web.toolkit.route.QueryResult;
-import io.undertow.server.HttpServerExchange;
+import org.eclipse.jetty.server.Request;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -13,7 +11,7 @@ import java.util.function.Predicate;
 public class HttpPath {
     private HttpMethod method;
     private PathTemplate pathTemplate;
-    private final List<Predicate<HttpServerExchange>> predicates;
+    private final List<Predicate<Request>> predicates;
 
     public HttpPath() {
         predicates = new ArrayList<>();
@@ -41,23 +39,23 @@ public class HttpPath {
     }
 
     public HttpPath withHeader(String headerName) {
-        predicates.add(request -> request.getRequestHeaders().getFirst(headerName) != null);
+        predicates.add(request -> request.getHeader(headerName) != null);
         return this;
     }
 
 
-    public MatchResult matches(HttpServerExchange exchange) {
+    public MatchResult matches(Request request) {
         if (predicates.size() == 0 && method == null && pathTemplate == null) {
             return failedMatch;
         }
 
-        if(method != null && !exchange.getRequestMethod().toString().equalsIgnoreCase(method.toString()))
+        if (method != null && !request.getMethod().toString().equalsIgnoreCase(method.toString()))
             return failedMatch;
 
         Map<String, String> pathParams = null;
         if(pathTemplate != null) {
             //String path = exchange.getRequestPath().replaceAll("/$", "");
-            PathTemplate.TemplateMatch match = pathTemplate.match(exchange.getRequestPath());
+            PathTemplate.TemplateMatch match = pathTemplate.match(request.getRequestURI());
             if(!match.isMatch())
                 return failedMatch;
             pathParams = match.getParameters();
@@ -65,8 +63,8 @@ public class HttpPath {
             pathParams = Collections.emptyMap();
         }
 
-        for (Predicate<HttpServerExchange> predicate : predicates) {
-            if (!predicate.test(exchange)) {
+        for (Predicate<Request> predicate : predicates) {
+            if (!predicate.test(request)) {
                 return failedMatch;
             }
         }

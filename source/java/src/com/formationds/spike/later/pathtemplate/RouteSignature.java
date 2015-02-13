@@ -4,7 +4,6 @@ package com.formationds.spike.later.pathtemplate;
  */
 
 import com.formationds.web.toolkit.HttpMethod;
-import io.undertow.util.HttpString;
 
 public class RouteSignature {
     private String method;
@@ -15,8 +14,8 @@ public class RouteSignature {
         this.pathElementCount = pathElementCount;
     }
 
-    public RouteSignature(HttpString method, int pathElementCount) {
-        this.method = method.toString().toLowerCase();
+    public RouteSignature(String method, int pathElementCount) {
+        this.method = method.toLowerCase();
         this.pathElementCount = pathElementCount;
     }
 

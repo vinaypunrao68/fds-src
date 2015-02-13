@@ -1,10 +1,11 @@
 package com.formationds.smoketest;
 
 import com.formationds.apis.*;
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.hadoop.FdsFileSystem;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.xdi.XdiClientFactory;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 
+@Ignore
 public class AmTest {
     private final AmService.Iface amService;
     private final ConfigurationService.Iface configService;

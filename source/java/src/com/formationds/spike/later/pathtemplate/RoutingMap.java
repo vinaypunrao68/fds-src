@@ -4,7 +4,7 @@ package com.formationds.spike.later.pathtemplate;
  */
 
 import com.formationds.spike.later.HttpPath;
-import io.undertow.server.HttpServerExchange;
+import org.eclipse.jetty.server.Request;
 
 import java.util.*;
 
@@ -17,10 +17,10 @@ public class RoutingMap<T> {
         pathlessRoutes = new ArrayList<>();
     }
 
-    public RouteResult<T> get(HttpServerExchange request) {
-        String path = request.getRequestPath();
+    public RouteResult<T> get(Request request) {
+        String path = request.getRequestURI();
         String[] segments = path.split("/");
-        RouteSignature signature = new RouteSignature(request.getRequestMethod(), segments.length);
+        RouteSignature signature = new RouteSignature(request.getMethod(), segments.length);
         List<KeyValuePair<HttpPath, T>> candidatePaths = signatureRoutingPathMap.getOrDefault(signature, Collections.emptyList());
         for(KeyValuePair<HttpPath, T> routingPath : candidatePaths) {
             HttpPath.MatchResult result = routingPath.getKey().matches(request);

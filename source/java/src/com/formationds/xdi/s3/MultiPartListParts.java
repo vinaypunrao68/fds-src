@@ -14,7 +14,7 @@ import com.formationds.xdi.Xdi;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
-import java.util.Deque;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,8 +34,8 @@ public class MultiPartListParts implements SyncRequestHandler {
     public Resource handle(HttpContext context) throws Exception {
         String bucket = context.getRouteParameter("bucket");
         String objectName = context.getRouteParameter("object");
-        Map<String, Deque<String>> qp = context.getQueryString();
-        String uploadId = qp.get("uploadId").getFirst();
+        Map<String, Collection<String>> qp = context.getQueryString();
+        String uploadId = qp.get("uploadId").iterator().next();
 
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
         Integer maxParts = getIntegerFromQueryParameters(qp, "max-parts");
@@ -97,8 +97,8 @@ public class MultiPartListParts implements SyncRequestHandler {
         return new XmlResource(elt.documentString(), 200);
     }
 
-    public Integer getIntegerFromQueryParameters(Map<String, Deque<String>> qp, String key) {
-        String value = qp.get(key).getFirst();
+    public Integer getIntegerFromQueryParameters(Map<String, Collection<String>> qp, String key) {
+        String value = qp.get(key).iterator().next();
         if(value == null)
             return null;
 

@@ -63,13 +63,13 @@ public class S3SignatureGenerator {
         return hash(method, path, headers, parseQueryString(queryString), credentials);
     }
 
-    public static String hash(String method, String path, Map<String, List<String>> headers, Map<String, Deque<String>> queryParameters, AWSCredentials credentials) {
+    public static String hash(String method, String path, Map<String, List<String>> headers, Map<String, Collection<String>> queryParameters, AWSCredentials credentials) {
         String stringToSign = buildSignatureString(method, path, headers, queryParameters);
         String signature = HmacSHA1(stringToSign, credentials.getAWSSecretKey());
         return "AWS " + credentials.getAWSAccessKeyId() + ":" + signature;
     }
 
-    private static String buildSignatureString(String method, String path, Map<String, List<String>> headers, Map<String, Deque<String>> queryParameters) {
+    private static String buildSignatureString(String method, String path, Map<String, List<String>> headers, Map<String, Collection<String>> queryParameters) {
         StringBuilder stringToSign = new StringBuilder();
         stringToSign.append(method.toUpperCase());
         stringToSign.append("\n");
@@ -114,7 +114,7 @@ public class S3SignatureGenerator {
         }
     }
 
-    private static String assembleCanonicalizedResource(String path, Map<String, Deque<String>> queryParameters) {
+    private static String assembleCanonicalizedResource(String path, Map<String, Collection<String>> queryParameters) {
         String canonicalizedResource = "";
         // TODO: doesn't support host syntax
         canonicalizedResource += path;
@@ -123,7 +123,7 @@ public class S3SignatureGenerator {
             if(queryParameters.containsKey(subResource)) {
                 if(queryParameters.get(subResource).size() != 1)
                     throw new IllegalArgumentException("queryParameters contains subresource with two values");
-                String value = queryParameters.get(subResource).getFirst();
+                String value = queryParameters.get(subResource).iterator().next();
                 if(value == null || value.isEmpty())
                     value = null;
 
@@ -146,15 +146,15 @@ public class S3SignatureGenerator {
         return "";
     }
 
-    private static Map<String, Deque<String>> parseQueryString(String query) {
-        Map<String, Deque<String>> params = new HashMap<>();
+    private static Map<String, Collection<String>> parseQueryString(String query) {
+        Map<String, Collection<String>> params = new HashMap<>();
         if(query == null)
             return params;
 
         String[] segments = query.split("&");
         for(String segment : segments) {
             String parts[] = segment.split("=", 2);
-            Deque<String> values = params.computeIfAbsent(parts[0], s -> new LinkedList<String>());
+            Collection<String> values = params.computeIfAbsent(parts[0], s -> new LinkedList<String>());
             if(parts.length == 1) {
                 values.add(null);
             } else {

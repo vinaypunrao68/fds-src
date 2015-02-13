@@ -6,7 +6,6 @@ package com.formationds.web.toolkit;
 import com.formationds.spike.later.HttpContext;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import io.undertow.server.handlers.CookieImpl;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
@@ -36,7 +35,7 @@ public interface Resource {
     public default Resource withContentType(String contentType) { return new ResourceWrapper(this).withContentType(contentType); }
 
     public default void renderTo(HttpContext ctx) {
-        Arrays.stream(cookies()).forEach(c -> ctx.addCookie(c.getName(), toUndertowCookie(c)));
+        Arrays.stream(cookies()).forEach(c -> ctx.addCookie(c));
 
         ctx.setResponseContentType(getContentType());
         ctx.setResponseStatus(getHttpStatus());
@@ -56,9 +55,5 @@ public interface Resource {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public default io.undertow.server.handlers.Cookie toUndertowCookie(Cookie c) {
-        return new CookieImpl(c.getName(), c.getValue()).setDomain(c.getDomain()).setMaxAge(c.getMaxAge());
     }
 }
