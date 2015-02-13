@@ -135,11 +135,6 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
 
     fds_scoped_lock lock(svcHandleMapLock_);
     for (auto &e : entries) {
-        /* Ignore self service map entry.  We don't need a handle for self yet */
-        if (e.svc_id.svc_uuid == svcInfo_.svc_id.svc_uuid) {
-            continue;
-        }
-
         auto svcHandleItr = svcHandleMap_.find(e.svc_id.svc_uuid);
         if (svcHandleItr == svcHandleMap_.end()) {
             /* New service handle entry.  Note, we don't allocate rpcClient.  We do this lazily
@@ -245,6 +240,16 @@ fpi::SvcUuid SvcMgr::getSelfSvcUuid() const
 
 fpi::SvcInfo SvcMgr::getSelfSvcInfo() const {
     return svcInfo_;
+}
+
+bool SvcMgr::getSvcInfo(const fpi::SvcUuid &svcUuid, fpi::SvcInfo& info) const {
+    fds_scoped_lock lock(svcHandleMapLock_);
+    auto svcHandleItr = svcHandleMap_.find(svcUuid);
+    if (svcHandleItr == svcHandleMap_.end()) {
+        return false;
+    }
+    svcHandleItr->second->getSvcInfo(info);
+    return true;
 }
 
 int SvcMgr::getSvcPort() const
@@ -410,6 +415,12 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     }
 
     GLOGDEBUG << "After update: " << logString();
+}
+
+void SvcHandle::getSvcInfo(fpi::SvcInfo &info) const
+{
+    fds_scoped_lock lock(lock_);
+    info = svcInfo_;
 }
 
 std::string SvcHandle::logString() const

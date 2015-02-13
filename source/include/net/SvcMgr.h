@@ -171,6 +171,12 @@ struct SvcMgr : HasModuleProvider, Module {
     fpi::SvcInfo getSelfSvcInfo() const;
 
     /**
+    * @brief 
+    *
+    */
+    bool getSvcInfo(const fpi::SvcUuid &svcUuid, fpi::SvcInfo& info) const;
+
+    /**
     * @brief Return svc port
     */
     int getSvcPort() const;
@@ -240,7 +246,7 @@ struct SvcMgr : HasModuleProvider, Module {
     bool getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) const;
 
     /* This lock protects svcHandleMap_ */
-    fds_mutex svcHandleMapLock_;
+    mutable fds_mutex svcHandleMapLock_;
     /* Map of service handles */
     SvcHandleMap svcHandleMap_;
 
@@ -310,6 +316,13 @@ struct SvcHandle : HasModuleProvider {
     */
     void updateSvcHandle(const fpi::SvcInfo &newInfo);
 
+    /**
+    * @brief 
+    *
+    * @param info
+    */
+    void getSvcInfo(fpi::SvcInfo &info) const;
+
     std::string logString() const;
 
  protected:
@@ -337,7 +350,7 @@ struct SvcHandle : HasModuleProvider {
     void markSvcDown_();
 
     /* Lock for protecting svcInfo_ and rpcClient_ */
-    fds_mutex lock_;
+    mutable fds_mutex lock_;
     /* Service information */
     fpi::SvcInfo svcInfo_;
     /* Rpc client.  Typcially this is PlatNetSvcClient */

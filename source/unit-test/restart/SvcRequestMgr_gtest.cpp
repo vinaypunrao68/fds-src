@@ -13,18 +13,17 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <fdsp_utils.h>
-// #include <ObjectId.h>
 #include <fiu-control.h>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
 #include <util/fiu_util.h>
 #include <SvcMgrModuleProvider.hpp>
+#include <FakeSvcDomain.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <google/profiler.h>
-// #include "IThreadpool.h"
 
 using ::testing::AtLeast;
 using ::testing::Return;
