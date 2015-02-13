@@ -3,10 +3,10 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 #
 # From the .../source/test/testsuite directory run
-# ./ClusterBootSuite.py -q ./<QAAutotestConfig.ini> -d <sudo_pwd> --verbose
+# ./DomainBootSuite.py -q ./<QAAutotestConfig.ini> -d <sudo_pwd> --verbose
 #
 # where
-#  - <QAAutotestConfig.ini> - One of TwoNodeCluster.ini or FourNodeCluster.ini found in the
+#  - <QAAutotestConfig.ini> - One of TwoNodeDomain.ini or FourNodeDomain.ini found in the
 #  testsuite directory, or one of your own.
 #  - <sudo_pwd> - The password you use for executing sudo on your machine. Even
 #  if your machine does not require a password for sudo, you must provide something, e.g. "dummy".
@@ -28,7 +28,7 @@ import NodeWaitSuite
 def suiteConstruction(self, action="installbootactivate"):
     """
     Construct the ordered set of test cases that install,
-    boot, and activate a cluster defined in the input FDS
+    boot, and activate a domain defined in the input FDS
     Scenario config file, according to the specified action.
     """
     suite = unittest.TestSuite()
@@ -38,7 +38,7 @@ def suiteConstruction(self, action="installbootactivate"):
     # we'll pull node configuration.
     genericTestCase = testcases.TestCase.FDSTestCase()
     fdscfg = genericTestCase.parameters["fdscfg"]
-    log = logging.getLogger("ClusterBootSuite")
+    log = logging.getLogger("DomainBootSuite")
 
     # Note: If installing, restart Redis in a clean state. If booting
     # just boot Redis but don't mess with it's state.
@@ -77,16 +77,16 @@ def suiteConstruction(self, action="installbootactivate"):
                 specifiedServices = True
                 break
 
-        # Not doing TestClusterActivate for a multi-node
-        # cluster allows us to avoid FS-879.
+        # Not doing TestDomainActivate for a multi-node
+        # domain allows us to avoid FS-879.
         if specifiedServices or (len(fdscfg.rt_obj.cfg_nodes) > 1):
-            # Activate the cluster one node at a time with configured services.
+            # Activate the domain one node at a time with configured services.
             suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
         else:
-            # Activate the cluster with default services.
-            suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
+            # Activate the domain with default services.
+            suite.addTest(testcases.TestFDSSysMgt.TestDomainActivate())
 
-        suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the cluster activate"))
+        suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the domain activate"))
 
     if (action.count("boot") > 0) or (action.count("activate") > 0):
         # Check that all nodes are up.

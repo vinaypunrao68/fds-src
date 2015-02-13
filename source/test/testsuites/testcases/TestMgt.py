@@ -19,8 +19,8 @@ import xmlrunner
 
 import NodeWaitSuite
 import NodeVerifyDownSuite
-import ClusterBootSuite
-import ClusterShutdownSuite
+import DomainBootSuite
+import DomainShutdownSuite
 
 import TestFDSEnvMgt
 import TestFDSSysMgt
@@ -95,24 +95,24 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
     # Based on the script defined in the scenario, take appropriate
     # action which typically includes executing one or more test cases.
-    if re.match('\[cluster\]', script) is not None:
-        # What action should be taken against the cluster? If not stated, assume "install-boot-activate".
+    if re.match('\[domain\]', script) is not None:
+        # What action should be taken against the domain? If not stated, assume "install-boot-activate".
         if "action" in scenario.nd_conf_dict:
             action = scenario.nd_conf_dict['action']
         else:
             action = "install-boot-activate"
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
-            # Start this cluster as indicated by the action.
-            clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None, action=action)
-            suite.addTest(clusterBootSuite)
+            # Start this domain as indicated by the action.
+            domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
+            suite.addTest(domainBootSuite)
         elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
                 (action.count("uninst") > 0):
-            # Shutdown the cluster as indicated by the action.
-            clusterShutdownSuite = ClusterShutdownSuite.suiteConstruction(self=None, action=action)
-            suite.addTest(clusterShutdownSuite)
+            # Shutdown the domain as indicated by the action.
+            domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
+            suite.addTest(domainShutdownSuite)
         else:
-            log.error("Unrecognized cluster action '%s' for scenario %s" %
+            log.error("Unrecognized domain action '%s' for scenario %s" %
                       (action, scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
@@ -190,10 +190,10 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                     break
 
             if found:
-                # Give the cluster some time to reinitialize if requested.
+                # Give the domain some time to reinitialize if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
                     suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow cluster " + script + " to reinitialize"))
+                                                             reason="to allow domain " + script + " to reinitialize"))
             else:
                 log.error("Node not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))

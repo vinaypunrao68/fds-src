@@ -16,21 +16,21 @@ from TestFDSModMgt import TestAMBringup
 
 
 # This class contains the attributes and methods to test
-# activation of an FDS cluster starting the same, specified
+# activation of an FDS domain starting the same, specified
 # services on each node.
-class TestClusterActivate(TestCase.FDSTestCase):
+class TestDomainActivate(TestCase.FDSTestCase):
     def __init__(self, parameters=None, services="dm,sm,am"):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_ClusterActivate,
-                                             "Cluster activation")
+                                             self.test_DomainActivate,
+                                             "Domain activation")
 
         self.passedServices = services
 
-    def test_ClusterActivate(self):
+    def test_DomainActivate(self):
         """
         Test Case:
-        Attempt to activate a cluster.
+        Attempt to activate a domain.
         """
 
         # Get the FdsConfigRun object for this test.
@@ -41,7 +41,7 @@ class TestClusterActivate(TestCase.FDSTestCase):
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
-        self.log.info("Activate cluster starting %s services on each node." % self.passedServices)
+        self.log.info("Activate domain starting %s services on each node." % self.passedServices)
 
         cur_dir = os.getcwd()
         os.chdir(bin_dir)
@@ -53,7 +53,7 @@ class TestClusterActivate(TestCase.FDSTestCase):
         os.chdir(cur_dir)
 
         if status != 0:
-            self.log.error("Cluster activation on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            self.log.error("Domain activation on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
         # After activation we should be able to spin through our nodes to obtain
@@ -233,7 +233,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # services removal of nodes. (I.e. remove the node from
-# the cluster.)
+# the domain.)
 class TestNodeRemoveServices(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -246,7 +246,7 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
     def test_NodeRemoveService(self):
         """
         Test Case:
-        Attempt to remove the services of nodes from a cluster.
+        Attempt to remove the services of nodes from a domain.
         """
 
         # Get the FdsConfigRun object for this test.
