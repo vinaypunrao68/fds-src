@@ -74,6 +74,9 @@ struct SvcUuidHash {
 using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
 using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
 
+template<class T>
+extern boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
+                                           const bool &blockOnConnect);
 /**
 * @brief Overall manager class for service layer
 */
@@ -212,6 +215,7 @@ struct SvcMgr : HasModuleProvider, Module {
     * @param e
     */
     void handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e);
+
 
  protected:
     /**

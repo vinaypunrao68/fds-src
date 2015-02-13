@@ -95,6 +95,8 @@ struct SvcRequestMgrTest : BaseTestFixture {
         int portCntr = 10000;
         std::vector<fpi::SvcInfo> svcMap;
 
+        invalidSvcUuid.svc_uuid = svcUuidCntr - 1;
+
         /* Create svc mgr instances */
         svcMgrProviders.resize(3);
         for (uint32_t i = 0; i < svcMgrProviders.size(); i++) {
@@ -121,8 +123,10 @@ struct SvcRequestMgrTest : BaseTestFixture {
     }
 
     static std::vector<SvcMgrModuleProviderPtr> svcMgrProviders;
+    static fpi::SvcUuid invalidSvcUuid;
 };
 std::vector<SvcMgrModuleProviderPtr> SvcRequestMgrTest::svcMgrProviders;
+fpi::SvcUuid SvcRequestMgrTest::invalidSvcUuid;
 
 /**
 * @brief Test for basic EPSvcRequest
@@ -146,6 +150,49 @@ TEST_F(SvcRequestMgrTest, epsvcrequest)
         << "Status: " << svcStatusWaiter.response->status;
 }
 
+/**
+* @brief Test sending endpoint request agains invalid endpoint
+*
+*/
+TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
+{
+    auto svcMgr1 = svcMgrProviders[0]->getSvcMgr();
+
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(invalidSvcUuid);
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+    asyncReq->setTimeoutMs(1000);
+    asyncReq->onResponseCb(svcStatusWaiter.cb);
+    asyncReq->invoke();
+
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_SVC_REQUEST_INVOCATION) << "Error: " << svcStatusWaiter.error;
+}
+
+/**
+* @brief Test sending endpoint request agains invalid endpoint
+*/
+TEST_F(SvcRequestMgrTest, epsvcrequest_downep)
+{
+    auto svcMgr1 = svcMgrProviders[0]->getSvcMgr();
+    auto svcMgr2 = svcMgrProviders[1]->getSvcMgr();
+
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(svcMgr2->getSelfSvcUuid());
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+    asyncReq->setTimeoutMs(1000);
+    asyncReq->onResponseCb(svcStatusWaiter.cb);
+    asyncReq->invoke();
+
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
+    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter.response->status;
+}
+
+/* Tests basic failover style request */
 TEST_F(SvcRequestMgrTest, failoversvcrequest)
 {
     ASSERT_TRUE(svcMgrProviders.size() >= 3);
@@ -173,6 +220,7 @@ TEST_F(SvcRequestMgrTest, failoversvcrequest)
         << "Status: " << svcStatusWaiter.response->status;
 }
 
+/* Tests basic quorum reqesut */
 TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 {
     ASSERT_TRUE(svcMgrProviders.size() >= 3);

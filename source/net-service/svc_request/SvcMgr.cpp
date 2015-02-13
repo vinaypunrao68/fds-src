@@ -26,7 +26,7 @@ std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
 
 template<class T>
 boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
-                                    const bool &blockOnConnect)
+                                           const bool &blockOnConnect)
 {
     auto sock = bo::make_shared<net::Socket>(ip, port);
     auto trans = bo::make_shared<tt::TFramedTransport>(sock);
@@ -42,6 +42,14 @@ boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
     }
     return client;
 }
+template
+boost::shared_ptr<fpi::PlatNetSvcClient> allocRpcClient<fpi::PlatNetSvcClient>(
+    const std::string ip, const int &port,
+    const bool &blockOnConnect);
+template
+boost::shared_ptr<fpi::OMSvcClient> allocRpcClient<fpi::OMSvcClient>(
+    const std::string ip, const int &port,
+    const bool &blockOnConnect);
 
 SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
                PlatNetSvcHandlerPtr handler,

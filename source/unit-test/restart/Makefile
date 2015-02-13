@@ -27,16 +27,19 @@ user_cpp          := \
     TestSvcProcess.cpp \
     OMSvcProcess.cpp \
     SvcRequestMgr_gtest.cpp \
+    SvcServer_gtest.cpp
 
 user_no_style     :=
 
 user_bin_exe      := \
 	testsvc \
 	omsvc \
-	svcrequestmgr_gtest
+	svcrequestmgr_gtest \
+	svcserver_gtest
 
 omsvc := OMSvcProcess.cpp 
 testsvc := TestSvcProcess.cpp
 svcrequestmgr_gtest := SvcRequestMgr_gtest.cpp
+svcserver_gtest := SvcServer_gtest.cpp
 
 include $(test_topdir)/Makefile.svc
