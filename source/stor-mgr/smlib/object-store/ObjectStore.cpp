@@ -115,7 +115,8 @@ ObjectStore::putObject(fds_volid_t volId,
 
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
-            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
+                        << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
@@ -224,7 +225,8 @@ ObjectStore::getObject(fds_volid_t volId,
 
     // check if object corrupted
     if (objMeta->isObjCorrupted()) {
-        LOGCRITICAL << "Obj metadata indicates data corrupted, will return err";
+        LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
+                    << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         err = ERR_ONDISK_DATA_CORRUPT;
         return NULL;
     }
@@ -319,7 +321,8 @@ ObjectStore::deleteObject(fds_volid_t volId,
 
     // if object corrupted, no point of updating metadata
     if (objMeta->isObjCorrupted()) {
-        LOGCRITICAL << "Object corrupted, returning error ";
+        LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
+                    << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         return err = ERR_ONDISK_DATA_CORRUPT;
     }
 
@@ -568,8 +571,9 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                 // on-disk data corruption
                 // mark object metadata as corrupted! will copy it to new
                 // location anyway so we can debug the issue
-                LOGCRITICAL << "Encountered a on-disk data corruption object "
-                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex();
+                LOGCRITICAL << "CORRUPTION: On-disk corruption detected: "
+                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex()
+                            << " ObjMetaData=" << updatedMeta->logString();
                 // set flag in object metadata
                 updatedMeta->setObjCorrupted();
             }
@@ -632,7 +636,8 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
-            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
+                        << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
@@ -652,7 +657,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
             // check if data is the same
             if (*existObjData != *objData) {
-                LOGCRITICAL << "Mismatch between data in object store and data received "
+                LOGCRITICAL << "CORRUPTION: Mismatch between data in object store and data received "
                             << "from source SM for " << objId << " !!!";
                 return ERR_SM_TOK_MIGRATION_DATA_MISMATCH;
             }
