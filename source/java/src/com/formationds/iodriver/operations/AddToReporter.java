@@ -9,8 +9,17 @@ import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+/**
+ * Add a given bucket to the reporter.
+ */
 public class AddToReporter extends S3Operation
 {
+    /**
+     * Constructor.
+     * 
+     * @param bucketName The name of the bucket to add.
+     * @param statsGetter Gets the stats for {@code bucketName}.
+     */
     public AddToReporter(String bucketName,
                          Supplier<VolumeQosSettings> statsGetter)
     {
@@ -32,7 +41,13 @@ public class AddToReporter extends S3Operation
         reporter.addVolume(_bucketName, stats);
     }
 
+    /**
+     * The name of the bucket to add.
+     */
     private final String _bucketName;
 
+    /**
+     * Gets the stats for {@link #_bucketName}.
+     */
     private final Supplier<VolumeQosSettings> _statsGetter;
 }

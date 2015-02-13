@@ -13,23 +13,61 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+/**
+ * Create an object in an S3 bucket.
+ */
 public final class CreateObject extends S3Operation
 {
+    /**
+     * Constructor. Actions will be reported.
+     * 
+     * @param bucketName The name of the bucket to create the object in.
+     * @param key The key of the object to create.
+     * @param content The content of the object to create.
+     */
     public CreateObject(String bucketName, String key, String content)
     {
         this(bucketName, key, content, true);
     }
-    
+
+    /**
+     * Constructor.
+     * 
+     * @param bucketName The name of the bucket to create the object in.
+     * @param key The key of the object to create.
+     * @param content The content of the object to create.
+     * @param doReporting Whether this object's actions should be reported to workload listener.
+     *            Should be false during setup or warmup or teardown, for example.
+     */
     public CreateObject(String bucketName, String key, String content, boolean doReporting)
     {
         this(bucketName, key, getBytes(content), doReporting);
     }
 
+    /**
+     * Constructor.
+     * 
+     * @param bucketName The name of the bucket to create the object in.
+     * @param key The key of the object to create.
+     * @param content The content of the object to create.
+     * @param doReporting Whether this object's actions should be reported to workload listener.
+     *            Should be false during setup or warmup or teardown, for example.
+     */
     public CreateObject(String bucketName, String key, byte[] content, boolean doReporting)
     {
         this(bucketName, key, () -> toInputStream(content), getLength(content), doReporting);
     }
 
+    /**
+     * Constructor.
+     * 
+     * @param bucketName The name of the bucket to create.
+     * @param key The key of the object to create.
+     * @param input Supplies content for objects.
+     * @param contentLength The length of the content returned by {@code input}.
+     * @param doReporting Whether this object's actions should be reported to workload listener.
+     *            Should be false during setup or warmup or teardown, for example.
+     */
     public CreateObject(String bucketName,
                         String key,
                         Supplier<InputStream> input,
@@ -69,23 +107,45 @@ public final class CreateObject extends S3Operation
         {
             throw new ExecutionException("Error closing input stream.", e);
         }
-        
+
         if (_doReporting)
         {
             reporter.reportIo(_bucketName);
         }
     }
 
+    /**
+     * The name of the bucket to create the object in.
+     */
     private final String _bucketName;
 
+    /**
+     * The length in bytes of the object's content.
+     */
     private final long _contentLength;
 
+    /**
+     * Whether actions should be reported.
+     */
     private final boolean _doReporting;
-    
-    private Supplier<InputStream> _input;
 
+    /**
+     * Supplies content when creating objects.
+     */
+    private final Supplier<InputStream> _input;
+
+    /**
+     * The key of the object to create.
+     */
     private final String _key;
 
+    /**
+     * Get the length of a byte array. Called from constructor.
+     * 
+     * @param content The content to get the length of.
+     * 
+     * @return The length of {@code content}.
+     */
     private static final int getLength(byte[] content)
     {
         if (content == null) throw new NullArgumentException("content");
@@ -93,6 +153,13 @@ public final class CreateObject extends S3Operation
         return content.length;
     }
 
+    /**
+     * Get the bytes for a string.
+     * 
+     * @param content The string to turn into bytes.
+     * 
+     * @return The bytes of the string in UTF-8.
+     */
     private static final byte[] getBytes(String content)
     {
         if (content == null) throw new NullArgumentException("content");
@@ -100,6 +167,13 @@ public final class CreateObject extends S3Operation
         return content.getBytes(StandardCharsets.UTF_8);
     }
 
+    /**
+     * Create a stream from a byte array.
+     * 
+     * @param content The byte array to stream.
+     * 
+     * @return {@code content} as a stream.
+     */
     private static final ByteArrayInputStream toInputStream(byte[] content)
     {
         if (content == null) throw new NullArgumentException("content");

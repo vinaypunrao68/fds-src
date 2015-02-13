@@ -81,54 +81,54 @@ fds_qid_t
 QoSWFQDispatcher::getNextQueueForDispatch()
 {
     fds_uint64_t current_time = util::getTimeStampMicros();
-    fds_uint64_t elapsed_usecs = current_time - last_reset_time;
+    fds_uint64_t elapsed_usecs = current_time - last_reset_time;                                    // O(1)
     // ios per second that we have been able to achieve since last reset time.
     // float current_rate = ((float)num_ios_dispatched * 1000000)/ elapsed_usecs;
     float current_guaranteed_ios_rate =
-        (static_cast<float>(num_rate_based_slots_serviced) * 1000000)/elapsed_usecs;
-    float expected_guaranteed_ios_rate = total_rate_based_spots;
+        (static_cast<float>(num_rate_based_slots_serviced) * 1000000)/elapsed_usecs;                // O(1)
+    float expected_guaranteed_ios_rate = total_rate_based_spots;                                    // O(1)
 
-    bool running_late = (current_guaranteed_ios_rate < 0.9 * expected_guaranteed_ios_rate);
-    bool running_ahead = (current_guaranteed_ios_rate > 1.2 * expected_guaranteed_ios_rate);
+    bool running_late = (current_guaranteed_ios_rate < 0.9 * expected_guaranteed_ios_rate);         // O(1)
+    bool running_ahead = (current_guaranteed_ios_rate > 1.2 * expected_guaranteed_ios_rate);        // O(1)
 
     // If we are running ahead, let's treat this as an open slot.
     // If we are running late, let's skip over open slots and serve only guaranteed slots
 
-    fds_qid_t next_queue = 0;
+    fds_qid_t next_queue = 0;                                                                       // O(1)
 
-    if (!running_ahead) {
+    if (!running_ahead) {                                                                           // O(1)
         // Step 1: Let's first look at the current rate_based slot to see if
         // there is a valid non-empty queue there. If we are running late,
         // we will simply move to the next rate based spot if the current
         // rate based spot is empty or does not have IOs queued up.
         // If we are not running late, we will treat the empty/unused slot
         // as an open slot and move to the priority based WFQ list immediately.
-        fds_uint32_t n_pios = 0;
-        WFQQueueDesc *next_qd = NULL;
+        fds_uint32_t n_pios = 0;                                                                    // O(1)
+        WFQQueueDesc *next_qd = NULL;                                                               // O(1)
         do {
-            next_queue = rate_based_qlist[next_rate_based_spot];
-            next_rate_based_spot = (next_rate_based_spot + 1) % total_capacity;
-            if (next_queue != 0) {
-                ++num_rate_based_slots_serviced;
+            next_queue = rate_based_qlist[next_rate_based_spot];                                    //     O(1)
+            next_rate_based_spot = (next_rate_based_spot + 1) % total_capacity;                     //     O(1)
+            if (next_queue != 0) {                                                                  //     O(1)
+                ++num_rate_based_slots_serviced;                                                    //     O(1)
                 current_guaranteed_ios_rate =
-                    (static_cast<float>(num_rate_based_slots_serviced * 1000000))/elapsed_usecs;
+                    (static_cast<float>(num_rate_based_slots_serviced * 1000000))/elapsed_usecs;    //     O(1)
 
-                next_qd = queue_desc_map[next_queue];
+                next_qd = queue_desc_map[next_queue];                                               //     O(1) avg, O(size()) worst
                 // pending IOs if queue is active, otherwise 0
                 n_pios = next_qd->pendingActiveCount();
 
                 if ((n_pios == 0) &&
-                    (next_qd->num_rate_based_credits < next_qd->max_rate_based_credits)) {
-                    next_qd->num_rate_based_credits++;
+                    (next_qd->num_rate_based_credits < next_qd->max_rate_based_credits)) {          //     O(1)
+                    next_qd->num_rate_based_credits++;                                              //     O(1)
                     LOGDEBUG << "Dispatcher: Incrementing credit for queue " << next_queue
                              << " to " << next_qd->num_rate_based_credits;
                 }
 
-                running_late = (current_guaranteed_ios_rate < (0.9 * expected_guaranteed_ios_rate));
+                running_late = (current_guaranteed_ios_rate < (0.9 * expected_guaranteed_ios_rate));//     O(1)
             }
         } while ((running_late) && ((next_queue == 0) || (n_pios == 0)));
 
-        if ((next_queue != 0) && (n_pios > 0)) {
+        if ((next_queue != 0) && (n_pios > 0)) {                                                    // O(1)
             inc_num_ios_dispatched(io_dispatch_type_rate);
             LOGDEBUG << "Dispatcher: picking next rate based queue " << next_queue
                      << " for slot " << next_rate_based_spot-1
@@ -149,11 +149,11 @@ QoSWFQDispatcher::getNextQueueForDispatch()
     // If there are such queues, the queue with the highest accumulated credit gets the priority.
 
     next_queue = get_non_empty_queue_with_highest_credits();
-    if (next_queue != 0) {
-        WFQQueueDesc *next_qd = queue_desc_map[next_queue];
+    if (next_queue != 0) {                                                                          // O(1)
+        WFQQueueDesc *next_qd = queue_desc_map[next_queue];                                         // O(1) avg, O(size()) worst
         assert(next_qd->num_rate_based_credits > 0);
         // assert(next_qd->num_rate_based_credits <= next_qd->max_rate_based_credits);
-        next_qd->num_rate_based_credits--;
+        next_qd->num_rate_based_credits--;                                                          // O(1)
         inc_num_ios_dispatched(io_dispatch_type_credit);
         LOGDEBUG << "Dispatcher: picking next credit based queue " << next_queue
                  << "(" << next_qd->num_rate_based_credits << ") for slot "
@@ -167,23 +167,23 @@ QoSWFQDispatcher::getNextQueueForDispatch()
 
     // Step 3: Rate based spot was empty and there was no queue with accumulated credit.
     // Let's now pick the next q in the priority based WFQ list
-    next_queue = next_priority_based_queue;
+    next_queue = next_priority_based_queue;                                                         // O(1)
     WFQQueueDesc *next_qd = (queue_desc_map.count(next_queue) == 0) ? NULL :
-                                                                      queue_desc_map[next_queue];
-    fds_uint32_t n_pios = 0;
-    if (next_qd) {
+                                                                      queue_desc_map[next_queue];   // O(1) avg, O(size()) worst
+    fds_uint32_t n_pios = 0;                                                                        // O(1)
+    if (next_qd) {                                                                                  // O(1)
         n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0
     }
 
-    while ((!next_qd) || (n_pios == 0)) {
-        if (next_qd) {
-            next_qd->num_priority_based_ios_dispatched = 0;
+    while ((!next_qd) || (n_pios == 0)) {                                                           // O(1) condition / O(?) loop
+        if (next_qd) {                                                                              //     O(1)
+            next_qd->num_priority_based_ios_dispatched = 0;                                         //     O(1)
         }
 
         next_queue = next_priority_based_queue = getNextQueueInPriorityWFQList(next_queue);
-        next_qd = (queue_desc_map.count(next_queue) == 0)? NULL:queue_desc_map[next_queue];
-        if (next_qd) {
-            next_qd->num_priority_based_ios_dispatched = 0;
+        next_qd = (queue_desc_map.count(next_queue) == 0)? NULL:queue_desc_map[next_queue];         //     O(1) avg, O(size()) worst
+        if (next_qd) {                                                                              //     O(1)
+            next_qd->num_priority_based_ios_dispatched = 0;                                         //     O(1)
             n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0
         }
     }

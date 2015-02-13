@@ -22,8 +22,17 @@ import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.operations.SetBucketQos;
 import com.formationds.iodriver.operations.StatBucketVolume;
 
+/**
+ * Workload that creates a single volume, sets its throttle at a given number of IOPS, and then
+ * attempts to exceed those IOPS.
+ */
 public final class S3SingleVolumeRateLimitTestWorkload extends Workload<S3Endpoint, S3Operation>
 {
+    /**
+     * Constructor.
+     * 
+     * @param iops The number of IOPS to set throttle to.
+     */
     public S3SingleVolumeRateLimitTestWorkload(int iops)
     {
         if (iops <= 0)
@@ -55,7 +64,7 @@ public final class S3SingleVolumeRateLimitTestWorkload extends Workload<S3Endpoi
                       .limit(100);
 
         Stream<S3Operation> reportStart = Stream.of(new ReportStart(_bucketName));
-        
+
         // Set the stop time for 10 seconds from when this operation is hit.
         Stream<S3Operation> startTestTiming = Stream.of(new LambdaS3Operation(() ->
         {
@@ -111,15 +120,37 @@ public final class S3SingleVolumeRateLimitTestWorkload extends Workload<S3Endpoi
         return Stream.of(new DeleteBucket(_bucketName));
     }
 
+    /**
+     * The name of the bucket to use for testing.
+     */
     private final String _bucketName;
 
+    /**
+     * The IOPS to set the volume throttle to.
+     */
     private final int _iops;
 
+    /**
+     * The name of the object to repeatedly create.
+     */
     private final String _objectName;
 
+    /**
+     * The QOS settings the volume was created with. {@code null} until
+     * {@link #setUp(S3Endpoint, com.formationds.iodriver.reporters.WorkflowEventListener) setUp()}
+     * has been run.
+     */
     private VolumeQosSettings _originalState;
 
+    /**
+     * Stop running the main body of the workload at this time. {@code null} until the warmup of the
+     * main test body is complete.
+     */
     private ZonedDateTime _stopTime;
 
+    /**
+     * The QOS settings to set on the created volume. Same as {@link #_originalState}, but throttled
+     * to {@link #_iops}.
+     */
     private VolumeQosSettings _targetState;
 }

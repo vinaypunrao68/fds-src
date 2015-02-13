@@ -1,9 +1,7 @@
 package com.formationds.iodriver;
 
 import java.net.MalformedURLException;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
+import java.net.URI;
 
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
@@ -11,32 +9,56 @@ import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
-import com.formationds.iodriver.model.IoParams;
-import com.formationds.iodriver.reporters.RateLimitValidator;
-import com.formationds.iodriver.reporters.Validator;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
-import com.formationds.iodriver.workloads.S3QosTestWorkload;
+import com.formationds.iodriver.validators.RateLimitValidator;
+import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.S3SingleVolumeRateLimitTestWorkload;
 
+/**
+ * Global configuration for {@link com.formationds.iodriver}.
+ */
 public final class Config
 {
+    /**
+     * Default static configuration not pulled from command-line.
+     */
     public final static class Defaults
     {
+        /**
+         * Get the default endpoint.
+         * 
+         * @return An endpoint to the local system default S3 interface.
+         */
         public static S3Endpoint getEndpoint()
         {
             return _endpoint;
         }
 
+        /**
+         * Get the default event listener.
+         * 
+         * @return A stats-gathering and 1-input-many-output event hub.
+         */
         public static WorkflowEventListener getListener()
         {
             return _listener;
         }
 
+        /**
+         * Get the default logger.
+         * 
+         * @return A system console logger that writes to standard output.
+         */
         public static Logger getLogger()
         {
             return _logger;
         }
 
+        /**
+         * Get the default validator.
+         *
+         * @return A validator that ensures a volumes IOPS did not exceed its configured throttle.
+         */
         public static Validator getValidator()
         {
             return _validator;
@@ -48,14 +70,14 @@ public final class Config
 
             try
             {
-                _endpoint =
-                        new S3Endpoint(Fds.getS3Endpoint().toString(),
-                                       new OrchestrationManagerEndpoint(Fds.Api.getBase(),
-                                                                        "admin",
-                                                                        "admin",
-                                                                        newLogger,
-                                                                        true),
-                                       newLogger);
+                URI s3Endpoint = Fds.getS3Endpoint();
+                String s3EndpointText = s3Endpoint.toString();
+
+                URI apiBase = Fds.Api.getBase();
+                OrchestrationManagerEndpoint omEndpoint =
+                        new OrchestrationManagerEndpoint(apiBase, "admin", "admin", newLogger, true);
+
+                _endpoint = new S3Endpoint(s3EndpointText, omEndpoint, newLogger);
             }
             catch (MalformedURLException e)
             {
@@ -67,20 +89,40 @@ public final class Config
             _validator = new RateLimitValidator();
         }
 
+        /**
+         * Prevent instantiation.
+         */
         private Defaults()
         {
             throw new UnsupportedOperationException("Instantiating a utility class.");
         }
 
+        /**
+         * Default endpoint.
+         */
         private static final S3Endpoint _endpoint;
 
+        /**
+         * Default event listener.
+         */
         private static final WorkflowEventListener _listener;
 
+        /**
+         * Default logger.
+         */
         private static final Logger _logger;
 
+        /**
+         * Default validator.
+         */
         private static final Validator _validator;
     }
 
+    /**
+     * Constructor.
+     * 
+     * @param args Command-line arguments.
+     */
     public Config(String[] args)
     {
         if (args == null) throw new NullArgumentException("args");
@@ -90,12 +132,22 @@ public final class Config
         _disk_iops_min = -1;
     }
 
+    /**
+     * Get the endpoint to run workloads on.
+     * 
+     * @return The specified configuration.
+     */
     public S3Endpoint getEndpoint()
     {
         // TODO: Allow this to be specified.
         return Defaults.getEndpoint();
     }
 
+    /**
+     * Get configuration that is determined dynamically at runtime.
+     * 
+     * @return The current runtime configuration.
+     */
     public Fds.Config getRuntimeConfig()
     {
         if (_runtimeConfig == null)
@@ -105,18 +157,36 @@ public final class Config
         return _runtimeConfig;
     }
 
+    /**
+     * Get the configured listener.
+     * 
+     * @return An event hub.
+     */
     public WorkflowEventListener getListener()
     {
         // TODO: ALlow this to be configured.
         return Defaults.getListener();
     }
 
+    /**
+     * Get the configured logger.
+     * 
+     * @return A logger.
+     */
     public Logger getLogger()
     {
         // TODO: Allow this to be configured.
         return Defaults.getLogger();
     }
 
+    /**
+     * Get the maximum IOPS this system will allow.
+     * 
+     * @return A number of IOPS.
+     * 
+     * @throws ConfigUndefinedException when {@value Fds.Config#DISK_IOPS_MAX_CONFIG} is not defined
+     *             in platform.conf.
+     */
     public int getSystemIopsMax() throws ConfigUndefinedException
     {
         if (_disk_iops_max < 0)
@@ -126,6 +196,14 @@ public final class Config
         return _disk_iops_max;
     }
 
+    /**
+     * Get the guaranteed IOPS this system can support.
+     * 
+     * @return A number of IOPS.
+     * 
+     * @throws ConfigUndefinedException when {@value Fds.Config#DISK_IOPS_MIN_CONFIG} is not defined
+     *             in platform.conf.
+     */
     public int getSystemIopsMin() throws ConfigUndefinedException
     {
         if (_disk_iops_min < 0)
@@ -135,6 +213,14 @@ public final class Config
         return _disk_iops_min;
     }
 
+    /**
+     * Get the configured workload.
+     * 
+     * @return A workload to run.
+     * 
+     * @throws ConfigurationException when the system assured and throttle IOPS rates are not within
+     *             a testable range.
+     */
     public S3SingleVolumeRateLimitTestWorkload getWorkload() throws ConfigurationException
     {
         final int systemAssured = getSystemIopsMin();
@@ -157,74 +243,34 @@ public final class Config
         return new S3SingleVolumeRateLimitTestWorkload(systemAssured + headroomNeeded);
     }
 
-    public S3QosTestWorkload getQosFairnessTestWorkload() throws ConfigurationException
-    {
-        // TODO: Allow # of buckets to be specified.
-        int buckets = 4;
-        int remainingAssured = getSystemIopsMin();
-        final int throttle = getSystemIopsMax();
-        final int hardMinAssured = 20;
-
-        if (remainingAssured < buckets * hardMinAssured)
-        {
-            throw new ConfigurationException("Min IOPS of " + remainingAssured
-                                             + " does not allow a guaranteed " + hardMinAssured
-                                             + "IOPS to each of the " + buckets + " buckets.");
-        }
-        if (throttle < remainingAssured)
-        {
-            throw new ConfigurationException("Max IOPS of " + throttle
-                                             + " is less than min of "
-                                             + remainingAssured + ", which does not make sense.");
-        }
-        if (throttle < buckets + remainingAssured)
-        {
-            throw new ConfigurationException("Max IOPS of " + throttle
-                                             + " won't allow at least 1 additional IOPS for each "
-                                             + "of " + buckets + " buckets with a min of "
-                                             + remainingAssured + ".");
-        }
-
-        int reservedAssured = buckets * hardMinAssured;
-        remainingAssured -= reservedAssured;
-
-        List<IoParams> bucketParams = new ArrayList<>(buckets);
-        for (int i = 0; i != buckets; ++i)
-        {
-            int myAssured;
-            if (i == buckets - 1)
-            {
-                myAssured = reservedAssured + remainingAssured;
-            }
-            else
-            {
-                int myReservedAssured = hardMinAssured;
-                int myNonreservedAssured = Fds.Random.nextInt(remainingAssured);
-                reservedAssured -= myReservedAssured;
-                remainingAssured -= myNonreservedAssured;
-
-                myAssured = myReservedAssured + myNonreservedAssured;
-            }
-            int myThrottle = Fds.Random.nextInt(myAssured, throttle);
-
-            IoParams params = new IoParams(myAssured, myThrottle);
-            bucketParams.add(params);
-        }
-
-        return new S3QosTestWorkload(bucketParams, Duration.ofMinutes(1));
-    }
-
+    /**
+     * Get the configured validator.
+     * 
+     * @return A validator.
+     */
     public Validator getValidator()
     {
         // TODO: Allow this to be configured.
         return Defaults.getValidator();
     }
 
+    /**
+     * Command-line arguments.
+     */
     private final String[] _args;
 
+    /**
+     * Maximum IOPS allowed by the system.
+     */
     private int _disk_iops_max;
 
+    /**
+     * Minimum IOPS guaranteed by the system.
+     */
     private int _disk_iops_min;
 
+    /**
+     * Runtime configuration.
+     */
     private Fds.Config _runtimeConfig;
 }

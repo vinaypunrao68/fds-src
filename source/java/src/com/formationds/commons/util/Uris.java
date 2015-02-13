@@ -21,8 +21,20 @@ import org.apache.http.client.utils.URIUtils;
 
 import com.formationds.commons.NullArgumentException;
 
+/**
+ * General URI utilities.
+ */
 public final class Uris
 {
+    /**
+     * Get a relative URI from a string path.
+     * 
+     * @param path A URI.
+     * 
+     * @return A URI instance.
+     * 
+     * @throws URISyntaxException when {@code path} is not a valid URI.
+     */
     public static URI getRelativeUri(String path) throws URISyntaxException
     {
         if (path == null) throw new NullArgumentException("path");
@@ -30,6 +42,11 @@ public final class Uris
         return new URI(null, null, null, -1, path, null, null);
     }
 
+    /**
+     * Get a hostname verifier that accepts all host names.
+     * 
+     * @return A new hostname verifier.
+     */
     public static HostnameVerifier getTrustingHostnameVerifier()
     {
         return new HostnameVerifier()
@@ -42,6 +59,11 @@ public final class Uris
         };
     }
 
+    /**
+     * Get an SSL socket factory that trusts all certificates.
+     * 
+     * @return A new SSL socket factory.
+     */
     public static SSLSocketFactory getTrustingSocketFactory()
     {
         SSLContext sslContext;
@@ -55,30 +77,32 @@ public final class Uris
             throw new RuntimeException(e);
         }
 
+        X509TrustManager trustManager = new X509TrustManager()
+        {
+            @Override
+            public X509Certificate[] getAcceptedIssuers()
+            {
+                return new X509Certificate[0];
+            }
+
+            @Override
+            // @eclipseFormat:off
+            public void checkClientTrusted(X509Certificate[] chain,
+                                           String authType) throws CertificateException
+            // @eclispeFormat:on
+            {}
+
+            @Override
+            // @eclispeFormat:off
+            public void checkServerTrusted(X509Certificate[] chain,
+                                           String authType) throws CertificateException
+            // @eclipseFormat:on
+            {}
+        };
+
         try
         {
-            sslContext.init(null, new TrustManager[]
-            {
-                            new X509TrustManager()
-                            {
-                                @Override
-                                public X509Certificate[] getAcceptedIssuers()
-                                {
-                                    return new X509Certificate[0];
-                                }
-
-                                @Override
-                                public void
-                                        checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException
-                                {}
-
-                                @Override
-                                public void
-                                        checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException
-                                {}
-                            }
-            },
-                            null);
+            sslContext.init(null, new TrustManager[] { trustManager }, null);
         }
         catch (KeyManagementException e)
         {
@@ -91,10 +115,23 @@ public final class Uris
         return sslContext.getSocketFactory();
     }
 
+    /**
+     * Determine if one URI is a descendant of another.
+     * 
+     * @param base The potential parent URI.
+     * @param sub The potential child URI.
+     * 
+     * @return Whether {@code sub} either is, or is underneath {@code base} in a tree structure.
+     */
     public static boolean isDescendant(URI base, URI sub)
     {
         if (base == null) throw new NullArgumentException("base");
         if (sub == null) throw new NullArgumentException("sub");
+
+        if (sub.equals(base))
+        {
+            return true;
+        }
 
         // A relative URI can be a descendant of another relative URI, so we only resolve if the
         // base is absolute and the sub isn't.
@@ -130,10 +167,18 @@ public final class Uris
             return false;
         }
 
-        // All components after the path are ignored. URIs are
+        // All components after the path are ignored.
         return Strings.nullTolerantStartsWith(normalizedSub.getPath(), normalizedBase.getPath());
     }
 
+    /**
+     * Resolve a relative URI against an absolute base.
+     * 
+     * @param base The base URI.
+     * @param relative The relative URI.
+     * 
+     * @return The resolved URI.
+     */
     public static URI resolve(URI base, URI relative)
     {
         if (base == null) throw new NullArgumentException("base");
@@ -147,6 +192,13 @@ public final class Uris
         return URIUtils.resolve(base, relative);
     }
 
+    /**
+     * Try to get a path as a relative URI.
+     * 
+     * @param path The relative URI path.
+     * 
+     * @return A URI, or {@code null} if {@code path} was not a valid relative URI.
+     */
     public static URI tryGetRelativeUri(String path)
     {
         try
@@ -159,6 +211,17 @@ public final class Uris
         }
     }
 
+    /**
+     * Add query parameters to a URI.
+     * 
+     * @param base The base URI.
+     * @param key The query parameter key.
+     * @param value The query parameter value.
+     * 
+     * @return {@code base} with the added query parameters.
+     * 
+     * @throws URISyntaxException when {@code key} or {@code value} contain invalid characters.
+     */
     public static URI
             withQueryParameters(URI base, String key, String value) throws URISyntaxException
     {
@@ -169,6 +232,19 @@ public final class Uris
         return withQueryParameters(base, key + "=" + value);
     }
 
+    /**
+     * Add query parameters to a URI.
+     * 
+     * @param base The base URI.
+     * @param key1 The first query parameter key.
+     * @param value1 The first query parameter value.
+     * @param key2 The second query parameter key.
+     * @param value2 The second query parameter value.
+     * 
+     * @return {@code base} with the added query parameters.
+     * 
+     * @throws URISyntaxException when any key or value contains invalid characters.
+     */
     public static URI withQueryParameters(URI base,
                                           String key1,
                                           String value1,
@@ -186,9 +262,22 @@ public final class Uris
                                    new AbstractMap.SimpleEntry<String, String>(key2, value2));
     }
 
+    /**
+     * Add query parameters to a URI.
+     * 
+     * @param base The base URI.
+     * @param parameters The parameters to add.
+     * 
+     * @return {@code base} with the added query parameters.
+     * 
+     * @throws URISyntaxException when any key or value contains invalid characters.
+     */
     @SafeVarargs
-    public static URI
-            withQueryParameters(URI base, AbstractMap.SimpleEntry<String, String>... parameters) throws URISyntaxException
+    // @eclipseFormat:off
+    public static URI withQueryParameters(URI base,
+                                          AbstractMap.SimpleEntry<String, String>... parameters)
+          throws URISyntaxException
+    // @eclipseFormat:on
     {
         if (base == null) throw new NullArgumentException("base");
         if (parameters == null) throw new NullArgumentException("parameters");
@@ -196,6 +285,13 @@ public final class Uris
         return withQueryParameters(base, Arrays.asList(parameters));
     }
 
+    /**
+     * Join a query parameter key/value pair.
+     * 
+     * @param parameter The pair to join.
+     * 
+     * @return key=value
+     */
     public static String joinParameterPair(AbstractMap.SimpleEntry<String, String> parameter)
     {
         if (parameter == null) throw new NullArgumentException("parameter");
@@ -209,9 +305,22 @@ public final class Uris
         return key + "=" + value;
     }
 
-    public static URI
-            withQueryParameters(URI base,
-                                Iterable<AbstractMap.SimpleEntry<String, String>> parameters) throws URISyntaxException
+    /**
+     * Add query parameters to a URI.
+     * 
+     * @param base The base URI.
+     * @param parameters The parameters to add.
+     * 
+     * @return {@code base} with the added query parameters.
+     * 
+     * @throws URISyntaxException when any key or value contains invalid characters.
+     */
+    // @eclipseFormat:off
+    public static URI withQueryParameters(URI base,
+                                          Iterable<AbstractMap.SimpleEntry<String,
+                                                                           String>> parameters)
+            throws URISyntaxException
+    // @eclipseFormat:on
     {
         if (base == null) throw new NullArgumentException("base");
         if (parameters == null) throw new NullArgumentException("parameters");
@@ -223,17 +332,19 @@ public final class Uris
             builder.queryParam(parameter.getKey(), parameter.getValue());
         }
 
-        // Stream<AbstractMap.SimpleEntry<String, String>> parametersAsStream =
-        // StreamSupport.stream(parameters.spliterator(), false);
-        // Stream<String> parametersAsKvp = parametersAsStream.map(Uris::joinParameterPair);
-        // String[] parametersAsStringArray = parametersAsKvp.toArray(size -> new String[size]);
-        // List<String> parametersAsList = Arrays.asList(parametersAsStringArray);
-        // String parametersAsString = String.join("&", parametersAsList);
-        //
-        // return base.resolve(new URI(null, null, null, -1, null, parametersAsString, null));
         return builder.build();
     }
 
+    /**
+     * Set the query string on a URI.
+     * 
+     * @param base The base URI.
+     * @param query The replacement query string.
+     * 
+     * @return {@code base} with the new query string.
+     * 
+     * @throws URISyntaxException when there are invalid characters in {@code query}.
+     */
     public static URI withQueryParameters(URI base, String query) throws URISyntaxException
     {
         if (base == null) throw new NullArgumentException("base");
@@ -243,6 +354,9 @@ public final class Uris
         return UriBuilder.fromUri(base).replaceQuery(query).build();
     }
 
+    /**
+     * Prevent instantiation.
+     */
     private Uris()
     {
         throw new UnsupportedOperationException("Instantiating a utility class.");

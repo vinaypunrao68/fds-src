@@ -44,33 +44,48 @@ public final class ExceptionHelper {
   }
   // @eclipseFormat:on
 
+    public static <T extends Throwable> Throwable getTunneledIfTunneled(Throwable t,
+                                                                        Class<T> tunnelType)
+    {
+        if (t == null) throw new NullArgumentException("t");
+        if (tunnelType == null) throw new NullArgumentException("tunnelType");
+        
+        if (t instanceof TunneledException)
+        {
+            return getTunneled((TunneledException)t, tunnelType);
+        }
+        else
+        {
+            return t;
+        }
+    }
+
+    public static <T extends Throwable> T getTunneled(TunneledException te, Class<T> tunnelType)
+    {
+        if (te == null) throw new NullArgumentException("te");
+        if (tunnelType == null) throw new NullArgumentException("tunnelType");
+
+        Throwable tunneled = te.getCause();
+        Class<?> tunneledType = tunneled.getClass();
+        if (tunnelType.isAssignableFrom(tunneledType))
+        {
+            @SuppressWarnings("unchecked")
+            T typedTunneled = (T)tunneled;
+            return typedTunneled;
+        }
+        else
+        {
+            throw new RuntimeException("Unexpected tunneled exception type.", tunneled);
+        }
+    }
+
     public static <T extends Throwable> void rethrowTunneled(TunneledException te,
                                                              Class<T> tunnelType) throws T
     {
         if (te == null) throw new NullArgumentException("te");
         if (tunnelType == null) throw new NullArgumentException("tunnelType");
 
-        try
-        {
-            throw te.getCause();
-        }
-        catch (RuntimeException re)
-        {
-            throw re;
-        }
-        catch (Throwable t)
-        {
-            if (tunnelType.isAssignableFrom(t.getClass()))
-            {
-                @SuppressWarnings("unchecked")
-                T typedT = (T)t;
-                throw typedT;
-            }
-            else
-            {
-                throw new RuntimeException("Unexpected tunneled exception type.", t);
-            }
-        }
+        throw getTunneled(te, tunnelType);
     }
 
     // @eclipseFormat:off

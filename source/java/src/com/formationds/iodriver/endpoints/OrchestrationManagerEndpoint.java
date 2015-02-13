@@ -16,7 +16,6 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.OrchestrationManagerOperation;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
 
 // @eclipseFormat:off
 public final class OrchestrationManagerEndpoint

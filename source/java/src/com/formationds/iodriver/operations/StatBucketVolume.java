@@ -10,8 +10,17 @@ import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+/**
+ * Get the stats for the volume backing an S3 bucket.
+ */
 public final class StatBucketVolume extends S3Operation
 {
+    /**
+     * Constructor.
+     * 
+     * @param bucketName The name of the bucket to stat.
+     * @param consumer Where to send the stats to.
+     */
     public StatBucketVolume(String bucketName, Consumer<VolumeQosSettings> consumer)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
@@ -36,5 +45,8 @@ public final class StatBucketVolume extends S3Operation
         omEndpoint.doVisit(_statVolumeOp, listener);
     }
 
+    /**
+     * The OM operation to stat the volume backing the requested S3 bucket.
+     */
     private final StatVolume _statVolumeOp;
 }

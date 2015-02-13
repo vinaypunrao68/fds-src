@@ -17,8 +17,17 @@ import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+/**
+ * Get the QoS settings for a volume.
+ */
 public final class StatVolume extends OrchestrationManagerOperation
 {
+    /**
+     * Constructor.
+     * 
+     * @param volumeName The name of the volume to stat.
+     * @param consumer Where to send the settings.
+     */
     public StatVolume(String volumeName, Consumer<VolumeQosSettings> consumer)
     {
         if (volumeName == null) throw new NullArgumentException("volumeName");
@@ -95,7 +104,13 @@ public final class StatVolume extends OrchestrationManagerOperation
         return Fds.Api.getBase().relativize(Fds.Api.getVolumes());
     }
 
+    /**
+     * Where to send the settings.
+     */
     private final Consumer<VolumeQosSettings> _consumer;
 
+    /**
+     * The name of the volume to stat.
+     */
     private final String _volumeName;
 }

@@ -15,8 +15,16 @@ import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+/**
+ * Set the QoS parameters on a volume.
+ */
 public final class SetVolumeQos extends OrchestrationManagerOperation
 {
+    /**
+     * Constructor.
+     * 
+     * @param input The parameters to set.
+     */
     public SetVolumeQos(VolumeQosSettings input)
     {
         if (input == null) throw new NullArgumentException("input");
@@ -61,5 +69,8 @@ public final class SetVolumeQos extends OrchestrationManagerOperation
         return apiBase.relativize(putVolume);
     }
 
+    /**
+     * The parameters to set.
+     */
     private final VolumeQosSettings _input;
 }

@@ -11,8 +11,19 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.patterns.Observable;
 import com.formationds.iodriver.model.VolumeQosSettings;
 
+/**
+ * Reports workload progress on the system console.
+ */
 public final class ConsoleProgressReporter implements Closeable
 {
+    /**
+     * Constructor.
+     * 
+     * @param output Stream to output to, usually {@code System.out}.
+     * @param started An event source for workload start.
+     * @param stopped An event source for workload stop.
+     * @param volumeAdded An event source for volume adds.
+     */
     public ConsoleProgressReporter(PrintStream output,
                                    Observable<Entry<String, Instant>> started,
                                    Observable<Entry<String, Instant>> stopped,
@@ -38,39 +49,69 @@ public final class ConsoleProgressReporter implements Closeable
             _started.close();
             _stopped.close();
             _volumeAdded.close();
-            
+
             _closed.set(true);
         }
     }
 
+    /**
+     * Handle started event.
+     * 
+     * @param volume The volume name and time of start.
+     */
     private void onStarted(Entry<String, Instant> volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
 
         _output.println("Volume " + volume.getKey() + " started: " + volume.getValue());
     }
-    
+
+    /**
+     * Handle stopped event.
+     * 
+     * @param volume The volume name and time of stop.
+     */
     private void onStopped(Entry<String, Instant> volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
-        
+
         _output.println("Volume " + volume.getKey() + " stopped: " + volume.getValue());
     }
-    
+
+    /**
+     * Handle volume added event.
+     * 
+     * @param volume The volume name and QoS settings.
+     */
     private void onVolumeAdded(Entry<String, VolumeQosSettings> volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
-        
+
         _output.println("Volume: " + volume.getKey() + " added: " + volume.getValue());
     }
 
+    /**
+     * Whether this object has been closed.
+     */
     private final AtomicBoolean _closed;
-    
+
+    /**
+     * Output.
+     */
     private final PrintStream _output;
-    
+
+    /**
+     * Started event token.
+     */
     private final Closeable _started;
 
+    /**
+     * Stopped event token.
+     */
     private final Closeable _stopped;
 
+    /**
+     * Volume added event token.
+     */
     private final Closeable _volumeAdded;
 }

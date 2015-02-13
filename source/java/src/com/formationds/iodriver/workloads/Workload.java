@@ -1,6 +1,6 @@
 package com.formationds.iodriver.workloads;
 
-import static com.formationds.commons.util.ExceptionHelper.rethrowTunneled;
+import static com.formationds.commons.util.ExceptionHelper.getTunneledIfTunneled;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,7 +15,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import com.formationds.commons.NullArgumentException;
-import com.formationds.commons.TunneledException;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.commons.util.NullableMutableReference;
 import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
@@ -24,15 +23,32 @@ import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+/**
+ * A basic skeleton for a workload.
+ * 
+ * The most important method to override is {@link #createOperations()}. {@link #createSetup()} and
+ * {@link #createTeardown()} will also likely be overridden in most implementations.
+ * 
+ * @param <EndpointT> The type of endpoint the workload will be run on.
+ * @param <OperationT> The base type of operations in this workload.
+ */
 // @eclipseFormat:off
-public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
-                      OperationT extends Operation<OperationT, EndpointT>>
+public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
+                               OperationT extends Operation<OperationT, EndpointT>>
 // @eclipseFormat:on
 {
-    public Workload()
-    {}
-
-    public final void runOn(EndpointT endpoint, WorkflowEventListener listener) throws ExecutionException
+    /**
+     * Execute this workload.
+     * 
+     * @param endpoint Operations will be run on this endpoint.
+     * @param listener Operations will report to this listener.
+     * 
+     * @throws ExecutionException when an error occurs during execution of the workload.
+     */
+    // @eclipseFormat:off
+    public final void runOn(EndpointT endpoint, WorkflowEventListener listener)
+            throws ExecutionException
+    // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");
@@ -47,6 +63,7 @@ public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
             Thread workerThread =
                     new Thread(() ->
                     {
+                        // Synchronize all worker threads.
                         ExceptionHelper.<ExecutionException>tunnelNow(() -> awaitGate(startingGate),
                                                                       ExecutionException.class);
 
@@ -69,12 +86,21 @@ public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
                                 ExceptionHelper.<OperationT, ExecutionException>
                                                tunnel(exec, ExecutionException.class);
 
+                        // Execute each operation, tunneling any exceptions.
                         work.forEach(tunneledExec);
                     });
 
+            // Store (suppress) exceptions from worker threads.
             workerThread.setUncaughtExceptionHandler((thread, exception) ->
             {
-                workerThreads.get(thread).set(exception);
+                // This really shouldn't be possible, but if it does happen, we know about it.
+                if (thread == null) throw new NullArgumentException("thread");
+                if (exception == null) throw new NullArgumentException("exception");
+
+                Throwable untunneled = getTunneledIfTunneled(exception, ExecutionException.class);
+                NullableMutableReference<Throwable> myErrorReference = workerThreads.get(thread);
+
+                myErrorReference.set(untunneled);
             });
 
             workerThreads.put(workerThread, new NullableMutableReference<>());
@@ -102,17 +128,6 @@ public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
             Throwable error = worker.getValue().get();
             if (error != null)
             {
-                if (error instanceof TunneledException)
-                {
-                    try
-                    {
-                        rethrowTunneled((TunneledException)error, ExecutionException.class);
-                    }
-                    catch (Throwable t)
-                    {
-                        error = t;
-                    }
-                }
                 if (workerExceptions == null)
                 {
                     workerExceptions = new ExecutionException("Error in worker thread(s).");
@@ -122,6 +137,15 @@ public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
         }
     }
 
+    /**
+     * Perform workflow setup, operations necessary to run but that do not have to be temporally
+     * close to the body of the workflow.
+     * 
+     * @param endpoint The endpoint to run setup commands on.
+     * @param listener The listener to report progress to.
+     * 
+     * @throws ExecutionException when there is an error running the setup commands.
+     */
     // @eclipseFormat:off
     public final void setUp(EndpointT endpoint,
                             WorkflowEventListener listener) throws ExecutionException
@@ -139,6 +163,15 @@ public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
                               (OperationT op) -> endpoint.doVisit(op, listener));
     }
 
+    /**
+     * Perform workflow teardown, operations necessary to return {@code endpoint} to a clean state,
+     * but that do not have to be temporally close to the body of the workflow.
+     * 
+     * @param endpoint The endpoint to run teardown commands on.
+     * @param listener The listener to report progress to.
+     * 
+     * @throws ExecutionException when there is an error running the teardown commands.
+     */
     // @eclipseFormat:off
     public final void tearDown(EndpointT endpoint,
                                WorkflowEventListener listener) throws ExecutionException
@@ -156,33 +189,73 @@ public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
                               (OperationT op) -> endpoint.doVisit(op, listener));
     }
 
+    /**
+     * Create the operations that will be executed.
+     * 
+     * This method should be overridden for all workloads.
+     * 
+     * @return A list of streams of operations, with the list of streams run in parallel.
+     */
     protected List<Stream<OperationT>> createOperations()
     {
         return Collections.emptyList();
     }
 
+    /**
+     * Create the operations that will prepare for a workload run.
+     * 
+     * @return A stream of operations.
+     */
     protected Stream<OperationT> createSetup()
     {
         return Stream.empty();
     }
 
+    /**
+     * Create the operations that will clean up a workload run.
+     * 
+     * @return A stream of operations.
+     */
     protected Stream<OperationT> createTeardown()
     {
         return Stream.empty();
     }
 
-    protected void ensureInitialized()
+    /**
+     * Ensure the workload is ready to run.
+     */
+    protected final void ensureInitialized()
     {
         if (_operations == null)
         {
-            _operations = createOperations();
-            _setup = createSetup();
-            _teardown = createTeardown();
+            try
+            {
+                _operations = createOperations();
+                _setup = createSetup();
+                _teardown = createTeardown();
+            }
+            catch (Throwable t)
+            {
+                _operations = null;
+                _setup = null;
+                _teardown = null;
+
+                throw t;
+            }
         }
     }
 
+    /**
+     * Wait to a gate to be released.
+     * 
+     * @param gate The gate to wait on.
+     * 
+     * @throws ExecutionException if an error occurs trying to wait.
+     */
     protected static void awaitGate(CyclicBarrier gate) throws ExecutionException
     {
+        if (gate == null) throw new NullArgumentException("gate");
+
         try
         {
             gate.await(1, TimeUnit.MINUTES);
@@ -193,9 +266,18 @@ public class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
         }
     }
 
+    /**
+     * Workload body. Streams are run in parallel with each other.
+     */
     private List<Stream<OperationT>> _operations;
 
+    /**
+     * Setup instructions.
+     */
     private Stream<OperationT> _setup;
 
+    /**
+     * Cleanup instructions.
+     */
     private Stream<OperationT> _teardown;
 }

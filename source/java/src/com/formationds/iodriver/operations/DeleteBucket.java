@@ -6,8 +6,16 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+/**
+ * Delete an S3 bucket.
+ */
 public class DeleteBucket extends S3Operation
 {
+    /**
+     * Constructor.
+     * 
+     * @param bucketName The name of the bucket to delete.
+     */
     public DeleteBucket(String bucketName)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
@@ -32,5 +40,8 @@ public class DeleteBucket extends S3Operation
         }
     }
 
+    /**
+     * The name of the bucket to delete.
+     */
     private final String _bucketName;
 }

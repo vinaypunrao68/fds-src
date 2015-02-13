@@ -1,26 +1,35 @@
 package com.formationds.iodriver.logging;
 
-
+/**
+ * No-op logger. Does nothing.
+ */
 public final class NullLogger implements Logger
 {
+    /**
+     * Singleton instance.
+     */
     public final static NullLogger INSTANCE;
-    
+
     static
     {
         INSTANCE = new NullLogger();
     }
-    
+
     @Override
-    public void logError(String message, Exception ex)
+    public void logError(String message, Throwable t)
     {
         // No-op.
     }
-    
+
     @Override
-    public void logWarning(String message, Exception ex)
+    public void logWarning(String message, Throwable t)
     {
         // No-op.
     }
-    
-    private NullLogger() { }
+
+    /**
+     * Constructor.
+     */
+    private NullLogger()
+    {}
 }

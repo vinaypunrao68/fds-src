@@ -2,8 +2,22 @@ package com.formationds.iodriver.model;
 
 import com.formationds.apis.MediaPolicy;
 
+/**
+ * QoS settings for a volume.
+ */
 public final class VolumeQosSettings
 {
+    /**
+     * Constructor.
+     * 
+     * @param id The volume's unique ID.
+     * @param iops_assured The IOPS to guarantee can always be met.
+     * @param iops_throttle The maximum IOPS to allow.
+     * @param priority Relative priority to other volumes.
+     * @param commit_log_retention Seconds to keep full commit logs (snapshots of volumes can be
+     *            created in this time).
+     * @param mediaPolicy What media to use for this volume.
+     */
     public VolumeQosSettings(long id,
                              int iops_assured,
                              int iops_throttle,
@@ -19,6 +33,11 @@ public final class VolumeQosSettings
         _mediaPolicy = mediaPolicy;
     }
 
+    /**
+     * Do a deep copy of this object.
+     * 
+     * @return A duplicate object.
+     */
     public VolumeQosSettings copy()
     {
         return new VolumeQosSettings(_id,
@@ -29,31 +48,61 @@ public final class VolumeQosSettings
                                      _mediaPolicy);
     }
 
+    /**
+     * Get the seconds to keep full commit logs for this volume.
+     * 
+     * @return The current property value.
+     */
     public long getCommitLogRetention()
     {
         return _commit_log_retention;
     }
 
+    /**
+     * Get the volume's unique ID.
+     * 
+     * @return The current property value.
+     */
     public long getId()
     {
         return _id;
     }
 
+    /**
+     * Get the number of IOPS this volume is guaranteed to be able to dispatch.
+     * 
+     * @return The current property value.
+     */
     public int getIopsAssured()
     {
         return _iops_assured;
     }
 
+    /**
+     * Get the maximum IOPS this volume will be allowed to dispatch.
+     * 
+     * @return The current property value.
+     */
     public int getIopsThrottle()
     {
         return _iops_throttle;
     }
 
+    /**
+     * Get the type of media to use for this volume.
+     * 
+     * @return The current property value.
+     */
     public MediaPolicy getMediaPolicy()
     {
         return _mediaPolicy;
     }
 
+    /**
+     * Get the relative priority of this volume.
+     * 
+     * @return The current property value.
+     */
     public int getPriority()
     {
         return _priority;
@@ -72,15 +121,33 @@ public final class VolumeQosSettings
                + ")";
     }
 
+    /**
+     * Seconds to keep full commit logs.
+     */
     private final long _commit_log_retention;
 
+    /**
+     * Unique ID for this volume.
+     */
     private final long _id;
 
+    /**
+     * Guaranteed IOPS.
+     */
     private final int _iops_assured;
 
+    /**
+     * Maximum IOPS.
+     */
     private final int _iops_throttle;
 
+    /**
+     * Media to use.
+     */
     private final MediaPolicy _mediaPolicy;
 
+    /**
+     * Relative priority.
+     */
     private final int _priority;
 }
