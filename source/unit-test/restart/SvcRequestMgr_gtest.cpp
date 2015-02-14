@@ -32,12 +32,65 @@ using namespace fds;  // NOLINT
 /**
 * @brief Tests svc map update in the domain.
 */
-TEST(SvcMgr, epsvcrequest) {
+TEST(SvcRequestMgr, epsvcrequest) {
     int cnt = 2;
     FakeSyncSvcDomain domain(cnt);
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
     domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter);
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
+    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter.response->status;
+}
+
+/**
+* @brief Test sending endpoint request agains invalid endpoint
+*
+*/
+TEST(SvcRequestMgr, epsvcrequest_invalidep)
+{
+    int cnt = 2;
+    FakeSyncSvcDomain domain(cnt);
+
+    auto svcMgr1 = domain[0]->getSvcMgr();
+
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(FakeSvcDomain::INVALID_SVCUUID);
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+    asyncReq->setTimeoutMs(1000);
+    asyncReq->onResponseCb(svcStatusWaiter.cb);
+    asyncReq->invoke();
+
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_SVC_REQUEST_INVOCATION) << "Error: " << svcStatusWaiter.error;
+}
+
+/* Tests basic failover style request */
+TEST(SvcRequestMgr, failoversvcrequest)
+{
+    int cnt = 3;
+    FakeSyncSvcDomain domain(cnt);
+
+    SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter);
+
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
+    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter.response->status;
+}
+
+/* Tests basic quorum reqesut */
+TEST(SvcRequestMgr, quorumsvcrequest)
+{
+    int cnt = 3;
+    FakeSyncSvcDomain domain(cnt);
+
+    SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter);
+
     svcStatusWaiter.await();
     ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
     ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
@@ -108,21 +161,6 @@ TEST_F(SvcRequestMgrTest, epsvcrequest)
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
     sendGetStatusEpSvcRequest(svcMgr1, svcMgr2, svcStatusWaiter);
-    svcStatusWaiter.await();
-    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
-    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
-        << "Status: " << svcStatusWaiter.response->status;
-}
-
-/**
-* @brief Tests svc map update in the domain.
-*/
-TEST(SvcMgr, epsvcrequest) {
-    int cnt = 2;
-    FakeSyncSvcDomain domain(cnt);
-
-    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
-    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter);
     svcStatusWaiter.await();
     ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
     ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)

@@ -32,6 +32,12 @@ struct FakeSvcDomain {
 
     virtual void sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
                         SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
+    virtual void sendGetStatusFailoverSvcRequest(int srcIdx, const std::vector<int> &destIdxs,
+                        SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
+    virtual void sendGetStatusQuorumSvcRequest(int srcIdx, const std::vector<int> &destIdxs,
+                        SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
+
+    FakeSvc*& operator[](int idx) {return svcs_[idx];}
 
     static fpi::SvcUuid getSvcUuid(int idx) {
         fpi::SvcUuid svcUuid;
@@ -104,13 +110,54 @@ bool FakeSvcDomain::checkSvcInfoAgainstDomain(int svcIdx) {
 }
 
 void FakeSvcDomain::sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
-                        SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
+                    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
 {
 
     auto srcMgr = svcs_[srcIdx]->getSvcMgr();
     auto destMgr = svcs_[destIdx]->getSvcMgr();
     auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
     auto asyncReq = srcMgr->getSvcRequestMgr()->newEPSvcRequest(destMgr->getSelfSvcUuid());
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+    asyncReq->setTimeoutMs(1000);
+    asyncReq->onResponseCb(cbHandle.cb);
+    asyncReq->invoke();
+}
+
+void FakeSvcDomain::sendGetStatusFailoverSvcRequest(int srcIdx,
+                    const std::vector<int> &destIdxs,
+                    SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
+{
+    auto srcMgr = svcs_[srcIdx]->getSvcMgr();
+    DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(destIdxs.size());
+    int i = 0;
+    for (auto &idx : destIdxs) {
+        tokGroup->set(i, NodeUuid(svcs_[idx]->getSvcMgr()->getSelfSvcUuid()));
+        i++;
+    }
+    auto epProvider = boost::make_shared<DltObjectIdEpProvider>(tokGroup);
+
+    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+    auto asyncReq = srcMgr->getSvcRequestMgr()->newFailoverSvcRequest(epProvider);
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+    asyncReq->setTimeoutMs(1000);
+    asyncReq->onResponseCb(cbHandle.cb);
+    asyncReq->invoke();
+}
+
+void FakeSvcDomain::sendGetStatusQuorumSvcRequest(int srcIdx, const std::vector<int> &destIdxs,
+                    SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
+{
+    auto srcMgr = svcs_[srcIdx]->getSvcMgr();
+    DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(destIdxs.size());
+    int i = 0;
+    for (auto &idx : destIdxs) {
+        tokGroup->set(i, NodeUuid(svcs_[idx]->getSvcMgr()->getSelfSvcUuid()));
+        i++;
+    }
+    auto epProvider = boost::make_shared<DltObjectIdEpProvider>(tokGroup);
+
+    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+    auto asyncReq = srcMgr->getSvcRequestMgr()->newQuorumSvcRequest(epProvider);
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
     asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(cbHandle.cb);
