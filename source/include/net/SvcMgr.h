@@ -230,6 +230,15 @@ struct SvcMgr : HasModuleProvider, Module {
         return svcRequestHandler_;
     }
 
+    /**
+    * @brief  Returns property for service with svcUuid.
+    */
+    template<class T>
+    T getSvcProperty(const fpi::SvcUuid &svcUuid, std::string& key) {
+        // TODO(Rao): Complete the implementation
+        return T();
+    }
+
  protected:
     /**
     * @brief For getting service handle.
