@@ -107,7 +107,7 @@ struct SMApi : SingleNodeTest
           }
 
            fpi::QueryCatalogMsgPtr qryCatRsp =
-                    net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
+                    fds::deserializeFdspMsg<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
            fpi::FDS_ObjectIdType objIdType = qryCatRsp->obj_list.front().data_obj_id;
            ObjectID objId(objIdType.digest);
            // std::cout << "Sending GetObjMsg to SM: " << objId << std::endl;

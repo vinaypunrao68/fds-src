@@ -24,8 +24,7 @@ SvcProcess::SvcProcess(int argc, char *argv[],
 {
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-    init(argc, argv, def_cfg_file, base_path,
-         def_log_file, mod_vec, handler, processor);
+    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec, handler, processor);
 }
 
 SvcProcess::SvcProcess(int argc, char *argv[],

@@ -68,10 +68,10 @@ class FdsProcess : public boost::noncopyable,
      * @param def_log_file - default log file path
      * @param mod_vec - module vectors for the process.
      */
-    void init(int argc, char *argv[],
-              const std::string &def_cfg_file,
-              const std::string &base_path,
-              const std::string &def_log_file,  Module **mod_vec);
+    virtual void init(int argc, char *argv[],
+                      const std::string &def_cfg_file,
+                      const std::string &base_path,
+                      const std::string &def_log_file,  Module **mod_vec);
 
     /**
      * Add dynamic module created during proc_pre_startup() call.  It's not correct to

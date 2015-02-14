@@ -4,12 +4,9 @@
 
 #include <StorMgr.h>
 #include <policy_tier.h>
-#include <sm-platform.h>
-#include <net/net-service.h>
-
-#include "platform/platform_process.h"
-
-class SMMain : public PlatformProcess
+#include <net/SvcProcess.h>
+#include <SMSvcHandler.h>
+class SMMain : public SvcProcess
 {
  public:
     SMMain(int argc, char *argv[]) {
@@ -21,8 +18,6 @@ class SMMain : public PlatformProcess
         /* Create the dependency vector */
         static fds::Module *smVec[] = {
             &diskio::gl_dataIOMod,
-            &fds::gl_SmPlatform,
-            &fds::gl_NetService,
             &fds::gl_tierPolicy,
             sm,
             nullptr
@@ -35,7 +30,7 @@ class SMMain : public PlatformProcess
         closeAllFDs();
 
         /* Init platform process */
-        init(argc, argv, "fds.sm.", "sm.log", &gl_SmPlatform, smVec);
+        init<fds::SMSvcHandler, fpi::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.", "sm.log", smVec);
 
         /* setup signal handler */
         setupSigHandler();

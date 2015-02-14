@@ -23,8 +23,6 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
     }
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
 
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.

@@ -232,6 +232,12 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     void handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e);
 
+    /**
+     * @brief Accessor for service request handler
+     */
+    inline PlatNetSvcHandlerPtr getSvcRequestHandler() const {
+        return svcRequestHandler_;
+    }
 
  protected:
     /**

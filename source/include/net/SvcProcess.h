@@ -61,12 +61,25 @@ struct SvcProcess : FdsProcess {
     * @param processor
     */
     void init(int argc, char *argv[],
-         const std::string &def_cfg_file,
-         const std::string &base_path,
-         const std::string &def_log_file,
-         fds::Module **mod_vec,
-         PlatNetSvcHandlerPtr handler,
-         fpi::PlatNetSvcProcessorPtr processor);
+              const std::string &def_cfg_file,
+              const std::string &base_path,
+              const std::string &def_log_file,
+              fds::Module **mod_vec,
+              PlatNetSvcHandlerPtr handler,
+              fpi::PlatNetSvcProcessorPtr processor);
+
+    // XXX: Handler should be of type PlatNetSvcHandler and Processor
+    //      should be of type fpi::PlatNetSvcProcessor
+    template<typename Handler, typename Processor>
+    void init(int argc, char *argv[],
+              const std::string &def_cfg_file,
+              const std::string &base_path,
+              const std::string &def_log_file,
+              fds::Module **mod_vec) {
+        auto handler = boost::make_shared<Handler>();
+        auto processor = boost::make_shared<Processor>(handler);
+        init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec, handler, processor);
+    }
 
     /**
     * @brief Registers the service.  Default implementation will register the service
