@@ -26,7 +26,6 @@ AMSvcHandler::AMSvcHandler()
     : PlatNetSvcHandler(MODULEPROVIDER())
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyBucketStat, NotifyBucketStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyThrottle, SetThrottleLevel);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyQoSControl, QoSControl);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
@@ -81,21 +80,6 @@ AMSvcHandler::QoSControl(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
 
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyQoSControl), *msg);
-}
-
-// NotifyBucketStats
-// -----------------
-//
-void
-AMSvcHandler::NotifyBucketStats(boost::shared_ptr<fpi::AsyncHdr>             &hdr,
-                                boost::shared_ptr<fpi::CtrlNotifyBucketStat> &msg)
-{
-#if 0
-    //  OM receives some bucket stats from somewhere
-    FDSP_BucketStatsRespTypePtr buck_stats =
-        FDSP_BucketStatsRespTypePtr(new FDSP_BucketStatsRespType(msg->bucket_stat));
-    // storHvisor->getBucketStatsResp(rx_msg, buck_stats);  //  postpone need transid
-#endif
 }
 
 // SetThrottleLevel

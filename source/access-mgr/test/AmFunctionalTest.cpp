@@ -9,12 +9,11 @@
 #include <thread>
 #include <condition_variable>
 
-#include <fdsn-server.h>
 #include <util/fds_stat.h>
 #include <am-platform.h>
 #include <net/net-service.h>
 #include <AccessMgr.h>
-#include "AmAsyncXdi.h"
+#include "connector/xdi/AmAsyncXdi.h"
 #include "AmAsyncDataApi_impl.h"
 
 #include "boost/program_options.hpp"
@@ -25,6 +24,10 @@
 #include "fds_process.h"
 
 namespace fds {
+
+namespace xdi_atp = apache::thrift::protocol;
+namespace xdi_ats = apache::thrift::server;
+namespace xdi_att = apache::thrift::transport;
 
 class AmProcessWrapper : public FdsProcess {
   public:
@@ -164,13 +167,13 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void attachVolumeResponse(const apis::RequestId& requestId) {}
     void attachVolumeResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
     void volumeContents(const apis::RequestId& requestId,
-                        const std::vector<apis::BlobDescriptor> & response) {}
+                        const std::vector<fpi::BlobDescriptor> & response) {}
     void volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
-                        boost::shared_ptr<std::vector<apis::BlobDescriptor> >& response) {}
+                        boost::shared_ptr<std::vector<fpi::BlobDescriptor> >& response) {}
     void statBlobResponse(const apis::RequestId& requestId,
-                          const apis::BlobDescriptor& response) {}
+                          const fpi::BlobDescriptor& response) {}
     void statBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
-                          boost::shared_ptr<apis::BlobDescriptor>& response) {
+                          boost::shared_ptr<fpi::BlobDescriptor>& response) {
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -195,10 +198,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
     void getBlobWithMetaResponse(const apis::RequestId& requestId,
                                  const std::string& data,
-                                 const apis::BlobDescriptor& blobDesc) {}
+                                 const fpi::BlobDescriptor& blobDesc) {}
     void getBlobWithMetaResponse(boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<std::string>& data,
-                                 boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+                                 boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -304,7 +307,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                              boost::shared_ptr<apis::RequestId>& requestId,
                              boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
-                             boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+                             boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -314,7 +317,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
-                      boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+                      boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -343,7 +346,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void volumeContentsResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId,
-                            boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) {
+                            boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();

@@ -320,13 +320,13 @@ void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
         std::call_once(*ctx.once, initializeCounter<LatencyCounter>,
                        &ctx, counterParent, type, volid, name);
         LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get());  //NOLINT
-        fds_assert(plc || !"Counter type mismatch between tracepoints!")
+        fds_assert(plc || !"Counter type mismatch between tracepoints!");
         plc->update(val, cnt);
     } else {
         std::call_once(*ctx.once, initializeCounter<NumericCounter>,
                        &ctx, counterParent, type, volid, name);
         NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get()); //NOLINT
-        fds_assert(pnc || !"Counter type mismatch between tracepoints!")
+        fds_assert(pnc || !"Counter type mismatch between tracepoints!");
         pnc->incr(val);
     }
 }
@@ -368,14 +368,14 @@ void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
     FDSGUARD(ptrace_mutex_named_);
 
     PerfContextMap::iterator pos = namedCounters_[type][volid].find(name);
-    fds_assert(pos != namedCounters_[type][volid].end())
+    fds_assert(pos != namedCounters_[type][volid].end());
     if (!pos->second->enabled) {
         return;  // disabled for this name
     }
     PerfContext * ctx = pos->second;
     // update counter
     NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx->data.get()); //NOLINT
-    fds_assert(pnc || !"Counter type mismatch between tracepoints!")
+    fds_assert(pnc || !"Counter type mismatch between tracepoints!");
     pnc->decr(val);
 }
 
@@ -429,7 +429,7 @@ void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
         FDSGUARD(instance().ptrace_mutex_aggregate_);
         PerfContext & ctx = instance().aggregateCounters_[type][volid];
         NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get()); //NOLINT
-        fds_assert(pnc || !"Counter type mismatch between tracepoints!")
+        fds_assert(pnc || !"Counter type mismatch between tracepoints!");
         pnc->decr(val);
     }
     if (!name.empty() && instance().useNameFilter_) {

@@ -96,7 +96,7 @@ class VolumeDesc : public HasState {
     /* Output from block device */
     char                   vol_blkdev[FDS_MAX_VOL_NAME];
 
-    VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
+    VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc,
                fds_volid_t vol_uuid);
 
     VolumeDesc(const VolumeDesc& vdesc);  // NOLINT
@@ -127,7 +127,7 @@ class VolumeDesc : public HasState {
     bool operator==(const VolumeDesc &rhs) const;
 
     bool operator!=(const VolumeDesc &rhs) const;
-    VolumeDesc & operator=(const VolumeDesc& volinfo);
+    VolumeDesc & operator=(const VolumeDesc& voldesc);
 
     bool isSnapshot() const;
     bool isClone() const;

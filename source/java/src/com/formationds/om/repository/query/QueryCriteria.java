@@ -23,6 +23,7 @@ public class QueryCriteria
     private Integer points;            // number of points to provide in results
     private Long firstPoint;           // first point, i.e. row number
     private List<Context> contexts;    // the context
+    private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important 
 
     /**
      * @return Returns the {@link com.formationds.commons.model.DateRange}
@@ -83,5 +84,37 @@ public class QueryCriteria
      */
     public void setFirstPoint( final Long firstPoint ) {
         this.firstPoint = firstPoint;
+    }
+    
+    /**
+     * 
+     * @return a list of {@link OrderBy} arguments for this search
+     */
+    public List<OrderBy> getOrderBy(){
+    	if ( this.orderBys == null ){
+    		this.orderBys = new ArrayList<OrderBy>();
+    	}
+    	
+    	return this.orderBys;
+    }
+    
+    /**
+     * 
+     * @param someOrders a list of ordering criteria
+     */
+    public void setOrderBy( List<OrderBy> someOrders ){
+    	this.orderBys = someOrders;
+    }
+    
+    /**
+     * Convenience method to add a single orderby at a time
+     * 
+     * @param anOrderBy
+     */
+    public void addOrderBy( OrderBy anOrderBy ){
+    	
+    	if ( !getOrderBy().contains( anOrderBy ) ){
+    		getOrderBy().add( anOrderBy );
+    	}
     }
 }

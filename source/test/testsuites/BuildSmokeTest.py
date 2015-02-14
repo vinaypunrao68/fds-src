@@ -8,10 +8,10 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
-import ClusterBootSuite
+import DomainBootSuite
 import NodeWaitSuite
 import BotoBLOBSuite
 import NodeResilienceSuite
@@ -24,10 +24,10 @@ def suiteConstruction(self):
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS infrastructure and boot the cluster
+    # Build the necessary FDS infrastructure and boot the domain
     # according to configuration.
-    clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None)
-    suite.addTest(clusterBootSuite)
+    domainBootSuite = DomainBootSuite.suiteConstruction(self=None)
+    suite.addTest(domainBootSuite)
 
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
@@ -51,7 +51,7 @@ def suiteConstruction(self):
     nodeResilienceSuite = NodeResilienceSuite.suiteConstruction(self=None)
     suite.addTest(nodeResilienceSuite)
 
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
+    suite.addTest(testcases.TestFDSSysMgt.TestNodeKill())
 
     # Cleanup FDS installation directory.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())

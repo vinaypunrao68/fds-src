@@ -1,6 +1,7 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
@@ -44,6 +45,7 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
                 pending.cleanUp();
             }
         }, "Async AM response listener clean-up").start();
+        LOG.info("Started async AM stale request scavenger");
     }
 
     public <T> CompletableFuture<T> expect(RequestId requestId) {
@@ -137,6 +139,7 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
         CompletableFuture cf = pending.getIfPresent(requestId.getId());
         if (cf == null) {
             LOG.error("RequestId " + requestId.getId() + " had no pending requests");
+            return;
         }
         cf.completeExceptionally(new ApiException(s, errorCode));
         pending.invalidate(requestId.getId());

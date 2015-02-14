@@ -17,7 +17,7 @@ extern "C" {
 #include <vector>
 
 #include "leveldb/db.h"
-#include "fdsp/fds_service_types.h"
+#include "fdsp/sm_service_types.h"
 #include "fdsp/FDSP_types.h"
 #include "fds_volume.h"
 #include "fds_types.h"
@@ -31,28 +31,6 @@ extern "C" {
 
 namespace fds {
 
-
-struct SyncMetaData : public serialize::Serializable {
-    SyncMetaData();
-    void reset();
-
-    /* Overrides from Serializable */
-    virtual uint32_t write(serialize::Serializer* serializer) const override;
-    virtual uint32_t read(serialize::Deserializer* deserializer) override;
-    virtual uint32_t getEstimatedSize() const override;
-
-    bool operator== (const SyncMetaData &rhs) const;
-    bool operator!= (const SyncMetaData &rhs) const
-    { return !(this->operator==(rhs)); }
-    SyncMetaData& operator=(const SyncMetaData &rhs);
-
-    /* Born timestamp */
-    uint64_t born_ts;
-    /* Modification timestamp */
-    uint64_t mod_ts;
-    /* Association entries */
-    std::vector<obj_assoc_entry_t> assoc_entries;
-};
 
 /*
  * Persistent class for storing MetaObjMap, which
@@ -90,26 +68,13 @@ class ObjMetaData : public serialize::Serializable {
 
     uint64_t getModificationTs() const;
 
-    void apply(const fpi::FDSP_MigrateObjectMetadata& data);
-
-    void extractSyncData(fpi::FDSP_MigrateObjectMetadata& md) const;
-
     void diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData);
     void propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData,
                                  bool reconcileMetaDataOnly);
     Error updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
 
-    void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
-
-    void setSyncMask();
     void setObjCorrupted();
-
-    bool syncDataExists() const;
     fds_bool_t isObjCorrupted() const;
-
-    void applySyncData(const fpi::FDSP_MigrateObjectMetadata& data);
-
-    void mergeNewAndUnsyncedData();
 
     bool dataPhysicallyExists() const;
 
@@ -140,7 +105,7 @@ class ObjMetaData : public serialize::Serializable {
 
     void getAssociatedVolumes(std::vector<fds_volid_t> &vols) const;
 
-    void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) const;
+    void getVolsRefcnt(std::map<fds_volid_t, fds_uint64_t>& vol_refcnt) const;
 
     // Tiering/Physical Location update routines
     fds_bool_t onFlashTier() const;
@@ -171,13 +136,13 @@ class ObjMetaData : public serialize::Serializable {
 
     /* Volume association entries */
     std::vector<obj_assoc_entry_t> assoc_entry;
-
-    /* Sync related metadata. Valid only when SYNCMETADATA_MASK is set */
-    SyncMetaData sync_data;
 };
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
     ObjectID oid(objMd.obj_map.obj_id.metaDigest);
+
+    fds_assert(meta_obj_map_magic_value == objMd.obj_map.obj_magic);
+
     out << "Object MetaData: Version " << (fds_uint16_t)objMd.obj_map.obj_map_ver
         << " " << oid
         << "  obj_size " << objMd.obj_map.obj_size
@@ -186,7 +151,7 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
         << "  create_time " << objMd.obj_map.obj_create_time
         << "  del_time " << objMd.obj_map.obj_del_time
         << "  mod_time " << objMd.obj_map.assoc_mod_time
-        << "  flags " << std::hex << (fds_uint16_t)objMd.obj_map.obj_flags << std::dec
+        << "  flags " << std::hex << objMd.obj_map.obj_flags << std::dec
         << "  migration_version " << objMd.obj_map.migration_ver
         << "  migration reconcile refcnt " << objMd.obj_map.migration_reconcile_ref_cnt
         << std::endl;

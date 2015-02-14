@@ -145,8 +145,12 @@ typedef struct om_vol_msg_s
     fpi::FDSP_MsgHdrTypePtr         *vol_msg_hdr;
     union {
         fpi::FDSP_BucketStatType    *vol_stats;
-        FdspNotVolPtr               *vol_notif;
-        FdspAttVolPtr               *vol_attach;
+        // TODO(Andrew): This struct is not used but references
+        // these removed variables. Removing the entire struct,
+        // though useful, is not a ball of yarn I want to unwind
+        // right now...
+        // FdspNotVolPtr               *vol_notif;
+        // FdspAttVolPtr               *vol_attach;
     } u;
 } om_vol_msg_t;
 
@@ -165,7 +169,7 @@ class VolumeInfo : public Resource, public HasState
         return static_cast<VolumeInfo *>(get_pointer(ptr));
     }
 
-    void vol_mk_description(const fpi::FDSP_VolumeInfoType &info);
+    void vol_mk_description(const fpi::FDSP_VolumeDescType &info);
     void vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const;
     void vol_fmt_message(om_vol_msg_t *out);
 

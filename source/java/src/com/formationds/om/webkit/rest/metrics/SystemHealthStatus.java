@@ -1,6 +1,7 @@
 package com.formationds.om.webkit.rest.metrics;
 
 import FDS_ProtocolInterface.*;
+
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.model.*;
 import com.formationds.commons.model.abs.Context;
@@ -11,7 +12,10 @@ import com.formationds.commons.model.calculated.capacity.CapacityToFull;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.HealthState;
+import com.formationds.commons.model.type.ManagerType;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.commons.model.type.ServiceStatus;
+import com.formationds.commons.model.type.ServiceType;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -27,10 +31,13 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
 import javax.persistence.EntityManager;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -323,15 +330,21 @@ public class SystemHealthStatus implements RequestHandler {
      * @param services
      * @return
      */
-    private SystemHealth getServiceStatus(final List<FDSP_Node_Info_Type> services) {
+    private SystemHealth getServiceStatus(final List<FDSP_Node_Info_Type> rawServices) {
 
         SystemHealth status = new SystemHealth();
         status.setCategory(SystemHealth.CATEGORY.SERVICES);
 
+        List<Service> services = new ArrayList<Service>();
+        
+        rawServices.stream().forEach( service -> {
+        	services.add( ServiceType.find( service ).get() );
+        });
+        
         // first, if all the services are up, we're good.
         long servicesUp = services.stream()
                 .filter((s) -> {
-                    boolean up = s.getNode_state().equals(FDSP_NodeState.FDS_Node_Up);
+                    boolean up = s.getStatus().equals(ServiceStatus.ACTIVE);
                     return up;
                 })
                 .count();
@@ -347,20 +360,20 @@ public class SystemHealthStatus implements RequestHandler {
         // and an sm,dm,pm running on each node.
 
         // first we do 2 groupings.  One into nodes, on into services
-        Map<FDSP_MgrIdType, List<FDSP_Node_Info_Type>> byService = services.stream()
-                .collect(Collectors.groupingBy(FDSP_Node_Info_Type::getNode_type));
-
-        int nodes = services.stream()
+        Map<ManagerType, List<Service>> byService = services.stream()
+                .collect(Collectors.groupingBy(Service::getType));
+        
+        int nodes = rawServices.stream()
                 .collect(Collectors.groupingBy(FDSP_Node_Info_Type::getNode_uuid))
                 .keySet()
                 .size();
 
         // get a list of the services so we can use their counts
-        List<FDSP_Node_Info_Type> oms = byService.get(FDSP_MgrIdType.FDSP_ORCH_MGR);
-        List<FDSP_Node_Info_Type> ams = byService.get(FDSP_MgrIdType.FDSP_STOR_HVISOR);
-        List<FDSP_Node_Info_Type> pms = byService.get(FDSP_MgrIdType.FDSP_PLATFORM);
-        List<FDSP_Node_Info_Type> dms = byService.get(FDSP_MgrIdType.FDSP_DATA_MGR);
-        List<FDSP_Node_Info_Type> sms = byService.get(FDSP_MgrIdType.FDSP_STOR_MGR);
+        List<Service> oms = byService.get(ManagerType.FDSP_ORCH_MGR);
+        List<Service> ams = byService.get(ManagerType.FDSP_STOR_HVISOR);
+        List<Service> pms = byService.get(ManagerType.FDSP_PLATFORM);
+        List<Service> dms = byService.get(ManagerType.FDSP_DATA_MGR);
+        List<Service> sms = byService.get(ManagerType.FDSP_STOR_MGR);
 
         if (oms != null && oms.size() > 0 &&
                 ams != null && ams.size() > 0 &&

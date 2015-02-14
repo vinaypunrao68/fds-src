@@ -284,7 +284,7 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
 
  private:
     // XXX: list of blobs in volume goes here
-    BlobInfoListType *resp_vector;
+    BlobDescriptorListType *resp_vector;
     FDSP_BlobDigestType *resp_digest;
     FDSP_BlobObjectList *resp_obj_list;
     concurrency::TaskStatus *get_resp_monitor_;
@@ -473,25 +473,25 @@ void LevelDBChecker::run_checker(const char *volume)
     // Col 0 is master, everything should check against this
     list_bucket(col_ptr->get(0), volume_id, v_name);
     // Create copy of master blob infos
-    BlobInfoListType master(resp_vector);
+    BlobDescriptorListType master(resp_vector);
 
     // For each row in the table
     for (uint i = 1; i < col_ptr->getLength(); ++i) {
         // Get the BlobInfoVector
         list_bucket(col_ptr->get(i), volume_id, v_name);
         std::cout << "Comparing master vs " << col_ptr->get(i) << std::endl;
-        // Should now have a resp_vector -> BlobInfoListType
+        // Should now have a resp_vector -> BlobDescriptorListType
         for (uint j = 0; j < master.size(); ++j) {
-            FDSP_BlobInfoType &m_elm = master.at(j);
-            FDSP_BlobInfoType &elm = resp_vector.at(j);
+            BlobDescriptor &m_elm = master.at(j);
+            BlobDescriptor &elm = resp_vector.at(j);
             // Get catalog info for this object
             // std::cout << "Getting catalog for blob " << m_elm.blob_name << std::endl;
 
             FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr m_query_resp =
-                    query_catalog(col_ptr->get(i), volume_id, v_name, m_elm.blob_name);
+                    query_catalog(col_ptr->get(i), volume_id, v_name, m_elm.name);
 
             FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_resp =
-                    query_catalog(col_ptr->get(i), volume_id, v_name, elm.blob_name);
+                    query_catalog(col_ptr->get(i), volume_id, v_name, elm.name);
 
             fds_assert(m_query_resp != query_resp);
             fds_assert(m_query_resp->blob_name == query_resp->blob_name);

@@ -23,7 +23,6 @@ SvcMsgFactory::newPutObjectToSmMsg(const uint64_t& volId,
 {
     fpi::PutObjectMsgPtr putObjMsg(new fpi::PutObjectMsg);
     putObjMsg->volume_id = volId;
-    putObjMsg->dlt_version = 0;
     putObjMsg->data_obj = *objData;
     putObjMsg->data_obj_len = objData->length();
     fds::assign(putObjMsg->data_obj_id, objId);
@@ -37,7 +36,6 @@ SvcMsgFactory::newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen)
     auto objId = ObjIdGen::genObjectId(data->c_str(), data->length());
     fpi::PutObjectMsgPtr putObjMsg(new fpi::PutObjectMsg);
     putObjMsg->volume_id = volId;
-    putObjMsg->dlt_version = 0;
     putObjMsg->data_obj = *data;
     putObjMsg->data_obj_len = data->length();
     fds::assign(putObjMsg->data_obj_id, objId);

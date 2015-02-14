@@ -4,7 +4,6 @@
 
 #include <boost/program_options.hpp>
 #include <dmchk.h>
-#define DM_CATALOG_TYPE DmVolumeDirectory
 
 namespace po = boost::program_options;
 

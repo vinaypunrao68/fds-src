@@ -5,7 +5,6 @@ import pyfdsp.snapshot.ttypes
 class SnapshotPolicyContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd

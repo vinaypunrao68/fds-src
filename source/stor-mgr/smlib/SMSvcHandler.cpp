@@ -51,8 +51,6 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScrubberStatus, setScrubberStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScrubberStatus, queryScrubberStatus);
 
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicy, TierPolicy);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartHybridTierCtrlrMsg, startHybridTierCtrlr);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
@@ -70,6 +68,36 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+}
+
+void
+SMSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                        boost::shared_ptr<std::string>& payload) {
+    // Requests to SM are relative to a DLT table that maps which
+    // SMs are responsible for which objects. If the DLT version
+    // being used by the sender is stale then this may not be the
+    // correct SM to contact. We know if other version are stale if
+    // our current version has been closed (see OM table propagation
+    // protocol). If we don't have a DLT version yet then have SM process
+    // the request.
+    // TODO(Andrew): For now, ignore the DLT version for messages from
+    // the OM because it's not easy for the OM to properly set the
+    // version (it doesn't have a DLTManagerPtr to set).
+    const DLT *curDlt = objStorMgr->getDLT();
+    if ((gl_OmUuid != header->msg_src_uuid) &&
+        (curDlt) &&
+        (curDlt->isClosed()) &&
+        (curDlt->getVersion() > (fds_uint64_t)header->dlt_version)) {
+        // Tell the sender that their DLT version is invalid.
+        LOGDEBUG << "Returning DLT mismatch using version "
+                 << (fds_uint64_t)header->dlt_version << " with current closed version "
+                 << curDlt->getVersion();
+
+        header->msg_code = ERR_IO_DLT_MISMATCH;
+        sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg());
+    } else {
+        PlatNetSvcHandler::asyncReqt(header, payload);
+    }
 }
 
 void
@@ -239,8 +267,6 @@ void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void SMSvcHandler::StartMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
         boost::shared_ptr<fpi::CtrlStartMigration>& startMigration) {
     LOGDEBUG << "Start migration handler called";
-    objStorMgr->tok_migrated_for_dlt_ = false;
-    LOGNORMAL << "Token copy complete";
 
     // TODO(brian): Do we need a write lock here?
     DLTManagerPtr dlt_mgr = objStorMgr->omClient->getDltManager();
@@ -377,7 +403,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
-        LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
+        LOGERROR << "Failed to enqueue to SmIoGetObjectReq to StorMgr.  Error: "
                  << err;
         getObjectCb(asyncHdr, err, getReq);
     }
@@ -431,7 +457,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
-    putReq->dltVersion = putObjMsg->dlt_version;
+    putReq->dltVersion = asyncHdr->dlt_version;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
     putReq->putObjectNetReq = putObjMsg;
     // perf-trace related data
@@ -529,7 +555,7 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delReq->io_type = FDS_SM_DELETE_OBJECT;
 
     delReq->setVolId(expObjMsg->volId);
-    delReq->dltVersion = expObjMsg->dlt_version;
+    delReq->dltVersion = asyncHdr->dlt_version;
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));
     delReq->delObjectNetReq = expObjMsg;
     // perf-trace related data
@@ -701,41 +727,6 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), *vol_msg);
 }
 
-// TierPolicy
-// ----------
-//
-void
-SMSvcHandler::TierPolicy(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
-                         boost::shared_ptr<fpi::CtrlTierPolicy> &msg)
-{
-    // LOGNOTIFY
-    // << "OMClient received tier policy for vol "
-    // << tier->tier_vol_uuid;
-    fds_verify(objStorMgr->omc_srv_pol != nullptr);
-    fdp::FDSP_TierPolicyPtr tp(new FDSP_TierPolicy(msg->tier_policy));
-    objStorMgr->omc_srv_pol->serv_recvTierPolicyReq(tp);
-    hdr->msg_code = 0;
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlTierPolicy), *msg);
-}
-
-// TierPolicyAudit
-// ---------------
-//
-void
-SMSvcHandler::TierPolicyAudit(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                              boost::shared_ptr<fpi::CtrlTierPolicyAudit> &msg)
-{
-    // LOGNOTIFY
-    // << "OMClient received tier audit policy for vol "
-    // << audit->tier_vol_uuid;
-
-    fds_verify(objStorMgr->omc_srv_pol != nullptr);
-    fdp::FDSP_TierPolicyAuditPtr ta(new FDSP_TierPolicyAudit(msg->tier_audit));
-    objStorMgr->omc_srv_pol->serv_recvTierPolicyAuditReq(ta);
-    hdr->msg_code = 0;
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlTierPolicyAudit), *msg);
-}
-
 // CtrlStartHybridTierCtrlrMsg
 // ----------------
 //
@@ -863,7 +854,6 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // send response
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-    objStorMgr->tok_migrated_for_dlt_ = false;
 }
 
 // NotifyDMTUpdate

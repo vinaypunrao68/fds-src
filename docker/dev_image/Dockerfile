@@ -28,9 +28,6 @@ RUN ccache -M 2G
 
 RUN git config --global user.name "Deploy"
 RUN git config --global user.email "deploy@formationds.com"
-WORKDIR /home/pairing/projects/fds-src/omnibus/omnibus-fds-deps
-RUN sudo bundle install --without development --binstubs
-RUN sudo bundle exec bin/omnibus build fds-deps
 RUN git config --global --unset user.name
 RUN git config --global --unset user.email
 

@@ -3,7 +3,6 @@
  */
 
 #include <StorMgr.h>
-#include <policy_tier.h>
 #include <net/SvcProcess.h>
 #include <SMSvcHandler.h>
 class SMMain : public SvcProcess
@@ -18,7 +17,6 @@ class SMMain : public SvcProcess
         /* Create the dependency vector */
         static fds::Module *smVec[] = {
             &diskio::gl_dataIOMod,
-            &fds::gl_tierPolicy,
             sm,
             nullptr
         };
@@ -36,8 +34,8 @@ class SMMain : public SvcProcess
         setupSigHandler();
 
         /* Daemonize */
-        fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.sm.testing.test_mode", false);
-        if (noDaemon == false) {
+        fds_bool_t daemonizeProc = get_fds_config()->get<bool>("fds.sm.daemonize", true);
+        if (true == daemonizeProc) {
             daemonize();
         }
     }

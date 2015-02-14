@@ -83,42 +83,7 @@ enum FdsActorRequestType {
 
     /* Token sender pull data has been read */
     FAR_ENUM(TSDataReadEvt),
-    /*----------------- Migration RPC -----------------------------------------*/
-    /* RPC from receiver->sender to start token copy */
-    FAR_ENUM(FDSP_CopyTokenReq),
 
-    /* RPC token copy response ack from sender->receiver */
-    FAR_ENUM(FDSP_CopyTokenResp),
-
-    /* RPC from sender->receiver with token object data */
-    FAR_ENUM(FDSP_PushTokenObjectsReq),
-
-    /* RPC ack response from receiver->sender of token object data */
-    FAR_ENUM(FDSP_PushTokenObjectsResp),
-
-    /* RPC from receiver->sender for token sync */
-    FAR_ENUM(FDSP_SyncTokenReq),
-
-    /* RPC from sender->receiver acking token sync request */
-    FAR_ENUM(FDSP_SyncTokenResp),
-
-    /* RPC from sender->receiver with token metadata */
-    FAR_ENUM(FDSP_PushTokenMetadataReq),
-
-    /* RPC from receiver->sender acking token metadata */
-    FAR_ENUM(FDSP_PushTokenMetadataResp),
-
-    /* RPC from sender->receiver that token metadata sync transfer is complete */
-    FAR_ENUM(FDSP_NotifyTokenSyncComplete),
-
-    /* RPC from receiver->sender pull objects request */
-    FAR_ENUM(FDSP_PullObjectsReq),
-
-    /* RPC from sender->receiver with object data */
-    FAR_ENUM(FDSP_PushObjectsReq),
-
-    /* RPC from receiver->sender that pull is complete */
-    FAR_ENUM(FDSP_NotifyTokenPullComplete),
     /*----------------- Last Request ------------------------------------------*/
     FAR_ENUM(Max)
 };
