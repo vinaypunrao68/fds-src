@@ -360,7 +360,7 @@ NbdOperations::getBlobResp(const Error &error,
             if (1 != responses.erase(handle)) {
                 LOGERROR << "Handle 0x" << std::hex
                          << handle << std::dec
-                         << " was missing from the response map!.";
+                         << " was missing from the response map!";
             }
         }
 
@@ -425,7 +425,7 @@ NbdOperations::updateBlobResp(const Error &error,
             if (1 != responses.erase(handle)) {
                 LOGERROR << "Handle 0x" << std::hex
                          << handle << std::dec
-                         << " was missing from the response map!.";
+                         << " was missing from the response map!";
             }
         }
 
