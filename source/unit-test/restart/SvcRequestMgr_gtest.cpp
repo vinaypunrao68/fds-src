@@ -29,6 +29,22 @@ using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
 
+/**
+* @brief Tests svc map update in the domain.
+*/
+TEST(SvcMgr, epsvcrequest) {
+    int cnt = 2;
+    FakeSyncSvcDomain domain(cnt);
+
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter);
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
+    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter.response->status;
+}
+
+#if 0
 struct SvcRequestMgrTest : BaseTestFixture {
     SvcRequestMgrTest() {
     }
@@ -99,6 +115,21 @@ TEST_F(SvcRequestMgrTest, epsvcrequest)
 }
 
 /**
+* @brief Tests svc map update in the domain.
+*/
+TEST(SvcMgr, epsvcrequest) {
+    int cnt = 2;
+    FakeSyncSvcDomain domain(cnt);
+
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter);
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
+    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter.response->status;
+}
+
+/**
 * @brief Test sending endpoint request agains invalid endpoint
 *
 */
@@ -140,6 +171,7 @@ TEST_F(SvcRequestMgrTest, epsvcrequest_downep)
     cbWaiter2.await();
     ASSERT_EQ(cbWaiter2.error, ERR_SVC_REQUEST_INVOCATION) << "Error: " << cbWaiter2.error;
 }
+#endif
 
 #if 0
 /* Tests basic failover style request */
@@ -215,9 +247,11 @@ int main(int argc, char** argv) {
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling");
     SMApi::init(argc, argv, opts);
 #endif
+#if 0
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message");
     SvcRequestMgrTest::init(argc, argv, opts);
+#endif
     return RUN_ALL_TESTS();
 }

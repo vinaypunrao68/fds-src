@@ -29,6 +29,10 @@ struct FakeSvcDomain {
     virtual void broadcastSvcMap() = 0;
 
     virtual bool checkSvcInfoAgainstDomain(int svcIdx);
+
+    virtual void sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
+                        SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
+
     static fpi::SvcUuid getSvcUuid(int idx) {
         fpi::SvcUuid svcUuid;
         svcUuid.svc_uuid = SVCUUID_BASE + idx;
@@ -64,11 +68,6 @@ struct FakeSyncSvcDomain : FakeSvcDomain {
 
     virtual void broadcastSvcMap() override;
 
-#if 0
-    static void sendGetStatusEpSvcRequest(SvcMgr* fromMgr, SvcMgr* toMgr,
-                                   SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle);
-#endif
-
 };
 using FakeSyncSvcDomainPtr = boost::shared_ptr<FakeSyncSvcDomain>;
 
@@ -102,6 +101,20 @@ bool FakeSvcDomain::checkSvcInfoAgainstDomain(int svcIdx) {
         }
     }
     return true;
+}
+
+void FakeSvcDomain::sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
+                        SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
+{
+
+    auto srcMgr = svcs_[srcIdx]->getSvcMgr();
+    auto destMgr = svcs_[destIdx]->getSvcMgr();
+    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
+    auto asyncReq = srcMgr->getSvcRequestMgr()->newEPSvcRequest(destMgr->getSelfSvcUuid());
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
+    asyncReq->setTimeoutMs(1000);
+    asyncReq->onResponseCb(cbHandle.cb);
+    asyncReq->invoke();
 }
 
 FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs) {
@@ -167,20 +180,6 @@ void FakeSyncSvcDomain::broadcastSvcMap() {
         }
     }
 }
-
-#if 0
-void FakeSyncSvcDomain::sendGetStatusEpSvcRequest(SvcMgr* fromMgr, SvcMgr* toMgr,
-                                                  SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> &cbHandle)
-{
-    auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = fromMgr->getSvcRequestMgr()->newEPSvcRequest(toMgr->getSelfSvcUuid());
-    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
-    asyncReq->setTimeoutMs(1000);
-    asyncReq->onResponseCb(cbHandle.cb);
-    asyncReq->invoke();
-}
-#endif
-
 
 FakeSvc::FakeSvc(FakeSvcDomain *domain, 
                  const std::string &configFile,
