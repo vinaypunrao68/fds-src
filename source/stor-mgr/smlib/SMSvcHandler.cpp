@@ -90,7 +90,7 @@ SMSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& head
         // Tell the sender that their DLT version is invalid.
         LOGDEBUG << "Returning DLT mismatch using version "
                  << (fds_uint64_t)header->dlt_version << " with current closed version "
-                 << curDlt->getVersion());
+                 << curDlt->getVersion();
 
         header->msg_code = ERR_IO_DLT_MISMATCH;
         sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg());
