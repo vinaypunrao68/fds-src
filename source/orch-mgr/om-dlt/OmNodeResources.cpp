@@ -12,13 +12,13 @@
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
 #include <OmDeploy.h>
-#include <net/RpcFunc.h>
 #include <orchMgr.h>
 #include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 
 #include "platform/node_data.h"
 #include "platform/platform.h"
