@@ -86,11 +86,11 @@ SMSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& head
     if ((gl_OmUuid != header->msg_src_uuid) &&
         (curDlt) &&
         (curDlt->isClosed()) &&
-        (curDlt->getVersion() != (fds_uint64_t)header->dlt_version)) {
+        (curDlt->getVersion() > (fds_uint64_t)header->dlt_version)) {
         // Tell the sender that their DLT version is invalid.
-        DBG(LOGTRACE << "Returning DLT mismatch using version "
-            << (fds_uint64_t)header->dlt_version << " with current closed version "
-            << curDlt->getVersion());
+        LOGDEBUG << "Returning DLT mismatch using version "
+                 << (fds_uint64_t)header->dlt_version << " with current closed version "
+                 << curDlt->getVersion());
 
         header->msg_code = ERR_IO_DLT_MISMATCH;
         sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg());

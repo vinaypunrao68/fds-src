@@ -368,6 +368,10 @@ void ObjectStorMgr::mod_enable_service()
             delete testVdb;
         }
     }
+
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        gSvcRequestPool->setDltManager(omClient->getDltManager());
+    }
 }
 
 void ObjectStorMgr::mod_shutdown()
@@ -929,7 +933,7 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     qosCtrl->markIODone(*cobjs_req, diskio::diskTier);
 
     cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
-    
+
     /** TODO(Sean)
      *  Originally cobjs_req was deleted here, but valgrind detected is as memory leak.
      *  However, moving the delete call into the smio_compactobj_resp_cb() make valgrind
