@@ -145,6 +145,34 @@ TEST(SvcRequestMgr, quorumsvcrequest)
     ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
     ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
         << "Status: " << svcStatusWaiter.response->status;
+
+    /* Kill both services.  Quorum request should fail */
+    domain.kill(1);
+    domain.kill(2);
+    SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
+    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter1);
+    svcStatusWaiter1.await();
+    ASSERT_TRUE(svcStatusWaiter1.error == ERR_SVC_REQUEST_INVOCATION ||
+                svcStatusWaiter1.error == ERR_SVC_REQUEST_TIMEOUT)
+        << "Error: " << svcStatusWaiter1.error;
+
+    /* Bring one service up.  Quorum request should fail */ 
+    domain.spawn(1);
+    SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter2;
+    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter2);
+    svcStatusWaiter2.await();
+    ASSERT_TRUE(svcStatusWaiter2.error == ERR_SVC_REQUEST_INVOCATION ||
+                svcStatusWaiter2.error == ERR_SVC_REQUEST_TIMEOUT)
+        << "Error: " << svcStatusWaiter2.error;
+
+    /* Bring both services up.  Quorum request should succeed */ 
+    domain.spawn(2);
+    SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter3;
+    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter3);
+    svcStatusWaiter3.await();
+    ASSERT_EQ(svcStatusWaiter3.error, ERR_OK) << "Error: " << svcStatusWaiter3.error;
+    ASSERT_EQ(svcStatusWaiter3.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter3.response->status;
 }
 
 int main(int argc, char** argv) {
