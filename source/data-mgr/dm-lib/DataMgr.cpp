@@ -903,8 +903,6 @@ void DataMgr::mod_startup()
 
     runMode = NORMAL_MODE;
 
-    // Get config values from that platform lib.
-    //
     MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
 
     use_om = !(modProvider_->get_fds_config()->get<bool>("fds.dm.no_om", false));
@@ -1264,7 +1262,7 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->dst_id = FDSP_STOR_MGR;
 
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-    msgHdr->src_node_name = svcmgr->getSvcProperty<std::string>(svcmgr->getSelfSvcUuid(), "node_name");
+    msgHdr->src_node_name = svcmgr->getSelfSvcName();
 
     msgHdr->origin_timestamp = fds::get_fds_timestamp_ms();
 

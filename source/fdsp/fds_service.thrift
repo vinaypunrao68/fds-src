@@ -307,6 +307,7 @@ struct SvcInfo {
     // because it can break existing code.
     6: string				 ip;
     7: i32                               incarnationNo;
+    8: string				 name;
 }
 
 /* Message to sent to update the service information */
