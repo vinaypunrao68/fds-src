@@ -130,7 +130,6 @@ void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                                           [](const fpi::SvcInfo& info) {return true;});
         LOGDEBUG << "Broadcasted svcInfo: " << fds::logString(*svcInfo);
     }
-
 }
 
 void OMSvcProcess::getSvcMap(std::vector<fpi::SvcInfo> & svcMap)

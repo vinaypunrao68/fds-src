@@ -119,7 +119,7 @@ AmPlatform::mod_startup()
         Platform::platf_singleton()->plf_get_my_base_port() +
         (20 * instanceId));
 
-    am_recv   = bo::shared_ptr<AMSvcHandler>(new AMSvcHandler());
+    am_recv   = bo::shared_ptr<AMSvcHandler>(new AMSvcHandler(g_fdsprocess));
     am_plugin = new AMEpPlugin(this);
     am_ep     = new EndPoint<fpi::AMSvcClient, fpi::AMSvcProcessor>(
         Platform::platf_singleton()->plf_get_my_base_port(),

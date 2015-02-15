@@ -9,6 +9,7 @@
 #include <fdsp/BaseAsyncSvc.h>
 #include <fdsp_utils.h>
 #include <fds_module_provider.h>
+#include <fds_module.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 
 /**
@@ -61,13 +62,19 @@ struct SvcRequestTracker;
 using StringPtr = boost::shared_ptr<std::string>;
 
 class BaseAsyncSvcHandler : public HasModuleProvider,
-    virtual public FDS_ProtocolInterface::BaseAsyncSvcIf {
+    virtual public FDS_ProtocolInterface::BaseAsyncSvcIf,
+    public Module {
     typedef std::function<void (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>&,
                                 boost::shared_ptr<std::string>&)> FdspMsgHandler;
 
  public:
     explicit BaseAsyncSvcHandler(CommonModuleProviderIf *provider);
     virtual ~BaseAsyncSvcHandler();
+
+    virtual int mod_init(SysParams const *const param) override;
+    virtual void mod_startup() override;
+    virtual void mod_shutdown() override;
+
     void setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  * taskExecutor);
 
     void asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,

@@ -22,7 +22,7 @@ namespace fds {
 class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHandler
 {
   public:
-    AMSvcHandler();
+    explicit AMSvcHandler(CommonModuleProviderIf *provider);
     virtual ~AMSvcHandler();
 
     /**

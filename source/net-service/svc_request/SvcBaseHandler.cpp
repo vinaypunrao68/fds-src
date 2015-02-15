@@ -18,7 +18,8 @@ namespace fds
      *
      */
     BaseAsyncSvcHandler::BaseAsyncSvcHandler(CommonModuleProviderIf *provider)
-    : HasModuleProvider(provider)
+    : HasModuleProvider(provider),
+    Module("BaseAsyncSvcHandler")
     {
     }
 
@@ -26,6 +27,19 @@ namespace fds
      *
      */
     BaseAsyncSvcHandler::~BaseAsyncSvcHandler()
+    {
+    }
+
+    int BaseAsyncSvcHandler::mod_init(SysParams const *const param)
+    {
+        return 0;
+    }
+
+    void BaseAsyncSvcHandler::mod_startup()
+    {
+    }
+
+    void BaseAsyncSvcHandler::mod_shutdown()
     {
     }
 

@@ -124,6 +124,9 @@ void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,
                               fpi::PlatNetSvcProcessorPtr processor)
 {
     LOGNOTIFY;
+
+    handler->mod_init(nullptr);
+
     svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo_));
     /* This will start SvcServer instance */
     svcMgr_->mod_init(nullptr);
