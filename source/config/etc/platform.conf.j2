@@ -60,7 +60,7 @@ fds: {
 
     plat: {
         /* process id */
-        id = "auto"
+        id = "pm"
 
         /* Log file */
         logfile = "pltform"
@@ -376,6 +376,9 @@ fds: {
             }
         }
         perf: { enable = {{ perf_tracing }} }
+
+        /* process id */
+	id = "am"
 
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"

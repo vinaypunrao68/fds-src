@@ -66,7 +66,7 @@ namespace fds
 
         disk_ctrl        = DiskPlatModule::dsk_plat_singleton();
         plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
-        plf_my_node_name = conf.get_abs<std::string>("fds.plat.id", "auto");
+        plf_my_node_name = conf.get_abs<std::string>("fds.plat.id", "pm");
         return 0;
     }
 
