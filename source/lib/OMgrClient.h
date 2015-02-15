@@ -111,29 +111,6 @@ class OMgrClient {
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
     catalog_event_handler_t catalog_evt_hdlr;
 
-    /**
-     * Session table for OM client
-     */
-    boost::shared_ptr<netSessionTbl> nst_;
-
-    /**
-     * RPC handler for request coming from OM
-     */
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqIf> omrpc_handler_;
-    /**
-     * Session associated with omrpc_handler_
-     */
-    netControlPathServerSession *omrpc_handler_session_;
-    /**
-     * omrpc_handler_ server is run on this thread
-     */
-    boost::shared_ptr<boost::thread> omrpc_handler_thread_;
-
-    /**
-     * client for sending messages to OM
-     */
-    netOMControlPathClientSession* omclient_prx_session_;
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_OMControlPathReqClient> om_client_prx;
 
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -154,7 +131,6 @@ class OMgrClient {
     }
     ~OMgrClient();
     int initialize();
-    void start_omrpc_handler();
 
     NodeUuid getUuid() const;
     FDSP_MgrIdType getNodeType() const;
