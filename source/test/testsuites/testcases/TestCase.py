@@ -190,12 +190,10 @@ class FDSTestCase(unittest.TestCase):
         else:
             self.log.info("Running Case %s." % self.__class__.__name__)
 
-        excp = None
         try:
             if not self.passedTestCaseDriver():
                 test_passed = False
         except _ExpectedFailure as e:
-            excp = e
             test_passed = False
         except Exception as e:
             self.log.error("%s caused exception:" % self.passedTestCaseDescription)
