@@ -39,10 +39,7 @@ def expectedFailure(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            if func(*args, **kwargs):
-                return True
-            else:
-                raise _ExpectedFailure(sys.exc_info())
+            return func(*args, **kwargs)
         except Exception as e:
             raise _ExpectedFailure(sys.exc_info())
     wrapper.__expected_failure__ = True
