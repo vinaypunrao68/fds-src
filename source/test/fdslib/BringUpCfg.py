@@ -89,30 +89,57 @@ class FdsNodeConfig(FdsConfig):
 
         root = self.nd_conf_dict['fds_root']
 
+        # Create the "node agent", the object used to execute shell commands on the node.
+        if env.env_test_harness:
+            if self.nd_local:
+                self.nd_agent = inst.FdsLocalEnv(root, verbose=self.nd_verbose, install=env.env_install,
+                                                 test_harness=env.env_test_harness)
+            else:
+                self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
+
+            # Set the default user ID from the Environment.
+            self.nd_agent.env_user = env.env_user
+            self.nd_agent.env_password = env.env_password
+            self.nd_agent.env_sudo_password = env.env_sudo_password
+
+            # Pick up anything configured for the node.
+            if 'user_name' in self.nd_conf_dict:
+                self.nd_agent.env_user = self.nd_conf_dict['user_name']
+
+            if 'password' in self.nd_conf_dict:
+                self.nd_agent.env_password = self.nd_conf_dict['password']
+
+            if 'sudo_password' in self.nd_conf_dict:
+                self.nd_agent.env_sudo_password = self.nd_conf_dict['sudo_password']
+        else:
+            self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
+
+            self.nd_agent.env_user = env.env_user
+            self.nd_agent.env_password = env.env_password
+
         # At this time, only Test Harness usage will treat localhost
         # connectivity locally. This is to satisfy Jenkins/Docker
         # usages. Otherwise, all hosts, localhost or otherwise, are
         # treated remotely with SSH connectivity.
         if self.nd_local and env.env_test_harness:
-            self.nd_agent = inst.FdsLocalEnv(root, verbose=self.nd_verbose, install=env.env_install,
-                                             test_harness=env.env_test_harness)
-            self.nd_agent.env_user     = env.env_user
-            self.nd_agent.env_password = env.env_password
-            self.nd_agent.env_sudo_password = env.env_sudo_password
             if not quiet:
-                log.info("Making local connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
-            self.nd_agent.local_connect()
+                log.info("Making local connection to %s/%s as user %s." %
+                         (self.nd_host, self.nd_conf_dict['node-name'], self.nd_agent.env_user))
+
+            self.nd_agent.local_connect(user=self.nd_agent.env_user, passwd=self.nd_agent.env_password,
+                                        sudo_passwd=self.nd_agent.env_sudo_password)
         else:
-            self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
-            self.nd_agent.env_user     = env.env_user
-            self.nd_agent.env_password = env.env_password
             if not quiet:
                 if env.env_test_harness:
-                    log.info("Making ssh connection to %s as %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+                    log.info("Making remote ssh connection to %s/%s as user %s." %
+                             (self.nd_host, self.nd_conf_dict['node-name'], self.nd_agent.env_user))
                 else:
                     print("Making ssh connection to %s as %s." % (self.nd_host, self.nd_conf_dict['node-name']))
 
-            self.nd_agent.ssh_connect(self.nd_host)
+            if env.env_test_harness:
+                self.nd_agent.ssh_connect(self.nd_host, user=self.nd_agent.env_user, passwd=self.nd_agent.env_password)
+            else:
+                self.nd_agent.ssh_connect(self.nd_host)
 
     ###
     # Install the tar ball package at local location to the remote node.
@@ -680,6 +707,13 @@ class FdsDatagenConfig(FdsConfig):
         self.nd_conf_dict['dup_blocks'] = re.split(',', blocks)
 
 ###
+# Handler install setup
+#
+class FdsPkgInstallConfig(FdsConfig):
+    def __init__(self, name, items, verbose):
+        super(FdsPkgInstallConfig, self).__init__(items, verbose)
+
+###
 # Handle fds bring up config parsing
 #
 class FdsConfigFile(object):
@@ -695,9 +729,11 @@ class FdsConfigFile(object):
         self.cfg_scenarios = []
         self.cfg_io_blocks = []
         self.cfg_datagen   = []
+        self.cfg_install   = []
         self.cfg_cli       = None
         self.cfg_om        = None
         self.cfg_parser    = ConfigParser.ConfigParser()
+        self.cfg_localhost = None
 
     def config_parse(self):
         verbose = {
@@ -754,6 +790,8 @@ class FdsConfigFile(object):
                 self.cfg_io_blocks.append(FdsIOBlockConfig(section, items, verbose))
             elif re.match('datagen', section) != None:
                 self.cfg_datagen.append(FdsDatagenConfig(section, items, verbose))
+            elif re.match('install', section) != None:
+                self.cfg_install.append(FdsPkgInstallConfig(section, items, verbose))
             else:
                 print "Unknown section", section
 
@@ -776,8 +814,12 @@ class FdsConfigFile(object):
         for dg in self.cfg_datagen:
             dg.dg_parse_blocks()
 
-        # Why do we want to do this? Just execute the scenarios in the order listed.
-        #self.cfg_scenarios.sort()
+        # Generate a localhost node instance so that we have a
+        # node agent to execute commands locally when necessary.
+        items = [('enable', True), ('ip','localhost'), ('fds_root', '/fds')]
+
+        self.cfg_localhost = FdsNodeConfig("localhost", items, verbose)
+
 
     def config_parse_scenario(self):
         """
@@ -821,7 +863,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.tar_file, _fds_source_dir=opt.fds_source_dir,
+            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.install, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
@@ -830,6 +872,7 @@ class FdsConfigRun(object):
         # Fixup user/passwd in runtime env from config file.
         users = self.rt_obj.cfg_user
         if users is not None:
+            # Should only be one of these guys.
             usr = users[0]
             self.rt_env.env_user     = usr.get_config_val('user_name')
             self.rt_env.env_password = usr.get_config_val('password')
@@ -865,6 +908,10 @@ class FdsConfigRun(object):
 
             if n.nd_run_om() == True:
                 self.rt_om_node = n
+
+        # Set up our localhost "node" as well.
+        self.rt_obj.cfg_localhost.nd_connect_agent(self.rt_env, quiet_ssh)
+        self.rt_obj.cfg_localhost.nd_agent.setup_env('')
 
     def rt_get_obj(self, obj_name):
         return getattr(self.rt_obj, obj_name)

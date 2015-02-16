@@ -132,7 +132,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
                     if (action.count("install") > 0):
                         # First, build out the installation directory and start Redis.
-                        suite.addTest(TestFDSEnvMgt.TestFDSCreateInstDir(node=node))
+                        suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
 
                         # Boot Redis on the machine if requested.
                         if 'redis' in node.nd_conf_dict:
@@ -258,7 +258,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             # Start this service according to the specified action.
             if (action.count("install") > 0):
                 # First, build out the installation directory and start Redis.
-                suite.addTest(TestFDSEnvMgt.TestFDSCreateInstDir(node=node))
+                suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
                 # Boot Redis on the machine if requested.
                 if 'redis' in node.nd_conf_dict:
                     if node.nd_conf_dict['redis'] == 'true':
@@ -551,8 +551,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         # Give the test some time if requested.
         if 'delay_wait' in scenario.nd_conf_dict:
-            suite.addTest(TestWait(delay=delay,
-                                                     reason="just because"))
+            suite.addTest(TestWait(delay=delay, reason="just because"))
 
     elif re.match('\[testcases.+\]', script) is not None:
         # Do we have any parameters?

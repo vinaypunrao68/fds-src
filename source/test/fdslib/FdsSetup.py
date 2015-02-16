@@ -48,7 +48,7 @@ class FdsEnv(object):
         self.env_host      = None
         self.env_user      = 'root'
         self.env_password  = 'passwd'
-        self.env_sudo_password = None
+        self.env_sudo_password = 'dummy'
         self.env_test_harness = _test_harness
         self.env_fdsDict   = {
             'debug-base': 'Build/linux-x86_64.debug/',
