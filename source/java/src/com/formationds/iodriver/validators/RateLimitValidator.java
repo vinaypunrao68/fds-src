@@ -41,13 +41,13 @@ public final class RateLimitValidator implements Validator
             Duration duration = Duration.between(start, stop);
             double durationInSeconds = duration.toMillis() / 1000.0;
             double iops = perf.getOps() / durationInSeconds;
-            double deviation = (iops - throttle) / throttle * 100.0;
+            double deviation = (iops - throttle) / throttle;
 
             System.out.println(volumeName + ": A:" + params.getIopsAssured() + ", T:"
                                + params.getIopsThrottle() + "): " + perf.getOps() + " / "
                                + durationInSeconds + " = " + iops + "(" + deviation * 100.0 + "%).");
 
-            if (Math.abs(deviation) > 0.01)
+            if (Math.abs(deviation) > 0.015)
             {
                 failed = true;
             }
@@ -55,5 +55,4 @@ public final class RateLimitValidator implements Validator
 
         return !failed;
     }
-
 }

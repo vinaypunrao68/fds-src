@@ -39,6 +39,12 @@ function system_tests
    ./BuildSmokeTest.py -q BuildSmokeTest_oncommit.ini -d dummy --verbose
    [[ $? -ne 0 ]] && echo "SYSTEM TEST:  FAILED" && exit 97
    cd -
+   
+   # Run QoS test.
+   cd "${root_dir}/source/Build/linux-x86_64.debug/bin"
+   ./iodriver
+   [[ $? -ne 0 ]] && echo "SYSTEM TEST:  FAILED" && exit 99
+   cd -
 }
 
 root_dir=$(pwd)

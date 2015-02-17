@@ -172,6 +172,9 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
      */
     private static final SSLSocketFactory _trustingSocketFactory;
 
+    /**
+     * Static constructor.
+     */
     static
     {
         _trustingHostnameVerifier = Uris.getTrustingHostnameVerifier();

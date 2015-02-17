@@ -236,8 +236,22 @@ public final class WorkflowEventListener
     {
         if (volume == null) throw new NullArgumentException("volume");
 
+        reportIo(volume, 1);
+    }
+
+    /**
+     * Call when an I/O operation occurs and the number of I/Os must be specified.
+     * 
+     * @param volume The volume that received the I/O.
+     * @param count The number of I/Os sent.
+     */
+    public void reportIo(String volume, int count)
+    {
+        if (volume == null) throw new NullArgumentException("volume");
+        if (count <= 0) throw new IllegalArgumentException("count of IOs must be > 0.");
+
         VolumeQosStats stats = getStatsInternal(volume);
-        stats.performance.addOps(1);
+        stats.performance.addOps(count);
     }
 
     /**

@@ -17,11 +17,17 @@ import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.operations.OrchestrationManagerOperation;
 
+/**
+ * An endpoint connecting to an FDS Orchestration Manager.
+ */
 // @eclipseFormat:off
 public final class OrchestrationManagerEndpoint
     extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint, OrchestrationManagerOperation>
 // @eclipseFormat:on
 {
+    /**
+     * An OM authentication token. This should be considered an opaque string.
+     */
     public static class AuthToken
     {
         @Override
@@ -30,6 +36,11 @@ public final class OrchestrationManagerEndpoint
             return _value;
         }
 
+        /**
+         * Constructor.
+         * 
+         * @param value The token value itself.
+         */
         protected AuthToken(String value)
         {
             if (value == null) throw new NullArgumentException("value");
@@ -37,9 +48,23 @@ public final class OrchestrationManagerEndpoint
             _value = value;
         }
 
+        /**
+         * The token value.
+         */
         private final String _value;
     }
 
+    /**
+     * Constructor.
+     * 
+     * @param uri Base URI of all requests sent through this endpoint.
+     * @param username The username to use to acquire the auth token.
+     * @param password The password to use to acquire the auth token.
+     * @param logger Log messages are sent here.
+     * @param trusting Whether to trust all SSL certs. Should not be {@code true} in production.
+     * 
+     * @throws MalformedURLException when {@code uri} is not a valid absolute URL.
+     */
     public OrchestrationManagerEndpoint(URI uri,
                                         String username,
                                         String password,
@@ -62,6 +87,13 @@ public final class OrchestrationManagerEndpoint
         return new OrchestrationManagerEndpoint(copyHelper);
     }
 
+    /**
+     * Log into the OM and get the authentication token to be used in future requests.
+     * 
+     * @return An authentication token.
+     * 
+     * @throws IOException when an error occurs while logging in.
+     */
     public AuthToken getAuthToken() throws IOException
     {
         if (_authToken == null)
@@ -98,19 +130,32 @@ public final class OrchestrationManagerEndpoint
         return _authToken;
     }
 
+    /**
+     * Get the username to use to log into the OM.
+     * 
+     * @return The current property value.
+     */
     public String getUsername()
     {
         return _username;
     }
 
-    protected class CopyHelper
-                              extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint,
+    /**
+     * Extend this class to allow deep copies even when the superclass private members aren't
+     * available.
+     */
+    protected class CopyHelper extends AbstractHttpsEndpoint<OrchestrationManagerEndpoint,
                               OrchestrationManagerOperation>.CopyHelper
     {
         public final String password = _password;
         public final String username = _username;
     }
 
+    /**
+     * Copy constructor.
+     * 
+     * @param helper Object holding copied values to assign to the new object.
+     */
     protected OrchestrationManagerEndpoint(CopyHelper helper)
     {
         super(helper);
@@ -129,6 +174,15 @@ public final class OrchestrationManagerEndpoint
         return openConnectionWithoutAuth(url);
     }
 
+    /**
+     * Open a connection without authenticating first. Primarily used to authenticate.
+     * 
+     * @param url The URL to connect to.
+     * 
+     * @return A connection.
+     * 
+     * @throws IOException when an error occurs while connecting.
+     */
     protected URLConnection openConnectionWithoutAuth(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
@@ -140,9 +194,18 @@ public final class OrchestrationManagerEndpoint
         return connection;
     }
 
+    /**
+     * The token used to authenticate requests. {@code null} prior to login.
+     */
     private AuthToken _authToken;
 
+    /**
+     * The password to use when authenticating.
+     */
     private final String _password;
 
+    /**
+     * The username to use when authenticating.
+     */
     private final String _username;
 }

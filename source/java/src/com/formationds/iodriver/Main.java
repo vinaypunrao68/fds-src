@@ -51,6 +51,7 @@ public final class Main
         catch (Exception ex)
         {
             LOGGER.logError("Unexpected exception.", ex);
+            result = 1;
         }
 
         System.exit(result);

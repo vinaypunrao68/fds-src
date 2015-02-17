@@ -12,11 +12,21 @@ import com.formationds.iodriver.ConfigUndefinedException;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 
-// FIXME: Make a better name.
+/**
+ * Global FDS configuration.
+ */
 public final class Fds
 {
+    /**
+     * API pseudo-constants.
+     */
     public final static class Api
     {
+        /**
+         * The URI to access to get an authentication token.
+         * 
+         * @return The auth token URI.
+         */
         @Replacement("API_AUTH_TOKEN")
         public static URI getAuthToken()
         {
@@ -26,6 +36,11 @@ public final class Fds
             return Uris.resolve(apiBase, authTokenPath);
         }
 
+        /**
+         * OM base URI.
+         * 
+         * @return The URI.
+         */
         @Replacement("API_BASE")
         public static URI getBase()
         {
@@ -44,6 +59,11 @@ public final class Fds
             }
         }
 
+        /**
+         * OM volume list URI.
+         * 
+         * @return The URI.
+         */
         @Replacement("API_VOLUMES")
         public static URI getVolumes()
         {
@@ -53,20 +73,38 @@ public final class Fds
             return Uris.resolve(apiBase, volumesPath);
         }
 
+        /**
+         * Prevent instantiation.
+         */
         private Api()
         {
             throw new UnsupportedOperationException("Instantiating a utility class.");
         }
     }
 
+    /**
+     * Configuration values.
+     */
     public final static class Config
     {
+        /**
+         * System-wide I/O throttle.
+         */
         @Replacement("DISK_IOPS_MAX_CONFIG")
         public static final String DISK_IOPS_MAX_CONFIG;
 
+        /**
+         * Guaranteed system-wide IOPS.
+         */
         @Replacement("DISK_IOPS_MIN_CONFIG")
         public static final String DISK_IOPS_MIN_CONFIG;
 
+        /**
+         * Constructor.
+         * 
+         * @param commandName The name of the currently running process.
+         * @param args Command-line arguments this process was invoked with.
+         */
         public Config(String commandName, String[] args)
         {
             if (commandName == null) throw new NullArgumentException("commandName");
@@ -79,6 +117,11 @@ public final class Fds
             _platformConfig = null;
         }
 
+        /**
+         * Root path for FDS data.
+         * 
+         * @return A path.
+         */
         @Replacement("FDS_ROOT")
         public Path getFdsRoot()
         {
@@ -90,6 +133,13 @@ public final class Fds
             return _fdsRoot;
         }
 
+        /**
+         * System-wide I/O throttle.
+         * 
+         * @return The maximum IOPS allowed.
+         * 
+         * @throws ConfigUndefinedException when this configuration option is not available.
+         */
         @Replacement("IOPS_MAX")
         public int getIopsMax() throws ConfigUndefinedException
         {
@@ -109,6 +159,13 @@ public final class Fds
             return _iopsMax;
         }
 
+        /**
+         * Guaranteed system IOPS.
+         * 
+         * @return The minimum IOPS that will always be available.
+         * 
+         * @throws ConfigUndefinedException when this configuration option is not available.
+         */
         @Replacement("IOPS_MIN")
         public int getIopsMin() throws ConfigUndefinedException
         {
@@ -128,26 +185,56 @@ public final class Fds
             return _iopsMin;
         }
 
+        /**
+         * Get the path to platform.conf.
+         * 
+         * @return A path.
+         */
         public Path getPlatformConfigPath()
         {
             return getConfiguration().getPlatformConfigPath();
         }
 
+        /**
+         * Runtime configuration.
+         */
         private final Configuration _configuration;
 
+        /**
+         * The root of the FDS installation.
+         */
         private Path _fdsRoot;
 
+        /**
+         * System I/O throttle.
+         */
         private int _iopsMax;
 
+        /**
+         * Guaranteed system IOPS.
+         */
         private int _iopsMin;
 
+        /**
+         * Runtime platform.conf.
+         */
         private ParsedConfig _platformConfig;
 
+        /**
+         * Get the runtime configuration.
+         * 
+         * @return The configuration.
+         */
         private Configuration getConfiguration()
         {
             return _configuration;
         }
 
+        /**
+         * Get the platform.conf.
+         * 
+         * @return Parsed platform.conf.
+         */
         private ParsedConfig getPlatformConfig()
         {
             if (_platformConfig == null)
@@ -157,6 +244,9 @@ public final class Fds
             return _platformConfig;
         }
 
+        /**
+         * Static constructor.
+         */
         static
         {
             final String testingConfig = "fds.plat.testing";
@@ -166,10 +256,19 @@ public final class Fds
         }
     }
 
-    // It makes sense to centralize random processing--as there's more and more independent
-    // consumers, it becomes more difficult to observe, predict, or have any control.
+    /**
+     * Centralized random number generation adds unpredictability, as well as minimizing the number
+     * of places something can be done wrong.
+     */
     public static final class Random
     {
+        /**
+         * Generate random bytes.
+         * 
+         * @param bytes Fill this array.
+         * 
+         * @see Random#nextBytes(byte[]).
+         */
         public static void nextBytes(byte[] bytes)
         {
             if (bytes == null) throw new NullArgumentException("bytes");
@@ -177,6 +276,14 @@ public final class Fds
             _random.nextBytes(bytes);
         }
         
+        /**
+         * Generate a random number.
+         * 
+         * @param minInclusive Returned value will be greater than or equal to this.
+         * @param maxExclusive Returned value will be less than this.
+         * 
+         * @return A random number.
+         */
         public static int nextInt(int minInclusive, int maxExclusive)
         {
             if (minInclusive < 0)
@@ -193,26 +300,50 @@ public final class Fds
             return minInclusive + nextInt(maxExclusive - minInclusive);
         }
         
+        /**
+         * Generate a random number.
+         * 
+         * @param bound Returned value will be less than this.
+         * 
+         * @return A 0-based random number.
+         */
         public static int nextInt(int bound)
         {
             return _random.nextInt(bound);
         }
 
+        /**
+         * Internal random number generator.
+         */
         private static final java.util.Random _random;
 
+        /**
+         * Prevent instantiation.
+         */
         private Random()
         {
             throw new UnsupportedOperationException("Instantiating a utility class.");
         }
 
+        /**
+         * Static constructor.
+         */
         static
         {
             _random = new java.util.Random();
         }
     }
     
+    /**
+     * Centralized secure random number generation.
+     */
     public static final class SecureRandom
     {
+        /**
+         * Generate secure random bytes.
+         * 
+         * @param bytes Fill this array.
+         */
         public static void nextBytes(byte[] bytes)
         {
             if (bytes == null) throw new NullArgumentException("bytes");
@@ -220,43 +351,79 @@ public final class Fds
             _secureRandom.nextBytes(bytes);
         }
         
+        /**
+         * Internal secure random number generator.
+         */
         private static final java.security.SecureRandom _secureRandom;
         
+        /**
+         * Prevent instantiation.
+         */
         private SecureRandom()
         {
             throw new UnsupportedOperationException("Instantiating a utility class.");
         }
 
+        /**
+         * Static constructor.
+         */
         static
         {
             _secureRandom = new java.security.SecureRandom();
         }
     }
 
+    /**
+     * The HTTP header the FDS auth token should be placed in.
+     */
     @Replacement("FDS_AUTH_HEADER")
     public static final String FDS_AUTH_HEADER;
 
+    /**
+     * The hostname of the primary FDS endpoint.
+     */
     @Replacement("FDS_HOST_PROPERTY")
     public static final String FDS_HOST_PROPERTY;
 
+    /**
+     * The name of the query parameter the password is sent in.
+     */
     @Replacement("PASSWORD_QUERY_PARAMETER")
     public static final String PASSWORD_QUERY_PARAMETER;
 
+    /**
+     * The name of the query parameter the username is sent in.
+     */
     @Replacement("USERNAME_QUERY_PARAMETER")
     public static final String USERNAME_QUERY_PARAMETER;
 
+    /**
+     * Get the primary FDS host.
+     * 
+     * @return A hostname.
+     */
     @Replacement("FDS_HOST")
     public static String getFdsHost()
     {
         return System.getProperty(FDS_HOST_PROPERTY, "localhost");
     }
 
+    /**
+     * Get the primary FDS port.
+     * 
+     * @return A TCP port.
+     */
     @Replacement("OM_PORT")
     public static int getOmPort()
     {
         return 7443;
     }
 
+    /**
+     * Get the S3 endpoint for this cluster.
+     * 
+     * @return An S3 endpoint.
+     */
     @Replacement("S3_ENDPOINT")
     public static URI getS3Endpoint()
     {
@@ -274,12 +441,20 @@ public final class Fds
         }
     }
 
+    /**
+     * Get the port the S3 service is running on.
+     * 
+     * @return A TCP port.
+     */
     @Replacement("S3_PORT")
     public static int getS3Port()
     {
         return 8443;
     }
 
+    /**
+     * Static constructor.
+     */
     static
     {
         FDS_AUTH_HEADER = "FDS-Auth";
@@ -288,6 +463,17 @@ public final class Fds
         USERNAME_QUERY_PARAMETER = "login";
     }
 
+    /**
+     * Make a new exception describing a URI construction error.
+     * 
+     * @param scheme Scheme for the URI.
+     * @param userInfo Userinfo section of the URI.
+     * @param host Host for the URI.
+     * @param port Port for the URI.
+     * @param path Path portion of the URI.
+     * 
+     * @return An exception.
+     */
     private static IllegalStateException newUriConstructionException(String scheme,
                                                                      String userInfo,
                                                                      String host,
@@ -304,6 +490,20 @@ public final class Fds
                                            null);
     }
 
+    /**
+     * Make a new exception describing a URI construction error.
+     * 
+     * @param scheme Scheme for the URI.
+     * @param userInfo Userinfo section of the URI.
+     * @param host Host for the URI.
+     * @param port Port for the URI.
+     * @param path Path for the URI.
+     * @param query Query portion of the URI.
+     * @param fragment Fragment portion of the URI.
+     * @param cause Proximate cause for the error to be returned.
+     * 
+     * @return An exception.
+     */
     private static IllegalStateException newUriConstructionException(String scheme,
                                                                      String userInfo,
                                                                      String host,

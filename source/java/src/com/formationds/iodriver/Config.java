@@ -232,7 +232,7 @@ public final class Config
             throw new ConfigurationException("System-wide assured rate of " + systemAssured
                                              + " does not result in a sane configuration.");
         }
-        if (systemAssured >= systemThrottle - headroomNeeded)
+        if (systemAssured > systemThrottle - headroomNeeded)
         {
             throw new ConfigurationException("System-wide throttle of " + systemThrottle
                                              + " leaves less than " + headroomNeeded

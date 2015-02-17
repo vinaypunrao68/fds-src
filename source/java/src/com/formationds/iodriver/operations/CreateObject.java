@@ -110,7 +110,7 @@ public final class CreateObject extends S3Operation
 
         if (_doReporting)
         {
-            reporter.reportIo(_bucketName);
+            reporter.reportIo(_bucketName, IO_COST);
         }
     }
 
@@ -139,6 +139,19 @@ public final class CreateObject extends S3Operation
      */
     private final String _key;
 
+    /**
+     * The number of system I/Os this operation costs.
+     */
+    private static final int IO_COST;
+    
+    /**
+     * Static constructor.
+     */
+    static
+    {
+        IO_COST = 2;
+    }
+    
     /**
      * Get the length of a byte array. Called from constructor.
      * 

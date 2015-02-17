@@ -14,8 +14,20 @@ import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 
+/**
+ * An S3 service endpoint.
+ */
 public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
 {
+    /**
+     * Constructor.
+     * 
+     * @param s3url Base URL for future requests.
+     * @param omEndpoint An Orchestration Manager endpoint used to authenticate.
+     * @param logger Log messages here.
+     * 
+     * @throws MalformedURLException when {@code s3url} is not a valid absolute URL.
+     */
     public S3Endpoint(String s3url,
                       OrchestrationManagerEndpoint omEndpoint,
                       Logger logger) throws MalformedURLException
@@ -48,11 +60,24 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         visit(operation, listener);
     }
 
+    /**
+     * Get the Orchestration Manager endpoint used to authenticate.
+     * 
+     * @return An OM endpoint.
+     */
     public OrchestrationManagerEndpoint getOmEndpoint()
     {
         return _omEndpoint;
     }
 
+    /**
+     * Perform an operation on this endpoint.
+     * 
+     * @param operation The operation to perform.
+     * @param listener Report operations here.
+     * 
+     * @throws ExecutionException when an error occurs executing {@code operation}.
+     */
     // @eclipseFormatter:off
     public void visit(S3Operation operation,
                       WorkflowEventListener listener) throws ExecutionException
@@ -71,6 +96,10 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         }
     }
 
+    /**
+     * Extend this class to allow deep copies even when the private memebers of superclasses aren't
+     * available.
+     */
     protected class CopyHelper extends Endpoint<S3Endpoint, S3Operation>.CopyHelper
     {
         public final Logger logger = _logger;
@@ -78,6 +107,11 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         public final String s3url = _s3url;
     }
 
+    /**
+     * Copy constructor.
+     * 
+     * @param helper An object holding the copied values to assign to the new endpoint.
+     */
     protected S3Endpoint(CopyHelper helper)
     {
         super(helper);
@@ -87,6 +121,13 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         _s3url = helper.s3url;
     }
 
+    /**
+     * Get the S3 client.
+     * 
+     * @return The S3 client.
+     * 
+     * @throws IOException when an error occurs creating the client.
+     */
     protected final AmazonS3Client getClient() throws IOException
     {
         if (_client == null)
@@ -101,14 +142,29 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         return _client;
     }
 
+    /**
+     * The S3 client used for operations. {@code null} if not authenticated yet.
+     */
     private AmazonS3Client _client;
 
+    /**
+     * Log here.
+     */
     private final Logger _logger;
 
+    /**
+     * OM endpoint used to authenticate.
+     */
     private final OrchestrationManagerEndpoint _omEndpoint;
 
+    /**
+     * The base URL for requests.
+     */
     private final String _s3url;
 
+    /**
+     * Static constructor.
+     */
     static
     {
         System.setProperty(SDKGlobalConfiguration.DISABLE_CERT_CHECKING_SYSTEM_PROPERTY, "true");

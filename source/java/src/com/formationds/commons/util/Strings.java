@@ -1,7 +1,17 @@
 package com.formationds.commons.util;
 
+/**
+ * General string-handling utilities.
+ */
 public final class Strings
 {
+    /**
+     * Create a Java string.
+     * 
+     * @param value The raw string.
+     * 
+     * @return A properly quoted and escaped Java string.
+     */
     public static String javaString(String value)
     {
         if (value == null) return "null";
@@ -15,6 +25,14 @@ public final class Strings
                            .replace("\"", "\\\"") + "\"";
     }
 
+    /**
+     * Compare two strings, where {@code null} will not throw errors.
+     * 
+     * @param a The first string to compare.
+     * @param b The second string to compare.
+     * 
+     * @return Whether {@code a} is equivalent to {@code b}.
+     */
     public static boolean nullTolerantEquals(String a, String b)
     {
         if (a == null)
@@ -31,6 +49,14 @@ public final class Strings
         }
     }
     
+    /**
+     * Determine if a string is prefixed with another, where {@code null} will not throw errors.
+     * 
+     * @param text The string to check.
+     * @param prefix The prefix to check for.
+     * 
+     * @return Whether {@code text} starts with {@code prefix}.
+     */
     public static boolean nullTolerantStartsWith(String text, String prefix)
     {
         if (text == null)
@@ -50,6 +76,9 @@ public final class Strings
         }
     }
     
+    /**
+     * Prevent instantiation.
+     */
     private Strings()
     {
         throw new UnsupportedOperationException("Instantiating a utility class.");
