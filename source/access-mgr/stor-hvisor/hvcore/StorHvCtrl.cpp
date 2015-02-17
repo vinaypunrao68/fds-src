@@ -234,6 +234,11 @@ void StorHvCtrl::StartOmClient() {
         LOGNOTIFY << "StorHvCtrl - Started accepting control messages from OM";
         om_client->registerNodeWithOM(&gl_AmPlatform);
     }
+
+    // Call the dispatcher startup function here since this
+    // legacy class doesn't actually extend from Module but
+    // needs a member's startup to be called.
+    amDispatcher->mod_startup();
 }
 
 Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,

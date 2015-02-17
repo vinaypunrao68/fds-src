@@ -1262,12 +1262,18 @@ OM_NodeDomainMod::om_dlt_waiting_timeout() {
 
 void
 OM_NodeDomainMod::om_service_down(const Error& error,
-                                  const NodeUuid& svcUuid) {
+                                  const NodeUuid& svcUuid,
+                                  fpi::FDSP_MgrIdType svcType) {
     OM_Module *om = OM_Module::om_singleton();
-    OM_DLTMod *dltMod = om->om_dlt_mod();
-    OM_DMTMod *dmtMod = om->om_dmt_mod();
-    dltMod->dlt_deploy_event(DltErrorFoundEvt(svcUuid, error));
-    dmtMod->dmt_deploy_event(DmtErrorFoundEvt(svcUuid, error));
+    // notify DLT state machine if this is SM
+    if (svcType == fpi::FDSP_STOR_MGR) {
+        OM_DLTMod *dltMod = om->om_dlt_mod();
+        dltMod->dlt_deploy_event(DltErrorFoundEvt(svcUuid, error));
+    } else if (svcType == fpi::FDSP_DATA_MGR) {
+        // this is DM -- notify DMT state machine
+        OM_DMTMod *dmtMod = om->om_dmt_mod();
+        dmtMod->dmt_deploy_event(DmtErrorFoundEvt(svcUuid, error));
+    }
 }
 
 // Called when OM receives notification that the rebalance is
@@ -1365,7 +1371,7 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
     // migration if DM is down, because this could be DM that is source
     // for migration.
     if (respError.ok() ||
-        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_STOR_MGR))) {
+        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_DATA_MGR))) {
         dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
     } else {
         dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));

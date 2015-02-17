@@ -12,8 +12,8 @@
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
 
-#include <AmAsyncService.h>
-#include "AmAsyncXdi.h"
+#include "connector/xdi/AmAsyncService.h"
+#include "connector/xdi/AmAsyncXdi.h"
 #include "AmAsyncDataApi_impl.h"
 #include <responsehandler.h>
 

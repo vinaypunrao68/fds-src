@@ -11,8 +11,8 @@ module.exports = function( grunt ){
 
     var proxySetting = {
         port: 7777,
-//        host: '127.0.0.1'
-        host: '10.3.91.145'
+        host: '127.0.0.1'
+//        host: '10.3.91.145'
 //        host: 'localhost'
     };
 
@@ -23,10 +23,10 @@ module.exports = function( grunt ){
         concat: {
             libs: {
                 src: ['bower_components/angular/angular.js','bower_components/angular-translate/angular-translate.js', 'bower_components/angular-ui-router/release/angular-ui-router.js', 'bower_components/d3/d3.min.js'],
-                dest: 'dist/libs/dependencies.js'
+                dest: distDir + '/libs/dependencies.js'
             },
             release: {
-                src: ['src/scripts/main.js','src/scripts/utils.js','src/scripts/enums.js','src/scripts/module-manifest.js','src/scripts/**/*.js','!src/scripts/directives/**'],
+                src: ['src/scripts/main.js','src/scripts/utils.js','src/scripts/enums.js','src/scripts/module-manifest.js','src/scripts/**/*.js','!src/scripts/directives/**', '!src/demo-scripts/**'],
                 dest: 'temp/main.concat.js'
             }
         },
@@ -120,6 +120,14 @@ module.exports = function( grunt ){
                     src: ['robots.txt'],
                     dest: distDir + '/'
                 }]
+            },
+            demo: {
+                files: [{
+                    expand: true,
+                    cwd: 'test/e2e',
+                    src: ['mock*js'],
+                    dest: distDir + '/'
+                }]
             }
         },
         replace: {
@@ -146,6 +154,26 @@ module.exports = function( grunt ){
                    from: '@@DEV@@-->',
                    to: ''
                 }]
+            },
+            demo: {
+                src: 'src/index.html',
+                dest: distDir + '/index.html',
+                replacements: [{
+                    from: '<!--@@DEV@@',
+                    to: ''
+                },
+                {
+                   from: '@@DEV@@-->',
+                   to: ''
+                },
+                {
+                    from: '<!--@@DEMO@@',
+                    to: ''
+                },
+                {
+                    from: '@@DEMO@@-->',
+                    to: ''
+                }]                
             }
         },
         karma: {
@@ -218,6 +246,21 @@ module.exports = function( grunt ){
                 options: {
                     spawn: false
                 }
+            },
+            demo: {
+                files: ['src/**/*.js', 'src/**/*.html', 'src/**/*.scss', 'src/**/*.css'],
+                tasks: ['copy:dev', 'copy:demo', 'replace:dev', 'replace:demo', 'sass:dist', 'cssmin', 'html2js', 'clean:temp'],
+                options: {
+                    spawn: false
+                }
+            }
+        },
+        focus: {
+            dev: {
+                include: ['scripts', 'html', 'css']
+            },
+            demo: {
+                include: [ 'demo' ]
             }
         }
     });
@@ -228,6 +271,7 @@ module.exports = function( grunt ){
     grunt.loadNpmTasks( 'grunt-contrib-copy' );
     grunt.loadNpmTasks( 'grunt-contrib-connect' );
     grunt.loadNpmTasks( 'grunt-connect-proxy' );
+    grunt.loadNpmTasks( 'grunt-focus');
     grunt.loadNpmTasks( 'grunt-contrib-watch' );
     grunt.loadNpmTasks( 'connect-livereload' );
     grunt.loadNpmTasks( 'grunt-karma' );
@@ -242,8 +286,9 @@ module.exports = function( grunt ){
 
     grunt.registerTask( 'release', ['clean:all','copy:libs','replace:release','concat:release','uglify','uglify:directives','copy:release','sass:dist','cssmin','html2js','clean:temp'] );
 
-    grunt.registerTask( 'serve', ['default', 'configureProxies:server', 'connect:livereload', 'watch'] );
-    grunt.registerTask( 'release-serve', ['release', 'configureProxies:server', 'connect:livereload', 'watch'] );
+    grunt.registerTask( 'serve', ['default', 'configureProxies:server', 'connect:livereload', 'focus:dev'] );
+    grunt.registerTask( 'release-serve', ['release', 'configureProxies:server', 'connect:livereload', 'focus:dev'] );
+    grunt.registerTask( 'demo', ['clean:all', 'copy:libs', 'copy:dev', 'copy:demo', 'replace:demo', 'sass:dist', 'cssmin', 'html2js', 'clean:temp', 'connect:livereload', 'focus:demo' ] );
     grunt.registerTask( 'e2e', ['default','protractor'] );
     grunt.registerTask( 'unittest', ['default', 'karma' ] );
 };

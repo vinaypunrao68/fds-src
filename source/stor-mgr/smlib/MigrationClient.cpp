@@ -33,7 +33,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
 
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     SMTokenID = SMTokenInvalidID;
-    executorID = invalidExecutorID;
+    executorID = SM_INVALID_EXECUTOR_ID;
 
     maxDeltaSetSize = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.max_delta_set_size");
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
@@ -44,8 +44,13 @@ MigrationClient::~MigrationClient()
 }
 
 void
-MigrationClient::setForwardingFlag() {
-    forwardingIO = true;
+MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
+    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET) {
+        fds_verify(smTok == SMTokenID);
+        LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
+                   << " executorId " << std::hex << executorID << std::dec;
+        forwardingIO = true;
+    }
 }
 
 fds_bool_t
@@ -59,8 +64,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
     // forward to destination SM
     if (req->io_type == FDS_SM_PUT_OBJECT) {
         SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req);
-        const ObjectID&  objId    = putReq->getObjId();
-        LOGMIGRATE << "Forwarding PUT request for " << objId;
+        LOGMIGRATE << "Forwarding " << *putReq;
         if (!testMode) {
             auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
             asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg),
@@ -71,8 +75,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         }
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {
         SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
-        const ObjectID&  objId    = delReq->getObjId();
-        LOGMIGRATE << "Forwarding DELETE request for " << objId;
+        LOGMIGRATE << "Forwarding " << *delReq;
         if (!testMode) {
             auto asyncDelReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
             asyncDelReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg),
@@ -91,9 +94,13 @@ MigrationClient::fwdPutObjectCb(SmIoPutObjectReq* putReq,
                                 EPSvcRequest* svcReq,
                                 const Error& error,
                                 boost::shared_ptr<std::string> payload) {
-    LOGMIGRATE << "Ack for forwarded PUT request " << putReq->getObjId();
-    // reply to AM for the original PUT
-    putReq->response_cb(error, putReq);
+    LOGMIGRATE << "Ack for forwarded PUT request " << putReq->getObjId()
+               << " " << error;
+
+    // on error, set error state (abort migration)
+    if (!error.ok()) {
+        handleMigrationError(error);
+    }
 }
 
 void
@@ -101,9 +108,13 @@ MigrationClient::fwdDelObjectCb(SmIoDeleteObjectReq* delReq,
                                 EPSvcRequest* svcReq,
                                 const Error& error,
                                 boost::shared_ptr<std::string> payload) {
-    LOGMIGRATE << "Ack for forwarded DELETE request " << delReq->getObjId();
-    // reply to AM for the original Delete
-    delReq->response_cb(error, delReq);
+    LOGMIGRATE << "Ack for forwarded DELETE request " << delReq->getObjId()
+               << " " << error;
+
+    // on error, set error state (abort migration)
+    if (!error.ok()) {
+        handleMigrationError(error);
+    }
 }
 
 Error
@@ -111,10 +122,17 @@ MigrationClient::migClientSnapshotMetaData()
 {
     Error err(ERR_OK);
 
+    // if migration client in error state, don't do anything
+    if (getMigClientState() == MIG_CLIENT_ERROR) {
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+
     /* Should already have a valid sm token
      */
     fds_verify(SMTokenID != SMTokenInvalidID);
+    fds_verify(executorID != SM_INVALID_EXECUTOR_ID);
     snapshotRequest.token_id = SMTokenID;
+    snapshotRequest.executorId = executorID;
 
     fds_assert((getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) ||
                (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET));
@@ -157,6 +175,11 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                << " executorID=" << std::hex << req->executorId << std::dec
                << " DeltSetSize=" << req->deltaSet.size()
                << " lastSet=" << req->lastSet ? "TRUE" : "FALSE";
+
+    // on error, set error state (abort migration)
+    if (!error.ok()) {
+        handleMigrationError(error);
+    }
 }
 
 void
@@ -202,9 +225,14 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                                                leveldb::ReadOptions& options,
                                                leveldb::DB *db)
 {
-    /* TODO(Sean):
-     * Should be checking for error and propagating error somehow.
-     */
+    // on error, set error state (abort migration)
+    if (!error.ok()) {
+        handleMigrationError(error);
+    } else if (getMigClientState() == MIG_CLIENT_ERROR) {
+        // already in error state, don't do anything
+        LOGMIGRATE << "Migration Client in error state, not processing snapshot";
+        return;
+    }
 
     std::vector<std::pair<ObjMetaData::ptr, bool>> objMetaDataSet;
 
@@ -275,7 +303,12 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                            << ": Selecting object " << objMetaDataPtr->logString();
                 objMetaDataSet.emplace_back(objMetaDataPtr, false);
             } else {
-                LOGERROR << "CORRUPTION: Skipping object ID " << objId;
+                if (objMetaDataPtr->isObjCorrupted()) {
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMetaDataPtr->logString();
+                }
             }
 
         } else {
@@ -316,7 +349,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                                << ": Selecting object " << objMetaDataPtr->logString();
                     objMetaDataSet.emplace_back(objMetaDataPtr, false);
                 } else {
-                    LOGERROR << "CORRUPTION: Skipping object ID " << objId;
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
                 }
             }
         }
@@ -345,10 +378,14 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                                                leveldb::ReadOptions& options,
                                                leveldb::DB *db)
 {
-
-    /* TODO(Sean):
-     * Should be checking for error and propagating error somehow.
-     */
+    // on error, set error state (abort migration)
+    if (!error.ok()) {
+        handleMigrationError(error);
+    } else if (getMigClientState() == MIG_CLIENT_ERROR) {
+        // already in error state, don't do anything
+        LOGMIGRATE << "Migration Client in error state, not processing snapshot";
+        return;
+    }
 
     std::vector<std::pair<ObjMetaData::ptr, bool>> objMetaDataSet;
 
@@ -405,26 +442,52 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         if (objMD.first == nullptr) {
             fds_verify(objMD.second != nullptr);
 
-            /* only send if the object is not corrupted */
+            /* only send if the object is not corrupted, or have a positive refcnt.
+             * If object is new, but have refcnt == 0, then there is no need to migrate
+             * them.
+             */
             if (!objMD.second->isObjCorrupted() && (objMD.second->getRefCnt() > 0UL)) {
 
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                            << ": Selecting object " << objMD.second->logString();
 
+                /* Add to object metadata set */
                 objMetaDataSet.emplace_back(objMD.second, false);
+            } else {
+                if (objMD.second->isObjCorrupted()) {
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMD.second->logString();
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMD.second->logString();
+                }
             }
         } else {
-            /* Ok. There is change in object metadata.  Calculate the difference
-             * and stuff the diff (ref_cnt's only) to the second of a pair.
-             * Also, indicate that this is metadata update only when staging to
-             * form a delta set to be sent to the destination SM.
+            /* Here we have 2 possible cases.
+             * 1) the object was alive (i.e. ref_cnt > 0) on the first snapshot, and
+             *    the metadata and object was migrated to the destination SM during the first phase.
+             * 2) the object was dead (i.e. ref_cnt == 0) on the first snapshot, where the
+             *    metadata and object didn't migrate, but was resurrected before the second
+             *    snapshot.  In this case, we treat it as a new object.
              */
-            objMD.second->diffObjectMetaData(objMD.first);
+            if (objMD.first->getRefCnt() == 0) {
+                /* Treat this as a new object. */
+                LOGMIGRATE << "MigClientState=" << getMigClientState()
+                           << ": Object resurrected: Selecting object " << objMD.second->logString();
 
-            LOGMIGRATE << "MigClientState=" << getMigClientState()
-                       << ": Diff'ed MetaData " << objMD.second->logString();
+                objMetaDataSet.emplace_back(objMD.second, false);
+            } else {
+                /* Ok. There is change in object metadata.  Calculate the difference
+                 * and stuff the diff (ref_cnt's only) to the second of a pair.
+                 * Also, indicate that this is metadata update only when staging to
+                 * form a delta set to be sent to the destination SM.
+                 */
+                objMD.second->diffObjectMetaData(objMD.first);
 
-            objMetaDataSet.emplace_back(objMD.second, true);
+                LOGMIGRATE << "MigClientState=" << getMigClientState()
+                           << ": Diff'ed MetaData " << objMD.second->logString();
+
+                objMetaDataSet.emplace_back(objMD.second, true);
+            }
         }
 
         /* Once we fill up the delta set to max size, then send it
@@ -483,7 +546,7 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
     /* Save off executor ID, so when we send back, the migrationMgr knows
      * which instance it maps to.
      */
-    if (executorID == invalidExecutorID) {
+    if (executorID == SM_INVALID_EXECUTOR_ID) {
         executorID = executorId;
     } else {
         if (executorID != executorId) {
@@ -511,6 +574,11 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
                << ": seqNum=" << curSeqNum << ", "
                << "DLT token=" << dltToken << ", "
                << "executorId=" << std::hex << executorId << std::dec;
+
+    if (getMigClientState() == MIG_CLIENT_ERROR) {
+        LOGMIGRATE << "Migration Client in error state";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     /* Transition to the filter set state.
      */
@@ -611,10 +679,31 @@ MigrationClient::setMigClientState(MigrationClientState newState)
     MigrationClientState prevState;
     prevState = std::atomic_load(&migClientState);
 
+    // do not over-write error state
+    if (prevState == MIG_CLIENT_ERROR) {
+        LOGMIGRATE << "Not changing error state to " << newState;
+        return;
+    }
+
     std::atomic_store(&migClientState, newState);
 
     LOGMIGRATE << "Setting MigrateClieentState: from " << prevState
                << "=> " << migClientState;
+}
+
+void
+MigrationClient::handleMigrationError(const Error& error) {
+    if (getMigClientState() != MIG_CLIENT_ERROR) {
+        // first time we see error, abort the whole migration
+        setMigClientState(MIG_CLIENT_ERROR);
+        // report to OM directly, OM will abort the migration
+        LOGMIGRATE << "Migration Client error " << error
+                   << " reporting to OM to abort token migration";
+        fpi::CtrlTokenMigrationAbortPtr msg(new fpi::CtrlTokenMigrationAbort());
+        auto req = gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlSvcEvent), msg);
+        req->invoke();
+    }
 }
 
 }  // namespace fds

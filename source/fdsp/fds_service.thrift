@@ -127,6 +127,7 @@ enum  FDSPMsgTypeId {
 
     /* Svc -> OM */
     CtrlSvcEventTypeId                 = 9000,
+    CtrlTokenMigrationAbortTypeId      = 9001,
 
     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
@@ -204,13 +205,14 @@ struct AsyncHdr {
     4: required SvcUuid       	msg_src_uuid;
     5: required SvcUuid       	msg_dst_uuid;
     6: required i32           	msg_code;
-    7: i64			rqSendStartTs;
-    8: i64			rqSendEndTs;
-    9: i64        		rqRcvdTs;
-    10: i64        		rqHndlrTs;
-    11: i64        		rspSerStartTs;	
-    12:i64        		rspSendStartTs;	
-    13:i64			rspRcvdTs;
+    7: optional i64             dlt_version = 0;
+    8: i64			rqSendStartTs;
+    9: i64			rqSendEndTs;
+    10:i64        		rqRcvdTs;
+    11:i64        		rqHndlrTs;
+    12:i64        		rspSerStartTs;	
+    13:i64        		rspSendStartTs;	
+    14:i64			rspRcvdTs;
 }
 
 /*
@@ -601,6 +603,10 @@ struct CtrlNotifySMAbortMigration {
      1: i64  DLT_version;
 }
 
+/* ---------------------  CtrlTokenMigrationAbortTypeId  ---------------------------- */
+struct CtrlTokenMigrationAbort {
+}
+
 /* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
 struct CtrlNotifyPushDMT {
      1: FDSP.FDSP_PushMeta        dmt_push;
@@ -734,10 +740,9 @@ struct GetObjectResp {
 /* Put object request message */
 struct PutObjectMsg {
    1: i64    			volume_id;
-   2: i64                      	dlt_version;
-   3: FDSP.FDS_ObjectIdType 	data_obj_id;
-   4: i32                      	data_obj_len;
-   5: binary                   	data_obj;
+   2: FDSP.FDS_ObjectIdType 	data_obj_id;
+   3: i32                      	data_obj_len;
+   4: binary                   	data_obj;
 }
 
 /* Put object response message */
@@ -748,7 +753,6 @@ struct PutObjectRspMsg {
 struct  DeleteObjectMsg {
  1: i64 volId,
  2: FDSP.FDS_ObjectIdType objId, 
- 3: i64 dlt_version
 }
 
 /* Delete object response message */

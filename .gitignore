@@ -123,3 +123,9 @@ thrift-0.9.0/lib/py/thrift.egg-info/
 thrift-0.9.0/tutorial/erl/client.sh
 tmppkg*/
 ycm.flags
+/source/nginx-driver/misc/am-urls.cpp
+/nbproject/
+/CMakeCache.txt
+/CMakeFiles/2.8.12.2/
+/CMakeFiles/
+/source/java/nb-configuration.xml

@@ -417,7 +417,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
         }
 
-        return 0;
+        return vol->vol_get_properties()->volUUID;
     }
 
     void createSnapshot(boost::shared_ptr<int64_t>& volumeId,

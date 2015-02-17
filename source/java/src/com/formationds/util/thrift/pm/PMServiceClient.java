@@ -63,7 +63,7 @@ public class PMServiceClient
                                    DEF_PM_PORT ) )
                 .build();
 
-        logger.debug( "connecting to platform manager service {}", host );
+        logger.debug( "connecting to platform manager service on {}", host );
     }
 
     public HostAndPort getHost( ) {
@@ -156,7 +156,7 @@ public class PMServiceClient
                         // TODO should we include the OM or other services?
                     }
 
-                    if( service != null ) {
+                    if( ( service != null ) && ( type != null ) ) {
 
                         final Optional<ServiceStatus> status =
                             ServiceStatus.fromThriftServiceStatus(

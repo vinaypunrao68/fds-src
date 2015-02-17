@@ -44,6 +44,12 @@ AmDispatcher::mod_init(SysParams const *const param) {
 
 void
 AmDispatcher::mod_startup() {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    if (!conf.get<bool>("testing.toggleStandAlone")) {     
+        // Set the DLT manager in svc layer so that it knows to dispatch
+        // requests on behalf of specific placement table versions.
+        gSvcRequestPool->setDltManager(dltMgr);
+    }
 }
 
 void
@@ -344,7 +350,6 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
 
     PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
     putObjMsg->volume_id        = amReq->io_vol_id;
-    putObjMsg->dlt_version      = dlt->getVersion();
     putObjMsg->data_obj.assign(blobReq->dataPtr->c_str(), amReq->data_len);
     putObjMsg->data_obj_len     = amReq->data_len;
     putObjMsg->data_obj_id.digest = std::string(
@@ -537,7 +542,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     if (error != ERR_OK) {
         // TODO(Andrew): We should consider logging this error at a
         // higher level when the volume is not block
-        LOGDEBUG << "blob name: " << amReq->getBlobName() << "offset: "
+        LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
                  << amReq->blob_offset << " Error: " << error;
         amReq->proc_cb(error == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_NOT_FOUND : error);
         return;
@@ -577,7 +582,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     }
 
     // if we are here, we did not get response for offset we needed!
-    LOGDEBUG << "blob name: " << amReq->getBlobName() << "offset: "
+    LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
              << amReq->blob_offset << " not in returned offset list from DM";
     amReq->proc_cb(ERR_BLOB_OFFSET_INVALID);
 }
