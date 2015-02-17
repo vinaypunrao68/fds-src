@@ -629,7 +629,17 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                       (scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
-        suite.addTest(TestFork(scenario=scenario, log_dir=log_dir))
+        suite.addTest(TestForkScenario(scenario=scenario, log_dir=log_dir))
+
+    elif re.match('\[kill\]', script) is not None:
+        # This script indicates that a previously forked process should be
+        # killed.
+        suite.addTest(TestKillScenario(scenario=scenario))
+
+    elif re.match('\[join\]', script) is not None:
+        # This script indicates that a previously forked process should be
+        # joined.
+        suite.addTest(TestJoinScenario(scenario=scenario))
 
     else:
         log.error("Unrecognized script '%s' for scenario %s" %
@@ -702,18 +712,18 @@ class TestWait(TestCase.FDSTestCase):
 # This class contains the attributes and methods to
 # run the specified object (test case, test suite, or
 # scenario script) in a separate process.
-class TestFork(TestCase.FDSTestCase):
+class TestForkScenario(TestCase.FDSTestCase):
     def __init__(self, parameters=None, scenario=None, log_dir=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_Fork,
-                                             "Fork",
+                                             self.test_ForkScenario,
+                                             "Fork scenario",
                                              fork=True)
 
         self.passedScenario = scenario
         self.passedLogDir = log_dir
 
-    def test_Fork(self):
+    def test_ForkScenario(self):
         """
         Test Case:
         Set up the scenario to run in a forked process.
@@ -726,6 +736,9 @@ class TestFork(TestCase.FDSTestCase):
         elif self.childPID > 0:
             self.log.info("Forked child %d to execute scenario %s." % (self.childPID,
                                                                        self.passedScenario.nd_conf_dict['scenario-name']))
+            # Store the child PID for later reference.
+            child_pid_dict = self.parameters["child_pid"]
+            child_pid_dict[self.passedScenario.nd_conf_dict['scenario-name']] = self.childPID
             return True
         else:
             self.log.error("Failed to fork a child process to execute scenario %s." %
@@ -778,6 +791,97 @@ class TestFork(TestCase.FDSTestCase):
         # Now run the test suite.
         runner = xmlrunner.XMLTestRunner(output=self.passedLogDir)
         runner.run(test_suite)
+
+        return True
+
+
+# This class contains the attributes and methods to
+# kill the forked process indicated by the provided scenario name.
+class TestKillScenario(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, scenario=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_KillScenario,
+                                             "Kill scenario")
+
+        self.passedScenario = scenario
+
+    def test_KillScenario(self):
+        """
+        Test Case:
+        Kill the named scenario.
+        """
+
+        child_pid_dict = self.parameters["child_pid"]
+        killScenarioName = self.passedScenario.nd_conf_dict['kill_scenario']
+
+        if killScenarioName in child_pid_dict:
+            self.log.info("Attempting to kill child PID %s from scenario %s." %
+                           (child_pid_dict[killScenarioName], killScenarioName))
+
+            fdscfg = self.parameters["fdscfg"]
+            localhost = fdscfg.rt_get_obj('cfg_localhost')
+
+            cmd = "kill -9 %s" % child_pid_dict[killScenarioName]
+            status = localhost.nd_agent.exec_wait(cmd)
+
+            if status == 0:
+                self.log.info("Killed process %s forked for scenario %s." %
+                              (child_pid_dict[killScenarioName], killScenarioName))
+            else:
+                self.log.error("Attempting to kill child PID %s from scenario %s returned status %d." %
+                               (child_pid_dict[killScenarioName], killScenarioName, status))
+                return False
+        else:
+            self.log.warning("No child forked for scenario %s." % killScenarioName)
+            return False
+
+        # Note: The child process is not removed from the child_pid dictionary.
+
+        return True
+
+
+# This class contains the attributes and methods to
+# join the forked process indicated by the provided scenario name.
+class TestJoinScenario(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, scenario=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_JoinScenario,
+                                             "Join scenario")
+
+        self.passedScenario = scenario
+
+    def test_JoinScenario(self):
+        """
+        Test Case:
+        Join the PID forked from the named scenario.
+        """
+
+        child_pid_dict = self.parameters["child_pid"]
+        joinScenarioName = self.passedScenario.nd_conf_dict['join_scenario']
+
+        if joinScenarioName in child_pid_dict:
+            self.log.info("Attempting to join child PID %s from scenario %s." %
+                           (child_pid_dict[joinScenarioName], joinScenarioName))
+
+            pid, status = os.waitpid(child_pid_dict[joinScenarioName], 0)
+
+            if (pid == child_pid_dict[joinScenarioName]) and (status == 0):
+                self.log.info("Joined process %s forked for scenario %s." %
+                              (child_pid_dict[joinScenarioName], joinScenarioName))
+            elif status == 127:
+                self.log.warning("No child process %s found for forked scenario %s." %
+                                 (child_pid_dict[joinScenarioName], joinScenarioName))
+            else:
+                self.log.error("Attempting to join child PID %s from scenario %s returned status %s." %
+                               (child_pid_dict[joinScenarioName], joinScenarioName, status))
+                return False
+        else:
+            self.log.warning("No child forked for scenario %s." % joinScenarioName)
+            return False
+
+        # Note: The child process is not removed from the child_pid dictionary.
 
         return True
 
