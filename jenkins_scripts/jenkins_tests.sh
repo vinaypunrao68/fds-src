@@ -41,10 +41,10 @@ function system_tests
    cd -
    
    # Run QoS test.
-   cd "${root_dir}/source/Build/linux-x86_64.debug/bin"
-   ./iodriver
-   [[ $? -ne 0 ]] && echo "SYSTEM TEST:  FAILED" && exit 99
-   cd -
+   #cd "${root_dir}/source/Build/linux-x86_64.debug/bin"
+   #./iodriver
+   #[[ $? -ne 0 ]] && echo "SYSTEM TEST:  FAILED" && exit 99
+   #cd -
 }
 
 root_dir=$(pwd)
