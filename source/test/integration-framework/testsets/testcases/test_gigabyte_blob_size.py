@@ -88,7 +88,7 @@ class TestGigabyteBlobSize(testcase.FDSTestCase):
                 start = time.time()
                 l.get_contents_to_filename(path)
                 end = time.time()
-                elapsed = done - start
+                elapsed = end - start
                 self.log.info("Download time: %s" % round(elapsed, 2))
                 hashcode = utils.hash_file_content(path)
                 v = self.hash_table[key_string]
@@ -105,7 +105,7 @@ class TestGigabyteBlobSize(testcase.FDSTestCase):
         # lets produce 1000 files for each volume
         f_sample = "sample_file_%s"
         # We wanted to do a 10gb test ... but it won't very far!
-        file_sizes = [1, 2, 3, 4, 5, 6, 7]
+        file_sizes = [1, 2, 3, 4, 5]
         for file_size in file_sizes:
             current = f_sample % file_size
             # produce a number between 1 - 1000
