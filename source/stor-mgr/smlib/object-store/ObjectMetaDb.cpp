@@ -114,15 +114,17 @@ void
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
                            leveldb::DB*& db,
                            leveldb::ReadOptions& opts) {
-    Catalog *objCat = NULL;
+    Catalog* objMetaCat = NULL;
+
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
         fds_verify(iter != tokenTbl.end());
-        objCat = iter->second;
+        objMetaCat = iter->second;
     }
-    fds_verify(objCat != NULL);
+    fds_verify(objMetaCat != NULL);
 
-    objCat->GetSnapshot(opts);
+    db = objMetaCat->GetDB();
+    objMetaCat->GetSnapshot(opts);
 }
 
 Error

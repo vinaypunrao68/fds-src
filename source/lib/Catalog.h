@@ -101,6 +101,10 @@ class Catalog {
         return write_options;
     }
 
+    inline leveldb::DB* GetDB() {
+        return db;
+    }
+
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Update(CatWriteBatch* batch);
     fds::Error Query(const Record& key, std::string* val);

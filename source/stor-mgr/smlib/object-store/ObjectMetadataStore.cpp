@@ -69,7 +69,7 @@ ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                  << " " << objId << " refcnt: "<< objMeta->getRefCnt()
                  << " dataexists: " << objMeta->dataPhysicallyExists();
     } else {
-        if (err == ERR_NOT_FOUND) {
+        if (err == ERR_CAT_ENTRY_NOT_FOUND) {
             LOGDEBUG << "Metadata not found in db for obj " << objId;
         } else {
             LOGERROR << "Failed to get " << objId << " from metadata db: " << err;
