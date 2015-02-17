@@ -11,7 +11,7 @@
 #include <fds_uuid.h>
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
-#include <fdsn-server.h>
+#include "connector/xdi/fdsn-server.h"
 #include <responsehandler.h>
 
 namespace fds {

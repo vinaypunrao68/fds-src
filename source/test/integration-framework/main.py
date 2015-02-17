@@ -10,6 +10,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 import unittest
 import xmlrunner
 
@@ -126,6 +127,8 @@ class Operation(object):
                 # make the integration-framework-cluster version the default one
                 self.multicluster = multinode.Multinode(type=self.args.type,
                                               inventory=self.args.inventory)
+        self.logger.info("Sleeping for 60 seconds before starting tests")
+        time.sleep(60)
 
     '''
     Stop the cluster

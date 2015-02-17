@@ -5,9 +5,9 @@ angular.module( 'status' ).directive( 'healthTile', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/healthtile/healthtile.html',
-        // health object: { overall: enum, [{ type: enum, state: enum, message: text },...]}
+        // health object: { overall: enum, status: [{ type: enum, state: enum, message: text },...]}
         scope: { data: '=' },
-        controller: function( $scope ){
+        controller: function( $scope, $filter ){
             
             var GOOD = 'GOOD';
             var OKAY = 'OKAY';

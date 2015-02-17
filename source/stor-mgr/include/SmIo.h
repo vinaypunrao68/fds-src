@@ -18,6 +18,7 @@
 #include <fds_volume.h>
 #include <leveldb/db.h>
 #include <persistent-layer/dm_io.h>
+#include <SmTypes.h>
 #include <ObjMeta.h>
 
 using FDS_ProtocolInterface::FDSP_DeleteObjTypePtr;
@@ -271,6 +272,14 @@ class SmIoDeleteObjectReq : public SmIoReq {
     boost::shared_ptr<fpi::DeleteObjectMsg> delObjectNetReq;
 
     CbType response_cb;
+
+    friend std::ostream& operator<< (std::ostream &out,
+                                     const SmIoDeleteObjectReq& delReq) {
+        out << "DELETE object request " << delReq.getObjId()
+            << " volume " << std::hex << delReq.getVolId() << std::dec
+            << " DLT version " << delReq.dltVersion;
+        return out;
+    }
 };
 
 /**
@@ -293,9 +302,15 @@ class SmIoPutObjectReq : public SmIoReq {
 
     /// Response callback
     CbType response_cb;
-};
 
-typedef boost::shared_ptr<FDSP_MigrateObjectList> FDSP_MigrateObjectListPtr;
+    friend std::ostream& operator<< (std::ostream &out,
+                                     const SmIoPutObjectReq& putReq) {
+        out << "PUT object request " << putReq.getObjId()
+            << " volume " << std::hex << putReq.getVolId() << std::dec
+            << " DLT version " << putReq.dltVersion;
+        return out;
+    }
+};
 
 /**
  * @brief For GET object data
@@ -357,12 +372,26 @@ class SmIoSnapshotObjectDB : public SmIoReq {
  public:
     SmIoSnapshotObjectDB() {
         token_id = 0;
+        executorId = SM_INVALID_EXECUTOR_ID;
     }
 
     /* In: Token to take snapshot of*/
     fds_token_id token_id;
+    /**
+     * ID of the executor for which this snapshort is taken for
+     * 0 if we are taking snapshot not for token migration
+     */
+    fds_uint64_t executorId;
+
     /* Response callback */
     CbType smio_snap_resp_cb;
+
+    friend std::ostream& operator<< (std::ostream &out,
+                                     const SmIoSnapshotObjectDB& snapReq) {
+        out << "SmIoSnapshotObjectDB: SM token " << snapReq.token_id
+            << " executorId " << snapReq.executorId;
+        return out;
+    }
 };
 
 /**

@@ -3,6 +3,8 @@ import logging
 from filechunkio import FileChunkIO
 from boto.s3.key import Key
 import boto.s3.connection
+import os
+import time
 
 import config
 import utils
@@ -39,7 +41,7 @@ class S3Connection():
             if (self.secret_access_key == None or self.secret_access_key == "") :
                 #Get the user token
                 self.secret_access_key = str(utils.get_user_token(self.access_key_id,
-                    config.FDS_AUTH_DEFAULT_ADMIN_PASS,
+                    config.FDS_DEFAULT_ADMIN_PASS,
                     self.host,
                     config.FDS_REST_PORT, 0, 1))
 
@@ -50,7 +52,6 @@ class S3Connection():
                                     #port=8443,
                                     port=self.port,
                                     calling_format = boto.s3.connection.OrdinaryCallingFormat())
-
         assert(self.conn)
         self.log.info('S3 Connected!')
 
@@ -63,15 +64,37 @@ class S3Connection():
         if self.conn == None:
             self.s3_connect()
         return self.conn
-
+    
 '''
+import sys
+
+def percent_cb(complete, total):
+    sys.stdout.write('=')
+    sys.stdout.flush()
+    
 if __name__ == "__main__":
     s3conn = S3Connection(
-                config.FDS_DEFAULT_KEY_ID,
-                config.FDS_DEFAULT_SECRET_ACCESS_KEY,
-                config.FDS_DEFAULT_HOST,
-                config.FDS_AUTH_DEFAULT_PORT,
+                config.FDS_DEFAULT_ADMIN_USER,
+                None,
+                '10.2.10.200',
+                config.FDS_S3_PORT,
             )
-    print s3conn.conn
-    bucket = s3conn.conn.create_bucket('phil-bucket02-test')
+    s3conn.s3_connect()
+    bucket = s3conn.conn.create_bucket('phil-bucket05-test')
+    print bucket
+    print "Sleeping 30 sec"
+    time.sleep(30)
+    testfile = "sample_file_0"
+    print 'Uploading %s to Amazon S3 bucket %s' % \
+       (testfile, bucket.name)
+    k = Key(bucket)
+    k.key = 'testfile'
+    k.set_contents_from_filename(testfile,
+            cb=percent_cb, num_cb=10)
+    
+    print "Downloading the file..."
+    time.sleep(30)
+    key = bucket.get_key('testfile')
+    fp = open('testfile', 'w')
+    key.get_file(fp)
 '''

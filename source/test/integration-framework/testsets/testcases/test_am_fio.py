@@ -18,7 +18,7 @@ class TestAMFIO(testcase.FDSTestCase):
         super(TestAMFIO, self).__init__(parameters=parameters,
                                         config_file=config_file,
                                         om_ip_address=om_ip_address)
-        self.my_ssh = ssh.SSHConn("10.2.10.200", "root", "passwd")
+        self.my_ssh = ssh.SSHConn(om_ip_address, "root", "passwd")
         
     def runTest(self):
         # execute the initial test

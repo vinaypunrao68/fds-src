@@ -829,6 +829,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
+    pkt->srcVolumeId = pVol->srcVolumeId;
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
 }
@@ -1474,7 +1475,7 @@ VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
     OM_AmAgent::pointer  am;
 
     LOGNOTIFY << "Received test bucket request " << vname
-              << "attach_vol_reqd " << req->attach_vol_reqd
+              << " attach_vol_reqd " << req->attach_vol_reqd
               << " from " << n_uid;
 
     am = local->om_am_agent(n_uid);

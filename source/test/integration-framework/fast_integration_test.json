@@ -1,9 +1,16 @@
 {
 	"test_sets" : {
-		"fio_tests" : [
+		"multi_am_tests" : [
 			{
-				"name" : "TestAMFIO",
-				"file" : "test_am_fio.py",
+				"name" : "TestDifferentBlobSizes",
+				"file" : "test_different_blob_sizes.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestGigabyteBlobSize",
+				"file" : "test_gigabyte_blob_size.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""

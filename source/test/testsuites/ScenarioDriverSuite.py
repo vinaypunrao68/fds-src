@@ -15,7 +15,7 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import testcases.TestFDSSysVerify
@@ -58,8 +58,6 @@ def suiteConstruction(self):
 
 
 if __name__ == '__main__':
-
-    global log_dir
 
     # Handle FDS specific commandline arguments.
     log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
