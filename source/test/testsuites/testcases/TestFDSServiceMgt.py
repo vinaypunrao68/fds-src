@@ -1243,7 +1243,7 @@ class TestAMBringup(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# activating Access Manager (AM) services on a cluster.
+# activating Access Manager (AM) services on a domain.
 class TestAMActivate(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         """
@@ -1270,7 +1270,7 @@ class TestAMActivate(TestCase.FDSTestCase):
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
-        self.log.info("Activate cluster AMs from OM node %s." % n.nd_conf_dict['node-name'])
+        self.log.info("Activate domain AMs from OM node %s." % n.nd_conf_dict['node-name'])
 
         cur_dir = os.getcwd()
         os.chdir(bin_dir)

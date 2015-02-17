@@ -7,11 +7,10 @@
 #include <vector>
 #include <map>
 #include <thread>
-#include <fdsn-server.h>
 #include <util/fds_stat.h>
 #include <am-platform.h>
 #include <net/net-service.h>
-#include <NbdOperations.h>
+#include "connector/block/NbdOperations.h"
 #include <AccessMgr.h>
 
 #include "boost/program_options.hpp"

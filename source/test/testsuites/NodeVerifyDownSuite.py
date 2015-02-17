@@ -8,7 +8,7 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 
 def suiteConstruction(self, fdsNodes=None):
@@ -23,19 +23,19 @@ def suiteConstruction(self, fdsNodes=None):
     if fdsNodes is not None:
 
         for node in fdsNodes:
-            suite.addTest(testcases.TestFDSModMgt.TestPMForOMVerifyDown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestOMVerifyDown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestPMVerifyDown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestSMVerifyDown(node=node))
-            suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestOMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestDMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestSMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestAMVerifyDown(node=node))
     else:
-        suite.addTest(testcases.TestFDSModMgt.TestPMForOMVerifyDown())
-        suite.addTest(testcases.TestFDSModMgt.TestOMVerifyDown())
-        suite.addTest(testcases.TestFDSModMgt.TestPMVerifyDown())
-        suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown())
-        suite.addTest(testcases.TestFDSModMgt.TestSMVerifyDown())
-        suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMVerifyDown())
+        suite.addTest(testcases.TestFDSServiceMgt.TestOMVerifyDown())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown())
+        suite.addTest(testcases.TestFDSServiceMgt.TestDMVerifyDown())
+        suite.addTest(testcases.TestFDSServiceMgt.TestSMVerifyDown())
+        suite.addTest(testcases.TestFDSServiceMgt.TestAMVerifyDown())
 
     return suite
 

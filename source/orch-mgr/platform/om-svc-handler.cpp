@@ -77,7 +77,7 @@ void OmSvcHandler::init_svc_event_handlers() {
 
            if (agent) {
                agent->set_node_state(FDS_Node_Down);
-               domain->om_service_down(error, svc);
+               domain->om_service_down(error, svc, agent->om_agent_type());
            } else {
                LOGERROR << "unknown service: " << svc;
            }

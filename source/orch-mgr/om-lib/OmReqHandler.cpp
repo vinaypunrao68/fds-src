@@ -332,6 +332,7 @@ int32_t FDSP_ConfigPathReqHandler::RemoveServices(
     Error err(ERR_OK);
     try {
         LOGNORMAL << "Received remove services for node" << rm_svc_req->node_name
+		  << " UUID " << std::hex << rm_svc_req->node_uuid.uuid << std::dec
                   << " remove am ? " << rm_svc_req->remove_am
                   << " remove sm ? " << rm_svc_req->remove_sm
                   << " remove dm ? " << rm_svc_req->remove_dm;

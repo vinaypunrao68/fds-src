@@ -313,7 +313,11 @@ struct SvcRequestIf {
     do {                                                                        \
         auto net = NetMgr::ep_mgr_singleton();                                  \
         auto eph = net->svc_get_handle<SendIfT>(svc_id, maj, min);              \
-        fds_verify(eph != NULL);                                                \
+        if (!eph) {                                                             \
+            GLOGERROR << "Failed to get end point handle for service '"         \
+                    << svc_id.svc_uuid << "'. Service may be down!";            \
+            break;                                                              \
+        }                                                                       \
         try {                                                                   \
             eph->svc_rpc<SendIfT>()->func(__VA_ARGS__);                         \
             GLOGDEBUG << "[Svc] sent RPC "                                      \

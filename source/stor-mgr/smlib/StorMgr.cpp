@@ -368,6 +368,10 @@ void ObjectStorMgr::mod_enable_service()
             delete testVdb;
         }
     }
+
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        gSvcRequestPool->setDltManager(omClient->getDltManager());
+    }
 }
 
 void ObjectStorMgr::mod_shutdown()
@@ -862,7 +866,7 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     // object id range will block
     auto token_lock = getTokenLock(snapReq->token_id, true);
 
-    // if this is snapshot for migration, start forwarding puts and deletes
+    // if this is the second snapshot for migration, start forwarding puts and deletes
     // for this migration client (which is addressed by executorID on destination side)
     migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
 
@@ -929,7 +933,7 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     qosCtrl->markIODone(*cobjs_req, diskio::diskTier);
 
     cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
-    
+
     /** TODO(Sean)
      *  Originally cobjs_req was deleted here, but valgrind detected is as memory leak.
      *  However, moving the delete call into the smio_compactobj_resp_cb() make valgrind

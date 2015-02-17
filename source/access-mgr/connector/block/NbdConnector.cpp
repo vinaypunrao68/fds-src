@@ -5,8 +5,6 @@
 #include <set>
 #include <string>
 #include <type_traits>
-#include <NbdConnector.h>
-#include <fds_process.h>
 
 extern "C" {
 #include <fcntl.h>
@@ -17,6 +15,9 @@ extern "C" {
 }
 
 #include <ev++.h>
+
+#include "connector/block/NbdConnector.h"
+#include "fds_process.h"
 
 template<typename T>
 constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
