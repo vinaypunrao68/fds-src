@@ -733,7 +733,7 @@ class FdsConfigFile(object):
         self.cfg_cli       = None
         self.cfg_om        = None
         self.cfg_parser    = ConfigParser.ConfigParser()
-        self.cfg_localhost = None
+        self.cfg_localHost = None
 
     def config_parse(self):
         verbose = {
@@ -817,7 +817,7 @@ class FdsConfigFile(object):
         # Generate a localhost node instance so that we have a
         # node agent to execute commands locally when necessary.
         items = [('enable', True), ('ip','localhost'), ('fds_root', '/fds')]
-
+        self.cfg_localhost = FdsNodeConfig("localhost", items, verbose)
         self.cfg_localhost = FdsNodeConfig("localhost", items, verbose)
 
 

@@ -131,7 +131,18 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
                       const Error& error,
                       boost::shared_ptr<std::string> payload) {
     if (vol == NULL || vol->rs_get_uuid() == 0) {
-        LOGWARN << "response received for invalid volume . ignored.";
+        
+        /*
+         * TODO Tinius 02/11/2015
+         * 
+         * FS-936 -- AM and OM continously log errors with "invalid bucket SYSTEM_VOLUME_0"
+         * 
+         * Not sure if this is expected behavior? Once re-written we will
+         * handle this correctly. But for now remove the logging noise
+         * 
+         * LOGWARN << "response received for invalid volume . ignored.";
+         */
+
         return;
     }
     LOGNORMAL << "received vol cmd response " << vol->vol_get_name();
@@ -223,7 +234,17 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                   << ", uuid " << get_uuid().uuid_get_val() << std::dec
                   << ", port " << ctrl_port;
     } else {
-        LOGNORMAL << log << ", no vol to node " << get_node_name();
+        
+        /*
+         * TODO Tinius 02/11/2015
+         * 
+         * FS-936 -- AM and OM continously log errors with "invalid bucket SYSTEM_VOLUME_0"
+            
+         * Not sure if this is expected behavior? Once re-written we will
+         * handle this correctly. But for now remove the logging noise
+         * 
+         * LOGNORMAL << log << ", no vol to node " << get_node_name();
+         */
     }
     return Error(ERR_OK);
 }
@@ -359,7 +380,7 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
-    om_req->setTimeoutMs(20000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(60000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     curDlt->dump();

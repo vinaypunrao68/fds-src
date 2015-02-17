@@ -167,6 +167,11 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # Import all options passed in at the command line.
     params = {}
 
+    # Set up a child PID dictionary among the parameters.
+    # Key will be the name of the scenario in which a child
+    # was forked. Value is the child's PID.
+    params["child_pid"] = {}
+
     # FDS: We must have this config file specified.
     params["fds_config_file"] = None
 
@@ -319,7 +324,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     if "sudo_password" in params:
         if params["sudo_password"] is None:
             params["sudo_password"] = pyUnitSudoPw
-        setattr(options, "sudo_password", params["sudo_password"])
+    setattr(options, "sudo_password", params["sudo_password"])
     else:
         setattr(options, "sudo_password", "dummy")
 

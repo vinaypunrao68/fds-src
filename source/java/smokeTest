@@ -10,9 +10,10 @@ if [ $# -eq 0 ]; then
     echo "Usage: ./smokeTest targetHost"
     exit 1
 fi
-
+tgthost=$1
+shift
 java -classpath $CLASSPATH \
-     -Dfds.host=$1 \
+     -Dfds.host=${tgthost} \
      -Dcom.formationds.smoketest.RNG_CLASS=java.util.Random \
-     com.formationds.smoketest.SmokeTestRunner
+     com.formationds.smoketest.SmokeTestRunner "$@"
 

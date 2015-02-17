@@ -326,25 +326,23 @@ public class S3SmokeTest {
 
     @Test
     public void Snapshot() {
-        final PutObjectResult[] last = {null};
-        IntStream.range(0, count)
-                .map(new ConsoleProgress("Putting objects into volume", count))
-                .forEach(i -> {
-                    ObjectMetadata objectMetadata = new ObjectMetadata();
-                    Map<String, String> customMetadata = new HashMap<String, String>();
-                    String key = prefix + "-" + i;
-                    customMetadata.put(CUSTOM_METADATA_HEADER, key);
-                    objectMetadata.setUserMetadata(customMetadata);
-                    last[0] = userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), objectMetadata);
-                });
-
+        putSomeData(userBucket, 0, 10, randomBytes);
         long volumeId = 0;
+        String clonedVolume = "cloned-"+userBucket;
         try {
             volumeId = config.getVolumeId(userBucket);
             config.createSnapshot(volumeId, snapBucket, 0, 0);
             sleep(3000);
             List<Snapshot> snaps = config.listSnapshots(volumeId);
             assertEquals(1, snaps.size());
+            long curTime = System.currentTimeMillis() / 1000;
+            putSomeData(userBucket, 10, 20, randomBytes);
+            config.createSnapshot(volumeId, snapBucket + "_1", 0, 0);
+            long clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume, curTime);
+            assertEquals(true, clonedVolumeId > 0);
+            String key = prefix + "-" + 9;
+            int numKeys = userClient.listObjects(clonedVolume).getObjectSummaries().size();
+            assertEquals(10, numKeys);
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("ERR: unable to create Snapshot.");
@@ -359,6 +357,21 @@ public class S3SmokeTest {
     @Test
     public void testPutGetSmallObject() throws Exception {
         putGetOneObject(1024 * 4);
+    }
+
+    
+    void putSomeData(String volumeName, int from, int to, byte[] data) {
+        final PutObjectResult[] last = {null};
+        IntStream.range(from, to)
+                .map(new ConsoleProgress("Putting objects into volume", count))
+                .forEach(i -> {
+                        ObjectMetadata objectMetadata = new ObjectMetadata();
+                        Map<String, String> customMetadata = new HashMap<String, String>();
+                        String key = prefix + "-" + i;
+                        customMetadata.put(CUSTOM_METADATA_HEADER, key);
+                        objectMetadata.setUserMetadata(customMetadata);
+                        last[0] = userClient.putObject(volumeName, key, new ByteArrayInputStream(data), objectMetadata);
+                    });
     }
 
     private void putGetOneObject(int byteCount) throws Exception {
