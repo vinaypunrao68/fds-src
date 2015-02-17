@@ -101,6 +101,10 @@ mockNode = function(){
                 return;
             }
             
+            if ( window.localStorage.getItem( 'nodes' ) !== null ){
+                return;
+            }
+            
             window.localStorage.setItem( 'nodes', JSON.stringify( service.nodes ) );
             window.localStorage.setItem( 'detachedNodes', JSON.stringify( service.detachedNodes ) );
         };
