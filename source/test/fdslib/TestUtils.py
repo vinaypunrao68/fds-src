@@ -109,7 +109,7 @@ def get_options(pyUnit):
                       default = False, help = 'enable verbosity')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       default = False, help = 'dry run, print commands only')
-    parser.add_option('-i', '--install', action = 'store_true', dest = 'tar_file',
+    parser.add_option('-i', '--install', action = 'store_true', dest = 'install',
                       default = False, help = 'perform an install from an FDS package as opposed '
                                               'to a development environment')
     parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
@@ -167,6 +167,11 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # Import all options passed in at the command line.
     params = {}
 
+    # Set up a child PID dictionary among the parameters.
+    # Key will be the name of the scenario in which a child
+    # was forked. Value is the child's PID.
+    params["child_pid"] = {}
+
     # FDS: We must have this config file specified.
     params["fds_config_file"] = None
 
@@ -206,8 +211,8 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
             for item in config.items("harness"):
                 params[item[0]] = item[1].split()[0]
         except configparser.NoSectionError:
-            print("The configuration file %s has no section \"[domain]\".  "
-                  "This section is required." %options.config)
+            print("The configuration file %s has no section \"[harness]\".  "
+                  "This section is required." % options.config)
             sys.exit(1)
 
     # Process parameters defined at the command line.  These will override
@@ -297,16 +302,19 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # FDS: Check the passed options in case we are running from PyUnit
     if params["verbose"] == False:
         params["verbose"] = pyUnitVerbose
-        setattr(options, "verbose", params["verbose"])
+    setattr(options, "verbose", params["verbose"])
+
     if params["dryrun"] == False:
         params["dryrun"] = pyUnitDryrun
-        setattr(options, "dryrun", params["dryrun"])
-    if params["tar_file"] == False:
-        params["tar_file"] = pyUnitInstall
-        setattr(options, "tar_file", params["tar_file"])
+    setattr(options, "dryrun", params["dryrun"])
+
+    if params["install"] == False:
+        params["install"] = pyUnitInstall
+    setattr(options, "install", params["install"])
+
     if params["sudo_password"] is None:
         params["sudo_password"] = pyUnitSudoPw
-        setattr(options, "sudo_password", params["sudo_password"])
+    setattr(options, "sudo_password", params["sudo_password"])
 
     global run_as_root
     if params["run_as_root"] == True:
