@@ -22,10 +22,7 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                        const std::string &def_log_file,
                        fds::Module **mod_vec)
 {
-    auto handler = boost::make_shared<PlatNetSvcHandler>(this);
-    auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-    init(argc, argv, def_cfg_file, base_path,
-         def_log_file, mod_vec, handler, processor);
+    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
 }
 
 SvcProcess::SvcProcess(int argc, char *argv[],
@@ -41,6 +38,15 @@ SvcProcess::SvcProcess(int argc, char *argv[],
 
 SvcProcess::~SvcProcess()
 {
+}
+
+void SvcProcess::init(int argc, char *argv[],
+        const std::string &def_cfg_file,
+        const std::string &base_path,
+        const std::string &def_log_file,
+        fds::Module **mod_vec) {
+    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
+            boost::make_shared<PlatNetSvcHandler>(this));
 }
 
 void SvcProcess::init(int argc, char *argv[],

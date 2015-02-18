@@ -3,10 +3,8 @@
  */
 #include <unistd.h>
 #include <DataMgr.h>
-#include <net/net-service.h>
-#include <util/fds_stat.h>
 
-#include "platform/platform_process.h"
+#include <net/SvcProcess.h>
 
 namespace fds {
 // TODO(Rao): Get rid of this singleton
@@ -15,20 +13,15 @@ DataMgr *dataMgr;
 
 int gdb_stop = 0;
 
-class DMMain : public PlatformProcess
+class DMMain : public SvcProcess
 {
- public:
-    DMMain(int argc, char *argv[]) {
-        /* Construct all the modules */
-        dm = new fds::DataMgr(this);
+  public:
+    DMMain(int argc, char *argv[]) : dm(new fds::DataMgr(this)) {
         // TODO(Rao): Get rid of this singleton
         dataMgr = dm;
 
         /* Create the dependency vector */
         static fds::Module *dmVec[] = {
-            &fds::gl_fds_stat,
-            &gl_DmPlatform,
-            &gl_NetService,
             dm,
             NULL
         };
@@ -40,7 +33,7 @@ class DMMain : public PlatformProcess
         closeAllFDs();
 
         /* Init platform process */
-        init(argc, argv, "fds.dm.", "dm.log", &gl_DmPlatform, dmVec);
+        init(argc, argv, "platform.conf", "fds.dm.", "dm.log", dmVec);
 
         /* Daemonize */
         fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
@@ -58,6 +51,7 @@ class DMMain : public PlatformProcess
         return dm->run();
     }
 
+  private:
     fds::DataMgr* dm;
 };
 
