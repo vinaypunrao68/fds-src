@@ -544,7 +544,7 @@ void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
     // It's ok to keep writing responses if we've been shutdown
     // but don't start watching for requests if we do
-    ioWatcher->set(ev::WRITE | (nbdOps ? ev::READ : 0l));
+    ioWatcher->set(ev::WRITE | (nbdOps ? ev::READ : ev::NONE));
     ioWatcher->feed_event(EV_WRITE);
 }
 
@@ -598,11 +598,11 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 break;
             case DOREQS:
                 if (hsReply(watcher)) {
-                    auto still_reading = nbdOps ? ev::READ : 0l;
-                    bool more_to_write = doUturn ? readyHandles.empty()
-                                                 : readyResponses.empty();
-                    ioWatcher->set(more_to_write ? still_reading
-                                                 : still_reading | ev::WRITE);
+                    // If the queue is empty, stop writing. Reading at this
+                    // point is determined by whether we have an Operations
+                    // instance to queue to.
+                    if (doUturn ? readyHandles.empty() : readyResponses.empty())
+                        { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
                 }
                 break;
             default:
