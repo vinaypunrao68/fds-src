@@ -133,7 +133,9 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     };
     
     $scope.save = function(){
-
+        
+        $scope.$broadcast( 'fds::refresh' );
+        
         var volume = {};
         volume.sla = $scope.qos.capacity;
         volume.limit = $scope.qos.limit;
