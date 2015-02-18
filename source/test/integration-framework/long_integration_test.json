@@ -15,13 +15,6 @@
 				"depends" : [],
 				"config" : ""
 			}
-			{
-				"name" : "TestCreateMultivolume",
-				"file" : "test_create_multivolume.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
 		]
 	}
 }
