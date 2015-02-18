@@ -1,18 +1,18 @@
 ---
 -   name: uninstall fds
--   apt: name=fds-platform-dbg
+    apt: name=fds-platform-dbg
         state=absent
         purge=yes
     tags:
         - uninstall
 
--   apt: name=fds-platform-rel
+    apt: name=fds-platform-rel
         state=absent
         purge=yes
     tags:
         - uninstall
 
--   apt: name=fds-platform
+    apt: name=fds-platform
         state=absent
         purge=yes
     tags:
