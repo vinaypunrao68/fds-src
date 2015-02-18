@@ -145,6 +145,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                 throw new RuntimeException(e);
             }
         });
+        startConfigurationUpdater();
     }
 
     void startStatStreamRegistrationHandler() {
