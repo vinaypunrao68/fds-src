@@ -372,11 +372,6 @@ NbdConnection::hsReq(ev::io &watcher) {
         request.header.offset = __builtin_bswap64(request.header.offset);
         request.header.length = ntohl(request.header.length);
 
-        LOGIO << " op " << io_to_string[request.header.opType]
-              << " handle 0x" << std::hex << request.header.handle
-              << " offset 0x" << request.header.offset << std::dec
-              << " length " << request.header.length
-              << " ahead of you: " <<  resp_needed.fetch_add(1, std::memory_order_relaxed);
         // Construct Buffer for Write Payload
         if (NBD_CMD_WRITE == request.header.opType) {
             request.data = boost::make_shared<std::string>(request.header.length, '\0');
@@ -389,6 +384,12 @@ NbdConnection::hsReq(ev::io &watcher) {
     }
     request.header_off = 0;
     request.data_off = -1;
+
+    LOGIO << " op " << io_to_string[request.header.opType]
+          << " handle 0x" << std::hex << request.header.handle
+          << " offset 0x" << request.header.offset << std::dec
+          << " length " << request.header.length
+          << " ahead of you: " <<  resp_needed.fetch_add(1, std::memory_order_relaxed);
 
     Error err = dispatchOp(watcher,
                            request.header.opType,
@@ -656,16 +657,16 @@ bool get_message_header(int fd, M& message) {
         case EPIPE:
             throw NbdConnection::connection_closed;
         }
+        LOGWARN << "Get message header interrupted";
         return false;
     } else if (0 == nread) {
         LOGNORMAL << "Client disconnected";
         throw NbdConnection::connection_closed;
     } else if (nread < to_read) {
-        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
+        LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.header_off += nread;
         return false;
     }
-    LOGDEBUG << "Read " << nread << " bytes of header";
     message.header_off = -1;
     message.data_off = 0;
     return true;
@@ -701,16 +702,16 @@ bool get_message_payload(int fd, M& message) {
         case EPIPE:
             throw NbdConnection::connection_closed;
         }
+        LOGWARN << "Get message payload interrupted.";
         return false;
     } else if (0 == nread) {
         LOGNORMAL << "Client disconnected";
         throw NbdConnection::connection_closed;
     } else if (nread < to_read) {
-        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
+        LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.data_off += nread;
         return false;
     }
-    LOGDEBUG << "Read " << nread << " bytes of data";
     return true;
 }
 
