@@ -54,9 +54,13 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
           readyHandles(2000),
           readyResponses(4000),
           current_response(nullptr) {
-    fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
+    if (config.get_abs<bool>("fds.am.connector.nbd.non_block_io", true)) {
+        fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
+    } else {
+        LOGNOTIFY << "Nbd IO in blocking mode.";
+    }
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set<NbdConnection, &NbdConnection::callback>(this);

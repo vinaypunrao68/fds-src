@@ -354,11 +354,15 @@ fds: {
         s3_https_port=8443
         swift_port=9999
         memory_backend=false
-        nbd_server_port = 10809
-        enable_nbd_log=true
-        enable_nbd_block_exclusion=false
         fdsn_server_threads=30
         qos_threads=4
+
+        connector: {
+            nbd: {
+                server_port=10809
+                non_block_io=true
+            }
+        }
 
         threadpool: {
             max_task    = 10

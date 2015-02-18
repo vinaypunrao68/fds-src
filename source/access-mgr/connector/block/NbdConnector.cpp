@@ -25,8 +25,8 @@ namespace fds {
 NbdConnector::NbdConnector(OmConfigApi::shared_ptr omApi)
         : omConfigApi(omApi),
           nbdPort(10809) {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    nbdPort = conf.get<fds_uint32_t>("nbd_server_port");
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.nbd.");
+    nbdPort = conf.get<uint32_t>("server_port");
 
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
