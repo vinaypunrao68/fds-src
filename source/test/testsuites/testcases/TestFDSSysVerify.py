@@ -439,7 +439,7 @@ class TestVerifySMStaticMigration(TestCase.FDSTestCase):
 # that the metadata and ref counts are consistent.
 # For validation of objects, use TestVerifySMStaticMigration
 class TestVerifySMMetaMigration(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node1=None, node2=None, skip=None):
+    def __init__(self, parameters=None, node1=None, node2=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_VerifySMMetaMigration,
@@ -447,7 +447,6 @@ class TestVerifySMMetaMigration(TestCase.FDSTestCase):
 
         self.passedNode1 = node1
         self.passedNode2 = node2
-        self.skip = skip  # Does the caller wish to execute even if previous test cases have failed?
 
     def test_VerifySMMetaMigration(self):
         """
