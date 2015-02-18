@@ -7,6 +7,7 @@ import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
+import com.formationds.util.RngFactory;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.io.IOUtils;
@@ -22,7 +23,6 @@ import org.junit.Test;
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -45,34 +45,6 @@ public class S3SmokeTest {
     public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
     private final String adminToken;
 
-    public static final Random loadRNG() {
-        final String rngClassName = System.getProperty(RNG_CLASS);
-        if (rngClassName == null) {
-            return new Random();
-        } else {
-            switch (rngClassName) {
-                case "java.util.Random":
-                    return new Random();
-                case "java.security.SecureRandom":
-                    return new SecureRandom();
-                case "java.util.concurrent.ThreadLocalRandom":
-                    throw new IllegalArgumentException(
-                            "ThreadLocalRandom is not supported - can't instantiate (must use ThreadLocalRandom.current())");
-                default:
-                    try {
-                        Class<?> rngClass = Class.forName(rngClassName);
-                        return (Random) rngClass.newInstance();
-                    } catch (ClassNotFoundException | InstantiationException
-                            | IllegalAccessException cnfe) {
-                        throw new IllegalStateException(
-                                "Failed to instantiate Random implementation specified by \""
-                                        + RNG_CLASS + "\"system property: "
-                                        + rngClassName, cnfe);
-                    }
-            }
-        }
-    }
-
     private final String adminBucket;
     private final String userBucket;
     private final String snapBucket;
@@ -85,7 +57,7 @@ public class S3SmokeTest {
     private final String userToken;
     private final String host;
     private final ConfigurationService.Iface config;
-    private final Random rng = loadRNG();
+    private final Random rng = RngFactory.loadRNG();
 
     public S3SmokeTest()
             throws Exception {
