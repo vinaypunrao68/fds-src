@@ -1,17 +1,19 @@
-<div class="qos-panel" ng-style="{ width: (editing === true )? '400px' : '350px' }">
+<div class="qos-panel">
        
+<!--
     <div class="sub-header light-underline">
         <span class="light-print" translate>volumes.l_qos</span>
         <div class="pull-right" ng-click="editing = true" ng-show="editing == false">
             <span class="icon icon-edit"></span>
         </div>
     </div>
+-->
 
+<!--
     <table class="default" style="width: 100%;">
         <thead>
             <tr>
                 <th class="no-top-padding" colspan="2" translate>
-<!--                    volumes.l_settings-->
                 </th>
             </tr>
         </thead>
@@ -39,8 +41,9 @@
             </tr>
         </tbody>
     </table>
+-->
     
-    <div class="volume-sla-edit-display" ng-show="editing === true" style="width: 400px;" show-notify>
+    <div class="volume-sla-edit-display" ng-show="editing === true" style="width: 100%;" show-notify>
         <div>
             <div class="title-case" translate>volumes.l_priority</div>
             <slider class="volume-priority-slider" min="1" max="10" step="1" ng-model="copyPriority" max-label="{{ 'volumes.l_lowest' | translate }}" min-label="{{ 'volumes.l_highest' | translate }}"></slider>
@@ -55,6 +58,7 @@
         </div>
     </div>
     
+<!--
     <div ng-show="editing === true" >
         <button class="btn btn-primary skinny save-qos-settings" ng-click="doneEditing()">
             <span ng-show="saveOnly === 'true' || saveOnly === true" translate>common.l_done</span>
@@ -65,4 +69,5 @@
         </button>
         
     </div>
+-->
 </div>

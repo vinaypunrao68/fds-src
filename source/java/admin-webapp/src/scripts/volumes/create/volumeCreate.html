@@ -21,7 +21,7 @@
             <label class="right-align" style="width: 150px;" translate>volumes.l_volume_name</label>
             
             <div class="volume-settings-panel">
-                <div class="volume-option form-group">
+                <div class="volume-option">
                     <fui-input type="text" class="volume-name-input skinny" size="32" placeholder="Enter Volume Name" ng-model="volumeName"></fui-input>
                 </div>
             </div>
@@ -31,16 +31,23 @@
         <section>
             <connector-panel ng-model="dataConnector"></connector-panel>
         </section>
-        <section>
-            <tiering-panel ng-model="mediaPolicy"></tiering-policy-panel>
-        </section>        
-        <section>
-            <qos-panel ng-model="qos" save-only="true"></qos-panel>
+-->              
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_qos</label>
+            <div class="volume-gray-container add-bottom-space" style="width: 700px;">
+                <qos-panel ng-model="qos" save-only="true"></qos-panel>
+            </div>
         </section>
-        <section>
-            <timeline-policy-panel ng-model="timelinePolicies" save-only="true"></timeline-policy-panel>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_timeline</label>
+            <div class="volume-gray-container add-bottom-space" style="width: 700px;">
+                <timeline-policy-panel ng-model="timelinePolicies" save-only="true"></timeline-policy-panel>
+            </div>
         </section>
--->
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_tiering</label>
+            <tiering-panel ng-model="mediaPolicy" class="add-bottom-space"></tiering-policy-panel>
+        </section>          
 <!--
         <section>
             <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>

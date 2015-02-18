@@ -8,7 +8,7 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
         scope: { qos: '=ngModel', saveOnly: '@' },
         controller: function( $scope ){
 
-            $scope.editing = false;
+            $scope.editing = true;
             
             if ( !angular.isDefined( $scope.saveOnly ) ){
                 $scope.saveOnly = false;
