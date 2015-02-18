@@ -300,12 +300,7 @@ NbdConnection::hsReq(ev::io &watcher) {
           << " length " << request.header.length
           << " ahead of you: " <<  resp_needed.fetch_add(1, std::memory_order_relaxed);
 
-    Error err = dispatchOp(watcher,
-                           request.header.opType,
-                           request.header.handle,
-                           request.header.offset,
-                           request.header.length,
-                           request.data);
+    Error err = dispatchOp();
     request.data.reset();
     ensure(ERR_OK == err);
     return;
@@ -399,20 +394,19 @@ NbdConnection::hsReply(ev::io &watcher) {
 }
 
 Error
-NbdConnection::dispatchOp(ev::io &watcher,
-                          fds_uint32_t opType,
-                          fds_int64_t handle,
-                          fds_uint64_t offset,
-                          fds_uint32_t length,
-                          boost::shared_ptr<std::string> data) {
-    switch (opType) {
+NbdConnection::dispatchOp() {
+    auto& handle = request.header.handle;
+    auto& offset = request.header.offset;
+    auto& length = request.header.length;
+
+    switch (request.header.opType) {
         UturnPair utPair;
         case NBD_CMD_READ:
             if (doUturn) {
                 // TODO(Andrew): Hackey uturn code. Remove.
                 utPair.handle = handle;
                 utPair.length = length;
-                utPair.opType = opType;
+                utPair.opType = NBD_CMD_READ;
                 readyHandles.push(utPair);
 
                 // We have something to write, so ask for events
@@ -427,14 +421,14 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 // TODO(Andrew): Hackey uturn code. Remove.
                 utPair.handle = handle;
                 utPair.length = length;
-                utPair.opType = opType;
+                utPair.opType = NBD_CMD_WRITE;
                 readyHandles.push(utPair);
 
                 // We have something to write, so ask for events
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
-                 fds_assert(data);
-                 nbdOps->write(data, length, offset, handle);
+                 fds_assert(request.data);
+                 nbdOps->write(request.data, length, offset, handle);
             }
             break;
         case NBD_CMD_FLUSH:
@@ -444,7 +438,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
             throw shutdown_requested;
             break;
         default:
-            fds_panic("Unknown NBD op %d", opType);
+            fds_panic("Unknown NBD op %d", request.header.opType);
     }
     return ERR_OK;
 }

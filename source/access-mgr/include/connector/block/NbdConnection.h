@@ -139,13 +139,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     bool hsSendOpts(ev::io &watcher);
     void hsReq(ev::io &watcher);
     bool hsReply(ev::io &watcher);
-    Error dispatchOp(ev::io &watcher,
-                     fds_uint32_t opType,
-                     fds_int64_t handle,
-                     fds_uint64_t offset,
-                     fds_uint32_t length,
-                     boost::shared_ptr<std::string> data);
-
+    Error dispatchOp();
     bool write_response();
 };
 
