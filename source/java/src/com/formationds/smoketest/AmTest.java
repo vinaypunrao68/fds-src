@@ -15,6 +15,8 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 
@@ -55,12 +57,24 @@ public class AmTest {
     }
 
     @Test
-    public void testAsync() throws Exception {
+    public void testAsyncUpdateOnce() throws Exception {
         String blobName = UUID.randomUUID().toString();
         int length = 10;
         asyncAm.updateBlobOnce(FdsFileSystem.DOMAIN, volumeName, blobName, 1, ByteBuffer.allocate(length), length, new ObjectOffset(0), Maps.newHashMap()).get();
         BlobDescriptor blobDescriptor = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
         assertEquals(length, blobDescriptor.getByteCount());
+    }
+
+    @Test
+    public void testAsyncGetNonExistentBlob() throws Exception {
+        String blobName = UUID.randomUUID().toString();
+        System.out.println("Blob name: " + blobName);
+        try {
+            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
+        } catch (ExecutionException e) {
+            ApiException apiException = (ApiException) e.getCause();
+            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
+        }
     }
 
     public AmTest() throws Exception {
@@ -71,7 +85,7 @@ public class AmTest {
         xdiCf = new XdiClientFactory(MY_AM_RESPONSE_PORT);
         amService = xdiCf.remoteAmService("localhost", 9988);
         configService = xdiCf.remoteOmService("localhost", 9090);
-        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm("localhost", 8899), MY_AM_RESPONSE_PORT);
+        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm("localhost", 8899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
         asyncAm.start();
     }
 
