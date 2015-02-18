@@ -10,13 +10,16 @@
     </div>
 
     <div class="settings-body">
+    <form>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_create_volume</label>
+            <div ng-include="'scripts/volumes/create/clone.html'" class="add-bottom-space"></div>
+        </section>
         
-        <div ng-include="'scripts/volumes/create/clone.html'" class="add-bottom-space"></div>
-        
-        <section>
-            <div class="header">
-                <span class="light-print" translate>volumes.l_volume_name</span>
-            </div>
+        <section class="side-by-side">
+            
+            <label class="right-align" style="width: 150px;" translate>volumes.l_volume_name</label>
+            
             <div class="volume-settings-panel">
                 <div class="volume-option form-group">
                     <fui-input type="text" class="volume-name-input skinny" size="32" placeholder="Enter Volume Name" ng-model="volumeName"></fui-input>
@@ -24,6 +27,7 @@
             </div>
         </section>
         
+<!--
         <section>
             <connector-panel ng-model="dataConnector"></connector-panel>
         </section>
@@ -36,12 +40,13 @@
         <section>
             <timeline-policy-panel ng-model="timelinePolicies" save-only="true"></timeline-policy-panel>
         </section>
+-->
 <!--
         <section>
             <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
         </section>
 -->
-
+    </form>    
     </div>
 
     <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;">

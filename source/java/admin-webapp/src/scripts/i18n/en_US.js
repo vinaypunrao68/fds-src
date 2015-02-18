@@ -167,6 +167,8 @@ var en_US = {
         desc_snapshot_created: 'Snapshot successfully created.',
         desc_confirm_snapshot: 'Are you sure you would like to create a snapshot for this volume?',
         desc_volume_deleted: 'Volume deleted successfully.',
+        l_blank: 'Blank',
+        l_clone: 'Clone',
         l_clone_existing: 'Clone from an existing volume',
         l_volume_to_clone_from: 'Volume to Clone from:',
         l_continuous: 'Continuous',

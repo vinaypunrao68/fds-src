@@ -14,6 +14,11 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
 //        return value;
     };
     
+    $scope.creationChoices = [
+        { label: $filter( 'translate' )( 'volumes.l_blank' ), value: 'new' },
+        { label: $filter( 'translate' )( 'volumes.l_clone' ), value: 'clone' }
+    ];
+    
     var snapshotsReturned = function( snapshots ){
         
         $scope.ranges = [];
@@ -35,7 +40,7 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
     
     var init = function(){
         
-        $scope.volumeVars.toClone = 'new';        
+        $scope.volumeVars.toClone = $scope.creationChoices[0];        
         $scope.choosing = false;
     };
     
@@ -69,7 +74,7 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
             $scope.volumeVars.cloneFromVolume = $scope.volumes[0];
         }
         
-        if ( newVal === 'clone' ){
+        if ( newVal.value === 'clone' ){
             $scope.now = (new Date()).getTime();
             
             $scope.domainLabels = [
@@ -88,7 +93,7 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
     
     $scope.$watch( function(){ return $volume_api.volumes; }, function(){
 
-        if ( !$scope.volumeVars.toClone !== 'clone' ) {
+        if ( !$scope.volumeVars.toClone.value !== 'clone' ) {
             $scope.volumes = $volume_api.volumes;
         }
     });
