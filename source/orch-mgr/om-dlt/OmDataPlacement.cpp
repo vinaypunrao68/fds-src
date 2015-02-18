@@ -129,7 +129,6 @@ DataPlacement::computeDlt() {
 Error
 DataPlacement::beginRebalance() {
     Error err(ERR_OK);
-    fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
 
     placementMutex->lock();
     // find all nodes which need to do migration (=have new tokens)
@@ -186,41 +185,35 @@ DataPlacement::beginRebalance() {
          ++nit) {
         NodeUuid  uuid = *nit;
 
+        fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
         std::map<NodeUuid, std::vector<fds_int32_t>> newTokenMap;
         std::set<fds_uint32_t> diff = newDlt->token_diff(uuid, newDlt, commitedDlt);
+        LOGMIGRATE << "New tokens for node " << std::hex << uuid.uuid_get_val()
+                   << std::dec << " " << diff.size() << " tokens";
 
         // Build the newTokenMap
         for (auto token : diff) {
             // Determine an appropriate SM to use as a source
             // This should not be ourselves and should be in the
             // intersection of old/new DLTs
-            DltTokenGroupPtr sources = newDlt->getNodes(token);
             std::set<NodeUuid> sourcesSet;
+            fds_verify(commitedDlt);  // we already checked above, so must exist
+            DltTokenGroupPtr sources = commitedDlt->getNodes(token);
             for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
-                sourcesSet.insert(sources->get(i));
-            }
-            // Reuse sources for commitedDLt
-            if (commitedDlt) {
-                sources.reset();
-                sources = commitedDlt->getNodes(token);
-                for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
-                    sourcesSet.insert(sources->get(i));
+                NodeUuid srcUuid = sources->get(i);
+                // do not add ourselves
+                if (uuid != srcUuid) {
+                    sourcesSet.insert(srcUuid);
                 }
             }
-            // Remove ourselves from the list
-            sourcesSet.erase(uuid);
+
             // Now push to newTokenMap
             if (sourcesSet.size() == 0) { continue; }
             NodeUuid sourceId = *sourcesSet.begin();  // Take the first source
-            // If we have that source in the list already, append
-            auto got = newTokenMap.find(sourceId);
-            if (got != newTokenMap.end()) {
-                newTokenMap[sourceId].push_back(token);
-            } else {
-                // Otherwise create a new vector and append
-                newTokenMap[sourceId] = std::vector<fds_int32_t>();
-                newTokenMap[sourceId].push_back(token);
-            }
+            newTokenMap[sourceId].push_back(token);
+            LOGMIGRATE << "Destination " << std::hex << uuid.uuid_get_val()
+                       << " Source " << sourceId.uuid_get_val() << std::dec
+                       << " token " << token;
         }
         // At this point we should have a complete map
         for (auto entry : newTokenMap) {

@@ -150,6 +150,9 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGDEBUG << "DST_Rebal. Evt: " << e.logString();
         }
+
+        /// set of SM we are waiting for rebalance ack
+        NodeUuidSet sm_ack_wait;
     };
     struct DST_Commit : public msm::front::state<>
     {
@@ -727,10 +730,10 @@ DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     fds_verify(err == ERR_OK);
 
     // if we did not send msg to any SMs, go to next state
-    NodeUuidSet rebalNodes = dp->getRebalanceNodes();
-    if (rebalNodes.size() == 0) {
+    dst.sm_ack_wait = dp->getRebalanceNodes();
+    if (dst.sm_ack_wait.size() == 0) {
         LOGDEBUG << "Migration msg wasn't sent, so going to next state";
-        fsm.process_event(DltRebalOkEvt(cm, dp));
+        fsm.process_event(DltRebalOkEvt(NodeUuid()));
     }
 }
 
@@ -861,30 +864,22 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     DltRebalOkEvt rebalOkEvt = (DltRebalOkEvt)evt;
-    DataPlacement *dp = rebalOkEvt.ode_dp;
-    fds_verify(dp != NULL);
 
     // when all added nodes are in 'node up' state,
     // we are getting out of this state
-    NodeUuidSet rebalNodes = dp->getRebalanceNodes();
-    fds_bool_t all_up = true;
-    for (std::unordered_set<NodeUuid, UuidHash>::const_iterator cit = rebalNodes.cbegin();
-         cit != rebalNodes.cend();
-         ++cit) {
-        NodeAgent::pointer agent = domain->om_sm_agent(*cit);
-        fds_verify(agent != NULL);
-        LOGDEBUG << "GRD_DltRebal: Node " << agent->get_node_name()
-                << " state " << agent->node_state();
-        if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
-            all_up = false;
-            break;
+    if (src.sm_ack_wait.size() > 0) {
+        if (src.sm_ack_wait.count(rebalOkEvt.smAcked) > 0) {
+            src.sm_ack_wait.erase(rebalOkEvt.smAcked);
+        } else {
+            LOGMIGRATE << "Received unexpected start migration ack from "
+                       << std::hex << rebalOkEvt.smAcked.uuid_get_val() << std::dec;
         }
     }
+    fds_bool_t all_up = (src.sm_ack_wait.size() == 0);
 
-    LOGDEBUG << "FSM GRD_DltRebal: was/is waiting for rebalance ok from "
-            << rebalNodes.size() << " node(s), current result: " << all_up;
+    LOGMIGRATE << "FSM GRD_DltRebal: is waiting for rebalance ok from "
+               << src.sm_ack_wait.size() << " node(s), result " << all_up;
 
     return all_up;
 }
