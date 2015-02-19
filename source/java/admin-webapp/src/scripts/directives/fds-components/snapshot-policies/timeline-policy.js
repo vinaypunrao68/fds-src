@@ -359,12 +359,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                                 }
                             }
                             else {
-//                                if ( policy.recurrenceRule.BYWEEKNO[0] == 1 ){
-//                                    $scope.monthChoice = $scope.months[2];
-//                                }
-//                                else {
-//                                    $scope.monthChoice = $scope.months[3];
-//                                }
+
                                 var dayVal = policy.recurrenceRule.BYDAY[0].substr( 0, 1 );
                                 if ( dayVal == 1 ){
                                     $scope.monthChoice = $scope.months[2];

@@ -5,14 +5,11 @@
 package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.RecurrenceRule;
-import com.formationds.commons.model.type.WeekDayOccurrence;
 import com.formationds.commons.model.type.iCalFrequency;
-import com.formationds.commons.model.type.iCalWeekDays;
 import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 
 import java.util.Date;
-import java.util.List;
 
 /**
  * @author ptinius

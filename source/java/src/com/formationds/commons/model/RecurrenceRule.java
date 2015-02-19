@@ -5,10 +5,8 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.type.WeekDayOccurrence;
 import com.formationds.commons.model.type.iCalFrequency;
 import com.formationds.commons.model.type.iCalKeys;
-import com.formationds.commons.model.type.iCalWeekDays;
 import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 import com.google.gson.annotations.SerializedName;
@@ -18,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import java.text.ParseException;
 import java.util.Date;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.StringTokenizer;

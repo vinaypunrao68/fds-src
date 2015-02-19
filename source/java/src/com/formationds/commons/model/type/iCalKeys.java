@@ -10,7 +10,6 @@ import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 
 import java.text.ParseException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
