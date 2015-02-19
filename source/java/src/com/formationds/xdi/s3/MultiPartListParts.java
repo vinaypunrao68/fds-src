@@ -43,9 +43,9 @@ public class MultiPartListParts implements SyncRequestHandler {
 
         List<PartInfo> allParts = mops.getParts();
         Stream<PartInfo> partInfoStream = allParts.stream();
-        if(partNumberMarker != null)
-            partInfoStream = partInfoStream.filter(pi -> partNumberMarker < pi.partNumber );
-        if(maxParts != null)
+        if (partNumberMarker != null)
+            partInfoStream = partInfoStream.filter(pi -> partNumberMarker < pi.partNumber);
+        if (maxParts != null)
             partInfoStream = partInfoStream.limit(maxParts);
 
         List<PartInfo> filteredList = partInfoStream.collect(Collectors.toList());
@@ -65,14 +65,14 @@ public class MultiPartListParts implements SyncRequestHandler {
                         .withValueElt("ID", "NOT_IMPLEMENTED_YET")
                         .withValueElt("DisplayName", "NOT_IMPLEMENTED_YET"));
 
-        if(partNumberMarker != null)
+        if (partNumberMarker != null)
             elt = elt.withValueElt("PartNumberMarker", partNumberMarker.toString());
-        if(maxParts != null)
+        if (maxParts != null)
             elt = elt.withValueElt("MaxParts", maxParts.toString());
-        if(nextPart.isPresent())
+        if (nextPart.isPresent())
             elt = elt.withValueElt("NextPartNumberMarker", Integer.toString(nextPart.get().partNumber));
 
-        for(PartInfo pi : filteredList) {
+        for (PartInfo pi : filteredList) {
             // TODO: remove when volumeContents is fixed - right now it does not return metadata
             String systemVolume = xdi.getSystemVolumeName(token);
             BlobDescriptor bd = xdi.statBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName());
@@ -98,10 +98,11 @@ public class MultiPartListParts implements SyncRequestHandler {
     }
 
     public Integer getIntegerFromQueryParameters(Map<String, Collection<String>> qp, String key) {
-        String value = qp.get(key).iterator().next();
-        if(value == null)
+        if (!qp.containsKey(key)) {
             return null;
+        }
 
+        String value = qp.get(key).iterator().next();
         return Integer.parseInt(value);
     }
 }
