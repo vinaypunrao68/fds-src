@@ -30,8 +30,7 @@ case $? in
 
         # Construct the collection of ansible args
 
-        ansible_args="--inventory ${script_dir}/ansible_hosts --connection local 
-                      --inventory ${script_dir}/ansible_hosts 
+        ansible_args="--inventory ${script_dir}/inventory/devsetup-inventory.sh --connection local 
                       ${script_dir}/playbooks/devsetup.yml"
 
         [[ -d ~/.ansible ]] && sudo chmod -R a+w ~/.ansible
