@@ -6,6 +6,10 @@ package com.formationds.commons.util;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;

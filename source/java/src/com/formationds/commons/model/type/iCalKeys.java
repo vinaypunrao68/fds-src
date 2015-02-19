@@ -10,8 +10,10 @@ import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -116,16 +118,20 @@ public enum iCalKeys {
 
     BYDAY {
         public void setRecurrenceRule(RecurrenceRule rule, String n) throws ParseException {
-            WeekDays<iCalWeekDays> days = rule.getDays();
+            WeekDays<String> days = rule.getDays();
             if (days == null) {
-                days = new WeekDays<>();
-                rule.setDays(days);
+                days = new WeekDays<String>();
             }
-            days.add(n, ",");
+            
+            n = n.replaceAll( "(\\[)|(\\])", "" );
+  
+            days.add( n, "," );
+            
+            rule.setDays( days );
         }
 
         public Optional<String> formatKV(RecurrenceRule rule) {
-            WeekDays<iCalWeekDays> s = rule.getDays();
+            List<String> s = rule.getDays();
             return formatKV(this, s);
         }
     },
