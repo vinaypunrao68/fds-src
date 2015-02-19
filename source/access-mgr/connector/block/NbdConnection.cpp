@@ -146,7 +146,7 @@ NbdConnection::write_response() {
                 fds_assert(false);
             case EBADF:
             case EPIPE:
-                throw connection_closed;
+                throw NbdError::connection_closed;
             }
         } else {
             LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
@@ -227,7 +227,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         LOGNORMAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volDesc);
         if (ERR_OK != err || apis::BLOCK != volDesc.policy.volumeType)
-            throw connection_closed;
+            throw NbdError::connection_closed;
     }
 
     // Fix endianness
@@ -435,7 +435,7 @@ NbdConnection::dispatchOp() {
             break;
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
-            throw shutdown_requested;
+            throw NbdError::shutdown_requested;
             break;
         default:
             fds_panic("Unknown NBD op %d", request.header.opType);
@@ -512,9 +512,9 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 fds_panic("Unknown NBD connection state %d", hsState);
         }
     }
-    } catch(Errors e) {
+    } catch(NbdError const& e) {
         // If we had an error, stop the event loop too
-        if (e == connection_closed) {
+        if (e == NbdError::connection_closed) {
             asyncWatcher->stop();
             ioWatcher->stop();
         }
@@ -565,7 +565,7 @@ bool get_message_header(int fd, M& message) {
             LOGERROR << "Read vector bug";
             fds_assert(false);
         }
-        throw NbdConnection::connection_closed;
+        throw NbdError::connection_closed;
     } else if (nread < to_read) {
         LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.header_off += nread;
@@ -603,7 +603,7 @@ bool get_message_payload(int fd, M& message) {
             LOGERROR << "Read vector bug";
             fds_assert(false);
         }
-        throw NbdConnection::connection_closed;
+        throw NbdError::connection_closed;
     } else if (nread < to_read) {
         LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.data_off += nread;

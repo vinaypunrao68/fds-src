@@ -1,24 +1,18 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
 
 #include <memory>
 #include <boost/shared_ptr.hpp>
+
+#include "connector/block/common.h"
 
 namespace boost
 {
 struct thread;
 }  // namespace boost
-
-// Forward declare so we can hide the ev++.h include
-// in the cpp file so that it doesn't conflict with
-// the libevent headers in Thrift.
-namespace ev {
-class io;
-class async;
-}  // namespace ev
 
 namespace fds {
 
@@ -45,4 +39,4 @@ class NbdConnector {
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
