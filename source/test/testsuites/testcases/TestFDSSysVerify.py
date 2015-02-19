@@ -328,15 +328,16 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
 
         # Let's compare.
         if stdout1 != stdout2:
-            self.log.error("DM Static Migration checking showed differences.")
+            self.log.error("DM Static Migration checking showed differences for volume %s." %
+                           v.nd_conf_dict['vol-name'])
             self.log.error("Node %s shows: \n%s" %
                            (n1.nd_conf_dict['node-name'], stdout1))
             self.log.error("Node %s shows: \n%s" %
                            (n2.nd_conf_dict['node-name'], stdout2))
             return False
         else:
-            self.log.info("DM Static Migration checking showed match between nodes %s and %s." %
-                          (n1.nd_conf_dict['node-name'], n2.nd_conf_dict['node-name']))
+            self.log.info("DM Static Migration checking showed match between nodes %s and %s for volume %s." %
+                          (n1.nd_conf_dict['node-name'], n2.nd_conf_dict['node-name'], v.nd_conf_dict['vol-name']))
             self.log.info("Both nodes show: \n%s" % stdout1)
 
         return True
