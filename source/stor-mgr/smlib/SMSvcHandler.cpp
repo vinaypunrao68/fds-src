@@ -331,8 +331,6 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     DBG(GLOGDEBUG << logString(*asyncHdr) << fds::logString(*getObjMsg));
 
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
     fiu_do_on("svc.drop.getobject", return);
 #if 0
     fiu_do_on("svc.uturn.getobject",
@@ -419,8 +417,6 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*putObjMsg));
 
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
     fiu_do_on("svc.drop.putobject", return);
     // fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
 #if 0
