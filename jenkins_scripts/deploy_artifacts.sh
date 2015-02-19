@@ -39,26 +39,30 @@ function deploy_to_artifactory () {
 }
 
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
-fds_platform_dir=${script_dir}/../omnibus/omnibus-fds-platform/pkg
+fds_platform_dir=(${script_dir}/../omnibus/omnibus-fds-platform/pkg ${script_dir}/../omnibus/omnibus-fds-deps/pkg)
 pkgs_to_deploy=(
     fds-platform
+		fds-deps
 )
 
 
-fds_package_pattern='(fds-platform-[a-z]+_[[:digit:]].[[:digit:]].[[:digit:]]-[[:alnum:]]+_amd64.deb)'
-# ${BUILD_TYPE} should be "debug" or "release" and is provided by Jenkins
-cd ${fds_platform_dir}
-
-for pkg in ${pkgs_to_deploy[@]}
+fds_package_pattern='(fds-((platform-[a-z]+)|(deps))_[[:digit:]].[[:digit:]].[[:digit:]]-[[:alnum:]]+_amd64.deb)'
+for dir in ${fds_platform_dir[@]}
 do
-    log "---------------------"
-    log "Checking  ::  ${pkg}"
-    pkg_file=$(ls -l ${pkg}*.deb | awk '{ print $9 }')
+	  echo "CD to $dir"
+    cd $dir
 
-    if [[ ${pkg_file} =~ ${fds_package_pattern} ]]; then
-        log "${pkg_file}  ::  matches pattern, uploading to Artifactory" 
-        deploy_to_artifactory ${pkg_file}
-    else
-        warn "${pkg_file} doesn't match pattern, skipping file"
-    fi
+    for pkg in ${pkgs_to_deploy[@]}
+    do
+        log "---------------------"
+        log "Checking  ::  ${pkg}"
+        pkg_file=$(ls -l ${pkg}*.deb | awk '{ print $9 }')
+
+        if [[ ${pkg_file} =~ ${fds_package_pattern} ]]; then
+            log "${pkg_file}  ::  matches pattern, uploading to Artifactory"
+            deploy_to_artifactory ${pkg_file}
+        else
+            warn "${pkg_file} doesn't match pattern, skipping file"
+        fi
+    done
 done
