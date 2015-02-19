@@ -124,12 +124,19 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                   << " to source SM "
                   << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         if (!testMode) {
+
+        try {
             auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
             asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                        perTokenMsgs[tok]);
             asyncRebalSetReq->setTimeoutMs(0);
             // we are not waiting for response, so not setting a callback
             asyncRebalSetReq->invoke();
+            }
+        catch (...) {
+            LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
+            << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            }
         }
     }
 

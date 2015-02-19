@@ -4,7 +4,7 @@
 
 /*
  * Object database class. The object database is a key-value store
- * that provides local objec storage.
+ * that provides local object storage.
  */
 #ifndef SOURCE_STOR_MGR_ODB_H_
 #define SOURCE_STOR_MGR_ODB_H_
@@ -16,6 +16,7 @@
 #include <fds_error.h>
 #include <leveldb/db.h>
 #include <leveldb/env.h>
+#include <leveldb/copy_env.h>
 #include <util/histogram.h>
 #include <concurrency/Mutex.h>
 #include <concurrency/RwLock.h>
@@ -25,6 +26,13 @@ namespace osm {
 
 struct OsmException : std::runtime_error {
 	   explicit OsmException (const std::string& what_arg) : std::runtime_error(what_arg) {}
+};
+
+struct CopyDetails {
+    CopyDetails(const std::string & src, const std::string & dest)
+            : srcPath(src), destPath(dest) {}
+    const std::string srcPath;
+    const std::string destPath;
 };
 
 class ObjectDB {
@@ -57,6 +65,11 @@ class ObjectDB {
     fds::Error Get(const ObjectID& obj_id,
                    ObjectBuf& obj_buf);
     fds::Error Delete(const ObjectID& obj_id);
+
+    fds::Error PersistentSnap(const std::string& fileName);
+
+    fds::Error DeleteSnap(const std::string& snapDir);
+
     void PrintHistoAll() {
       std::cout << "Microseconds per op:" << std::endl
                 << histo_all.ToString() << std::endl;
@@ -104,6 +117,11 @@ class ObjectDB {
      * a different structure in the future.
      */
     leveldb::DB* db;
+
+    /*
+     * leveldb file system interface
+     */
+    leveldb::Env* env;
 
     /*
      * Database options. These are not expected

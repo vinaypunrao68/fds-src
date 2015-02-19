@@ -194,10 +194,6 @@ class ObjectBuf {
         return data->data();
     }
 
-    inline void setData(std::string &newData) {
-        data->assign(newData);
-    }
-
     inline void clear() {
         data->clear();
     }

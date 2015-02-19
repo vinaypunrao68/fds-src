@@ -142,7 +142,7 @@ ObjectStore::putObject(fds_volid_t volId,
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
-        fds_verify(err == ERR_CAT_ENTRY_NOT_FOUND);
+        fds_verify(err == ERR_NOT_FOUND);
         err = ERR_OK;
         updatedMeta.reset(new ObjMetaData());
         updatedMeta->initialize(objId, objData->size());
@@ -236,7 +236,7 @@ ObjectStore::getObject(fds_volid_t volId,
      *
     // If this Volume never put this object, then it should not access the object
     if (!objMeta->isVolumeAssociated(volId)) {
-        err = ERR_CAT_ENTRY_NOT_FOUND;
+        err = ERR_NOT_FOUND;
         LOGWARN << "Volume " << std::hex << volId << std::dec << " aunauth access "
                 << " to object " << objId << " returning " << err;
         return NULL;
@@ -313,7 +313,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
     ObjMetaData::const_ptr objMeta =
             metaStore->getObjectMetadata(volId, objId, err);
     if (!err.ok()) {
-        fds_verify(err == ERR_CAT_ENTRY_NOT_FOUND);
+        fds_verify(err == ERR_NOT_FOUND);
         LOGDEBUG << "Not able to read existing object locations, "
                  << "assuming no prior entry existed " << objId;
         return ERR_OK;
@@ -671,7 +671,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
-        fds_verify(err == ERR_CAT_ENTRY_NOT_FOUND);
+        fds_verify(err == ERR_NOT_FOUND);
         err = ERR_OK;
         // make sure we got object data as well in this message
         if (msg.objectData.size() == 0) {

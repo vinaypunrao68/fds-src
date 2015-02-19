@@ -11,7 +11,6 @@
 #include <MigrationClient.h>
 #include <fds_process.h>
 #include <MigrationTools.h>
-#include <lib/Catalog.h>
 
 #include <object-store/SmDiskMap.h>
 
@@ -239,8 +238,10 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
      */
     firstPhaseSnapshotDir = snapDir;
 
-    Catalog cat(firstPhaseSnapshotDir);
-    leveldb::Iterator *iterDB = cat.NewIterator();
+    osm::ObjectDB odb(firstPhaseSnapshotDir, false);
+    leveldb::DB* db = odb.GetDB();
+    leveldb::ReadOptions read_options = odb.GetReadOptions();
+    leveldb::Iterator *iterDB = db->NewIterator(read_options);
 
     /* Iterate through level db and filter against the objectFilterSet.
      */
@@ -494,10 +495,14 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      */
     migClientAddMetaData(objMetaDataSet, true);
 
-    /* We no longer need these snapshots.  Release them now.
+    /* We no longer need these snapshots. 
+     * Delete the snapshots.
      */
-//    db->ReleaseSnapshot(firstPhaseReadOptions.snapshot);
-//    db->ReleaseSnapshot(secondPhaseReadOptions.snapshot);
+    osm::ObjectDB odbFirstPhase(firstPhaseSnapshotDir, false);
+    osm::ObjectDB odbSecondPhase(firstPhaseSnapshotDir, false);
+
+    odbFirstPhase.DeleteSnap(firstPhaseSnapshotDir);
+    odbSecondPhase.DeleteSnap(secondPhaseSnapshotDir);
 
     /* Set the migration client state to indicate the second delta set is sent. */
     setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE);

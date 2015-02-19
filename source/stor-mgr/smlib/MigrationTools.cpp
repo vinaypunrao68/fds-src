@@ -4,9 +4,9 @@
 
 #include <list>
 #include <utility>
-#include <lib/Catalog.h>
+#include <leveldb/db.h>
 #include "ObjMeta.h"
-
+#include <odb.h>
 #include "MigrationTools.h"
 
 namespace fds {
@@ -24,15 +24,20 @@ tri_comp(int const c)
 { return (c <= 0) ? ((c == 0) ? cmp_result::exists : cmp_result::removal) : cmp_result::addition; }
 
 void
-diff(std::string &firstPhaseSnapshotDir, std::string &secondPhaseSnapshotDir, metadata_diff_type& diff) {
+diff(std::string &lhSnap, std::string &rhSnap, metadata_diff_type& diff) {
 
-    Catalog firstSnapCat(firstPhaseSnapshotDir);
-    Catalog secondSnapCat(secondPhaseSnapshotDir);
+    osm::ObjectDB lhObj(lhSnap, false);
+    DB* lhdb = lhObj.GetDB();
+    ReadOptions l_opts = lhObj.GetReadOptions();
+
+    osm::ObjectDB rhObj(rhSnap, false);
+    DB* rhdb = rhObj.GetDB();
+    ReadOptions r_opts = rhObj.GetReadOptions();
 
 
     // Obtain iterators to the snapshots
-    auto l_it   = firstSnapCat.NewIterator();
-    auto r_it   = secondSnapCat.NewIterator();
+    auto l_it   = lhdb->NewIterator(l_opts);
+    auto r_it   = rhdb->NewIterator(r_opts);
     
     diffSnapshots(l_it, r_it, diff);
 }

@@ -11,7 +11,7 @@
 #include <fds_types.h>
 #include <concurrency/RwLock.h>
 #include <ObjMeta.h>
-#include <lib/Catalog.h>
+#include <odb.h>
 #include <object-store/SmDiskMap.h>
 
 namespace fds {
@@ -100,15 +100,15 @@ class ObjectMetadataDb {
     Error openObjectDb(fds_token_id smTokId,
                        const std::string& diskPath,
                        fds_bool_t syncWrite);
-    Catalog *getObjectDB(const ObjectID& objId);
+    osm::ObjectDB *getObjectDB(const ObjectID& objId);
     /**
      * Closes object metadata DB for a given SM token
      */
     void closeObjectDB(fds_token_id smTokId);
 
   private:  // data
-     std::unordered_map<fds_token_id, Catalog *> tokenTbl;
-     using TokenTblIter = std::unordered_map<fds_token_id, Catalog *>::const_iterator;
+     std::unordered_map<fds_token_id, osm::ObjectDB *> tokenTbl;
+     using TokenTblIter = std::unordered_map<fds_token_id, osm::ObjectDB *>::const_iterator;
      fds_rwlock dbmapLock_;  // lock for tokenTbl
 
      // cached number of bits per (global) token

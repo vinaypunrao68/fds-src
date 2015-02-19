@@ -12,7 +12,7 @@
 #include <fds_types.h>
 
 #include <SmIo.h>
-
+#include <odb.h>
 #include <MigrationUtility.h>
 
 namespace fds {
