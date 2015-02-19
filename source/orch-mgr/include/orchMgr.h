@@ -395,34 +395,6 @@ class FDSP_ControlPathRespHandler : virtual public fpi::FDSP_ControlPathRespIf {
   public:
         explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
 
-        void NotifyAddVolResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_add_vol_resp);
-        void NotifyAddVolResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp);
-
-        void NotifyRmVolResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp);
-        void NotifyRmVolResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp);
-
-        void NotifyModVolResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_mod_vol_resp);
-        void NotifyModVolResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
-
-        void NotifySnapVolResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp);
-        void NotifySnapVolResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp);
-
         void AttachVolResp(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);

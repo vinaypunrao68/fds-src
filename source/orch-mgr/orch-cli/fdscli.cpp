@@ -118,22 +118,6 @@ std::string FdsCli::mediaPolicyToString(
     return "unknown";
 }
 
-FDS_ProtocolInterface::FDSP_ScavengerCmd FdsCli::stringToScavengerCommand(
-    const std::string& cmd)
-{
-    if (cmd == "start") {
-        return FDS_ProtocolInterface::FDSP_SCAVENGER_START;
-    } else if (cmd == "stop") {
-        return FDS_ProtocolInterface::FDSP_SCAVENGER_STOP;
-    } else if (cmd == "enable") {
-        return FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE;
-    } else if (cmd == "disable") {
-        return FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE;
-    }
-    fds_verify(false);
-}
-
-
 FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
     netConfigPathClientSession *client_session =
             net_session_tbl->
@@ -205,8 +189,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "Remove services: remove-services <node_name> "
              "[ -e \"am,dm,sm\" ]")
             ("throttle", "Throttle traffic: throttle -t <throttle_level> ")
-            ("scavenger", po::value<std::string>(),
-             "scavenger enable|disable|start|stop")
             ("policy-show", po::value<std::string>(), "Show policy")
             ("volume-size,s", po::value<double>(), "volume capacity")
             ("volume-policy,p", po::value<int>(), "volume policy")
@@ -653,19 +635,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         throttle_msg.throttle_level = vm["throttle-level"].as<float>();
 
         NETWORKCHECK(cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg));
-    } else if (vm.count("scavenger")) {
-        std::string cmd = vm["scavenger"].as<string>();
-        if ((cmd.compare("start") == 0) || (cmd.compare("stop") == 0) ||
-            (cmd.compare("enable") == 0) || (cmd.compare("disable") == 0)) {
-            LOGNOTIFY << "Will do Scavenger " << cmd << " command";
-
-            FDS_ProtocolInterface::FDSP_ScavengerType gc_msg;
-            gc_msg.cmd = stringToScavengerCommand(cmd);
-            NETWORKCHECK(cfgPrx->ScavengerCommand(msg_hdr, gc_msg));
-        } else {
-            LOGNOTIFY << "Unrecognized scavenger command!";
-            std::cout << "Unrecognized scavenger command";
-        }
     } else if (vm.count("volume-snap")) {
         LOGNOTIFY << "Constructing the CLI";
         LOGNOTIFY << " Snap Volume ";

@@ -145,8 +145,12 @@ typedef struct om_vol_msg_s
     fpi::FDSP_MsgHdrTypePtr         *vol_msg_hdr;
     union {
         fpi::FDSP_BucketStatType    *vol_stats;
-        FdspNotVolPtr               *vol_notif;
-        FdspAttVolPtr               *vol_attach;
+        // TODO(Andrew): This struct is not used but references
+        // these removed variables. Removing the entire struct,
+        // though useful, is not a ball of yarn I want to unwind
+        // right now...
+        // FdspNotVolPtr               *vol_notif;
+        // FdspAttVolPtr               *vol_attach;
     } u;
 } om_vol_msg_t;
 

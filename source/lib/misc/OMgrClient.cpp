@@ -31,34 +31,6 @@ OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
     this->om_client = omc;
 }
 
-void OMgrClientRPCI::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
-                                  fpi::FDSP_NotifyVolTypePtr& vol_msg) {
-    assert(vol_msg->type == fpi::FDSP_NOTIFY_ADD_VOL);
-    fds_vol_notify_t type = fds_notify_vol_add;
-    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-}
-
-void OMgrClientRPCI::NotifyModVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
-                                  fpi::FDSP_NotifyVolTypePtr& vol_msg) {
-    assert(vol_msg->type == fpi::FDSP_NOTIFY_MOD_VOL);
-    fds_vol_notify_t type = fds_notify_vol_mod;
-    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-}
-
-void OMgrClientRPCI::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
-                                 fpi::FDSP_NotifyVolTypePtr& vol_msg) {
-    assert(vol_msg->type == fpi::FDSP_NOTIFY_RM_VOL);
-    fds_vol_notify_t type = fds_notify_vol_rm;
-    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-}
-
-void OMgrClientRPCI::NotifySnapVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
-                                   fpi::FDSP_NotifyVolTypePtr& vol_msg) {
-    assert(vol_msg->type == fpi::FDSP_NOTIFY_SNAP_VOL);
-    fds_vol_notify_t type = fds_notify_vol_snap;
-    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-}
-
 void OMgrClientRPCI::AttachVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
                                fpi::FDSP_AttachVolTypePtr& vol_msg) {
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
@@ -123,11 +95,6 @@ void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
         om_client->sendMigrationStatusToOM(ERR_OK);
     }
 }
-
-void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
-                                        FDSP_ScavengerTypePtr& gc_info) {
-}
-
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                                      FDSP_DMT_TypePtr& dmt_info) {

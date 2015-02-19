@@ -31,6 +31,17 @@ struct DomainID {
     2: required string        domain_name,
 }
 
+enum FDSP_ScavengerCmd {
+  FDSP_SCAVENGER_ENABLE,     // enable automatic GC process
+  FDSP_SCAVENGER_DISABLE,    // disable GC
+  FDSP_SCAVENGER_START,      // start GC
+  FDSP_SCAVENGER_STOP        // stop GC if it's running
+}
+
+struct FDSP_ScavengerType {
+  1: FDSP_ScavengerCmd  cmd
+}
+
 /*
  * List of all FDSP message types that passed between fds services.  Typically all these
  * types are for async messages.
@@ -500,7 +511,7 @@ struct CtrlNotifyMigrationStatus {
 
 /* ---------------------  CtrlNotifyScavengerTypeId  --------------------------- */
 struct CtrlNotifyScavenger {
-     1: FDSP.FDSP_ScavengerType   scavenger;
+     1: FDSP_ScavengerType   scavenger;
 }
 
 struct CtrlNotifyQosControl {

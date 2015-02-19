@@ -61,15 +61,6 @@ class AmPlatform : public Platform
 
     virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
 
-    void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
-    void NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                     fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
-    void NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
     void AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                    fpi::FDSP_AttachVolTypePtr &vol_msg);
 
