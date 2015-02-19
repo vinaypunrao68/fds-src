@@ -14,6 +14,7 @@
 #include <boost/lockfree/queue.hpp>
 
 #include "fds_types.h"
+#include "connector/block/common.h"
 #include "connector/block/NbdOperations.h"
 
 namespace fds
@@ -50,11 +51,6 @@ struct NbdConnection : public NbdOperationsResponseIface {
     template<typename T>
     using unique = std::unique_ptr<T>;
     using resp_vector_type = unique<iovec[]>;
-
-    enum Errors {
-        connection_closed,
-        shutdown_requested,
-    };
 
     NbdConnection(boost::shared_ptr<OmConfigApi> omApi, int clientsd);
     ~NbdConnection();
@@ -115,7 +111,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     static constexpr char fourKayZeros[4096]{0};  // NOLINT
     static constexpr size_t kMaxChunks = (2 * 1024 * 1024) / minMaxObjectSizeInBytes;
 
-    static void ensure(bool b) { if (!b) throw connection_closed; }
+    static void ensure(bool b) { if (!b) throw NbdError::connection_closed; }
 
     std::unique_ptr<ev::io> ioWatcher;
     std::unique_ptr<ev::async> asyncWatcher;
