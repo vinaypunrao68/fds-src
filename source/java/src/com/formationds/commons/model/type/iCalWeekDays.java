@@ -62,10 +62,6 @@ public enum iCalWeekDays
     public String toString() {
         final StringBuilder b = new StringBuilder();
 
-        if( getOffset() != 0 ) {
-            b.append( getOffset() );
-        }
-
         b.append( name() );
 
         return b.toString();

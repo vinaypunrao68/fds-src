@@ -16,6 +16,12 @@ function err {
 }
 
 function deploy_to_artifactory () {
+		if [ ! -z "${CHANNEL}" ]; then
+			build_channel=${CHANNEL}
+		else
+			build_channel="nightly"
+		fi
+
     if [ ! -z "${1}" ]; then
         pkg_filename=${1}
     else
@@ -23,7 +29,7 @@ function deploy_to_artifactory () {
         return 1
     fi
 
-    curl_status_code=$(curl -s -o /dev/null --write-out "%{http_code}" -XPUT "http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/nightly/${pkg_filename};deb.distribution=platform;deb.component=nightly;deb.architecture=amd64" --data-binary @${pkg_filename})
+    curl_status_code=$(curl -s -o /dev/null --write-out "%{http_code}" -XPUT "http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/${build_channel}/${pkg_filename};deb.distribution=platform;deb.component=${build_channel};deb.architecture=amd64" --data-binary @${pkg_filename})
 
     if [ ${curl_status_code} -ne 201 ]; then
         err "Upload failed, exiting"

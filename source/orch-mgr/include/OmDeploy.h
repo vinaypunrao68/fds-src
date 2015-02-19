@@ -49,14 +49,13 @@ class DltLoadedDbEvt
 class DltRebalOkEvt
 {
   public:
-    DltRebalOkEvt(ClusterMap *cm, DataPlacement *d)
-        : ode_clusmap(cm), ode_dp(d) {}
+    explicit DltRebalOkEvt(NodeUuid smUuid)
+            : smAcked(smUuid) {}
     std::string logString() const {
         return "DltRebalOkEvt";
     }
 
-    ClusterMap            *ode_clusmap;
-    DataPlacement         *ode_dp;
+    NodeUuid               smAcked;
 };
 
 class DltCommitOkEvt

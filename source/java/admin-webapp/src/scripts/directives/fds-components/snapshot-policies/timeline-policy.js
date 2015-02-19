@@ -275,8 +275,11 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     // set the timing variables
                     policy.recurrenceRule.BYHOUR = [$scope.hourChoice.hour];
                     
+                    // required by the server but we don't offer options for this therefore it's always 0
+                    policy.recurrenceRule.BYMINUTE = [0];
+                    
                     // weeklies or higher
-                    if ( i > 1 ){
+                    if ( i == 2 ){
                         policy.recurrenceRule.BYDAY = [$scope.dayChoice.value];
                     }
                     
@@ -288,6 +291,7 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                         }
                         else {
                             policy.recurrenceRule.BYWEEKNO = [$scope.monthChoice.value];
+                            policy.recurrenceRule.BYDAY = [$scope.dayChoice.value];
                         }
                     }
                     
@@ -417,6 +421,12 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             };
             
             $scope.$on( 'fds::cancel_editing', $scope.cancel );
+            
+            $scope.$on( 'fds::refresh', function(){
+
+                translateScreenToPolicies();
+
+            });
             
             initWatcher();
             

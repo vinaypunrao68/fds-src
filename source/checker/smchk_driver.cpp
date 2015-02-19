@@ -75,6 +75,8 @@ SMChkDriver::SMChkDriver(int argc, char *argv[],
         cmd = RunFunc::PRINT_PATH_BY_TOK;
     } else if (vm["list-metadata"].as<bool>()) {
         cmd = RunFunc::PRINT_MD;
+    } else if (vm["list-active-metadata"].as<bool>()) {
+        cmd = RunFunc::PRINT_ACTIVE_MD;
     } else if (vm["gc"].as<bool>()) {
         cmd = RunFunc::CALC_BYTES_RECLAIMABLE;
     } else {

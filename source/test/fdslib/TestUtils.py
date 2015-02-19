@@ -324,7 +324,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     if "sudo_password" in params:
         if params["sudo_password"] is None:
             params["sudo_password"] = pyUnitSudoPw
-    setattr(options, "sudo_password", params["sudo_password"])
+        setattr(options, "sudo_password", params["sudo_password"])
     else:
         setattr(options, "sudo_password", "dummy")
 

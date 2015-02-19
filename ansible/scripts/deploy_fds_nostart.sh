@@ -125,7 +125,7 @@ check_sudo() {
 
 run_deploy_playbook() {
 #    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" --skip-tags check_sudo,setup,fdsconfig,startup --vault-password-file ~/.vault_pass.txt
-    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" --skip-tags setup,fdsconfig,shutdown,cleanshm,startup --vault-password-file ~/.vault_pass.txt
+    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" --skip-tags shutdown,cleanshm,startup --vault-password-file ~/.vault_pass.txt -vv
 }
 
 check_environment

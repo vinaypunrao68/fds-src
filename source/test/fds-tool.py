@@ -17,7 +17,7 @@ if __name__ == '__main__':
                       help = 'enable verbosity')
     parser.add_option('-p', '--package', action = 'store_true', dest = 'make_pkg',
                       help = 'package fds tar ball')
-    parser.add_option('-i', '--install', action = 'store_true', dest = 'pkg_install',
+    parser.add_option('-i', '--install', action = 'store_true', dest = 'install',
                       help = 'install fds package to remote machines')
     parser.add_option('-S', '--source', dest = 'fds_source_dir', default = '',
                       help = 'fds source dir')
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     start_om = True
 
     # Install package
-    if options.pkg_install:
+    if options.install:
         for n in nodes:
             n.nd_install_rmt_pkg()
         exit(0)

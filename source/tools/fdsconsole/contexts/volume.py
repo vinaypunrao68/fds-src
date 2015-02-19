@@ -12,7 +12,10 @@ import FdspUtils
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        self.s3api = self.config.s3rest
+
+    def s3Api(self):
+        return self.config.getS3Api()
+
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
@@ -24,7 +27,6 @@ class VolumeContext(Context):
                               'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
                               item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in volumes],
                             headers=['Id','Name', 'TenantId', 'Create Date','State','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
-            return volumes
         except ApiException, e:
             print e
         except Exception, e:
@@ -56,7 +58,7 @@ class VolumeContext(Context):
     def restore(self, vol_name, clone_name):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name)
-            ServiceMap.omConfig().restoreClone(volume_id, snapshotName)
+            ServiceMap.omConfig().restoreClone(volume_id, clone_name)
             return
         except ApiException, e:
             print e
@@ -131,7 +133,7 @@ class VolumeContext(Context):
     @arg('descending', help="-display in descending order", nargs='?')
     def listblobs(self, volname, pattern, count, startpos, orderby, descending):
         try:
-            dmClient = self.config.platform;
+            dmClient = self.config.getPlatform();
 
             dmUuids = dmClient.svcMap.svcUuids('dm')
             volId = dmClient.svcMap.omConfig().getVolumeId(volname)
@@ -179,7 +181,7 @@ class VolumeContext(Context):
                 key = os.path.basename(key[1:])
             elif value != None and value.startswith('@'):
                 value = open(value[1:],'rb').read()
-            b = self.s3api.get_bucket(vol_name)
+            b = self.s3Api().get_bucket(vol_name)
             k = b.new_key(key)
             num = k.set_contents_from_string(value)
             
@@ -192,7 +194,7 @@ class VolumeContext(Context):
                 data += [('end' , str(value[-30:]))]
                 return tabulate(data, tablefmt=self.config.getTableFormat())
             else:
-                print r.reason
+                print "empty data"
         except Exception, e:
             log.exception(e)
             return 'put {} failed on volume: {}'.format(key, vol_name)
@@ -206,7 +208,7 @@ class VolumeContext(Context):
         Does bulk gets.
         TODO: Make it do random gets as well
         '''
-        b = self.s3api.get_bucket(vol_name)
+        b = self.s3Api().get_bucket(vol_name)
         i = 0
         while i < cnt:
             for key in b.list():
@@ -237,7 +239,7 @@ class VolumeContext(Context):
     def get(self, vol_name, key):
         'get an object from the volume'
         try:
-            b = self.s3api.get_bucket(vol_name)
+            b = self.s3Api().get_bucket(vol_name)
             k = b.new_key(key)
             value = k.get_contents_as_string()
 
@@ -250,7 +252,7 @@ class VolumeContext(Context):
                 data += [('end' , str(value[-30:]))]
                 return tabulate(data, tablefmt=self.config.getTableFormat())
             else:
-                print r.reason
+                print "no data"
         except Exception, e:
             log.exception(e)
             return 'get {} failed on volume: {}'.format(key, vol_name)
@@ -260,7 +262,7 @@ class VolumeContext(Context):
     def keys(self, vol_name):
         'get an object from the volume'
         try:
-            b = self.s3api.get_bucket(vol_name)
+            b = self.s3Api().get_bucket(vol_name)
             data = [[key.name.encode('ascii','ignore')] for key in b.list()]
             data.sort()
             return tabulate(data, tablefmt=self.config.getTableFormat(), headers=['name'])
@@ -275,7 +277,7 @@ class VolumeContext(Context):
     def deleteobject(self, vol_name, key):
         'delete an object from the volume'
         try:
-            b = self.s3api.get_bucket(vol_name)
+            b = self.s3Api().get_bucket(vol_name)
             k = b.new_key(key)
             k.delete()            
         except Exception, e:
