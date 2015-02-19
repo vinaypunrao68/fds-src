@@ -17,3 +17,9 @@
         purge=yes
     tags:
         - uninstall
+
+-   name: remove_old_fdslib
+    file: path=/usr/local/lib/python2.7/dist-packages/fdslib
+        state=absent
+    tags:
+        - uninstall
