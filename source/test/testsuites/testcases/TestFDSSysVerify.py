@@ -357,7 +357,6 @@ class TestVerifySMStaticMigration(TestCase.FDSTestCase):
         self.passedNode2 = node2
         self.skip = skip  # Does the caller wish to execute even if previous test cases have failed?
 
-    @TestCase.expectedFailure
     def test_VerifySMStaticMigration(self):
         """
         Test Case:
