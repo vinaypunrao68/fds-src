@@ -32,8 +32,6 @@ void UpdateCatalogOnceHandler::handleRequest(
     }
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
 
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.

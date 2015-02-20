@@ -6,6 +6,9 @@
 
 #include <net/SvcProcess.h>
 
+#include <fdsp/DMSvc.h>
+#include <DMSvcHandler.h>
+
 namespace fds {
 // TODO(Rao): Get rid of this singleton
 DataMgr *dataMgr;
@@ -15,8 +18,10 @@ int gdb_stop = 0;
 
 class DMMain : public SvcProcess
 {
-  public:
-    DMMain(int argc, char *argv[]) : dm(new fds::DataMgr(this)) {
+ public:
+    DMMain(int argc, char *argv[]) {
+        /* Construct all the modules */
+        dm = new fds::DataMgr(this);
         // TODO(Rao): Get rid of this singleton
         dataMgr = dm;
 
@@ -33,7 +38,8 @@ class DMMain : public SvcProcess
         closeAllFDs();
 
         /* Init platform process */
-        init(argc, argv, "platform.conf", "fds.dm.", "dm.log", dmVec);
+        init<fds::DMSvcHandler, fpi::DMSvcProcessor>(argc, argv, "platform.conf",
+                "fds.dm.", "dm.log", dmVec);
 
         /* Daemonize */
         fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
@@ -51,7 +57,6 @@ class DMMain : public SvcProcess
         return dm->run();
     }
 
-  private:
     fds::DataMgr* dm;
 };
 

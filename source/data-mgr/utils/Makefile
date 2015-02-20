@@ -8,9 +8,7 @@ user_build_dir    :=
 user_fds_ar_libs  := \
     fds-qos-lib \
     fds-dm-lib \
-    fds-dm-plat \
     fds-dsk-mgnt \
-    fds-net-svc \
     fds-xdi
 
 user_non_fds_libs := \
