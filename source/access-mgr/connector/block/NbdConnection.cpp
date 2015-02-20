@@ -123,9 +123,12 @@ NbdConnection::write_response() {
     }
 
     // Do the write
-    ssize_t nwritten = writev(ioWatcher->fd,
-                              response.get() + current_block,
-                              total_blocks - current_block);
+    ssize_t nwritten = 0;
+    do {
+        nwritten = writev(ioWatcher->fd,
+                          response.get() + current_block,
+                          total_blocks - current_block);
+    } while ((0 > nwritten) && (EINTR == errno));
 
     // Calculate amount we should have written so we can verify the return value
     ssize_t to_write = response[current_block].iov_len;
@@ -138,16 +141,9 @@ NbdConnection::write_response() {
     // Check return value
     if (to_write != nwritten) {
         if (nwritten < 0) {
-            if (errno != EAGAIN && errno != EWOULDBLOCK)
-                { LOGERROR << "Socket write error: [" << strerror(errno) << "]"; }
-            switch (errno) {
-            case EINVAL:   // Indicates logic bug
-                LOGERROR << "Write vector bug";
-                fds_assert(false);
-            case EBADF:
-            case EPIPE:
-                throw NbdError::connection_closed;
-            }
+            LOGERROR << "Socket write error: [" << strerror(errno) << "]";
+            if ((EAGAIN != errno) && (EWOULDBLOCK != errno))
+                { throw NbdError::connection_closed; }
         } else {
             LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
             write_offset += nwritten;
@@ -192,13 +188,14 @@ void
 NbdConnection::hsPostInit(ev::io &watcher) {
     // Accept client ack
     fds_uint32_t ack;
-    ssize_t nread = read(watcher.fd, &ack, sizeof(ack));
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-    } else {
-        ensure(0 == ack);
-        LOGTRACE << "Received " << nread << " byte ack " << ack;
-    }
+    ssize_t nread = 0;
+
+    do {
+        nread = read(watcher.fd, &ack, sizeof(ack));
+    } while ((0 > nread) && (EINTR == errno));
+
+    ensure(0 < nread);
+    ensure(0 == ack);
 }
 
 bool
@@ -546,7 +543,7 @@ ssize_t retry_read(int fd, void* buf, size_t count) {
     ssize_t e = 0;
     do {
         e = read(fd, buf, count);
-    } while ((0 > e) && ((EAGAIN == errno) || (EWOULDBLOCK == errno)));
+    } while ((0 > e) && (EINTR == errno));
     return e;
 }
 
@@ -557,15 +554,16 @@ bool get_message_header(int fd, M& message) {
     ssize_t nread = retry_read(fd,
                          reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
                          to_read);
-    if (nread < 0) {
-        LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-        if (0 == nread) {
-            LOGNORMAL << "Client disconnected";
-        } else if (EINVAL == errno) {
-            LOGERROR << "Read vector bug";
-            fds_assert(false);
+    if (nread <= 0) {
+        switch (0 > nread ? errno : EPIPE) {
+            case EAGAIN:
+                return false;
+            case EPIPE:
+                LOGNORMAL << "Client disconnected";
+            default:
+                LOGERROR << "Socket read error: [" << strerror(errno) << "]";
+                throw NbdError::shutdown_requested;
         }
-        throw NbdError::connection_closed;
     } else if (nread < to_read) {
         LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.header_off += nread;
@@ -596,14 +594,15 @@ bool get_message_payload(int fd, M& message) {
                                      message.data_off,
                                      to_read);
     if (nread <= 0) {
-        LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-        if (0 == nread) {
-            LOGNORMAL << "Client disconnected";
-        } else if (EINVAL == errno) {
-            LOGERROR << "Read vector bug";
-            fds_assert(false);
+        switch (0 > nread ? errno : EPIPE) {
+            case EAGAIN:
+                return false;
+            case EPIPE:
+                LOGNORMAL << "Client disconnected";
+            default:
+                LOGERROR << "Socket read error: [" << strerror(errno) << "]";
+                throw NbdError::shutdown_requested;
         }
-        throw NbdError::connection_closed;
     } else if (nread < to_read) {
         LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.data_off += nread;
