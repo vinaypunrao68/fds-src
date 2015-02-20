@@ -29,7 +29,6 @@ user_fds_ar_libs  :=                   \
     fds-dsk-io \
     fds-dsk-mgnt \
     fds-odb \
-    fds-vpolicy \
     fds-hash \
     fds-net-svc \
     fds-xdi
