@@ -142,9 +142,10 @@ NbdConnection::write_response() {
     // Check return value
     if (to_write != nwritten) {
         if (nwritten < 0) {
-            LOGERROR << "Socket write error: [" << strerror(errno) << "]";
-            if (EAGAIN != errno)
-                { throw NbdError::connection_closed; }
+            if (EAGAIN != errno) {
+                LOGERROR << "Socket write error: [" << strerror(errno) << "]";
+                throw NbdError::connection_closed;
+            }
         } else {
             LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
             write_offset += nwritten;
@@ -559,9 +560,10 @@ bool get_message_header(int fd, M& message) {
     if (nread <= 0) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
+                LOGWARN << "Spurious wakeup? Have " << message.header_off << " bytes of header.";
                 return false;
             case EPIPE:
-                LOGNORMAL << "Client disconnected";
+                LOGNOTIFY << "Client disconnected";
             default:
                 LOGERROR << "Socket read error: [" << strerror(errno) << "]";
                 throw NbdError::shutdown_requested;
@@ -599,9 +601,10 @@ bool get_message_payload(int fd, M& message) {
     if (nread <= 0) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
+                LOGWARN << "Spurious wakeup? Have " << message.data_off << " bytes of header.";
                 return false;
             case EPIPE:
-                LOGNORMAL << "Client disconnected";
+                LOGNOTIFY << "Client disconnected";
             default:
                 LOGERROR << "Socket read error: [" << strerror(errno) << "]";
                 throw NbdError::shutdown_requested;
