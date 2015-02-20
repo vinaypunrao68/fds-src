@@ -261,39 +261,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
   public:
     explicit OMgrClientRPCI(OMgrClient *om_c);
 
-    void NotifyAddVol(const FDSP_MsgHdrType& fdsp_msg,
-                      const FDSP_NotifyVolType& not_add_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyAddVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                      FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
-
-    void NotifyRmVol(const FDSP_MsgHdrType& fdsp_msg,
-                     const FDSP_NotifyVolType& not_rm_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
-
-    void NotifyModVol(const FDSP_MsgHdrType& fdsp_msg,
-                      const FDSP_NotifyVolType& not_mod_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                      FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
-
-    void NotifySnapVol(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_NotifyVolType& not_snap_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                       FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
-
-
     void AttachVol(const FDSP_MsgHdrType& fdsp_msg, const FDSP_AttachVolType& atc_vol_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
@@ -401,14 +368,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyStartMigration(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                               FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info);
-
-    void NotifyScavengerCmd(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
-                            const FDS_ProtocolInterface::FDSP_ScavengerType& gc_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyScavengerCmd(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                            FDS_ProtocolInterface::FDSP_ScavengerTypePtr& gc_info);
 };
 
 }  // namespace fds

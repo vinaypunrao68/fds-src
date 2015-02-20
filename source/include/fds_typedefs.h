@@ -50,7 +50,6 @@ typedef FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr FdspModPolPtr;
 typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr        FdspAttVolPtr;
 typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr     FdspAttVolCmdPtr;
 typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr     FdspRegNodePtr;
-typedef FDS_ProtocolInterface::FDSP_NotifyVolTypePtr        FdspNotVolPtr;
 typedef FDS_ProtocolInterface::FDSP_TestBucketPtr           FdspTestBucketPtr;
 typedef FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr  FdspMigrationStatusPtr;
 
