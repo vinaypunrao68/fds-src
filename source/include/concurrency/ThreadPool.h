@@ -113,7 +113,6 @@ class fds_threadpool : boost::noncopyable
     thp_state_e         thp_state;         /* state of the pool. */
     thpool_worker     **thp_workers;
     dlist_t             thp_wk_idle;       /* FIFO list of idle workers. */
-    dlist_t             thp_wk_term;       /* FIFO list of terminate wks */
     dlist_t             thp_tasks;         /* FIFO list of tasks. */
     int                 thp_num_threads;
     int                 thp_active_threads;
@@ -136,6 +135,9 @@ class fds_threadpool : boost::noncopyable
 
     /* Scheduling functions. */
     void schedule(thpool_req *task);
+
+    /* Worker notifies the pool owner when its thread exits. */
+    void thp_worker_exit(thpool_worker *worker);
 
     template<typename F, typename A>
     void schedule(F f, A a, int tck = 0) {

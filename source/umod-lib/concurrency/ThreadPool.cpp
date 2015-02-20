@@ -154,6 +154,25 @@ thpool_worker::wk_spawn_thread(void)
     return true;
 }
 
+/** \fds_threadpool::thp_worker_exits
+ * ----------------------------------
+ * Worker thread notifies the owner when it exits the main loop, terminate
+ * the thread.
+ */
+void
+fds_threadpool::thp_worker_exit(thpool_worker *worker)
+{
+    fds_assert(worker->wk_act_task == nullptr);
+    fds_assert(dlist_empty(&worker->wk_link));
+
+    thp_mutex.lock();
+    thp_active_threads--;
+    if (thp_active_threads == 0) {
+        thp_condition.notify_one();
+    }
+    thp_mutex.unlock();
+}
+
 /** \thpool_worker::wk_loop
  * -------------------------
  */
@@ -209,6 +228,7 @@ thpool_worker::wk_loop(void)
             run = false;
         }
     }
+    wk_owner->thp_worker_exit(this);
 }
 
 /** \fds_threadpool constructor
@@ -228,17 +248,15 @@ fds_threadpool::fds_threadpool(int num_thr)
     thpool_worker *worker;
 
     dlist_init(&thp_wk_idle);
-    dlist_init(&thp_wk_term);
     dlist_init(&thp_tasks);
 
     thp_workers = new thpool_worker * [thp_num_threads];
-    for (i = 0; i < thp_num_threads; i++) {
+    for (i = 0; i < thp_num_threads; ++i) {
         thp_workers[i] = new thpool_worker(this, i);
-        dlist_add_back(&thp_wk_term, &thp_workers[i]->wk_link);
     }
 
     /* Spawn threads when all objects have been constructed. */
-    for (i = 0; i < thp_num_threads; i++) {
+    for (i = 0; i < thp_num_threads; ++i) {
         worker = thp_workers[i];
         bool spawned = worker->wk_spawn_thread();
         fds_verify(true == spawned);
@@ -270,15 +288,6 @@ fds_threadpool::~fds_threadpool()
     fds_assert(dlist_empty(&thp_wk_idle));
 
     thp_state = TERM;
-    for (i = 0; !dlist_empty(&thp_wk_term); i++) {
-        ptr    = dlist_rm_front(&thp_wk_term);
-        worker = fds_object_of(thpool_worker, wk_link, ptr);
-
-        fds_assert(worker->wk_owner == this);
-        fds_assert(worker->wk_pool_idx < thp_num_threads);
-        fds_assert(thp_workers[worker->wk_pool_idx] == worker);
-        delete worker;
-    }
     thp_mutex.unlock();
 
     delete [] thp_workers;
