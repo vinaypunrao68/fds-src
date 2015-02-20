@@ -14,6 +14,7 @@ var en_US = {
         l_back: 'Back',
         l_cancel: 'Cancel',
         l_confirm: 'Confirm',
+        l_custom: 'Custom',
         l_done: 'Done',
         l_edit: 'Edit',
         l_error: 'Error',
@@ -179,20 +180,11 @@ var en_US = {
         l_delete_volume: 'Delete this volume.',
         l_edit_settings: 'Edit Settings',
         l_edit_volume: 'Edit Volume',
-        l_highest: 'Highest',
-        l_l_highest: '(highest)',
-        l_iops: 'IOPs',
-        l_iops_guarantee: 'IOPs Capacity Guarantee',
-        l_iops_limit: 'IOPs Limit',
-        l_lowest: 'Lowest',
-        l_l_lowest: '(lowest)',
-        l_max_iops: 'Max number of IOPs',
-        l_number_of_iops: 'Number of IOPs',
-        l_priority: 'Priority',
         l_point_timeline: 'Point from timeline:',
         l_qos: 'Performance',
         l_select_to_clone: 'Select a Volume to Clone',
         l_settings: 'Settings',
+        l_size_limit: 'Capacity Limit',
         l_snapshots: 'Snapshots',
         l_snapshot_policy: 'Snapshot Policy',
         l_snapshot_policies: 'Snapshot Policies',
@@ -200,18 +192,11 @@ var en_US = {
         l_timeline: 'Timeline',
         l_tiering: 'Tiering',
         l_volume_name: 'Volume Name',
-        f_iops_guarantee: 'IOPs Capacity Guarantee:',
-        f_iops_limit: 'IOPs Limit:',
-        f_policy: 'Policy:',
         f_priority: 'Priority:',
         th_capacity: 'Capacity',
         th_capacity_limit: 'Capacity Limit',
         th_expiration: 'Expiration',
-        th_iops_guarantee: 'IOPs Capacity Guarantee',
-        th_iops_limit: 'IOPs Limit',
-        th_performance: 'Performance',
         th_priority: 'Priority',
-
         th_used_limit: 'Used/Limit',
         
         tt_volume_name: 'Volume name',
@@ -233,6 +218,30 @@ var en_US = {
             l_avg_ssd_gets: 'Avg. # of GETS from SSD'
         },
         
+        qos: {
+            l_highest: 'Highest',
+            l_l_highest: '(highest)',
+            l_iops: 'IOPs',
+            l_iops_guarantee: 'IOPs Capacity Guarantee',
+            l_iops_limit: 'IOPs Limit',
+            l_lowest: 'Lowest',
+            l_l_lowest: '(lowest)',
+            l_max_iops: 'Max number of IOPs',
+            l_number_of_iops: 'Number of IOPs',
+            l_priority: 'Priority',
+            l_least_important: 'Least Important',
+            l_standard: 'Standard',
+            l_most_important: 'Most Important',
+            
+            f_iops_guarantee: 'IOPs Capacity Guarantee:',
+            f_iops_limit: 'IOPs Limit:',
+            f_policy: 'Policy:',
+            
+            th_iops_guarantee: 'IOPs Capacity Guarantee',
+            th_iops_limit: 'IOPs Limit',
+            th_performance: 'Performance'
+        },
+        
         tiering: {
             l_ssd_only: 'Flash Only',
             l_disk_only: 'Disk Only',
@@ -242,6 +251,11 @@ var en_US = {
         },
         
         snapshot: {
+            
+            l_sparse: 'Sparse Coverage',
+            l_standard: 'Standard',
+            l_dense: 'Dense Coverage',
+            
             l_time_of_retained_snapshots: 'Time of Retained Snapshots',
             l_no_snapshots: 'There are no snapshots for this volume.',
             l_retention_summary: 'Keep for',

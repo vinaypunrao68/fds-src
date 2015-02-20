@@ -31,7 +31,7 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
             
             var getWidth = function(){
                 
-                return $element.width() - endRangeWidth;
+                return $element.width() - endRangeWidth - 30;
             };
             
             // takes a value and maps it to a particular px
@@ -292,6 +292,10 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                 var details = $scope.snapToValidPointByValue( newVal );
                 $scope.sliderPosition = details.position;
                 $scope.selectedValue = details.value;
+            });
+            
+            $scope.$on( 'fds::timeslider-refresh', function(){
+                $timeout( function(){ init(); }, 50 );
             });
             
             $scope.$watch( 'domainLabels', init );

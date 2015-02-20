@@ -13,6 +13,28 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                 $scope.saveOnly = false;
             }
             
+            /** preset stuff **/
+            $scope.presets = [
+                {
+                    label: $filter( 'translate' )( 'volumes.snapshot.l_sparse' ),
+                    value: [{ range: 1, value: 1 },{range: 1, value: 2},{range: 2, value: 1},{range: 3, value: 30},{range: 4, value: 2}]
+                },
+                {
+                    label: $filter( 'translate' )( 'volumes.snapshot.l_standard' ),
+                    value: [{ range: 1, value: 1 },{range: 2, value: 1},{range: 3, value: 30},{range: 3, value: 180},{range: 4, value: 5}]                    
+                },
+                {
+                    label: $filter( 'translate' )( 'volumes.snapshot.l_dense' ),
+                    value: [{ range: 1, value: 2 },{range: 3, value: 30},{range: 3, value: 210},{range: 4, value: 2},{range: 4, value: 15}]                    
+                },
+                {
+                    label: $filter( 'translate' )( 'common.l_custom' ),
+                    value: undefined
+                }
+            ];
+            
+            $scope.timelinePreset = $scope.presets[0];
+        
             /**
             * This is all the range settings for our waterfall widget.
             * very little functionality is in here outside of defining the rules
@@ -46,19 +68,19 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     name: translate( 'volumes.l_continuous' )
                 },
                 {
-                    value: { range: 1, value: 2 },
+                    value: { range: 2, value: 1 },
                     name: translate( 'common.l_days' )
                 },
                 {
-                    value: { range: 2, value: 2 },
+                    value: { range: 3, value: 30 },
                     name: translate( 'common.l_weeks' )
                 },
                 {
-                    value: { range: 3, value: 60 },
+                    value: { range: 3, value: 180 },
                     name: translate( 'common.l_months' )
                 },
                 {
-                    value: { range: 4, value: 10 },
+                    value: { range: 4, value: 5 },
                     name: translate( 'common.l_years' )
                 }
             ];
@@ -198,6 +220,44 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             $scope.dayChoice = $scope.days[0];
             $scope.monthChoice = $scope.months[0];
             $scope.yearChoice = $scope.years[0];
+            
+            // just sets the button selection correctly
+            var initButtons = function(){
+                
+                for ( var p = 0; p < $scope.presets.length - 1; p++ ){
+                    
+                    var preset = $scope.presets[p];
+                    var found = true;
+                    
+                    for ( var i = 0; i < $scope.sliders.length; i++ ){
+                        var slider = $scope.sliders[i];
+                        var pValue = preset.value[i];
+                        
+                        if ( slider.value.range !== pValue.range || slider.value.value !== pValue.value ){
+                            found = false;
+                            break;
+                        }
+                    }
+                    
+                    if ( found === true ){
+                        $scope.timelinePreset = preset;
+                        return;
+                    }
+                }
+                
+                $scope.timelinePreset = $scope.presets[3];
+            };
+            
+            // takes the preset and changes the sliders
+            var setSlidersFromPreset = function( preset ){
+                
+                for ( var i = 0; i < $scope.sliders.length; i++ ){
+                    
+                    var slider = $scope.sliders[i];
+                    
+                    slider.value = preset.value[i];
+                }
+            };
             
             var setSliderValue = function( slider, days ){
                 
@@ -386,6 +446,8 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                     // add some items we'll need late
                     slider.policyId = policy.id;
                     slider.policyName = policy.name;
+                    
+                    initButtons();
                 }
             };
             
@@ -409,14 +471,12 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             
             $scope.save = function(){
                 translateScreenToPolicies();
-                $scope.editing = false;
                 
                 $scope.$emit( 'fds::timeline_policy_changed' );
             };
             
             $scope.cancel = function(){
                 
-                $scope.editing = false;
                 translatePoliciesToScreen();
             };
             
@@ -426,6 +486,24 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
 
                 translateScreenToPolicies();
 
+            });
+            
+            $scope.$watch( 'timelinePreset', function( newVal, oldVal ){
+                
+                if ( newVal === oldVal || !angular.isDefined( newVal ) ){
+                    return;
+                }
+                
+                if ( !angular.isDefined( newVal.value ) ){
+                    $scope.editing = true;
+                    $scope.$broadcast( 'fds::waterfall-slider-refresh' );
+                }
+                else {
+                    $scope.editing = false;
+                    
+                    setSlidersFromPreset( newVal );
+                    translateScreenToPolicies();
+                }
             });
             
             initWatcher();

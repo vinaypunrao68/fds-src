@@ -88,6 +88,8 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
             ];
             
             $scope.volumeVars.cloneFromVolume.timelineTime = $scope.now;
+            
+            $scope.$broadcast( 'fds::timeslider-refresh' );
         }
     });
     

@@ -27,20 +27,19 @@
             </div>
         </section>
         
-<!--
-        <section>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_data_connector</label>
             <connector-panel ng-model="dataConnector"></connector-panel>
         </section>
--->              
         <section class="side-by-side">
             <label class="right-align" style="width: 150px;" translate>volumes.l_qos</label>
-            <div class="volume-gray-container add-bottom-space" style="width: 700px;">
+            <div class="add-bottom-space">
                 <qos-panel ng-model="qos" save-only="true"></qos-panel>
             </div>
         </section>
         <section class="side-by-side">
             <label class="right-align" style="width: 150px;" translate>volumes.l_timeline</label>
-            <div class="volume-gray-container add-bottom-space" style="width: 700px;">
+            <div class="add-bottom-space">
                 <timeline-policy-panel ng-model="timelinePolicies" save-only="true"></timeline-policy-panel>
             </div>
         </section>
@@ -56,7 +55,7 @@
     </form>    
     </div>
 
-    <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;">
+    <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;margin-left: 150px;">
         <button class="btn btn-primary skinny" style="display: inline-block;" ng-click="save()">
             <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
         </button>

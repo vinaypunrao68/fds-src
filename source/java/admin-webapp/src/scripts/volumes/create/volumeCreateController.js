@@ -12,7 +12,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.mediaPolicy = 0;
     
     // default timeline policies
-    $scope.timelinePolicies = {
+    var defaultTimelinePolicies = {
         continuous: 24*60*60,
         policies: [
             // daily
@@ -21,19 +21,21 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
                 recurrenceRule: {FREQ: 'DAILY'}
             },
             {
-                retention: 14*24*60*60,
+                retention: 30*24*60*60,
                 recurrenceRule: {FREQ: 'WEEKLY'}
             },
             {
-                retention: 60*24*60*60,
+                retention: 180*24*60*60,
                 recurrenceRule: {FREQ: 'MONTHLY'}
             },
             {
-                retention: 366*24*60*60,
+                retention: 5*366*24*60*60,
                 recurrenceRule: {FREQ: 'YEARLY'}
             }
         ]
     };
+    
+    $scope.timelinePolicies = defaultTimelinePolicies;
     
     var creationCallback = function( volume, newVolume ){
 
@@ -225,28 +227,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             $scope.snapshotPolicies = [];
             
             // default timeline policies
-            $scope.timelinePolicies = {
-                continuous: 24*60*60,
-                policies: [
-                    // daily
-                    {
-                        retention: 7*24*60*60,
-                        recurrenceRule: {FREQ: 'DAILY'}
-                    },
-                    {
-                        retention: 14*24*60*60,
-                        recurrenceRule: {FREQ: 'WEEKLY'}
-                    },
-                    {
-                        retention: 60*24*60*60,
-                        recurrenceRule: {FREQ: 'MONTHLY'}
-                    },
-                    {
-                        retention: 366*24*60*60,
-                        recurrenceRule: {FREQ: 'YEARLY'}
-                    }
-                ]
-            };
+            $scope.timelinePolicies = defaultTimelinePolicies;
         }
     });
 
