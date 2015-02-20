@@ -839,21 +839,6 @@ void FDSP_OMControlPathReqHandler::NotifyQueueFull(
     orchMgr->NotifyQueueFull(fdsp_msg, queue_state_info);
 }
 
-void FDSP_OMControlPathReqHandler::NotifyPerfstats(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_PerfstatsType& perf_stats_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::NotifyPerfstats(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& perf_stats_msg) {
-
-#if 0
-    orchMgr->NotifyPerfstats(fdsp_msg, perf_stats_msg);
-#endif
-}
-
 void FDSP_OMControlPathReqHandler::TestBucket(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_TestBucket& test_buck_msg) {

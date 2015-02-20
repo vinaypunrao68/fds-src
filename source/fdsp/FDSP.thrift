@@ -546,33 +546,6 @@ struct FDSP_QoSControlMsgType {
   1: i64   total_rate,   /* total rate in FDS ops/second */
 }
 
-struct FDSP_PerfStatType {
-  1: i64   nios,     /* number of IOs in stat time i32erval  */
-  2: i64   min_lat,  /* minimum latency */
-  3: i64   max_lat,  /* maximum latency */
-  4: double ave_lat,  /* average latency */
-
-  5: i32 stat_type,     /* 0 - read/disk, 1 - write/disk, 2 - read/flash, 3 - write/flash, 5 - total
-                      * Note that SH will only return stat_type 5 (for now) */
-  6: i64 rel_seconds,  /* timestamp -- in seconds relative to FDSP_PerfstatsType::start_timestamp */
-}
-
-typedef list<FDSP_PerfStatType> FDSP_PerfStatListType
-
-struct FDSP_VolPerfHistType {
-  1:  i64 vol_uuid,
-  2:  FDSP_PerfStatListType  stat_list,  /* list of performance stats (one or more time slots) for this volume */
-}
-
-typedef list<FDSP_VolPerfHistType> FDSP_VolPerfHistListType
-
-struct FDSP_PerfstatsType {
-  1: FDSP_MgrIdType            node_type, /* type of node - SM/SH */
-  2: i32                       slot_len_sec, /* length of each stat time slot */
-  3: string                    start_timestamp, /* to calc absolute timestamps of stats which contain relative timestamps */
-  4: FDSP_VolPerfHistListType  vol_hist_list, /* list of performance histories of volumes */
-}
-
 struct FDSP_BucketStatType {
   1: string             vol_name,
   2: double             performance,  /* average iops */
@@ -864,7 +837,6 @@ service FDSP_OMControlPathReq {
   oneway void AttachBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
   oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
-  oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_msg),
   oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg),
   oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
   oneway void NotifyMigrationDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_msg)
@@ -877,7 +849,6 @@ service FDSP_OMControlPathResp {
   oneway void AttachBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
-  oneway void NotifyPerfstatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_rsp),
   oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp),
   oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),
   oneway void MigrationDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_resp)
