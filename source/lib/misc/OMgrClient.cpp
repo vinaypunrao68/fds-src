@@ -145,28 +145,6 @@ void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
     }
 }
 
-void
-OMgrClientRPCI::TierPolicy(FDSP_TierPolicyPtr &tier)
-{
-    LOGNOTIFY
-            << "OMClient received tier policy for vol "
-            << tier->tier_vol_uuid;
-
-    fds_verify(om_client->omc_srv_pol != nullptr);
-    om_client->omc_srv_pol->serv_recvTierPolicyReq(tier);
-}
-
-void
-OMgrClientRPCI::TierPolicyAudit(FDSP_TierPolicyAuditPtr &audit)
-{
-    LOGNOTIFY
-            << "OMClient received tier audit policy for vol "
-            << audit->tier_vol_uuid;
-
-    fds_verify(om_client->omc_srv_pol != nullptr);
-    om_client->omc_srv_pol->serv_recvTierPolicyAuditReq(audit);
-}
-
 void OMgrClientRPCI::NotifyBucketStats(FDSP_MsgHdrTypePtr& msg_hdr,
                                        FDSP_BucketStatsRespTypePtr& buck_stats_msg)
 {

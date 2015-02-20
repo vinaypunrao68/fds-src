@@ -1734,22 +1734,6 @@ om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr msg,
     OM_SmAgent::agt_cast_ptr(node)->om_send_node_throttle_lvl(msg);
 }
 
-// om_bcast_vol_tier_policy
-// ------------------------
-//
-void
-OM_NodeContainer::om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier)
-{
-}
-
-// om_bcast_vol_tier_audit
-// -----------------------
-//
-void
-OM_NodeContainer::om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier)
-{
-}
-
 // om_bcast_throttle_lvl
 // ---------------------
 //
@@ -1777,22 +1761,6 @@ OM_NodeContainer::om_set_throttle_lvl(float level)
     LOGNOTIFY << "Setting throttle level for local domain at " << level << std::endl;
 
     om_bcast_throttle_lvl(level);
-}
-
-// om_bcast_tier_policy
-// --------------------
-//
-void
-OM_NodeContainer::om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy)
-{
-}
-
-// om_bcast_tier_audit
-// -------------------
-//
-void
-OM_NodeContainer::om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit)
-{
 }
 
 // om_send_dlt

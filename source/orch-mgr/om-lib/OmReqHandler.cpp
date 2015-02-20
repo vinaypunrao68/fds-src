@@ -705,49 +705,6 @@ void FDSP_ConfigPathReqHandler::ListVolumes(
     vols->vol_up_foreach<std::vector<FDSP_VolumeDescType> &>(_return, add_vol_to_vector);
 }
 
-int32_t FDSP_ConfigPathReqHandler::applyTierPolicy(
-    const ::FDS_ProtocolInterface::tier_pol_time_unit& policy) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-    return 0;
-}
-
-int32_t FDSP_ConfigPathReqHandler::applyTierPolicy(
-    ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
-    int err = 0;
-    try {
-        err = orchMgr->ApplyTierPolicy(policy);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing apply tier policy";
-        return -1;
-    }
-
-    return err;
-}
-
-int32_t FDSP_ConfigPathReqHandler::auditTierPolicy(
-    const ::FDS_ProtocolInterface::tier_pol_audit& audit) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-    return 0;
-}
-
-int32_t FDSP_ConfigPathReqHandler::auditTierPolicy(
-    ::FDS_ProtocolInterface::tier_pol_auditPtr& audit) {
-    int err = 0;
-    try {
-        err = orchMgr->AuditTierPolicy(audit);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing audit tier policy";
-        return -1;
-    }
-
-    return err;
-}
-
-
 FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
     OrchMgr *oMgr) {
     orchMgr = oMgr;
