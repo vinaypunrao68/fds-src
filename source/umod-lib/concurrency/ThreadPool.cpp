@@ -17,7 +17,6 @@ class thpool_worker
     bool wk_spawn_thread(void);
 
     int                   wk_pool_idx;
-    int                   wk_idle_sec;
     dlist_t               wk_link;        // protected by owner's lock.
     thp_state_e           wk_curr_state;  // the thread's private state.
     thp_state_e           wk_prev_state;  // the thread's private state.
@@ -46,10 +45,6 @@ class thpool_worker
         wk_prev_state = wk_curr_state;
         wk_curr_state = RUNNING;
 
-        /* TODO(Vy): implement timewait queue! */
-        if (task->thp_sched_tck != 0) {
-            sleep(task->thp_sched_tck);
-        }
         (*task)();
         delete task;
     }
@@ -201,17 +196,7 @@ thpool_worker::wk_loop(void)
             fds_assert(wk_curr_state == IDLE);
             fds_assert(!dlist_empty(&wk_link));
 
-            if (wk_idle_sec > 0) {
-                if (!wk_condition.timed_wait(wk_owner->thp_mutex,
-                        boost::posix_time::seconds(wk_idle_sec))) {
-                    /* Timeout, exit the idle thread */
-                    run = false;
-                    dlist_rm_init(&wk_link);
-                    break;
-                }
-            } else {
-                wk_condition.wait(wk_owner->thp_mutex);
-            }
+            wk_condition.wait(wk_owner->thp_mutex);
         }
         if (wk_owner->thp_state == EXITING) {
             dlist_rm_init(&wk_link);
@@ -277,7 +262,7 @@ fds_threadpool::~fds_threadpool()
     thp_state = EXITING;
 
     /* Wake up all worker threads. */
-    for (i = 0; i < thp_num_threads; i++) {
+    for (i = 0; i < thp_num_threads; ++i) {
         thp_workers[i]->wk_wakeup();
     }
     while (thp_active_threads > 0) {
