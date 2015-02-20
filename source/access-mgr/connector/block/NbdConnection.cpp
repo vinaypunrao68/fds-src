@@ -103,6 +103,7 @@ constexpr char NbdConnection::fourKayZeros[];
 
 bool
 NbdConnection::write_response() {
+    static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
     fds_assert(response);
     fds_assert(total_blocks <= IOV_MAX);
 
@@ -142,7 +143,7 @@ NbdConnection::write_response() {
     if (to_write != nwritten) {
         if (nwritten < 0) {
             LOGERROR << "Socket write error: [" << strerror(errno) << "]";
-            if ((EAGAIN != errno) && (EWOULDBLOCK != errno))
+            if (EAGAIN != errno)
                 { throw NbdError::connection_closed; }
         } else {
             LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
@@ -549,6 +550,7 @@ ssize_t retry_read(int fd, void* buf, size_t count) {
 
 template<typename M>
 bool get_message_header(int fd, M& message) {
+    static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
     fds_assert(message.header_off >= 0);
     ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
     ssize_t nread = retry_read(fd,
@@ -587,6 +589,7 @@ ssize_t read_from_socket(int fd, boost::shared_ptr<std::string>& buffer, ssize_t
 
 template<typename M>
 bool get_message_payload(int fd, M& message) {
+    static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
     fds_assert(message.data_off >= 0);
     ssize_t to_read = message.header.length - message.data_off;
     ssize_t nread = read_from_socket(fd,
