@@ -128,8 +128,7 @@ class fds_threadpool : boost::noncopyable
   public:
     ~fds_threadpool();
     /*
-     * Create the threadpool with min, request threshold to spawn new thread,
-     * max, and the time in seconds to destroy an indle thread.
+     * Create the threadpool with specified number of thread.
      */
     explicit fds_threadpool(int num_thr = 10);
 
