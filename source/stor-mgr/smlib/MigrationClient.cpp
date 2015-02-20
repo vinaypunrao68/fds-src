@@ -469,12 +469,20 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
              *    metadata and object didn't migrate, but was resurrected before the second
              *    snapshot.  In this case, we treat it as a new object.
              */
-            if (objMD.first->getRefCnt() == 0) {
-                /* Treat this as a new object. */
-                LOGMIGRATE << "MigClientState=" << getMigClientState()
-                           << ": Object resurrected: Selecting object " << objMD.second->logString();
+            if (objMD.first->getRefCnt() == 0UL) {
+                /* This is counted as resurrection, but migrate only if the second snapshot of the object has
+                 * the ref_cnt > 0.
+                 */
+                if (objMD.second->getRefCnt() > 0UL) {
+                    /* Treat this as a new object. */
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": Object resurrected: Selecting object " << objMD.second->logString();
 
-                objMetaDataSet.emplace_back(objMD.second, false);
+                    objMetaDataSet.emplace_back(objMD.second, false);
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMD.second->logString();
+                }
             } else {
                 /* Ok. There is change in object metadata.  Calculate the difference
                  * and stuff the diff (ref_cnt's only) to the second of a pair.

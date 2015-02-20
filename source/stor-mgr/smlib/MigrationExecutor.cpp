@@ -89,6 +89,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     /**
      * Iterate through the level db and add to set of objects to rebalance.
      */
+    bool objAddedToFilterSet = false;
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
         // send objects that belong to DLT tokens that need to be migrated from src SM
@@ -111,13 +112,20 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
          */
         if (omdFilter.objRefCnt > 0) {
             LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                       << "FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
+                       << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
                        << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
                        << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
+            objAddedToFilterSet = true;
         }
     }
     delete it;
+
+    if (objAddedToFilterSet) {
+        LOGCRITICAL << "UNSUPPORTED CONFIGURATION: "
+                    << "Executor " << std::hex << executorId << std::dec
+                    << " added at least on objet to the filter set.";
+    }
 
     // before sending rebalance msgs to source SM, move to next state, in case we
     // receive responses before finish sending all the messages...
