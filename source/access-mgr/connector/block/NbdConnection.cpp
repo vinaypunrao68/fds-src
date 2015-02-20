@@ -146,7 +146,7 @@ NbdConnection::write_response() {
                 fds_assert(false);
             case EBADF:
             case EPIPE:
-                throw connection_closed;
+                throw NbdError::connection_closed;
             }
         } else {
             LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
@@ -227,7 +227,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         LOGNORMAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volDesc);
         if (ERR_OK != err || apis::BLOCK != volDesc.policy.volumeType)
-            throw connection_closed;
+            throw NbdError::connection_closed;
     }
 
     // Fix endianness
@@ -300,12 +300,7 @@ NbdConnection::hsReq(ev::io &watcher) {
           << " length " << request.header.length
           << " ahead of you: " <<  resp_needed.fetch_add(1, std::memory_order_relaxed);
 
-    Error err = dispatchOp(watcher,
-                           request.header.opType,
-                           request.header.handle,
-                           request.header.offset,
-                           request.header.length,
-                           request.data);
+    Error err = dispatchOp();
     request.data.reset();
     ensure(ERR_OK == err);
     return;
@@ -399,20 +394,19 @@ NbdConnection::hsReply(ev::io &watcher) {
 }
 
 Error
-NbdConnection::dispatchOp(ev::io &watcher,
-                          fds_uint32_t opType,
-                          fds_int64_t handle,
-                          fds_uint64_t offset,
-                          fds_uint32_t length,
-                          boost::shared_ptr<std::string> data) {
-    switch (opType) {
+NbdConnection::dispatchOp() {
+    auto& handle = request.header.handle;
+    auto& offset = request.header.offset;
+    auto& length = request.header.length;
+
+    switch (request.header.opType) {
         UturnPair utPair;
         case NBD_CMD_READ:
             if (doUturn) {
                 // TODO(Andrew): Hackey uturn code. Remove.
                 utPair.handle = handle;
                 utPair.length = length;
-                utPair.opType = opType;
+                utPair.opType = NBD_CMD_READ;
                 readyHandles.push(utPair);
 
                 // We have something to write, so ask for events
@@ -427,24 +421,24 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 // TODO(Andrew): Hackey uturn code. Remove.
                 utPair.handle = handle;
                 utPair.length = length;
-                utPair.opType = opType;
+                utPair.opType = NBD_CMD_WRITE;
                 readyHandles.push(utPair);
 
                 // We have something to write, so ask for events
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
-                 fds_assert(data);
-                 nbdOps->write(data, length, offset, handle);
+                 fds_assert(request.data);
+                 nbdOps->write(request.data, length, offset, handle);
             }
             break;
         case NBD_CMD_FLUSH:
             break;
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
-            throw shutdown_requested;
+            throw NbdError::shutdown_requested;
             break;
         default:
-            fds_panic("Unknown NBD op %d", opType);
+            fds_panic("Unknown NBD op %d", request.header.opType);
     }
     return ERR_OK;
 }
@@ -518,9 +512,9 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 fds_panic("Unknown NBD connection state %d", hsState);
         }
     }
-    } catch(Errors e) {
+    } catch(NbdError const& e) {
         // If we had an error, stop the event loop too
-        if (e == connection_closed) {
+        if (e == NbdError::connection_closed) {
             asyncWatcher->stop();
             ioWatcher->stop();
         }
@@ -548,29 +542,30 @@ NbdConnection::readWriteResp(NbdResponseVector* response) {
     asyncWatcher->send();
 }
 
+ssize_t retry_read(int fd, void* buf, size_t count) {
+    ssize_t e = 0;
+    do {
+        e = read(fd, buf, count);
+    } while ((0 > e) && ((EAGAIN == errno) || (EWOULDBLOCK == errno)));
+    return e;
+}
+
 template<typename M>
 bool get_message_header(int fd, M& message) {
     fds_assert(message.header_off >= 0);
     ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
-    ssize_t nread = read(fd,
+    ssize_t nread = retry_read(fd,
                          reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
                          to_read);
     if (nread < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-            LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-        switch (errno) {
-        case EINVAL:
+        LOGERROR << "Socket read error: [" << strerror(errno) << "]";
+        if (0 == nread) {
+            LOGNORMAL << "Client disconnected";
+        } else if (EINVAL == errno) {
             LOGERROR << "Read vector bug";
             fds_assert(false);
-        case EBADF:
-        case EPIPE:
-            throw NbdConnection::connection_closed;
         }
-        LOGWARN << "Get message header interrupted";
-        return false;
-    } else if (0 == nread) {
-        LOGNORMAL << "Client disconnected";
-        throw NbdConnection::connection_closed;
+        throw NbdError::connection_closed;
     } else if (nread < to_read) {
         LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.header_off += nread;
@@ -586,11 +581,11 @@ ssize_t read_from_socket(int fd, M& buffer, ssize_t off, ssize_t len);
 
 template<>
 ssize_t read_from_socket(int fd, std::array<char, 1024>& buffer, ssize_t off, ssize_t len)
-{ return read(fd, buffer.data() + off, len); }
+{ return retry_read(fd, buffer.data() + off, len); }
 
 template<>
 ssize_t read_from_socket(int fd, boost::shared_ptr<std::string>& buffer, ssize_t off, ssize_t len)
-{ return read(fd, &(*buffer)[0] + off, len); }
+{ return retry_read(fd, &(*buffer)[0] + off, len); }
 
 template<typename M>
 bool get_message_payload(int fd, M& message) {
@@ -600,22 +595,15 @@ bool get_message_payload(int fd, M& message) {
                                      message.data,
                                      message.data_off,
                                      to_read);
-    if (nread < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-            LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-        switch (errno) {
-        case EINVAL:
+    if (nread <= 0) {
+        LOGERROR << "Socket read error: [" << strerror(errno) << "]";
+        if (0 == nread) {
+            LOGNORMAL << "Client disconnected";
+        } else if (EINVAL == errno) {
             LOGERROR << "Read vector bug";
             fds_assert(false);
-        case EBADF:
-        case EPIPE:
-            throw NbdConnection::connection_closed;
         }
-        LOGWARN << "Get message payload interrupted.";
-        return false;
-    } else if (0 == nread) {
-        LOGNORMAL << "Client disconnected";
-        throw NbdConnection::connection_closed;
+        throw NbdError::connection_closed;
     } else if (nread < to_read) {
         LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.data_off += nread;

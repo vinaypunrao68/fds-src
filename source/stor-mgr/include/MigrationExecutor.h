@@ -99,6 +99,11 @@ class MigrationExecutor {
      */
     void handleMigrationRoundDone(const Error& error);
 
+    /// callback from SL on rebalance filter set msg
+    void objectRebalanceFilterSetResp(EPSvcRequest* req,
+                                      const Error& error,
+                                      boost::shared_ptr<std::string> payload);
+
     /// callback from SL on second rebalance delta set msg response
     void getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                      const Error& error,

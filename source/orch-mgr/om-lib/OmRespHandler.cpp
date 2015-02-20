@@ -9,57 +9,6 @@ namespace fds {
 FDSP_ControlPathRespHandler::FDSP_ControlPathRespHandler(OrchMgr *oMgr) {
     orchMgr = oMgr;
 }
-void FDSP_ControlPathRespHandler::NotifyAddVolResp(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_add_vol_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_ControlPathRespHandler::NotifyAddVolResp(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp) {
-    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
-            << "OrchMgr: received response for NotifyAddVol";
-}
-
-void FDSP_ControlPathRespHandler::NotifyRmVolResp(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_ControlPathRespHandler::NotifyRmVolResp(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
-    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
-            << "OrchMgr: received response for NotifyRmVol";
-}
-
-void FDSP_ControlPathRespHandler::NotifyModVolResp(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_mod_vol_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_ControlPathRespHandler::NotifyModVolResp(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp) {
-    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
-            << "OrchMgr: received response for NotifyModVol";
-}
-
-void FDSP_ControlPathRespHandler::NotifySnapVolResp(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_ControlPathRespHandler::NotifySnapVolResp(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp) {
-    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
-            << "OrchMgr: received response for NotifySnapVol";
-}
 
 void FDSP_ControlPathRespHandler::AttachVolResp(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

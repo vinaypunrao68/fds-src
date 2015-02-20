@@ -290,8 +290,8 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                             policy.recurrenceRule.BYMONTHDAY = [$scope.monthChoice.value];
                         }
                         else {
-                            policy.recurrenceRule.BYWEEKNO = [$scope.monthChoice.value];
-                            policy.recurrenceRule.BYDAY = [$scope.dayChoice.value];
+//                            policy.recurrenceRule.BYWEEKNO = [$scope.monthChoice.value];
+                            policy.recurrenceRule.BYDAY = [$scope.monthChoice.value + $scope.dayChoice.value];
                         }
                     }
                     
@@ -344,7 +344,9 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                         case 'MONTHLY':
                             slider = $scope.sliders[3];
                             
-                            if ( !angular.isDefined( policy.recurrenceRule.BYMONTHDAY ) && !angular.isDefined( policy.recurrenceRule.BYWEEKNO ) ){
+//                            if ( !angular.isDefined( policy.recurrenceRule.BYMONTHDAY ) && !angular.isDefined( policy.recurrenceRule.BYWEEKNO ) ){     
+                                
+                            if ( !angular.isDefined( policy.recurrenceRule.BYMONTHDAY ) && !angular.isDefined( policy.recurrenceRule.BYDAY ) ){
                                 break;
                             }
                             
@@ -357,7 +359,9 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                                 }
                             }
                             else {
-                                if ( policy.recurrenceRule.BYWEEKNO[0] == 1 ){
+
+                                var dayVal = policy.recurrenceRule.BYDAY[0].substr( 0, 1 );
+                                if ( dayVal == 1 ){
                                     $scope.monthChoice = $scope.months[2];
                                 }
                                 else {

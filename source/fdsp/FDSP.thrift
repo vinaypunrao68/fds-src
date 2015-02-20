@@ -471,13 +471,6 @@ enum FDSP_NotifyVolFlag {
   FDSP_NOTIFY_VOL_WILL_SYNC    // for create vol -- volume meta already exists on other node, will be synced
 }
 
-struct FDSP_NotifyVolType {
-  1: FDSP_VolNotifyType 	 type,       /* Type of notify */
-  2: string             	 vol_name,   /* Name of the volume */
-  3: FDSP_VolumeDescType	 vol_desc,   /* Volume properties and attributes */
-  4: FDSP_NotifyVolFlag          flag        /* see FDSP_NotifyVolFlag */
-}
-
 struct FDSP_AttachVolType {
   1: string 		 vol_name, /* Name of the volume */
   2: FDSP_VolumeDescType	 vol_desc, /* Volume properties and attributes */
@@ -865,17 +858,6 @@ struct FDSP_GetObjMetadataResp {
  2: FDSP_MigrateObjectMetadata 	meta_data
 }
 
-enum FDSP_ScavengerCmd {
-  FDSP_SCAVENGER_ENABLE,     // enable automatic GC process
-  FDSP_SCAVENGER_DISABLE,    // disable GC
-  FDSP_SCAVENGER_START,      // start GC
-  FDSP_SCAVENGER_STOP        // stop GC if it's running
-}
-
-struct FDSP_ScavengerType {
-  1: FDSP_ScavengerCmd  cmd
-}
-
 /* Current state of tokens in an SM */
 struct FDSP_TokenMigrationStats {
 	/* Number of tokens for which migration is complete */
@@ -974,7 +956,6 @@ service FDSP_ConfigPathReq {
   i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
-  i32 ScavengerCommand(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerType gc_req),
   list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),
   list <FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg),
   i32 ShutdownDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ShutdownDomainType dom_req)
@@ -1018,10 +999,6 @@ service FDSP_ControlPathReq {
 
   /* OM to SM/DM/SH control messages */
 
-  oneway void NotifyAddVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_req),
-  oneway void NotifyRmVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_req),
-  oneway void NotifyModVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_req),
-  oneway void NotifySnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_snap_vol_req),
   oneway void AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_req),
   oneway void DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_req),
   oneway void NotifyNodeAdd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
@@ -1036,14 +1013,9 @@ service FDSP_ControlPathReq {
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
   oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg),
   oneway void NotifyStartMigration(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
-  oneway void NotifyScavengerCmd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerType gc_info)
 }
 
 service FDSP_ControlPathResp {
-  oneway void NotifyAddVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_resp),
-  oneway void NotifyRmVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_resp),
-  oneway void NotifyModVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_resp),
-  oneway void NotifySnapVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_snap_vol_resp),
   oneway void AttachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_resp),
   oneway void DetachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_resp),
   oneway void NotifyNodeAddResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),

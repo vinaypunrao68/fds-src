@@ -1,6 +1,6 @@
 ---
 -   name: check_fds_install
-    shell: dpkg -l | grep fds-platform | wc -l
+    shell: dpkg -l | grep fds-platform
     ignore_errors: True
     register: fds_installed
 

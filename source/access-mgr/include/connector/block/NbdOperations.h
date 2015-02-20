@@ -208,9 +208,13 @@ class NbdResponseVector {
 };
 
 // Response interface for NbdOperations
-class NbdOperationsResponseIface {
-  public:
-    virtual ~NbdOperationsResponseIface() {}
+struct NbdOperationsResponseIface {
+    NbdOperationsResponseIface() = default;
+    NbdOperationsResponseIface(NbdOperationsResponseIface const&) = delete;
+    NbdOperationsResponseIface& operator=(NbdOperationsResponseIface const&) = delete;
+    NbdOperationsResponseIface(NbdOperationsResponseIface const&&) = delete;
+    NbdOperationsResponseIface& operator=(NbdOperationsResponseIface const&&) = delete;
+    virtual ~NbdOperationsResponseIface() = default;
 
     virtual void readWriteResp(NbdResponseVector* response) = 0;
 };
