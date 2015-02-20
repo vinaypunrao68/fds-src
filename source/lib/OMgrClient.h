@@ -13,7 +13,6 @@
 
 #include <unordered_map>
 #include <concurrency/RwLock.h>
-#include <net-proxies/vol_policy.h>
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <LocalClusterMap.h>
@@ -76,8 +75,6 @@ typedef void (*node_event_handler_t)(int node_id,
                                      int node_state,
                                      fds_uint32_t node_port,
                                      FDSP_MgrIdType node_type);
-typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
-typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
 typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
                                            const FDSP_BucketStatsRespTypePtr& buck_stats);
 typedef Error (*catalog_event_handler_t)(fds_catalog_action_t cat_action,
@@ -110,8 +107,6 @@ class OMgrClient {
     node_event_handler_t node_evt_hdlr;
     migration_event_handler_t migrate_evt_hdlr;
     dltclose_event_handler_t dltclose_evt_hdlr;
-    tier_cmd_handler_t       tier_cmd_hdlr;
-    tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
     catalog_event_handler_t catalog_evt_hdlr;
 
@@ -173,9 +168,6 @@ class OMgrClient {
     // too big and all methods uses its data as global variables with big lock.
     //
     fds_log        *omc_log;
-
-    // Extneral plugin object to handle policy requests.
-    VolPolicyServ  *omc_srv_pol;
 
     // int subscribeToOmEvents(unsigned int om_ip_addr,
     // int tennant_id, int domain_id, int omc_port_num= 0);
@@ -247,9 +239,6 @@ class OMgrClient {
     Error updateDmt(bool dmt_type, std::string& dmt_data);
     int sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
                             const std::string& session_uuid);
-
-    int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
-    int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
     int recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
                         const FDSP_BucketStatsRespTypePtr& buck_stats_msg);
 };
@@ -339,18 +328,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                          FDSP_DMT_TypePtr& dmt_info);
-
-    void TierPolicy(const FDSP_TierPolicy &tier) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void TierPolicy(FDSP_TierPolicyPtr &tier);
-
-    void TierPolicyAudit(const FDSP_TierPolicyAudit &audit) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void TierPolicyAudit(FDSP_TierPolicyAuditPtr &audit);
 
     void NotifyBucketStats(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
                            const FDS_ProtocolInterface::FDSP_BucketStatsRespType& buck_stats_msg) {

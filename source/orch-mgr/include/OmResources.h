@@ -457,8 +457,6 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_handle_perfstats_from_am(const fpi::FDSP_VolPerfHistListType &list,
                                              const std::string start_timestamp);
 
-    virtual void om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy);
-    virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
     virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_snap(VolumeInfo::pointer vol);
@@ -466,8 +464,6 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
                                              fds_bool_t check_only);
     virtual fds_uint32_t om_bcast_vol_detach(VolumeInfo::pointer vol);
-    virtual void om_bcast_vol_tier_policy(const fpi::FDSP_TierPolicyPtr &tier);
-    virtual void om_bcast_vol_tier_audit(const fpi::FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
     virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt,
                                       fds_bool_t to_sm = true,

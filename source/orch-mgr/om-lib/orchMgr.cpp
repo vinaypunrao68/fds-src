@@ -158,7 +158,6 @@ void OrchMgr::proc_pre_startup()
                 cfg_req_handler);
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
-    om_policy_srv = new Orch_VolPolicyServ();
 }
 
 void OrchMgr::proc_pre_service()
@@ -207,16 +206,6 @@ const std::string &
 OrchMgr::om_stor_prefix()
 {
     return orchMgr->stor_prefix;
-}
-
-int OrchMgr::ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy) {  // NOLINT
-    om_policy_srv->serv_recvTierPolicyReq(policy);
-    return 0;
-}
-
-int OrchMgr::AuditTierPolicy(::fpi::tier_pol_auditPtr& audit) {  // NOLINT
-    om_policy_srv->serv_recvAuditTierPolicy(audit);
-    return 0;
 }
 
 int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,

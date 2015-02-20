@@ -484,16 +484,6 @@ struct CtrlNotifySnapVol {
      3: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 
-/* ------------------------  CtrlTierPolicyTypeId  ----------------------------- */
-struct CtrlTierPolicy {
-     1: FDSP.FDSP_TierPolicy      tier_policy;
-}
-
-/* ----------------------  CtrlTierPolicyAuditTypeId  -------------------------- */
-struct CtrlTierPolicyAudit {
-     1: FDSP.FDSP_TierPolicyAudit tier_audit;
-}
-
 /* ------------ Debug message for starting hybrid tier controller manually --------- */
 struct CtrlStartHybridTierCtrlrMsg
 {

@@ -238,8 +238,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_bool_t testUturnPutObj;
 
      checksum_calc   *chksumPtr;
-     // Extneral plugin object to handle policy requests.
-     VolPolicyServ  *omc_srv_pol;
 
      fds_bool_t isShuttingDown() const {
          return shuttingDown;

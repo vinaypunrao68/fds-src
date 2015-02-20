@@ -20,7 +20,6 @@
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <omutils.h>
-#include <OmTier.h>
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
@@ -92,8 +91,6 @@ class OrchMgr: public PlatformProcess {
 
     /* policy manager */
     VolPolicyMgr           *policy_mgr;
-    Thrift_VolPolicyServ   *om_ice_proxy;
-    Orch_VolPolicyServ     *om_policy_srv;
     kvstore::ConfigDB      *configDB;
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
@@ -130,8 +127,6 @@ class OrchMgr: public PlatformProcess {
                         const fpi::FDSP_NotifyQueueStateTypePtr& queue_state_req);
     void NotifyPerfstats(const boost::shared_ptr<fpi::AsyncHdr>& fdsp_msg,
                         const fpi::FDSP_PerfstatsType  * perf_stats_msg);
-    int ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy);  // NOLINT
-    int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
 
     fds::snapshot::Manager snapshotMgr;
     DeleteScheduler deleteScheduler;
@@ -279,16 +274,6 @@ class FDSP_ConfigPathReqHandler : virtual public fpi::FDSP_ConfigPathReqIf {
         int32_t ScavengerCommand(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_ScavengerTypePtr& gc_msg);
-
-        int32_t applyTierPolicy(
-            const ::FDS_ProtocolInterface::tier_pol_time_unit& policy);
-        int32_t applyTierPolicy(
-            ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy);
-
-        int32_t auditTierPolicy(
-            const ::FDS_ProtocolInterface::tier_pol_audit& audit);
-        int32_t auditTierPolicy(
-            ::FDS_ProtocolInterface::tier_pol_auditPtr& audit);
 
         void ListServices(std::vector<fpi::FDSP_Node_Info_Type> & ret,
                           const fpi::FDSP_MsgHdrType& fdsp_msg);
