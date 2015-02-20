@@ -601,8 +601,8 @@ bool get_message_payload(int fd, M& message) {
     if (nread <= 0) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
-                LOGWARN << "Spurious wakeup? Have " << message.data_off << " bytes of header.";
-                return false;
+                LOGTRACE << "Payload not there.";
+                return false; // We were optimistic the payload was ready.
             case EPIPE:
                 LOGNOTIFY << "Client disconnected";
             default:
