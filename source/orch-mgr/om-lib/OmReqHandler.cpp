@@ -795,36 +795,6 @@ void FDSP_OMControlPathReqHandler::TestBucket(
 #endif
 }
 
-void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_MigrationStatusType& status_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg) {
-
-    try {
-        LOGNOTIFY << "Received migration done notification from node "
-                  << fdsp_msg->src_node_name << ":"
-                  << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
-
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-
-        // TODO(Anna) Should we use node names or node uuids directly in
-        // fdsp messages? for now getting uuid from hashing the name
-        NodeUuid node_uuid(fdsp_msg->src_service_uuid.uuid);
-        Error err = domain->om_recv_migration_done(node_uuid,
-                                                   status_msg->DLT_version,
-                                                   fdsp_msg->err_code);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing migration done request";
-    }
-}
-
 void FDSP_OMControlPathReqHandler::migrationDone(boost::shared_ptr<fpi::AsyncHdr>& hdr,
         boost::shared_ptr<fpi::CtrlNotifyMigrationStatus>& status) {
 }

@@ -78,24 +78,6 @@ void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
     om_client->recvDLTUpdate(dlt_info, msg_hdr->session_uuid);
 }
 
-void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
-                                          FDSP_DLT_Data_TypePtr& dlt_info) {
-    // Only SM needs to process these migrations
-    Error err(ERR_OK);
-    if (om_client->getNodeType() == fpi::FDSP_STOR_MGR) {
-        err = om_client->recvDLTStartMigration(dlt_info);
-        if (err.ok()) {
-            om_client->recvMigrationEvent(dlt_info->dlt_type);
-        } else {
-            LOGERROR << "We failed to de-serialize dlt, so not going "
-                     << " to do migration, returning error " << err;
-            om_client->sendMigrationStatusToOM(err);
-        }
-    } else {
-        om_client->sendMigrationStatusToOM(ERR_OK);
-    }
-}
-
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                                      FDSP_DMT_TypePtr& dmt_info) {
     #if 0
@@ -451,28 +433,6 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
         this->migrate_evt_hdlr(dlt_type);
     }
     return (0);
-}
-
-int OMgrClient::sendMigrationStatusToOM(const Error& err) {
-    if (fNoNetwork) return 0;
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        FDSP_MigrationStatusTypePtr migr_status_msg(new FDSP_MigrationStatusType());
-        migr_status_msg->DLT_version = getDltVersion();
-        migr_status_msg->context = 0;
-        om_client_prx->NotifyMigrationDone(msg_hdr, migr_status_msg);
-
-        LOGNOTIFY << "OMClient sending migration done event to OM for DLT version "
-                  << migr_status_msg->DLT_version;
-    }
-    catch(...) {
-        LOGERROR << "OMClient unable to send migration status to OM."
-                 << " Check if OM is up and restart";
-        return -1;
-    }
-
-    return 0;
 }
 
 Error OMgrClient::sendDMTPushMetaAck(const Error& op_err,
