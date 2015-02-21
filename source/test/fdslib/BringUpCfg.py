@@ -698,6 +698,7 @@ class FdsConfigFile(object):
         self.cfg_cli       = None
         self.cfg_om        = None
         self.cfg_parser    = ConfigParser.ConfigParser()
+        self.cfg_localHost = None
 
     def config_parse(self):
         verbose = {
@@ -776,8 +777,10 @@ class FdsConfigFile(object):
         for dg in self.cfg_datagen:
             dg.dg_parse_blocks()
 
-        # Why do we want to do this? Just execute the scenarios in the order listed.
-        #self.cfg_scenarios.sort()
+        # Generate a localhost node instance so that we have a
+        # node agent to execute commands locally when necessary.
+        items = [('enable', True), ('ip','localhost'), ('fds_root', '/fds')]
+        self.cfg_localhost = FdsNodeConfig("localhost", items, verbose)
 
     def config_parse_scenario(self):
         """
@@ -821,7 +824,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.tar_file, _fds_source_dir=opt.fds_source_dir,
+            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.install, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
@@ -865,6 +868,10 @@ class FdsConfigRun(object):
 
             if n.nd_run_om() == True:
                 self.rt_om_node = n
+
+        # Set up our localhost "node" as well.
+        self.rt_obj.cfg_localhost.nd_connect_agent(self.rt_env, quiet_ssh)
+        self.rt_obj.cfg_localhost.nd_agent.setup_env('')
 
     def rt_get_obj(self, obj_name):
         return getattr(self.rt_obj, obj_name)

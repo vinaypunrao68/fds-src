@@ -29,6 +29,7 @@ RUN ln -s /usr/bin/nodejs /usr/bin/node
 
 # Httpie
 RUN easy_install httpie
+RUN easy_install -U pip
 RUN pip install https://github.com/Lokaltog/powerline/tarball/develop
 
 # Tmux

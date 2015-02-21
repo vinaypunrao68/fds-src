@@ -135,7 +135,7 @@ var computeStats = function(){
     
     var vols = JSON.parse( window.localStorage.getItem( 'volumes' ) );
     
-    for ( var i = 0; i < vols.length; i++ ){
+    for ( var i = 0; vols != null && i < vols.length; i++ ){
         
         var volume = vols[i];
         var stat = JSON.parse( window.localStorage.getItem( volume.id + '_stats' ) );

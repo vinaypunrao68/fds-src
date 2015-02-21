@@ -600,9 +600,6 @@ set(SOURCE_FILES
     source/access-mgr/amlib/AmProcessor.cpp
     source/access-mgr/amlib/fdsn-server.cpp
     source/access-mgr/amlib/requests.cpp
-    source/access-mgr/block/am-nbd.cpp
-    source/access-mgr/block/nbd-test-mod.cpp
-    source/access-mgr/block/nbd-test-mod.h
     source/access-mgr/include/requests/AbortBlobTxReq.h
     source/access-mgr/include/requests/AttachVolBlobReq.h
     source/access-mgr/include/requests/CommitBlobTxReq.h
@@ -616,7 +613,6 @@ set(SOURCE_FILES
     source/access-mgr/include/requests/StatBlobReq.h
     source/access-mgr/include/requests/VolumeContentsReq.h
     source/access-mgr/include/AccessMgr.h
-    source/access-mgr/include/am-nbd.h
     source/access-mgr/include/am-node-workflow.h
     source/access-mgr/include/am-platform.h
     source/access-mgr/include/am-tx-mgr.h
@@ -627,7 +623,6 @@ set(SOURCE_FILES
     source/access-mgr/include/AmDataApi.h
     source/access-mgr/include/AmDispatcher.h
     source/access-mgr/include/AmProcessor.h
-    source/access-mgr/include/AmReqHandlers.h
     source/access-mgr/include/AmRequest.h
     source/access-mgr/include/AMSvcHandler.h
     source/access-mgr/include/fdsn-server.h
@@ -642,8 +637,6 @@ set(SOURCE_FILES
     source/access-mgr/stor-hvisor/StorHvQosCtrl.h
     source/access-mgr/test/AmFunctionalTest.cpp
     source/access-mgr/am-main.cpp
-    source/access-mgr/AmBindings.cpp
-    source/access-mgr/com_formationds_am_NativeAm.h
     source/apis/apis.thrift
     source/apis/Makefile
     source/checker/checker.cpp
@@ -656,15 +649,10 @@ set(SOURCE_FILES
     source/checker/smchk_driver.h
     source/data-mgr/dm-lib/dm-tvc/CommitLog.cpp
     source/data-mgr/dm-lib/dm-tvc/TimeVolumeCatalog.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmExtentTypes.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmOIDArrayMmap.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmPersistVc.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolDB.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolDir.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolFile.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmVcCache.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmVolumeCatalog.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmVolumeDirectory.cpp
     source/data-mgr/dm-lib/handlers/deleteblobhandler.cpp
     source/data-mgr/dm-lib/handlers/dmhandler.cpp
     source/data-mgr/dm-lib/handlers/getbuckethandler.cpp
@@ -678,15 +666,10 @@ set(SOURCE_FILES
     source/data-mgr/dm-lib/VolumeMeta.cpp
     source/data-mgr/include/dm-tvc/CommitLog.h
     source/data-mgr/include/dm-tvc/TimeVolumeCatalog.h
-    source/data-mgr/include/dm-vol-cat/DmExtentTypes.h
     source/data-mgr/include/dm-vol-cat/DmOIDArrayMmap.h
-    source/data-mgr/include/dm-vol-cat/DmPersistVc.h
     source/data-mgr/include/dm-vol-cat/DmPersistVolDB.h
-    source/data-mgr/include/dm-vol-cat/DmPersistVolDir.h
     source/data-mgr/include/dm-vol-cat/DmPersistVolFile.h
-    source/data-mgr/include/dm-vol-cat/DmVcCache.h
     source/data-mgr/include/dm-vol-cat/DmVolumeCatalog.h
-    source/data-mgr/include/dm-vol-cat/DmVolumeDirectory.h
     source/data-mgr/include/CatalogSync.h
     source/data-mgr/include/CatalogSyncRecv.h
     source/data-mgr/include/DataMgr.h
@@ -804,12 +787,6 @@ set(SOURCE_FILES
     source/include/fdsp/FDSP_MetaSyncResp.cpp
     source/include/fdsp/FDSP_MetaSyncResp.h
     source/include/fdsp/FDSP_MetaSyncResp_server.skeleton.cpp
-    source/include/fdsp/FDSP_MigrationPathReq.cpp
-    source/include/fdsp/FDSP_MigrationPathReq.h
-    source/include/fdsp/FDSP_MigrationPathReq_server.skeleton.cpp
-    source/include/fdsp/FDSP_MigrationPathResp.cpp
-    source/include/fdsp/FDSP_MigrationPathResp.h
-    source/include/fdsp/FDSP_MigrationPathResp_server.skeleton.cpp
     source/include/fdsp/FDSP_OMControlPathReq.cpp
     source/include/fdsp/FDSP_OMControlPathReq.h
     source/include/fdsp/FDSP_OMControlPathReq_server.skeleton.cpp
