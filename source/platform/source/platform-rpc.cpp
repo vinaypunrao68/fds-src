@@ -226,19 +226,6 @@ namespace fds
     }
 
     void
-    PlatRpcResp::CreateBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                                  const FDSP_CreateVolType   &crt_buck_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::CreateBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                                  fpi::FDSP_CreateVolTypePtr &crt_buck_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcResp::DeleteBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
                                   const FDSP_DeleteVolType   &del_buck_rsp)
     {

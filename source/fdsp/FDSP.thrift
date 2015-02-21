@@ -387,13 +387,6 @@ struct FDSP_CreateDomainType {
 
 }
 
-struct FDSP_CreateVolType {
-
-  1: string                  vol_name,
-  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
-
-}
-
 struct FDSP_TestBucket {
   1: string                 bucket_name,
   2: FDSP_VolumeDescType    vol_info, /* Bucket properties and attributes */
@@ -780,6 +773,11 @@ service FDSP_MetaDataPathResp {
     oneway void GetVolumeMetaDataResp(1:FDSP_MsgHdrType header, 2:FDSP_VolumeMetaData volumeMeta)
 }
 
+struct FDSP_CreateVolType {
+  1: string                  vol_name,
+  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+}
+
 /*
  * From fdscli to OM (sync messages)
  */
@@ -815,7 +813,6 @@ service FDSP_ConfigPathResp {
  * OM proxy
  */
 service FDSP_OMControlPathReq {
-  oneway void CreateBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_buck_req),
   oneway void DeleteBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_buck_req),
   oneway void ModifyBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_buck_req),
   oneway void AttachBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
@@ -825,7 +822,6 @@ service FDSP_OMControlPathReq {
 }
 
 service FDSP_OMControlPathResp {
-  oneway void CreateBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_buck_rsp),
   oneway void DeleteBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_buck_rsp),
   oneway void ModifyBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_buck_rsp),
   oneway void AttachBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),

@@ -288,13 +288,6 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
   public:
         explicit FDSP_OMControlPathReqHandler(OrchMgr *oMgr);
 
-        void CreateBucket(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_CreateVolType& crt_buck_req);
-        void CreateBucket(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req);
-
         void DeleteBucket(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_buck_req);

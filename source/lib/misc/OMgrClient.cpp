@@ -337,39 +337,6 @@ int OMgrClient::testBucket(const std::string& bucket_name,
     return 0;
 }
 
-int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeDescTypePtr& volInfo)
-{
-    if (fNoNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        fpi::CtrlCreateBucketPtr pkt(new fpi::CtrlCreateBucket());
-        FDSP_CreateVolType * volData = & pkt->cv;
-
-        volData->vol_name = volInfo->vol_name;
-        volData->vol_info.vol_name = volInfo->vol_name;
-        volData->vol_info.tennantId = volInfo->tennantId;
-        volData->vol_info.localDomainId = volInfo->localDomainId;
-
-        volData->vol_info.volType = volInfo->volType;
-        volData->vol_info.maxObjSizeInBytes = volInfo->maxObjSizeInBytes;
-        volData->vol_info.capacity = volInfo->capacity;
-
-        volData->vol_info.volPolicyId = 50;  //  default policy
-        volData->vol_info.placementPolicy = volInfo->placementPolicy;
-        volData->vol_info.mediaPolicy = volInfo->mediaPolicy;
-
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlCreateBucket), pkt);
-        req->invoke();
-        LOGNOTIFY << "OMClient sending create bucket request to OM ";
-    } catch(...) {
-        LOGERROR << "OMClient unable to push the create bucket request to OM."
-                 << "Check if OM is up and restart.";
-        return -1;
-    }
-
-    return 0;
-}
-
 int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
                                      const fpi::FDSP_VolumeDescTypePtr& vol_desc)
 {
