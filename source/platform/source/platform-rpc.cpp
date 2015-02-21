@@ -378,19 +378,6 @@ namespace fds
     }
 
     void
-    PlatRpcResp::NotifyPerfstatsResp(const FDSP_MsgHdrType    &fdsp_msg,
-                                     const FDSP_PerfstatsType &perf_stats_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::NotifyPerfstatsResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                                     fpi::FDSP_PerfstatsTypePtr &perf_stats_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcResp::TestBucketResp(const FDSP_MsgHdrType    &fdsp_msg,
                                 const FDSP_TestBucket    &test_buck_rsp)
     {
