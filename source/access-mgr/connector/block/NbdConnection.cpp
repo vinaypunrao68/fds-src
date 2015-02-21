@@ -554,36 +554,11 @@ ssize_t retry_read(int fd, void* buf, size_t count) {
 }
 
 template<typename M>
-bool get_message_header(int fd, M& message) {
-    static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
-    fds_assert(message.header_off >= 0);
-    ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
-    ssize_t nread = retry_read(fd,
-                         reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
-                         to_read);
-    if (nread <= 0) {
-        switch (0 > nread ? errno : EPIPE) {
-            case EAGAIN:
-                LOGWARN << "Spurious wakeup? Have " << message.header_off << " bytes of header.";
-                return false;
-            case EPIPE:
-                LOGNOTIFY << "Client disconnected";
-            default:
-                LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-                throw NbdError::shutdown_requested;
-        }
-    } else if (nread < to_read) {
-        LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
-        message.header_off += nread;
-        return false;
-    }
-    message.header_off = -1;
-    message.data_off = 0;
-    return true;
-}
-
-template<typename M>
 ssize_t read_from_socket(int fd, M& buffer, ssize_t off, ssize_t len);
+
+template<>
+ssize_t read_from_socket(int fd, uint8_t*& buffer, ssize_t off, ssize_t len)
+{ return retry_read(fd, buffer + off, len); }
 
 template<>
 ssize_t read_from_socket(int fd, std::array<char, 1024>& buffer, ssize_t off, ssize_t len)
@@ -593,15 +568,11 @@ template<>
 ssize_t read_from_socket(int fd, boost::shared_ptr<std::string>& buffer, ssize_t off, ssize_t len)
 { return retry_read(fd, &(*buffer)[0] + off, len); }
 
-template<typename M>
-bool get_message_payload(int fd, M& message) {
+template<typename D>
+bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
+{
     static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
-    fds_assert(message.data_off >= 0);
-    ssize_t to_read = message.header.length - message.data_off;
-    ssize_t nread = read_from_socket(fd,
-                                     message.data,
-                                     message.data_off,
-                                     to_read);
+    ssize_t nread = read_from_socket(fd, data, off, len);
     if (nread <= 0) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
@@ -613,12 +584,35 @@ bool get_message_payload(int fd, M& message) {
                 LOGERROR << "Socket read error: [" << strerror(errno) << "]";
                 throw NbdError::shutdown_requested;
         }
-    } else if (nread < to_read) {
-        LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
-        message.data_off += nread;
+    } else if (nread < len) {
+        LOGWARN << "Short read : [ " << std::dec << nread << " of " << len << "]";
+        off += nread;
         return false;
     }
     return true;
+}
+
+template<typename M>
+bool get_message_header(int fd, M& message) {
+    fds_assert(message.header_off >= 0);
+    ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
+
+    auto buffer = reinterpret_cast<uint8_t*>(&message.header);
+    if (nbd_read(fd, buffer, message.header_off, to_read))
+    {
+        message.header_off = -1;
+        message.data_off = 0;
+        return true;
+    }
+    return false;
+}
+
+template<typename M>
+bool get_message_payload(int fd, M& message) {
+    fds_assert(message.data_off >= 0);
+    ssize_t to_read = message.header.length - message.data_off;
+
+    return nbd_read(fd, message.data, message.data_off, to_read);
 }
 
 }  // namespace fds
