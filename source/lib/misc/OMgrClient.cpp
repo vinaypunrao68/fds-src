@@ -145,13 +145,6 @@ void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
     }
 }
 
-void OMgrClientRPCI::NotifyBucketStats(FDSP_MsgHdrTypePtr& msg_hdr,
-                                       FDSP_BucketStatsRespTypePtr& buck_stats_msg)
-{
-    fds_verify(msg_hdr->dst_id == fpi::FDSP_STOR_HVISOR);
-    om_client->recvBucketStats(msg_hdr, buck_stats_msg);
-}
-
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
                        fds_uint32_t _omPort,
@@ -347,29 +340,6 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
     return (0);
 }
 
-int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
-                                  int stat_slot_len,
-                                  const fpi::FDSP_VolPerfHistListType& hist_list) {
-    if (fNoNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        fpi::CtrlPerfStatsPtr pkt(new fpi::CtrlPerfStats());
-        FDSP_PerfstatsType * perf_stats_msg = & pkt->perfstats;
-        perf_stats_msg->node_type = my_node_type;
-        perf_stats_msg->start_timestamp = start_ts;
-        perf_stats_msg->slot_len_sec = stat_slot_len;
-        perf_stats_msg->vol_hist_list = hist_list;
-
-        LOGDEBUG << "OMClient pushing perfstats to OM ";
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlPerfStats), pkt);
-        req->invoke();
-    } catch(...) {
-        LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
-    }
-
-    return 0;
-}
-
 int OMgrClient::testBucket(const std::string& bucket_name,
                            const fpi::FDSP_VolumeDescTypePtr& vol_info,
                            fds_bool_t attach_vol_reqd,
@@ -392,27 +362,6 @@ int OMgrClient::testBucket(const std::string& bucket_name,
     } catch(...) {
         LOGERROR << "OMClient unable to push test bucket to OM. Check if OM is up and restart.";
     }
-    return 0;
-}
-
-int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
-{
-    if (fNoNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        fpi::CtrlGetBucketStatsPtr pkt(new fpi::CtrlGetBucketStats());
-        pkt->req_cookie = req_cookie;
-        FDSP_GetDomainStatsType * get_stats_msg = &pkt->gds;
-        get_stats_msg->domain_id = 1; /* this is ignored in OM */
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetBucketStats), pkt);
-        req->invoke();
-        LOGNOTIFY << "OMClient sending get bucket stats request to OM ";
-    } catch(...) {
-        LOGERROR << "OMClient unable to send GetBucketStats request to OM."
-                 << "Check if OM is up and restart.";
-        return -1;
-    }
-
     return 0;
 }
 
@@ -849,19 +798,6 @@ Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
     return err;
 }
 #endif
-
-int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
-                                const FDSP_BucketStatsRespTypePtr& stats_msg)
-{
-    LOGDEBUG << "OMClient received buckets' stats with timestamp  "
-             << stats_msg->timestamp;
-
-    if (bucket_stats_cmd_hdlr) {
-        bucket_stats_cmd_hdlr(msg_hdr, stats_msg);
-    }
-
-    return 0;
-}
 
 int
 OMgrClient::getNodeInfo(fds_uint64_t node_id,

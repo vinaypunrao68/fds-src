@@ -474,65 +474,6 @@ void FDSP_ConfigPathReqHandler::GetVolInfo(
     }
 }
 
-int32_t FDSP_ConfigPathReqHandler::GetDomainStats(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-    return 0;
-}
-
-int32_t FDSP_ConfigPathReqHandler::GetDomainStats(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
-
-    int err = 0;
-    try {
-        int domain_id = get_stats_msg->domain_id;
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-
-        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id;
-
-        /* Use default domain for now... */
-        NodeUuid svc_uuid(getUuidFromResourceName(fdsp_msg->src_node_name));
-        local->om_send_bucket_stats(5, svc_uuid, fdsp_msg->req_cookie);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing get domain stats";
-        return -1;
-    }
-
-    return err;
-}
-
-void FDSP_OMControlPathReqHandler::GetDomainStats(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::GetDomainStats(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
-
-    try {
-        int domain_id = get_stats_msg->domain_id;
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        NodeUuid svc_uuid((fdsp_msg->src_service_uuid).uuid);
-
-        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id
-                  << " from node " << fdsp_msg->src_node_name << ":"
-                  << std::hex << svc_uuid.uuid_get_val() << std::dec;
-
-        /* Use default domain for now... */
-        local->om_send_bucket_stats(5, svc_uuid, fdsp_msg->req_cookie);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing get domain stats";
-    }
-}
-
 int32_t FDSP_ConfigPathReqHandler::ActivateAllNodes(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ActivateAllNodesType& act_node_msg) {

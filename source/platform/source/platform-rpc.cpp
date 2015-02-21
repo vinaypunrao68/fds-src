@@ -251,19 +251,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::NotifyBucketStats(const fpi::FDSP_MsgHdrType          &msg_hdr,
-                                   const fpi::FDSP_BucketStatsRespType &buck_stats_msg)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyBucketStats(fpi::FDSP_MsgHdrTypePtr          &hdr,
-                                   fpi::FDSP_BucketStatsRespTypePtr &msg)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::NotifyStartMigration(const fpi::FDSP_MsgHdrType    &msg_hdr,
                                       const fpi::FDSP_DLT_Data_Type &dlt_info)
     {
@@ -386,19 +373,6 @@ namespace fds
     void
     PlatRpcResp::TestBucketResp(fpi::FDSP_MsgHdrTypePtr  &fdsp_msg,
                                 fpi::FDSP_TestBucketPtr  &test_buck_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcResp::GetDomainStatsResp(const FDSP_MsgHdrType           &fdsp_msg,
-                                    const FDSP_GetDomainStatsType   &get_stats_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::GetDomainStatsResp(fpi::FDSP_MsgHdrTypePtr         &fdsp_msg,
-                                    fpi::FDSP_GetDomainStatsTypePtr &get_stats_rsp)
     {
         fds_verify(0);
     }
