@@ -221,11 +221,6 @@ class OMgrClient {
                       const FDSP_Node_Info_TypePtr& node_info);
     int recvMigrationEvent(bool dlt_type);
     Error updateDlt(bool dlt_type, std::string& dlt_data);
-    int recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info, const std::string& session_uuid);
-    int recvDLTClose(FDSP_DltCloseTypePtr& close_info, const std::string& session_uuid);
-    int sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
-                            const std::string& session_uuid);
-    Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     Error recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
     Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
     Error sendDMTPushMetaAck(const Error& op_err, const std::string& session_uuid);
@@ -283,22 +278,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
                        FDSP_Node_Info_TypePtr& node_info);
-
-    void NotifyDLTUpdate(const FDSP_MsgHdrType& fdsp_msg,
-                         const FDSP_DLT_Data_Type& dlt_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-                         FDSP_DLT_Data_TypePtr& dlt_info);
-
-    void NotifyDLTClose(const FDSP_MsgHdrType& fdsp_msg,
-                        const FDSP_DltCloseType& dlt_close) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
-                        FDSP_DltCloseTypePtr& dlt_close);
 
     void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
                         const FDSP_PushMeta& push_meta_req) {

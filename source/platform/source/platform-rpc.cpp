@@ -140,32 +140,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::NotifyDLTUpdate(const FDSP_MsgHdrType    &fdsp_msg,
-                                 const FDSP_DLT_Data_Type &dlt_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                                 fpi::FDSP_DLT_Data_TypePtr &dlt_info)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyDLTClose(const FDSP_MsgHdrType    &fdsp_msg,
-                                const FDSP_DltCloseType &dlt_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyDLTClose(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                                fpi::FDSP_DltCloseTypePtr &dlt_info)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
                                  const FDSP_DMT_Type   &dmt_info)
     {

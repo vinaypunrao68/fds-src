@@ -73,11 +73,6 @@ void OMgrClientRPCI::NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
                              node_info->node_state, node_info);
 }
 
-void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-                                     FDSP_DLT_Data_TypePtr& dlt_info) {
-    om_client->recvDLTUpdate(dlt_info, msg_hdr->session_uuid);
-}
-
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                                      FDSP_DMT_TypePtr& dmt_info) {
     #if 0
@@ -98,11 +93,6 @@ void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
     #endif
 }
 
-
-void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
-                                    FDSP_DltCloseTypePtr& dlt_close) {
-    om_client->recvDLTClose(dlt_close, fdsp_msg->session_uuid);
-}
 
 void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_DmtCloseTypePtr& dmt_close) {
@@ -558,88 +548,6 @@ Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
     return err;
 }
 
-int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
-                              const std::string& session_uuid) {
-    Error err(ERR_OK);
-    LOGNOTIFY << "OMClient received new DLT commit version  "
-              << dlt_info->dlt_type;
-
-    omc_lock.write_lock();
-    err = dltMgr->addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
-    if (err.ok()) {
-        dltMgr->dump();
-    } else {
-        LOGERROR << "Failed to update DLT! check dlt_data was set";
-    }
-    omc_lock.write_unlock();
-
-    // send ack back to OM
-    boost::shared_ptr<fpi::FDSP_ControlPathRespClient> resp_client_prx =
-            omrpc_handler_session_->getRespClient(session_uuid);
-
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        msg_hdr->err_code = err.GetErrno();
-        if (!err.ok()) {
-            msg_hdr->result = FDSP_ERR_FAILED;
-        }
-        FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
-        dlt_resp->DLT_version = getDltVersion();
-        resp_client_prx->NotifyDLTUpdateResp(msg_hdr, dlt_resp);
-        LOGNOTIFY << "OMClient sent response for DLT update to OM";
-    } catch(...) {
-        LOGNOTIFY << "OMClient failed to send response to OM";
-        return -1;
-    }
-
-    return (0);
-}
-
-/**
- * DLT close event notifies that nodes in the cluster received
- * the commited (new) DLT
- */
-int OMgrClient::recvDLTClose(FDSP_DltCloseTypePtr& dlt_close,
-                             const std::string& session_uuid)
-{
-    LOGNORMAL << "OMClient received DLT close event for DLT version "
-              << dlt_close->DLT_version;
-
-    if (this->dltclose_evt_hdlr) {
-        this->dltclose_evt_hdlr(dlt_close, session_uuid);
-    }
-    return (0);
-}
-
-/**
- * Acking back dlt close notification to OM
- */
-int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
-                                    const std::string& session_uuid)
-{
-    LOGDEBUG << "Sending dlt close ack to OM";
-    int err = 0;
-
-    // send ack back to OM
-    boost::shared_ptr<fpi::FDSP_ControlPathRespClient> resp_client_prx =
-            omrpc_handler_session_->getRespClient(session_uuid);
-
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
-        dlt_resp->DLT_version = dlt_close->DLT_version;
-        resp_client_prx->NotifyDLTCloseResp(msg_hdr, dlt_resp);
-        LOGNOTIFY << "OMClient sent response for DLT close to OM";
-    } catch(...) {
-        LOGERROR << "OMClient failed to send response to OM";
-        err = -1;
-    }
-
-    return err;
-}
-
 #if 0
 /**
  * DMT close event notifies that nodes in the cluster received
@@ -698,21 +606,6 @@ int OMgrClient::sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
     return (0);
 }
 #endif
-
-Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
-    Error err(ERR_OK);
-    LOGNOTIFY << "OMClient received new Migration DLT version  "
-              << dlt_info->dlt_type;
-
-    omc_lock.write_lock();
-    err = dltMgr->addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
-    if (err.ok()) {
-        dltMgr->dump();
-    }
-    omc_lock.write_unlock();
-
-    return err;
-}
 
 Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
                                   const std::string& session_uuid) {

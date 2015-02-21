@@ -385,20 +385,6 @@ class FDSP_ControlPathRespHandler : virtual public fpi::FDSP_ControlPathRespIf {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
 
-        void NotifyDLTUpdateResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp);
-        void NotifyDLTUpdateResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
-
-        void NotifyDLTCloseResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp);
-        void NotifyDLTCloseResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
-
         void NotifyDMTCloseResp(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
