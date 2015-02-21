@@ -398,10 +398,6 @@ struct FDSP_CreateDomainType {
 
 }
 
-struct FDSP_GetDomainStatsType {
-  1: i32			 domain_id,
-}
-
 struct FDSP_CreateVolType {
 
   1: string                  vol_name,
@@ -813,7 +809,6 @@ service FDSP_ConfigPathReq {
   i32 DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
   i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   FDSP_VolumeDescType GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req) throws (1:FDSP_VolumeNotFound not_found),
-  i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
   i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
@@ -838,7 +833,6 @@ service FDSP_OMControlPathReq {
   oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
   oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
   oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg),
-  oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
   oneway void NotifyMigrationDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_msg)
 }
 
@@ -850,7 +844,6 @@ service FDSP_OMControlPathResp {
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
   oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp),
-  oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),
   oneway void MigrationDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_resp)
 }
 
@@ -868,7 +861,6 @@ service FDSP_ControlPathReq {
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
   oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
   oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
-  oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg),
   oneway void NotifyStartMigration(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
 }
 

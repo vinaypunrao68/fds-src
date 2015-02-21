@@ -617,15 +617,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_id = vm["domain-id"].as<int>();
 
         NETWORKCHECK(cfgPrx->ShutdownDomain(msg_hdr, domainData));
-    } else if (vm.count("domain-stats") && vm.count("domain-id")) {
-        LOGNOTIFY << " Domain Stats ";
-        LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
-
-        FDS_ProtocolInterface::FDSP_GetDomainStatsType domainData;
-        domainData.domain_id = vm["domain-id"].as<int>();
-
-        NETWORKCHECK(cfgPrx->GetDomainStats(msg_hdr, domainData));
-
     } else if (vm.count("throttle") && vm.count("throttle-level")) {
         LOGNOTIFY << " Throttle ";
         LOGNOTIFY << vm["throttle-level"].as<float>() << "-throttle_level";

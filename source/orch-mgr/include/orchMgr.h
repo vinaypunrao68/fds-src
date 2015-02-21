@@ -125,8 +125,6 @@ class OrchMgr: public PlatformProcess {
                      const FdspModPolPtr& mod_pol_req);
     void NotifyQueueFull(const fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                         const fpi::FDSP_NotifyQueueStateTypePtr& queue_state_req);
-    void NotifyPerfstats(const boost::shared_ptr<fpi::AsyncHdr>& fdsp_msg,
-                        const fpi::FDSP_PerfstatsType  * perf_stats_msg);
 
     fds::snapshot::Manager snapshotMgr;
     DeleteScheduler deleteScheduler;
@@ -247,13 +245,6 @@ class FDSP_ConfigPathReqHandler : virtual public fpi::FDSP_ConfigPathReqIf {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& vol_info_req);
 
-        int32_t GetDomainStats(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg);
-        int32_t GetDomainStats(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
-
         int32_t ActivateAllNodes(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_ActivateAllNodesType& act_node_msg);
@@ -345,13 +336,6 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
         void TestBucket(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg);
-
-        void GetDomainStats(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg);
-        void GetDomainStats(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg);
 
         void NotifyMigrationDone(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

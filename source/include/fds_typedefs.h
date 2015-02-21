@@ -56,7 +56,6 @@ typedef FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr  FdspMigrationStatusP
 typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr;
 typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
 typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
-typedef FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr FdspGetDomStatsPtr;
 typedef FDS_ProtocolInterface::FDSP_RemoveServicesTypePtr FdspRmServicesPtr;
 
 }  // namespace fds

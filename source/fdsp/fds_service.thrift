@@ -134,7 +134,6 @@ enum  FDSPMsgTypeId {
     CtrlCreateBucketTypeId             = 3002,
     CtrlDeleteBucketTypeId             = 3003,
     CtrlModifyBucketTypeId             = 3004,
-    CtrlPerfStatsTypeId                = 3005,
 
     /* Svc -> OM */
     CtrlSvcEventTypeId                 = 9000,
@@ -261,31 +260,6 @@ struct StorCapMsg {
     11: i32                   ssd_count,
     12: i32                   disk_type,
     13: i32                   disk_count,
-}
-
-struct FDSP_PerfStatType {
-  1: i64   nios,     /* number of IOs in stat time i32erval  */
-  2: i64   min_lat,  /* minimum latency */
-  3: i64   max_lat,  /* maximum latency */
-  4: double ave_lat,  /* average latency */
-
-  5: i32 stat_type,     /* 0 - read/disk, 1 - write/disk, 2 - read/flash, 3 - write/flash, 5 - total
-                      * Note that SH will only return stat_type 5 (for now) */
-  6: i64 rel_seconds,  /* timestamp -- in seconds relative to FDSP_PerfstatsType::start_timestamp */
-}
-typedef list<FDSP_PerfStatType> FDSP_PerfStatListType
-
-struct FDSP_VolPerfHistType {
-  1:  i64 vol_uuid,
-  2:  FDSP_PerfStatListType  stat_list,  /* list of performance stats (one or more time slots) for this volume */
-}
-typedef list<FDSP_VolPerfHistType> FDSP_VolPerfHistListType
-
-struct FDSP_PerfstatsType {
-  1: FDSP.FDSP_MgrIdType            node_type, /* type of node - SM/AM */
-  2: i32                       slot_len_sec, /* length of each stat time slot */
-  3: string                    start_timestamp, /* to calc absolute timestamps of stats which contain relative timestamps */
-  4: FDSP_VolPerfHistListType  vol_hist_list, /* list of performance histories of volumes */
 }
 
 enum NodeSvcMask {
@@ -669,10 +643,6 @@ struct CtrlNotifyQoSControl {
 struct CtrlTestBucket {
      1: FDSP.FDSP_TestBucket           tbmsg;
 }
-struct CtrlGetBucketStats {
-     1: FDSP.FDSP_GetDomainStatsType   gds;
-     2: i32 req_cookie;
-}
 struct CtrlCreateBucket {
      1: FDSP.FDSP_CreateVolType       cv;
 }
@@ -681,9 +651,6 @@ struct CtrlDeleteBucket {
 }
 struct CtrlModifyBucket {
     1:  FDSP.FDSP_ModifyVolType      mv;
-}
-struct CtrlPerfStats {
-    1:  FDSP_PerfstatsType     perfstats;
 }
 
 struct CtrlSvcEvent {

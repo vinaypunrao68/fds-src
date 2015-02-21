@@ -309,60 +309,6 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
     }
 }
 
-void OrchMgr::NotifyPerfstats(const boost::shared_ptr<fpi::AsyncHdr>& fdsp_msg,
-                              const FDSP_PerfstatsType *perf_stats_msg)
-{
-    LOGNORMAL << "OM received perfstats from node of type: "
-              << perf_stats_msg->node_type
-              << " start ts "
-              <<  perf_stats_msg->start_timestamp;
-
-    /* Since we do not negotiate yet (should we?) the slot length of stats with AM and SM
-     * the stat slot length in AM and SM should be FDS_STAT_DEFAULT_SLOT_LENGTH */
-    // fds_verify(perf_stats_msg->slot_len_sec == FDS_STAT_DEFAULT_SLOT_LENGTH);
-
-    if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
-        LOGNORMAL << "OM received perfstats from AM, start ts "
-                  << perf_stats_msg->start_timestamp;
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        local->om_handle_perfstats_from_am(perf_stats_msg->vol_hist_list,
-                                           perf_stats_msg->start_timestamp);
-
-        for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
-            auto vol_hist = (perf_stats_msg->vol_hist_list)[i];
-            LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
-            for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
-                FDS_ProtocolInterface::FDSP_PerfStatType stat = (vol_hist.stat_list)[j];
-                LOGDEBUG << "OM: --- stat_type " << stat.stat_type
-                         << " rel_secs " << stat.rel_seconds
-                         << " iops " << stat.nios << " lat " << stat.ave_lat;
-            }
-        }
-    } else if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) {
-        LOGNORMAL << "OM received perfstats from SM, start ts "
-                  << perf_stats_msg->start_timestamp;
-        /*
-         * We need to decide whether we want to merge stats from multiple SMs from one
-         * volume or have them separate. Should just mostly follow the code of handling
-         * stats from AM but for now output debug msg to the log
-         */
-        for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
-            auto vol_hist = (perf_stats_msg->vol_hist_list)[i];
-            LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
-            for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
-                FDS_ProtocolInterface::FDSP_PerfStatType& stat = (vol_hist.stat_list)[j];
-                LOGNORMAL << "OM: --- stat_type " << stat.stat_type
-                          << " rel_secs " << stat.rel_seconds
-                          << " iops " << stat.nios << " lat " << stat.ave_lat;
-            }
-        }
-    } else {
-        LOGWARN << "OM received perfstats from node of type "
-                << perf_stats_msg->node_type
-                << " which we don't need stats from (or we do now?)";
-    }
-}
-
 void OrchMgr::defaultS3BucketPolicy()
 {
     Error err(ERR_OK);

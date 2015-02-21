@@ -177,7 +177,6 @@ class OMgrClient {
     int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
     int pushModifyBucketToOM(const std::string& bucket_name,
                              const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
-    int pushGetBucketStatsToOM(fds_uint32_t req_cookie);
     int sendMigrationStatusToOM(const Error& err);
 
     int getNodeInfo(fds_uint64_t node_id,
@@ -209,9 +208,6 @@ class OMgrClient {
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t dmt_version);
     fds_uint64_t getDMTVersion() const;
     fds_bool_t hasCommittedDMT() const;
-    int pushPerfstatsToOM(const std::string& start_ts,
-                          int stat_slot_len,
-                          const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);
     int testBucket(const std::string& bucket_name,
                    const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_info,
                    fds_bool_t attach_vol_reqd,
@@ -239,8 +235,6 @@ class OMgrClient {
     Error updateDmt(bool dmt_type, std::string& dmt_data);
     int sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
                             const std::string& session_uuid);
-    int recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
-                        const FDSP_BucketStatsRespTypePtr& buck_stats_msg);
 };
 
 class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
@@ -328,15 +322,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                          FDSP_DMT_TypePtr& dmt_info);
-
-    void NotifyBucketStats(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
-                           const FDS_ProtocolInterface::FDSP_BucketStatsRespType& buck_stats_msg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyBucketStats(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                           FDS_ProtocolInterface::FDSP_BucketStatsRespTypePtr& buck_stats_msg);
-
 
     void NotifyStartMigration(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
                               const FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info) {
