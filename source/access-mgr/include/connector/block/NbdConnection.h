@@ -133,7 +133,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     void hsPostInit(ev::io &watcher);
     bool hsAwaitOpts(ev::io &watcher);
     bool hsSendOpts(ev::io &watcher);
-    void hsReq(ev::io &watcher);
+    bool hsReq(ev::io &watcher);
     bool hsReply(ev::io &watcher);
     Error dispatchOp();
     bool write_response();

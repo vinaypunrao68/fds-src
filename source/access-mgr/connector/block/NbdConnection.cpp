@@ -270,11 +270,11 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
     return true;
 }
 
-void
+bool
 NbdConnection::hsReq(ev::io &watcher) {
     if (request.header_off >= 0) {
         if (!get_message_header(watcher.fd, request))
-            return;
+            return false;
         ensure(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
         request.header.opType = ntohl(request.header.opType);
         request.header.offset = __builtin_bswap64(request.header.offset);
@@ -288,7 +288,7 @@ NbdConnection::hsReq(ev::io &watcher) {
 
     if (NBD_CMD_WRITE == request.header.opType) {
         if (!get_message_payload(watcher.fd, request))
-            return;
+            return false;
     }
     request.header_off = 0;
     request.data_off = -1;
@@ -302,7 +302,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     Error err = dispatchOp();
     request.data.reset();
     ensure(ERR_OK == err);
-    return;
+    return true;
 }
 
 bool
@@ -344,35 +344,35 @@ NbdConnection::hsReply(ev::io &watcher) {
                     response[i].iov_len = sizeof(fourKayZeros);
                 }
             }
+            return true;
         }
 
         // no uturn
-        if (!readyResponses.empty()) {
-            NbdResponseVector* resp = NULL;
-            ensure(readyResponses.pop(resp));
-            current_response.reset(resp);
+        if (readyResponses.empty())
+            { return false; }
 
-            response[2].iov_base = &current_response->handle;
-            response[2].iov_len = sizeof(current_response->handle);
-            if (!current_response->getError().ok()) {
-                err = current_response->getError();
-                response[1].iov_base = to_iovec(&error_bad);
-            } else if (current_response->isRead()) {
-                fds_uint32_t context = 0;
-                boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
-                while (buf != NULL) {
-                    LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
-                             << "...Buffer # " << context
-                             << "...Size " << std::dec << buf->length() << "B";
-                    response[total_blocks].iov_base = to_iovec(buf->c_str());
-                    response[total_blocks].iov_len = buf->length();
-                    ++total_blocks;
-                    // get next buffer
-                    buf = current_response->getNextReadBuffer(context);
-                }
+        NbdResponseVector* resp = NULL;
+        ensure(readyResponses.pop(resp));
+        current_response.reset(resp);
+
+        response[2].iov_base = &current_response->handle;
+        response[2].iov_len = sizeof(current_response->handle);
+        if (!current_response->getError().ok()) {
+            err = current_response->getError();
+            response[1].iov_base = to_iovec(&error_bad);
+        } else if (current_response->isRead()) {
+            fds_uint32_t context = 0;
+            boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
+            while (buf != NULL) {
+                LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
+                         << "...Buffer # " << context
+                         << "...Size " << std::dec << buf->length() << "B";
+                response[total_blocks].iov_base = to_iovec(buf->c_str());
+                response[total_blocks].iov_len = buf->length();
+                ++total_blocks;
+                // get next buffer
+                buf = current_response->getNextReadBuffer(context);
             }
-        } else {
-            return true;
         }
         write_offset = 0;
     }
@@ -471,7 +471,9 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 }
                 break;
             case DOREQS:
-                hsReq(watcher);
+                // Read all the requests off the socket
+                while (hsReq(watcher))
+                    { continue; }
                 break;
             default:
                 LOGDEBUG << "Asked to read in state: " << hsState;
@@ -499,13 +501,15 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 }
                 break;
             case DOREQS:
-                if (hsReply(watcher)) {
-                    // If the queue is empty, stop writing. Reading at this
-                    // point is determined by whether we have an Operations
-                    // instance to queue to.
-                    if (doUturn ? readyHandles.empty() : readyResponses.empty())
-                        { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
-                }
+                // Write everything we can
+                while (hsReply(watcher))
+                    { continue; }
+
+                // If the queue is empty, stop writing. Reading at this
+                // point is determined by whether we have an Operations
+                // instance to queue to.
+                if ((doUturn ? readyHandles.empty() : readyResponses.empty()))
+                    { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
                 break;
             default:
                 fds_panic("Unknown NBD connection state %d", hsState);
