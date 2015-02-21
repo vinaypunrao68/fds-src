@@ -229,41 +229,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::TierPolicy(const FDSP_TierPolicy &tier)
-    {
-    }
-
-    void
-    PlatRpcReqt::TierPolicy(fpi::FDSP_TierPolicyPtr &tier)  // NOLINT
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::TierPolicyAudit(const FDSP_TierPolicyAudit &audit)
-    {
-    }
-
-    void
-    PlatRpcReqt::TierPolicyAudit(fpi::FDSP_TierPolicyAuditPtr &audit)  // NOLINT
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyStartMigration(const fpi::FDSP_MsgHdrType    &msg_hdr,
-                                      const fpi::FDSP_DLT_Data_Type &dlt_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
-                                      fpi::FDSP_DLT_Data_TypePtr &dlt)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::NotifyScavengerCmd(const fpi::FDSP_MsgHdrType    &msg_hdr,
                                     const fpi::FDSP_ScavengerType &gc_info)
     {

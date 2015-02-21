@@ -322,14 +322,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                          FDSP_DMT_TypePtr& dmt_info);
-
-    void NotifyStartMigration(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
-                              const FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyStartMigration(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                              FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info);
 };
 
 }  // namespace fds
