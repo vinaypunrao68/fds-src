@@ -585,7 +585,7 @@ bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
                 throw NbdError::shutdown_requested;
         }
     } else if (nread < len) {
-        LOGWARN << "Short read : [ " << std::dec << nread << " of " << len << "]";
+        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << len << "]";
         off += nread;
         return false;
     }

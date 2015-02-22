@@ -87,9 +87,8 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
         if (0 <= clientsd) {
             // Create a handler for this NBD connection
             // Will delete itself when connection dies
-            LOGNORMAL << "Creating client connection...";
             NbdConnection *client = new NbdConnection(omConfigApi, clientsd);
-            LOGDEBUG << "Created client connection...";
+            LOGNORMAL << "Created client connection...";
         } else {
             switch (errno) {
             case ENOTSOCK:
