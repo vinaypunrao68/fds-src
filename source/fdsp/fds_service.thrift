@@ -489,8 +489,13 @@ struct CtrlStartHybridTierCtrlrMsg
 }
 
 /* ----------------------  CtrlStartMigrationTypeId  --------------------------- */
+struct FDSP_DLT_Data_Type {
+	1: bool dlt_type,
+    2: binary dlt_data,
+}
+
 struct CtrlStartMigration {
-     1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+     1: FDSP_DLT_Data_Type   dlt_data;
 }
 
 /* ----------------------  CtrlNotifyMigrationStatusTypeId  --------------------------- */
@@ -578,7 +583,7 @@ struct CtrlSetScrubberStatusResp {
 
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
-     1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+     1: FDSP_DLT_Data_Type   dlt_data;
      2: i64                       dlt_version;
 }
 
@@ -594,8 +599,12 @@ struct CtrlNotifySMStartMigration {
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
+struct FDSP_DltCloseType {
+  1: i64 DLT_version
+}
+
 struct CtrlNotifyDLTClose {
-     1: FDSP.FDSP_DltCloseType    dlt_close;
+     1: FDSP_DltCloseType    dlt_close;
 }
 
 /* ---------------------  CtrlNotifySMAbortMigrationTypeId  ---------------------------- */

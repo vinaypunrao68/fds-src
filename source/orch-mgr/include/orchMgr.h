@@ -288,27 +288,6 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
   public:
         explicit FDSP_OMControlPathReqHandler(OrchMgr *oMgr);
 
-        void CreateBucket(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_CreateVolType& crt_buck_req);
-        void CreateBucket(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req);
-
-        void DeleteBucket(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_buck_req);
-        void DeleteBucket(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req);
-
-        void ModifyBucket(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_ModifyVolType& mod_buck_req);
-        void ModifyBucket(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req);
-
         void AttachBucket(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_buck_req);
@@ -384,20 +363,6 @@ class FDSP_ControlPathRespHandler : virtual public fpi::FDSP_ControlPathRespIf {
         void NotifyNodeRmvResp(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-        void NotifyDLTUpdateResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp);
-        void NotifyDLTUpdateResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
-
-        void NotifyDLTCloseResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_info_resp);
-        void NotifyDLTCloseResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
 
         void NotifyDMTCloseResp(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

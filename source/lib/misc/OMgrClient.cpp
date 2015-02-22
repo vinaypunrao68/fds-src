@@ -73,11 +73,6 @@ void OMgrClientRPCI::NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
                              node_info->node_state, node_info);
 }
 
-void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-                                     FDSP_DLT_Data_TypePtr& dlt_info) {
-    om_client->recvDLTUpdate(dlt_info, msg_hdr->session_uuid);
-}
-
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                                      FDSP_DMT_TypePtr& dmt_info) {
     #if 0
@@ -98,11 +93,6 @@ void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
     #endif
 }
 
-
-void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
-                                    FDSP_DltCloseTypePtr& dlt_close) {
-    om_client->recvDLTClose(dlt_close, fdsp_msg->session_uuid);
-}
 
 void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_DmtCloseTypePtr& dmt_close) {
@@ -347,84 +337,6 @@ int OMgrClient::testBucket(const std::string& bucket_name,
     return 0;
 }
 
-int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeDescTypePtr& volInfo)
-{
-    if (fNoNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        fpi::CtrlCreateBucketPtr pkt(new fpi::CtrlCreateBucket());
-        FDSP_CreateVolType * volData = & pkt->cv;
-
-        volData->vol_name = volInfo->vol_name;
-        volData->vol_info.vol_name = volInfo->vol_name;
-        volData->vol_info.tennantId = volInfo->tennantId;
-        volData->vol_info.localDomainId = volInfo->localDomainId;
-
-        volData->vol_info.volType = volInfo->volType;
-        volData->vol_info.maxObjSizeInBytes = volInfo->maxObjSizeInBytes;
-        volData->vol_info.capacity = volInfo->capacity;
-
-        volData->vol_info.volPolicyId = 50;  //  default policy
-        volData->vol_info.placementPolicy = volInfo->placementPolicy;
-        volData->vol_info.mediaPolicy = volInfo->mediaPolicy;
-
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlCreateBucket), pkt);
-        req->invoke();
-        LOGNOTIFY << "OMClient sending create bucket request to OM ";
-    } catch(...) {
-        LOGERROR << "OMClient unable to push the create bucket request to OM."
-                 << "Check if OM is up and restart.";
-        return -1;
-    }
-
-    return 0;
-}
-
-int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
-                                     const fpi::FDSP_VolumeDescTypePtr& vol_desc)
-{
-    if (fNoNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        fpi::CtrlModifyBucketPtr pkt(new fpi::CtrlModifyBucket());
-        FDSP_ModifyVolType * mod_vol_msg= &pkt->mv;
-        mod_vol_msg->vol_name = bucket_name;
-        /* make sure that uuid is not checked, because we don't know it here */
-        mod_vol_msg->vol_uuid = 0;
-        mod_vol_msg->vol_desc = *vol_desc;
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlModifyBucket), pkt);
-        req->invoke();
-        LOGNOTIFY << "OMClient sending modify bucket request to OM";
-    }
-    catch(...) {
-        LOGERROR << "OMClient unable to send ModifyBucket request to OM"
-                 << "Check if OM is up and restart.";
-        return -1;
-    }
-
-    return 0;
-}
-
-int OMgrClient::pushDeleteBucketToOM(const fpi::FDSP_DeleteVolTypePtr& volInfo)
-{
-    if (fNoNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        fpi::CtrlDeleteBucketPtr pkt(new fpi::CtrlDeleteBucket());
-        FDSP_DeleteVolType* volData = & pkt->dv;
-        volData->vol_name  = volInfo->vol_name;
-        volData->domain_id = volInfo->domain_id;
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlDeleteBucket), pkt);
-        req->invoke();
-        LOGNOTIFY << "OMClient sending modify bucket request to OM";
-    } catch(...) {
-        LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
-    }
-
-    return 0;
-}
-
-
 int OMgrClient::recvMigrationEvent(bool dlt_type)
 {
     LOGNOTIFY << "OMClient received Migration event for node " << dlt_type;
@@ -558,88 +470,6 @@ Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
     return err;
 }
 
-int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
-                              const std::string& session_uuid) {
-    Error err(ERR_OK);
-    LOGNOTIFY << "OMClient received new DLT commit version  "
-              << dlt_info->dlt_type;
-
-    omc_lock.write_lock();
-    err = dltMgr->addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
-    if (err.ok()) {
-        dltMgr->dump();
-    } else {
-        LOGERROR << "Failed to update DLT! check dlt_data was set";
-    }
-    omc_lock.write_unlock();
-
-    // send ack back to OM
-    boost::shared_ptr<fpi::FDSP_ControlPathRespClient> resp_client_prx =
-            omrpc_handler_session_->getRespClient(session_uuid);
-
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        msg_hdr->err_code = err.GetErrno();
-        if (!err.ok()) {
-            msg_hdr->result = FDSP_ERR_FAILED;
-        }
-        FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
-        dlt_resp->DLT_version = getDltVersion();
-        resp_client_prx->NotifyDLTUpdateResp(msg_hdr, dlt_resp);
-        LOGNOTIFY << "OMClient sent response for DLT update to OM";
-    } catch(...) {
-        LOGNOTIFY << "OMClient failed to send response to OM";
-        return -1;
-    }
-
-    return (0);
-}
-
-/**
- * DLT close event notifies that nodes in the cluster received
- * the commited (new) DLT
- */
-int OMgrClient::recvDLTClose(FDSP_DltCloseTypePtr& dlt_close,
-                             const std::string& session_uuid)
-{
-    LOGNORMAL << "OMClient received DLT close event for DLT version "
-              << dlt_close->DLT_version;
-
-    if (this->dltclose_evt_hdlr) {
-        this->dltclose_evt_hdlr(dlt_close, session_uuid);
-    }
-    return (0);
-}
-
-/**
- * Acking back dlt close notification to OM
- */
-int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
-                                    const std::string& session_uuid)
-{
-    LOGDEBUG << "Sending dlt close ack to OM";
-    int err = 0;
-
-    // send ack back to OM
-    boost::shared_ptr<fpi::FDSP_ControlPathRespClient> resp_client_prx =
-            omrpc_handler_session_->getRespClient(session_uuid);
-
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
-        dlt_resp->DLT_version = dlt_close->DLT_version;
-        resp_client_prx->NotifyDLTCloseResp(msg_hdr, dlt_resp);
-        LOGNOTIFY << "OMClient sent response for DLT close to OM";
-    } catch(...) {
-        LOGERROR << "OMClient failed to send response to OM";
-        err = -1;
-    }
-
-    return err;
-}
-
 #if 0
 /**
  * DMT close event notifies that nodes in the cluster received
@@ -698,21 +528,6 @@ int OMgrClient::sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
     return (0);
 }
 #endif
-
-Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
-    Error err(ERR_OK);
-    LOGNOTIFY << "OMClient received new Migration DLT version  "
-              << dlt_info->dlt_type;
-
-    omc_lock.write_lock();
-    err = dltMgr->addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
-    if (err.ok()) {
-        dltMgr->dump();
-    }
-    omc_lock.write_unlock();
-
-    return err;
-}
 
 Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
                                   const std::string& session_uuid) {

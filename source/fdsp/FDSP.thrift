@@ -66,8 +66,6 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_NOTIFY_NODE_ADD,
    FDSP_MSG_NOTIFY_NODE_RMV,
    FDSP_MSG_NOTIFY_NODE_ACTIVE,
-   FDSP_MSG_DLT_UPDATE,
-   FDSP_MSG_DLT_CLOSE,
    FDSP_MSG_DMT_UPDATE,
    FDSP_MSG_DMT_CLOSE,
    FDSP_MSG_NODE_UPDATE,
@@ -334,18 +332,9 @@ struct FDSP_DMT_Type {
       3: bool dmt_type,
 }
 
-struct FDSP_DLT_Data_Type {
-	1: bool dlt_type,
-    2: binary dlt_data,
-}
-
 struct FDSP_MigrationStatusType {
   1: i64 DLT_version,
   2: i32 context
-}
-
-struct FDSP_DltCloseType {
-  1: i64 DLT_version
 }
 
 struct FDSP_DmtCloseType {
@@ -395,13 +384,6 @@ struct FDSP_CreateDomainType {
 
   1: string 		 domain_name,
   2: i32			 domain_id,
-
-}
-
-struct FDSP_CreateVolType {
-
-  1: string                  vol_name,
-  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
 
 }
 
@@ -791,6 +773,11 @@ service FDSP_MetaDataPathResp {
     oneway void GetVolumeMetaDataResp(1:FDSP_MsgHdrType header, 2:FDSP_VolumeMetaData volumeMeta)
 }
 
+struct FDSP_CreateVolType {
+  1: string                  vol_name,
+  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+}
+
 /*
  * From fdscli to OM (sync messages)
  */
@@ -826,9 +813,6 @@ service FDSP_ConfigPathResp {
  * OM proxy
  */
 service FDSP_OMControlPathReq {
-  oneway void CreateBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_buck_req),
-  oneway void DeleteBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_buck_req),
-  oneway void ModifyBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_buck_req),
   oneway void AttachBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
   oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
@@ -836,9 +820,6 @@ service FDSP_OMControlPathReq {
 }
 
 service FDSP_OMControlPathResp {
-  oneway void CreateBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_buck_rsp),
-  oneway void DeleteBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_buck_rsp),
-  oneway void ModifyBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_buck_rsp),
   oneway void AttachBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
@@ -854,8 +835,6 @@ service FDSP_ControlPathReq {
   oneway void NotifyNodeAdd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
   oneway void NotifyNodeActive(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateNodeType act_node_req),
   oneway void NotifyNodeRmv(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
-  oneway void NotifyDLTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
-  oneway void NotifyDLTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DltCloseType dlt_close),
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
   oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
   oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
@@ -867,8 +846,6 @@ service FDSP_ControlPathResp {
   oneway void NotifyNodeAddResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyNodeRmvResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyNodeActiveResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
-  oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
-  oneway void NotifyDLTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
   oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp),
   oneway void NotifyDMTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_resp),
   oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)

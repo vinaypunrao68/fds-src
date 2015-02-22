@@ -140,32 +140,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::NotifyDLTUpdate(const FDSP_MsgHdrType    &fdsp_msg,
-                                 const FDSP_DLT_Data_Type &dlt_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                                 fpi::FDSP_DLT_Data_TypePtr &dlt_info)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyDLTClose(const FDSP_MsgHdrType    &fdsp_msg,
-                                const FDSP_DltCloseType &dlt_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyDLTClose(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                                fpi::FDSP_DltCloseTypePtr &dlt_info)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
                                  const FDSP_DMT_Type   &dmt_info)
     {
@@ -249,45 +223,6 @@ namespace fds
     }
     PlatRpcResp::~PlatRpcResp()
     {
-    }
-
-    void
-    PlatRpcResp::CreateBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                                  const FDSP_CreateVolType   &crt_buck_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::CreateBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                                  fpi::FDSP_CreateVolTypePtr &crt_buck_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcResp::DeleteBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                                  const FDSP_DeleteVolType   &del_buck_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::DeleteBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                                  fpi::FDSP_DeleteVolTypePtr &del_buck_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcResp::ModifyBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                                  const FDSP_ModifyVolType   &mod_buck_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::ModifyBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                                  fpi::FDSP_ModifyVolTypePtr &mod_buck_rsp)
-    {
-        fds_verify(0);
     }
 
     void
