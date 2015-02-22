@@ -226,19 +226,6 @@ namespace fds
     }
 
     void
-    PlatRpcResp::AttachBucketResp(const FDSP_MsgHdrType         &fdsp_msg,
-                                  const FDSP_AttachVolCmdType   &atc_buck_req)
-    {
-    }
-
-    void
-    PlatRpcResp::AttachBucketResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
-                                  fpi::FDSP_AttachVolCmdTypePtr &atc_buck_req)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcResp::RegisterNodeResp(const FDSP_MsgHdrType         &fdsp_msg,
                                   const FDSP_RegisterNodeType   &reg_node_rsp)
     {
@@ -260,19 +247,6 @@ namespace fds
     void
     PlatRpcResp::NotifyQueueFullResp(fpi::FDSP_MsgHdrTypePtr           &fdsp_msg,
                                      fpi::FDSP_NotifyQueueStateTypePtr &queue_state_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcResp::TestBucketResp(const FDSP_MsgHdrType    &fdsp_msg,
-                                const FDSP_TestBucket    &test_buck_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::TestBucketResp(fpi::FDSP_MsgHdrTypePtr  &fdsp_msg,
-                                fpi::FDSP_TestBucketPtr  &test_buck_rsp)
     {
         fds_verify(0);
     }
