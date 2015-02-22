@@ -508,7 +508,8 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 // If the queue is empty, stop writing. Reading at this
                 // point is determined by whether we have an Operations
                 // instance to queue to.
-                if ((doUturn ? readyHandles.empty() : readyResponses.empty()))
+                if ((!current_response) &&
+                    (doUturn ? readyHandles.empty() : readyResponses.empty()))
                     { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
                 break;
             default:
