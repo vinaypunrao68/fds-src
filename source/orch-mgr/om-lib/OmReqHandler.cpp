@@ -653,40 +653,6 @@ FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
     // REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyMigrationStatus, migrationDone);
 }
 
-void FDSP_OMControlPathReqHandler::DeleteBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_buck_req) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::DeleteBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req) {
-#if 0
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_delete_vol(fdsp_msg, del_buck_req);
-#endif
-}
-
-void FDSP_OMControlPathReqHandler::ModifyBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_ModifyVolType& mod_buck_req) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::ModifyBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req) {
-#if 0
-    LOGNOTIFY << "Received modify bucket " << (mod_buck_req->vol_desc).vol_name
-              << " from " << fdsp_msg->src_node_name  << " node uuid: "
-              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_modify_vol(mod_buck_req);
-#endif
-}
-
 void FDSP_OMControlPathReqHandler::AttachBucket(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_buck_req) {

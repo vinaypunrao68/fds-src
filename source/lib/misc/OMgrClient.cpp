@@ -337,51 +337,6 @@ int OMgrClient::testBucket(const std::string& bucket_name,
     return 0;
 }
 
-int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
-                                     const fpi::FDSP_VolumeDescTypePtr& vol_desc)
-{
-    if (fNoNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        fpi::CtrlModifyBucketPtr pkt(new fpi::CtrlModifyBucket());
-        FDSP_ModifyVolType * mod_vol_msg= &pkt->mv;
-        mod_vol_msg->vol_name = bucket_name;
-        /* make sure that uuid is not checked, because we don't know it here */
-        mod_vol_msg->vol_uuid = 0;
-        mod_vol_msg->vol_desc = *vol_desc;
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlModifyBucket), pkt);
-        req->invoke();
-        LOGNOTIFY << "OMClient sending modify bucket request to OM";
-    }
-    catch(...) {
-        LOGERROR << "OMClient unable to send ModifyBucket request to OM"
-                 << "Check if OM is up and restart.";
-        return -1;
-    }
-
-    return 0;
-}
-
-int OMgrClient::pushDeleteBucketToOM(const fpi::FDSP_DeleteVolTypePtr& volInfo)
-{
-    if (fNoNetwork) return 0;
-    try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        fpi::CtrlDeleteBucketPtr pkt(new fpi::CtrlDeleteBucket());
-        FDSP_DeleteVolType* volData = & pkt->dv;
-        volData->vol_name  = volInfo->vol_name;
-        volData->domain_id = volInfo->domain_id;
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlDeleteBucket), pkt);
-        req->invoke();
-        LOGNOTIFY << "OMClient sending modify bucket request to OM";
-    } catch(...) {
-        LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
-    }
-
-    return 0;
-}
-
-
 int OMgrClient::recvMigrationEvent(bool dlt_type)
 {
     LOGNOTIFY << "OMClient received Migration event for node " << dlt_type;

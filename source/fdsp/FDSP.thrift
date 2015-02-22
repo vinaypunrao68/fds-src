@@ -813,8 +813,6 @@ service FDSP_ConfigPathResp {
  * OM proxy
  */
 service FDSP_OMControlPathReq {
-  oneway void DeleteBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_buck_req),
-  oneway void ModifyBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_buck_req),
   oneway void AttachBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
   oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
@@ -822,8 +820,6 @@ service FDSP_OMControlPathReq {
 }
 
 service FDSP_OMControlPathResp {
-  oneway void DeleteBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_buck_rsp),
-  oneway void ModifyBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_buck_rsp),
   oneway void AttachBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),

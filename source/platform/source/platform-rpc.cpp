@@ -226,32 +226,6 @@ namespace fds
     }
 
     void
-    PlatRpcResp::DeleteBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                                  const FDSP_DeleteVolType   &del_buck_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::DeleteBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                                  fpi::FDSP_DeleteVolTypePtr &del_buck_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcResp::ModifyBucketResp(const FDSP_MsgHdrType      &fdsp_msg,
-                                  const FDSP_ModifyVolType   &mod_buck_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::ModifyBucketResp(fpi::FDSP_MsgHdrTypePtr    &fdsp_msg,
-                                  fpi::FDSP_ModifyVolTypePtr &mod_buck_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcResp::AttachBucketResp(const FDSP_MsgHdrType         &fdsp_msg,
                                   const FDSP_AttachVolCmdType   &atc_buck_req)
     {
