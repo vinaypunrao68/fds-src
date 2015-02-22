@@ -653,23 +653,6 @@ FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
     // REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyMigrationStatus, migrationDone);
 }
 
-void FDSP_OMControlPathReqHandler::AttachBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_buck_req) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::AttachBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_buck_req) {
-    LOGNOTIFY << "Received attach bucket " << atc_buck_req->vol_name
-              << " from " << fdsp_msg->src_node_name  << " node uuid: "
-              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_attach_vol(fdsp_msg, atc_buck_req);
-}
-
 void FDSP_OMControlPathReqHandler::RegisterNode(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_RegisterNodeType& reg_node_req) {
@@ -713,21 +696,6 @@ void FDSP_OMControlPathReqHandler::NotifyQueueFull(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_NotifyQueueStateTypePtr& queue_state_info) {
     orchMgr->NotifyQueueFull(fdsp_msg, queue_state_info);
-}
-
-void FDSP_OMControlPathReqHandler::TestBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_TestBucket& test_buck_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::TestBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg) {
-#if 0
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_test_bucket(fdsp_msg, test_buck_msg);
-#endif
 }
 
 void FDSP_OMControlPathReqHandler::migrationDone(boost::shared_ptr<fpi::AsyncHdr>& hdr,
