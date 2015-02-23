@@ -34,6 +34,8 @@ for node in $hosts ; do
     ssh $node 'umount /fds/dev/*'
     echo "$node -> remove /fds"
     ssh $node 'rm -fr /fds'
+    echo "fixing libcrypto"
+    ssh $node 'cp /usr/lib/libcryptopp.so /opt/fds-deps/embedded/lib/'
 done
 
 # deploy inventory file/confs
@@ -43,7 +45,7 @@ echo "Deploy inventory file - config: $config om_node: $OM_NODE cluster: $CLUSTE
 # bring up fds
 echo "Bring up FDS"
 pushd $WORKSPACE/ansible
-./scripts/deploy_fds.sh $OM_NODE local
+./scripts/deploy_fds.sh $OM_NODE nightly
 echo "Sleep for one minute more..."
 sleep 60
 popd
