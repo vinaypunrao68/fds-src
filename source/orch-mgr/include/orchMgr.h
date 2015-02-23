@@ -295,13 +295,6 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr& reg_node_req);
 
-        void NotifyQueueFull(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_NotifyQueueStateType& queue_state_info);
-        void NotifyQueueFull(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_NotifyQueueStateTypePtr& queue_state_info);
-
         void migrationDone(
                 boost::shared_ptr<fpi::AsyncHdr>& hdr,
                 boost::shared_ptr<fpi::CtrlNotifyMigrationStatus>& status);

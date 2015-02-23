@@ -239,19 +239,6 @@ namespace fds
     }
 
     void
-    PlatRpcResp::NotifyQueueFullResp(const FDSP_MsgHdrType           &fdsp_msg,
-                                     const FDSP_NotifyQueueStateType &queue_state_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::NotifyQueueFullResp(fpi::FDSP_MsgHdrTypePtr           &fdsp_msg,
-                                     fpi::FDSP_NotifyQueueStateTypePtr &queue_state_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcResp::MigrationDoneResp(const FDSP_MsgHdrType            &fdsp_msg,
                                    const FDSP_MigrationStatusType   &status_resp)
     {
