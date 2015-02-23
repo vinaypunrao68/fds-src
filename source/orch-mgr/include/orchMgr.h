@@ -288,13 +288,6 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
   public:
         explicit FDSP_OMControlPathReqHandler(OrchMgr *oMgr);
 
-        void AttachBucket(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_buck_req);
-        void AttachBucket(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_buck_req);
-
         void RegisterNode(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_RegisterNodeType& reg_node_req);
@@ -308,13 +301,6 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
         void NotifyQueueFull(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_NotifyQueueStateTypePtr& queue_state_info);
-
-        void TestBucket(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_TestBucket& test_buck_msg);
-        void TestBucket(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg);
 
         void migrationDone(
                 boost::shared_ptr<fpi::AsyncHdr>& hdr,
