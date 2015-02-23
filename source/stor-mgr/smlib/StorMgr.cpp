@@ -12,8 +12,6 @@
 
 #include <PerfTrace.h>
 #include <ObjMeta.h>
-#include <policy_rpc.h>
-#include <policy_tier.h>
 #include <StorMgr.h>
 #include <NetSession.h>
 #include <fds_timestamp.h>
@@ -266,11 +264,8 @@ void ObjectStorMgr::mod_startup()
          * Register/boostrap from OM
          */
         omClient->initialize();
-        omClient->omc_srv_pol = &sg_SMVolPolicyServ;
         omClient->startAcceptingControlMessages();
         omClient->registerNodeWithOM(modProvider_->get_plf_manager());
-
-        omc_srv_pol = &sg_SMVolPolicyServ;
     }
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");

@@ -348,9 +348,15 @@ public class TrafficGen {
             switch (test_type) {
                 case "GET":
                     request = new BasicHttpRequest(test_type, "/" + volume_name + "/file" + obj_index);
+                    if (username != "" && token != "") {
+                        request = sign(request);
+                    }
                     break;
                 case "PUT":
                     request = createPutRequest(osize, volume_name, "file" + obj_index, n_files);
+                    if (username != "" && token != "") {
+                        request = sign(request);
+                    }
                     break;
                 default:
                     throw new Exception("Type of this test is not supported: " + test_type);

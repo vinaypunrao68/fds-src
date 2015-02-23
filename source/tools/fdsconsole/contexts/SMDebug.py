@@ -10,17 +10,17 @@ class SMDebugContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
 
-        self.smClient = self.config.platform
-
+    def smClient(self):
+        return self.config.getPlatform()
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('nodeid', help= "-Uuid of the SM/DM/AM to send the command to", type=long)
     @arg('svcname', help= "service name",  choices=['sm','dm','am'])
     def shutdown(self, nodeid, svcname):
         try:
-            svcUuid = self.smClient.svcMap.svcUuid(nodeid, svcname)
+            svcUuid = self.smClient().svcMap.svcUuid(nodeid, svcname)
             shutdownMsg = FdspUtils.newShutdownMODMsg()
-            self.smClient.sendAsyncSvcReq(svcUuid, shutdownMsg, None)
+            self.smClient().sendAsyncSvcReq(svcUuid, shutdownMsg, None)
         except Exception, e:
             log.exception(e)
             return 'Shutdown failed'
@@ -35,9 +35,9 @@ class SMDebugContext(Context):
         tiering context
         """
         try:
-            sm = self.smClient.svcMap.svcUuid(nodeid, "sm")
+            sm = self.smClient().svcMap.svcUuid(nodeid, "sm")
             startHtc = FdspUtils.newCtrlStartHybridTierCtrlrMsg()
-            self.smClient.sendAsyncSvcReq(sm, startHtc, None)
+            self.smClient().sendAsyncSvcReq(sm, startHtc, None)
         except Exception, e:
             log.exception(e)
             return 'Enable failed'

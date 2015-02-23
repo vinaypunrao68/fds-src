@@ -31,6 +31,17 @@ struct DomainID {
     2: required string        domain_name,
 }
 
+enum FDSP_ScavengerCmd {
+  FDSP_SCAVENGER_ENABLE,     // enable automatic GC process
+  FDSP_SCAVENGER_DISABLE,    // disable GC
+  FDSP_SCAVENGER_START,      // start GC
+  FDSP_SCAVENGER_STOP        // stop GC if it's running
+}
+
+struct FDSP_ScavengerType {
+  1: FDSP_ScavengerCmd  cmd
+}
+
 /*
  * List of all FDSP message types that passed between fds services.  Typically all these
  * types are for async messages.
@@ -123,7 +134,6 @@ enum  FDSPMsgTypeId {
     CtrlCreateBucketTypeId             = 3002,
     CtrlDeleteBucketTypeId             = 3003,
     CtrlModifyBucketTypeId             = 3004,
-    CtrlPerfStatsTypeId                = 3005,
 
     /* Svc -> OM */
     CtrlSvcEventTypeId                 = 9000,
@@ -473,24 +483,19 @@ struct CtrlNotifySnapVol {
      3: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 
-/* ------------------------  CtrlTierPolicyTypeId  ----------------------------- */
-struct CtrlTierPolicy {
-     1: FDSP.FDSP_TierPolicy      tier_policy;
-}
-
-/* ----------------------  CtrlTierPolicyAuditTypeId  -------------------------- */
-struct CtrlTierPolicyAudit {
-     1: FDSP.FDSP_TierPolicyAudit tier_audit;
-}
-
 /* ------------ Debug message for starting hybrid tier controller manually --------- */
 struct CtrlStartHybridTierCtrlrMsg
 {
 }
 
 /* ----------------------  CtrlStartMigrationTypeId  --------------------------- */
+struct FDSP_DLT_Data_Type {
+	1: bool dlt_type,
+    2: binary dlt_data,
+}
+
 struct CtrlStartMigration {
-     1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+     1: FDSP_DLT_Data_Type   dlt_data;
 }
 
 /* ----------------------  CtrlNotifyMigrationStatusTypeId  --------------------------- */
@@ -500,7 +505,7 @@ struct CtrlNotifyMigrationStatus {
 
 /* ---------------------  CtrlNotifyScavengerTypeId  --------------------------- */
 struct CtrlNotifyScavenger {
-     1: FDSP.FDSP_ScavengerType   scavenger;
+     1: FDSP_ScavengerType   scavenger;
 }
 
 struct CtrlNotifyQosControl {
@@ -578,7 +583,7 @@ struct CtrlSetScrubberStatusResp {
 
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
-     1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+     1: FDSP_DLT_Data_Type   dlt_data;
      2: i64                       dlt_version;
 }
 
@@ -594,8 +599,12 @@ struct CtrlNotifySMStartMigration {
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
+struct FDSP_DltCloseType {
+  1: i64 DLT_version
+}
+
 struct CtrlNotifyDLTClose {
-     1: FDSP.FDSP_DltCloseType    dlt_close;
+     1: FDSP_DltCloseType    dlt_close;
 }
 
 /* ---------------------  CtrlNotifySMAbortMigrationTypeId  ---------------------------- */
@@ -643,10 +652,6 @@ struct CtrlNotifyQoSControl {
 struct CtrlTestBucket {
      1: FDSP.FDSP_TestBucket           tbmsg;
 }
-struct CtrlGetBucketStats {
-     1: FDSP.FDSP_GetDomainStatsType   gds;
-     2: i32 req_cookie;
-}
 struct CtrlCreateBucket {
      1: FDSP.FDSP_CreateVolType       cv;
 }
@@ -655,9 +660,6 @@ struct CtrlDeleteBucket {
 }
 struct CtrlModifyBucket {
     1:  FDSP.FDSP_ModifyVolType      mv;
-}
-struct CtrlPerfStats {
-    1:  FDSP.FDSP_PerfstatsType     perfstats;
 }
 
 struct CtrlSvcEvent {

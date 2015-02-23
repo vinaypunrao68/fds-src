@@ -101,15 +101,20 @@ mockNode = function(){
                 return;
             }
             
-            if ( window.localStorage.getItem( 'nodes' ) !== null ){
-                return;
-            }
-            
             window.localStorage.setItem( 'nodes', JSON.stringify( service.nodes ) );
             window.localStorage.setItem( 'detachedNodes', JSON.stringify( service.detachedNodes ) );
         };
         
-        saveNodes();
+        var init = function(){
+            
+            if ( window.localStorage.getItem( 'nodes' ) !== null ){
+                return;
+            }
+            
+            saveNodes();
+        };
+        
+        init();
         
         service.getOverallStatus = function( node ){
 

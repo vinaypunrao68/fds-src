@@ -1499,113 +1499,6 @@ OM_ControlRespHandler::OM_ControlRespHandler() {
 }
 
 void
-OM_ControlRespHandler::NotifyAddVolResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_add_vol_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyAddVolResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp) {
-    LOGNOTIFY << "OM received response for NotifyAddVol from node "
-              << fdsp_msg->src_node_name << " for volume "
-              << "[" << not_add_vol_resp->vol_name << ":"
-              << std::hex << not_add_vol_resp->vol_desc.volUUID << std::dec
-              << "] Result: " << fdsp_msg->err_code;
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeContainer::pointer volumes = local->om_vol_mgr();
-    volumes->om_notify_vol_resp(om_notify_vol_add,
-                                fdsp_msg,
-                                not_add_vol_resp->vol_name,
-                                not_add_vol_resp->vol_desc.volUUID);
-}
-
-void
-OM_ControlRespHandler::NotifySnapVolResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifySnapVolResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp) {
-#if 0
-    LOGNOTIFY << "OM received response for NotifySnapVol from node "
-              << fdsp_msg->src_node_name << " for volume "
-              << "[" << not_add_vol_resp->vol_name << ":"
-              << std::hex << not_add_vol_resp->vol_desc.volUUID << std::dec
-              << "] Result: " << fdsp_msg->err_code;
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeContainer::pointer volumes = local->om_vol_mgr();
-    volumes->om_notify_vol_resp(om_notify_vol_add,
-                                fdsp_msg,
-                                not_add_vol_resp->vol_name,
-                                not_add_vol_resp->vol_desc.volUUID);
-#endif
-}
-
-
-
-void
-OM_ControlRespHandler::NotifyRmVolResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyRmVolResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
-    fds_bool_t check_only = (not_rm_vol_resp->flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
-    LOGNOTIFY << "OM received response for NotifyRmVol (check only "
-              << check_only << ") from node "
-              << fdsp_msg->src_node_name << " for volume "
-              << "[" << not_rm_vol_resp->vol_name << ":"
-              << std::hex << not_rm_vol_resp->vol_desc.volUUID << std::dec
-              << "] Result: " << fdsp_msg->err_code;
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeContainer::pointer volumes = local->om_vol_mgr();
-    om_vol_notify_t type = check_only ? om_notify_vol_rm_chk : om_notify_vol_rm;
-    volumes->om_notify_vol_resp(type,
-                                fdsp_msg,
-                                not_rm_vol_resp->vol_name,
-                                not_rm_vol_resp->vol_desc.volUUID);
-}
-
-void
-OM_ControlRespHandler::NotifyModVolResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_mod_vol_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyModVolResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp) {
-    LOGNOTIFY << "OM received response for NotifyModVol from node "
-              << fdsp_msg->src_node_name << " for volume "
-              << "[" << not_mod_vol_resp->vol_name << ":"
-              << std::hex << not_mod_vol_resp->vol_desc.volUUID << std::dec
-              << "] Result: " << fdsp_msg->err_code;
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeContainer::pointer volumes = local->om_vol_mgr();
-    volumes->om_notify_vol_resp(om_notify_vol_mod,
-                                fdsp_msg,
-                                not_mod_vol_resp->vol_name,
-                                not_mod_vol_resp->vol_desc.volUUID);
-}
-
-void
 OM_ControlRespHandler::AttachVolResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp) {
@@ -1698,59 +1591,6 @@ OM_ControlRespHandler::NotifyNodeActiveResp(
 }
 
 void
-OM_ControlRespHandler::NotifyDLTUpdateResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyDLTUpdateResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
-#if 0
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "OM received response for NotifyDltUpdate from node "
-            << fdsp_msg->src_node_name << ":"
-            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
-            << " for DLT version " << dlt_resp->DLT_version;
-
-    // notify DLT state machine
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
-    domain->om_recv_dlt_commit_resp(fdsp_msg->src_id, node_uuid, dlt_resp->DLT_version);
-#endif
-}
-
-void
-OM_ControlRespHandler::NotifyDMTCloseResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyDMTCloseResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
-    Error respError(fdsp_msg->err_code);
-    LOGNOTIFY << "OM received response for NotifyDMTClose from node "
-            << fdsp_msg->src_node_name << ":"
-            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
-            << " for DMT version " << dmt_resp->DMT_version
-              << " " << respError;
-
-    fds_verify(fdsp_msg->src_id == fpi::FDSP_DATA_MGR);
-
-    // notify DMT state machine
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
-    domain->om_recv_dmt_close_resp(node_uuid,
-                                   dmt_resp->DMT_version,
-                                   respError);
-}
-
-void
 OM_ControlRespHandler::PushMetaDMTResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {
@@ -1773,32 +1613,6 @@ OM_ControlRespHandler::PushMetaDMTResp(
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
     domain->om_recv_push_meta_resp(node_uuid, respError);
-}
-
-void
-OM_ControlRespHandler::NotifyDLTCloseResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyDLTCloseResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
-    Error respError(fdsp_msg->err_code);
-    LOGNOTIFY << "OM received response for NotifyDltClose from node "
-              << fdsp_msg->src_node_name << ":"
-              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
-              << " for DLT version " << dlt_resp->DLT_version
-              << " " << respError;
-
-    // notify DLT state machine
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
-    domain->om_recv_dlt_close_resp(node_uuid,
-                                   dlt_resp->DLT_version,
-                                   respError);
 }
 
 void
@@ -1829,6 +1643,34 @@ OM_ControlRespHandler::NotifyDMTUpdateResp(
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
     domain->om_recv_dmt_commit_resp(fdsp_msg->src_id, node_uuid,
                                     dmt_resp->DMT_version, respError);
+}
+
+void
+OM_ControlRespHandler::NotifyDMTCloseResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyDMTCloseResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
+    Error respError(fdsp_msg->err_code);
+    LOGNOTIFY << "OM received response for NotifyDMTClose from node "
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+            << " for DMT version " << dmt_resp->DMT_version
+              << " " << respError;
+
+    fds_verify(fdsp_msg->src_id == fpi::FDSP_DATA_MGR);
+
+    // notify DMT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
+    domain->om_recv_dmt_close_resp(node_uuid,
+                                   dmt_resp->DMT_version,
+                                   respError);
 }
 
 }  // namespace fds

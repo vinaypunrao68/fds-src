@@ -66,8 +66,6 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_NOTIFY_NODE_ADD,
    FDSP_MSG_NOTIFY_NODE_RMV,
    FDSP_MSG_NOTIFY_NODE_ACTIVE,
-   FDSP_MSG_DLT_UPDATE,
-   FDSP_MSG_DLT_CLOSE,
    FDSP_MSG_DMT_UPDATE,
    FDSP_MSG_DMT_CLOSE,
    FDSP_MSG_NODE_UPDATE,
@@ -334,18 +332,9 @@ struct FDSP_DMT_Type {
       3: bool dmt_type,
 }
 
-struct FDSP_DLT_Data_Type {
-	1: bool dlt_type,
-    2: binary dlt_data,
-}
-
 struct FDSP_MigrationStatusType {
   1: i64 DLT_version,
   2: i32 context
-}
-
-struct FDSP_DltCloseType {
-  1: i64 DLT_version
 }
 
 struct FDSP_DmtCloseType {
@@ -395,17 +384,6 @@ struct FDSP_CreateDomainType {
 
   1: string 		 domain_name,
   2: i32			 domain_id,
-
-}
-
-struct FDSP_GetDomainStatsType {
-  1: i32			 domain_id,
-}
-
-struct FDSP_CreateVolType {
-
-  1: string                  vol_name,
-  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
 
 }
 
@@ -469,13 +447,6 @@ enum FDSP_NotifyVolFlag {
   FDSP_NOTIFY_VOL_NO_FLAG,
   FDSP_NOTIFY_VOL_CHECK_ONLY,  // for delete vol -- only check if objects in volume
   FDSP_NOTIFY_VOL_WILL_SYNC    // for create vol -- volume meta already exists on other node, will be synced
-}
-
-struct FDSP_NotifyVolType {
-  1: FDSP_VolNotifyType 	 type,       /* Type of notify */
-  2: string             	 vol_name,   /* Name of the volume */
-  3: FDSP_VolumeDescType	 vol_desc,   /* Volume properties and attributes */
-  4: FDSP_NotifyVolFlag          flag        /* see FDSP_NotifyVolFlag */
 }
 
 struct FDSP_AttachVolType {
@@ -553,33 +524,6 @@ struct FDSP_QoSControlMsgType {
   1: i64   total_rate,   /* total rate in FDS ops/second */
 }
 
-struct FDSP_PerfStatType {
-  1: i64   nios,     /* number of IOs in stat time i32erval  */
-  2: i64   min_lat,  /* minimum latency */
-  3: i64   max_lat,  /* maximum latency */
-  4: double ave_lat,  /* average latency */
-
-  5: i32 stat_type,     /* 0 - read/disk, 1 - write/disk, 2 - read/flash, 3 - write/flash, 5 - total
-                      * Note that SH will only return stat_type 5 (for now) */
-  6: i64 rel_seconds,  /* timestamp -- in seconds relative to FDSP_PerfstatsType::start_timestamp */
-}
-
-typedef list<FDSP_PerfStatType> FDSP_PerfStatListType
-
-struct FDSP_VolPerfHistType {
-  1:  i64 vol_uuid,
-  2:  FDSP_PerfStatListType  stat_list,  /* list of performance stats (one or more time slots) for this volume */
-}
-
-typedef list<FDSP_VolPerfHistType> FDSP_VolPerfHistListType
-
-struct FDSP_PerfstatsType {
-  1: FDSP_MgrIdType            node_type, /* type of node - SM/SH */
-  2: i32                       slot_len_sec, /* length of each stat time slot */
-  3: string                    start_timestamp, /* to calc absolute timestamps of stats which contain relative timestamps */
-  4: FDSP_VolPerfHistListType  vol_hist_list, /* list of performance histories of volumes */
-}
-
 struct FDSP_BucketStatType {
   1: string             vol_name,
   2: double             performance,  /* average iops */
@@ -602,25 +546,6 @@ struct FDSP_QueueStateType {
   3: i32 priority,
   4: double queue_depth, //current queue depth as a fraction of the total queue size. 0.5 means 50% full.
 
-}
-
-struct FDSP_TierPolicy {
-    1: i64           tier_vol_uuid,
-    2: double          tier_domain_uuid,
-    3: bool            tier_domain_policy,
-    4: i32             tier_media,
-    5: i32             tier_prefetch_algo,
-    6: i64            tier_media_pct,
-    7: i64            tier_interval_sec,
-}
-
-struct FDSP_TierPolicyAudit {
-    1: i64          tier_vol_uuid,
-    2: i64            tier_stat_min_iops,
-    3: i64            tier_stat_max_iops,
-    4: i64            tier_pct_ssd_iop,
-    5: i64            tier_pct_hdd_iop,
-    6: i64            tier_pct_ssd_capacity,
 }
 
 typedef list<FDSP_QueueStateType> FDSP_QueueStateListType
@@ -674,97 +599,6 @@ struct FDSP_MsgHdrType {
   30: i64         origin_timestamp,
   31: i32         proxy_count,
   32: string      session_cache,  // this will be removed once we have  transcation journel  in DM
-}
-
-enum tier_prefetch_type_e
-{
-    PREFETCH_MRU,    /* most recently used to complement LRU */
-    PREFETCH_RAND,   /* random eviction policy. */
-    PREFETCH_ARC     /* arc algorithm */
-}
-
-enum tier_media_type_e
-{
-    TIER_MEIDA_NO_VAL = 0,
-    TIER_MEDIA_DRAM,
-    TIER_MEDIA_NVRAM,
-    TIER_MEDIA_SSD,
-    TIER_MEDIA_HDD,
-    TIER_MEDIA_HYBRID,
-    TIER_MEDIA_HYBRID_PREFCAP
-}
-
-struct tier_time_spec
-{
-    1: i32                      ts_sec;
-    2: i32                      ts_min;
-    /*
-     * Hour encoding:
-     *           0 : hourly.
-     * 0x0000.001f : 1-24 regular hour of day.
-     * 0x0000.0370 : 1-24 hour for range.
-     * 0x0001.0000 : hour of day range cycle (e.g. 9-17h).
-     * 0x0002.0000 : hour of day range interval.
-     */
-    3: i32                      ts_hour;
-    /*
-     * Day of month encoding:
-     *           0 : daily.
-     * 0x0000.001f : 1-31 regular day of month.
-     * 0x0000.0370 : 1-31 day for range.
-     * 0x0001.0000 : day of month range cycle.
-     * 0x0002.0000 : day of month range interval.
-     */
-    4: i32                      ts_mday;
-    /*
-     * Day of week encoding:
-     *           0 : daily.
-     * 0x0000.0007 : 1-7 regular day of week.
-     * 0x0000.0070 : 1-7 day for range.
-     * 0x0001.0000 : day of week range cycle (e.g. M-F).
-     * 0x0002.0000 : day of week range interval.
-     */
-    5: i32                      ts_wday;   /* day of the week. */
-    /*
-     * Month encoding:
-     *           0 : monthly.
-     * 0x0000.000f : 1-12 regular month.
-     * 0x0000.00f0 : 1-12 month for range.
-     * 0x0001.0000 : month range cycle (e.g. quarterly).
-     * 0x0002.0000 : month range interval.
-     */
-    6: i32                      ts_mon;    /* month. */
-    7: i32                      ts_year;   /* year. */
-    8: i32                      ts_isdst;  /* daylight saving time. */
-}
-
-struct tier_pol_time_unit
-{
-    1: i64                    tier_vol_uuid;
-    2: bool                     tier_domain_policy;
-    3: i64                    tier_domain_uuid;
-    4: tier_media_type_e        tier_media;
-    5: tier_prefetch_type_e     tier_prefetch;
-    6: i64                      tier_media_pct;
-    7: tier_time_spec           tier_period;
-}
-
-struct tier_pol_audit
-{
-    1: i64                     tier_sla_min_iops;
-    2: i64                     tier_sla_max_iops;
-    3: i64                     tier_sla_min_latency;
-    4: i64                     tier_sla_max_latency;
-    5: i64                     tier_stat_min_iops;
-    6: i64                     tier_stat_max_iops;
-    7: i64                     tier_stat_avg_iops;
-    8: i64                     tier_stat_min_latency;
-    9: i64                     tier_stat_max_latency;
-    10: i64                    tier_stat_avg_latency;
-
-    11: i64                    tier_pct_ssd_iop;
-    12: i64                    tier_pct_hdd_iop;
-    13: i64                    tier_pct_ssd_capacity;
 }
 
 typedef list<i64> vol_List_Type
@@ -865,17 +699,6 @@ struct FDSP_GetObjMetadataResp {
  2: FDSP_MigrateObjectMetadata 	meta_data
 }
 
-enum FDSP_ScavengerCmd {
-  FDSP_SCAVENGER_ENABLE,     // enable automatic GC process
-  FDSP_SCAVENGER_DISABLE,    // disable GC
-  FDSP_SCAVENGER_START,      // start GC
-  FDSP_SCAVENGER_STOP        // stop GC if it's running
-}
-
-struct FDSP_ScavengerType {
-  1: FDSP_ScavengerCmd  cmd
-}
-
 /* Current state of tokens in an SM */
 struct FDSP_TokenMigrationStats {
 	/* Number of tokens for which migration is complete */
@@ -950,6 +773,11 @@ service FDSP_MetaDataPathResp {
     oneway void GetVolumeMetaDataResp(1:FDSP_MsgHdrType header, 2:FDSP_VolumeMetaData volumeMeta)
 }
 
+struct FDSP_CreateVolType {
+  1: string                  vol_name,
+  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+}
+
 /*
  * From fdscli to OM (sync messages)
  */
@@ -968,13 +796,9 @@ service FDSP_ConfigPathReq {
   i32 DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
   i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   FDSP_VolumeDescType GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req) throws (1:FDSP_VolumeNotFound not_found),
-  i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
-  i32 applyTierPolicy(1: tier_pol_time_unit policy),
-  i32 auditTierPolicy(1: tier_pol_audit audit),
   i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
-  i32 ScavengerCommand(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerType gc_req),
   list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),
   list <FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg),
   i32 ShutdownDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ShutdownDomainType dom_req)
@@ -989,68 +813,39 @@ service FDSP_ConfigPathResp {
  * OM proxy
  */
 service FDSP_OMControlPathReq {
-  oneway void CreateBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_buck_req),
-  oneway void DeleteBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_buck_req),
-  oneway void ModifyBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_buck_req),
   oneway void AttachBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
   oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
-  oneway void NotifyPerfstats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_msg),
   oneway void TestBucket(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_msg),
-  oneway void GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
-  oneway void NotifyMigrationDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_msg)
 }
 
 service FDSP_OMControlPathResp {
-  oneway void CreateBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_buck_rsp),
-  oneway void DeleteBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_buck_rsp),
-  oneway void ModifyBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_buck_rsp),
   oneway void AttachBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_buck_req),
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
   oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
-  oneway void NotifyPerfstatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PerfstatsType perf_stats_rsp),
   oneway void TestBucketResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_TestBucket test_buck_rsp),
-  oneway void GetDomainStatsResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_rsp),
-  oneway void MigrationDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_MigrationStatusType status_resp)
 }
 
 service FDSP_ControlPathReq {
 
   /* OM to SM/DM/SH control messages */
 
-  oneway void NotifyAddVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_req),
-  oneway void NotifyRmVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_req),
-  oneway void NotifyModVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_req),
-  oneway void NotifySnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_snap_vol_req),
   oneway void AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_req),
   oneway void DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_req),
   oneway void NotifyNodeAdd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
   oneway void NotifyNodeActive(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateNodeType act_node_req),
   oneway void NotifyNodeRmv(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
-  oneway void NotifyDLTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
-  oneway void NotifyDLTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DltCloseType dlt_close),
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
   oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
   oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
-  oneway void TierPolicy(1:FDSP_TierPolicy tier),
-  oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
-  oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg),
-  oneway void NotifyStartMigration(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
-  oneway void NotifyScavengerCmd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerType gc_info)
 }
 
 service FDSP_ControlPathResp {
-  oneway void NotifyAddVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_resp),
-  oneway void NotifyRmVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_resp),
-  oneway void NotifyModVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_resp),
-  oneway void NotifySnapVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_snap_vol_resp),
   oneway void AttachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_resp),
   oneway void DetachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_resp),
   oneway void NotifyNodeAddResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyNodeRmvResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyNodeActiveResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
-  oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
-  oneway void NotifyDLTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
   oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp),
   oneway void NotifyDMTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_resp),
   oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)

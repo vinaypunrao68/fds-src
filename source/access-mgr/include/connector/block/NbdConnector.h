@@ -1,39 +1,35 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
 
 #include <memory>
+#include <thread>
 #include <boost/shared_ptr.hpp>
 
-namespace boost
+#include "connector/block/common.h"
+
+namespace std
 {
 struct thread;
 }  // namespace boost
-
-// Forward declare so we can hide the ev++.h include
-// in the cpp file so that it doesn't conflict with
-// the libevent headers in Thrift.
-namespace ev {
-class io;
-class async;
-}  // namespace ev
 
 namespace fds {
 
 struct OmConfigApi;
 
 class NbdConnector {
-  private:
     uint32_t nbdPort;
-    int32_t nbdSocket;
+    int32_t nbdSocket {-1};
 
     std::unique_ptr<ev::io> evIoWatcher;
-    std::shared_ptr<boost::thread> runThread;
+    std::unique_ptr<std::thread> runThread;
     boost::shared_ptr<OmConfigApi> omConfigApi;
 
     int createNbdSocket();
+    void initialize();
+    void deinit();
     void runNbdLoop();
     void nbdAcceptCb(ev::io &watcher, int revents);
 
@@ -45,4 +41,4 @@ class NbdConnector {
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
