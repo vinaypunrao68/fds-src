@@ -1,7 +1,7 @@
 angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$rootScope', '$volume_api', '$snapshot_service', '$modal_data_service', '$http_fds', '$filter', function( $scope, $rootScope, $volume_api, $snapshot_service, $modal_data_service, $http_fds, $filter ){
 
     $scope.qos = {
-        capacity: 0,
+        sla: 0,
         limit: 0,
         priority: 10
     };
@@ -139,7 +139,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.$broadcast( 'fds::refresh' );
         
         var volume = {};
-        volume.sla = $scope.qos.capacity;
+        volume.sla = $scope.qos.sla;
         volume.limit = $scope.qos.limit;
         volume.priority = $scope.qos.priority;
         volume.snapshotPolicies = $scope.snapshotPolicies;
@@ -179,7 +179,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     var syncWithClone = function( volume ){
         
         $scope.qos = {
-            capacity: volume.sla,
+            sla: volume.sla,
             limit: volume.limit,
             priority: volume.priority
         };
@@ -217,9 +217,9 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         if ( newVal === true ){
             
             $scope.qos = {
-                capacity: 0,
+                sla: 0,
                 limit: 0,
-                priority: 10
+                priority: 7
             };
             
             $scope.volumeName = '';
@@ -228,6 +228,9 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             
             // default timeline policies
             $scope.timelinePolicies = defaultTimelinePolicies;
+            
+            $scope.$broadcast('fds::fui-slider-refresh' );
+            $scope.$broadcast( 'fds::qos-reinit' );
         }
     });
 

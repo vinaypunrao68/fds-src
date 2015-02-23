@@ -1,0 +1,62 @@
+<div class="edit-panel volumes" ng-controller="editVolumeController">
+
+    <div class="modal-header">
+        <span translate class="edit-volume-edit-title">volumes.l_edit_volume</span>
+        <div class="pull-right flex">
+            <button class="btn btn-primary skinny" style="display: inline-block;margin-right: 8px;" ng-click="edit()">
+                <span translate>volumes.l_save_volume</span>
+            </button>
+            <button class="btn btn-secondary cancel-update skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
+        </div>
+    </div>
+
+    <div class="settings-body">
+    <form>
+        
+        <section class="side-by-side">
+            
+            <label class="right-align" style="width: 150px;" translate>volumes.l_volume_name</label>
+            
+            <div class="volume-settings-panel">
+                <div class="volume-option">
+                    <fui-input type="text" class="volume-name-input skinny" size="32" placeholder="Enter Volume Name" ng-model="thisVolume.name" disabled="disableName"></fui-input>
+                </div>
+            </div>
+        </section>
+
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_qos</label>
+            <div class="add-bottom-space">
+                <qos-panel ng-model="qos" save-only="true"></qos-panel>
+            </div>
+        </section>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_timeline</label>
+            <div class="add-bottom-space">
+                <timeline-policy-panel ng-model="timelinePolicies" save-only="true"></timeline-policy-panel>
+            </div>
+        </section>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_tiering</label>
+            <tiering-panel ng-model="mediaPolicy" class="add-bottom-space" disabled="disableTiering"></tiering-policy-panel>
+        </section>          
+
+<!--
+        <section>
+            <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
+        </section>
+-->
+    </form>    
+    </div>
+
+    <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;margin-left: 150px;">
+        <button class="btn btn-primary skinny" style="display: inline-block;" ng-click="save()">
+            <span translate>volumes.l_save_volume</span>
+        </button>
+        <button class="btn btn-secondary cancel-update skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
+    </div>
+    
+    <div style="height: 20px;"></div>
+
+    
+</div>

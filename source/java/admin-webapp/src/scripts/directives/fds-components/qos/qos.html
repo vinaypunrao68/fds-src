@@ -1,8 +1,8 @@
 <div class="qos-panel" style="width: 700px;">
        
-    <button-bar ng-model="qosPreset" buttons="presets" ng-class="{'add-bottom-space' : editing === true }"></button-bar>
+    <button-bar ng-model="qosPreset" buttons="presets" ng-class="{'add-bottom-space' : qosPreset === presets[3] }"></button-bar>
     
-    <div class="volume-sla-edit-display volume-gray-container" ng-show="editing === true" style="width: 100%;" show-notify>
+    <div class="volume-sla-edit-display volume-gray-container" ng-show="qosPreset === presets[3]" style="width: 100%;" show-notify>
         <div>
             <div class="title-case" translate>volumes.qos.l_priority</div>
             <slider class="volume-priority-slider" min="1" max="10" step="1" ng-model="qos.priority" max-label="{{ 'volumes.qos.l_lowest' | translate }}" min-label="{{ 'volumes.qos.l_highest' | translate }}"></slider>

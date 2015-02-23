@@ -212,7 +212,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     };
     
     var initQosSettings = function(){
-        $scope.qos.capacity = $scope.thisVolume.sla;
+        $scope.qos.sla = $scope.thisVolume.sla;
         $scope.qos.limit = $scope.thisVolume.limit;
         $scope.qos.priority = $scope.thisVolume.priority;
         $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
@@ -287,60 +287,66 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 //        });
 //    });
     
-    $scope.$on( 'fds::qos_changed', function(){
+    $scope.edit = function(){
         
-        if ( !angular.isDefined( $scope.thisVolume.id ) ){
-            return;
-        }
+        $scope.volumeVars.editing = true;
+        $scope.volumeVars.next( 'editVolume' );
+    };
     
-        $scope.thisVolume.sla = $scope.qos.capacity;
-        $scope.thisVolume.priority = $scope.qos.priority;
-        $scope.thisVolume.limit = $scope.qos.limit;
-        
-        $volume_api.save( $scope.thisVolume );
-    });
-    
-    $scope.$on( 'fds::media_policy_changed', function(){
-        
-        
-        if ( angular.isString( $scope.mediaPolicy ) ){
-            $scope.thisVolume.mediaPolicy = $scope.mediaPolicy;
-        }
-        else if ( angular.isDefined( $scope.mediaPolicy.value ) ){
-            $scope.thisVolume.mediaPolicy = $scope.mediaPolicy.value;
-        }
-        else {
-            return;
-        }
-        
-        var temp = $scope.thisVolume;
-        
-        if( !angular.isDefined( $scope.thisVolume.mediaPolicy ) ||
-          !angular.isDefined( $scope.thisVolume.id ) ){
-            return;
-        }
-        
-        $volume_api.save( $scope.thisVolume );
-    });
-    
-    $scope.$on( 'fds::timeline_policy_changed', function( newVal, oldVal ){
-        
-        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.continuous;
-        
-        $volume_api.save( $scope.thisVolume );
-        
-        $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );
-    });
-    
-    $scope.$on( 'fds::data_connector_changed', function( newVal, oldVal ){
-        
-        if ( !angular.isDefined( $scope.thisVolume.id ) || !angular.isDefined( oldVal ) ){
-            return;
-        }        
-
-        $scope.thisVolume.data_connector = $scope.dataConncetor;
-        
-        $volume_api.save( $scope.thisVolume );
-    });
+//    $scope.$on( 'fds::qos_changed', function(){
+//        
+//        if ( !angular.isDefined( $scope.thisVolume.id ) ){
+//            return;
+//        }
+//    
+//        $scope.thisVolume.sla = $scope.qos.capacity;
+//        $scope.thisVolume.priority = $scope.qos.priority;
+//        $scope.thisVolume.limit = $scope.qos.limit;
+//        
+//        $volume_api.save( $scope.thisVolume );
+//    });
+//    
+//    $scope.$on( 'fds::media_policy_changed', function(){
+//        
+//        
+//        if ( angular.isString( $scope.mediaPolicy ) ){
+//            $scope.thisVolume.mediaPolicy = $scope.mediaPolicy;
+//        }
+//        else if ( angular.isDefined( $scope.mediaPolicy.value ) ){
+//            $scope.thisVolume.mediaPolicy = $scope.mediaPolicy.value;
+//        }
+//        else {
+//            return;
+//        }
+//        
+//        var temp = $scope.thisVolume;
+//        
+//        if( !angular.isDefined( $scope.thisVolume.mediaPolicy ) ||
+//          !angular.isDefined( $scope.thisVolume.id ) ){
+//            return;
+//        }
+//        
+//        $volume_api.save( $scope.thisVolume );
+//    });
+//    
+//    $scope.$on( 'fds::timeline_policy_changed', function( newVal, oldVal ){
+//        
+//        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.continuous;
+//        
+//        $volume_api.save( $scope.thisVolume );
+//        
+//        $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );
+//    });
+//    
+//    $scope.$on( 'fds::data_connector_changed', function( newVal, oldVal ){
+//        
+//        if ( !angular.isDefined( $scope.thisVolume.id ) || !angular.isDefined( oldVal ) ){
+//            return;
+//        }        
+//
+//        $scope.thisVolume.data_connector = $scope.dataConncetor;
+//        
+//        $volume_api.save( $scope.thisVolume );
+//    });
     
 }]);

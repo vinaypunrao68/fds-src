@@ -457,6 +457,12 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             
             var initWatcher = function(){
                 watcher = $scope.$watch( 'timelinePolicies', function(){
+                    
+                    // no use continuing if the policies are missing
+                    if ( !angular.isDefined( $scope.timelinePolicies ) || !angular.isDefined( $scope.timelinePolicies.continuous ) ){
+                        return;
+                    }
+                    
                     translatePoliciesToScreen();
                 });
             };

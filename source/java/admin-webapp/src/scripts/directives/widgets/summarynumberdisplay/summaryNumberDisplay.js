@@ -55,7 +55,18 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
             
             $scope.$watch( 'data', function( newVal ){
                 
-                if ( !angular.isDefined( $scope.data ) || $scope.data.length === 0 ){
+                if ( !angular.isDefined( $scope.data )){
+                    return;
+                }
+                
+                if ( !angular.isArray( $scope.data ) || $scope.data.length === 0 ){
+                    
+                    if ( angular.isDefined( $scope.data.number ) ){
+                        var d = [];
+                        d.push( $scope.data );
+                        $scope.data = d;
+                    }
+                    
                     return;
                 }
                 

@@ -182,6 +182,7 @@ var en_US = {
         l_edit_volume: 'Edit Volume',
         l_point_timeline: 'Point from timeline:',
         l_qos: 'Performance',
+        l_save_volume: 'Save Volume',
         l_select_to_clone: 'Select a Volume to Clone',
         l_settings: 'Settings',
         l_size_limit: 'Capacity Limit',
