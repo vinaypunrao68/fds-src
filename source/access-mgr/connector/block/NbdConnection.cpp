@@ -270,11 +270,11 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
     return true;
 }
 
-void
+bool
 NbdConnection::hsReq(ev::io &watcher) {
     if (request.header_off >= 0) {
         if (!get_message_header(watcher.fd, request))
-            return;
+            return false;
         ensure(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
         request.header.opType = ntohl(request.header.opType);
         request.header.offset = __builtin_bswap64(request.header.offset);
@@ -288,7 +288,7 @@ NbdConnection::hsReq(ev::io &watcher) {
 
     if (NBD_CMD_WRITE == request.header.opType) {
         if (!get_message_payload(watcher.fd, request))
-            return;
+            return false;
     }
     request.header_off = 0;
     request.data_off = -1;
@@ -302,7 +302,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     Error err = dispatchOp();
     request.data.reset();
     ensure(ERR_OK == err);
-    return;
+    return true;
 }
 
 bool
@@ -344,35 +344,35 @@ NbdConnection::hsReply(ev::io &watcher) {
                     response[i].iov_len = sizeof(fourKayZeros);
                 }
             }
+            return true;
         }
 
         // no uturn
-        if (!readyResponses.empty()) {
-            NbdResponseVector* resp = NULL;
-            ensure(readyResponses.pop(resp));
-            current_response.reset(resp);
+        if (readyResponses.empty())
+            { return false; }
 
-            response[2].iov_base = &current_response->handle;
-            response[2].iov_len = sizeof(current_response->handle);
-            if (!current_response->getError().ok()) {
-                err = current_response->getError();
-                response[1].iov_base = to_iovec(&error_bad);
-            } else if (current_response->isRead()) {
-                fds_uint32_t context = 0;
-                boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
-                while (buf != NULL) {
-                    LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
-                             << "...Buffer # " << context
-                             << "...Size " << std::dec << buf->length() << "B";
-                    response[total_blocks].iov_base = to_iovec(buf->c_str());
-                    response[total_blocks].iov_len = buf->length();
-                    ++total_blocks;
-                    // get next buffer
-                    buf = current_response->getNextReadBuffer(context);
-                }
+        NbdResponseVector* resp = NULL;
+        ensure(readyResponses.pop(resp));
+        current_response.reset(resp);
+
+        response[2].iov_base = &current_response->handle;
+        response[2].iov_len = sizeof(current_response->handle);
+        if (!current_response->getError().ok()) {
+            err = current_response->getError();
+            response[1].iov_base = to_iovec(&error_bad);
+        } else if (current_response->isRead()) {
+            fds_uint32_t context = 0;
+            boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
+            while (buf != NULL) {
+                LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
+                         << "...Buffer # " << context
+                         << "...Size " << std::dec << buf->length() << "B";
+                response[total_blocks].iov_base = to_iovec(buf->c_str());
+                response[total_blocks].iov_len = buf->length();
+                ++total_blocks;
+                // get next buffer
+                buf = current_response->getNextReadBuffer(context);
             }
-        } else {
-            return true;
         }
         write_offset = 0;
     }
@@ -471,7 +471,9 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 }
                 break;
             case DOREQS:
-                hsReq(watcher);
+                // Read all the requests off the socket
+                while (hsReq(watcher))
+                    { continue; }
                 break;
             default:
                 LOGDEBUG << "Asked to read in state: " << hsState;
@@ -499,13 +501,16 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 }
                 break;
             case DOREQS:
-                if (hsReply(watcher)) {
-                    // If the queue is empty, stop writing. Reading at this
-                    // point is determined by whether we have an Operations
-                    // instance to queue to.
-                    if (doUturn ? readyHandles.empty() : readyResponses.empty())
-                        { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
-                }
+                // Write everything we can
+                while (hsReply(watcher))
+                    { continue; }
+
+                // If the queue is empty, stop writing. Reading at this
+                // point is determined by whether we have an Operations
+                // instance to queue to.
+                if ((!current_response) &&
+                    (doUturn ? readyHandles.empty() : readyResponses.empty()))
+                    { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
                 break;
             default:
                 fds_panic("Unknown NBD connection state %d", hsState);
@@ -550,36 +555,11 @@ ssize_t retry_read(int fd, void* buf, size_t count) {
 }
 
 template<typename M>
-bool get_message_header(int fd, M& message) {
-    static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
-    fds_assert(message.header_off >= 0);
-    ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
-    ssize_t nread = retry_read(fd,
-                         reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
-                         to_read);
-    if (nread <= 0) {
-        switch (0 > nread ? errno : EPIPE) {
-            case EAGAIN:
-                LOGWARN << "Spurious wakeup? Have " << message.header_off << " bytes of header.";
-                return false;
-            case EPIPE:
-                LOGNOTIFY << "Client disconnected";
-            default:
-                LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-                throw NbdError::shutdown_requested;
-        }
-    } else if (nread < to_read) {
-        LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
-        message.header_off += nread;
-        return false;
-    }
-    message.header_off = -1;
-    message.data_off = 0;
-    return true;
-}
-
-template<typename M>
 ssize_t read_from_socket(int fd, M& buffer, ssize_t off, ssize_t len);
+
+template<>
+ssize_t read_from_socket(int fd, uint8_t*& buffer, ssize_t off, ssize_t len)
+{ return retry_read(fd, buffer + off, len); }
 
 template<>
 ssize_t read_from_socket(int fd, std::array<char, 1024>& buffer, ssize_t off, ssize_t len)
@@ -589,15 +569,11 @@ template<>
 ssize_t read_from_socket(int fd, boost::shared_ptr<std::string>& buffer, ssize_t off, ssize_t len)
 { return retry_read(fd, &(*buffer)[0] + off, len); }
 
-template<typename M>
-bool get_message_payload(int fd, M& message) {
+template<typename D>
+bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
+{
     static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
-    fds_assert(message.data_off >= 0);
-    ssize_t to_read = message.header.length - message.data_off;
-    ssize_t nread = read_from_socket(fd,
-                                     message.data,
-                                     message.data_off,
-                                     to_read);
+    ssize_t nread = read_from_socket(fd, data, off, len);
     if (nread <= 0) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
@@ -609,12 +585,35 @@ bool get_message_payload(int fd, M& message) {
                 LOGERROR << "Socket read error: [" << strerror(errno) << "]";
                 throw NbdError::shutdown_requested;
         }
-    } else if (nread < to_read) {
-        LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
-        message.data_off += nread;
+    } else if (nread < len) {
+        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << len << "]";
+        off += nread;
         return false;
     }
     return true;
+}
+
+template<typename M>
+bool get_message_header(int fd, M& message) {
+    fds_assert(message.header_off >= 0);
+    ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
+
+    auto buffer = reinterpret_cast<uint8_t*>(&message.header);
+    if (nbd_read(fd, buffer, message.header_off, to_read))
+    {
+        message.header_off = -1;
+        message.data_off = 0;
+        return true;
+    }
+    return false;
+}
+
+template<typename M>
+bool get_message_payload(int fd, M& message) {
+    fds_assert(message.data_off >= 0);
+    ssize_t to_read = message.header.length - message.data_off;
+
+    return nbd_read(fd, message.data, message.data_off, to_read);
 }
 
 }  // namespace fds
