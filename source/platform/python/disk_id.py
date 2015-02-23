@@ -153,7 +153,7 @@ class Disk:
             self.dsk_typ = Disk.DSK_TYP_SSD
         elif rotation > '6000':                # HDD
             self.dsk_typ = Disk.DSK_TYP_HDD
-        elif virtualized:                      # Virtualized treated as HDD's, can tune in the hints file
+        elif virtualized:                      # Virtualized treated as HDD's, can tune in the config file
             self.dsk_typ = Disk.DSK_TYP_HDD
                                                # else this device is on a hardware controller,
                                                # so leave the dsk_typ set to the default UKN (unknown)
@@ -343,20 +343,22 @@ if __name__ == "__main__":
         #debug_dump (dev_list)
         sys.exit(1)
 
-    # Now figure out which drives will hold the meta data index
-    # Three scenarios are possible
-    #     first 2 SSDs
-    #     only SSD and first HDD
-    #     first 2 HDDs
+    # Now figure out which drives will hold the meta data indexes
+    # Possible scenarios
+    #     3 SSDs (excluding the os drives), medium and large systems
+    #     2 SSDs (excluding the OS drives and only 2 present SSDs, on small systems
+    #     only SSD and first HDD, Odd hardware combination?
+    #     first 2 HDDs, soak clusters and VMs
     #
     ssd_device_list = []
     hdd_device_list = []
+
     for disk in dev_list:
         if True == disk.get_os_use():
             continue
         if Disk.DSK_TYP_SSD == disk.get_type():
             ssd_device_list.append (disk.get_path())
-            if 2 == len(ssd_device_list):
+            if 3 == len(ssd_device_list):
                 break
         else:
             if len(hdd_device_list) < 2:
@@ -390,10 +392,10 @@ if __name__ == "__main__":
         for disk in dev_list:
             disk.print_disk(file_on_disk)
         file_on_disk.close()
-        print "Disk type hints have been written to ", hints_file
+        print "The disk config has been written to ", hints_file
     else:  # store the disk.hints map
-        print "========================================================================================================="
-        print "This disk configuration list is NOT saved, this would be written if -w was included on the comnmand line."
-        print "========================================================================================================="
+        print "===================================================================================================="
+        print "This disk configuration is NOT saved, this would be written if -w was included on the comnmand line."
+        print "===================================================================================================="
         for disk in dev_list:
             disk.print_disk()

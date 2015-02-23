@@ -3,22 +3,21 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import org.eclipse.jetty.server.Request;
+import com.formationds.spike.later.HttpContext;
 
-import java.util.Enumeration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class S3UserMetadataUtility {
     private static final String s3UserMetadataPrefix = "x-amz-meta-";
 
-    public static Map<String, String> requestUserMetadata(Request request) {
+    public static Map<String, String> requestUserMetadata(HttpContext context) {
         HashMap<String, String> umd = new HashMap<>();
-        Enumeration<String> headerNames = request.getHeaderNames();
-        while(headerNames.hasMoreElements()) {
-            String headerName = headerNames.nextElement();
+        Collection<String> headerNames = context.getRequestHeaderNames();
+        for (String headerName : headerNames) {
             if(headerName.startsWith(s3UserMetadataPrefix)) {
-                umd.put(headerName, request.getHeader(headerName));
+                umd.put(headerName, context.getRequestHeader(headerName));
             }
         }
         return umd;

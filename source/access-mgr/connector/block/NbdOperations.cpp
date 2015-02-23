@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "connector/block/common.h"
 #include "connector/block/NbdOperations.h"
 
 #include "AmAsyncDataApi_impl.h"
@@ -142,7 +143,8 @@ NbdOperations::read(fds_uint32_t length,
 
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
-        fds_assert(responses.emplace(std::make_pair(handle, resp)).second);
+        if (false == responses.emplace(std::make_pair(handle, resp)).second)
+            { throw NbdError::connection_closed; }
     }
 
     // break down request into max obj size chunks and send to AM
@@ -222,7 +224,8 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
 
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
-        fds_assert(responses.emplace(std::make_pair(handle, resp)).second);
+        if (false == responses.emplace(std::make_pair(handle, resp)).second)
+            { throw NbdError::connection_closed; }
     }
 
     size_t amBytesWritten = 0;

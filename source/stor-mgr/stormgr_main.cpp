@@ -3,7 +3,6 @@
  */
 
 #include <StorMgr.h>
-#include <policy_tier.h>
 #include <sm-platform.h>
 #include <net/net-service.h>
 
@@ -23,7 +22,6 @@ class SMMain : public PlatformProcess
             &diskio::gl_dataIOMod,
             &fds::gl_SmPlatform,
             &fds::gl_NetService,
-            &fds::gl_tierPolicy,
             sm,
             nullptr
         };

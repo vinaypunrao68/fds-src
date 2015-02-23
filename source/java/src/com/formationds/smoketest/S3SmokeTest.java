@@ -8,7 +8,6 @@ import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +52,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
 import com.formationds.commons.Fds;
 import com.formationds.commons.util.Uris;
+import com.formationds.util.RngFactory;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
 
@@ -68,34 +68,6 @@ public class S3SmokeTest {
 
     public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
 
-    public static final Random loadRNG() {
-        final String rngClassName = System.getProperty(RNG_CLASS);
-        if (rngClassName == null) {
-            return new Random();
-        } else {
-            switch (rngClassName) {
-                case "java.util.Random":
-                    return new Random();
-                case "java.security.SecureRandom":
-                    return new SecureRandom();
-                case "java.util.concurrent.ThreadLocalRandom":
-                    throw new IllegalArgumentException(
-                            "ThreadLocalRandom is not supported - can't instantiate (must use ThreadLocalRandom.current())");
-                default:
-                    try {
-                        Class<?> rngClass = Class.forName(rngClassName);
-                        return (Random) rngClass.newInstance();
-                    } catch (ClassNotFoundException | InstantiationException
-                            | IllegalAccessException cnfe) {
-                        throw new IllegalStateException(
-                                "Failed to instantiate Random implementation specified by \""
-                                        + RNG_CLASS + "\"system property: "
-                                        + rngClassName, cnfe);
-                    }
-            }
-        }
-    }
-
     private final String adminBucket;
     private final String userBucket;
     private final String snapBucket;
@@ -108,7 +80,7 @@ public class S3SmokeTest {
     private final String userToken;
     private final String host;
     private final ConfigurationService.Iface config;
-    private final Random rng = loadRNG();
+    private final Random rng = RngFactory.loadRNG();
 
     public S3SmokeTest()
             throws Exception {
@@ -369,7 +341,6 @@ public class S3SmokeTest {
             config.createSnapshot(volumeId, snapBucket + "_1", 0, 0);
             long clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume, curTime);
             assertEquals(true, clonedVolumeId > 0);
-            String key = prefix + "-" + 9;
             int numKeys = userClient.listObjects(clonedVolume).getObjectSummaries().size();
             assertEquals(10, numKeys);
         } catch (Exception e) {
@@ -661,7 +632,7 @@ public class S3SmokeTest {
                 .getContent()));
     }
 
-    private void assertSecurityFailure(Supplier action) {
+    private void assertSecurityFailure(Supplier<?> action) {
         try {
             action.get();
             fail("Should have gotten an AmazonS3Exception");

@@ -5,15 +5,13 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.ApiException;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
 
-import java.util.Map;
-
-public class DeleteMultipleObjects implements RequestHandler {
+public class DeleteMultipleObjects implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -23,13 +21,13 @@ public class DeleteMultipleObjects implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucketName = requiredString(routeParameters, "bucket");
+    public Resource handle(HttpContext ctx) throws Exception {
+        String bucketName = ctx.getRouteParameter("bucket");
         StringBuffer result = new StringBuffer();
         result.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<DeleteResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">");
 
-        new DeleteObjectsFrame(request.getInputStream(), s -> {
+        new DeleteObjectsFrame(ctx.getInputStream(), s -> {
             try {
                 xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, s);
                 result.append("<Deleted><Key>");

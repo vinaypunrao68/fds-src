@@ -5,23 +5,23 @@ package com.formationds.xdi.s3;
 
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.util.MultiMap;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class MultiPartListParts implements RequestHandler {
+public class MultiPartListParts implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -31,11 +31,11 @@ public class MultiPartListParts implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucket = requiredString(routeParameters, "bucket");
-        String objectName = requiredString(routeParameters, "object");
-        MultiMap<String> qp = request.getQueryParameters();
-        String uploadId = qp.getString("uploadId");
+    public Resource handle(HttpContext context) throws Exception {
+        String bucket = context.getRouteParameter("bucket");
+        String objectName = context.getRouteParameter("object");
+        Map<String, Collection<String>> qp = context.getQueryParameters();
+        String uploadId = qp.get("uploadId").iterator().next();
 
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
         Integer maxParts = getIntegerFromQueryParameters(qp, "max-parts");
@@ -43,9 +43,9 @@ public class MultiPartListParts implements RequestHandler {
 
         List<PartInfo> allParts = mops.getParts();
         Stream<PartInfo> partInfoStream = allParts.stream();
-        if(partNumberMarker != null)
-            partInfoStream = partInfoStream.filter(pi -> partNumberMarker < pi.partNumber );
-        if(maxParts != null)
+        if (partNumberMarker != null)
+            partInfoStream = partInfoStream.filter(pi -> partNumberMarker < pi.partNumber);
+        if (maxParts != null)
             partInfoStream = partInfoStream.limit(maxParts);
 
         List<PartInfo> filteredList = partInfoStream.collect(Collectors.toList());
@@ -65,14 +65,14 @@ public class MultiPartListParts implements RequestHandler {
                         .withValueElt("ID", "NOT_IMPLEMENTED_YET")
                         .withValueElt("DisplayName", "NOT_IMPLEMENTED_YET"));
 
-        if(partNumberMarker != null)
+        if (partNumberMarker != null)
             elt = elt.withValueElt("PartNumberMarker", partNumberMarker.toString());
-        if(maxParts != null)
+        if (maxParts != null)
             elt = elt.withValueElt("MaxParts", maxParts.toString());
-        if(nextPart.isPresent())
+        if (nextPart.isPresent())
             elt = elt.withValueElt("NextPartNumberMarker", Integer.toString(nextPart.get().partNumber));
 
-        for(PartInfo pi : filteredList) {
+        for (PartInfo pi : filteredList) {
             // TODO: remove when volumeContents is fixed - right now it does not return metadata
             String systemVolume = xdi.getSystemVolumeName(token);
             BlobDescriptor bd = xdi.statBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName());
@@ -97,11 +97,12 @@ public class MultiPartListParts implements RequestHandler {
         return new XmlResource(elt.documentString(), 200);
     }
 
-    public Integer getIntegerFromQueryParameters(MultiMap<String> qp, String key) {
-        String value = qp.getString(key);
-        if(value == null)
+    public Integer getIntegerFromQueryParameters(Map<String, Collection<String>> qp, String key) {
+        if (!qp.containsKey(key)) {
             return null;
+        }
 
+        String value = qp.get(key).iterator().next();
         return Integer.parseInt(value);
     }
 }

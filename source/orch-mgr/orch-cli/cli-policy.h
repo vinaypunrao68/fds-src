@@ -7,8 +7,9 @@
 
 #include <boost/program_options.hpp>
 #include <fds_module.h>
-#include <net-proxies/vol_policy.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
+
+namespace fdp = FDS_ProtocolInterface;
 
 namespace fds {
 class CliComponent
@@ -52,14 +53,7 @@ class VolPolicyCLI : public virtual CliComponent
     int                         pol_domain_id;
     int                         pol_id;
     int                         pol_rel_priority;
-    int                         pol_tier_pct;
     std::string                 pol_name;
-    std::string                 pol_tier_media_arg;
-    std::string                 pol_tier_sched;
-    std::string                 pol_tier_domain;
-    std::string                 pol_tier_algo;
-    fdp::tier_media_type_e      pol_tier_media;
-    fdp::tier_prefetch_type_e   pol_tier_prefetch;
 };
 
 class OrchCliModule : public Module

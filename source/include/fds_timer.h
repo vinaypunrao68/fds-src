@@ -138,7 +138,7 @@ private:
             const std::chrono::duration<Rep, Period>& time,
             const bool &repeated)
     {
-        fds_assert(time >= std::chrono::seconds(1))
+        fds_assert(time >= std::chrono::seconds(1));
 
         lock_.lock();
         task->durationMs_ = std::chrono::duration_cast<std::chrono::milliseconds>(time);

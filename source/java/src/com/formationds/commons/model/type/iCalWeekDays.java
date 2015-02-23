@@ -15,44 +15,22 @@ public enum iCalWeekDays
     implements Serializable {
 
     @SerializedName( "SU" )
-    SU( 0 ),
+    SU,
     @SerializedName( "MO" )
-    MO( 1 ),
+    MO,
     @SerializedName( "TU" )
-    TU( 2 ),
+    TU,
     @SerializedName( "WE" )
-    WE( 3 ),
+    WE,
     @SerializedName( "TH" )
-    TH( 4 ),
+    TH,
     @SerializedName( "FR" )
-    FR( 5 ),
+    FR,
     @SerializedName( "SA" )
-    SA( 6 );
-
-    private final int offset;
-
-    iCalWeekDays( final int offset ) {
-        this.offset = offset;
-    }
-
-    /**
-     * @return Returns the offset.
-     */
-    public final int getOffset() {
-        return this.offset;
-    }
+    SA;
 
     protected void validate() {
         iCalWeekDays.valueOf( name() );
-    }
-
-    /**
-     * @param weekDay the {@link iCalWeekDays}
-     *
-     * @return Returns {@code true} if equal. Otherwise, {P@code false}
-     */
-    public final boolean equals( final iCalWeekDays weekDay ) {
-        return weekDay != null && weekDay.getOffset() == getOffset();
     }
 
     /**
@@ -60,14 +38,7 @@ public enum iCalWeekDays
      */
     @Override
     public String toString() {
-        final StringBuilder b = new StringBuilder();
 
-        if( getOffset() != 0 ) {
-            b.append( getOffset() );
-        }
-
-        b.append( name() );
-
-        return b.toString();
+        return name();
     }
 }

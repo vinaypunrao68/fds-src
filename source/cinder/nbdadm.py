@@ -126,9 +126,9 @@ def attach(args):
     for dev in devs:
         if dev not in conns:
             if port == 10809:
-                nbd_args = ['nbd-client', '-N', args.volume_name, host, dev, '-b', '4096']
+                nbd_args = ['nbd-client', '-N', args.volume_name, host, dev, '-b', '4096', '-t', '5']
             else:
-                nbd_args = ['nbd-client', '-N', args.volume_name, host, str(port), dev, '-b', '4096']
+                nbd_args = ['nbd-client', '-N', args.volume_name, host, str(port), dev, '-b', '4096', '-t', '5']
 
             nbd_client = subprocess.Popen(nbd_args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
             # add timeout?

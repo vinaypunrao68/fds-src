@@ -21,7 +21,6 @@ user_fds_ar_libs  := \
     fds-hash \
     fds-xdi \
     fds-smlib     \
-    fds-vpolicy   \
     fds-hash      \
     fds-migrations \
     fds-odb       \

@@ -80,6 +80,106 @@ var listVolumes = function( full ){
     }
 };
 
+var addNode = function( name ){
+    
+    var newNode = {
+        "name": name,
+        "uuid": (new Date()).getTime(),
+        "ipV6address": "0.0.0.0",
+        "ipV4address": '10.3.50.' + (Math.random() * 255),
+        "state": "DISCOVERED",
+        "services": {
+            "DM": [
+                {
+                    "uuid": (new Date()).getTime() + 1,
+                    "autoName": "PM",
+                    "port": 7031,
+                    "status": "INVALID",
+                    "type": "FDSP_PLATFORM"
+                }
+            ]
+        }
+    };
+    
+    var detachedNodes = JSON.parse( window.localStorage.getItem( 'detachedNodes' ) );
+    
+    if ( detachedNodes === null ){
+        detachedNodes = [];
+    }
+    
+    detachedNodes.push( newNode );
+    
+    window.localStorage.setItem( 'detachedNodes', JSON.stringify( detachedNodes ) );
+};
+
+var setServiceState = function( nodeName, services, state ){
+    
+    var nodes = JSON.parse( window.localStorage.getItem( 'nodes' ) );
+    
+    for ( var i = 0; nodes !== null && i < nodes.length; i++ ){
+        
+        if ( nodes[i].name !== nodeName ){
+            continue;
+        }
+        
+        if ( angular.isString( services ) ){
+            services = services.split( ',' );
+        }
+        
+        for ( var j = 0; j < services.length; j++ ){
+            
+            var service = nodes[i].services[services[j].toUpperCase()];
+
+            if ( !angular.isDefined( service ) || service === null ){
+                continue;
+            }
+
+            service[0].status = state;
+        }
+        break;
+    }
+    
+    window.localStorage.setItem( 'nodes', JSON.stringify( nodes ) );
+};
+
+var listNodes = function( full ){
+    
+    if ( !angular.isDefined( full ) ){
+        full = false;
+    }
+    
+    var nodes = JSON.parse( window.localStorage.getItem( 'nodes' ) );
+    
+    for ( var i = 0; i < nodes.length; i++ ){
+        var str = nodes[i].uuid + ': ' + nodes[i].name;
+        
+        if ( full === true ){
+            str = nodes[i];
+        }
+        
+        console.log( str );
+    }
+};
+
+var listDetachedNodes = function( full ){
+    
+    if ( !angular.isDefined( full ) ){
+        full = false;
+    }
+    
+    var nodes = JSON.parse( window.localStorage.getItem( 'detachedNodes' ) );
+
+    for ( var i = 0; i < nodes.length; i++ ){
+        var str = nodes[i].uuid + ': ' + nodes[i].name;
+        
+        if ( full === true ){
+            str = nodes[i];
+        }
+        
+        console.log( str );
+    }
+};
+
 var clean = function(){
     window.localStorage.clear();
 };
