@@ -18,6 +18,7 @@
 #include "platform/platform_process.h"
 #include "platform/platform.h"
 #include <fds_typedefs.h>
+#include "fdsp/om_service_types.h"
 #include <thread>
 #include <string>
 using namespace std; // NOLINT
