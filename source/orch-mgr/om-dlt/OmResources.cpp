@@ -1549,48 +1549,6 @@ OM_ControlRespHandler::DetachVolResp(
 }
 
 void
-OM_ControlRespHandler::NotifyNodeAddResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyNodeAddResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
-}
-
-void
-OM_ControlRespHandler::NotifyNodeRmvResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyNodeRmvResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
-}
-
-void
-OM_ControlRespHandler::NotifyNodeActiveResp(
-    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void
-OM_ControlRespHandler::NotifyNodeActiveResp(
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "OM received response for NotifyNodeActive from node "
-            << fdsp_msg->src_node_name;
-}
-
-void
 OM_ControlRespHandler::PushMetaDMTResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {

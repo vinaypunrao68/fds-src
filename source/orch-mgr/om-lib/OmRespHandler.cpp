@@ -36,45 +36,6 @@ void FDSP_ControlPathRespHandler::DetachVolResp(
             << "OrchMgr: received response for DetachVol";
 }
 
-void FDSP_ControlPathRespHandler::NotifyNodeAddResp(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_ControlPathRespHandler::NotifyNodeAddResp(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
-    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
-            << "OrchMgr: received response for NotifyNodeAdd";
-}
-
-void FDSP_ControlPathRespHandler::NotifyNodeRmvResp(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_ControlPathRespHandler::NotifyNodeRmvResp(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
-    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
-            << "OrchMgr: received response for NotifyNodeRmv";
-}
-
-void FDSP_ControlPathRespHandler::NotifyNodeActiveResp(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_ControlPathRespHandler::NotifyNodeActiveResp(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp) {
-    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
-            << "OrchMgr: received response for NotifyNodeActive";
-}
-
 void FDSP_ControlPathRespHandler::NotifyDMTUpdateResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp) {

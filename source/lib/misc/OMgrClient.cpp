@@ -41,38 +41,6 @@ void OMgrClientRPCI::DetachVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
 }
 
-void OMgrClientRPCI::NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr,
-                                   FDSP_Node_Info_TypePtr& node_info) {
-    Platform *plat = PlatformProcess::plf_manager();
-    FdspNodeRegPtr reg = FdspNodeRegPtr(new FDSP_RegisterNodeType());
-    NodeUuid svc_uuid(node_info->service_uuid);
-
-    reg->node_type      = node_info->node_type;
-    reg->node_name      = node_info->node_name;
-    reg->domain_id      = 0;  // node_info doesn't have it.
-    reg->ip_hi_addr     = node_info->ip_hi_addr;
-    reg->ip_lo_addr     = node_info->ip_lo_addr;
-    reg->control_port   = node_info->control_port;
-    reg->data_port      = node_info->data_port;
-    reg->migration_port = node_info->migration_port;
-    reg->metasync_port = node_info->metasync_port;
-    reg->node_root      = node_info->node_root;
-    reg->node_uuid.uuid    = node_info->node_uuid;
-    reg->service_uuid.uuid = node_info->service_uuid;
-
-    plat->plf_reg_node_info(svc_uuid, reg);
-    om_client->recvNodeEvent(node_info->node_id, node_info->node_type,
-                             (unsigned int) node_info->ip_lo_addr,
-                             node_info->node_state, node_info);
-}
-
-void OMgrClientRPCI::NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
-                                   FDSP_Node_Info_TypePtr& node_info) {
-    om_client->recvNodeEvent(node_info->node_id, node_info->node_type,
-                             (unsigned int) node_info->ip_lo_addr,
-                             node_info->node_state, node_info);
-}
-
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                                      FDSP_DMT_TypePtr& dmt_info) {
     #if 0
@@ -168,11 +136,6 @@ int OMgrClient::registerEventHandlerForMigrateEvents(migration_event_handler_t m
 
 int OMgrClient::registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr) { //NOLINT
     this->dltclose_evt_hdlr = dltclose_event_hdlr;
-    return 0;
-}
-
-int OMgrClient::registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr) {
-    this->node_evt_hdlr = node_event_hdlr;
     return 0;
 }
 
@@ -404,54 +367,6 @@ Error OMgrClient::sendDMTCommitAck(const Error& op_err,
     }
 
     return err;
-}
-
-int OMgrClient::recvNodeEvent(int node_id,
-                              FDSP_MgrIdType node_type,
-                              unsigned int node_ip,
-                              int node_state,
-                              const FDSP_Node_Info_TypePtr& node_info)
-{
-    omc_lock.write_lock();
-
-    node_info_t node;
-
-    node.node_id = node_info->service_uuid;
-    node.node_ip_address = node_ip;
-    node.port = node_info->data_port;
-    node.node_state = (FDSP_NodeState) node_state;
-    node.mig_port = node_info->migration_port;
-    node.meta_sync_port = node_info->metasync_port;
-
-    // Update local cluster map
-    clustMap->addNode(&node, my_node_type, node_type);
-
-    // TODO(Andrew): Hack to figure out my own node uuid
-    // since the OM doesn't reply to my registration yet.
-    if ((node.node_ip_address ==
-         (uint)netSession::ipString2Addr(*plf_mgr->plf_get_my_ip())) &&
-        (node.port == plf_mgr->plf_get_my_data_port()) &&
-        (myUuid.uuid_get_val() == 0)) {
-        myUuid.uuid_set_val(node_info->node_uuid);
-        LOGDEBUG << "Setting my UUID to " << myUuid.uuid_get_val();
-    }
-
-    omc_lock.write_unlock();
-
-    LOGNOTIFY << "OMClient received node event for node "
-              << node.node_id
-              << ", type - " << node_info->node_type
-              << " with ip address " << node_ip
-              << " and state - " << node_state;
-
-    if (this->node_evt_hdlr) {
-        this->node_evt_hdlr(node.node_id,
-                            node_ip,
-                            node_state,
-                            node_info->data_port,
-                            node_info->node_type);
-    }
-    return (0);
 }
 
 Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
