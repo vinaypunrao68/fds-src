@@ -113,7 +113,7 @@ enum  FDSPMsgTypeId {
     CtrlGetSecondRebalanceDeltaSetRspTypeId = 2067,
 
     /* DM messages. */
-    CtrlNotifyPushDMTTypeId            = 2080,
+    _defunct_CtrlNotifyPushDMTTypeId            = 2080,
     CtrlNotifyDMTCloseTypeId           = 2081,
     CtrlNotifyDMTUpdateTypeId          = 2082,
     CtrlNotifyDMAbortMigrationTypeId   = 2083,

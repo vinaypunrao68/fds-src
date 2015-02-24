@@ -63,11 +63,6 @@ struct CreateVolumeCloneRespMsg {
      1:i64 cloneId
 }
 
-/* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
-struct CtrlNotifyPushDMT {
-     1: FDSP.FDSP_PushMeta        dmt_push;
-}
-
 /* ---------------------  CtrlNotifyDMTCloseTypeId  ---------------------------- */
 struct CtrlNotifyDMTClose {
      1: FDSP.FDSP_DmtCloseType    dmt_close;
