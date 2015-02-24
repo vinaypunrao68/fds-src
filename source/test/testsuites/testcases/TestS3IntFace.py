@@ -10,9 +10,11 @@ import TestCase
 
 # Module-specific requirements
 import sys
+import uuid
 import os
 import math
 import hashlib
+import httplib
 from filechunkio import FileChunkIO
 import boto
 from boto.s3 import connection
@@ -108,6 +110,48 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
             if not s3.bucket1:
                 self.log.error("s3.conn.create_bucket() failed to create bucket bucket1.")
                 return False
+
+        return True
+
+
+class TestS3Acls(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3Acls,
+                                             "Testing ACLs with Boto")
+
+    def test_S3Acls(self):
+        """
+        Test Case:
+        Attempt to set ACL parameters with Boto.
+        """
+
+        if not "s3" in self.parameters:
+            self.log.error("No S3 interface object with which to create a bucket.")
+            return False
+        elif self.parameters["s3"].conn is None:
+            self.log.error("No S3 connection with which to create a bucket.")
+            return False
+        else:
+            s3 = self.parameters["s3"]
+            bucket_name = str(uuid.uuid4())
+            random_bucket = s3.conn.create_bucket(bucket_name)
+            key_name = str(uuid.uuid4())
+            conn = httplib.HTTPConnection("localhost:8000")
+
+            # Try a PUT without setting the ACL first, should be rejected
+            conn.request("PUT", "/" + bucket_name + "/" + key_name, "file contents")
+            result = conn.getresponse()
+            self.assertEqual(403, result.status)
+
+            # Anonymous PUT should be accepted after ACL has been set
+            random_bucket.set_acl('public-read-write')
+            conn = httplib.HTTPConnection("localhost:8000")
+            conn.request("PUT", "/" + bucket_name + "/" + key_name, "file contents")
+            result = conn.getresponse()
+            self.assertEqual(200, result.status)
+
 
         return True
 

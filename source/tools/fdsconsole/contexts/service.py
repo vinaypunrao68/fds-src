@@ -88,7 +88,7 @@ class ServiceContext(Context):
         try:
             #process.setup_logger()
             #import pdb; pdb.set_trace()
-            dmClient = self.config.platform;
+            dmClient = self.config.getPlatform();
 
             dmUuids = dmClient.svcMap.svcUuids('dm')
             volId = dmClient.svcMap.omConfig().getVolumeId(volname)
@@ -117,7 +117,7 @@ class ServiceContext(Context):
             
             #process.setup_logger()
 	    # import pdb; pdb.set_trace()
-            dmClient = self.config.platform;
+            dmClient = self.config.getPlatform();
             volId = dmClient.svcMap.omConfig().getVolumeId(volname)
 
             dmUuids = dmClient.svcMap.svcUuids('dm')

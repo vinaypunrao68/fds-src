@@ -6,7 +6,6 @@ package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.RecurrenceRule;
 import com.formationds.commons.model.type.iCalFrequency;
-import com.formationds.commons.model.type.iCalWeekDays;
 import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 
@@ -30,7 +29,7 @@ public class RecurrenceRuleBuilder {
     private Numbers<Integer> months = null;
     private Numbers<Integer> position = null;
     private String weekStartDay;
-    private WeekDays<iCalWeekDays> days = null;
+    private WeekDays<String> days = null;
 
     public RecurrenceRuleBuilder( final iCalFrequency frequency ) {
         this.frequency = frequency;
@@ -96,7 +95,7 @@ public class RecurrenceRuleBuilder {
         return this;
     }
 
-    public RecurrenceRuleBuilder byDay( WeekDays<iCalWeekDays> days ) {
+    public RecurrenceRuleBuilder byDay( WeekDays<String> days ) {
         this.days = days;
         return this;
     }

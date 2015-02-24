@@ -48,8 +48,6 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScrubberStatus, setScrubberStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScrubberStatus, queryScrubberStatus);
 
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicy, TierPolicy);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartHybridTierCtrlrMsg, startHybridTierCtrlr);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
@@ -724,41 +722,6 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     }
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), *vol_msg);
-}
-
-// TierPolicy
-// ----------
-//
-void
-SMSvcHandler::TierPolicy(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
-                         boost::shared_ptr<fpi::CtrlTierPolicy> &msg)
-{
-    // LOGNOTIFY
-    // << "OMClient received tier policy for vol "
-    // << tier->tier_vol_uuid;
-    fds_verify(objStorMgr->omc_srv_pol != nullptr);
-    fdp::FDSP_TierPolicyPtr tp(new FDSP_TierPolicy(msg->tier_policy));
-    objStorMgr->omc_srv_pol->serv_recvTierPolicyReq(tp);
-    hdr->msg_code = 0;
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlTierPolicy), *msg);
-}
-
-// TierPolicyAudit
-// ---------------
-//
-void
-SMSvcHandler::TierPolicyAudit(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                              boost::shared_ptr<fpi::CtrlTierPolicyAudit> &msg)
-{
-    // LOGNOTIFY
-    // << "OMClient received tier audit policy for vol "
-    // << audit->tier_vol_uuid;
-
-    fds_verify(objStorMgr->omc_srv_pol != nullptr);
-    fdp::FDSP_TierPolicyAuditPtr ta(new FDSP_TierPolicyAudit(msg->tier_audit));
-    objStorMgr->omc_srv_pol->serv_recvTierPolicyAuditReq(ta);
-    hdr->msg_code = 0;
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlTierPolicyAudit), *msg);
 }
 
 // CtrlStartHybridTierCtrlrMsg

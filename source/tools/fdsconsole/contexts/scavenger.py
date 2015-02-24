@@ -10,34 +10,34 @@ class ScavengerContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
 
-        self.smClient = self.config.platform
+    def smClient(self):
+        return self.config.getPlatform()
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def enable(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             getScavMsg = FdspUtils.newEnableScavengerMsg()
             scavCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, getScavMsg, scavCB)
+            self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
 
         except Exception, e:
             log.exception(e)
             return 'Enable failed'
-    
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def disable(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             getScavMsg = FdspUtils.newDisableScavengerMsg()
             scavCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, getScavMsg, scavCB)
+            self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'disable failed'
@@ -47,11 +47,11 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def start(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             getScavMsg = FdspUtils.newStartScavengerMsg()
             scavCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, getScavMsg, scavCB)
+            self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'start failed'
@@ -61,11 +61,11 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def stop(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             getScavMsg = FdspUtils.newStopScavengerMsg()
             scavCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, getScavMsg, scavCB)
+            self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'stop failed'
@@ -77,11 +77,11 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def status(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             getStatusMsg = FdspUtils.newScavengerStatusMsg()
             scavCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, getStatusMsg, scavCB)
+            self.smClient().sendAsyncSvcReq(sm, getStatusMsg, scavCB)
             scavCB.wait()
             resp = scavCB.payload.status
             print "Scavenger status: ",
@@ -104,11 +104,11 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def progress(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             getStatusMsg = FdspUtils.newScavengerProgressMsg()
             scavCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, getStatusMsg, scavCB)
+            self.smClient().sendAsyncSvcReq(sm, getStatusMsg, scavCB)
             scavCB.wait()
             resp = scavCB.payload.progress_pct
             print "Scavenger progress: {}%".format(resp)
@@ -121,17 +121,18 @@ class ScrubberContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
 
-        self.smClient = self.config.platform
+    def smClient(self):
+        return self.config.getPlatform()
 
     @cliadmincmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def enable(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             scrubEnableMsg = FdspUtils.newEnableScrubberMsg()
             scrubCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, scrubEnableMsg, None)
+            self.smClient().sendAsyncSvcReq(sm, scrubEnableMsg, None)
         except Exception, e:
             log.exception(e)
             return 'enable scrubber failed'
@@ -140,11 +141,11 @@ class ScrubberContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def disable(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             scrubDisableMsg = FdspUtils.newDisableScrubberMsg()
             scrubCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, scrubDisableMsg, scrubCB)
+            self.smClient().sendAsyncSvcReq(sm, scrubDisableMsg, scrubCB)
         except Exception, e:
             log.exception(e)
             return 'disable scrubber failed'
@@ -153,11 +154,11 @@ class ScrubberContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def status(self, sm):
         try:
-            sm = self.smClient.svcMap.svcUuid(sm, "sm")
+            sm = self.smClient().svcMap.svcUuid(sm, "sm")
 
             scrubStatusMsg = FdspUtils.newQueryScrubberStatusMsg()
             scrubCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, scrubStatusMsg, scrubCB)
+            self.smClient().sendAsyncSvcReq(sm, scrubStatusMsg, scrubCB)
             scrubCB.wait()
             resp = scrubCB.payload.scrubber_status
             print "Scrubber status: ",
