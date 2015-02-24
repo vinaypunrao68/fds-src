@@ -92,14 +92,12 @@ enum  FDSPMsgTypeId {
     CtrlGetSecondRebalanceDeltaSetRspTypeId = 2067,
 
     /* DM messages. */
-    _defunct_CtrlNotifyPushDMTTypeId            = 2080,
     CtrlNotifyDMTCloseTypeId           = 2081,
     CtrlNotifyDMTUpdateTypeId          = 2082,
     CtrlNotifyDMAbortMigrationTypeId   = 2083,
 
 
     /* OM-> AM messages. */
-    _defunct_CtrlNotifyBucketStatTypeId         = 2100,
     CtrlNotifyThrottleTypeId           = 2101,
     CtrlNotifyQoSControlTypeId         = 2102,
 
@@ -137,8 +135,6 @@ enum  FDSPMsgTypeId {
     UpdateCatalogOnceRspMsgTypeId,
     SetBlobMetaDataMsgTypeId,
     SetBlobMetaDataRspMsgTypeId,
-    _defunct_DeleteCatalogObjectMsgTypeId,
-    _defunct_DeleteCatalogObjectRspMsgTypeId,
     GetBlobMetaDataMsgTypeId,
     GetBlobMetaDataRspMsgTypeId,
     SetVolumeMetaDataMsgTypeId,

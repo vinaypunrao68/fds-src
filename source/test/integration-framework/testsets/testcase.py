@@ -45,18 +45,24 @@ class FDSTestCase(unittest.TestCase):
         self.config = {}
         self.om_ip_address = om_ip_address
         self.args = kwargs
-
+        # self.is_authenticated = False
         #Get the user token
         auth_token = str(utils.get_user_token(config.FDS_DEFAULT_ADMIN_USER,
-                            config.FDS_DEFAULT_ADMIN_PASS,
-                            self.om_ip_address, config.FDS_REST_PORT, 0, 1))
+                             config.FDS_DEFAULT_ADMIN_PASS,
+                             self.om_ip_address, config.FDS_REST_PORT, 0, 1))
+        
 
         self.s3conn = s3.S3Connection(
                      config.FDS_DEFAULT_ADMIN_USER,
                      auth_token,
                      self.om_ip_address,
-                     config.FDS_S3_PORT)
-
+                     config.FDS_S3_PORT,
+                     self.om_ip_address)
+        
+        #if self.is_authenticated == False:
+        #    self.s3conn.authenticate()
+        #    self.is_authenticated = True
+            
         if parameters:
             self.parameters = parameters
         else:

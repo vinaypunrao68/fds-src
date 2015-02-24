@@ -103,6 +103,7 @@ std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& msg);
 std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
 std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
 std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
+std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataSync& msg);
 std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg);
 
 std::string quoteString(std::string const& text,
@@ -145,13 +146,13 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
 }
 
 /**
-* @brief For deserializing FDSP messages 
+* @brief For deserializing FDSP messages
 *
 * @tparam PayloadT - FDSP payload type
 * @param payloadBuf - payload buffer
 * @param payload - return deserialized payload
 *
-* @return 
+* @return
 */
 template<class PayloadT>
 void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
