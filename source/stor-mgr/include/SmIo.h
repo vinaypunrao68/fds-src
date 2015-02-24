@@ -395,7 +395,7 @@ class SmIoSnapshotObjectDB : public SmIoReq {
     fds_uint64_t executorId;
 
     /** 
-     * Snapshot number
+     * SM token's snapshot number
      */
     std::string snapNum;
 

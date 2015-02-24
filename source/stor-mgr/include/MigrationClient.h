@@ -174,7 +174,7 @@ class MigrationClient {
     fds_uint32_t bitsPerDltToken;
 
     /**
-     * Target DLT version
+     * Target DLT version for the undergoing SM token migration.
      */
     fds_uint64_t targetDltVersion;
 

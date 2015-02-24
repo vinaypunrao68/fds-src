@@ -134,6 +134,10 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
     Error err(ERR_OK);
     std::string snapDir;
 
+    /**
+     * Snapshots will be stored in 
+     * /fds/user-repo/sm-snapshots/<token_id><dlt_vers><snapshot# of SM token>
+     */
     snapDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot() + "user-repo/sm-snapshots/";
     FdsRootDir::fds_mkdir(snapDir.c_str());
     snapDir += boost::lexical_cast<std::string>(smTokId) +

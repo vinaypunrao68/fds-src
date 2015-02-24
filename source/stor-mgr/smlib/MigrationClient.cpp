@@ -16,6 +16,7 @@
 
 namespace fds {
 
+
 MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
                                  NodeUuid& _destSMNodeID,
                                  fds_uint64_t& _targetDltVersion,
@@ -258,7 +259,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
 
     leveldb::Iterator *iterDB = dbFromFirstSnap->NewIterator(read_options);
 
-/* Iterate through level db and filter against the objectFilterSet.
+    /* Iterate through level db and filter against the objectFilterSet.
      */
     for (iterDB->SeekToFirst(); iterDB->Valid(); iterDB->Next()) {
 
@@ -442,6 +443,9 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         return;
     }
 
+    /* Figure out the differences between the first and second snapshot
+     * of SM token
+     */
     metadata::diff(dbFromFirstSnap,
                    dbFromSecondSnap,
                    diffObjMetaData);
@@ -533,7 +537,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     migClientAddMetaData(objMetaDataSet, true);
 
     /* We no longer need these snapshots. 
-     * Delete the snapshots.
+     * Delete the snapshot directory and files.
      */
     leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
 

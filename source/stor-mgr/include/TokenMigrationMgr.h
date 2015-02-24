@@ -242,7 +242,6 @@ class SmTokenMigrationMgr {
 
     /// enable/disable token migration feature -- from platform.conf
     fds_bool_t enableMigrationFeature;
-
 };
 
 }  // namespace fds
