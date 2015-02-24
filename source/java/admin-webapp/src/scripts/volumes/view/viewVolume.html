@@ -54,7 +54,7 @@
         
         <div class="flex" style="width: 100%;height: 200px;">
             <div style="flex-grow: 5;">
-                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceItems">
+                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceItems" row-display="true">
                     <stacked-line-chart data="performanceStats" colors="performanceColors" suffix="IOPs" axis-color="#A0A0A0" background-color="#f7f7f7" domain-labels="performanceTimeChoice.labels" line-colors="performanceLine" tooltip="setPerformanceTooltip"></stacked-line-chart>
                 </status-tile>
             </div>
@@ -64,15 +64,15 @@
                 </div>
                 <div class="bottom-stack">
                     <div class="flex">
-                        <div class="legend-box" ng-style="{ 'border-color': gray, 'background-color': performanceColors[2] }"></div>
+                        <div class="legend-box" ng-style="{ 'border-color': performanceColors[2], 'background-color': performanceColors[2] }"></div>
                         <div class="legend-data">{{ ssdGetLabel }}</div>
                     </div>
                     <div class="flex">
-                        <div class="legend-box" ng-style="{ 'border-color': gray, 'background-color': performanceColors[1] }"></div>
+                        <div class="legend-box" ng-style="{ 'border-color': performanceColors[1], 'background-color': performanceColors[1] }"></div>
                         <div class="legend-data">{{ getLabel }}</div>
                     </div>
                     <div class="flex">
-                        <div class="legend-box" ng-style="{ 'border-color': gray, 'background-color': performanceColors[0] }"></div>
+                        <div class="legend-box" ng-style="{ 'border-color': performanceColors[0], 'background-color': performanceColors[0] }"></div>
                         <div class="legend-data">{{ putLabel }}</div>
                     </div>
                 </div>
@@ -81,24 +81,40 @@
     </section>
     
     <section class="block-section">
-        <tiering-panel ng-model="mediaPolicy" disabled="disableTiering"></tiering-policy-panel>
+        <div class="flex">
+            <div class="padded-right">
+                <div class="sub-header" translate>volumes.qos.l_overall_setting</div>
+            </div>
+            <div class="padded-right">
+                <div class="sub-header" translate>volumes.qos.l_priority</div>
+                <div> {{ qos.priority }}</div>
+            </div>
+            <div class="padded-right">
+                <div class="sub-header" translate>volumes.qos.l_iops_guarantee</div>
+                <div>{{ getSlaLabel() }}</div>
+            </div>
+            <div class="padded-right">
+                <div class="sub-header" translate>volumes.qos.l_iops_limit</div>
+                <div>{{ getLimitLabel() }}</div>
+            </div>
+            <div class="padded-right">
+                <div class="sub-header" translate>volumes.tiering.l_tiering_policy</div>
+                <div>{{ mediaPolicy.label }}</div>
+            </div>            
+        </div>
+    </section>
+    
+    <section class="block-section">
+        <div class="sub-header" translate>volumes.l_timeline</div>
+        <time-slider valid-ranges="ranges" ng-model="thisVolume.timelineTime" label="{{ 'volumes.l_point_timeline' | translate }}" label-function="dateLabelFunction" domain-labels="domainLabels"></time-slider>
+    </section>
+    
+    <section class="block-section">
+        <div class="sub-header" translate>volumes.l_timeline_settings</div>
     </section>
     
     <section class="block-section">
         <connector-panel ng-model="dataConnector" editable="false"></connector-panel>
-    </section>
-    
-<!--
-    <section class="block-section">
-        <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
-    </section>
--->    
-    <section class="block-section">
-        <qos-panel ng-model="qos" save-only="false"></qos-panel>
-    </section>
-    
-    <section class="block-section">
-        <timeline-policy-panel ng-model="timelinePolicies" save-only="false"></timeline-policy-panel>
     </section>
     
     <section>

@@ -105,7 +105,7 @@ var en_US = {
         l_health: 'System Health',
         
         l_gets: 'GET requests',
-        l_ssd_gets: 'GET request from SSD',
+        l_ssd_gets: 'GET request from flash',
         l_puts: 'PUT requests',
         
         th_type: 'Type',
@@ -122,6 +122,8 @@ var en_US = {
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
         desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.',
         desc_time_to_full: 'until capacity is full',
+        desc_ssd_percent: 'Reads from flash',
+        desc_hdd_percent: 'Reads from disk',
         
         l_services_good: 'All expected services are running properly',
         l_services_not_good: 'Some services are not running as expected',
@@ -190,7 +192,8 @@ var en_US = {
         l_snapshot_policy: 'Snapshot Policy',
         l_snapshot_policies: 'Snapshot Policies',
         l_starting_point: 'Starting Point',
-        l_timeline: 'Timeline',
+        l_timeline: 'Timeline Coverage',
+        l_timeline_settings: 'Timeline Settings',
         l_tiering: 'Tiering',
         l_volume_name: 'Volume Name',
         f_priority: 'Priority:',
@@ -215,8 +218,8 @@ var en_US = {
             l_performance_settings: 'Performance Settings',
             l_volume_details: 'Volume Details',
             l_avg_puts: 'Avg. # of PUTS',
-            l_avg_gets: 'Avg. # of GETS',
-            l_avg_ssd_gets: 'Avg. # of GETS from SSD'
+            l_avg_gets: 'Avg. # of GETS from disk',
+            l_avg_ssd_gets: 'Avg. # of GETS from flash'
         },
         
         qos: {
@@ -229,10 +232,12 @@ var en_US = {
             l_l_lowest: '(lowest)',
             l_max_iops: 'Max number of IOPs',
             l_number_of_iops: 'Number of IOPs',
+            l_overall_setting: 'Overall Setting',
             l_priority: 'Priority',
             l_least_important: 'Least Important',
             l_standard: 'Standard',
             l_most_important: 'Most Important',
+            l_unlimited: 'Unlimited',
             
             f_iops_guarantee: 'IOPs Capacity Guarantee:',
             f_iops_limit: 'IOPs Limit:',
@@ -244,6 +249,7 @@ var en_US = {
         },
         
         tiering: {
+            l_tiering_policy: 'Tiering Policy',
             l_ssd_only: 'Flash Only',
             l_disk_only: 'Disk Only',
             l_ssd_preferred: 'Flash Preferred',

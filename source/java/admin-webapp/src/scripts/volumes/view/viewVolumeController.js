@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope ){
+angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', '$media_policy_helper', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope, $media_policy_helper ){
     
     var translate = function( key ){
         return $filter( 'translate' )( key );
@@ -7,6 +7,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.disableTiering = true;
     
     $scope.snapshots = [];
+    $scope.ranges = [];
     $scope.snapshotPolicies = [];
     $scope.timelinePolicies = [];
     
@@ -102,6 +103,24 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             $filter( 'translate' )( key );
     };
     
+    $scope.getSlaLabel = function(){
+        
+        if ( $scope.qos.sla === 0 ){
+            return $filter( 'translate' )( 'common.l_none' );
+        }
+        
+        return $scope.qos.sla;
+    };
+    
+    $scope.getLimitLabel = function(){
+        
+        if ( $scope.qos.limit === 0 ){
+            return $filter( 'translate' )( 'volumes.qos.l_unlimited' );
+        }
+        
+        return $scope.qos.limit;
+    };
+    
     $scope.deleteVolume = function(){
         
         var confirm = {
@@ -149,7 +168,11 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
-        $scope.performanceItems = [{number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )}];
+        $scope.performanceItems = [
+            {number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )},
+            {number: data.calculated[1].percentage, description: $filter( 'translate' )( 'status.desc_ssd_percent' ), iconClass: 'icon-storage', iconColor: '#8784DE'},
+            {number: data.calculated[2].percentage, description: $filter( 'translate' )( 'status.desc_hdd_percent' ), iconClass: 'icon-performance', iconColor: '#606ED7' }
+        ];
         $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.l_avg_puts' );
         $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.l_avg_gets' );
         $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.l_avg_ssd_gets' );
@@ -211,11 +234,30 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         });
     };
     
+    var initTimeline = function(){
+        
+        $scope.ranges = [];
+        
+        for ( var i = 0; i < $scope.snapshots.length; i++ ){
+            
+            var range = {
+                min: new Date( $scope.snapshots[i].creation )
+            };
+            
+            $scope.ranges.push( range );
+        }
+        
+        // create teh continuous range
+        var now = (new Date()).getTime();
+        $scope.ranges.push( { min: (now - $scope.thisVolume.commit_log_retention*1000), max: now, pwidth: 15 } );
+        $scope.thisVolume.timelineTime = now;
+    };    
+    
     var initQosSettings = function(){
         $scope.qos.sla = $scope.thisVolume.sla;
         $scope.qos.limit = $scope.thisVolume.limit;
         $scope.qos.priority = $scope.thisVolume.priority;
-        $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
+        $scope.mediaPolicy = $media_policy_helper.convertRawToObjects( $scope.thisVolume.mediaPolicy );
     };
     
     // when we get shown, get all the snapshots and policies.  THen do the chugging
@@ -225,6 +267,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         if ( newVal === true ){
             $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ 
                 $scope.snapshots = data;
+                initTimeline();
             });
             
             $scope.thisVolume = $scope.volumeVars.selectedVolume;
@@ -249,104 +292,10 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         }
     });
     
-//    $scope.$on( 'fds::snapshot_policy_change', function(){
-//        
-//        $volume_api.getSnapshotPoliciesForVolume( $scope.thisVolume.id, function( oldPolicies ){
-//            // do we need to delete some policies?
-//            var deleteList = [];
-//
-//            for ( var o = 0; o < oldPolicies.length; o++ ){
-//
-//                var found = false;
-//
-//                for ( var n = 0; n < $scope.snapshotPolicies.length; n++ ){
-//
-//                    if ( oldPolicies[o].id === $scope.snapshotPolicies[n].id ){
-//                        found = true;
-//                        break;
-//                    }
-//                }// new policies
-//
-//                // not in the new list... delete it
-//                if ( found === false ){
-//                    deleteList.push( oldPolicies[o] );
-//                }
-//
-//            }// old policies
-//
-//            for( var d = 0; d < deleteList.length; d++ ){
-//
-//                var id = deleteList[d].id;
-//
-//                service.detachPolicy( deleteList[d], volumeId, function( result ){
-//                    service.deleteSnapshotPolicy( id, function(){} );
-//                });
-//            }
-//        
-////            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, oldPolicies, $scope.snapshotPolicies );
-//        });
-//    });
-    
     $scope.edit = function(){
         
         $scope.volumeVars.editing = true;
         $scope.volumeVars.next( 'editVolume' );
     };
-    
-//    $scope.$on( 'fds::qos_changed', function(){
-//        
-//        if ( !angular.isDefined( $scope.thisVolume.id ) ){
-//            return;
-//        }
-//    
-//        $scope.thisVolume.sla = $scope.qos.capacity;
-//        $scope.thisVolume.priority = $scope.qos.priority;
-//        $scope.thisVolume.limit = $scope.qos.limit;
-//        
-//        $volume_api.save( $scope.thisVolume );
-//    });
-//    
-//    $scope.$on( 'fds::media_policy_changed', function(){
-//        
-//        
-//        if ( angular.isString( $scope.mediaPolicy ) ){
-//            $scope.thisVolume.mediaPolicy = $scope.mediaPolicy;
-//        }
-//        else if ( angular.isDefined( $scope.mediaPolicy.value ) ){
-//            $scope.thisVolume.mediaPolicy = $scope.mediaPolicy.value;
-//        }
-//        else {
-//            return;
-//        }
-//        
-//        var temp = $scope.thisVolume;
-//        
-//        if( !angular.isDefined( $scope.thisVolume.mediaPolicy ) ||
-//          !angular.isDefined( $scope.thisVolume.id ) ){
-//            return;
-//        }
-//        
-//        $volume_api.save( $scope.thisVolume );
-//    });
-//    
-//    $scope.$on( 'fds::timeline_policy_changed', function( newVal, oldVal ){
-//        
-//        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.continuous;
-//        
-//        $volume_api.save( $scope.thisVolume );
-//        
-//        $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );
-//    });
-//    
-//    $scope.$on( 'fds::data_connector_changed', function( newVal, oldVal ){
-//        
-//        if ( !angular.isDefined( $scope.thisVolume.id ) || !angular.isDefined( oldVal ) ){
-//            return;
-//        }        
-//
-//        $scope.thisVolume.data_connector = $scope.dataConncetor;
-//        
-//        $volume_api.save( $scope.thisVolume );
-//    });
     
 }]);
