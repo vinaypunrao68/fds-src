@@ -353,35 +353,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             cout << "Got non-network exception, probably volume not found" << std::endl;
         }
 
-    } else if (vm.count("volume-attach") &&
-               vm.count("volume-id") &&
-               vm.count("node-id")) {
-        LOGNOTIFY << " Attach Volume ";
-        LOGNOTIFY << vm["volume-attach"].as<std::string>() << " -volume name";
-        LOGNOTIFY << vm["volume-id"].as<int>() << " -volume id";
-        LOGNOTIFY << vm["node-id"].as<std::string>() << " -node id";
-
-        FDS_ProtocolInterface::FDSP_AttachVolCmdType volData;
-        volData.vol_name = vm["volume-attach"].as<std::string>();
-        volData.node_id = vm["node-id"].as<std::string>();
-        msg_hdr.src_node_name = vm["node-id"].as<std::string>();
-
-        NETWORKCHECK(cfgPrx->AttachVol(msg_hdr, volData));
-
-    } else if (vm.count("volume-detach") &&
-               vm.count("volume-id") &&
-               vm.count("node-id")) {
-        LOGNOTIFY << " Detach Volume ";
-        LOGNOTIFY << vm["volume-detach"].as<std::string>() << " -volume name";
-        LOGNOTIFY << vm["volume-id"].as<int>() << " -volume id";
-        LOGNOTIFY << vm["node-id"].as<std::string>() << " -node id";
-
-        FDS_ProtocolInterface::FDSP_AttachVolCmdType volData;
-        volData.vol_name = vm["volume-detach"].as<std::string>();
-        volData.node_id = vm["node-id"].as<std::string>();
-        msg_hdr.src_node_name = vm["node-id"].as<std::string>();
-
-        NETWORKCHECK(cfgPrx->DetachVol(msg_hdr, volData));
     } else if (vm.count("list-volumes")) {
         LOGNOTIFY << "List volumes";
 

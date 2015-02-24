@@ -31,16 +31,6 @@ OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
     this->om_client = omc;
 }
 
-void OMgrClientRPCI::AttachVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
-                               fpi::FDSP_AttachVolTypePtr& vol_msg) {
-    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-}
-
-void OMgrClientRPCI::DetachVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
-                               fpi::FDSP_AttachVolTypePtr& vol_msg) {
-    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-}
-
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                                      FDSP_DMT_TypePtr& dmt_info) {
     #if 0

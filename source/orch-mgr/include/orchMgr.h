@@ -308,20 +308,6 @@ class FDSP_ControlPathRespHandler : virtual public fpi::FDSP_ControlPathRespIf {
   public:
         explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
 
-        void AttachVolResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
-        void AttachVolResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp);
-
-        void DetachVolResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp);
-        void DetachVolResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp);
-
         void NotifyDMTCloseResp(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
