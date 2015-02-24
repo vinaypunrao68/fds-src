@@ -377,6 +377,8 @@ class SmIoSnapshotObjectDB : public SmIoReq {
         token_id = 0;
         isPersistent = false;
         executorId = SM_INVALID_EXECUTOR_ID;
+        snapNum = "";
+        targetDltVersion = 0;
     }
 
     /* In: Token to take snapshot of*/
@@ -391,6 +393,16 @@ class SmIoSnapshotObjectDB : public SmIoReq {
      * 0 if we are taking snapshot not for token migration
      */
     fds_uint64_t executorId;
+
+    /** 
+     * Snapshot number
+     */
+    std::string snapNum;
+
+    /**
+     * Target DLT version for which this snapshot will be taken.
+     */
+    fds_uint64_t targetDltVersion;
 
     /* Response callback for in-memory snapshot request*/
     CbType smio_snap_resp_cb;

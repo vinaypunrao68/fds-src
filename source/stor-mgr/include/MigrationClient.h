@@ -18,7 +18,6 @@
 namespace fds {
 
 const fds_token_id SMTokenInvalidID = 0xffffffff;
-
 /**
  * This is the client class for token migration.  This class is instantiated by the
  * source SM.
@@ -32,6 +31,7 @@ class MigrationClient {
   public:
     explicit MigrationClient(SmIoReqHandler *_dataStore,
                              NodeUuid& _destinationSMNodeID,
+                             fds_uint64_t& targetDltVersion,
                              fds_uint32_t bitsPerToken);
     ~MigrationClient();
 
@@ -174,6 +174,11 @@ class MigrationClient {
     fds_uint32_t bitsPerDltToken;
 
     /**
+     * Target DLT version
+     */
+    fds_uint64_t targetDltVersion;
+
+    /**
      * Flag indicating objects in SM token for which this migration
      * client is responsible need to be forwarded to destination SM
      * Does not need to be atomic, because currently it is set under
@@ -221,7 +226,7 @@ class MigrationClient {
     MigrationSeqNum seqNumFilterSet;
 
     /**
-     * destination SM node ID.  This is the SM Node ID that's requesting the
+     * Destination SM node ID.  This is the SM Node ID that's requesting the
      * the set of objects associated with the
      */
     NodeUuid destSMNodeID;

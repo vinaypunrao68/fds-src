@@ -4,6 +4,7 @@
 #include <string>
 #include <PerfTrace.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -132,7 +133,14 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
                               SmIoSnapshotObjectDB* snapReq) {
     Error err(ERR_OK);
     std::string snapDir;
-    
+
+    snapDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot() + "user-repo/sm-snapshots/";
+    FdsRootDir::fds_mkdir(snapDir.c_str());
+    snapDir += boost::lexical_cast<std::string>(smTokId) +
+               boost::lexical_cast<std::string>(snapReq->targetDltVersion) +
+               snapReq->snapNum;
+
+    LOGDEBUG << "snapshot location " << snapDir << "snapNum" << snapReq->snapNum;
     err = metaDb_->snapshot(smTokId, snapDir);
     notifFn(err, snapReq, snapDir);
 }

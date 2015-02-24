@@ -16,12 +16,13 @@
 
 namespace fds {
 
-
 MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
                                  NodeUuid& _destSMNodeID,
+                                 fds_uint64_t& _targetDltVersion,
                                  fds_uint32_t bitsPerToken)
     : dataStore(_dataStore),
       destSMNodeID(_destSMNodeID),
+      targetDltVersion(_targetDltVersion),
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
       forwardingIO(false),
@@ -134,16 +135,19 @@ MigrationClient::migClientSnapshotMetaData()
     fds_verify(executorID != SM_INVALID_EXECUTOR_ID);
     snapshotRequest.token_id = SMTokenID;
     snapshotRequest.executorId = executorID;
+    snapshotRequest.targetDltVersion = targetDltVersion;
 
     fds_assert((getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) ||
                (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET));
     if (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) {
+        snapshotRequest.snapNum = "1";
         snapshotRequest.smio_persist_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotFirstPhaseCb,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
                                                       std::placeholders::_3);
     } else {
+        snapshotRequest.snapNum = "2";
         snapshotRequest.smio_persist_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotSecondPhaseCb,
                                                       this,
                                                       std::placeholders::_1,
@@ -238,12 +242,23 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
      */
     firstPhaseSnapshotDir = snapDir;
 
-    osm::ObjectDB odb(firstPhaseSnapshotDir, false);
-    leveldb::DB* db = odb.GetDB();
-    leveldb::ReadOptions read_options = odb.GetReadOptions();
-    leveldb::Iterator *iterDB = db->NewIterator(read_options);
+    /* Setup db Options and create leveldb from the snapshot.
+     */
+    leveldb::DB* dbFromFirstSnap;
+    leveldb::Options options;
+    leveldb::ReadOptions read_options;
 
-    /* Iterate through level db and filter against the objectFilterSet.
+    options.create_if_missing = 1;
+
+    leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
+    if (!status.ok()) {
+        LOGMIGRATE << "Could not open leveldb instance for First Phase snapshot.";
+        return;
+    } 
+
+    leveldb::Iterator *iterDB = dbFromFirstSnap->NewIterator(read_options);
+
+/* Iterate through level db and filter against the objectFilterSet.
      */
     for (iterDB->SeekToFirst(); iterDB->Valid(); iterDB->Next()) {
 
@@ -405,8 +420,30 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      *             consumption.
      */
     metadata::metadata_diff_type diffObjMetaData;
-    metadata::diff(firstPhaseSnapshotDir,
-                   secondPhaseSnapshotDir,
+
+    /* Setup db options and create leveldbs from the snapshots.
+     * Leveldb instances then gets passed to the diff function.
+     */
+    leveldb::DB* dbFromFirstSnap;
+    leveldb::DB* dbFromSecondSnap;
+    leveldb::Options options;
+
+    options.create_if_missing = 1;
+
+    leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
+    if (!status.ok()) {
+        LOGMIGRATE << "Could not open leveldb instance for First Phase snapshot.";
+        return;
+    }
+
+    status = leveldb::DB::Open(options, secondPhaseSnapshotDir, &dbFromSecondSnap);
+    if (!status.ok()) {
+        LOGMIGRATE << "Could not open leveldb instance for Second Phase snapshot.";
+        return;
+    }
+
+    metadata::diff(dbFromFirstSnap,
+                   dbFromSecondSnap,
                    diffObjMetaData);
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
@@ -498,11 +535,18 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     /* We no longer need these snapshots. 
      * Delete the snapshots.
      */
-    osm::ObjectDB odbFirstPhase(firstPhaseSnapshotDir, false);
-    osm::ObjectDB odbSecondPhase(firstPhaseSnapshotDir, false);
+    leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
 
-    odbFirstPhase.DeleteSnap(firstPhaseSnapshotDir);
-    odbSecondPhase.DeleteSnap(secondPhaseSnapshotDir);
+    status = env->DeleteFile(firstPhaseSnapshotDir);
+    if (!status.ok()) {
+        LOGMIGRATE << "Could not delete first phase snapshot.";
+    }
+
+    status = env->DeleteFile(secondPhaseSnapshotDir);
+    if (!status.ok()) {
+        LOGMIGRATE << "Could not delete second phase snapshot.";
+        return;
+    }
 
     /* Set the migration client state to indicate the second delta set is sent. */
     setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE);

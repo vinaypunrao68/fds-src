@@ -27,8 +27,8 @@ using elem_type = boost::shared_ptr<ObjMetaData>;
 using metadata_diff_type = output_type<std::pair<elem_type, elem_type>>;
 
 void
-diff(std::string &firstPhaseSnapshotDir,
-     std::string &secondPhaseSnapshotDir,
+diff(leveldb::DB* dbFromFirstSnap,
+     leveldb::DB* dbFromSecondSnap,
      metadata_diff_type& diff);
 
 void

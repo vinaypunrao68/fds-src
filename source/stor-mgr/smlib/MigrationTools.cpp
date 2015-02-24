@@ -24,20 +24,13 @@ tri_comp(int const c)
 { return (c <= 0) ? ((c == 0) ? cmp_result::exists : cmp_result::removal) : cmp_result::addition; }
 
 void
-diff(std::string &lhSnap, std::string &rhSnap, metadata_diff_type& diff) {
+diff(DB* dbFromFirstSnap, DB* dbFromSecondSnap, metadata_diff_type& diff) {
 
-    osm::ObjectDB lhObj(lhSnap, false);
-    DB* lhdb = lhObj.GetDB();
-    ReadOptions l_opts = lhObj.GetReadOptions();
-
-    osm::ObjectDB rhObj(rhSnap, false);
-    DB* rhdb = rhObj.GetDB();
-    ReadOptions r_opts = rhObj.GetReadOptions();
-
+    ReadOptions l_opts, r_opts;
 
     // Obtain iterators to the snapshots
-    auto l_it   = lhdb->NewIterator(l_opts);
-    auto r_it   = rhdb->NewIterator(r_opts);
+    auto l_it   = dbFromFirstSnap->NewIterator(l_opts);
+    auto r_it   = dbFromSecondSnap->NewIterator(r_opts);
     
     diffSnapshots(l_it, r_it, diff);
 }

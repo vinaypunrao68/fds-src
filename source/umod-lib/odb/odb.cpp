@@ -291,12 +291,14 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName) {
 
     leveldb::Status status = env->CreateDir(fileName);
     if (!status.ok()) {
+        GLOGNORMAL << " CreateDir failed for " << fileName << "status " << status.ToString() ;
         err = Error(ERR_DISK_WRITE_FAILED);
     }
 
     CopyDetails * details = new CopyDetails(file, fileName);
     status = env->Copy(file, &doCopyFile, reinterpret_cast<void *>(details));
     if (!status.ok()) {
+        GLOGNORMAL << " Copy failed for " << file << " destination file " << fileName;
         err = ERR_DISK_WRITE_FAILED;
     }
 

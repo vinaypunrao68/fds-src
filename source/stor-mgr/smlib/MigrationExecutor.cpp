@@ -132,7 +132,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
             asyncRebalSetReq->setTimeoutMs(0);
             // we are not waiting for response, so not setting a callback
             asyncRebalSetReq->invoke();
-            }
+            LOGMIGRATE << "Sent rebalance message ";
+        }
         catch (...) {
             LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
             << std::hex << sourceSmUuid.uuid_get_val() << std::dec;

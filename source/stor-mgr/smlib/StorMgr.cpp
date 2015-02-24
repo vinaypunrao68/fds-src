@@ -241,6 +241,7 @@ void ObjectStorMgr::mod_startup()
                                                           volTbl));
     objectStore->mod_init(mod_params);
 
+   
     // Init token migration manager
     migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this));
 
