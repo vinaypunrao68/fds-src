@@ -7,6 +7,13 @@
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
+			},
+			{
+				"name" : "TestCreateThreehundredBlockVolumes",
+				"file" : "test300VolsBlock.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
 			}
 		]
 	}
