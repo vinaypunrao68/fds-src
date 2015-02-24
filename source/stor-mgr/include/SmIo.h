@@ -12,7 +12,7 @@
 #include <functional>
 #include <boost/shared_ptr.hpp>
 
-#include <fdsp/FDSP_types.h>
+#include <fdsp/sm_service_types.h>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>

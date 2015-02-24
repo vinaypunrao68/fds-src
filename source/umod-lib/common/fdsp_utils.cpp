@@ -4,7 +4,8 @@
 
 #include <string>
 #include <fdsp_utils.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/am_service_types.h>
+#include <fdsp/dm_service_types.h>
 #include <fds_resource.h>
 
 #include <boost/algorithm/string/replace.hpp>
