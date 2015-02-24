@@ -120,7 +120,7 @@ enum  FDSPMsgTypeId {
 
 
     /* OM-> AM messages. */
-    CtrlNotifyBucketStatTypeId         = 2100,
+    _defunct_CtrlNotifyBucketStatTypeId         = 2100,
     CtrlNotifyThrottleTypeId           = 2101,
     CtrlNotifyQoSControlTypeId         = 2102,
 
