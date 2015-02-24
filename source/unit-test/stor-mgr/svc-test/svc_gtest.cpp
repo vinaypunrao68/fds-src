@@ -9,7 +9,6 @@
 #include <stdexcept>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
-#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <fiu-control.h>
 #include <testlib/DataGen.hpp>

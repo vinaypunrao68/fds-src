@@ -9,7 +9,6 @@
 #include <NetSession.h>
 #include <OmResources.h>
 #include <net/SvcRequest.h>
-#include <fdsp_utils.h>
 #include <fiu-local.h>
 #include <fdsp/fds_service_types.h>
 #include <net/BaseAsyncSvcHandler.h>
