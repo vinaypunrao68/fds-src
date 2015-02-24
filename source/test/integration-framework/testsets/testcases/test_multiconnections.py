@@ -75,11 +75,10 @@ class TestMultiConnections(testcase.FDSTestCase):
 
     def runTest(self):
         self.log.info("Starting the multivolume test...\n")
-        for ip in self.ip_addresses[:1]:
+        for ip in self.ip_addresses:
             # create multiple connections
             self.create_multiple_connections(ip)
             self.concurrently_volumes()
-        
         self.log.info("Removing the sample files created.")
         if os.path.exists(config.SAMPLE_DIR):
             self.log.info("Removing %s" % config.SAMPLE_DIR)
@@ -89,39 +88,14 @@ class TestMultiConnections(testcase.FDSTestCase):
             shutil.rmtree(config.DOWNLOAD_DIR)
         self.reportTestCaseResult(self.test_passed)
     
-    def create_volume(self, s3conn, bucket_name):
-        '''
-        For each of the AM instances, create a single bucket for every volume,
-        and populate that volume with sample data.
-        
-        Attributes:
-        -----------
-        s3conn: S3Connection
-            a S3Connection to the host machine
-        bucket_name:
-            the name of the bucket being created
-            
-        Returns:
-        --------
-        bucket : The S3 bucket object
-        '''
-        bucket = s3conn.conn.create_bucket(bucket_name)
-        if bucket == None:
-            raise Exception("Invalid bucket.")
-            # We won't be waiting for it to complete, short circuit it.
-            self.test_passed = False
-            self.reportTestCaseResult(self.test_passed)
-
-        self.log.info("Volume %s created..." % bucket.name)
-        return bucket
-    
     def concurrently_volumes(self):
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_volumes = { executor.submit(self.create_volumes, s3conn): 
                                  s3conn for s3conn in self.s3_connections}
             for future in concurrent.futures.as_completed(future_volumes):
-                #s3conn = futures_volume[future]
+                s3conn = future_volumes[future]
                 try:
+                    self.delete_volumes(s3conn)
                     self.test_passed = True
                 except Exception as exc:
                     self.log.exception('generated an exception: %s' % (exc))
@@ -143,15 +117,13 @@ class TestMultiConnections(testcase.FDSTestCase):
         '''
         bucket_name = "volume0%s-test"
         buckets = []
-        for i in xrange(1, 10):
+        for i in xrange(0, 1):
             bucket = s3conn.conn.create_bucket(bucket_name % i)
             if bucket == None:
                 raise Exception("Invalid bucket.")
                 # We won't be waiting for it to complete, short circuit it.
                 self.test_passed = False
                 self.reportTestCaseResult(self.test_passed)
-            
-            self.log.info("Volume %s created..." % bucket.name)
             self.buckets.append(bucket)
             self.store_file_to_volume(bucket)
             
@@ -159,7 +131,6 @@ class TestMultiConnections(testcase.FDSTestCase):
             # ensure data consistency by hashing (MD5) the file and comparing
             # with the one stored in S3
             self.download_files(bucket)
-            
             for k, v in self.hash_table.iteritems():
                 # hash the current file, and compare with the key
                 self.log.info("Hashing for file %s" % k)
@@ -216,10 +187,14 @@ class TestMultiConnections(testcase.FDSTestCase):
             the connection object to the FDS instance via S3
             
         '''
-        for bucket in self.buckets:
-            if bucket:
-                for key in bucket.list():
-                    bucket.delete_key(key)
-                self.log.info("Deleting bucket: %s", bucket.name)
-                s3conn.conn.delete_bucket(bucket.name)
-        self.buckets = []
+        try:
+            for bucket in self.buckets:
+                if bucket:
+                    s3.meta.client.head_bucket(Bucket=bucket.name)
+                    for key in bucket.list():
+                        bucket.delete_key(key)
+                    self.log.info("Deleting bucket: %s", bucket.name)
+                    s3conn.conn.delete_bucket(bucket.name)
+            self.buckets = []
+        except Exception:
+            return
