@@ -101,45 +101,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::NotifyNodeAdd(const FDSP_MsgHdrType     &fdsp_msg,
-                               const FDSP_Node_Info_Type &node_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                               fpi::FDSP_Node_Info_TypePtr &node_info)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeActive(const FDSP_MsgHdrType     &fdsp_msg,
-                                  const FDSP_ActivateNodeType &act_node_req)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                                  fpi::FDSP_ActivateNodeTypePtr &act_node_req)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeRmv(const FDSP_MsgHdrType     &fdsp_msg,
-                               const FDSP_Node_Info_Type &node_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                               fpi::FDSP_Node_Info_TypePtr &node_info)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
                                  const FDSP_DMT_Type   &dmt_info)
     {
