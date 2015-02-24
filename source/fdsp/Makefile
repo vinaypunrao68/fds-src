@@ -10,8 +10,8 @@ user_thrift      := \
 	sm_service.thrift \
 	fds_service.thrift \
 	fds_stream.thrift \
-	snapshot.thrift \
-	testsvc.thrift
+	snapshot.thrift
+
 user_thrift_loc  := $(topdir)/include/fdsp
 user_thrift_flag := --gen cpp:pure_enums --allow-64bit-consts
 
