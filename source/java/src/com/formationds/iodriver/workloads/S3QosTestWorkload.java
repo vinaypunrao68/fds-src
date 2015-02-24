@@ -114,8 +114,7 @@ public final class S3QosTestWorkload extends Workload<S3Endpoint, S3Operation>
                          new StatBucketVolume(bucketName, statsSetter),
                          new LambdaS3Operation(() ->
                          {
-                             BucketState state =
-                                     _bucketStats.get(bucketName);
+                             BucketState state = _bucketStats.get(bucketName);
                              state.currentState =
                                      new VolumeQosSettings(state.currentState.getId(),
                                                            state.targetState.getAssured(),

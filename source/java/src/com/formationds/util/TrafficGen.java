@@ -298,6 +298,7 @@ public class TrafficGen {
         final ConnectingIOReactor ioReactor = new DefaultConnectingIOReactor();
         // Create HTTP connection pool
         BasicNIOConnPool pool = new BasicNIOConnPool(ioReactor, connectionConfig);
+        // FIXME: This comment is incorrect by default. See declaration of n_conns.
         // Limit total number of connections to just ten (it was two)
         pool.setDefaultMaxPerRoute(n_conns);
         pool.setMaxTotal(n_conns);

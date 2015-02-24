@@ -10,7 +10,7 @@ import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
-import com.formationds.iodriver.workloads.S3SingleVolumeRateLimitTestWorkload;
+import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
 
 /**
  * Entry class for iodriver.
@@ -40,7 +40,7 @@ public final class Main
             {
                 Driver<?, ?> driver =
                         new Driver<S3Endpoint,
-                        S3SingleVolumeRateLimitTestWorkload>(config.getEndpoint(),
+                        S3RateLimitTestWorkload>(config.getEndpoint(),
                                                              config.getWorkload(),
                                                              listener,
                                                              config.getValidator());

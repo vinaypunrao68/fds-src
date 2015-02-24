@@ -12,7 +12,7 @@ import com.formationds.iodriver.logging.Logger;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
-import com.formationds.iodriver.workloads.S3SingleVolumeRateLimitTestWorkload;
+import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
 
 /**
  * Global configuration for {@link com.formationds.iodriver}.
@@ -221,7 +221,7 @@ public final class Config
      * @throws ConfigurationException when the system assured and throttle IOPS rates are not within
      *             a testable range.
      */
-    public S3SingleVolumeRateLimitTestWorkload getWorkload() throws ConfigurationException
+    public S3RateLimitTestWorkload getWorkload() throws ConfigurationException
     {
         final int systemAssured = getSystemIopsMin();
         final int systemThrottle = getSystemIopsMax();
@@ -240,7 +240,7 @@ public final class Config
                                              + systemAssured + " IOPS.");
         }
 
-        return new S3SingleVolumeRateLimitTestWorkload(systemAssured + headroomNeeded);
+        return new S3RateLimitTestWorkload(systemAssured + headroomNeeded);
     }
 
     /**
