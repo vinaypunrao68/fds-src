@@ -75,71 +75,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::AttachVol(const FDSP_MsgHdrType    &fdsp_msg,
-                           const FDSP_AttachVolType &atc_vol_req)
-    {
-    }
-
-    void
-    PlatRpcReqt::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                           fpi::FDSP_AttachVolTypePtr &vol_msg)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::DetachVol(const FDSP_MsgHdrType    &fdsp_msg,
-                           const FDSP_AttachVolType &dtc_vol_req)
-    {
-    }
-
-    void
-    PlatRpcReqt::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                           fpi::FDSP_AttachVolTypePtr &vol_msg)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeAdd(const FDSP_MsgHdrType     &fdsp_msg,
-                               const FDSP_Node_Info_Type &node_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                               fpi::FDSP_Node_Info_TypePtr &node_info)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeActive(const FDSP_MsgHdrType     &fdsp_msg,
-                                  const FDSP_ActivateNodeType &act_node_req)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                                  fpi::FDSP_ActivateNodeTypePtr &act_node_req)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeRmv(const FDSP_MsgHdrType     &fdsp_msg,
-                               const FDSP_Node_Info_Type &node_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                               fpi::FDSP_Node_Info_TypePtr &node_info)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
                                  const FDSP_DMT_Type   &dmt_info)
     {
@@ -234,19 +169,6 @@ namespace fds
     void
     PlatRpcResp::RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &fdsp_msg,
                                   fpi::FDSP_RegisterNodeTypePtr &reg_node_rsp)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcResp::NotifyQueueFullResp(const FDSP_MsgHdrType           &fdsp_msg,
-                                     const FDSP_NotifyQueueStateType &queue_state_rsp)
-    {
-    }
-
-    void
-    PlatRpcResp::NotifyQueueFullResp(fpi::FDSP_MsgHdrTypePtr           &fdsp_msg,
-                                     fpi::FDSP_NotifyQueueStateTypePtr &queue_state_rsp)
     {
         fds_verify(0);
     }
