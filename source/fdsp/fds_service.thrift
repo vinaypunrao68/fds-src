@@ -1,5 +1,14 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
+ *
+ * NOTE (bszmyd): 02/23/2015
+ * This file contains some of the common message structs that all
+ * the services support, probably because of their dependence on
+ * platform.
+ *
+ * Put any new service specific types in the respective thrift file.
+ * Message ids have to go here for now since all SvcRequests use the
+ * enum below.
  */
 
 include "FDSP.thrift"
@@ -477,58 +486,6 @@ struct CtrlStartHybridTierCtrlrMsg
 
 /* ---------------------  ShutdownMODMsgTypeId  --------------------------- */
 struct ShutdownMODMsg {
-}
-
-/* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
-struct CtrlNotifyPushDMT {
-     1: FDSP.FDSP_PushMeta        dmt_push;
-}
-
-/* ---------------------  CtrlNotifyDMTCloseTypeId  ---------------------------- */
-struct CtrlNotifyDMTClose {
-     1: FDSP.FDSP_DmtCloseType    dmt_close;
-}
-
-/* --------------------  CtrlNotifyDMTUpdateTypeId  ---------------------------- */
-struct CtrlNotifyDMTUpdate {
-     1: FDSP.FDSP_DMT_Type        dmt_data;
-     2: i32                       dmt_version;
-}
-
-/* --------------------  CtrlNotifyDMAbortMigrationTypeId  ---------------------- */
-struct CtrlNotifyDMAbortMigration {
-     1: i64  DMT_version;
-}
-
-/* --------------------  CtrlNotifyBucketStatTypeId  --------------------------- */
-struct CtrlNotifyBucketStat {
-     1: FDSP.FDSP_BucketStatsRespType  bucket_stat;
-}
-
-/* ---------------------  CtrlNotifyThrottleTypeId  ---------------------------- */
-struct CtrlNotifyThrottle {
-     1: FDSP.FDSP_ThrottleMsgType      throttle;
-}
-struct CtrlNotifyQoSControl {
-     1: FDSP.FDSP_QoSControlMsgType    qosctrl;
-}
-struct CtrlTestBucket {
-     1: FDSP.FDSP_TestBucket           tbmsg;
-}
-struct CtrlCreateBucket {
-     1: FDSP.FDSP_CreateVolType       cv;
-}
-struct CtrlDeleteBucket {
-    1:  FDSP.FDSP_DeleteVolType       dv;
-}
-struct CtrlModifyBucket {
-    1:  FDSP.FDSP_ModifyVolType      mv;
-}
-
-struct CtrlSvcEvent {
-    1: required SvcUuid    evt_src_svc_uuid; // The svc uuid that this event targets
-    2: required i32        evt_code;         // The error itself
-    3: FDSPMsgTypeId       evt_msg_type_id;  // The msg that trigged this event (if any)
 }
 
 /* Forward catalog update request message */

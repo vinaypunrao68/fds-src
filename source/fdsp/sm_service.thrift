@@ -303,10 +303,6 @@ struct CtrlNotifySMAbortMigration {
    1: i64  DLT_version;
 }
 
-/* ---------------------  CtrlTokenMigrationAbortTypeId  ---------------------------- */
-struct CtrlTokenMigrationAbort {
-}
-
 /* Get object request message */
 struct GetObjectMsg {
    1: required i64    			volume_id;

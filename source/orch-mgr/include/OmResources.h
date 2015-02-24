@@ -20,6 +20,7 @@
 
 #include <fdsp/FDSP_ControlPathResp.h>
 #include "fdsp/sm_service_types.h"
+#include "fdsp/dm_service_types.h"
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>

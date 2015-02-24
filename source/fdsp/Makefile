@@ -7,6 +7,7 @@ user_thrift      := \
 	FDSP.thrift \
 	am_service.thrift \
 	dm_service.thrift \
+	om_service.thrift \
 	sm_service.thrift \
 	fds_service.thrift \
 	fds_stream.thrift \

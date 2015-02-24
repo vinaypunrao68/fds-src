@@ -63,6 +63,28 @@ struct CreateVolumeCloneRespMsg {
      1:i64 cloneId
 }
 
+/* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
+struct CtrlNotifyPushDMT {
+     1: FDSP.FDSP_PushMeta        dmt_push;
+}
+
+/* ---------------------  CtrlNotifyDMTCloseTypeId  ---------------------------- */
+struct CtrlNotifyDMTClose {
+     1: FDSP.FDSP_DmtCloseType    dmt_close;
+}
+
+/* --------------------  CtrlNotifyDMTUpdateTypeId  ---------------------------- */
+struct CtrlNotifyDMTUpdate {
+     1: FDSP.FDSP_DMT_Type        dmt_data;
+     2: i32                       dmt_version;
+}
+
+/* --------------------  CtrlNotifyDMAbortMigrationTypeId  ---------------------- */
+struct CtrlNotifyDMAbortMigration {
+     1: i64  DMT_version;
+}
+
+
 struct DeleteBlobMsg {
   1: i64                       txId;
   2: i64                       volume_id;
