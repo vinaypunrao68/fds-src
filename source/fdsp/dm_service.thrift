@@ -95,16 +95,6 @@ struct DeleteBlobMsg {
 struct DeleteBlobRspMsg {
 }
 
-/* delete catalog object Transaction  request message */
-struct DeleteCatalogObjectMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-}
-
-struct DeleteCatalogObjectRspMsg {
-}
-
 struct DeleteSnapshotMsg {
     1:i64 snapshotId
 }

@@ -43,7 +43,6 @@ namespace FDS_ProtocolInterface {
     class UpdateCatalogMsg;
     class UpdateCatalogRspMsg;
     class StartBlobTxMsg;
-    class DeleteCatalogObjectMsg;
     class CommitBlobTxMsg;
     class AbortBlobTxMsg;
     class GetBlobMetaDataMsg;
@@ -90,7 +89,6 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delObjCat);
 std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delObjRsp);
 std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
 std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);

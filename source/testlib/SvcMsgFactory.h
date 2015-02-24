@@ -15,7 +15,6 @@ class UpdateCatalogMsg;
 class UpdateCatalogOnceMsg;
 class StartBlobTxMsg;
 class AbortBlobTxMsg;
-class DeleteCatalogObjectMsg;
 class GetVolumeBlobListMsg;
 class SetBlobMetaDataMsg;
 class GetBlobMetaDataMsg;
@@ -35,7 +34,6 @@ typedef boost::shared_ptr<UpdateCatalogMsg> UpdateCatalogMsgPtr;
 typedef boost::shared_ptr<UpdateCatalogOnceMsg> UpdateCatalogOnceMsgPtr;
 typedef boost::shared_ptr<StartBlobTxMsg> StartBlobTxMsgPtr;
 typedef boost::shared_ptr<AbortBlobTxMsg> AbortBlobTxMsgPtr;
-typedef boost::shared_ptr<DeleteCatalogObjectMsg> DeleteCatalogObjectMsgPtr;
 typedef boost::shared_ptr<GetVolumeBlobListMsg> GetVolumeBlobListMsgPtr;
 typedef boost::shared_ptr<SetBlobMetaDataMsg> SetBlobMetaDataMsgPtr;
 typedef boost::shared_ptr<GetBlobMetaDataMsg> GetBlobMetaDataMsgPtr;
@@ -95,8 +93,6 @@ struct SvcMsgFactory {
         newCommitBlobTxMsg(const uint64_t& volId, const std::string blobName);
     static FDS_ProtocolInterface::AbortBlobTxMsgPtr
         newAbortBlobTxMsg(const uint64_t& volId, const std::string blobName);
-    static FDS_ProtocolInterface::DeleteCatalogObjectMsgPtr
-        newDeleteCatalogObjectMsg(const uint64_t& volId, const std::string blobName);
     static FDS_ProtocolInterface::SetBlobMetaDataMsgPtr
         newSetBlobMetaDataMsg(const uint64_t& volId, const std::string blobName);
     static FDS_ProtocolInterface::GetBlobMetaDataMsgPtr

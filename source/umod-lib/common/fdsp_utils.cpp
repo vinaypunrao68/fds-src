@@ -171,12 +171,6 @@ std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
     oss < " CommitBlobTxMs";
     return oss.str();
 }
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delcatMsg)
-{
-    std::ostringstream oss;
-    oss < " DeleteCatalogObjectMsg";
-    return oss.str();
-}
 
 std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delcatRspMsg)
 {

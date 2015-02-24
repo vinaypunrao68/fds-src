@@ -165,16 +165,6 @@ SvcMsgFactory::newAbortBlobTxMsg(const uint64_t& volId, const std::string blobNa
     return abortBlbTx;
 }
 
-fpi::DeleteCatalogObjectMsgPtr
-SvcMsgFactory::newDeleteCatalogObjectMsg(const uint64_t& volId, const std::string blobName)
-{
-    fpi::DeleteCatalogObjectMsgPtr  deleteBlbTx(new fpi::DeleteCatalogObjectMsg);
-    deleteBlbTx->volume_id = volId;
-    deleteBlbTx->blob_name = blobName;
-    deleteBlbTx->blob_version = blob_version_invalid;
-    return deleteBlbTx;
-}
-
 fpi::SetBlobMetaDataMsgPtr
 SvcMsgFactory::newSetBlobMetaDataMsg(const uint64_t& volId, const std::string blobName)
 {

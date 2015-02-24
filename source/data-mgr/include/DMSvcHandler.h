@@ -22,11 +22,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-    void deleteCatalogObject(const fpi::AsyncHdr& asyncHdr,
-                             const fpi::DeleteCatalogObjectMsg& delcatMsg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
     void commitBlobTx(const fpi::AsyncHdr& asyncHdr,
                              const fpi::CommitBlobTxMsg& commitBlbMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -74,11 +69,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
 
     void volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                       boost::shared_ptr<fpi::VolSyncStateMsg>& syncMsg);
-
-    void deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg);
-    void deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         const Error &e, DmIoDeleteCat *req);
 
     void registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg);
