@@ -12,9 +12,20 @@ public class ConfigurationException extends Exception
      */
     public ConfigurationException(String message)
     {
-        super(message, null);
+        this(message, null);
     }
-    
+
+    /**
+     * Constructor.
+     * 
+     * @param message A descriptive error message, or {@code null} (not recommended).
+     * @param cause The proximate cause of this error, or {@code null} if there was none.
+     */
+    public ConfigurationException(String message, Throwable cause)
+    {
+        super(message, cause);
+    }
+
     /**
      * Identifies serialization version.
      */
