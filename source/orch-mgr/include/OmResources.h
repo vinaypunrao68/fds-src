@@ -19,6 +19,8 @@
 #include "platform/domain_container.h"
 
 #include <fdsp/FDSP_ControlPathResp.h>
+#include "fdsp/sm_service_types.h"
+#include "fdsp/dm_service_types.h"
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
@@ -810,41 +812,6 @@ class OM_NodeDomainMod : public Module
 class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
   public:
     OM_ControlRespHandler();
-
-    void AttachVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
-    void AttachVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp);
-
-    void DetachVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp);
-    void DetachVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp);
-
-    void NotifyNodeAddResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeAddResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-    void NotifyNodeRmvResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeRmvResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-    void NotifyNodeActiveResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeActiveResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
 
     void NotifyDMTUpdateResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

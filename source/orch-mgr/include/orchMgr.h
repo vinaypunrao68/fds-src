@@ -288,33 +288,12 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
   public:
         explicit FDSP_OMControlPathReqHandler(OrchMgr *oMgr);
 
-        void AttachBucket(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_buck_req);
-        void AttachBucket(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_buck_req);
-
         void RegisterNode(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_RegisterNodeType& reg_node_req);
         void RegisterNode(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr& reg_node_req);
-
-        void NotifyQueueFull(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_NotifyQueueStateType& queue_state_info);
-        void NotifyQueueFull(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_NotifyQueueStateTypePtr& queue_state_info);
-
-        void TestBucket(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_TestBucket& test_buck_msg);
-        void TestBucket(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg);
 
         void migrationDone(
                 boost::shared_ptr<fpi::AsyncHdr>& hdr,
@@ -328,41 +307,6 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
 class FDSP_ControlPathRespHandler : virtual public fpi::FDSP_ControlPathRespIf {
   public:
         explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
-
-        void AttachVolResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
-        void AttachVolResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp);
-
-        void DetachVolResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp);
-        void DetachVolResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp);
-
-        void NotifyNodeAddResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-        void NotifyNodeAddResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-        void NotifyNodeActiveResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-        void NotifyNodeActiveResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-        void NotifyNodeRmvResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-        void NotifyNodeRmvResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
 
         void NotifyDMTCloseResp(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

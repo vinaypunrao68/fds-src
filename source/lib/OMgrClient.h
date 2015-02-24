@@ -9,6 +9,7 @@
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
+#include "fdsp/sm_service_types.h"
 #include <util/Log.h>
 
 #include <unordered_map>
@@ -158,7 +159,6 @@ class OMgrClient {
     NodeUuid getUuid() const;
     FDSP_MgrIdType getNodeType() const;
 
-    int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
     int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
@@ -210,11 +210,6 @@ class OMgrClient {
                    const std::string& accessKeyId,
                    const std::string& secretAccessKey);
 
-    int recvNodeEvent(int node_id,
-                      FDSP_MgrIdType node_type,
-                      unsigned int node_ip,
-                      int node_state,
-                      const FDSP_Node_Info_TypePtr& node_info);
     int recvMigrationEvent(bool dlt_type);
     Error updateDlt(bool dlt_type, std::string& dlt_data);
     Error recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
@@ -234,46 +229,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
   public:
     explicit OMgrClientRPCI(OMgrClient *om_c);
-
-    void AttachVol(const FDSP_MsgHdrType& fdsp_msg, const FDSP_AttachVolType& atc_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg);
-
-
-    void DetachVol(const FDSP_MsgHdrType& fdsp_msg,
-                   const FDSP_AttachVolType& dtc_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void DetachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg);
-
-    void NotifyNodeAdd(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_Node_Info_Type& node_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr,
-                       FDSP_Node_Info_TypePtr& node_info);
-
-    void NotifyNodeActive(const FDSP_MsgHdrType& fdsp_msg,
-                          const FDSP_ActivateNodeType& act_node_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyNodeActive(FDSP_MsgHdrTypePtr& msg_hdr,
-                          FDSP_ActivateNodeTypePtr& act_node_req) {}
-
-    void NotifyNodeRmv(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_Node_Info_Type& node_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
-                       FDSP_Node_Info_TypePtr& node_info);
 
     void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
                         const FDSP_PushMeta& push_meta_req) {
