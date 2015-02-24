@@ -12,31 +12,10 @@
  */
 
 include "FDSP.thrift"
+include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol
-
-/*
- * Service/domain identifiers.
- */
-struct SvcUuid {
-    1: required i64           svc_uuid,
-}
-
-struct SvcID {
-    1: required SvcUuid       svc_uuid,
-    2: required string        svc_name,
-}
-
-struct SvcVer {
-    1: required i16           ver_major,
-    2: required i16           ver_minor,
-}
-
-struct DomainID {
-    1: required SvcUuid       domain_id,
-    2: required string        domain_name,
-}
 
 /*
  * List of all FDSP message types that passed between fds services.  Typically all these
@@ -208,8 +187,8 @@ struct AsyncHdr {
     1: required i32           	msg_chksum;
     2: required FDSPMsgTypeId 	msg_type_id;
     3: required i32           	msg_src_id;
-    4: required SvcUuid       	msg_src_uuid;
-    5: required SvcUuid       	msg_dst_uuid;
+    4: required common.SvcUuid       	msg_src_uuid;
+    5: required common.SvcUuid       	msg_dst_uuid;
     6: required i32           	msg_code;
     7: optional i64             dlt_version = 0;
     8: i64			rqSendStartTs;
@@ -226,62 +205,6 @@ struct AsyncHdr {
  * Node endpoint/service registration handshake
  * --------------------------------------------------------------------------------
  */
-
-/*
- * Uuid to physical location binding registration.
- */
-struct UuidBindMsg {
-    1: required SvcID                    svc_id,
-    2: required string                   svc_addr,
-    3: required i32                      svc_port,
-    4: required SvcID                    svc_node,
-    5: required string                   svc_auto_name,
-    6: required FDSP.FDSP_MgrIdType      svc_type,
-}
-
-/*
- * Node storage capability message format.
- */
-struct StorCapMsg {
-    1: i32                    disk_iops_max,
-    2: i32                    disk_iops_min,
-    3: double                 disk_capacity,
-    4: i32                    disk_latency_max,
-    5: i32                    disk_latency_min,
-    6: i32                    ssd_iops_max,
-    7: i32                    ssd_iops_min,
-    8: double                 ssd_capacity,
-    9: i32                    ssd_latency_max,
-    10: i32                   ssd_latency_min,
-    11: i32                   ssd_count,
-    12: i32                   disk_type,
-    13: i32                   disk_count,
-}
-
-enum NodeSvcMask {
-    NODE_SVC_SM       = 0x0001,
-    NODE_SVC_DM       = 0x0002,
-    NODE_SVC_AM       = 0x0004,
-    NODE_SVC_OM       = 0x0008,
-    NODE_SVC_GENERAL  = 0x1000
-}
-
-/*
- * Node registration message format.
- */
-struct NodeInfoMsg {
-    1: required UuidBindMsg   node_loc,
-    2: required DomainID      node_domain,
-    3: StorCapMsg    	      node_stor,
-    4: required i32           nd_base_port,
-    5: required i32           nd_svc_mask,
-    6: required bool          nd_bcast,
-}
-
-struct NodeInfoMsgList {
-    1: list<NodeInfoMsg>      nd_list,
-}
-
 enum ServiceStatus {
     SVC_STATUS_INVALID      = 0x0000,
     SVC_STATUS_ACTIVE       = 0x0001,
@@ -293,9 +216,9 @@ enum ServiceStatus {
  * Service map info
  */
 struct SvcInfo {
-    1: required SvcID                    svc_id,
+    1: required common.SvcID             svc_id,
     2: required i32                      svc_port,
-    3: required FDSP.FDSP_MgrIdType      svc_type,
+    3: required FDSP.FDSP_MgrIdType    svc_type,
     4: required ServiceStatus            svc_status,
     5: required string                   svc_auto_name,
 }
@@ -304,7 +227,7 @@ struct SvcInfo {
  * This becomes a control path message
  */
 struct NodeSvcInfo {
-    1: required SvcUuid                  node_base_uuid,
+    1: required common.SvcUuid                  node_base_uuid,
     2: i32                               node_base_port,
     3: string                            node_addr,
     4: string                            node_auto_name,
@@ -314,7 +237,7 @@ struct NodeSvcInfo {
 }
 
 struct DomainNodes {
-    1: required DomainID                 dom_id,
+    1: required common.DomainID                 dom_id,
     2: list<NodeSvcInfo>                 dom_nodes,
 }
 
@@ -324,6 +247,90 @@ struct NodeVersion {
     3: i32                               nd_fds_release,
     4: i32                               nd_fds_patch,
     5: string                            nd_java_ver,
+}
+
+/**
+ * Notify node to upgrade/rollback SW version.
+ */
+struct NodeUpgrade {
+    1: required common.DomainID                 nd_dom_id,
+    2: required common.SvcUuid                  nd_uuid,
+    3: NodeVersion                       nd_sw_ver,
+    4: required FDSPMsgTypeId            nd_op_code,
+    5: required string                   nd_md5_chksum,
+    6: string                            nd_pkg_path,
+}
+
+struct NodeIntegrate {
+    1: required common.DomainID                 nd_dom_id,
+    2: required common.SvcUuid                  nd_uuid,
+    3: bool                              nd_start_am,
+    4: bool                              nd_start_dm,
+    5: bool                              nd_start_sm,
+    6: bool                              nd_start_om,
+}
+
+/**
+ * Work item done by a node.
+ */
+struct NodeWorkItem {
+    1: required i32                      nd_work_code,
+    2: required common.DomainID                 nd_dom_id,
+    3: required common.SvcUuid                  nd_from_svc,
+    4: required common.SvcUuid                  nd_to_svc,
+}
+
+struct NodeDeploy {
+    1: required common.DomainID                 nd_dom_id,
+    2: required common.SvcUuid                  nd_uuid,
+    3: list<NodeWorkItem>                nd_work_item,
+}
+
+struct NodeFunctional {
+    1: required common.DomainID                 nd_dom_id,
+    2: required common.SvcUuid                  nd_uuid,
+    3: required FDSPMsgTypeId            nd_op_code,
+    4: list<NodeWorkItem>                nd_work_item,
+}
+
+struct NodeDown {
+    1: required common.DomainID                 nd_dom_id,
+    2: required common.SvcUuid                  nd_uuid,
+}
+
+/**
+ * Events emit from a node.
+ */
+struct NodeEvent {
+    1: required common.DomainID                 nd_dom_id,
+    2: required common.SvcUuid                  nd_uuid,
+    3: required string                   nd_evt,
+    4: string                            nd_evt_text,
+}
+
+/*
+ * Uuid to physical location binding registration.
+ */
+struct UuidBindMsg {
+    1: required common.SvcID             svc_id,
+    2: required string                   svc_addr,
+    3: required i32                      svc_port,
+    4: required common.SvcID             svc_node,
+    5: required string                   svc_auto_name,
+    6: required FDSP.FDSP_MgrIdType      svc_type,
+}
+
+
+/*
+ * Node registration message format.
+ */
+struct NodeInfoMsg {
+    1: required UuidBindMsg   node_loc,
+    2: required common.DomainID node_domain,
+    3: common.StorCapMsg node_stor,
+    4: required i32           nd_base_port,
+    5: required i32           nd_svc_mask,
+    6: required bool          nd_bcast,
 }
 
 /**
@@ -340,70 +347,12 @@ struct NodeQualify {
     8: string                            nd_md5sum_om,
 }
 
-/**
- * Notify node to upgrade/rollback SW version.
- */
-struct NodeUpgrade {
-    1: required DomainID                 nd_dom_id,
-    2: required SvcUuid                  nd_uuid,
-    3: NodeVersion                       nd_sw_ver,
-    4: required FDSPMsgTypeId            nd_op_code,
-    5: required string                   nd_md5_chksum,
-    6: string                            nd_pkg_path,
-}
-
-struct NodeIntegrate {
-    1: required DomainID                 nd_dom_id,
-    2: required SvcUuid                  nd_uuid,
-    3: bool                              nd_start_am,
-    4: bool                              nd_start_dm,
-    5: bool                              nd_start_sm,
-    6: bool                              nd_start_om,
-}
-
-/**
- * Work item done by a node.
- */
-struct NodeWorkItem {
-    1: required i32                      nd_work_code,
-    2: required DomainID                 nd_dom_id,
-    3: required SvcUuid                  nd_from_svc,
-    4: required SvcUuid                  nd_to_svc,
-}
-
-struct NodeDeploy {
-    1: required DomainID                 nd_dom_id,
-    2: required SvcUuid                  nd_uuid,
-    3: list<NodeWorkItem>                nd_work_item,
-}
-
-struct NodeFunctional {
-    1: required DomainID                 nd_dom_id,
-    2: required SvcUuid                  nd_uuid,
-    3: required FDSPMsgTypeId            nd_op_code,
-    4: list<NodeWorkItem>                nd_work_item,
-}
-
-struct NodeDown {
-    1: required DomainID                 nd_dom_id,
-    2: required SvcUuid                  nd_uuid,
-}
-
-/**
- * Events emit from a node.
- */
-struct NodeEvent {
-    1: required DomainID                 nd_dom_id,
-    2: required SvcUuid                  nd_uuid,
-    3: required string                   nd_evt,
-    4: string                            nd_evt_text,
-}
 
 /**
  * 2-Phase Commit message.
  */
 struct PhaseSync {
-    1: required SvcUuid                  ph_rcv_uuid,
+    1: required common.SvcUuid                  ph_rcv_uuid,
     2: required i32                      ph_sync_evt,
     3: binary                            ph_data,
 }
@@ -492,28 +441,4 @@ struct ShutdownMODMsg {
 /* get the list of blobs in volume Transaction  request message */
 struct GetVolumeBlobListMsg {
    1: i64    			volume_id;
-}
-
-/**
- * time slot containing volume stats
- */
-struct VolStatSlot {
-    1: i64    rel_seconds;    // timestamp in seconds relative to start_timestamp
-    2: binary slot_data;      // represents time slot of stats
-}
-
-/**
- * Volume's time-series of stats
- */
-struct VolStatList {
-    1: i64                  volume_id;  // volume id
-    2: list<VolStatSlot>    statlist;   // list of time slots
-}
-
-/**
- * Stats from a service to DM for aggregation
- */
-struct StatStreamMsg {
-    1: i64                    start_timestamp;
-    2: list<VolStatList>      volstats;
 }

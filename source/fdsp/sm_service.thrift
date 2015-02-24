@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+include "common.thrift"
 include "fds_service.thrift"
 include "FDSP.thrift"
 
@@ -47,7 +48,7 @@ struct FDSP_DLT_Data_Type {
 
 /* ---------------------- CtrlNotifySMStartMigration --------------------------- */
 struct SMTokenMigrationGroup {
-   1: fds_service.SvcUuid                   source;
+   1: common.SvcUuid                   source;
    2: list<i32>                 tokens;
 }
 

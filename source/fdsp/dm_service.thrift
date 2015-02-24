@@ -16,6 +16,30 @@ namespace cpp FDS_ProtocolInterface
 service DMSvc extends fds_service.PlatNetSvc {
 }
 
+/**
+ * time slot containing volume stats
+ */
+struct VolStatSlot {
+    1: i64    rel_seconds;    // timestamp in seconds relative to start_timestamp
+    2: binary slot_data;      // represents time slot of stats
+}
+
+/**
+ * Volume's time-series of stats
+ */
+struct VolStatList {
+    1: i64                  volume_id;  // volume id
+    2: list<VolStatSlot>    statlist;   // list of time slots
+}
+
+/**
+ * Stats from a service to DM for aggregation
+ */
+struct StatStreamMsg {
+    1: i64                    start_timestamp;
+    2: list<VolStatList>      volstats;
+}
+
 /* Abort Blob  Transaction  request message */
 struct AbortBlobTxMsg {
    1: i64    			volume_id;
@@ -219,7 +243,7 @@ struct StatStreamRegistrationMsg {
    1:i32 id,
    2:string url,
    3:string method
-   4:fds_service.SvcUuid dest,
+   4:common.SvcUuid dest,
    5:list<i64> volumes,
    6:i32 sample_freq_seconds,
    7:i32 duration_seconds,

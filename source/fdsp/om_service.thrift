@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+include "common.thrift"
 include "FDSP.thrift"
 include "fds_service.thrift"
 
@@ -20,7 +21,7 @@ struct CtrlModifyBucket {
 }
 
 struct CtrlSvcEvent {
-    1: required fds_service.SvcUuid    evt_src_svc_uuid; // The svc uuid that this event targets
+    1: required common.SvcUuid    evt_src_svc_uuid; // The svc uuid that this event targets
     2: required i32        evt_code;         // The error itself
     3: fds_service.FDSPMsgTypeId       evt_msg_type_id;  // The msg that trigged this event (if any)
 }
