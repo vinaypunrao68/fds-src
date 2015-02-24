@@ -1,18 +1,37 @@
 package com.formationds.iodriver;
 
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.util.Collection;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
 
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
+import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
+import com.formationds.iodriver.workloads.S3AssuredRateTestWorkload;
 import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
+import com.formationds.iodriver.workloads.Workload;
 
 /**
  * Global configuration for {@link com.formationds.iodriver}.
@@ -128,8 +147,11 @@ public final class Config
         if (args == null) throw new NullArgumentException("args");
 
         _args = args;
+        _availableWorkloadNames = null;
+        _commandLine = null;
         _disk_iops_max = -1;
         _disk_iops_min = -1;
+        _workloadName = null;
     }
 
     /**
@@ -214,14 +236,31 @@ public final class Config
     }
 
     /**
-     * Get the configured workload.
+     * Get the default assured-rate test workload.
      * 
-     * @return A workload to run.
+     * @return A workload.
+     * 
+     * @throws ConfigUndefinedException when the system throttle IOPS rate is not defined.
+     */
+    @WorkloadProvider
+    public S3AssuredRateTestWorkload getAssuredWorkload() throws ConfigUndefinedException
+    {
+        final int competingBuckets = 2;
+        final int systemThrottle = getSystemIopsMax();
+
+        return new S3AssuredRateTestWorkload(competingBuckets, systemThrottle);
+    }
+
+    /**
+     * Get the default rate-limit test workload.
+     * 
+     * @return A workload.
      * 
      * @throws ConfigurationException when the system assured and throttle IOPS rates are not within
      *             a testable range.
      */
-    public S3RateLimitTestWorkload getWorkload() throws ConfigurationException
+    @WorkloadProvider
+    public S3RateLimitTestWorkload getRateLimitWorkload() throws ConfigurationException
     {
         final int systemAssured = getSystemIopsMin();
         final int systemThrottle = getSystemIopsMax();
@@ -243,6 +282,79 @@ public final class Config
         return new S3RateLimitTestWorkload(systemAssured + headroomNeeded);
     }
 
+    // @eclipseFormat:off
+    public <WorkloadT extends Workload<EndpointT, OperationT>,
+            EndpointT extends Endpoint<EndpointT, OperationT>,
+            OperationT extends Operation<OperationT, EndpointT>>
+    WorkloadT getSelectedWorkload(Class<EndpointT> endpointType,
+                                  Class<OperationT> operationType)
+    throws ParseException, ConfigurationException
+    // @eclipseFormat:on
+    {
+        if (endpointType == null) throw new NullArgumentException("endpointType");
+        if (operationType == null) throw new NullArgumentException("operationType");
+
+        String workloadName = getSelectedWorkloadName();
+        Class<?> myClass = getClass();
+        Method workloadFactoryMethod;
+        try
+        {
+            workloadFactoryMethod = myClass.getMethod(workloadName);
+        }
+        catch (NoSuchMethodException | SecurityException e)
+        {
+            throw new ConfigurationException("No such method " + workloadName + "().");
+        }
+
+        Workload<?, ?> workload;
+        try
+        {
+            try
+            {
+                workload = (Workload<?, ?>)workloadFactoryMethod.invoke(this);
+            }
+            catch (InvocationTargetException e)
+            {
+                Throwable cause = e.getCause();
+                if (cause == null)
+                {
+                    throw new ConfigurationException("Invocation exception while trying to build "
+                                                     + "workload " + workloadName
+                                                     + ", but null cause.",
+                                                     e);
+                }
+                throw cause;
+            }
+        }
+        catch (ConfigurationException e)
+        {
+            throw e;
+        }
+        catch (Throwable t)
+        {
+            throw new ConfigurationException("Unexpected error building workload.", t);
+        }
+
+        if (!workload.getEndpointType().equals(endpointType))
+        {
+            throw new ConfigurationException("Workload endpoint type of "
+                                             + workload.getEndpointType().getName()
+                                             + " is not the requested type of " + endpointType
+                                             + ".");
+        }
+        if (!workload.getOperationType().equals(operationType))
+        {
+            throw new ConfigurationException("Workload operation type of "
+                                             + workload.getOperationType().getName()
+                                             + " is not the requested type of " + operationType
+                                             + ".");
+        }
+        @SuppressWarnings("unchecked")
+        WorkloadT retval = (WorkloadT)workload;
+        
+        return retval;
+    }
+
     /**
      * Get the configured validator.
      * 
@@ -255,9 +367,19 @@ public final class Config
     }
 
     /**
-     * Command-line arguments.
+     * Raw command-line arguments.
      */
     private final String[] _args;
+
+    /**
+     * Workloads that may be chosen to run.
+     */
+    private Collection<String> _availableWorkloadNames;
+
+    /**
+     * The parsed command-line. {@code null} prior to parsing.
+     */
+    private CommandLine _commandLine;
 
     /**
      * Maximum IOPS allowed by the system.
@@ -273,4 +395,112 @@ public final class Config
      * Runtime configuration.
      */
     private Fds.Config _runtimeConfig;
+
+    /**
+     * The name of the user-selected workload. {@code null} prior to command-line parsing or if not
+     * specified.
+     */
+    private String _workloadName;
+
+    /**
+     * Get the names of methods providing selectable workloads.
+     * 
+     * @return A list of names.
+     */
+    private Collection<String> getAvailableWorkloadNames()
+    {
+        if (_availableWorkloadNames == null)
+        {
+            Class<?> myClass = getClass();
+
+            Predicate<Member> memberIsPublic = member -> Modifier.isPublic(member.getModifiers());
+            Predicate<AnnotatedElement> memberHasAnnotation =
+                    member ->
+                    {
+                        WorkloadProvider[] workloadProviderAnnotations =
+                                member.getAnnotationsByType(WorkloadProvider.class);
+                        return workloadProviderAnnotations.length > 0;
+                    };
+            Predicate<Method> methodHasNoArguments = method -> method.getParameterCount() == 0;
+            Predicate<Method> methodHasCorrectReturnType =
+                    method -> Workload.class.isAssignableFrom(method.getReturnType());
+
+            Stream<Method> myMethods = Stream.of(myClass.getMethods());
+            Stream<Method> myPublicMethods = myMethods.filter(memberIsPublic);
+            Stream<Method> myAnnotatedMethods = myPublicMethods.filter(memberHasAnnotation);
+            Stream<Method> methodsWithNoArguments = myAnnotatedMethods.filter(methodHasNoArguments);
+            Stream<Method> methodsWithCorrectReturnType =
+                    methodsWithNoArguments.filter(methodHasCorrectReturnType);
+            Stream<String> availableWorkloadMethodNames =
+                    methodsWithCorrectReturnType.map(method -> method.getName());
+
+            _availableWorkloadNames = availableWorkloadMethodNames.collect(Collectors.toSet());
+        }
+        return _availableWorkloadNames;
+    }
+
+    /**
+     * Get the parsed command line.
+     * 
+     * @return The current property value.
+     * @throws ParseException
+     */
+    private CommandLine getCommandLine() throws ParseException
+    {
+        if (_commandLine == null)
+        {
+            Options options = new Options();
+            options.addOption("h", "help", false, "Show this help screen.");
+            options.addOption("w",
+                              "workload",
+                              true,
+                              "The workload to run. Available options are "
+                                      + String.join(", ", getAvailableWorkloadNames()) + ".");
+
+            CommandLineParser parser = new PosixParser();
+
+            _commandLine = parser.parse(options, _args);
+        }
+        return _commandLine;
+    }
+
+    /**
+     * Get the name of the selected workload.
+     * 
+     * @return The name of a method in this class that takes no arguments and returns a
+     *         {@link Workload}.
+     * 
+     * @throws ParseException when the command-line arguments cannot be parsed.
+     * @throws ConfigurationException when no workloads are configured.
+     */
+    private String getSelectedWorkloadName() throws ParseException, ConfigurationException
+    {
+        if (_workloadName == null)
+        {
+            CommandLine commandLine = getCommandLine();
+
+            Collection<String> availableWorkloadNames = getAvailableWorkloadNames();
+            if (availableWorkloadNames.isEmpty())
+            {
+                throw new ConfigurationException("No available workloads.");
+            }
+
+            if (commandLine.hasOption("workload"))
+            {
+                String selectedWorkloadName = commandLine.getOptionValue("workload");
+                if (selectedWorkloadName == null
+                    || !availableWorkloadNames.contains(selectedWorkloadName))
+                {
+                    throw new ParseException("workload must specify a valid workload name.");
+                }
+
+                _workloadName = selectedWorkloadName;
+            }
+            else
+            {
+                _workloadName = availableWorkloadNames.iterator().next();
+            }
+        }
+        return _workloadName;
+    }
 }

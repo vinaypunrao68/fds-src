@@ -8,9 +8,10 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
+import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
-import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
+import com.formationds.iodriver.workloads.S3Workload;
 
 /**
  * Entry class for iodriver.
@@ -39,11 +40,11 @@ public final class Main
                                                 listener.volumeAdded))
             {
                 Driver<?, ?> driver =
-                        new Driver<S3Endpoint,
-                        S3RateLimitTestWorkload>(config.getEndpoint(),
-                                                             config.getWorkload(),
-                                                             listener,
-                                                             config.getValidator());
+                        new Driver<S3Endpoint, S3Workload>(config.getEndpoint(),
+                                                           config.getSelectedWorkload(S3Endpoint.class,
+                                                                                      S3Operation.class),
+                                                           listener,
+                                                           config.getValidator());
                 driver.runWorkload();
                 result = driver.getResult();
             }

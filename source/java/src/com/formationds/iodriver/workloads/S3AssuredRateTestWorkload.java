@@ -13,7 +13,6 @@ import java.util.stream.StreamSupport;
 import com.codepoetics.protonpack.StreamUtils;
 import com.google.common.collect.ImmutableMap;
 
-import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
@@ -29,7 +28,7 @@ import com.formationds.iodriver.operations.StatBucketVolume;
 /**
  * Workload that ensures that a volume always receives its assured IOPS rate.
  */
-public final class S3AssuredRateTestWorkload extends Workload<S3Endpoint, S3Operation>
+public final class S3AssuredRateTestWorkload extends S3Workload
 {
     /**
      * Constructor.
