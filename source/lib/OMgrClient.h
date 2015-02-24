@@ -230,22 +230,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
   public:
     explicit OMgrClientRPCI(OMgrClient *om_c);
 
-    void AttachVol(const FDSP_MsgHdrType& fdsp_msg, const FDSP_AttachVolType& atc_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg);
-
-
-    void DetachVol(const FDSP_MsgHdrType& fdsp_msg,
-                   const FDSP_AttachVolType& dtc_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void DetachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg);
-
     void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
                         const FDSP_PushMeta& push_meta_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy

@@ -75,32 +75,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::AttachVol(const FDSP_MsgHdrType    &fdsp_msg,
-                           const FDSP_AttachVolType &atc_vol_req)
-    {
-    }
-
-    void
-    PlatRpcReqt::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                           fpi::FDSP_AttachVolTypePtr &vol_msg)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::DetachVol(const FDSP_MsgHdrType    &fdsp_msg,
-                           const FDSP_AttachVolType &dtc_vol_req)
-    {
-    }
-
-    void
-    PlatRpcReqt::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                           fpi::FDSP_AttachVolTypePtr &vol_msg)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
                                  const FDSP_DMT_Type   &dmt_info)
     {
