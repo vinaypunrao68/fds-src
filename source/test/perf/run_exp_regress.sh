@@ -45,7 +45,7 @@ echo "Deploy inventory file - config: $config om_node: $OM_NODE cluster: $CLUSTE
 # bring up fds
 echo "Bring up FDS"
 pushd $WORKSPACE/ansible
-./scripts/deploy_fds.sh $OM_NODE nightly
+./scripts/deploy_fds.sh $OM_NODE local
 echo "Sleep for one minute more..."
 sleep 60
 popd
