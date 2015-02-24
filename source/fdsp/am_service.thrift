@@ -3,6 +3,8 @@
  */
 
 include "fds_service.thrift"
+include "dm_service.thrift"
+include "sm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
 
@@ -13,3 +15,8 @@ namespace cpp FDS_ProtocolInterface
 service AMSvc extends fds_service.PlatNetSvc {
 }
 
+service TestAMSvc {
+    i32 associate(1: string myip, 2: i32 port);
+    oneway void putObjectRsp(1: fds_service.AsyncHdr asyncHdr, 2: sm_service.PutObjectRspMsg payload);
+    oneway void updateCatalogRsp(1: fds_service.AsyncHdr asyncHdr, 2: dm_service.UpdateCatalogOnceRspMsg payload);
+}

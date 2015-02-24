@@ -330,3 +330,8 @@ struct PutObjectMsg {
 /* Put object response message */
 struct PutObjectRspMsg {
 }
+
+service TestSMSvc {
+    i32 associate(1: string myip, 2: i32 port);
+    oneway void putObject(1: fds_service.AsyncHdr asyncHdr, 2: PutObjectMsg payload);
+}
