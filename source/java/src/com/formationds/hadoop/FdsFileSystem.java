@@ -1,5 +1,7 @@
 package com.formationds.hadoop;
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;

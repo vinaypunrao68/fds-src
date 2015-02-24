@@ -1,5 +1,7 @@
 package com.formationds.smoketest;
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.protocol.BlobDescriptor;

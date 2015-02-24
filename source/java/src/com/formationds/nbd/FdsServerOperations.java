@@ -2,6 +2,8 @@ package com.formationds.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobListOrder;
 import io.netty.buffer.ByteBuf;

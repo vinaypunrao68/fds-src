@@ -22,6 +22,21 @@ enum BlobListOrder {
     BLOBSIZE
 }
 
+enum ErrorCode {
+    INTERNAL_SERVER_ERROR       = 0,
+    MISSING_RESOURCE,
+    BAD_REQUEST,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_NOT_EMPTY,
+    SERVICE_NOT_READY,
+    SERVICE_SHUTTING_DOWN,
+}
+
+exception ApiException {
+    1: string message,
+    2: ErrorCode errorCode,
+}
+
 /* Can be consolidated when apis and fdsp merge or whatever */
 struct BlobDescriptor {
      1: required string name,

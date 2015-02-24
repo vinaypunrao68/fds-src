@@ -96,8 +96,8 @@ void
 AmAsyncXdiResponse::attachVolumeResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -114,8 +114,8 @@ AmAsyncXdiResponse::startBlobTxResp(const Error &error,
                                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -132,8 +132,8 @@ AmAsyncXdiResponse::abortBlobTxResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -149,8 +149,8 @@ AmAsyncXdiResponse::commitBlobTxResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -166,8 +166,8 @@ AmAsyncXdiResponse::updateBlobResp(const Error &error,
                                    boost::shared_ptr<apis::RequestId>& requestId) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -183,8 +183,8 @@ AmAsyncXdiResponse::updateBlobOnceResp(const Error &error,
                                        boost::shared_ptr<apis::RequestId>& requestId) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -200,8 +200,8 @@ AmAsyncXdiResponse::updateMetadataResp(const Error &error,
                                        boost::shared_ptr<apis::RequestId>& requestId) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -217,8 +217,8 @@ AmAsyncXdiResponse::deleteBlobResp(const Error &error,
                                    boost::shared_ptr<apis::RequestId>& requestId) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -235,12 +235,12 @@ AmAsyncXdiResponse::statBlobResp(const Error &error,
                                  boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         if (ERR_CAT_ENTRY_NOT_FOUND == error) {
-            *errorCode = apis::MISSING_RESOURCE;
+            *errorCode = fpi::MISSING_RESOURCE;
         }
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
                                                              errorCode,
@@ -256,12 +256,12 @@ AmAsyncXdiResponse::volumeStatusResp(const Error &error,
                                      boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         if (ERR_CAT_ENTRY_NOT_FOUND == error) {
-            *errorCode = apis::MISSING_RESOURCE;
+            *errorCode = fpi::MISSING_RESOURCE;
         }
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
                                                              errorCode,
@@ -278,12 +278,12 @@ AmAsyncXdiResponse::volumeContentsResp(const Error &error,
                                        std::vector<fpi::BlobDescriptor>>& volContents) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         if (ERR_CAT_ENTRY_NOT_FOUND == error) {
-            *errorCode = apis::MISSING_RESOURCE;
+            *errorCode = fpi::MISSING_RESOURCE;
         }
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
                                                              errorCode,
@@ -300,10 +300,10 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
                                 fds_uint32_t& length) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
-        *errorCode = (error == ERR_BLOB_NOT_FOUND ? apis::MISSING_RESOURCE :
-                                                    apis::BAD_REQUEST);
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
+        *errorCode = (error == ERR_BLOB_NOT_FOUND ? fpi::MISSING_RESOURCE :
+                                                    fpi::BAD_REQUEST);
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -324,10 +324,10 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                         boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
     checkClientConnect();
     if (!error.ok()) {
-        boost::shared_ptr<apis::ErrorCode> errorCode(
-            boost::make_shared<apis::ErrorCode>());
-        *errorCode = (error == ERR_BLOB_NOT_FOUND ? apis::MISSING_RESOURCE :
-                                                    apis::BAD_REQUEST);
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
+        *errorCode = (error == ERR_BLOB_NOT_FOUND ? fpi::MISSING_RESOURCE :
+                                                    fpi::BAD_REQUEST);
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,

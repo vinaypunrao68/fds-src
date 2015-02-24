@@ -8,6 +8,7 @@
 #include <native/types.h>
 #include <string>
 #include <apis/apis_types.h>
+#include <apis/configuration_service_types.h>
 #include <vector>
 
 namespace fds {

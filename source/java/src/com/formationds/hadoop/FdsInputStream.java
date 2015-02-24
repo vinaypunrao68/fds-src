@@ -4,8 +4,8 @@ package com.formationds.hadoop;
  */
 
 import com.formationds.apis.AmService;
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.xdi.FdsObjectFrame;
 import org.apache.hadoop.fs.PositionedReadable;

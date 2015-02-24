@@ -3,6 +3,8 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;

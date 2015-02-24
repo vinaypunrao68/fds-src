@@ -1,8 +1,8 @@
 package com.formationds.xdi;
 
-import com.formationds.apis.ApiException;
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.AsyncAmServiceRequest;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.RequestId;
 import org.junit.Test;
 
