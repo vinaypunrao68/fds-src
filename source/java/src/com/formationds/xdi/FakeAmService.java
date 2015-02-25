@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class FakeAmService implements AmService.Iface {
+public class FakeAmService implements XdiService.Iface {
 
     public static final byte[] ARRAY = new byte[4096];
 

@@ -11,7 +11,7 @@
 
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
-#include "fdsp/AsyncAmServiceResponse.h"
+#include "fdsp/AsyncXdiServiceResponse.h"
 #include "concurrency/RwLock.h"
 
 namespace fds
@@ -19,7 +19,7 @@ namespace fds
 
 class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::RequestId>> {
  public:
-    using client_ptr = std::shared_ptr<apis::AsyncAmServiceResponseClient>;
+    using client_ptr = std::shared_ptr<apis::AsyncXdiServiceResponseClient>;
     using client_map = std::unordered_map<std::string, client_ptr>;
 
  private:
@@ -101,7 +101,7 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 // need so I'm implemented handshake here and forwarded the rest of the
 // requests which will probably be optimized out.
 struct AmAsyncXdiRequest
-    : public fds::apis::AsyncAmServiceRequestIf,
+    : public fds::apis::AsyncXdiServiceRequestIf,
       public AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>
 {
     using api_type = AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>;

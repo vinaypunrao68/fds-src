@@ -24,7 +24,7 @@ import static org.junit.Assert.assertEquals;
 
 @Ignore
 public class AmTest {
-    private static AmService.Iface amService;
+    private static XdiService.Iface amService;
     private static ConfigurationService.Iface configService;
     private String volumeName;
     public static final int OBJECT_SIZE = 1024 * 1024 * 2;

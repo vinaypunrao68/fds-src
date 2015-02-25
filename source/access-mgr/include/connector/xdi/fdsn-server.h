@@ -7,7 +7,7 @@
 #include <string>
 #include <util/Log.h>
 #include <fds_module.h>
-#include <fdsp/AmService.h>
+#include <fdsp/XdiService.h>
 #include <concurrency/Thread.h>
 #include <AmDataApi.h>
 
@@ -48,7 +48,7 @@ class FdsnServer : public Module {
     boost::shared_ptr<xdi_att::TServerTransport>  serverTransport;
     boost::shared_ptr<xdi_att::TTransportFactory> transportFactory;
     boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
-    boost::shared_ptr<apis::AmServiceProcessor>   processor;
+    boost::shared_ptr<apis::XdiServiceProcessor>   processor;
 
     boost::shared_ptr<xdi_atc::ThreadManager>      threadManager;
     boost::shared_ptr<xdi_atc::PosixThreadFactory> threadFactory;

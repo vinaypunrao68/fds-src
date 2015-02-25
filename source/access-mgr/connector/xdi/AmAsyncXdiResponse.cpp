@@ -78,7 +78,7 @@ AmAsyncXdiResponse::initiateClientConnect() {
             boost::make_shared<xdi_att::TFramedTransport>(respSock));
         boost::shared_ptr<xdi_atp::TProtocol> respProto(
             boost::make_shared<xdi_atp::TBinaryProtocol>(respTrans));
-        asyncRespClient = std::make_shared<apis::AsyncAmServiceResponseClient>(respProto);
+        asyncRespClient = std::make_shared<apis::AsyncXdiServiceResponseClient>(respProto);
         clients[tcp_nexus] = asyncRespClient;
         respSock->open();
     }

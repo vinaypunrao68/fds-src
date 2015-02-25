@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-public class MemoryAmService implements AmService.Iface {
+public class MemoryAmService implements XdiService.Iface {
     class Tx {
         private final Map<Long, byte[]> data;
         private long id;

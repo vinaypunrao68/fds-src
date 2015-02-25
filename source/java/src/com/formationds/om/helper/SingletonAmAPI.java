@@ -4,7 +4,7 @@
 
 package com.formationds.om.helper;
 
-import com.formationds.apis.AmService;
+import com.formationds.apis.XdiService;
 
 import java.io.Serializable;
 
@@ -40,19 +40,19 @@ public class SingletonAmAPI
         return instance();
     }
 
-    private transient AmService.Iface api;
+    private transient XdiService.Iface api;
 
     /**
-     * @param api the {@link AmService.Iface} representing the AM api
+     * @param api the {@link XdiService.Iface} representing the AM api
      */
-    public void api( final AmService.Iface api ) {
+    public void api( final XdiService.Iface api ) {
         this.api = api;
     }
 
     /**
-     * @return Returns the {@link AmService.Iface} representing the AM api
+     * @return Returns the {@link XdiService.Iface} representing the AM api
      */
-    public AmService.Iface api() {
+    public XdiService.Iface api() {
         return this.api;
     }
 }

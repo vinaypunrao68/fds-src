@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 public class ListVolumes implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(ListVolumes.class);
 
-    private AmService.Iface amApi;
+    private XdiService.Iface amApi;
     private ConfigurationApi config;
     private FDSP_ConfigPathReq.Iface legacyConfig;
     private AuthenticationToken token;
@@ -53,7 +53,7 @@ public class ListVolumes implements RequestHandler {
 
     private static DecimalFormat df = new DecimalFormat("#.00");
 
-    public ListVolumes( Authorizer authorizer, ConfigurationApi config,  AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
+    public ListVolumes( Authorizer authorizer, ConfigurationApi config,  XdiService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
         this.config = config;
         this.amApi = amApi;
         this.legacyConfig = legacyConfig;

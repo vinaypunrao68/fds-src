@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <fds_module.h>
-#include <fdsp/AsyncAmServiceRequest.h>
+#include <fdsp/AsyncXdiServiceRequest.h>
 #include <AmAsyncResponseApi.h>
 
 namespace fds {

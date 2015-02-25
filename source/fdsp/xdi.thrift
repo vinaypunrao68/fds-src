@@ -24,7 +24,7 @@ struct TxDescriptor {
     1: required i64 txId
 }
 
-service AmService { 
+service XdiService { 
     void attachVolume(1: string domainName, 2:string volumeName)
         throws (1: common.ApiException e),
 
@@ -63,7 +63,7 @@ service AmService {
         throws (1: common.ApiException e),
 }
 
-service AsyncAmServiceRequest {
+service AsyncXdiServiceRequest {
     oneway void handshakeStart(1:RequestId requestId 2:i32 portNumber),
 
     oneway void attachVolume(1:RequestId requestId, 2: string domainName,
@@ -108,7 +108,7 @@ service AsyncAmServiceRequest {
     oneway void volumeStatus(1:RequestId requestId, 2:string domainName, 3:string volumeName)
 }
 
-service AsyncAmServiceResponse {
+service AsyncXdiServiceResponse {
     oneway void handshakeComplete(1:RequestId requestId),
 
     oneway void attachVolumeResponse(1:RequestId requestId),

@@ -25,11 +25,11 @@ import java.util.*;
 public class Xdi {
     public static final String LAST_MODIFIED = "Last-Modified";
 
-    private final AmService.Iface am;
+    private final XdiService.Iface am;
     private ConfigurationApi config;
     private XdiAuthorizer authorizer;
 
-    public Xdi(AmService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
+    public Xdi(XdiService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
         this.am = am;
         this.config = config;
         this.authorizer = new XdiAuthorizer(authenticator, authorizer, asyncAm, config);

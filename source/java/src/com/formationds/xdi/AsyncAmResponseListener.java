@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
  */
-public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
+public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
     private static final Logger LOG = Logger.getLogger(AsyncAmResponseListener.class);
     private Cache<String, CompletableFuture> pending;
 

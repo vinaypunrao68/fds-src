@@ -3,7 +3,7 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.AmService;
+import com.formationds.apis.XdiService;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
 import org.apache.thrift.TException;
@@ -20,18 +20,18 @@ public class FdsOutputStream extends OutputStream {
     private final String domain;
     private final String volume;
     private final String blobName;
-    private AmService.Iface am;
+    private XdiService.Iface am;
     private long currentOffset;
     private ByteBuffer currentBuffer;
     private boolean isDirty;
     private boolean isClosed;
     private OwnerGroupInfo ownerGroupInfo;
 
-    FdsOutputStream(AmService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo ownerGroupInfo) throws IOException {
+    FdsOutputStream(XdiService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo ownerGroupInfo) throws IOException {
         this(objectSize, domain, volume, blobName, am, 0, ByteBuffer.allocate(objectSize), false, false, ownerGroupInfo);
     }
 
-    private FdsOutputStream(int objectSize, String domain, String volume, String blobName, AmService.Iface am,
+    private FdsOutputStream(int objectSize, String domain, String volume, String blobName, XdiService.Iface am,
                             long currentOffset, ByteBuffer currentBuffer, boolean isDirty, boolean isClosed, OwnerGroupInfo ownerGroupInfo) {
         this.objectSize = objectSize;
         this.domain = domain;
@@ -45,7 +45,7 @@ public class FdsOutputStream extends OutputStream {
         this.ownerGroupInfo = ownerGroupInfo;
     }
 
-    public static FdsOutputStream openForAppend(AmService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
+    public static FdsOutputStream openForAppend(XdiService.Iface am, String domain, String volume, String blobName, int objectSize) throws IOException {
         try {
             BlobDescriptor bd = am.statBlob(domain, volume, blobName);
             OwnerGroupInfo owner = new OwnerGroupInfo(bd);
@@ -62,7 +62,7 @@ public class FdsOutputStream extends OutputStream {
     }
 
 
-    public static FdsOutputStream openNew(AmService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo owner) throws IOException {
+    public static FdsOutputStream openNew(XdiService.Iface am, String domain, String volume, String blobName, int objectSize, OwnerGroupInfo owner) throws IOException {
         try {
             am.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata(owner));
             return new FdsOutputStream(am, domain, volume, blobName, objectSize, owner);

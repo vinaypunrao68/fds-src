@@ -3,7 +3,7 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.AmService;
+import com.formationds.apis.XdiService;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.ObjectOffset;
@@ -22,12 +22,12 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
     private final String volume;
     private final String blobName;
     private final Object bufferStateLock = new Object();
-    private AmService.Iface am;
+    private XdiService.Iface am;
     private long readObject;
     private ByteBuffer readBuffer;
     private long position;
 
-    public FdsInputStream(AmService.Iface am, String domain, String volume, String blobName, int objectSize) {
+    public FdsInputStream(XdiService.Iface am, String domain, String volume, String blobName, int objectSize) {
         this.am = am;
         this.objectSize = objectSize;
         this.domain = domain;
