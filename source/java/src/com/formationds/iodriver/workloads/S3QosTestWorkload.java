@@ -29,7 +29,7 @@ import com.formationds.iodriver.operations.SetBucketQos;
 import com.formationds.iodriver.operations.StatBucketVolume;
 
 // TODO: This was intended to test the fairness QOS with multiple queues. Not complete.
-public final class S3QosTestWorkload extends Workload<S3Endpoint, S3Operation>
+public final class S3QosTestWorkload extends S3Workload
 {
     public S3QosTestWorkload(Collection<IoParams> bucketParams, Duration duration)
     {
