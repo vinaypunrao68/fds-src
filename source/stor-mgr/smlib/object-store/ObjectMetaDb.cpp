@@ -113,14 +113,14 @@ void
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
                            leveldb::DB*& db,
                            leveldb::ReadOptions& opts) {
-    osm::ObjectDB* odb = NULL;
+    osm::ObjectDB* odb = nullptr;
 
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
         fds_verify(iter != tokenTbl.end());
         odb = iter->second;
     }
-    fds_verify(odb != NULL);
+    fds_verify(odb != nullptr);
 
     db = odb->GetDB();
     opts.snapshot = db->GetSnapshot();
@@ -129,15 +129,18 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
 Error
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
                            std::string &snapDir) {
-    osm::ObjectDB *odb = NULL;
+    osm::ObjectDB *odb = nullptr;
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
         fds_verify(iter != tokenTbl.end());
         odb = iter->second;
     }
-    fds_verify(odb != NULL);
 
-    return odb->PersistentSnap(snapDir);
+    if (odb == nullptr) {
+        return ERR_NOT_FOUND;
+    } else {
+        return odb->PersistentSnap(snapDir);
+    }
 }
 
 void ObjectMetadataDb::closeObjectDB(fds_token_id smTokId) {

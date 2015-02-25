@@ -132,6 +132,9 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                 // we are not waiting for response, so not setting a callback
                 asyncRebalSetReq->invoke();
             }
+            /* TODO(Gurpreet): We should handle the exception and propogate the error to
+             * Token Migration Manager.
+             */
             catch (...) {
                 LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
                 << std::hex << sourceSmUuid.uuid_get_val() << std::dec;

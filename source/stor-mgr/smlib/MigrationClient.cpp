@@ -186,6 +186,8 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
     }
 }
 
+/* TODO(Gurpreet): Propogate error to Token Migration Manager
+ */
 void
 MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bool>>& objMetaDataSet,
                                       fds_bool_t lastSet)
@@ -223,6 +225,8 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bo
     fds_verify(err.ok());
 }
 
+/* TODO(Gurpreet): Propogate error to Token Migration Manager
+ */
 void
 MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
@@ -249,11 +253,9 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     leveldb::Options options;
     leveldb::ReadOptions read_options;
 
-    options.create_if_missing = 1;
-
     leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
     if (!status.ok()) {
-        LOGMIGRATE << "Could not open leveldb instance for First Phase snapshot."
+        LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
                    << "status " << status.ToString();
         return;
     } 
@@ -389,6 +391,8 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     setMigClientState(MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE);
 }
 
+/* TODO(Gurpreet): Propogate error to Token Migration Manager
+ */
 void
 MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
@@ -431,18 +435,20 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     leveldb::DB* dbFromSecondSnap;
     leveldb::Options options;
 
-    options.create_if_missing = 1;
-
     leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
+    /* TODO(Gurpreet): Propogate error to Token Migration Manager.
+     */
     if (!status.ok()) {
-        LOGMIGRATE << "Could not open leveldb instance for First Phase snapshot." 
+        LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot." 
                    << "status " << status.ToString();
         return;
     }
 
     status = leveldb::DB::Open(options, secondPhaseSnapshotDir, &dbFromSecondSnap);
+    /* TODO(Gurpreet): Propogate error to Token Migration Manager.
+     */
     if (!status.ok()) {
-        LOGMIGRATE << "Could not open leveldb instance for Second Phase snapshot."
+        LOGCRITICAL << "Could not open leveldb instance for Second Phase snapshot."
                    << "status " << status.ToString();
         return;
     }
@@ -543,14 +549,13 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     /* We no longer need these snapshots. 
      * Delete the snapshot directory and files.
      */
-    leveldb::CopyEnv * env = new leveldb::CopyEnv(leveldb::Env::Default());
+    leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
 
     status = env->DeleteDir(firstPhaseSnapshotDir);
     status = env->DeleteDir(secondPhaseSnapshotDir);
 
     delete dbFromFirstSnap;
     delete dbFromSecondSnap;
-    delete env;
     /* Set the migration client state to indicate the second delta set is sent. */
     setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE);
 }
