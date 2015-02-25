@@ -326,6 +326,8 @@ var en_US = {
             l_on_27: 'on the 27th day of the month',
             l_on_28: 'on the 28th day of the month',
             l_on_l: 'on the last day of the month',
+            
+            desc_for: 'for {{ time }}'
         }
     },
     system: {

@@ -35,7 +35,7 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
         }
     };
     
-    service.convertToTime = function( ms ){
+    service.convertToTime = function( ms, fixed ){
         
         var value = 0;
         var unit = service.MILLIS;
@@ -70,7 +70,11 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
             unit = service.YEARS;
         }
         
-        str += value.toFixed( 2 ) + ' ';
+        if ( !angular.isNumber( fixed ) ){
+            fixed = 2;
+        }
+        
+        str += value.toFixed( fixed ) + ' ';
         
         switch( unit ){
             case service.MILLIS:

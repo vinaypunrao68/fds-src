@@ -111,6 +111,12 @@
     
     <section class="block-section">
         <div class="sub-header" translate>volumes.l_timeline_settings</div>
+        <div class="flex">
+            <div ng-repeat="desc in snapshotPolicyDescriptions" class="padded-right">
+                <div class="sub-header" translate>{{desc.label}}</div>
+                <div translate>{{desc.value}}</div>
+            </div>           
+        </div>
     </section>
     
     <section class="block-section">

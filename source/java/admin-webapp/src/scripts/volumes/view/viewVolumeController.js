@@ -1,15 +1,14 @@
-angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', '$media_policy_helper', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope, $media_policy_helper ){
+angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', '$media_policy_helper', '$translate', '$time_converter', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope, $media_policy_helper, $translate, $time_converter ){
     
     var translate = function( key ){
         return $filter( 'translate' )( key );
     };
     
-    $scope.disableTiering = true;
-    
     $scope.snapshots = [];
     $scope.ranges = [];
     $scope.snapshotPolicies = [];
     $scope.timelinePolicies = [];
+    $scope.snapshotPolicyDescriptions = [];
     
     $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
@@ -212,7 +211,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     });
     
     var initSnapshotSettings = function(){
-        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
+        return $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
 
             var notTimelinePolicies = [];
             var timelinePolicies = [];
@@ -260,6 +259,51 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.mediaPolicy = $media_policy_helper.convertRawToObjects( $scope.thisVolume.mediaPolicy );
     };
     
+    var initSnapshotDescriptions = function(){
+        
+        // must be in this order:  continuous = 0, daily = 1, weekly = 2, monthly = 3, yearly = 4
+        for ( var i = 0; i < $scope.timelinePolicies.policies.length; i++ ){
+            
+            var policy = $scope.timelinePolicies.policies[i];
+            var value = $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( policy.retention * 1000, 0 ) } ).toLowerCase();
+            
+            switch( policy.recurrenceRule.FREQ ){
+                    
+                case 'DAILY':
+                    $scope.snapshotPolicyDescriptions[1] = {
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_daily', {hour: 12} ),
+                        value: value
+                    };
+                    break;
+                case 'WEEKLY':
+                    $scope.snapshotPolicyDescriptions[2] = {
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_weekly' ),
+                        value: value
+                    };
+                    break;
+                case 'MONTHLY':
+                    $scope.snapshotPolicyDescriptions[3] = {
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_monthly' ),
+                        value: value
+                    };
+                    break;
+                case 'YEARLY':
+                    $scope.snapshotPolicyDescriptions[4] = {
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_yearly' ),
+                        value: value
+                    };
+                    break;
+                default:
+                    break;
+            }
+        }
+        
+        $scope.snapshotPolicyDescriptions[0] = {
+            label: $filter( 'translate' )( 'volumes.l_continuous' ),
+            value: $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( $scope.timelinePolicies.continuous * 1000, 0 ).toLowerCase() } )
+        };
+    };
+    
     // when we get shown, get all the snapshots and policies.  THen do the chugging
     // to display the summary and set the hidden forms.
     $scope.$watch( 'volumeVars.viewing', function( newVal ){
@@ -276,7 +320,10 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             
             initQosSettings();
             
-            initSnapshotSettings();
+            initSnapshotSettings().then( function(){
+                // must come after the snapshot settings initialization
+                initSnapshotDescriptions();
+            });
             
             buildQueries();
             
