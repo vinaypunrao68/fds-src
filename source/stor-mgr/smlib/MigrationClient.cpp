@@ -253,7 +253,8 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
 
     leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
     if (!status.ok()) {
-        LOGMIGRATE << "Could not open leveldb instance for First Phase snapshot.";
+        LOGMIGRATE << "Could not open leveldb instance for First Phase snapshot."
+                   << "status " << status.ToString();
         return;
     } 
 
@@ -383,6 +384,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     migClientAddMetaData(objMetaDataSet, true);
 
     delete iterDB;
+    delete dbFromFirstSnap;
 
     setMigClientState(MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE);
 }
@@ -433,13 +435,15 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
 
     leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
     if (!status.ok()) {
-        LOGMIGRATE << "Could not open leveldb instance for First Phase snapshot.";
+        LOGMIGRATE << "Could not open leveldb instance for First Phase snapshot." 
+                   << "status " << status.ToString();
         return;
     }
 
     status = leveldb::DB::Open(options, secondPhaseSnapshotDir, &dbFromSecondSnap);
     if (!status.ok()) {
-        LOGMIGRATE << "Could not open leveldb instance for Second Phase snapshot.";
+        LOGMIGRATE << "Could not open leveldb instance for Second Phase snapshot."
+                   << "status " << status.ToString();
         return;
     }
 
@@ -539,19 +543,14 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     /* We no longer need these snapshots. 
      * Delete the snapshot directory and files.
      */
-    leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
+    leveldb::CopyEnv * env = new leveldb::CopyEnv(leveldb::Env::Default());
 
-    status = env->DeleteFile(firstPhaseSnapshotDir);
-    if (!status.ok()) {
-        LOGMIGRATE << "Could not delete first phase snapshot.";
-    }
+    status = env->DeleteDir(firstPhaseSnapshotDir);
+    status = env->DeleteDir(secondPhaseSnapshotDir);
 
-    status = env->DeleteFile(secondPhaseSnapshotDir);
-    if (!status.ok()) {
-        LOGMIGRATE << "Could not delete second phase snapshot.";
-        return;
-    }
-
+    delete dbFromFirstSnap;
+    delete dbFromSecondSnap;
+    delete env;
     /* Set the migration client state to indicate the second delta set is sent. */
     setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE);
 }
