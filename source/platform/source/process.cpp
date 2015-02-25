@@ -8,34 +8,31 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <process.h>
+#include <vector>
 #include <cstdio>
 
 #include "fds_assert.h"
 #include "shared/fds_types.h"
 
-namespace fds
-{
-    int fds_get_fd_limit(void)
-    {
+namespace fds {
+    int fds_get_fd_limit(void) {
         fds_int64_t      slim, rlim;
         struct rlimit    rl;
     
         slim = sysconf(_SC_OPEN_MAX);
     
-        if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
-        {
+        if (getrlimit(RLIMIT_NOFILE, &rl) < 0) {
             rlim = 0;
         } else {
             rlim = rl.rlim_max;
         }
     
-        if (slim > rlim)
-        {
+        if (slim > rlim) {
             return (slim);
         }
     
-        if (slim < 0)
-        {
+        if (slim < 0) {
             return (10000);
         }
     
@@ -46,18 +43,15 @@ namespace fds
      * fds_spawn
      * ---------
      */
-    pid_t fds_spawn(char *const argv[], int daemonize)
-    {
+    pid_t fds_spawn(char *const argv[], int daemonize) {
         int      flim, fd, res;
         pid_t    child_pid;
         pid_t    res_pid;
     
         child_pid = fork();
     
-        if (child_pid != 0)
-        {
-            if (daemonize)
-            {
+        if (child_pid != 0) {
+            if (daemonize) {
                 res_pid = waitpid(child_pid, NULL, 0);
                 // TODO(bao): check for 0 and -1
                 fds_assert(res_pid == child_pid);
@@ -71,8 +65,7 @@ namespace fds
         flim = fds_get_fd_limit();
         printf("Close fd up to %d\n", flim);
     
-        for (fd = 0; fd < flim; fd++)
-        {
+        for (fd = 0; fd < flim; fd++) {
             close(fd);
         }
    
@@ -82,12 +75,10 @@ namespace fds
         int unused_discard = dup(fd); // will be 1
         unused_discard = dup(fd);     // will be 2
     
-        if (daemonize)
-        {
+        if (daemonize) {
             res = daemon(1, 1);
     
-            if (res != 0)
-            {
+            if (res != 0) {
                 printf("Fatal error, can't daemonize %s\n", argv[0]);
                 abort();
             }
@@ -98,14 +89,26 @@ namespace fds
         printf("Fatal error, can't spawn %s\n", argv[0]);
         abort();
     }
-    
+     
+    pid_t fds_spawn_service(const std::string& prog,
+                            const std::string& fds_root,
+                            const std::vector<std::string>& args,
+                            int daemonize) {
+        std::vector<const char*>    c_args;
+        for (const auto& arg : args) {
+            c_args.push_back(arg.c_str());
+        }
+        c_args.push_back(NULL);
+        return fds_spawn_service(prog.c_str() , fds_root.c_str(), &c_args[0], daemonize);
+    }
     /*
      * fds_spawn_service
      * -----------------
      */
-    pid_t fds_spawn_service(const char *prog, const char *fds_root, const char** extra_args,
-                            int daemonize)
-    {
+    pid_t fds_spawn_service(const char *prog,
+                            const char *fds_root,
+                            const char** extra_args,
+                            int daemonize) {
         size_t    len, ret;
         char      exec[1024];
         char      root[1024];
