@@ -37,7 +37,7 @@ class DMMain : public SvcProcess
          */
         closeAllFDs();
 
-        /* Init platform process */
+        /* Init Service process */
         init<fds::DMSvcHandler, fpi::DMSvcProcessor>(argc, argv, "platform.conf",
                 "fds.dm.", "dm.log", dmVec);
 
