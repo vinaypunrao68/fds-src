@@ -278,7 +278,7 @@ var en_US = {
             l_last_day_of_the_month: 'Last day of the month',
             
             l_january: 'January',
-            l_february: 'Febraury',
+            l_february: 'February',
             l_march: 'March',
             l_april: 'April',
             l_may: 'May',
@@ -289,6 +289,12 @@ var en_US = {
             l_october: 'October',
             l_november: 'November',
             l_december: 'December',
+            
+            l_monday: 'Monday',
+            l_tuesday: 'Tuesday',
+            l_wednesday: 'Wednesday',
+            l_thursday: 'Thursday',
+            l_friday: 'Friday',
             
             l_on_monday: 'on Mondays',
             l_on_tuesday: 'on Tuesdays',
@@ -327,7 +333,10 @@ var en_US = {
             l_on_28: 'on the 28th day of the month',
             l_on_l: 'on the last day of the month',
             
-            desc_for: 'for {{ time }}'
+            l_kept: 'Kept',
+            desc_at: 'at {{ time }}',
+            desc_for: 'for {{ time }}',
+            desc_plural_days: '{{ day }}s'
         }
     },
     system: {

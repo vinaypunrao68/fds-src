@@ -84,6 +84,7 @@
         <div class="flex">
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.qos.l_overall_setting</div>
+                <div>{{ mediaPreset }}</div>
             </div>
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.qos.l_priority</div>
@@ -112,15 +113,24 @@
     <section class="block-section">
         <div class="sub-header" translate>volumes.l_timeline_settings</div>
         <div class="flex">
+            <div class="padded-right">
+                <div class="sub-header" translate>volumes.qos.l_overall_setting</div>
+                <div>{{ timelinePreset }}</div>
+            </div>
             <div ng-repeat="desc in snapshotPolicyDescriptions" class="padded-right">
-                <div class="sub-header" translate>{{desc.label}}</div>
-                <div translate>{{desc.value}}</div>
+                <div class="sub-header">{{ desc.label }}</div>
+                <div>{{ desc.predicate }}</div>
+                <div>{{ desc.value }}</div>
             </div>           
         </div>
     </section>
     
     <section class="block-section">
-        <connector-panel ng-model="dataConnector" editable="false"></connector-panel>
+        <div class="sub-header" translate>volumes.l_data_connector</div>
+        <div>
+            <span>{{ getDataTypeLabel() }}</span>
+            <span ng-show="dataConnector.attributes">, {{ dataConnector.attributes.size }} {{ dataConnector.attributes.unit }}</span>
+        </div>
     </section>
     
     <section>

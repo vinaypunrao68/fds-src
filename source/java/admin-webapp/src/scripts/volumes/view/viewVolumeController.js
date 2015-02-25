@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', '$media_policy_helper', '$translate', '$time_converter', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope, $media_policy_helper, $translate, $time_converter ){
+angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', '$media_policy_helper', '$translate', '$time_converter', '$qos_policy_helper', '$timeline_policy_helper', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope, $media_policy_helper, $translate, $time_converter, $qos_policy_helper, $timeline_policy_helper ){
     
     var translate = function( key ){
         return $filter( 'translate' )( key );
@@ -9,6 +9,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.snapshotPolicies = [];
     $scope.timelinePolicies = [];
     $scope.snapshotPolicyDescriptions = [];
+    $scope.timelinePreset = '';
     
     $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
@@ -30,6 +31,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.qos = {};
     $scope.dataConnector = {};
     $scope.mediaPolicy = {};
+    $scope.mediaPreset = '';
     
     var capacityIntervalId = -1;
     var performanceIntervalId = -1;
@@ -120,6 +122,18 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         return $scope.qos.limit;
     };
     
+    $scope.getDataTypeLabel = function(){
+        
+        if ( !angular.isDefined( $scope.dataConnector ) || !angular.isDefined( $scope.dataConnector.type ) ){
+            return '';
+        }
+        
+        var firstLetter = $scope.dataConnector.type.substr( 0, 1 ).toUpperCase();
+        var theRest = $scope.dataConnector.type.substr( 1 ).toLowerCase();
+        
+        return firstLetter + theRest;
+    };
+    
     $scope.deleteVolume = function(){
         
         var confirm = {
@@ -169,8 +183,8 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.performanceStats = data;
         $scope.performanceItems = [
             {number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )},
-            {number: data.calculated[1].percentage, description: $filter( 'translate' )( 'status.desc_ssd_percent' ), iconClass: 'icon-storage', iconColor: '#8784DE'},
-            {number: data.calculated[2].percentage, description: $filter( 'translate' )( 'status.desc_hdd_percent' ), iconClass: 'icon-performance', iconColor: '#606ED7' }
+            {number: data.calculated[1].percentage, description: $filter( 'translate' )( 'status.desc_ssd_percent' ), iconClass: 'icon-storage', iconColor: '#8784DE', suffix: '%' },
+            {number: data.calculated[2].percentage, description: $filter( 'translate' )( 'status.desc_hdd_percent' ), iconClass: 'icon-performance', iconColor: '#606ED7', suffix: '%' }
         ];
         $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.l_avg_puts' );
         $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.l_avg_gets' );
@@ -257,9 +271,15 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.qos.limit = $scope.thisVolume.limit;
         $scope.qos.priority = $scope.thisVolume.priority;
         $scope.mediaPolicy = $media_policy_helper.convertRawToObjects( $scope.thisVolume.mediaPolicy );
+        $scope.mediaPreset = $qos_policy_helper.convertRawToPreset( $scope.qos ).label;
     };
     
+    /**
+    * This method looks through the timeline policies and tries to make English predicate from the information
+    */
     var initSnapshotDescriptions = function(){
+        
+        $scope.timelinePreset = $timeline_policy_helper.convertRawToPrest( $scope.timelinePolicies.policies ).label;
         
         // must be in this order:  continuous = 0, daily = 1, weekly = 2, monthly = 3, yearly = 4
         for ( var i = 0; i < $scope.timelinePolicies.policies.length; i++ ){
@@ -270,26 +290,75 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             switch( policy.recurrenceRule.FREQ ){
                     
                 case 'DAILY':
+                    // figure out the time...
+                    var time = parseInt( policy.recurrenceRule.BYHOUR[0] );
+                    var am = true;
+                    
+                    if ( time > 11 ){
+                        am = false;
+                    }
+                    
+                    time %= 12;
+                    
+                    if ( time === 0 ){
+                        time = 12;
+                    }
+                    
+                    if ( am === true ){
+                        time += 'am';
+                    }
+                    else {
+                        time += 'pm';
+                    }
+                    
                     $scope.snapshotPolicyDescriptions[1] = {
-                        label: $filter( 'translate' )( 'volumes.snapshot.l_daily', {hour: 12} ),
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_daily' ),
+                        predicate: $filter( 'translate' )( 'volumes.snapshot.desc_at', { time: time } ),
                         value: value
                     };
                     break;
                 case 'WEEKLY':
                     $scope.snapshotPolicyDescriptions[2] = {
                         label: $filter( 'translate' )( 'volumes.snapshot.l_weekly' ),
+                        predicate: $filter( 'translate' )( 'volumes.snapshot.desc_plural_days', { day: $timeline_policy_helper.convertAbbreviationToString( policy.recurrenceRule.BYDAY[0] ) } ),
                         value: value
                     };
                     break;
                 case 'MONTHLY':
+                    
+                    var predicate = '';
+                    
+                    // means that we set first or last day
+                    if ( angular.isDefined( policy.recurrenceRule.BYMONTHDAY ) ){
+                        if ( parseInt( policy.recurrenceRule.BYMONTHDAY[0] ) === -1 ){
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_last_day_of_the_month' );
+                        }
+                        else {
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_first_day_of_the_month' );
+                        }
+                    }
+                    // we must have set first or last week
+                    else if ( angular.isDefined( policy.recurrenceRule.BYDAY ) ){
+                        
+                        // last week of the month
+                        if ( policy.recurrenceRule.BYDAY[0].indexOf( '-1' ) !== -1 ){
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_last_week_of_the_month' );
+                        }
+                        else {
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_first_week_of_the_month' );
+                        }
+                    }
+                    
                     $scope.snapshotPolicyDescriptions[3] = {
                         label: $filter( 'translate' )( 'volumes.snapshot.l_monthly' ),
+                        predicate: predicate,
                         value: value
                     };
                     break;
                 case 'YEARLY':
                     $scope.snapshotPolicyDescriptions[4] = {
                         label: $filter( 'translate' )( 'volumes.snapshot.l_yearly' ),
+                        predicate: $filter( 'translate' )( 'volumes.snapshot.desc_plural_days', { day: $timeline_policy_helper.convertMonthNumberToString( parseInt( policy.recurrenceRule.BYMONTH[0] ) ) } ),
                         value: value
                     };
                     break;
@@ -300,6 +369,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         $scope.snapshotPolicyDescriptions[0] = {
             label: $filter( 'translate' )( 'volumes.l_continuous' ),
+            predicate: $filter( 'translate' )( 'volumes.snapshot.l_kept' ),
             value: $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( $scope.timelinePolicies.continuous * 1000, 0 ).toLowerCase() } )
         };
     };

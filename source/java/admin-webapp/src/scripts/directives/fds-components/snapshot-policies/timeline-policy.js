@@ -195,18 +195,18 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
             ];
             
             $scope.years = [
-                { month: 0, displayName: translate( 'volumes.snapshot.l_january' ) },
-                { month: 1, displayName: translate( 'volumes.snapshot.l_february' ) },
-                { month: 2, displayName: translate( 'volumes.snapshot.l_march' ) },
-                { month: 3, displayName: translate( 'volumes.snapshot.l_april' ) },
-                { month: 4, displayName: translate( 'volumes.snapshot.l_may' ) },
-                { month: 5, displayName: translate( 'volumes.snapshot.l_june' ) },
-                { month: 6, displayName: translate( 'volumes.snapshot.l_july' ) },
-                { month: 7, displayName: translate( 'volumes.snapshot.l_august' ) },
-                { month: 8, displayName: translate( 'volumes.snapshot.l_september' ) },
-                { month: 9, displayName: translate( 'volumes.snapshot.l_october' ) },
-                { month: 10, displayName: translate( 'volumes.snapshot.l_november' ) },
-                { month: 11, displayName: translate( 'volumes.snapshot.l_december' ) }
+                { month: 1, displayName: translate( 'volumes.snapshot.l_january' ) },
+                { month: 2, displayName: translate( 'volumes.snapshot.l_february' ) },
+                { month: 3, displayName: translate( 'volumes.snapshot.l_march' ) },
+                { month: 4, displayName: translate( 'volumes.snapshot.l_april' ) },
+                { month: 5, displayName: translate( 'volumes.snapshot.l_may' ) },
+                { month: 6, displayName: translate( 'volumes.snapshot.l_june' ) },
+                { month: 7, displayName: translate( 'volumes.snapshot.l_july' ) },
+                { month: 8, displayName: translate( 'volumes.snapshot.l_august' ) },
+                { month: 9, displayName: translate( 'volumes.snapshot.l_september' ) },
+                { month: 10, displayName: translate( 'volumes.snapshot.l_october' ) },
+                { month: 11, displayName: translate( 'volumes.snapshot.l_november' ) },
+                { month: 12, displayName: translate( 'volumes.snapshot.l_december' ) }
             ];
 ///////////////////////////////////////////////////////////////////////////////////            
             
@@ -437,7 +437,8 @@ angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
                                 break;
                             }
                             
-                            $scope.yearChoice = $scope.years[ parseInt( policy.recurrenceRule.BYMONTH[0] ) ];
+                            //the -1 is because the iCal list starts at one, indexes start at 0 so... 
+                            $scope.yearChoice = $scope.years[ parseInt( policy.recurrenceRule.BYMONTH[0]-1 ) ];
                             
                             break;
                         default:
