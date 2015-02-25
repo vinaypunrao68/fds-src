@@ -35,15 +35,20 @@ log = None
 _parameters = None
 
 
-def expectedFailure(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            raise _ExpectedFailure(sys.exc_info())
-    wrapper.__expected_failure__ = True
-    return wrapper
+def expectedFailure(problem=None):
+    def expectedFailure_decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if problem is not None:
+                log.info("Expected failure due to %s." % problem)
+
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                raise _ExpectedFailure(sys.exc_info())
+        wrapper.__expected_failure__ = True
+        return wrapper
+    return expectedFailure_decorator
 
 
 def setUpModule():
