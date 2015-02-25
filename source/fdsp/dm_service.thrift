@@ -6,6 +6,7 @@ include "fds_service.thrift"
 include "FDSP.thrift"
 include "common.thrift"
 include "snapshot.thrift"
+include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
 
@@ -13,7 +14,7 @@ namespace cpp FDS_ProtocolInterface
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service DMSvc extends fds_service.PlatNetSvc {
+service DMSvc extends pm_service.PlatNetSvc {
 }
 
 /**

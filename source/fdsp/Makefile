@@ -10,6 +10,7 @@ user_thrift      := \
 	fds_stream.thrift \
 	fds_service.thrift \
 	snapshot.thrift \
+	pm_service.thrift \
 	am_service.thrift \
 	dm_service.thrift \
 	om_service.thrift \

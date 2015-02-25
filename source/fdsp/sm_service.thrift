@@ -5,6 +5,7 @@
 include "common.thrift"
 include "fds_service.thrift"
 include "FDSP.thrift"
+include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
 
@@ -12,7 +13,7 @@ namespace cpp FDS_ProtocolInterface
  * SM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service SMSvc extends fds_service.PlatNetSvc {
+service SMSvc extends pm_service.PlatNetSvc {
 }
 
 /* ---------------------  CtrlScavengerStatusTypeId  --------------------------- */
@@ -34,6 +35,26 @@ enum FDSP_ScavengerCmd {
   FDSP_SCAVENGER_DISABLE,    // disable GC
   FDSP_SCAVENGER_START,      // start GC
   FDSP_SCAVENGER_STOP        // stop GC if it's running
+}
+
+enum ObjectMetaDataReconcileFlags {
+    /* No need to reconcile meta data.  This is for a new object
+     * when the delta set is sent to the destination SM.
+     */
+    OBJ_METADATA_NO_RECONCILE = 0,
+
+    /* Need to reconcile meta data.  This means that the meta data
+     * has changed since the last migration, so during the second 
+     * phase of the delta set, we need to reconcile meta data.
+     */
+    OBJ_METADATA_RECONCILE    = 1,
+    
+    /* No need to reconcile, but the destination SM already has the
+     * object.  However, the metadata on the destination may be stale,
+     * so we trust the source SM's object meta data and blindly
+     * overwrite on the destination SM.
+     */
+    OBJ_METADATA_OVERWRITE    = 2
 }
 
 struct FDSP_ScavengerType {
@@ -88,28 +109,6 @@ struct CtrlObjectMetaDataSync
      */
 }
 
-enum ObjectMetaDataReconcileFlags {
-    /* No need to reconcile meta data.  This is for a new object
-     * when the delta set is sent to the destination SM.
-     */
-    OBJ_METADATA_NO_RECONCILE = 0,
-
-    /* Need to reconcile meta data.  This means that the meta data
-     * has changed since the last migration, so during the second 
-     * phase of the delta set, we need to reconcile meta data.
-     */
-    OBJ_METADATA_RECONCILE    = 1,
-    
-    /* No need to reconcile, but the destination SM already has the
-     * object.  However, the metadata on the destination may be stale,
-     * so we trust the source SM's object meta data and blindly
-     * overwrite on the destination SM.
-     */
-    OBJ_METADATA_OVERWRITE    = 2
-}
-
-
-
 /* Object + Data + MetaData to be propogated to the destination SM from source SM */
 struct CtrlObjectMetaDataPropagate
 {
@@ -146,7 +145,6 @@ struct CtrlObjectMetaDataPropagate
     /* object expieration time */
     11: i64              objectExpireTime
 }
-
 
 /* Copy objects from source volume to destination */
 struct AddObjectRefMsg {
