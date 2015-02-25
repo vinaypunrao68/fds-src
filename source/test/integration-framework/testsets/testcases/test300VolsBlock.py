@@ -17,7 +17,7 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
     '''
 
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
-        super(TestCreateThreehundredObjectVolumes, self).__init__(parameters=parameters,
+        super(TestCreateThreehundredBlockVolumes, self).__init__(parameters=parameters,
                 config_file=config_file, om_ip_address=om_ip_address)
 
     '''
