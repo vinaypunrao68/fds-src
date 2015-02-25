@@ -172,6 +172,14 @@ mockVolume = function(){
             if ( angular.isFunction( callback ) ){
                 callback( rtn );
             }
+            
+            return {
+                then: function( cb ){
+                    if ( angular.isFunction( cb ) ){
+                        cb( rtn );
+                    }
+                }
+            }
         };
 
         volService.refresh = function(){

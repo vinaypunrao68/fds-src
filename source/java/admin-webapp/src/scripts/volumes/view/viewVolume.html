@@ -84,43 +84,45 @@
         <div class="flex">
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.qos.l_overall_setting</div>
-                <div>{{ mediaPreset }}</div>
+                <div class="qos-preset">{{ mediaPreset }}</div>
             </div>
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.qos.l_priority</div>
-                <div> {{ qos.priority }}</div>
+                <div class="priority"> {{ qos.priority }}</div>
             </div>
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.qos.l_iops_guarantee</div>
-                <div>{{ getSlaLabel() }}</div>
+                <div class="sla">{{ getSlaLabel() }}</div>
             </div>
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.qos.l_iops_limit</div>
-                <div>{{ getLimitLabel() }}</div>
+                <div class="limit">{{ getLimitLabel() }}</div>
             </div>
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.tiering.l_tiering_policy</div>
-                <div>{{ mediaPolicy.label }}</div>
+                <div class="media-policy">{{ mediaPolicy.label }}</div>
             </div>            
         </div>
     </section>
     
+<!--
     <section class="block-section">
         <div class="sub-header" translate>volumes.l_timeline</div>
         <time-slider valid-ranges="ranges" ng-model="thisVolume.timelineTime" label="{{ 'volumes.l_point_timeline' | translate }}" label-function="dateLabelFunction" domain-labels="domainLabels"></time-slider>
     </section>
+-->
     
     <section class="block-section">
         <div class="sub-header" translate>volumes.l_timeline_settings</div>
         <div class="flex">
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.qos.l_overall_setting</div>
-                <div>{{ timelinePreset }}</div>
+                <div class="timeline-preset">{{ timelinePreset }}</div>
             </div>
             <div ng-repeat="desc in snapshotPolicyDescriptions" class="padded-right">
                 <div class="sub-header">{{ desc.label }}</div>
-                <div>{{ desc.predicate }}</div>
-                <div>{{ desc.value }}</div>
+                <div class="predicate">{{ desc.predicate }}</div>
+                <div class="retention-value">{{ desc.value }}</div>
             </div>           
         </div>
     </section>

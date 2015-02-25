@@ -57,7 +57,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                 BYHOUR: ['0'],
                 BYDAY: ['MO']
             },
-            retention: 2592000
+            retention: 604800
         },
         {
             recurrenceRule: {
@@ -67,7 +67,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                 BYMONTHDAY: ['1'],
                 BYMONTH: ['1']
             },
-            retention: 158112000
+            retention: 63244800
         },
         {
             recurrenceRule: {
@@ -76,7 +76,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                 BYHOUR: ['0'],
                 BYMONTHDAY: ['1']
             },
-            retention: 15552000
+            retention: 2592000
         },
         {
             recurrenceRule: {
@@ -84,7 +84,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                 BYMINUTE: ['0'],
                 BYHOUR: ['0']
             },
-            retention: 604800
+            retention: 172800
         }]
     };
     

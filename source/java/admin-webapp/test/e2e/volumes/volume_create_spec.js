@@ -2,6 +2,12 @@ require( '../utils' );
 
 describe( 'Testing volume creation permutations', function(){
 
+    var STANDARD = 'Standard';
+    var SPARSE = 'Sparse Coverage';
+    var DENSE = 'Dense Coverage';
+    var LEAST = 'Least Important';
+    var MOST = 'Most Important';
+    
     browser.get( '#/' );
     var createLink;
     var mainEl;
@@ -10,6 +16,89 @@ describe( 'Testing volume creation permutations', function(){
     var viewEl;
     
     clean();
+    
+    var verifyVolume = function( name, media, qos, timeline ){
+        
+        viewEl.element( by.css( '.volume-name' )).getText().then( function( text ){
+            expect( text ).toBe( name );
+        });
+        
+        viewEl.element( by.css( '.media-policy' )).getText().then( function( text ){
+            expect( text ).toBe( media );
+        });
+        
+        viewEl.element( by.css( '.priority' )).getText().then( function( text ){
+            expect( text ).toBe( qos.priority );
+        });
+        
+        viewEl.element( by.css( '.sla' )).getText().then( function( text ){
+            expect( text ).toBe( qos.sla );
+        });
+        
+        viewEl.element( by.css( '.limit' )).getText().then( function( text ){
+            expect( text ).toBe( qos.limit );
+        });        
+        
+        viewEl.element( by.css( '.qos-preset' )).getText().then( function( text ){
+            expect( text ).toBe( qos.preset );
+        });       
+    
+        viewEl.all( by.css( '.predicate' )).then( function( elems ){
+
+            elems[0].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[0].predicate );
+            });
+            
+            elems[1].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[1].predicate );
+            });
+            
+            elems[2].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[2].predicate );
+            });
+            
+            elems[3].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[3].predicate );
+            });
+            
+            elems[4].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[4].predicate );
+            });            
+        });
+        
+        viewEl.all( by.css( '.retention-value' )).then( function( elems ){
+
+            elems[0].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[0].value );
+            });
+            
+            elems[1].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[1].value );
+            });
+            
+            elems[2].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[2].value );
+            });
+            
+            elems[3].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[3].value );
+            });
+            
+            elems[4].getText().then( function( text ){
+                expect( text ).toBe( timeline.settings[4].value );
+            });            
+        });        
+    };
+    
+    var clickRow = function( name ){
+        mainEl.all( by.css( '.volume-row td.name' )).each( function( elem ){
+            elem.getText().then( function( text ){
+                if ( text === name ){
+                    elem.click();
+                }
+            });
+        });
+    };
 
     it( 'should not find any volumes in the table', function(){
 
@@ -24,7 +113,7 @@ describe( 'Testing volume creation permutations', function(){
         mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
         viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
         
-        newText = element( by.css( '.volume-name-input') );
+        newText = createEl.element( by.css( '.volume-name-input') );
         newText = newText.element( by.tagName( 'input' ) );
 
         var volumeTable = $('tr');
@@ -67,7 +156,7 @@ describe( 'Testing volume creation permutations', function(){
         element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){
             priorityCols.forEach( function( td ){
                 td.getText().then( function( txt ){
-                    expect( txt ).toBe( '10' );
+                    expect( txt ).toBe( '7' );
                 });
             });
         });
@@ -75,10 +164,7 @@ describe( 'Testing volume creation permutations', function(){
     
     it ( 'should go to the edit screen on press of the edit button', function(){
         
-        var firstRow = element.all( by.css( '.volume-row' ) ).get( 0 );
-        firstRow.click();
-
-        browser.sleep( 210 );
+        clickRow( 'Test Volume' );
         
         // the screen should slide over
         expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
@@ -89,10 +175,61 @@ describe( 'Testing volume creation permutations', function(){
             expect( txt ).toBe( 'Test Volume' );
         });
         
-        var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();
-        
     });
+    
+    it ( 'should have default values for all other fields in the created volume', function(){
+        
+        // check the actual settings
+        verifyVolume( 
+            'Test Volume', 
+            'Flash Only',
+            { preset: STANDARD, priority: '7', sla: 'None', limit: 'Unlimited'},
+            { 
+                preset: STANDARD, 
+                settings: [
+                    { predicate: 'Kept', value: 'for 1 day' },
+                    { predicate: 'at 12am', value: 'for 1 week' },
+                    { predicate: 'Mondays', value: 'for 4 weeks' },
+                    { predicate: 'First day of the month', value: 'for 26 weeks' },
+                    { predicate: 'Januarys', value: 'for 5 years' }
+                ]
+            }
+        );
+        
+        // go back
+        var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();
+    });
+    
+    it( 'should be able to create a volume with lowest presets', function(){
+        
+        var qos = { preset: 0 };
+        var timeline = { preset: 0 };
+        
+        createVolume( 'Dumb One', undefined, qos, timeline );
 
+        browser.sleep( 200 );
+        
+        clickRow( 'Dumb One' );
+
+        browser.sleep( 300 );
+        
+        verifyVolume( 
+            'Dumb One', 
+            'Hybrid',
+            { preset: LEAST, priority: '10', sla: 'None', limit: 'Unlimited'},
+            { 
+                preset: SPARSE, 
+                settings: [
+                    { predicate: 'Kept', value: 'for 1 day' },
+                    { predicate: 'at 12am', value: 'for 2 days' },
+                    { predicate: 'Mondays', value: 'for 1 week' },
+                    { predicate: 'First day of the month', value: 'for 4 weeks' },
+                    { predicate: 'Januarys', value: 'for 2 years' }
+                ]
+            }
+        );
+    });
+//
 //    it ( 'should be able to edit the priority of a volume', function(){
 //
 //        var editQosButton = viewEl.element( by.css( '.qos-panel .icon-edit' ));
@@ -134,35 +271,35 @@ describe( 'Testing volume creation permutations', function(){
 //        });
 //
 //    });
-
-    it( 'should be able to delete a volume', function(){
-
-        deleteVolume( 0 );
-    });
-
-    it( 'should be able to cancel editing and show default values on next entry', function(){
-
-        createLink.click();
-        browser.sleep( 210 );
-
-        newText.sendKeys( 'This should go away' );
-
-        var cancelButton = element.all( by.css( 'button.cancel-creation' )).get( 0 );
-        cancelButton.click();
-        browser.sleep( 210 );
-
-        expect( mainEl.getAttribute( 'style' ) ).not.toContain( '-100%' );
-
-        createLink.click();
-        browser.sleep( 210 );
-
-        newText.getText().then( function( txt ){
-            expect( txt ).toBe( '' );
-        });
-
-        cancelButton.click();
-        browser.sleep( 210 );
-    });
+//
+//    it( 'should be able to delete a volume', function(){
+//
+//        deleteVolume( 0 );
+//    });
+//
+//    it( 'should be able to cancel editing and show default values on next entry', function(){
+//
+//        createLink.click();
+//        browser.sleep( 210 );
+//
+//        newText.sendKeys( 'This should go away' );
+//
+//        var cancelButton = element.all( by.css( 'button.cancel-creation' )).get( 0 );
+//        cancelButton.click();
+//        browser.sleep( 210 );
+//
+//        expect( mainEl.getAttribute( 'style' ) ).not.toContain( '-100%' );
+//
+//        createLink.click();
+//        browser.sleep( 210 );
+//
+//        newText.getText().then( function( txt ){
+//            expect( txt ).toBe( '' );
+//        });
+//
+//        cancelButton.click();
+//        browser.sleep( 210 );
+//    });
 //
 //    it( 'should be able to create a volume and edit each portion', function(){
 //
