@@ -40,5 +40,12 @@ std::string strformat(const std::string fmt_str, ...) {
     return std::string(formatted.get());
 }
 
+char* cstr(const std::string& str) {
+    char* newstr = new char[str.size() + 1];
+    std::copy(str.begin(), str.end(), newstr);
+    newstr[str.size()] = '\0';
+    return newstr;
+}
+
 }  // namespace util
 }  // namespace fds

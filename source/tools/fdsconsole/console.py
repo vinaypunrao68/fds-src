@@ -39,6 +39,7 @@ class FDSConsole(cmd.Cmd):
         setupHistoryFile()
         datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
         self.data = {}
+        self.root = None
         self.recordFile = None
         try :
             self.data = shelve.open(datafile,writeback=True)
@@ -50,9 +51,9 @@ class FDSConsole(cmd.Cmd):
         self.setprompt('fds')
         self.context = None
         self.previouscontext = None
+        ServiceMap.config = self.config
         if fInit:
             self.config.init()
-            ServiceMap.serviceMap = self.config.platform.svcMap
             self.set_root_context(context.RootContext(self.config))
 
     def get_access_level(self):
@@ -136,7 +137,7 @@ class FDSConsole(cmd.Cmd):
                 return 'cc ..'
             elif argv[0] == '-':
                 return 'cc -'
-                
+
         if len(argv) > 0:
             if argv[0] in ['?','-h','--help']:
                 argv[0] = 'help'
@@ -505,11 +506,11 @@ class FDSConsole(cmd.Cmd):
         self.data.close()
 
 if __name__ == '__main__':
-    args=sys.argv[1:]
-    fInit = not (len(args) > 0 and args[0] == 'set')
+    cmdargs=sys.argv[1:]
+    fInit = not (len(cmdargs) > 0 and cmdargs[0] == 'set')
     fdsconsole = FDSConsole(fInit)
     if fInit:
         fdsconsole.init()
-    fdsconsole.run(args)
+    fdsconsole.run(cmdargs)
     
     

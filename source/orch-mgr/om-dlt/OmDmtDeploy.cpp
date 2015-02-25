@@ -759,12 +759,17 @@ DmtDplyFSM::DACT_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     // broadcast DMT to AMs
     dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_STOR_HVISOR,
                                                        vp->getCommittedDMT());
-    // broadcast DMT to AMs
+    LOGDEBUG << "dst.commit_acts_to_wait should be: " << dst.commit_acks_to_wait
+                << " from AMs";
+    // broadcast DMT to SMs
     dst.commit_acks_to_wait += loc_domain->om_bcast_dmt(fpi::FDSP_STOR_MGR,
                                                        vp->getCommittedDMT());
+    LOGDEBUG << "dst.commit_acts_to_wait should be: " << dst.commit_acks_to_wait
+                << " from SMs";
 
     // ok if there are not AMs to broadcast
     if (dst.commit_acks_to_wait == 0) {
+        LOGDEBUG << "Not waiting for any acks, no AMs found...";
         fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
         fsm.process_event(DmtCommitAckEvt(committed_ver, fpi::FDSP_STOR_HVISOR));
     }

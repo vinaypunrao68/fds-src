@@ -5,7 +5,7 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OM_SVC_HANDLER_H_
 
 #include <OmResources.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/om_service_types.h>
 #include <fdsp/OMSvc.h>
 #include <net/PlatNetSvcHandler.h>
 #include <OmEventTracker.h>
@@ -37,10 +37,6 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
                  boost::shared_ptr<fpi::CtrlTestBucket> &msg);
 
     virtual void
-    GetBucketStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlGetBucketStats> &msg);
-
-    virtual void
     CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlCreateBucket> &msg);
 
@@ -53,15 +49,11 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
                  boost::shared_ptr<fpi::CtrlModifyBucket> &msg);
 
     virtual void
-    PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlPerfStats> &msg);
-
-    virtual void
     SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlSvcEvent> &msg);
 
     virtual void
-    GetSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+    getSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
 
     /* Overrides from OMSvcIf */
@@ -69,6 +61,8 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
     virtual void getSvcMap(std::vector<SvcInfo> & _return, const int32_t nullarg) override {}
     virtual void registerService(boost::shared_ptr<SvcInfo>& svcInfo) override;
     virtual void getSvcMap(std::vector<SvcInfo> & _return, boost::shared_ptr<int32_t>& nullarg) override;
+    void AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                             boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg);
 
   protected:
     OM_NodeDomainMod         *om_mod;

@@ -5,8 +5,8 @@ description     "OrchMgr"
 limit nofile 400000 400000
 limit core unlimited unlimited
 
-env LD_LIBRARY_PATH=/fds/lib:/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64
-env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/jvm/jdk-8-oracle-x64/bin:/usr/lib/jvm/jdk-8-oracle-x64/db/bin:/usr/lib/jvm/jdk-8-oracle-x64/jre/bin:/fds/bin:/fds/bin
+env LD_LIBRARY_PATH=/fds/lib:/usr/local/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
+env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/fds-deps/embedded/bin:/opt/fds-deps/embedded/jre/bin:/fds/bin:/fds/bin
 env JAVA_HOME=/usr/lib/jvm/java-8-oracle/
 chdir /fds/bin
 

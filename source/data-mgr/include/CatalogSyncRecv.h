@@ -42,7 +42,7 @@ namespace fds {
         /**
          * Notification that we will receive existing volume meta for
          * this volume from another DM. So, we create appropriate volume data
-         * struct to track the progress of volume meta sync and receive forwarded
+         * structures to track the progress of volume meta sync and receive forwarded
          * updates
          */
         Error startRecvVolmeta(fds_volid_t volid, FDS_VolumeQueue* shadowQueue);

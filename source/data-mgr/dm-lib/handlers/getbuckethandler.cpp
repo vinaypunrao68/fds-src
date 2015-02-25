@@ -37,7 +37,7 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
     QueueHelper helper(dmRequest);  // this will call the callback
     DmIoGetBucket *request = static_cast<DmIoGetBucket*>(dmRequest);
 
-    fpi::BlobInfoListType & blobVec = request->response->blob_info_list;
+    fpi::BlobDescriptorListType & blobVec = request->response->blob_descr_list;
     // do processing and set the error
     helper.err = dataMgr->timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
 
@@ -51,8 +51,8 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
         }
 
         auto iterEnd = std::remove_if(blobVec.begin(), blobVec.end(),
-                [&pattern](const fpi::FDSP_BlobInfoType & blobInfo) {
-                    return !pattern.PartialMatch(blobInfo.blob_name);
+                [&pattern](const fpi::BlobDescriptor & blobDescr) {
+                    return !pattern.PartialMatch(blobDescr.name);
                 });
         blobVec.erase(iterEnd, blobVec.end());
     }
@@ -62,10 +62,10 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
         const fpi::BlobListOrder orderColumn = request->message->orderBy;
         const bool descending = request->message->descending;
         std::sort(blobVec.begin(), blobVec.end(),
-                [orderColumn, descending](const fpi::FDSP_BlobInfoType & lhs,
-                                          const fpi::FDSP_BlobInfoType & rhs) {
-                    bool ret = fpi::BLOBSIZE == orderColumn ?  lhs.blob_size < rhs.blob_size :
-                            lhs.blob_name < rhs.blob_name;
+                [orderColumn, descending](const fpi::BlobDescriptor & lhs,
+                                          const fpi::BlobDescriptor & rhs) {
+                    bool ret = fpi::BLOBSIZE == orderColumn ?  lhs.byteCount < rhs.byteCount :
+                            lhs.name < rhs.name;
                     return descending ? !ret : ret;
                 });
     }
@@ -83,7 +83,7 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
     }
 
     LOGDEBUG << " volid: " << dmRequest->volId
-             << " numblobs: " << request->response->blob_info_list.size();
+             << " numblobs: " << request->response->blob_descr_list.size();
 }
 
 void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

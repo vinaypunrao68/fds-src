@@ -13,105 +13,133 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <fdsp_utils.h>
-// #include <ObjectId.h>
 #include <fiu-control.h>
-#include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
+#include <testlib/TestFixtures.h>
 #include <util/fiu_util.h>
+#include <SvcMgrModuleProvider.hpp>
+#include <FakeSvcDomain.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <google/profiler.h>
-// #include "IThreadpool.h"
 
 using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
 
-struct SvcMgrModuleProvider : CommonModuleProviderIf {
-    SvcMgrModuleProvider(const std::string &configFile, long long uuid, int port) {
-        /* config */
-        std::string configBasePath = "fds.dm.";
-        boost::shared_ptr<FdsConfig> config(new FdsConfig(configFile, 0, {nullptr}));
-        configHelper_.init(config, configBasePath);
-        config->set("fds.dm.svc.uuid", uuid);
-        config->set("fds.dm.svc.port", port);
-
-        /* timer */
-        timer_.reset(new FdsTimer());
-
-        /* counters */
-        cntrsMgr_.reset(new FdsCountersMgr(configBasePath));
-
-        /* threadpool */
-        threadpool_.reset(new fds_threadpool(3));
-
-        /* service mgr */
-        auto handler = boost::make_shared<PlatNetSvcHandler>(this);
-        auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-        fpi::SvcInfo svcInfo;
-        svcInfo.svc_id.svc_uuid.svc_uuid = 
-            static_cast<int64_t>(configHelper_.get<long long>("svc.uuid"));
-        svcInfo.ip = net::get_local_ip(configHelper_.get_abs<std::string>("fds.nic_if"));
-        svcInfo.svc_port = configHelper_.get<int>("svc.port");
-        svcInfo.incarnationNo = util::getTimeStampSeconds();
-        svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo));
-        svcMgr_->mod_init(nullptr);
-    }
-
-    virtual FdsConfigAccessor get_conf_helper() const override {
-        return configHelper_;
-    }
-
-    virtual boost::shared_ptr<FdsConfig> get_fds_config() const override {
-        return configHelper_.get_fds_config();
-    }
-
-    virtual FdsTimerPtr getTimer() const override { return timer_; }
-
-    virtual boost::shared_ptr<FdsCountersMgr> get_cntrs_mgr() const override { return cntrsMgr_; }
-
-    virtual fds_threadpool *proc_thrpool() const override { return threadpool_.get(); }
-
-    virtual SvcMgr* getSvcMgr() override { return svcMgr_.get(); }
-
- protected:
-    FdsConfigAccessor configHelper_;
-    FdsTimerPtr timer_;
-    boost::shared_ptr<FdsCountersMgr> cntrsMgr_;
-    fds_threadpoolPtr threadpool_;
-    boost::shared_ptr<SvcMgr> svcMgr_;
-};
 /**
-* @brief Tests dropping puts fault injection
+* @brief Tests svc map update in the domain.
+*/
+TEST(SvcRequestMgr, epsvcrequest)
+{
+    int cnt = 2;
+    FakeSyncSvcDomain domain(cnt);
+
+    /* dest service is up...request should succeed */
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
+    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter1);
+    svcStatusWaiter1.await();
+    ASSERT_EQ(svcStatusWaiter1.error, ERR_OK) << "Error: " << svcStatusWaiter1.error;
+    ASSERT_EQ(svcStatusWaiter1.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter1.response->status;
+
+    /* dest service is down...request should fail */
+    domain.kill(1);
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter2;
+    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter2);
+    svcStatusWaiter2.await();
+    ASSERT_TRUE(svcStatusWaiter2.error == ERR_SVC_REQUEST_INVOCATION ||
+                svcStatusWaiter2.error == ERR_SVC_REQUEST_TIMEOUT)
+        << "Error: " << svcStatusWaiter2.error;
+
+    /* dest service is up again...request should succeed */
+    domain.spawn(1);
+    SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter3;
+    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter3);
+    svcStatusWaiter3.await();
+    ASSERT_EQ(svcStatusWaiter3.error, ERR_OK)
+        << "Error: " << svcStatusWaiter3.error;
+    ASSERT_EQ(svcStatusWaiter3.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter3.response->status;
+}
+
+/**
+* @brief Test sending endpoint request agains invalid endpoint
 *
 */
-TEST(SvcMgr, basic)
+TEST(SvcRequestMgr, epsvcrequest_invalidep)
 {
-    auto svcMgrProvider1 = boost::make_shared<SvcMgrModuleProvider>(
-        "/fds/etc/platform.conf",
-        0x100, 10000);
-    auto svcMgr1 = svcMgrProvider1->getSvcMgr();
-    auto svcMgrProvider2 = boost::make_shared<SvcMgrModuleProvider>(
-        "/fds/etc/platform.conf",
-        0x101, 10001);
-    auto svcMgr2 = svcMgrProvider2->getSvcMgr();
+    int cnt = 2;
+    FakeSyncSvcDomain domain(cnt);
 
-    std::vector<fpi::SvcInfo> svcMap;
-    svcMap.push_back(svcMgr1->getSelfSvcInfo());
-    svcMap.push_back(svcMgr2->getSelfSvcInfo());
-
-    svcMgr1->updateSvcMap(svcMap);
-    svcMgr2->updateSvcMap(svcMap);
+    auto svcMgr1 = domain[0]->getSvcMgr();
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
     auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(svcMgr2->getSelfSvcUuid());
+    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(FakeSvcDomain::INVALID_SVCUUID);
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
-    asyncReq->setTimeoutMs(1000000);
+    asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(svcStatusWaiter.cb);
     asyncReq->invoke();
+
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_SVC_REQUEST_INVOCATION) << "Error: " << svcStatusWaiter.error;
+}
+
+
+/* Tests basic failover style request */
+TEST(SvcRequestMgr, failoversvcrequest)
+{
+    int cnt = 3;
+    FakeSyncSvcDomain domain(cnt);
+
+    /* all endpoints are up...request should succeed */
+    SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter);
+
+    svcStatusWaiter.await();
+    ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
+    ASSERT_EQ(svcStatusWaiter.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter.response->status;
+
+    /* one endpoints is down...request should succeed */
+    domain.kill(1);
+    SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
+    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter1);
+    svcStatusWaiter1.await();
+    ASSERT_EQ(svcStatusWaiter1.error, ERR_OK) << "Error: " << svcStatusWaiter1.error;
+    ASSERT_EQ(svcStatusWaiter1.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter1.response->status;
+
+    /* all endpoints are down. Request should fail */
+    domain.kill(2);
+    SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter2;
+    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter2);
+    svcStatusWaiter2.await();
+    ASSERT_TRUE(svcStatusWaiter2.error == ERR_SVC_REQUEST_INVOCATION ||
+                svcStatusWaiter2.error == ERR_SVC_REQUEST_TIMEOUT)
+        << "Error: " << svcStatusWaiter2.error;
+
+    /* One service is up. Request should succeed */
+    domain.spawn(2);
+    SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter3;
+    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter3);
+    svcStatusWaiter3.await();
+    ASSERT_EQ(svcStatusWaiter3.error, ERR_OK) << "Error: " << svcStatusWaiter3.error;
+    ASSERT_EQ(svcStatusWaiter3.response->status, fpi::SVC_STATUS_ACTIVE)
+        << "Status: " << svcStatusWaiter3.response->status;
+}
+
+/* Tests basic quorum reqesut */
+TEST(SvcRequestMgr, quorumsvcrequest)
+{
+    int cnt = 3;
+    FakeSyncSvcDomain domain(cnt);
+
+    SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
+    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter);
 
     svcStatusWaiter.await();
     ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
@@ -121,19 +149,5 @@ TEST(SvcMgr, basic)
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-#if 0
-    po::options_description opts("Allowed options");
-    opts.add_options()
-        ("help", "produce help message")
-        ("smuuid", po::value<uint64_t>()->default_value(0), "smuuid")
-        ("puts-cnt", po::value<int>(), "puts count")
-        ("profile", po::value<bool>()->default_value(false), "google profile")
-        ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
-        ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
-        ("uturn-asyncreqt", po::value<bool>()->default_value(false), "uturn async reqt")
-        ("uturn", po::value<bool>()->default_value(false), "uturn")
-        ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling");
-    SMApi::init(argc, argv, opts);
-#endif
     return RUN_ALL_TESTS();
 }

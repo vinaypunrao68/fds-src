@@ -25,4 +25,14 @@ enum BlobListOrder {
     BLOBSIZE
 }
 
+/* Can be consolidated when apis and fdsp merge or whatever */
+struct BlobDescriptor {
+     1: required string name,
+     2: required i64 byteCount,
+     3: required map<string, string> metadata
+}
+
+/* A detailed list of blob stats. */
+typedef list<BlobDescriptor> BlobDescriptorListType
+
 #endif

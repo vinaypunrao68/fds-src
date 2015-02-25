@@ -22,8 +22,6 @@
 #include <fdsp/FDSP_MetaDataPathResp.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_ConfigPathResp.h>
-#include <fdsp/FDSP_MigrationPathReq.h>
-#include <fdsp/FDSP_MigrationPathResp.h>
 #include <fdsp/FDSP_MetaSyncReq.h>
 #include <fdsp/FDSP_MetaSyncResp.h>
 #include <fdsp/FDSP_Service.h>
@@ -325,8 +323,6 @@ typedef netClientSessionEx<FDSP_OMControlPathReqClient,
         FDSP_OMControlPathRespProcessor,FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 typedef netClientSessionEx<FDSP_ConfigPathReqClient,
         FDSP_ConfigPathRespProcessor, FDSP_ConfigPathRespIf> netConfigPathClientSession;
-typedef netClientSessionEx<FDSP_MigrationPathReqClient,
-        FDSP_MigrationPathRespProcessor, FDSP_MigrationPathRespIf> netMigrationPathClientSession;
 typedef netClientSessionEx<FDSP_MetaSyncReqClient,
         FDSP_MetaSyncRespProcessor, FDSP_MetaSyncRespIf> netMetaSyncClientSession;
 
@@ -544,7 +540,7 @@ class netServerSessionEx: public netSession {
                                   boost::shared_ptr<TProtocol> output) override
       {
           fds_mutex::scoped_lock l(parent_.lock_);
-         
+
  /* Add the new connection */
           TTransportPtr transport = input->getTransport();
           parent_.connections_.insert(transport);
@@ -560,7 +556,7 @@ class netServerSessionEx: public netSession {
           } catch(const att::TTransportException& e) {
               LOGERROR << "error during network call : " << e.what();
           }
-          
+
           if (!ret) {
               LOGWARN << "Processing incoming connection request failed."
                 "Closing the connection: " << getTransportKey(transport);
@@ -660,8 +656,6 @@ typedef netServerSessionEx<FDSP_OMControlPathReqProcessor,
         FDSP_OMControlPathReqIf, FDSP_OMControlPathRespClient> netOMControlPathServerSession;
 typedef netServerSessionEx<FDSP_ConfigPathReqProcessor,
         FDSP_ConfigPathReqIf, FDSP_ConfigPathRespClient> netConfigPathServerSession;
-typedef netServerSessionEx<FDSP_MigrationPathReqProcessor,
-        FDSP_MigrationPathReqIf, FDSP_MigrationPathRespClient> netMigrationPathServerSession;
 typedef netServerSessionEx<FDSP_MetaSyncReqProcessor,
         FDSP_MetaSyncReqIf, FDSP_MetaSyncRespClient> netMetaSyncServerSession;
 

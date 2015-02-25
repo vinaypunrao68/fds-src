@@ -13,6 +13,7 @@
 #include <DataMgr.h>
 #include <VolumeMeta.h>
 #include <DMSvcHandler.h>
+#include "../include/CatalogSync.h"
 
 namespace fds {
 
@@ -581,5 +582,44 @@ Error CatalogSync::issueVolSyncStateMsg(fds_volid_t volId,
 
     return err;
 }
+
+Error CatalogSyncMgr::abortMigration()
+{
+    Error err(ERR_OK);
+    for (auto iter : cat_sync_map) {
+        iter.second->abortMigration(ERR_DM_MIGRATION_ABORTED);
+    }
+
+    return err;
+}
+
+/**
+* Abort current migration when error state is reached.
+* @param[in] err Error code that caused the abort
+*
+*/
+void CatalogSync::abortMigration(Error err)
+{
+    LOGNOTIFY << "Aborting volcat migration " << err;
+
+    // Set migration state to aborted
+    csStateType expected_initial = CSSTATE_INITIAL_SYNC;
+    csStateType expected_delta = CSSTATE_DELTA_SYNC;
+    // We should be in INITIAL_SYNC or DELTA_SYNC
+    if (!std::atomic_compare_exchange_strong(&state, &expected_initial, CSSTATE_ABORT) ||
+            !std::atomic_compare_exchange_strong(&state, &expected_delta, CSSTATE_ABORT)) {
+        csStateType curState = atomic_load(&state);
+        if (curState == CSSTATE_READY) {
+            // nothing to do, migration was not in progress
+            LOGNOTIFY << "Migration was idle, nothing to abort";
+        } else if (curState == CSSTATE_ABORT) {
+            LOGNOTIFY << "Migration already aborted, nothing else to do";
+        }
+        return;  // this is ok
+    }
+
+    // TODO(xxx): What to do here?
+}
+
 
 }  // namespace fds

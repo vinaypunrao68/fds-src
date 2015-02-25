@@ -17,8 +17,6 @@ user_fds_ar_libs  +=  \
     fds-smlib \
     fds-am-engine \
     fds-odb \
-    fds-sm-plat \
-    fds-vpolicy \
     fds-dsk-mgnt \
     fds-dsk-io \
     fds-hash \

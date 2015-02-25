@@ -18,6 +18,12 @@ std::string strformat(const std::string fmt_str, ...);
  */
 std::string strlower(const std::string& str);
 
+/**
+ * Get a copy of the string as c cstring
+ * The caller is responsible for freeing the 
+ * returned value
+ */
+char* cstr(const std::string& str);
 }  // namespace util
 }  // namespace fds
 

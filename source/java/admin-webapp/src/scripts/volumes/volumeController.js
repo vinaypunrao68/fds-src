@@ -123,10 +123,16 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
                 return 'rgba( 255, 255, 255, 0.0)';
             }
         };
-        
+
         var now = new Date();
-        var capacityFirebreak = now.getTime() - volume.firebreak.capacity;
-        var performanceFirebreak = now.getTime() - volume.firebreak.performance;
+        var capacityFirebreak = 3600*25;
+        var performanceFirebreak = capacityFirebreak;
+        
+        if ( angular.isDefined( volume.firebreak ) ){
+            
+            now.getTime() - volume.firebreak.capacity;
+            now.getTime() - volume.firebreak.performance;
+        }
         
         if ( capacityFirebreak < performanceFirebreak ){
             return getColor( capacityFirebreak );

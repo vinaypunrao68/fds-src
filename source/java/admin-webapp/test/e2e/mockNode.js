@@ -3,13 +3,13 @@ mockNode = function(){
     angular.module( 'node-management' ).factory( '$node_service', [ function(){
 
         var service = {};
-
+        
         var pollerId;
         
         service.detachedNodes = [
             {
               "name": "awesome-new-node",
-              "uuid": 7088430947183220032,
+              "uuid": 2,
               "ipV6address": "0.0.0.0",
               "ipV4address": "127.0.0.1",
               "state": "DISCOVERED",
@@ -30,7 +30,7 @@ mockNode = function(){
         service.nodes = [
             {
               "name": "awesome-node",
-              "uuid": 7088430947183220032,
+              "uuid": 1,
               "ipV6address": "0.0.0.0",
               "ipV4address": "127.0.0.1",
               "state": "UP",
@@ -70,6 +70,15 @@ mockNode = function(){
                     "status": "INACTIVE",
                     "type": "FDSP_PLATFORM"
                   }
+                ],
+                "OM": [
+                  {
+                    "uuid": 7088430947183220035,
+                    "autoName": "OM",
+                    "port": 7001,
+                    "status": "ACTIVE",
+                    "type": "FDSP_ORCH_MGR"
+                  }
                 ]
               }
             }
@@ -86,6 +95,27 @@ mockNode = function(){
         service.FDS_INACTIVE = 'INACTIVE';
         service.FDS_ERROR = 'ERROR';
 
+        var saveNodes = function(){
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            window.localStorage.setItem( 'nodes', JSON.stringify( service.nodes ) );
+            window.localStorage.setItem( 'detachedNodes', JSON.stringify( service.detachedNodes ) );
+        };
+        
+        var init = function(){
+            
+            if ( window.localStorage.getItem( 'nodes' ) !== null ){
+                return;
+            }
+            
+            saveNodes();
+        };
+        
+        init();
+        
         service.getOverallStatus = function( node ){
 
             if ( node.am === service.FDS_NODE_DOWN ||
@@ -111,6 +141,57 @@ mockNode = function(){
 
             for ( var i = 0; i < nodes.length; i++ ){
                 nodes[i].state = 'UP';
+                
+                
+                nodes[i].services = {
+                    "DM": [
+                        {
+                            "uuid": nodes[i].uuid + 1,
+                            "autoName": "DM",
+                            "port": 7031,
+                            "status": "ACTIVE",
+                            "type": "FDSP_DATA_MGR"
+                        }
+                    ],
+                    "AM": [
+                        {
+                            "uuid": nodes[i].uuid + 2,
+                            "autoName": "AM",
+                            "port": 7041,
+                            "status": "ACTIVE",
+                            "type": "FDSP_STOR_HVISOR"
+                        }
+                    ],
+                    "SM": [
+                        {
+                            "uuid": nodes[i].uuid + 3,
+                            "autoName": "SM",
+                            "port": 7021,
+                            "status": "ACTIVE",
+                            "type": "FDSP_STOR_MGR"
+                        }
+                    ],
+                    "PM": [
+                        {
+                            "uuid": nodes[i].uuid + 4,
+                            "autoName": "PM",
+                            "port": 7001,
+                            "status": "ACTIVE",
+                            "type": "FDSP_PLATFORM"
+                        }
+                    ],
+                    "OM": [
+                        {
+                            "uuid": nodes[i].uuid + 5,
+                            "autoName": "OM",
+                            "port": 7001,
+                            "status": "ACTIVE",
+                            "type": "FDSP_ORCH_MGR"
+                        }
+                    ]
+                };
+                
+                
                 service.nodes.push( nodes[i] );
                 
                 for ( var j = 0; j < service.detachedNodes.length; j++ ){
@@ -122,6 +203,8 @@ mockNode = function(){
                         break;
                     }
                 }
+                
+                saveNodes();
             }
             
         };
@@ -142,9 +225,27 @@ mockNode = function(){
             if ( angular.isFunction( callback ) ){
                 callback();
             }
+            
+            saveNodes();
         };
         
         service.refresh = function(){
+            
+            if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
+                service.nodes = [];
+                service.detachedNodes = [];
+                
+                var n = JSON.parse( window.localStorage.getItem( 'nodes' ) );
+                var d = JSON.parse( window.localStorage.getItem( 'detachedNodes' ) );
+                
+                if ( n !== null && angular.isDefined( n ) ){
+                    service.nodes = n;
+                }
+                
+                if ( d !== null && angular.isDefined( d ) ){
+                    service.detachedNodes = d;
+                }
+            }
         };
 
         var getNodes = function(){

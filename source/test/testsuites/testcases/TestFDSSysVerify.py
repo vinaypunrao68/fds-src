@@ -169,40 +169,14 @@ def canonMatch(canon, fileToCheck):
 # between two nodes using directory/file comparisons.
 class TestVerifyDMStaticMigration_byFileCompare(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node1=None, node2=None, volume=None):
-        super(TestVerifyDMStaticMigration_byFileCompare, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifyDMStaticMigration_byFileCompare,
+                                             "DM Static migration verification")
 
         self.passedNode1 = node1
         self.passedNode2 = node2
         self.passedVolume = volume
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_VerifyDMStaticMigration_byFileCompare():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("DM Static migration verification caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_VerifyDMStaticMigration_byFileCompare(self):
         """
@@ -271,41 +245,16 @@ class TestVerifyDMStaticMigration_byFileCompare(TestCase.FDSTestCase):
 # between two nodes using the DM Check utility.
 class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node1=None, node2=None, volume=None):
-        super(TestVerifyDMStaticMigration, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifyDMStaticMigration,
+                                             "DM Static Migration checking")
 
         self.passedNode1 = node1
         self.passedNode2 = node2
         self.passedVolume = volume
 
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_VerifyDMStaticMigration():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("DM Static Migration checking caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
-
+    @TestCase.expectedFailure
     def test_VerifyDMStaticMigration(self):
         """
         Test Case:
@@ -379,15 +328,16 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
 
         # Let's compare.
         if stdout1 != stdout2:
-            self.log.error("DM Static Migration checking showed differences.")
+            self.log.error("DM Static Migration checking showed differences for volume %s." %
+                           v.nd_conf_dict['vol-name'])
             self.log.error("Node %s shows: \n%s" %
                            (n1.nd_conf_dict['node-name'], stdout1))
             self.log.error("Node %s shows: \n%s" %
                            (n2.nd_conf_dict['node-name'], stdout2))
             return False
         else:
-            self.log.info("DM Static Migration checking showed match between nodes %s and %s." %
-                          (n1.nd_conf_dict['node-name'], n2.nd_conf_dict['node-name']))
+            self.log.info("DM Static Migration checking showed match between nodes %s and %s for volume %s." %
+                          (n1.nd_conf_dict['node-name'], n2.nd_conf_dict['node-name'], v.nd_conf_dict['vol-name']))
             self.log.info("Both nodes show: \n%s" % stdout1)
 
         return True
@@ -398,41 +348,14 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
 # between two nodes using the SM Check utility.
 class TestVerifySMStaticMigration(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node1=None, node2=None, skip=None):
-        super(TestVerifySMStaticMigration, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifySMStaticMigration,
+                                             "SM Static Migration checking")
 
         self.passedNode1 = node1
         self.passedNode2 = node2
         self.skip = skip  # Does the caller wish to execute even if previous test cases have failed?
-
-
-    def runTest(self):
-        test_passed = True
-
-        # The caller may tell us not to skip this test case.
-        if (TestCase.pyUnitTCFailure) and (self.skip is None):
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_VerifySMStaticMigration():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("SM Static Migration checking caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_VerifySMStaticMigration(self):
         """
@@ -509,47 +432,115 @@ class TestVerifySMStaticMigration(TestCase.FDSTestCase):
 
         return True
 
+# This class contains the attributes and methods to test
+# whether SM migration successfully migrated object metadata
+# between two nodes using the SM Check utility.
+# It will not check that the objects are valid, but
+# that the metadata and ref counts are consistent.
+# For validation of objects, use TestVerifySMStaticMigration
+class TestVerifySMMetaMigration(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node1=None, node2=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifySMMetaMigration,
+                                             "SM Metadata Migration checking")
+
+        self.passedNode1 = node1
+        self.passedNode2 = node2
+
+    def test_VerifySMMetaMigration(self):
+        """
+        Test Case:
+        Verify whether SM Static migration successfully occurred
+        by comparing the output of the SM Check utility run for each node.
+        """
+
+        # Verify input.
+        if (self.passedNode1 is None) or (self.passedNode2 is None):
+            self.log.error("Test case construction requires parameters node1 and node2.")
+            raise Exception
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        # Locate our two nodes.
+        nodes = fdscfg.rt_obj.cfg_nodes
+        n1 = None
+        n2 = None
+        for n in nodes:
+            if self.passedNode1 == n.nd_conf_dict['node-name']:
+                n1 = n
+            if self.passedNode2 == n.nd_conf_dict['node-name']:
+                n2 = n
+
+            if (n1 is not None) and (n2 is not None):
+                break
+
+        if n1 is None:
+            self.log.error("Node not found for %s." % self.passedNode1)
+            raise
+        if n2 is None:
+            self.log.error("Node not found for %s." % self.passedNode2)
+            raise
+
+        fds_dir1 = n1.nd_conf_dict['fds_root']
+
+        fds_dir2 = n2.nd_conf_dict['fds_root']
+
+        # Capture stdout from smchk for node1.
+        #
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout1 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --list-active-metadata) \"' %
+                                                (bin_dir, fds_dir1), return_stdin=True)
+
+        if status != 0:
+            self.log.error("SM Static Migration checking using node %s returned status %d." %
+                           (n1.nd_conf_dict['node-name'], status))
+            return False
+
+        # Now capture stdout from smchk for node2.
+        status, stdout2 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --list-active-metadata) \"' %
+                                                (bin_dir, fds_dir2), return_stdin=True)
+
+        if status != 0:
+            self.log.error("SM Static Migration checking using node %s returned status %d." %
+                           (n2.nd_conf_dict['node-name'], status))
+            return False
+
+        # Let's compare.
+        if stdout1 != stdout2:
+            self.log.error("SM Static Migration checking showed differences.")
+            self.log.error("Node %s shows: \n%s" %
+                           (n1.nd_conf_dict['node-name'], stdout1))
+            self.log.error("Node %s shows: \n%s" %
+                           (n2.nd_conf_dict['node-name'], stdout2))
+            return False
+        else:
+            self.log.info("SM Static Migration checking showed match between nodes %s and %s." %
+                          (n1.nd_conf_dict['node-name'], n2.nd_conf_dict['node-name']))
+            self.log.info("Both nodes show: \n%s" % stdout1)
+
+        return True
+
+
+
 
 # This class contains the attributes and methods to test
 # whether the specified log entry can be located the sepcified number of times
 # in the specified log before expiration of the specified time.
 class TestWaitForLog(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None):
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_WaitForLog,
+                                             "Waiting for a log entry")
 
         self.passedNode = node
         self.passedService = service
         self.passedLogentry = logentry
         self.passedOccurrences = occurrences
         self.passedMaxwait = maxwait
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_WaitForLog():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Waiting for a log entry caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_WaitForLog(self):
         """
@@ -605,38 +596,13 @@ class TestWaitForLog(TestCase.FDSTestCase):
 # in a regular expression compare.
 class TestCanonMatch(TestCase.FDSTestCase):
     def __init__(self, parameters=None, canon=None, fileToCheck=None):
-        super(self.__class__, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_CanonMatch,
+                                             "Performing a canon match")
 
         self.passedCanon = canon
         self.passedFileToCheck = fileToCheck
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_CanonMatch():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Performing a canon match caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
 
     def test_CanonMatch(self):
         """

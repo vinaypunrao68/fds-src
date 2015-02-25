@@ -756,7 +756,7 @@ VolumeInfo::~VolumeInfo()
 // ------------------
 //
 void
-VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeInfoType &info)
+VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeDescType &info)
 {
     vol_properties = new VolumeDesc(info, rs_uuid.uuid_get_val());
     setName(info.vol_name);
@@ -816,13 +816,10 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->volUUID       = pVol->volUUID;
     pkt->tennantId     = pVol->tennantId;
     pkt->localDomainId = pVol->localDomainId;
-    pkt->globDomainId  = pVol->globDomainId;
 
     pkt->maxObjSizeInBytes = pVol->maxObjSizeInBytes;
     pkt->capacity      = pVol->capacity;
     pkt->volType       = pVol->volType;
-    pkt->maxQuota      = pVol->maxQuota;
-    pkt->defReplicaCnt = pVol->replicaCnt;
 
     pkt->volPolicyId   = pVol->volPolicyId;
     pkt->iops_max      = pVol->iops_max;
@@ -830,12 +827,9 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->iops_guarantee      = pVol->iops_guarantee;
     pkt->rel_prio      = pVol->relativePrio;
 
-    pkt->defConsisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
-    pkt->appWorkload       = pVol->appWorkload;
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
-    pkt->srcVolumeId   = pVol->srcVolumeId;
-    pkt->qosQueueId   = pVol->qosQueueId;
+    pkt->srcVolumeId = pVol->srcVolumeId;
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
 }
@@ -861,6 +855,8 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
         case fpi::FDSP_MSG_DELETE_VOL:
         case fpi::FDSP_MSG_MODIFY_VOL:
         case fpi::FDSP_MSG_CREATE_VOL: {
+            /* TODO(Andrew): Remove usage of deleted struct fields.
+               This code was dead (compiled, but unused) to begin with.
             FdspNotVolPtr notif = *out->u.vol_notif;
 
             vol_fmt_desc_pkt(&notif->vol_desc);
@@ -873,14 +869,18 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
                 notif->type = fpi::FDSP_NOTIFY_RM_VOL;
             }
             break;
+            */
         }
         case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
         case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
+            /* TODO(Andrew): Remove usage of deleted struct fields.
+               This code was dead (compiled, but unused) to begin with.
             FdspAttVolPtr attach = *out->u.vol_attach;
 
             vol_fmt_desc_pkt(&attach->vol_desc);
             attach->vol_name = vol_get_name();
             break;
+            */
         }
         default: {
             fds_panic("Unknown volume request code");
@@ -1481,7 +1481,7 @@ VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
     OM_AmAgent::pointer  am;
 
     LOGNOTIFY << "Received test bucket request " << vname
-              << "attach_vol_reqd " << req->attach_vol_reqd
+              << " attach_vol_reqd " << req->attach_vol_reqd
               << " from " << n_uid;
 
     am = local->om_am_agent(n_uid);

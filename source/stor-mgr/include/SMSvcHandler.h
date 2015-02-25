@@ -25,6 +25,9 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
 
     SMSvcHandler();
 
+    void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                   boost::shared_ptr<std::string>& payload) override;
+
     void getObject(const fpi::AsyncHdr &asyncHdr,
             const fpi::GetObjectMsg &getObjMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -105,14 +108,6 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
 
     void NotifyDLTClose(boost::shared_ptr <fpi::AsyncHdr> &hdr,
             boost::shared_ptr <fpi::CtrlNotifyDLTClose> &dlt);
-
-    virtual void
-            TierPolicy(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-            boost::shared_ptr <fpi::CtrlTierPolicy> &msg);
-
-    virtual void
-            TierPolicyAudit(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-            boost::shared_ptr <fpi::CtrlTierPolicyAudit> &msg);
 
     void startHybridTierCtrlr(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                               boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg);

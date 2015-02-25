@@ -14,15 +14,14 @@ pyUnitConfig = "./../../source/test/testsuites/BuildSmokeTest.ini"
 
 S3_USER = 'fds_testing'
 S3_PASSWORD = 'bIEYKCPzDKtQDDBomnAKTKRA'
-#FDS_DEFAULT_KEY_ID = 'AKIAJAWXAU57VVTDDWAA'
-#FDS_DEFAULT_SECRET_ACCESS_KEY = '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'
 
-FDS_DEFAULT_KEY_ID            = 'AKIAJCNNNWKKBQU667CQ'
-FDS_DEFAULT_SECRET_ACCESS_KEY = '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'
-FDS_DEFAULT_HOST             = 's3.amazonaws.com'
+FDS_DEFAULT_ADMIN_USER        = 'admin'
+FDS_DEFAULT_ADMIN_PASS        = 'admin'
+FDS_DEFAULT_HOST              = '127.0.0.1'
 
-FDS_DEFAULT_PORT              = 443
-FDS_AUTH_DEFAULT_PORT         = 443
+FDS_SSL_PORT                  = 443
+FDS_REST_PORT                 = 7777
+FDS_S3_PORT                   = 8443
 FDS_DEFAULT_IS_SECURE         = True
 
 FDS_DEFAULT_BUCKET_NAME       = "demo_volume2"
@@ -51,11 +50,17 @@ params = {
 }
 
 NUMBER_USERS = 30
+MAX_NUM_VOLUMES = 1023
 SAMPLE_FILE = "test.txt"
+SAMPLE_DIR = "./samples/"
+BACKUP_DIR = "./backup/"
+DOWNLOAD_DIR = "./downloads/"
 ROOT = "/root/"
 ANSIBLE_ROOT = "../../../ansible/"
+ANSIBLE_INVENTORY = "%s/inventory/" % ANSIBLE_ROOT
 EC2_TEMPLATE = "./templates/ec2"
 BAREMETAL_TEMPLATE = "./templates/integration-framework-cluster"
+NDBADM = "../../../source/cinder/nbdadm.py"
 VAULT_PASS = ".vault_pass.txt"
 DESTROY_EC2 = "scripts/teardown_ec2_cluster.sh %s"
 START_EC2 = "scripts/deploy_fds_ec2.sh %s %s %s"
@@ -66,6 +71,6 @@ LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202",
 
 CONFIG_DIR = "./config/"
 SYSTEM_FRAMEWORK = "testsuites"
-SYSTEM_CMD = "../%s/ClusterBootSuite.py -q ../%s/StaticMigration.ini -d dummy --verbose"
+SYSTEM_CMD = "../%s/DomainBootSuite.py -q ../%s/StaticMigration.ini -d dummy --verbose"
 DEFAULT_INVENTORY_FILE = "integration-framework-cluster"
 CMD_CONFIG = ['./setup_module.py', '-q', './BuildSmokeTest.ini', '-d', 'dummy', '--verbose']

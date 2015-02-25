@@ -1,16 +1,10 @@
 ---
--   name: set variable build defined in inventory file (release or debug)
-    set_fact:
-        build: "{{ fds_build if fds_build is defined else 'debug' }}"
-    tags:
-      - install-local
-
--   name: copy local fds-platform_*{{ build }} to host
+-   name: copy local fds-platform-{{ build }}_* to host
     when: deploy_artifact == "local" and this_is_an_ec2_node is not defined
     copy: src={{ item }}
       dest=/root/fds-platform.deb
     with_fileglob:
-      - '../../../omnibus/omnibus-fds-platform/pkg/fds-platform_*{{ build }}*.deb'
+      - '../../../omnibus/omnibus-fds-platform/pkg/fds-platform-{{ build }}_*.deb'
     tags:
       - install-local
 

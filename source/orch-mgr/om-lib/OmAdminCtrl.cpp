@@ -103,11 +103,11 @@ void FdsAdminCtrl::removeDiskCapacity(const node_stor_cap_t *n_info)
               << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
 }
 
-void FdsAdminCtrl::getAvailableDiskCapacity(const FdspVolInfoPtr pVolInfo)
+void FdsAdminCtrl::getAvailableDiskCapacity(const FdspVolDescPtr pVolInfo)
 {
 }
 
-void FdsAdminCtrl::updateAvailableDiskCapacity(const FdspVolInfoPtr pVolInfo)
+void FdsAdminCtrl::updateAvailableDiskCapacity(const FdspVolDescPtr pVolInfo)
 {
 }
 

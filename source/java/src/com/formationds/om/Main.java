@@ -132,6 +132,7 @@ public class Main {
             ConfigServiceClientFactory.newConfigService("localhost", omConfigPort);
 
         final OmConfigurationApi configCache = new OmConfigurationApi(configApiFactory);
+        configCache.startConfigurationUpdater();
         SingletonConfigAPI.instance().api( configCache );
 
         EnsureAdminUser.bootstrapAdminUser( configCache );

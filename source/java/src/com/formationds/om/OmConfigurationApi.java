@@ -153,7 +153,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     void startConfigurationUpdater() {
-        new Thread(new Updater()).start();
+        new Thread(new Updater(),"om_config_updater").start();
     }
 
     private Iface getConfig() {

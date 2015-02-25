@@ -28,6 +28,7 @@ class FdsCountersMgr;
 /* These are exposed to make it easy to access them */
 extern FdsProcess* g_fdsprocess;
 extern fds_log* g_fdslog;
+// TODO(Rao): Remove this global.  Other than g_fdslog, we shouldn't have any globals
 extern boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 extern fds_log* GetLog();
 
@@ -36,6 +37,7 @@ extern fds_log* GetLog();
  */
 void init_process_globals(const std::string &log_name);
 void init_process_globals(fds_log *log);
+void destroy_process_globals();
 
 /**
  * Generic process class.  It provides the following capabilities
@@ -203,7 +205,7 @@ class FdsProcess : public boost::noncopyable,
     virtual void setupAtExitHandler();
 
     /* Signal handler thread */
-    pthread_t sig_tid_;
+    std::unique_ptr<pthread_t> sig_tid_;
 
     /* Process wide config accessor */
     FdsConfigAccessor conf_helper_;

@@ -4,6 +4,7 @@
 # philippe@formationds.com
 import fcntl
 import logging
+import hashlib
 import os
 import random
 import re
@@ -15,6 +16,7 @@ import sys
 import time
 from subprocess import list2cmdline
 
+import config
 import config_parser
 import testsets.testcases.fdslib.TestUtils as TestUtils 
 
@@ -25,6 +27,65 @@ log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
 
+def hash_file_content(path):
+    '''
+    Hash the file content using MD5, and store the hash key for later. If
+    The file content changed, or was corrupted, the hash key will show it.
+     
+    Attributes:
+    -----------
+    fname : str
+        the name of the file to be hashed
+    
+    Returns:
+    --------
+    str: a MD5 hash key
+    '''
+    try:
+        if not os.path.exists(path):
+            raise IOError, "File does not exist"
+        m = hashlib.md5()
+        with open(path, 'r') as f:
+            data = f.read(1024)
+            if len(data) == 0:
+                return None
+            m.update(data)
+            return m.hexdigest()
+        return encode
+    except Exception, e:
+        log.exception(e)
+            
+def create_file_sample(fname, size, unit="M"):
+    '''
+    Create a sample data file for testing purpose.
+    
+    Attributes:
+    -----------
+    fname : str
+        the same of the file to be created
+    size : int
+        the size of the file, in unit
+    unit : str
+        specify the file's size, either in Megabytes(M) or Gigabytes (G)
+    
+    Returns:
+    --------
+    bool : True or False, indicating if the file was created successful.
+    '''
+    try:
+        if unit not in ["M", "G"]:
+            log.warning("Invalid Unit size. Must be Megabytes(M) or " \
+                "Gigabytes(G). Will default to Megabytes")
+            unit = "M"
+        path = os.path.join(config.SAMPLE_DIR, fname)
+        cmd = "fallocate -l %s%s %s" % (size, unit, path)
+        subprocess.call([cmd], shell=True)
+        log.info("Created file %s of size %s%s" % (fname, size, unit))
+        return True
+    except Exception, e:
+        log.exception(e)
+        return False
+        
 def is_valid_ip(ip):
     '''
     Check if an user specified ip address is valid.
@@ -126,10 +187,10 @@ def get_user_token(user, password, host, port, secure, validate):
 
     url = '%s://%s:%d/api/auth/token?login=%s&password=%s' % (proto, host,port,
                                                               user, password)
-    log.info("Getting credentials from: ", url)
+    #log.info("Getting credentials from: ", url)
     r = requests.get(url, verify=validate)
     rjson = r.json()
-    log.info(rjson)
+    #log.info(rjson)
     return rjson['token']
 
 

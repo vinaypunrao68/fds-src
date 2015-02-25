@@ -4,7 +4,7 @@ package com.formationds.xdi.swift;
  */
 
 import com.formationds.apis.ApiException;
-import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.apis.ErrorCode;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;

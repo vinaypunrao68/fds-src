@@ -4,7 +4,8 @@
 
 #include <string>
 #include <fdsp_utils.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/am_service_types.h>
+#include <fdsp/dm_service_types.h>
 #include <fds_resource.h>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -107,8 +108,7 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
     std::ostringstream oss;
     oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest)
 	<< " Volume UUID " << std::hex << putObj.volume_id << std::dec
-	<< " Object length " << putObj.data_obj_len
-	<< " DLT version " << putObj.dlt_version;
+	<< " Object length " << putObj.data_obj_len;
     return oss.str();
 }
 
@@ -212,8 +212,7 @@ std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
 {
     std::ostringstream oss;
     oss << " DeleteObjectMsg " << ObjectID(delMsg.objId.digest)
-	<< " Volume UUID " << std::hex << delMsg.volId << std::dec
-	<< " DLT Version " << delMsg.dlt_version;
+	<< " Volume UUID " << std::hex << delMsg.volId << std::dec;
     return oss.str();
 }
 
@@ -266,7 +265,13 @@ std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {
 
 std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
     std::ostringstream oss;
-    oss << " GetBucketRspMsg(count: " << msg.blob_info_list.size() << ")";
+    oss << " GetBucketRspMsg(count: " << msg.blob_descr_list.size() << ")";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg) {
+    std::ostringstream oss;
+    oss << " DeleteBlobMsg ";
     return oss.str();
 }
 

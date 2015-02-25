@@ -22,8 +22,8 @@
 namespace fds {
 
 /* Processwide globals from fds_process.h */
-// TODO(Rao): Ideally we shouldn't have globals.  As we slowly migrate towards not having
-// globals, these should go away.  We shou
+// TODO(Rao): Ideally we shouldn't have globals (g_fdslog maybe an exception).  As we slowly
+// migrate towards not having globals, these should go away.
 
 FdsProcess *g_fdsprocess                    = NULL;
 fds_log *g_fdslog                           = NULL;
@@ -43,6 +43,13 @@ void init_process_globals(fds_log *log)
     g_cntrs_mgr.reset(new FdsCountersMgr(net::get_my_hostname()+".unknown"));
 }
 
+void destroy_process_globals() {
+    if (g_fdslog) {
+        delete g_fdslog;
+        g_fdslog = nullptr;
+    }
+}
+
 CommonModuleProviderIf* getModuleProvider() {
     return g_fdsprocess;
 }
@@ -53,6 +60,9 @@ CommonModuleProviderIf* getModuleProvider() {
 */
 FdsProcess::FdsProcess()
 {
+    mod_vectors_ = nullptr;
+    proc_root = nullptr;
+    proc_thrp = nullptr;
 }
 
 /**
@@ -149,15 +159,8 @@ void FdsProcess::init(int argc, char *argv[],
         }
         /* If threadpool option is specified, create one. */
         if (conf_helper_.exists("threadpool")) {
-            int max_task, spawn_thres, idle_sec, min_thr, max_thr;
-
-            max_task    = conf_helper_.get<int>("threadpool.max_task", 10);
-            spawn_thres = conf_helper_.get<int>("threadpool.spawn_thres", 5);
-            idle_sec    = conf_helper_.get<int>("threadpool.idle_sec", 3);
-            min_thr     = conf_helper_.get<int>("threadpool.min_thread", 3);
-            max_thr     = conf_helper_.get<int>("threadpool.max_thread", 8);
-            proc_thrp   = new fds_threadpool(max_task, spawn_thres,
-                                             idle_sec, min_thr, max_thr);
+            int num_thr = conf_helper_.get<int>("threadpool.num_threads", 10);
+            proc_thrp   = new fds_threadpool(num_thr);
         }
     } else {
         g_fdslog  = new fds_log(def_log_file, proc_root->dir_fds_logs());
@@ -199,19 +202,18 @@ FdsProcess::~FdsProcess()
     }
     /* cleanup process wide globals */
     g_fdsprocess = nullptr;
-    delete g_fdslog;
 
     /* Terminate signal handling thread */
-    int rc = pthread_kill(sig_tid_, SIGTERM);
-    fds_assert(rc == 0);
-    rc = pthread_join(sig_tid_, NULL);
-    fds_assert(rc == 0);
-
-    if (proc_thrp != NULL) {
-        delete proc_thrp;
+    if (sig_tid_) {
+        int rc = pthread_kill(*sig_tid_, SIGTERM);
+        fds_assert(rc == 0);
+        rc = pthread_join(*sig_tid_, NULL);
+        fds_assert(rc == 0);
     }
-    delete proc_root;
-    delete mod_vectors_;
+
+    if (proc_thrp) delete proc_thrp;
+    if (proc_root) delete proc_root;
+    if (mod_vectors_) delete mod_vectors_;
 }
 
 void FdsProcess::proc_pre_startup() {}
@@ -350,7 +352,8 @@ void FdsProcess::setup_sig_handler()
     fds_assert(rc == 0);
 
     // Joinable thread
-    rc = pthread_create(&sig_tid_, 0, FdsProcess::sig_handler, 0);
+    sig_tid_.reset(new pthread_t);
+    rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, 0);
     fds_assert(rc == 0);
 }
 

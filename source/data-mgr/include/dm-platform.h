@@ -26,7 +26,7 @@ DBG(DECLARE_FLAG(dm_drop_cat_queries));
 DBG(DECLARE_FLAG(dm_drop_cat_updates));
 
 /**
- * This class provides plugin for the endpoint run by DmPlatform
+ * This class provides plug-in for the endpoint run by DmPlatform
  */
 class DMEpPlugin: public EpEvtPlugin
 {

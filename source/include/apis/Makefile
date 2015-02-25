@@ -9,3 +9,6 @@ user_ar_libs     := fds-xdi
 fds-xdi          := $(user_cpp)
 
 include $(topdir)/Makefile.incl
+
+clean:
+	rm *.h *.cpp

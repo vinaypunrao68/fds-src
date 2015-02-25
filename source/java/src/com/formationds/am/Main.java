@@ -146,7 +146,6 @@ public class Main {
                 new FdsAuthorizer(configCache) :
                 new DumbAuthorizer();
 
-        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer);
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
         AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
@@ -154,6 +153,8 @@ public class Main {
                 new FakeAsyncAm() :
                 new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
+
+        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, asyncAm);
 
         // TODO: should XdiAsync use omCachedConfigProxy too?
         Supplier<XdiAsync> factory = () -> new XdiAsync(asyncAm,

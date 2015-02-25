@@ -28,8 +28,6 @@ using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
  */
 class SvcRequestPool : HasModuleProvider {
  public:
-    static uint64_t SVC_UNTRACKED_REQ_ID;
-
     SvcRequestPool(CommonModuleProviderIf *moduleProvider,
                    const fpi::SvcUuid &selfUuid,
                    PlatNetSvcHandlerPtr handler);
@@ -44,16 +42,15 @@ class SvcRequestPool : HasModuleProvider {
 
     void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
 
-    static fpi::AsyncHdr newSvcRequestHeader(const SvcRequestId& reqId,
-                                             const fpi::FDSPMsgTypeId &msgTypeId,
-                                             const fpi::SvcUuid &srcUuid,
-                                             const fpi::SvcUuid &dstUuid);
-    static boost::shared_ptr<fpi::AsyncHdr> newSvcRequestHeaderPtr(
-            const SvcRequestId& reqId,
-            const fpi::FDSPMsgTypeId &msgTypeId,
-            const fpi::SvcUuid &srcUuid,
-            const fpi::SvcUuid &dstUuid);
-    static fpi::AsyncHdr swapSvcReqHeader(const fpi::AsyncHdr &reqHdr);
+    fpi::AsyncHdr newSvcRequestHeader(const SvcRequestId& reqId,
+                                      const fpi::FDSPMsgTypeId &msgTypeId,
+                                      const fpi::SvcUuid &srcUuid,
+                                      const fpi::SvcUuid &dstUuid);
+    boost::shared_ptr<fpi::AsyncHdr> newSvcRequestHeaderPtr(
+        const SvcRequestId& reqId,
+        const fpi::FDSPMsgTypeId &msgTypeId,
+        const fpi::SvcUuid &srcUuid,
+        const fpi::SvcUuid &dstUuid);
 
     LFMQThreadpool* getSvcSendThreadpool();
     LFMQThreadpool* getSvcWorkerThreadpool();
@@ -61,6 +58,13 @@ class SvcRequestPool : HasModuleProvider {
 
     SvcRequestCounters* getSvcRequestCntrs() const;
     SvcRequestTracker* getSvcRequestTracker() const;
+    /// Sets a DLT manager with the pool so that it
+    /// be used to set DLT versions on created headers.
+    /// If it's not set, the version will default to invalid.
+    void setDltManager(DLTManagerPtr dltManager);
+
+    static fpi::AsyncHdr swapSvcReqHeader(const fpi::AsyncHdr &reqHdr);
+    static uint64_t SVC_UNTRACKED_REQ_ID;
 
  protected:
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);
@@ -89,6 +93,8 @@ class SvcRequestPool : HasModuleProvider {
     SvcRequestCounters *svcRequestCntrs_;
     /* Svc request handler */
     PlatNetSvcHandlerPtr svcReqHandler_;
+    /* DLT manager to use for setting/checking request routing */
+    DLTManagerPtr dltMgr;
 };
 extern SvcRequestPool *gSvcRequestPool;
 }  // namespace fds

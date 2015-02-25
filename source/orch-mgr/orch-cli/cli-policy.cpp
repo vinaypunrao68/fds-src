@@ -120,19 +120,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         ("domain-id,k", po::value<int>(&pol_domain_id)->default_value(0),
             "policy-argument: domain id to apply the policy")
         ("rel-prio,r", po::value<int>(&pol_rel_priority),
-            "policy-arugment: relative priority")
-        ("auto-tier", po::value<std::string>(&pol_tier_sched),
-            "policy-argument: set auto-tier option [on|off]")
-        ("auto-tier-migration", po::value<std::string>(&pol_tier_domain),
-            "policy-argument: set auto-tier to whole domain [on|off]")
-        ("vol-type",
-            po::value<std::string>(&pol_tier_media_arg)->default_value("ssd"),
-            "policy-argument: set volume tier type [ssd|disk|hybrid|hybrid_prefcap]")
-        ("tier-pct", po::value<int>(&pol_tier_pct)->default_value(100),
-            "policy-argument: set storage percentage using the tier")
-        ("tier-prefetch,A",
-            po::value<std::string>(&pol_tier_algo)->default_value("mru"),
-            "policy-argument: set tier prefetch algorithm [mru|random|arc]");
+         "policy-arugment: relative priority");
 
     po::store(po::command_line_parser(param->p_argc, param->p_argv).
             options(desc).allow_unregistered().run(), vm);
@@ -142,84 +130,7 @@ VolPolicyCLI::cli_exec_cmdline(SysParams const *const param)
         std::cout << desc << std::endl;
         return true;
     }
-    int tier_opt = 0;
-    pol_tier_media = fdp::TIER_MEIDA_NO_VAL;
-    if (vm.count("vol-type")) {
-        if (pol_tier_media_arg == "ssd") {
-            pol_tier_media = fdp::TIER_MEDIA_SSD;
-        } else if (pol_tier_media_arg == "disk") {
-            pol_tier_media = fdp::TIER_MEDIA_HDD;
-        } else if (pol_tier_media_arg == "hybrid") {
-            pol_tier_media = fdp::TIER_MEDIA_HYBRID;
-        } else {
-            pol_tier_media = fdp::TIER_MEDIA_HYBRID_PREFCAP;
-        }
-        tier_opt++;
-    }
-    if (vm.count("tier-prefetch")) {
-        if (pol_tier_algo == "mru") {
-            pol_tier_prefetch = fdp::PREFETCH_MRU;
-        } else if (pol_tier_algo == "random") {
-            pol_tier_prefetch = fdp::PREFETCH_RAND;
-        } else {
-            pol_tier_prefetch = fdp::PREFETCH_ARC;
-        }
-        tier_opt++;
-    }
-    if (vm.count("auto-tier")) {
-        struct fdp::tier_pol_time_unit req;
-
-        if (pol_vol_id == 0) {
-            std::cout << "Need volume id with --auto-tier" << std::endl;
-            return true;
-        }
-        memset(&req, 0, sizeof(req));
-        if (pol_tier_sched == "on") {
-            req.tier_period.ts_sec = TIER_SCHED_ACTIVATE;
-        } else if (pol_tier_sched == "off") {
-            req.tier_period.ts_sec = TIER_SCHED_DEACTIVATE;
-        } else {
-            std::cout << "Valid option is 'on' or 'off' after --auto-tier" << std::endl;
-            return true;
-        }
-        pol_tier_pct = 100;
-        if ((pol_tier_pct < 0) || (pol_tier_pct > 100)) {
-            std::cout << "Media tier percentage must be between 0-100%" << std::endl;
-            return true;
-        }
-        std::cout << "Vol id " << pol_vol_id << ", pct " << pol_tier_pct << std::endl;
-        std::cout << "Schedule " << pol_tier_sched << std::endl;
-        std::cout << "Media " << pol_tier_media_arg << std::endl;
-        std::cout << "Send to OM tier schedule" << std::endl;
-
-        req.tier_vol_uuid      = pol_vol_id;
-        req.tier_media         = pol_tier_media;
-        req.tier_media_pct     = pol_tier_pct;
-        req.tier_prefetch      = pol_tier_prefetch;
-        req.tier_domain_policy = false;
-
-        cli_client->applyTierPolicy(req);
-    }
-    if (vm.count("auto-tier-migration")) {
-        struct fdp::tier_pol_time_unit dom_req;
-
-        memset(&dom_req, 0, sizeof(dom_req));
-        if (pol_domain_id == 0) {
-            std::cout << "Need domain id with --auto-tier" << std::endl;
-            return true;
-        }
-        if (pol_tier_domain == "on") {
-            dom_req.tier_period.ts_sec = TIER_SCHED_ACTIVATE;
-        } else if (pol_tier_domain == "off") {
-            dom_req.tier_period.ts_sec = TIER_SCHED_DEACTIVATE;
-        } else {
-            std::cout << "Valid option is 'on' or 'off' after --auto-tier-migration\n";
-        }
-        dom_req.tier_domain_policy = true;
-        dom_req.tier_domain_uuid   = pol_domain_id;
-
-        cli_client->applyTierPolicy(dom_req);
-    }
+    // JUST DELETE THIS FILE
     return true;
 }
 

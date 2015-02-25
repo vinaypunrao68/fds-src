@@ -74,6 +74,9 @@ struct SvcUuidHash {
 using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
 using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
 
+template<class T>
+extern boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
+                                           const bool &blockOnConnect);
 /**
 * @brief Overall manager class for service layer
 */
@@ -104,6 +107,16 @@ struct SvcMgr : HasModuleProvider, Module {
     * @brief 
     */
     SvcRequestTracker* getSvcRequestTracker() const;
+
+    /**
+    * @brief 
+    */
+    void startServer();
+
+    /**
+    * @brief
+    */
+    void stopServer();
 
     /**
     * @brief Updates service handles based on the entries from service map
@@ -156,6 +169,12 @@ struct SvcMgr : HasModuleProvider, Module {
     *
     */
     fpi::SvcInfo getSelfSvcInfo() const;
+
+    /**
+    * @brief 
+    *
+    */
+    bool getSvcInfo(const fpi::SvcUuid &svcUuid, fpi::SvcInfo& info) const;
 
     /**
     * @brief Return svc port
@@ -213,6 +232,13 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     void handleSvcError(const fpi::SvcUuid &srcSvc, const Error &e);
 
+    /**
+     * @brief Accessor for service request handler
+     */
+    inline PlatNetSvcHandlerPtr getSvcRequestHandler() const {
+        return svcRequestHandler_;
+    }
+
  protected:
     /**
     * @brief For getting service handle.
@@ -226,7 +252,7 @@ struct SvcMgr : HasModuleProvider, Module {
     bool getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) const;
 
     /* This lock protects svcHandleMap_ */
-    fds_mutex svcHandleMapLock_;
+    mutable fds_mutex svcHandleMapLock_;
     /* Map of service handles */
     SvcHandleMap svcHandleMap_;
 
@@ -296,6 +322,13 @@ struct SvcHandle : HasModuleProvider {
     */
     void updateSvcHandle(const fpi::SvcInfo &newInfo);
 
+    /**
+    * @brief 
+    *
+    * @param info
+    */
+    void getSvcInfo(fpi::SvcInfo &info) const;
+
     std::string logString() const;
 
  protected:
@@ -323,7 +356,7 @@ struct SvcHandle : HasModuleProvider {
     void markSvcDown_();
 
     /* Lock for protecting svcInfo_ and rpcClient_ */
-    fds_mutex lock_;
+    mutable fds_mutex lock_;
     /* Service information */
     fpi::SvcInfo svcInfo_;
     /* Rpc client.  Typcially this is PlatNetSvcClient */

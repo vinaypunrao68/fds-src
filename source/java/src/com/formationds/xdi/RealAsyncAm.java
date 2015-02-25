@@ -1,6 +1,7 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
@@ -8,11 +9,8 @@ import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
-import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.server.TServer;
-import org.apache.thrift.server.TSimpleServer;
-import org.apache.thrift.transport.TFramedTransport;
-import org.apache.thrift.transport.TServerSocket;
+import org.apache.thrift.server.TNonblockingServer;
+import org.apache.thrift.transport.TNonblockingServerSocket;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -28,24 +26,45 @@ public class RealAsyncAm implements AsyncAm {
     private AsyncRequestStatistics statistics;
 
     public RealAsyncAm(AsyncAmServiceRequest.Iface oneWayAm, int port) throws Exception {
+        this(oneWayAm, port, 2, TimeUnit.SECONDS);
+    }
+
+    public RealAsyncAm(AsyncAmServiceRequest.Iface oneWayAm, int port, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
         this.oneWayAm = oneWayAm;
         this.port = port;
         statistics = new AsyncRequestStatistics();
-        responseListener = new AsyncAmResponseListener(2, TimeUnit.SECONDS);
+        responseListener = new AsyncAmResponseListener(timeoutDuration, timeoutDurationUnit);
     }
 
     @Override
     public void start() throws Exception {
-        AsyncAmServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncAmServiceResponse.Processor<>(responseListener);
+        start(true);
+    }
 
-        TSimpleServer server = new TSimpleServer(new TServer.Args(new TServerSocket(port))
-                .protocolFactory(new TBinaryProtocol.Factory())
-                .transportFactory(new TFramedTransport.Factory())
-                .processor(processor));
+    public void start(boolean connectedMode) throws Exception {
+        try {
+            if (connectedMode) {
+                AsyncAmServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncAmServiceResponse.Processor<>(responseListener);
 
-        new Thread(() -> server.serve(), "AM async listener thread").start();
-        handshake(port).get();
-        LOG.info("Started async AM listener on port " + port);
+                TNonblockingServer server = new TNonblockingServer(
+                        new TNonblockingServer.Args(new TNonblockingServerSocket(port))
+                                .processor(processor));
+
+                new Thread(() -> server.serve(), "AM async listener thread").start();
+                LOG.info("Started async AM listener on port " + port);
+            }
+
+            responseListener.start();
+
+            if (connectedMode) {
+                handshake(port).get();
+                LOG.info("Async AM handshake done");
+            }
+
+        } catch (Exception e) {
+            LOG.error("Error starting async AM", e);
+            throw e;
+        }
     }
 
     private <T> CompletableFuture<T> scheduleAsync(ConsumerWithException<RequestId> consumer) {

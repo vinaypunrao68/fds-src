@@ -49,13 +49,12 @@ OmSvcHandler::OmSvcHandler()
 
     /* svc->om response message */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetBucketStats, GetBucketStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlCreateBucket, CreateBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDeleteBucket, DeleteBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
-    REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcMapMsg, GetSvcMap);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcMapMsg, getSvcMap);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
 
     // TODO(bszmyd): Tue 20 Jan 2015 10:24:45 PM PST
     // This isn't probably where this should go, but for now it doesn't make
@@ -80,7 +79,7 @@ void OmSvcHandler::init_svc_event_handlers() {
 
            if (agent) {
                agent->set_node_state(FDS_Node_Down);
-               domain->om_service_down(error, svc);
+               domain->om_service_down(error, svc, agent->om_agent_type());
            } else {
                LOGERROR << "unknown service: " << svc;
            }
@@ -134,31 +133,7 @@ OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::    GetBucketStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlGetBucketStats> &msg)
-{
-    fpi::FDSP_GetDomainStatsType * get_stats_msg = &msg->gds;
-
-    try {
-        int domain_id = get_stats_msg->domain_id;
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        NodeUuid svc_uuid(hdr->msg_src_uuid.svc_uuid);
-
-        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id
-                  << " from node " << hdr->msg_src_uuid.svc_uuid << ":"
-                  << std::hex << svc_uuid.uuid_get_val() << std::dec;
-
-        /* Use default domain for now... */
-        local->om_send_bucket_stats(5, svc_uuid, msg->req_cookie);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing get domain stats";
-    }
-}
-
-void
-OmSvcHandler::    CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+OmSvcHandler::CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlCreateBucket> &msg)
 {
     const FdspCrtVolPtr crt_buck_req(new fpi::FDSP_CreateVolType());
@@ -184,7 +159,7 @@ OmSvcHandler::    CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::    DeleteBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+OmSvcHandler::DeleteBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlDeleteBucket> &msg)
 {
     LOGNORMAL << " receive delete bucket from " << hdr->msg_src_uuid.svc_uuid;
@@ -195,7 +170,7 @@ OmSvcHandler::    DeleteBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::    ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+OmSvcHandler::ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlModifyBucket> &msg)
 {
     LOGNORMAL << " receive delete bucket from " << hdr->msg_src_uuid.svc_uuid;
@@ -205,15 +180,7 @@ OmSvcHandler::    ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::    PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlPerfStats> &msg)
-{
-    extern OrchMgr *gl_orch_mgr;
-    gl_orch_mgr->NotifyPerfstats(hdr, &msg->perfstats);
-}
-
-void
-OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlSvcEvent> &msg)
 {
     LOGDEBUG << " received " << msg->evt_code
@@ -230,7 +197,7 @@ OmSvcHandler::    SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::    GetSvcMap(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+OmSvcHandler::getSvcMap(boost::shared_ptr<fpi::AsyncHdr>&hdr,
                  boost::shared_ptr<fpi::GetSvcMapMsg> &msg)
 {
     Error err(ERR_OK);
@@ -259,6 +226,19 @@ void OmSvcHandler::getSvcMap(std::vector<SvcInfo> & _return,
     // TODO(Sanjay): Impl
     // get the  serice map from config DB.
     fds_panic("Unimpl");
+}
+
+void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                  boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg)
+{
+    LOGNORMAL << "Received abort token migration msg from "
+              << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+
+    // tell DLT state machine about abort (error state)
+    dltMod->dlt_deploy_event(DltErrorFoundEvt(NodeUuid(hdr->msg_src_uuid),
+                                              Error(ERR_SM_TOK_MIGRATION_ABORTED)));
 }
 
 }  //  namespace fds
