@@ -1,5 +1,7 @@
 package com.formationds.iodriver;
 
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
@@ -14,6 +16,7 @@ import java.util.stream.Stream;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
@@ -38,6 +41,52 @@ import com.formationds.iodriver.workloads.Workload;
  */
 public final class Config
 {
+    /**
+     * The interactive console.
+     */
+    public final static class Console
+    {
+        /**
+         * Get the best guess on the current console height.
+         * 
+         * @return The current console height, or 25 if it cannot be determined.
+         */
+        public static int getHeight()
+        {
+            return getEnvInt("LINES", 25);
+        }
+
+        /**
+         * Get the best guess on the current console width.
+         * 
+         * @return The current console width, or 80 if it cannot be determined.
+         */
+        public static int getWidth()
+        {
+            return getEnvInt("COLUMNS", 80);
+        }
+
+        private static int getEnvInt(String varName, int defaultValue)
+        {
+            if (varName == null) throw new NullArgumentException("varName");
+
+            String valueString = System.getenv(varName);
+            if (valueString == null)
+            {
+                return defaultValue;
+            }
+
+            try
+            {
+                return Integer.parseInt(valueString);
+            }
+            catch (NumberFormatException e)
+            {
+                return defaultValue;
+            }
+        }
+    }
+
     /**
      * Default static configuration not pulled from command-line.
      */
@@ -351,7 +400,7 @@ public final class Config
         }
         @SuppressWarnings("unchecked")
         WorkloadT retval = (WorkloadT)workload;
-        
+
         return retval;
     }
 
@@ -367,38 +416,101 @@ public final class Config
     }
 
     /**
+     * Determine if help should be shown. This is true if either the user requests it or the
+     * command-line cannot be parsed.
+     * 
+     * @return Whether help should be shown.
+     */
+    public boolean isHelpNeeded()
+    {
+        CommandLine commandLine;
+        try
+        {
+            commandLine = getCommandLine();
+        }
+        catch (ParseException e)
+        {
+            return true;
+        }
+        return commandLine.hasOption("help");
+    }
+
+    /**
+     * Show the command-line help on standard output.
+     */
+    public void showHelp()
+    {
+        showHelp(System.out);
+    }
+    
+    /**
+     * Show the command-line help.
+     * 
+     * @param stream Where to show the help.
+     */
+    public void showHelp(PrintStream stream)
+    {
+        if (stream == null) throw new NullArgumentException("stream");
+        
+        // We intentionally don't close a stream we don't own.
+        PrintWriter writer = new PrintWriter(stream);
+        showHelp(writer);
+    }
+    
+    /**
+     * Show the command-line help.
+     * 
+     * @param writer Where to show the help.
+     */
+    public void showHelp(PrintWriter writer)
+    {
+        if (writer == null) throw new NullArgumentException("writer");
+        
+        HelpFormatter formatter = new HelpFormatter();
+        int width = Console.getWidth();
+        Options options = getOptions();
+        formatter.printHelp(writer, width, "iodriver", null, options, 0, 0, null, true);
+    }
+
+    /**
      * Raw command-line arguments.
      */
     private final String[] _args;
 
     /**
-     * Workloads that may be chosen to run.
+     * Workloads that may be chosen to run, {@code null} prior to
+     * {@link #getAvailableWorkloadNames()}.
      */
     private Collection<String> _availableWorkloadNames;
 
     /**
-     * The parsed command-line. {@code null} prior to parsing.
+     * The parsed command-line. {@code null} prior to {@link #getCommandLine()}.
      */
     private CommandLine _commandLine;
 
     /**
-     * Maximum IOPS allowed by the system.
+     * Maximum IOPS allowed by the system, {@code -1} prior to {@link #getSystemIopsMax()}.
      */
     private int _disk_iops_max;
 
     /**
-     * Minimum IOPS guaranteed by the system.
+     * Minimum IOPS guaranteed by the system, {@code -1} prior to {@link #getSystemIopsMin()}.
      */
     private int _disk_iops_min;
 
     /**
-     * Runtime configuration.
+     * The command-line options supported. {@code null} prior to {@link #getOptions()}.
+     */
+    private Options _options;
+
+    /**
+     * Runtime configuration {@link #getRuntimeConfig()}.
      */
     private Fds.Config _runtimeConfig;
 
     /**
-     * The name of the user-selected workload. {@code null} prior to command-line parsing or if not
-     * specified.
+     * The name of the user-selected workload. {@code null} prior to
+     * {@link #getSelectedWorkloadName()} or if not specified.
      */
     private String _workloadName;
 
@@ -449,19 +561,34 @@ public final class Config
     {
         if (_commandLine == null)
         {
-            Options options = new Options();
-            options.addOption("h", "help", false, "Show this help screen.");
-            options.addOption("w",
-                              "workload",
-                              true,
-                              "The workload to run. Available options are "
-                                      + String.join(", ", getAvailableWorkloadNames()) + ".");
-
+            Options options = getOptions();
             CommandLineParser parser = new PosixParser();
 
             _commandLine = parser.parse(options, _args);
         }
         return _commandLine;
+    }
+
+    /**
+     * Get the supported command-line options.
+     * 
+     * @return The current property value.
+     */
+    private Options getOptions()
+    {
+        if (_options == null)
+        {
+            Options newOptions = new Options();
+            newOptions.addOption("h", "help", false, "Show this help screen.");
+            newOptions.addOption("w",
+                                 "workload",
+                                 true,
+                                 "The workload to run. Available options are "
+                                         + String.join(", ", getAvailableWorkloadNames()) + ".");
+            
+            _options = newOptions;
+        }
+        return _options;
     }
 
     /**

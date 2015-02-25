@@ -14,7 +14,13 @@ sed -ri 's/(\s*disk_iops_min\s*=\s*)[0-9]+\s*$/\150/' "${PLATFORM_CONF}" || exit
 "${FDS_SRC}"/tools/fds cleanstart || exit 1
 
 # We'll get 500s (sub-error 4003) without this.
-sleep 20
+echo 'Waiting 5 seconds to start so we don't get errors trying to create volumes.'
+sleep 5
+
+# Update the console size.
+eval "$(resize)"
+export LINES
+export COLUMNS
 
 java -classpath $CLASSPATH \
      -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=4005 \

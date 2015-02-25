@@ -31,6 +31,10 @@ public final class Main
             if (args == null) throw new NullArgumentException("args");
 
             Config config = new Config(args);
+            if (config.isHelpNeeded())
+            {
+                config.showHelp();
+            }
 
             WorkflowEventListener listener = config.getListener();
             try (ConsoleProgressReporter reporter =
