@@ -72,26 +72,7 @@ enum NodeSvcMask {
     NODE_SVC_GENERAL  = 0x1000
 }
 
-struct StorCapMsg {
-    1: i32                    disk_iops_max,
-    2: i32                    disk_iops_min,
-    3: double                 disk_capacity,
-    4: i32                    disk_latency_max,
-    5: i32                    disk_latency_min,
-    6: i32                    ssd_iops_max,
-    7: i32                    ssd_iops_min,
-    8: double                 ssd_capacity,
-    9: i32                    ssd_latency_max,
-    10: i32                   ssd_latency_min,
-    11: i32                   ssd_count,
-    12: i32                   disk_type,
-    13: i32                   disk_count,
-}
-
 struct SvcVer {
     1: required i16           ver_major,
     2: required i16           ver_minor,
 }
-
-/* A detailed list of blob stats. */
-typedef list<BlobDescriptor> BlobDescriptorListType

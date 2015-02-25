@@ -155,9 +155,12 @@ struct GetBucketMsg {
   6: bool                      descending = false;
 }
 
+/* A detailed list of blob stats. */
+typedef list<common.BlobDescriptor> BlobDescriptorListType
+
 struct GetBucketRspMsg {
   //response
-  1: required common.BlobDescriptorListType     blob_descr_list;
+  1: required BlobDescriptorListType     blob_descr_list;
 }
 
 struct GetDmStatsMsg {
