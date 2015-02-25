@@ -7,7 +7,6 @@ topdir         := .
 #
 user_build_dir :=                       \
     fdsp                                \
-    apis                                \
     include                             \
     osdep                               \
     net-service                         \

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include "fdsp/common_types.h"
-#include "apis/apis_types.h"
+#include "fdsp/xdi_types.h"
 #include "fds_error.h"
 
 namespace fds {

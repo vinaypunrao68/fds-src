@@ -3,8 +3,8 @@
  */
 #include <arpa/inet.h>
 
-#include <apis/snapshot_types.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/snapshot_types.h>
+#include <fdsp/ConfigurationService.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/server/TSimpleServer.h>

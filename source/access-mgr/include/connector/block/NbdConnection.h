@@ -13,7 +13,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/lockfree/queue.hpp>
 
-#include "apis/configuration_service_types.h"
+#include "fdsp/configuration_service_types.h"
 #include "fds_types.h"
 #include "connector/block/common.h"
 #include "connector/block/NbdOperations.h"

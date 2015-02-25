@@ -11,6 +11,3 @@ fds-fdsp         := $(filter-out $(local_ice),$(user_cpp))
 #fds-fdsp-ice     := $(local_ice)
 
 include $(topdir)/Makefile.incl
-
-clean:
-	rm -f *.h *.cpp

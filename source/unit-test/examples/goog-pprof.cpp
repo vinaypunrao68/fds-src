@@ -13,7 +13,7 @@
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

@@ -4,7 +4,7 @@
 #include <string>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
 #include <DataGen.hpp>
 #include <boost/make_shared.hpp>
 #include <SvcMsgFactory.h>

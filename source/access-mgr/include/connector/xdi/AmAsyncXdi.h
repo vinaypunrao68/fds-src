@@ -11,7 +11,7 @@
 
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
-#include "apis/AsyncAmServiceResponse.h"
+#include "fdsp/AsyncAmServiceResponse.h"
 #include "concurrency/RwLock.h"
 
 namespace fds

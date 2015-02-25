@@ -13,7 +13,7 @@
 #include <fds_volume.h>
 #include <dlt.h>
 #include <fds_dmt.h>
-#include <apis/configuration_service_types.h>
+#include <fdsp/configuration_service_types.h>
 #include <exception>
 namespace fds {
 struct node_data;

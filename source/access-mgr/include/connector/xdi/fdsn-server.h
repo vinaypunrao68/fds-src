@@ -7,7 +7,7 @@
 #include <string>
 #include <util/Log.h>
 #include <fds_module.h>
-#include <apis/AmService.h>
+#include <fdsp/AmService.h>
 #include <concurrency/Thread.h>
 #include <AmDataApi.h>
 

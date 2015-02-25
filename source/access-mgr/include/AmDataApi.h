@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <fds_module.h>
-#include <apis/AmService.h>
+#include <fdsp/AmService.h>
 
 namespace fds {
 
