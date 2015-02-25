@@ -2,9 +2,9 @@
  * Copyright 2013-2015 Formation Data Systems, Inc.
  */
 
-include "../fdsp/common.thrift"
-include "../fdsp/fds_stream.thrift"
-include "../fdsp/snapshot.thrift"
+include "common.thrift"
+include "fds_stream.thrift"
+include "snapshot.thrift"
 
 namespace cpp fds.apis
 namespace java com.formationds.apis
