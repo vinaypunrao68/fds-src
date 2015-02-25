@@ -27,7 +27,6 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
                                                   std::placeholders::_4);
 
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
-
 }
 
 SmTokenMigrationMgr::~SmTokenMigrationMgr() {

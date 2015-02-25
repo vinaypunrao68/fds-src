@@ -15,7 +15,6 @@ namespace osm {
 #define WRITE_BUFFER_SIZE   50 * 1024 * 1024;
 #define FILTER_BITS_PER_KEY 128  // Todo: Change this to the max size of DiskLoc
 
-
 int doCopyFile(void * arg, const char* fname, fds_uint64_t length) {
     fds_assert(fname && *fname != 0);
 
@@ -62,9 +61,7 @@ ObjectDB::ObjectDB(const std::string& filename,
     write_options.sync = sync_write;
 
     env = new leveldb::CopyEnv(leveldb::Env::Default());
-
     options.env = env;
-
 
     leveldb::Status status = leveldb::DB::Open(options, file, &db);
 
@@ -281,7 +278,12 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
     return err;
 }
 
-
+/** Takes a persistent snapshot of the leveldb in ObjectDB
+ *
+ * @param fileName (i) Directory where the snapshot of leveldb is stored.
+ *
+ * @return ERR_OK if successful, err otherwise.
+ */
 fds::Error ObjectDB::PersistentSnap(const std::string& fileName) {
 
     fds_assert(!fileName.empty());
@@ -305,15 +307,5 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName) {
     return err;
 }
 
-fds::Error ObjectDB::DeleteSnap(const std::string& snapDir) {
-
-    leveldb::Status status = env->DeleteDir(snapDir);
-
-    if (!status.ok()) {
-        return fds::ERR_DISK_FILE_UNLINK_FAILED;
-    } else {
-        return fds::ERR_OK;
-    }
-}
 }  // namespace osm
 }  // namespace fds

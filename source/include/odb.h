@@ -68,8 +68,6 @@ class ObjectDB {
 
     fds::Error PersistentSnap(const std::string& fileName);
 
-    fds::Error DeleteSnap(const std::string& snapDir);
-
     void PrintHistoAll() {
       std::cout << "Microseconds per op:" << std::endl
                 << histo_all.ToString() << std::endl;
