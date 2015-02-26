@@ -201,7 +201,8 @@ var setCustomQos = function( qos ){
 
 // timeline: [{ slider: #, value: #, unit: #index }... ] || preset: <index>
 // qos: { preset: <index>, capacity:, limt:, priority: }
-createVolume = function( name, data_type, qos, timeline, timelineStartTimes ){
+// media policy: SSD_ONLY, HYBRID_ONLY, HDD_ONLY
+createVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineStartTimes ){
     
     goto( 'volumes' );
     browser.sleep( 200 );
@@ -247,18 +248,41 @@ createVolume = function( name, data_type, qos, timeline, timelineStartTimes ){
     if ( qos ){
         
         if ( qos.preset !== undefined && !isNaN( parseInt( qos.preset ) ) ){
-            createEl.all( by.css( '.qos-panel .button-bar-button' )).get( parseInt( qos.preset ) );
+            createEl.all( by.css( '.qos-panel .button-bar-button' )).get( parseInt( qos.preset ) ).click();
         }
         else {
             setCustomQos( qos );
         }
     }
+
+    if ( mediaPolicy ){
+        
+        var index = 0;
+        
+        switch( mediaPolicy ){
+            case 'SSD_ONLY':
+                index = 0;
+                break;
+            case 'HDD_ONLY':
+                index = 2;
+                break;
+            case 'HYBRID_ONLY':
+                index = 1;
+                break;
+            default: 
+                index = 0;
+                break;
+        }
+        
+        createEl.all( by.css( '.tiering-policy-panel .button-bar-button' )).get( index ).click();
+        
+    }
     
     // set the timeline numbers
     if ( timeline ){
         
-        if ( timeline.preset ){
-            createEl.all( by.css( '.protection-policy .button-bar-button' )).get( parseInt( qos.preset ) );
+        if ( timeline.preset !== undefined && !isNaN( parseInt( timeline.preset ) ) ){
+            createEl.all( by.css( '.protection-policy .button-bar-button' )).get( parseInt( timeline.preset ) ).click();
         }
         else {
             setTimelineTimes( createEl, timeline );

@@ -205,7 +205,7 @@ describe( 'Testing volume creation permutations', function(){
         var qos = { preset: 0 };
         var timeline = { preset: 0 };
         
-        createVolume( 'Dumb One', undefined, qos, timeline );
+        createVolume( 'Dumb One', undefined, qos, 'HYBRID_ONLY', timeline );
 
         browser.sleep( 200 );
         
