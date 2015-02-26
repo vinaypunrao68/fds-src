@@ -5,7 +5,6 @@
 #include <vector>
 #include <iostream>  // NOLINT
 #include <thrift/protocol/TDebugProtocol.h>
-#include <net/RpcFunc.h>
 #include <om-svc-handler.h>
 #include <OmResources.h>
 #include <OmDeploy.h>
