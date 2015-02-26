@@ -118,7 +118,8 @@ class MigrationClient {
 
     /* Add object meta data to the set to be sent to QoS.
      */
-    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bool>>& objMetaDataSet,
+    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
+                                                    fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
                               fds_bool_t lastSet);
 
     void fwdPutObjectCb(SmIoPutObjectReq* putReq,
@@ -206,8 +207,8 @@ class MigrationClient {
      * TODO(Sean):  Need to optimize this.  If sizing is issue, we may
      *              need multiple set of object list and filter against
      *              snapshot multiple times.
-     *              1MB can hold 37,449 objects (28 bytes for <objectID+refcnt>)
-     *              1GB can hold 38,347,776 objects...
+     *              1MB can hold 23,831 objects (44 bytes for <objectID+refcnt+(volid+refcnt)>)
+     *              1GB can hold 24,443,223 objects...
      *
      * TODO(Sean): Second optimization is how to filter this object lists against the
      *             source SM snapshot.  If filterObjectList is big, then we have to something
@@ -215,7 +216,7 @@ class MigrationClient {
      *             filterObjectList and snapshot, and iterate like merge sort to get
      *             unique objects.
      */
-    std::unordered_map<ObjectID, fds_uint64_t, ObjectHash> filterObjectSet;
+    std::unordered_map<ObjectID, fpi::CtrlObjectMetaDataSync, ObjectHash> filterObjectSet;
 
     /**
      * Maintain the message from the destination SM to determine if all

@@ -11,6 +11,7 @@
 #include <MigrationClient.h>
 #include <fds_process.h>
 #include <MigrationTools.h>
+#include "fdsp/om_service_types.h"
 
 #include <object-store/SmDiskMap.h>
 
@@ -189,7 +190,8 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
 /* TODO(Gurpreet): Propogate error to Token Migration Manager
  */
 void
-MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bool>>& objMetaDataSet,
+MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
+                                                            fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
                                       fds_bool_t lastSet)
 {
     Error err(ERR_OK);
@@ -208,7 +210,7 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bo
                                 std::placeholders::_1,
                                 std::placeholders::_2);
 
-    std::vector<std::pair<ObjMetaData::ptr, bool>>::iterator itFirst, itLast;
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>>::iterator itFirst, itLast;
     itFirst = objMetaDataSet.begin();
     itLast = objMetaDataSet.end();
     readDeltaSetReq->deltaSet.assign(itFirst, itLast);
@@ -241,7 +243,14 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
         return;
     }
 
-    std::vector<std::pair<ObjMetaData::ptr, bool>> objMetaDataSet;
+    /* The reconcileFlag in the second is used to determine what action is needed for
+     * metada data.  One of 3 possibilities:
+     * 1) no reconcile -- write out both meta data and object data on the destination SM.
+     * 2) reconcile -- need to reconcile meta data on the destination SM.
+     * 3) overwrite -- overwrite meta data.  The destination SM already has object data, but
+     *                 metadata may be stale.
+     */
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
 
     /* First phase snapshot directory
      */
@@ -289,12 +298,15 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
          */
         auto objectIdFiltered = filterObjectSet.find(objId);
         /* 1) Didn't find the object in the filtered set.  or
-         * 2) Found it, and ref cnt is > 0,
+         * 2) Found it, and state of the object metadat is not the same.
          * Add to the list of object to send back to the destionation SM.
          *
          */
         if (objectIdFiltered == filterObjectSet.end()) {
 
+            /* Didn't find the object in the filter set.  Need to send both
+             * metadata and object
+             */
             ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
 
             /* Get metadata associated with the object. */
@@ -319,7 +331,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
             if (!objMetaDataPtr->isObjCorrupted() && (objMetaDataPtr->getRefCnt() > 0UL)) {
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                            << ": Selecting object " << objMetaDataPtr->logString();
-                objMetaDataSet.emplace_back(objMetaDataPtr, false);
+                objMetaDataSet.emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_NO_RECONCILE);
             } else {
                 if (objMetaDataPtr->isObjCorrupted()) {
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
@@ -350,22 +362,20 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
             /* compare the refcnt of the filteredObject and object in the
              * leveldb snapshot.
              */
-            /* TODO(Sean): Do we need to also check the volume association when filtering
-             *             in the future?
-             */
-            if (objMetaDataPtr->getRefCnt() != objectIdFiltered->second) {
+            if (!objMetaDataPtr->isEqualSyncObjectMetaData(objectIdFiltered->second)) {
                 /* add to the set of objec IDs to be sent to the QoS.
                  */
 
-                /* Note:  we have to deal with snapshot metadata, not from the disk
-                 *        state later.  With active IO, we need to look at if
-                 *        active IOs have change the metadat state, and change
+                /* Note:  we deal with snapshot metadata, not from the disk
+                 *        state.  With active IO, we need to look at if
+                 *        active IOs have change the metadata state, and change
                  *        accordingly on the destination SM.
                  */
                 if (!objMetaDataPtr->isObjCorrupted()) {
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
-                               << ": Selecting object " << objMetaDataPtr->logString();
-                    objMetaDataSet.emplace_back(objMetaDataPtr, false);
+                               << ": Found in filter set with object state change: "
+                               << objMetaDataPtr->logString();
+                    objMetaDataSet.emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_OVERWRITE);
                 } else {
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
                 }
@@ -407,7 +417,14 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         return;
     }
 
-    std::vector<std::pair<ObjMetaData::ptr, bool>> objMetaDataSet;
+    /* The reconcileFlag in the second is used to determine what action is needed for
+     * metada data.  One of 3 possibilities:
+     * 1) no reconcile -- write out both meta data and object data on the destination SM.
+     * 2) reconcile -- need to reconcile meta data on the destination SM.
+     * 3) overwrite -- overwrite meta data.  The destination SM already has object data, but
+     *                 metadata may be stale.
+     */
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
 
     fds_verify(MIG_CLIENT_SECOND_PHASE_DELTA_SET == getMigClientState());
 
@@ -493,7 +510,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                            << ": Selecting object " << objMD.second->logString();
 
                 /* Add to object metadata set */
-                objMetaDataSet.emplace_back(objMD.second, false);
+                objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
             } else {
                 if (objMD.second->isObjCorrupted()) {
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMD.second->logString();
@@ -510,12 +527,20 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
              *    metadata and object didn't migrate, but was resurrected before the second
              *    snapshot.  In this case, we treat it as a new object.
              */
-            if (objMD.first->getRefCnt() == 0) {
-                /* Treat this as a new object. */
-                LOGMIGRATE << "MigClientState=" << getMigClientState()
-                           << ": Object resurrected: Selecting object " << objMD.second->logString();
+            if (objMD.first->getRefCnt() == 0UL) {
+                /* This is counted as resurrection, but migrate only if the second snapshot of the object has
+                 * the ref_cnt > 0.
+                 */
+                if (objMD.second->getRefCnt() > 0UL) {
+                    /* Treat this as a new object. */
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": Object resurrected: Selecting object " << objMD.second->logString();
 
-                objMetaDataSet.emplace_back(objMD.second, false);
+                    objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMD.second->logString();
+                }
             } else {
                 /* Ok. There is change in object metadata.  Calculate the difference
                  * and stuff the diff (ref_cnt's only) to the second of a pair.
@@ -527,7 +552,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                            << ": Diff'ed MetaData " << objMD.second->logString();
 
-                objMetaDataSet.emplace_back(objMD.second, true);
+                objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_RECONCILE);
             }
         }
 
@@ -651,7 +676,7 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
      */
     for (auto& objAndRefCnt : filterSet->objectsToFilter) {
       filterObjectSet.emplace(ObjectID(objAndRefCnt.objectID.digest),
-                              objAndRefCnt.objRefCnt);
+                              objAndRefCnt);
     }
     migClientLock.unlock();
 

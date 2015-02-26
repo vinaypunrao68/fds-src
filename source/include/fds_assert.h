@@ -31,7 +31,7 @@ extern void fds_panic(const char *fmt, ...) panic_attr;
 
 #else   /* DEBUG */
 
-#define fds_assert(expr)
+#define fds_assert(expr) (expr)
 
 #define DBG(statement)
 

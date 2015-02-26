@@ -7,10 +7,12 @@ package com.formationds.commons.model;
 import com.formationds.commons.model.builder.RecurrenceRuleBuilder;
 import com.formationds.commons.model.builder.SnapshotPolicyBuilder;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.commons.model.type.WeekDayOccurrence;
 import com.formationds.commons.model.type.iCalFrequency;
 import com.formationds.commons.model.type.iCalWeekDays;
 import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -136,6 +138,10 @@ public class RecurrenceRuleTest {
     private String edit_json =
         "{\"name\":\"960842085991640633_MONTHLY\",\"recurrenceRule\":{\"FREQ\":\"MONTHLY\",\"BYHOUR\":[2],\"BYMONTHDAY\":[\"1\"]},\"retention\":31622400,\"id\":2,\"use\":true,\"displayName\":\"Monthly\"}";
 
+    private String lastTuesdayJson =
+        "{\"name\":\"960842085991640633_MONTHLY\",\"recurrenceRule\":{\"FREQ\":\"MONTHLY\",\"BYHOUR\":[2],\"BYDAY\":[\"-1TU\"]},\"retention\":31622400,\"id\":2,\"use\":true,\"displayName\":\"Monthly\"}";
+
+    
     @Test
     public void nates() {
         final SnapshotPolicy create =
@@ -147,6 +153,16 @@ public class RecurrenceRuleTest {
             ObjectModelHelper.toObject( edit_json,
                                         SnapshotPolicy.class );
         System.out.println( edit );
+        
+        final SnapshotPolicy lastTuesday = 
+        	ObjectModelHelper.toObject( lastTuesdayJson, SnapshotPolicy.class );
+        
+        List<String> days = lastTuesday.getRecurrenceRule().getDays();
+        
+        Assert.assertEquals( lastTuesday.getRecurrenceRule().getFrequency(), "MONTHLY" );
+        Assert.assertEquals( lastTuesday.getRecurrenceRule().getHours().get( 0 ).intValue(), 2 );
+        Assert.assertEquals( days.size(), 1 );
+        Assert.assertEquals( days.get( 0 ), "-1TU" );
     }
 
     @Test
@@ -154,8 +170,11 @@ public class RecurrenceRuleTest {
         final Numbers<Integer> BYHOUR = new Numbers<>( );
         BYHOUR.add( 12 );
 
-        final WeekDays<iCalWeekDays> BYDAY = new WeekDays<>( );
-        BYDAY.add( iCalWeekDays.FR );
+        final WeekDays<String> BYDAY = new WeekDays<>( );
+        WeekDayOccurrence wdo = new WeekDayOccurrence();
+        wdo.setOccurrence( 0 );
+        wdo.setWeekday( iCalWeekDays.TU );
+        BYDAY.add( wdo.toString() );
 
         final RecurrenceRule rrule =
             new RecurrenceRuleBuilder( iCalFrequency.MINUTELY )

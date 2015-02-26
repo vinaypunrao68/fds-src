@@ -12,8 +12,6 @@
 
 #include <PerfTrace.h>
 #include <ObjMeta.h>
-#include <policy_rpc.h>
-#include <policy_tier.h>
 #include <StorMgr.h>
 #include <NetSession.h>
 #include <fds_timestamp.h>
@@ -266,11 +264,8 @@ void ObjectStorMgr::mod_startup()
          * Register/boostrap from OM
          */
         omClient->initialize();
-        omClient->omc_srv_pol = &sg_SMVolPolicyServ;
         omClient->startAcceptingControlMessages();
         omClient->registerNodeWithOM(modProvider_->get_plf_manager());
-
-        omc_srv_pol = &sg_SMVolPolicyServ;
     }
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
@@ -1009,7 +1004,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
         ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
-        bool reconcileMetaDataOnly = (readDeltaSetReq->deltaSet)[i].second;
+        fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
@@ -1017,11 +1012,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         /* copy metadata to object propagation message. */
         objMetaDataPtr->propagateObjectMetaData(objMetaDataPropagate,
-                                                reconcileMetaDataOnly);
-        /* If reconciling only the metadata, there is no need to read the
-         * data from the object store.
-         */
-        if (!reconcileMetaDataOnly) {
+                                                reconcileFlag);
+
+        /* Read object data, if NO_RECONCILE or OVERWRITE */
+        if (fpi::OBJ_METADATA_NO_RECONCILE == reconcileFlag) {
 
             /* get the object from metadata information. */
             boost::shared_ptr<const std::string> dataPtr =
@@ -1042,7 +1036,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
 
         LOGMIGRATE << "Adding DeltaSet element: " << objID
-                   << " reconcileMetaDataOnly=" << reconcileMetaDataOnly;
+                   << " reconcileFlag=" << reconcileFlag;
     }
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());

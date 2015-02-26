@@ -103,6 +103,7 @@ constexpr char NbdConnection::fourKayZeros[];
 
 bool
 NbdConnection::write_response() {
+    static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
     fds_assert(response);
     fds_assert(total_blocks <= IOV_MAX);
 
@@ -123,9 +124,12 @@ NbdConnection::write_response() {
     }
 
     // Do the write
-    ssize_t nwritten = writev(ioWatcher->fd,
-                              response.get() + current_block,
-                              total_blocks - current_block);
+    ssize_t nwritten = 0;
+    do {
+        nwritten = writev(ioWatcher->fd,
+                          response.get() + current_block,
+                          total_blocks - current_block);
+    } while ((0 > nwritten) && (EINTR == errno));
 
     // Calculate amount we should have written so we can verify the return value
     ssize_t to_write = response[current_block].iov_len;
@@ -138,15 +142,9 @@ NbdConnection::write_response() {
     // Check return value
     if (to_write != nwritten) {
         if (nwritten < 0) {
-            if (errno != EAGAIN && errno != EWOULDBLOCK)
-                { LOGERROR << "Socket write error: [" << strerror(errno) << "]"; }
-            switch (errno) {
-            case EINVAL:   // Indicates logic bug
-                LOGERROR << "Write vector bug";
-                fds_assert(false);
-            case EBADF:
-            case EPIPE:
-                throw connection_closed;
+            if (EAGAIN != errno) {
+                LOGERROR << "Socket write error: [" << strerror(errno) << "]";
+                throw NbdError::connection_closed;
             }
         } else {
             LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
@@ -192,13 +190,14 @@ void
 NbdConnection::hsPostInit(ev::io &watcher) {
     // Accept client ack
     fds_uint32_t ack;
-    ssize_t nread = read(watcher.fd, &ack, sizeof(ack));
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-    } else {
-        ensure(0 == ack);
-        LOGTRACE << "Received " << nread << " byte ack " << ack;
-    }
+    ssize_t nread = 0;
+
+    do {
+        nread = read(watcher.fd, &ack, sizeof(ack));
+    } while ((0 > nread) && (EINTR == errno));
+
+    ensure(0 < nread);
+    ensure(0 == ack);
 }
 
 bool
@@ -227,7 +226,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         LOGNORMAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volDesc);
         if (ERR_OK != err || apis::BLOCK != volDesc.policy.volumeType)
-            throw connection_closed;
+            throw NbdError::connection_closed;
     }
 
     // Fix endianness
@@ -271,11 +270,11 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
     return true;
 }
 
-void
+bool
 NbdConnection::hsReq(ev::io &watcher) {
     if (request.header_off >= 0) {
         if (!get_message_header(watcher.fd, request))
-            return;
+            return false;
         ensure(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
         request.header.opType = ntohl(request.header.opType);
         request.header.offset = __builtin_bswap64(request.header.offset);
@@ -289,7 +288,7 @@ NbdConnection::hsReq(ev::io &watcher) {
 
     if (NBD_CMD_WRITE == request.header.opType) {
         if (!get_message_payload(watcher.fd, request))
-            return;
+            return false;
     }
     request.header_off = 0;
     request.data_off = -1;
@@ -300,15 +299,10 @@ NbdConnection::hsReq(ev::io &watcher) {
           << " length " << request.header.length
           << " ahead of you: " <<  resp_needed.fetch_add(1, std::memory_order_relaxed);
 
-    Error err = dispatchOp(watcher,
-                           request.header.opType,
-                           request.header.handle,
-                           request.header.offset,
-                           request.header.length,
-                           request.data);
+    Error err = dispatchOp();
     request.data.reset();
     ensure(ERR_OK == err);
-    return;
+    return true;
 }
 
 bool
@@ -350,35 +344,36 @@ NbdConnection::hsReply(ev::io &watcher) {
                     response[i].iov_len = sizeof(fourKayZeros);
                 }
             }
+            return true;
         }
 
         // no uturn
-        if (!readyResponses.empty()) {
-            NbdResponseVector* resp = NULL;
-            ensure(readyResponses.pop(resp));
-            current_response.reset(resp);
+        if (readyResponses.empty())
+            { return false; }
 
-            response[2].iov_base = &current_response->handle;
-            response[2].iov_len = sizeof(current_response->handle);
-            if (!current_response->getError().ok()) {
-                err = current_response->getError();
-                response[1].iov_base = to_iovec(&error_bad);
-            } else if (current_response->isRead()) {
-                fds_uint32_t context = 0;
-                boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
-                while (buf != NULL) {
-                    LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
-                             << "...Buffer # " << context
-                             << "...Size " << std::dec << buf->length() << "B";
-                    response[total_blocks].iov_base = to_iovec(buf->c_str());
-                    response[total_blocks].iov_len = buf->length();
-                    ++total_blocks;
-                    // get next buffer
-                    buf = current_response->getNextReadBuffer(context);
-                }
+        NbdResponseVector* resp = NULL;
+        ensure(readyResponses.pop(resp));
+        current_response.reset(resp);
+
+        response[2].iov_base = &current_response->handle;
+        response[2].iov_len = sizeof(current_response->handle);
+        response[1].iov_base = to_iovec(&error_ok);
+        if (!current_response->getError().ok()) {
+            err = current_response->getError();
+            response[1].iov_base = to_iovec(&error_bad);
+        } else if (current_response->isRead()) {
+            fds_uint32_t context = 0;
+            boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
+            while (buf != NULL) {
+                LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
+                         << "...Buffer # " << context
+                         << "...Size " << std::dec << buf->length() << "B";
+                response[total_blocks].iov_base = to_iovec(buf->c_str());
+                response[total_blocks].iov_len = buf->length();
+                ++total_blocks;
+                // get next buffer
+                buf = current_response->getNextReadBuffer(context);
             }
-        } else {
-            return true;
         }
         write_offset = 0;
     }
@@ -399,20 +394,19 @@ NbdConnection::hsReply(ev::io &watcher) {
 }
 
 Error
-NbdConnection::dispatchOp(ev::io &watcher,
-                          fds_uint32_t opType,
-                          fds_int64_t handle,
-                          fds_uint64_t offset,
-                          fds_uint32_t length,
-                          boost::shared_ptr<std::string> data) {
-    switch (opType) {
+NbdConnection::dispatchOp() {
+    auto& handle = request.header.handle;
+    auto& offset = request.header.offset;
+    auto& length = request.header.length;
+
+    switch (request.header.opType) {
         UturnPair utPair;
         case NBD_CMD_READ:
             if (doUturn) {
                 // TODO(Andrew): Hackey uturn code. Remove.
                 utPair.handle = handle;
                 utPair.length = length;
-                utPair.opType = opType;
+                utPair.opType = NBD_CMD_READ;
                 readyHandles.push(utPair);
 
                 // We have something to write, so ask for events
@@ -427,24 +421,24 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 // TODO(Andrew): Hackey uturn code. Remove.
                 utPair.handle = handle;
                 utPair.length = length;
-                utPair.opType = opType;
+                utPair.opType = NBD_CMD_WRITE;
                 readyHandles.push(utPair);
 
                 // We have something to write, so ask for events
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
-                 fds_assert(data);
-                 nbdOps->write(data, length, offset, handle);
+                 fds_assert(request.data);
+                 nbdOps->write(request.data, length, offset, handle);
             }
             break;
         case NBD_CMD_FLUSH:
             break;
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
-            throw shutdown_requested;
+            throw NbdError::shutdown_requested;
             break;
         default:
-            fds_panic("Unknown NBD op %d", opType);
+            fds_panic("Unknown NBD op %d", request.header.opType);
     }
     return ERR_OK;
 }
@@ -478,7 +472,9 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 }
                 break;
             case DOREQS:
-                hsReq(watcher);
+                // Read all the requests off the socket
+                while (hsReq(watcher))
+                    { continue; }
                 break;
             default:
                 LOGDEBUG << "Asked to read in state: " << hsState;
@@ -506,21 +502,24 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 }
                 break;
             case DOREQS:
-                if (hsReply(watcher)) {
-                    // If the queue is empty, stop writing. Reading at this
-                    // point is determined by whether we have an Operations
-                    // instance to queue to.
-                    if (doUturn ? readyHandles.empty() : readyResponses.empty())
-                        { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
-                }
+                // Write everything we can
+                while (hsReply(watcher))
+                    { continue; }
+
+                // If the queue is empty, stop writing. Reading at this
+                // point is determined by whether we have an Operations
+                // instance to queue to.
+                if ((!current_response) &&
+                    (doUturn ? readyHandles.empty() : readyResponses.empty()))
+                    { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
                 break;
             default:
                 fds_panic("Unknown NBD connection state %d", hsState);
         }
     }
-    } catch(Errors e) {
+    } catch(NbdError const& e) {
         // If we had an error, stop the event loop too
-        if (e == connection_closed) {
+        if (e == NbdError::connection_closed) {
             asyncWatcher->stop();
             ioWatcher->stop();
         }
@@ -548,80 +547,74 @@ NbdConnection::readWriteResp(NbdResponseVector* response) {
     asyncWatcher->send();
 }
 
-template<typename M>
-bool get_message_header(int fd, M& message) {
-    fds_assert(message.header_off >= 0);
-    ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
-    ssize_t nread = read(fd,
-                         reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
-                         to_read);
-    if (nread < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-            LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-        switch (errno) {
-        case EINVAL:
-            LOGERROR << "Read vector bug";
-            fds_assert(false);
-        case EBADF:
-        case EPIPE:
-            throw NbdConnection::connection_closed;
-        }
-        LOGWARN << "Get message header interrupted";
-        return false;
-    } else if (0 == nread) {
-        LOGNORMAL << "Client disconnected";
-        throw NbdConnection::connection_closed;
-    } else if (nread < to_read) {
-        LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
-        message.header_off += nread;
-        return false;
-    }
-    message.header_off = -1;
-    message.data_off = 0;
-    return true;
+ssize_t retry_read(int fd, void* buf, size_t count) {
+    ssize_t e = 0;
+    do {
+        e = read(fd, buf, count);
+    } while ((0 > e) && (EINTR == errno));
+    return e;
 }
 
 template<typename M>
 ssize_t read_from_socket(int fd, M& buffer, ssize_t off, ssize_t len);
 
 template<>
+ssize_t read_from_socket(int fd, uint8_t*& buffer, ssize_t off, ssize_t len)
+{ return retry_read(fd, buffer + off, len); }
+
+template<>
 ssize_t read_from_socket(int fd, std::array<char, 1024>& buffer, ssize_t off, ssize_t len)
-{ return read(fd, buffer.data() + off, len); }
+{ return retry_read(fd, buffer.data() + off, len); }
 
 template<>
 ssize_t read_from_socket(int fd, boost::shared_ptr<std::string>& buffer, ssize_t off, ssize_t len)
-{ return read(fd, &(*buffer)[0] + off, len); }
+{ return retry_read(fd, &(*buffer)[0] + off, len); }
+
+template<typename D>
+bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
+{
+    static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
+    ssize_t nread = read_from_socket(fd, data, off, len);
+    if (nread <= 0) {
+        switch (0 > nread ? errno : EPIPE) {
+            case EAGAIN:
+                LOGTRACE << "Payload not there.";
+                return false; // We were optimistic the payload was ready.
+            case EPIPE:
+                LOGNOTIFY << "Client disconnected";
+            default:
+                LOGERROR << "Socket read error: [" << strerror(errno) << "]";
+                throw NbdError::shutdown_requested;
+        }
+    } else if (nread < len) {
+        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << len << "]";
+        off += nread;
+        return false;
+    }
+    return true;
+}
+
+template<typename M>
+bool get_message_header(int fd, M& message) {
+    fds_assert(message.header_off >= 0);
+    ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
+
+    auto buffer = reinterpret_cast<uint8_t*>(&message.header);
+    if (nbd_read(fd, buffer, message.header_off, to_read))
+    {
+        message.header_off = -1;
+        message.data_off = 0;
+        return true;
+    }
+    return false;
+}
 
 template<typename M>
 bool get_message_payload(int fd, M& message) {
     fds_assert(message.data_off >= 0);
     ssize_t to_read = message.header.length - message.data_off;
-    ssize_t nread = read_from_socket(fd,
-                                     message.data,
-                                     message.data_off,
-                                     to_read);
-    if (nread < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-            LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-        switch (errno) {
-        case EINVAL:
-            LOGERROR << "Read vector bug";
-            fds_assert(false);
-        case EBADF:
-        case EPIPE:
-            throw NbdConnection::connection_closed;
-        }
-        LOGWARN << "Get message payload interrupted.";
-        return false;
-    } else if (0 == nread) {
-        LOGNORMAL << "Client disconnected";
-        throw NbdConnection::connection_closed;
-    } else if (nread < to_read) {
-        LOGWARN << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
-        message.data_off += nread;
-        return false;
-    }
-    return true;
+
+    return nbd_read(fd, message.data, message.data_off, to_read);
 }
 
 }  // namespace fds

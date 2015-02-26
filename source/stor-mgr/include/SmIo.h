@@ -12,7 +12,7 @@
 #include <functional>
 #include <boost/shared_ptr.hpp>
 
-#include <fdsp/FDSP_types.h>
+#include <fdsp/sm_service_types.h>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
@@ -508,7 +508,7 @@ class SmIoReadObjDeltaSetReq: public SmIoReq {
     // Set of Object MetaData to be used to read objects and form
     // CtrlObjectRebalanceDeltaSet
     // vector of a pair <ObjMetaPata::ptr, bool reconcileMetaData>
-    std::vector<std::pair<ObjMetaData::ptr, bool>> deltaSet;
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> deltaSet;
 
     // Response callback for batch object read.
     cbType smioReadObjDeltaSetReqCb;

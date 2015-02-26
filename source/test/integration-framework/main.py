@@ -160,7 +160,7 @@ class Operation(object):
                 self.logger.info("Creating %s" % testset_path)
                 os.makedirs(testset_path)
             else:
-                self.logger.info("%s already esists. Skipping." % testset_path)
+                self.logger.info("%s already exists. Skipping." % testset_path)
 
             self.test_sets.append(current_ts)
 

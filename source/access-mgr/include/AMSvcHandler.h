@@ -33,10 +33,6 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
                     boost::shared_ptr<fpi::NodeSvcInfo> &msg);
 
     virtual void
-    NotifyBucketStats(boost::shared_ptr<fpi::AsyncHdr>             &hdr,
-                      boost::shared_ptr<fpi::CtrlNotifyBucketStat> &msg);
-
-    virtual void
     SetThrottleLevel(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
                      boost::shared_ptr<fpi::CtrlNotifyThrottle> &msg);
 

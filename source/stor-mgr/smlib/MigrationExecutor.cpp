@@ -80,14 +80,16 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
-        LOGMIGRATE << "Filter Set Msg: token=" << dltTok << ", seqNum="
-                    << msg->seqNum << ", last=" << msg->lastFilterSet;
+        LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+                   << "Filter Set Msg: token=" << dltTok << ", seqNum="
+                   << msg->seqNum << ", last=" << msg->lastFilterSet;
         perTokenMsgs[dltTok] = msg;
     }
 
     /**
      * Iterate through the level db and add to set of objects to rebalance.
      */
+    bool objAddedToFilterSet = false;
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
         // send objects that belong to DLT tokens that need to be migrated from src SM
@@ -100,35 +102,66 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         // add object id to the thrift paired set of object ids and ref count
         omd.deserializeFrom(it->value());
 
-
+        // Copy object metadata ref count, including volume association.
+        // If the source refcnt or volume assoction information has changed, then we
+        // need to get that information from the source SM and overwrite it (since
+        // for now we are going to blindly trust that source SM object meta data is
+        // the correct one.
+        //
+        // TODO(Sean):  For now, we are dealing only with the object ref_cnt and
+        //              per volume association volume ref_cnt.
         fpi::CtrlObjectMetaDataSync omdFilter;
-        omdFilter.objectID.digest = it->key().ToString();
-        omdFilter.objRefCnt = omd.getRefCnt();
+        omd.syncObjectMetaData(omdFilter);
+
 
         /* TODO(Sean):  We should add to filter object set if the ref cnt is positive (???)
          *              Are there other checks before adding to the filter set?
          */
         if (omdFilter.objRefCnt > 0) {
-            LOGMIGRATE << "FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
-                        << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
-                        << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+                       << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
+                       << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
+                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
+            objAddedToFilterSet = true;
         }
     }
     delete it;
 
+    if (objAddedToFilterSet) {
+        LOGCRITICAL << "UNSUPPORTED CONFIGURATION: "
+                    << "Executor " << std::hex << executorId << std::dec
+                    << " added at least on objet to the filter set.";
+    }
+
+    // before sending rebalance msgs to source SM, move to next state, in case we
+    // receive responses before finish sending all the messages...
+    // we sent all the messages, go to next state
+    expectState = ME_REBALANCE_START;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_APPLYING_DELTA)) {
+        // this must not happen
+        LOGERROR << "Executor " << std::hex << executorId << std::dec
+                 << ": Unexpected migration executor state";
+        fds_panic("Unexpected migration executor state!");
+    }
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " ME_REBALANCE_START --> ME_APPLYING_DELTA state";
+
     // send rebalance set of objects to source SM
     for (auto tok : dltTokens) {
-        LOGMIGRATE << "Sending rebalance initial set for DLT token "
-                  << tok << " set size " << perTokenMsgs[tok]->objectsToFilter.size()
-                  << " to source SM "
-                  << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+        LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+                   << " sending rebalance initial set for DLT token "
+                   << tok << " set size " << perTokenMsgs[tok]->objectsToFilter.size()
+                   << " to source SM "
+                   << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         if (!testMode) {
             try {
                 auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
                 asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                        perTokenMsgs[tok]);
-                asyncRebalSetReq->setTimeoutMs(0);
+                asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+                    MigrationExecutor::objectRebalanceFilterSetResp));
+                asyncRebalSetReq->setTimeoutMs(5000);
                 // we are not waiting for response, so not setting a callback
                 asyncRebalSetReq->invoke();
             }
@@ -142,14 +175,23 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         }
     }
 
-    // we sent all the messages, go to next state
-    expectState = ME_REBALANCE_START;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_APPLYING_DELTA)) {
-        // this must not happen
-        fds_panic("Unexpected migration executor state!");
-    }
-
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " sent rebalance initial set msgs to source SM"
+               << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
     return err;
+}
+
+void
+MigrationExecutor::objectRebalanceFilterSetResp(EPSvcRequest* req,
+                                                const Error& error,
+                                                boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "Received CtrlObjectRebalanceFilterSet response for executor "
+             << std::hex << executorId << std::dec << " " << error;
+    // here we just check for errors
+    if (!error.ok()) {
+        LOGERROR << "CtrlObjectRebalanceFilterSet response " << error;
+    }
 }
 
 Error
@@ -161,11 +203,11 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
     fds_verify((curState == ME_APPLYING_DELTA) ||
                (curState == ME_APPLYING_SECOND_DELTA));
 
-    LOGMIGRATE << "Sync Delta Object Set " << deltaSet->objectToPropagate.size()
-               << " objects, executor ID " << deltaSet->executorID
-               << " seqNum " << deltaSet->seqNum
-               << " lastSet " << deltaSet->lastDeltaSet
-               << " first rebalance round? " << (curState == ME_APPLYING_DELTA);
+    LOGMIGRATE << "Sync Delta Object Set: " << deltaSet->objectToPropagate.size()
+               << " objects, executor ID=" << deltaSet->executorID
+               << " seqNum=" << deltaSet->seqNum
+               << " lastSet=" << deltaSet->lastDeltaSet
+               << " first rebalance round=" << (curState == ME_APPLYING_DELTA);
 
     // if the obj data+meta list is empty, and lastDeltaSet == true,
     // nothing to apply, but have to check if we are done with migration
@@ -217,7 +259,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                    << " qosSeq=" << applyReq->qosSeqNum
                    << " qosLastSet=" << applyReq->qosLastSet
                    << " size of qos set=" << applyReq->deltaSet.size()
-                   << " first rebalance round? " << (curState == ME_APPLYING_DELTA);
+                   << " first rebalance round=" << (curState == ME_APPLYING_DELTA);
 
         // enqueue to QoS queue
         err = dataStore->enqueueMsg(FdsSysTaskQueueId, applyReq);
@@ -277,10 +319,22 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // just one message containing executor ID
     LOGMIGRATE << "Sending request for second delta set to source SM "
                << std::hex << sourceSmUuid.uuid_get_val()
-               << " Executor ID " << std::dec << executorId;
+               << " Executor ID " << executorId << std::dec;
 
     // Reset sequence number for the second phase delta set.
     seqNumDeltaSet.resetDoubleSeqNum();
+
+    // move to the next state before sending the message, in case we get the reply
+    // while still in this method
+    MigrationExecutorState expectState = ME_SECOND_REBALANCE_ROUND;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_APPLYING_SECOND_DELTA)) {
+        // this must not happen
+        LOGERROR << "Executor " << std::hex << executorId << std::dec
+                 << ": Unexpected migration executor state";
+        fds_panic("Unexpected migration executor state!");
+    }
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " ME_SECOND_REBALANCE_ROUND --> ME_APPLYING_SECOND_DELTA state";
 
     // send msg to the source SM to start second phase of the delta set.
     if (!testMode) {
@@ -296,13 +350,6 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
         async2RebalSetReq->invoke();
     }
 
-    // we sent all start second round  messages from this executor, go to next state
-    MigrationExecutorState expectState = ME_SECOND_REBALANCE_ROUND;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_APPLYING_SECOND_DELTA)) {
-        // this must not happen
-        fds_panic("Unexpected migration executor state!");
-    }
-
     return err;
 }
 
@@ -311,7 +358,7 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                                const Error& error,
                                                boost::shared_ptr<std::string> payload)
 {
-    LOGDEBUG << "Received second rebalance delta response for executor"
+    LOGDEBUG << "Received second rebalance delta response for executor "
              << std::hex << executorId << std::dec << " " << error;
     // here we just check for errors
     if (!error.ok()) {

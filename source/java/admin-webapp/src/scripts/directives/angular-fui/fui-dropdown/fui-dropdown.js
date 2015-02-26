@@ -10,9 +10,10 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
                 backgroundColor: '@', skinny: '@', color: '@', border: '@', nameProperty: '@', width: '@',
                 enabled: '=?'},
         templateUrl: 'scripts/directives/angular-fui/fui-dropdown/fui-dropdown.html',
-        controller: function( $scope, $element, $timeout ){
+        controller: function( $scope, $element, $timeout, $document ){
 
             $scope.leftShift = '0px';
+            $scope.topShift = '100%';
             $scope.td = false;
             $scope.open = false;
             $scope.currentLabel = $scope.defaultLabel;
@@ -34,15 +35,31 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
             
             var positionList = function(){
 
-                // test whether the drop down will be on the screen to the right.
+                var off = $element.offset();
                 var ulElem = $element.find( 'ul.dropdown-menu' );
-                var offset = ulElem.offset();
-                var c = offset.left + ulElem[0].offsetWidth;
-
-                if ( c > (innerWidth-2) ){
-                    $scope.leftShift = ((innerWidth-2) - c) + 'px';
+                var ulHeight = ulElem.height();
+                var dHeight = $document.height();
+                var buttonHeight = $element.height();
+                
+                // should the box go up?
+                if ( parseInt( off.top ) + buttonHeight + ulHeight > dHeight ){
+                    $scope.topShift = (-1 * ( buttonHeight + ulHeight - 12 )) + 'px';
+                }
+                else {
+                    $scope.topShift = '100%';
                 }
                 
+                // should the box slide left?
+                var buttonWidth = $element.width();
+                var dWidth = $document.width();
+                var ulWidth = ulElem.width();
+                
+                if ( parseInt( off.left ) + ulWidth > dWidth ){
+                    $scope.leftShift = (-1 * ( ulWidth - buttonWidth )) + 'px';
+                }
+                else {
+                    $scope.leftShift = '0px';
+                }
             };
 
             $scope.openList = function(){

@@ -14,6 +14,7 @@
 #include <fds_module_provider.h>
 #include <util/fiu_util.h>
 #include <thrift/transport/TTransportUtils.h>  // For TException.
+#include "fdsp/om_service_types.h"
 
 namespace fds {
 
