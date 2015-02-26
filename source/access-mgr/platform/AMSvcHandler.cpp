@@ -20,10 +20,10 @@ extern StorHvQosCtrl *storHvQosCtrl;
 AccessMgr::unique_ptr am;
 
 AMSvcHandler::~AMSvcHandler() {}
-AMSvcHandler::AMSvcHandler()
+AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider)
 // NOTE: SMSvcHandler should take fds_module_provider as a param so that we don't need
 // any globals
-    : PlatNetSvcHandler(MODULEPROVIDER())
+    : PlatNetSvcHandler(provider)
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyThrottle, SetThrottleLevel);

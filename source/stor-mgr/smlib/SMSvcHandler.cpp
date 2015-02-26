@@ -6,6 +6,7 @@
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
 #include <string>
+#include <net/SvcMgr.h>
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
 #include <random>
@@ -20,19 +21,9 @@ namespace fds {
 
 extern ObjectStorMgr    *objStorMgr;
 
-SMSvcHandler::SMSvcHandler()
-// NOTE: SMSvcHandler should take fds_module_provider as a param so that we don't need
-// any globals
-    : PlatNetSvcHandler(MODULEPROVIDER())
+SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
+    : PlatNetSvcHandler(provider)
 {
-    mockTimeoutEnabled = MODULEPROVIDER()->get_fds_config()->\
-                         get<bool>("fds.sm.testing.enable_mocking");
-    mockTimeoutUs = MODULEPROVIDER()->get_fds_config()->\
-                    get<uint32_t>("fds.sm.testing.mocktimeout");
-    if (true == mockTimeoutEnabled) {
-        mockHandler.reset(new MockSvcHandler());
-    }
-
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
@@ -66,6 +57,17 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+}
+
+int SMSvcHandler::mod_init(SysParams const *const param) {
+    mockTimeoutEnabled = MODULEPROVIDER()->get_fds_config()->\
+                         get<bool>("fds.sm.testing.enable_mocking");
+    mockTimeoutUs = MODULEPROVIDER()->get_fds_config()->\
+                    get<uint32_t>("fds.sm.testing.mocktimeout");
+    if (true == mockTimeoutEnabled) {
+        mockHandler.reset(new MockSvcHandler());
+    }
+    return 0;
 }
 
 void

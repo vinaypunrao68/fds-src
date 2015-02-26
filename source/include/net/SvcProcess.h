@@ -76,7 +76,7 @@ struct SvcProcess : FdsProcess {
               const std::string &base_path,
               const std::string &def_log_file,
               fds::Module **mod_vec) {
-        auto handler = boost::make_shared<Handler>();
+        auto handler = boost::make_shared<Handler>(this);
         auto processor = boost::make_shared<Processor>(handler);
         init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec, handler, processor);
     }

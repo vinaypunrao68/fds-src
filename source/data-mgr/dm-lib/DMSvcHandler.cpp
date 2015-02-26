@@ -7,10 +7,8 @@
 #include <StatStreamAggregator.h>
 
 namespace fds {
-DMSvcHandler::DMSvcHandler()
-// NOTE: DMSvcHandler should take fds_module_provider as a param so that we don't need
-// any globals
-    : PlatNetSvcHandler(MODULEPROVIDER())
+DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider)
+    : PlatNetSvcHandler(provider)
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);

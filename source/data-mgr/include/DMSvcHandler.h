@@ -15,7 +15,7 @@ namespace fds {
 
 class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
  public:
-    DMSvcHandler();
+    explicit DMSvcHandler(CommonModuleProviderIf *provider);
 
     void startBlobTx(const fpi::AsyncHdr& asyncHdr,
                        const fpi::StartBlobTxMsg& startBlob) {

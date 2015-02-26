@@ -433,6 +433,7 @@ ObjectStorMgr::getUuid() const {
 }
 
 const DLT* ObjectStorMgr::getDLT() {
+    if (!omClient) { return nullptr; }
     return omClient->getCurrentDLT();
 }
 
