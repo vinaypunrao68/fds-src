@@ -1,6 +1,6 @@
 package com.formationds.xdi;
 
-import com.formationds.apis.ApiException;
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.RequestId;
 import com.formationds.apis.TxDescriptor;
 import org.junit.Test;
