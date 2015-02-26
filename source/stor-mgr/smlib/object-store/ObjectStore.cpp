@@ -634,6 +634,12 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         // token migration always applies both data and metadata first, then updates metadata
         fds_verify(objMeta->dataPhysicallyExists());
 
+        // If the metadata was found on the destination, then the object already exists.
+        // This means we either have to reconcile or overwrite existing metadata on
+        // destination SM.
+        fds_assert((msg.objectReconcileFlag == fpi::OBJ_METADATA_RECONCILE) ||
+                   (msg.objectReconcileFlag == fpi::OBJ_METADATA_OVERWRITE));
+
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
             LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
@@ -672,6 +678,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
         fds_verify(err == ERR_NOT_FOUND);
+
+        // If we didn't find the metadata on the destination SM, then there is
+        // no need for metadata reconcile or overwrite
+        fds_assert(msg.objectReconcileFlag == fpi::OBJ_METADATA_NO_RECONCILE);
+
         err = ERR_OK;
         // make sure we got object data as well in this message
         if (msg.objectData.size() == 0) {
@@ -689,6 +700,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // the metadata, the orphaned object data will get cleaned up
     // on a subsequent scavenger pass.
     if (err.ok()) {
+
         // new object in this SM, put object to data store
         boost::shared_ptr<const std::string> objData = boost::make_shared<std::string>(
             msg.objectData);
@@ -746,6 +758,14 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
+
+    // TODO(Sean):
+    // So, if the reconcile flag is OVERWRITE, how would it work with tiering?  Overwrite
+    // means that a SM node is added with existing data.  Not sure what it means to added
+    // a new node with existing objects and volume.  What if the volume policy has changed?
+    // How does volume policy propagated to SM?
+    // For now, do nothing with tiering, and keep the existing tier.
+
     // update metadata
     // note that we are not updating assoc entry as with datapath put
     // we are copying assoc entries from the msg and also copying ref count
@@ -768,6 +788,13 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 void
 ObjectStore::snapshotMetadata(fds_token_id smTokId,
                               SmIoSnapshotObjectDB::CbType notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
+    metaStore->snapshot(smTokId, notifFn, snapReq);
+}
+
+void
+ObjectStore::snapshotMetadata(fds_token_id smTokId,
+                              SmIoSnapshotObjectDB::CbTypePersist notifFn,
                               SmIoSnapshotObjectDB* snapReq) {
     metaStore->snapshot(smTokId, notifFn, snapReq);
 }

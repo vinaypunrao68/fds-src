@@ -3,7 +3,6 @@
  */
 #include <DataMgr.h>
 #include <net/net-service-tmpl.hpp>
-#include <fdsp_utils.h>
 #include <DMSvcHandler.h>
 #include <dm-platform.h>
 #include <StatStreamAggregator.h>
@@ -11,7 +10,6 @@
 namespace fds {
 DMSvcHandler::DMSvcHandler()
 {
-    REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
     /* DM to DM service messages */
@@ -190,40 +188,6 @@ void DMSvcHandler::createVolumeClone(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      */
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CreateVolumeCloneRespMsg),
                   createVolumeCloneResp);
-}
-
-void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                       boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg)
-{
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*delcatMsg));
-    /*
-     * allocate a new query cat log  class and  queue  to per volume queue.
-     */
-    auto dmDelCatReq = new DmIoDeleteCat(delcatMsg->volume_id,
-                                         delcatMsg->blob_name,
-                                         delcatMsg->blob_version);
-    dmDelCatReq->dmio_deletecat_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::deleteCatalogObjectCb, asyncHdr);
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmDelCatReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmDelCatReq));
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue Delete Catalog request "
-                << logString(*asyncHdr) << logString(*delcatMsg);
-        dmDelCatReq->dmio_deletecat_resp_cb(err, dmDelCatReq);
-    }
-}
-
-void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                         const Error &e, DmIoDeleteCat *req)
-{
-    LOGDEBUG << logString(*asyncHdr);
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::DeleteCatalogObjectRspMsg delcatRspMsg;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(DeleteCatalogObjectRspMsg), delcatRspMsg);
-
-    delete req;
 }
 
 /**

@@ -71,6 +71,11 @@ def queue_up_scenario(suite, scenario, log_dir=None):
     # test case(s) to be executed.
     script = scenario.nd_conf_dict['script']
 
+    # Is there a marker to be logged with the scenario?
+    if 'log_marker' in scenario.nd_conf_dict:
+        suite.addTest(TestLogMarker(scenario=scenario.nd_conf_dict['scenario-name'],
+                                    marker=scenario.nd_conf_dict['log_marker']))
+
     # Has the scenario indicated that some sort of delay
     # or wait should follow?
     #
@@ -150,6 +155,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
             # Start this node according to the specified action.
+<<<<<<< HEAD
             for script in nds:
                 print "LOOKING FOR {}".format(script)
                 found = False
@@ -320,8 +326,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
             # Give the node some time to initialize if requested.
             if 'delay_wait' in scenario.nd_conf_dict:
-                suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow node " + script + " to initialize"))
+                suite.addTest(TestWait(delay=delay, reason="to allow node " + script + " to initialize"))
         elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
             # Shutdown the node according to the specified action.
 
@@ -370,8 +375,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 #                if found:
 #                    # Give the AM some time to initialize if requested.
 #                    if 'delay_wait' in scenario.nd_conf_dict:
-#                        suite.addTest(TestWait(delay=delay,
-#                                                                 reason="to allow AM " + script + " to initialize"))
+#                        suite.addTest(TestWait(delay=delay, reason="to allow AM " + script + " to initialize"))
 #                else:
 #                    log.error("AM not found for scenario '%s'" %
 #                              (scenario.nd_conf_dict['scenario-name']))
@@ -448,8 +452,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume policy some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume policy create " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume policy create " + script + " to propagate"))
             else:
                 log.error("Volume policy not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -466,8 +469,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume policy delete some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume policy delete " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume policy delete " + script + " to propagate"))
             else:
                 log.error("Volume policy not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -495,8 +497,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume creation some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume creation " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume creation " + script + " to propagate"))
             else:
                 log.error("Volume not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -512,8 +513,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume attachment some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume attachment " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume attachment " + script + " to propagate"))
             else:
                 log.error("Volume not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -529,8 +529,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume deletion some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume deletion " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume deletion " + script + " to propagate"))
             else:
                 log.error("Volume not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -576,8 +575,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         if found:
             # Give the test some time if requested.
             if 'delay_wait' in scenario.nd_conf_dict:
-                suite.addTest(TestWait(delay=delay,
-                                                         reason="just because"))
+                suite.addTest(TestWait(delay=delay, reason="just because"))
         else:
             log.error("Node not found for scenario '%s'" %
                       (scenario.nd_conf_dict['scenario-name']))
@@ -596,8 +594,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         # Give the test some time if requested.
         if 'delay_wait' in scenario.nd_conf_dict:
-            suite.addTest(TestWait(delay=delay,
-                                                     reason="just because"))
+            suite.addTest(TestWait(delay=delay, reason="just because"))
 
     elif re.match('\[testcases.+\]', script) is not None:
         # Do we have any parameters?
@@ -927,6 +924,36 @@ class TestJoinScenario(TestCase.FDSTestCase):
             return False
 
         # Note: The child process is not removed from the child_pid dictionary.
+
+        return True
+
+
+# This class contains the attributes and methods to
+# log a "marker" in the SysTest log to aid reading.
+class TestLogMarker(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, scenario=None, marker=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_LogMarker,
+                                             "Log marker")
+
+        self.passedScenario = scenario
+        self.passedMarker = marker
+
+    def test_LogMarker(self):
+        """
+        Test Case:
+        Log the marker.
+        """
+
+        if (self.passedScenario is None) or (self.passedMarker is None):
+            self.log.warning("************************************")
+            self.log.warning("Log marker called but parameters missing: scenario name or marker text.")
+            self.log.warning("************************************")
+        else:
+            self.log.info("************ %s ************" % self.passedScenario)
+            self.log.info("** %s" % self.passedMarker)
+            self.log.info("************************************")
 
         return True
 

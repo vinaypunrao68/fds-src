@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 public class FdsObjectIteratorTest {
     @Test
     public void testIterator() throws Exception {
-        AmService.Iface am = mock(AmService.Iface.class);
+        XdiService.Iface am = mock(XdiService.Iface.class);
         ConfigurationService.Iface config = mock(ConfigurationService.Iface.class);
         String domainName = "domain";
         String volumeName = "volume";

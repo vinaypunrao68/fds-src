@@ -6,7 +6,7 @@
 #include <utility>
 #include <leveldb/db.h>
 #include "ObjMeta.h"
-
+#include <odb.h>
 #include "MigrationTools.h"
 
 namespace fds {
@@ -24,6 +24,18 @@ tri_comp(int const c)
 { return (c <= 0) ? ((c == 0) ? cmp_result::exists : cmp_result::removal) : cmp_result::addition; }
 
 void
+diff(DB* dbFromFirstSnap, DB* dbFromSecondSnap, metadata_diff_type& diff) {
+
+    ReadOptions l_opts, r_opts;
+
+    // Obtain iterators to the snapshots
+    auto l_it   = dbFromFirstSnap->NewIterator(l_opts);
+    auto r_it   = dbFromSecondSnap->NewIterator(r_opts);
+    
+    diffSnapshots(l_it, r_it, diff);
+}
+
+void
 diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff) {
     // Create the needed ReadOptions objects
     ReadOptions l_opts; l_opts.snapshot = lhs;
@@ -32,6 +44,11 @@ diff(DB* db, Snapshot const* lhs, Snapshot const* rhs, metadata_diff_type& diff)
     // Obtain iterators to the snapshots
     auto l_it   = db->NewIterator(l_opts);
     auto r_it   = db->NewIterator(r_opts);
+
+    diffSnapshots(l_it, r_it, diff);
+
+}
+void diffSnapshots(leveldb::Iterator *l_it, leveldb::Iterator *r_it, metadata_diff_type& diff) {
 
     l_it->SeekToFirst();
     r_it->SeekToFirst();

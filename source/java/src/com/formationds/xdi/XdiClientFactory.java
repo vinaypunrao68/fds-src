@@ -8,10 +8,10 @@ import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_Service;
 import FDS_ProtocolInterface.FDSP_SessionReqResp;
 import com.formationds.am.Main;
-import com.formationds.apis.AmService;
-import com.formationds.apis.AmService.AsyncIface;
-import com.formationds.apis.AsyncAmServiceRequest;
-import com.formationds.apis.AsyncAmServiceRequest.Client;
+import com.formationds.apis.XdiService;
+import com.formationds.apis.XdiService.AsyncIface;
+import com.formationds.apis.AsyncXdiServiceRequest;
+import com.formationds.apis.AsyncXdiServiceRequest.Client;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.apis.RequestId;
@@ -36,8 +36,8 @@ import java.util.UUID;
 public class XdiClientFactory {
     protected static final Logger LOG = Logger.getLogger(XdiClientFactory.class);
 
-    private final ThriftClientFactory<AmService.Iface>             amService;
-    private final ThriftClientFactory<AsyncAmServiceRequest.Iface> onewayAmService;
+    private final ThriftClientFactory<XdiService.Iface>             amService;
+    private final ThriftClientFactory<AsyncXdiServiceRequest.Iface> onewayAmService;
     private final ThriftClientFactory<Iface>                       configService;
     private final ThriftClientFactory<FDSP_ConfigPathReq.Iface>    legacyConfigService;
 
@@ -55,9 +55,9 @@ public class XdiClientFactory {
 
         amService = AmServiceClientFactory.newAmService();
 
-        ThriftClientConnectionFactory<AsyncAmServiceRequest.Iface> onewayAmFactory =
+        ThriftClientConnectionFactory<AsyncXdiServiceRequest.Iface> onewayAmFactory =
             new ThriftClientConnectionFactory<>(proto -> {
-                AsyncAmServiceRequest.Client client = new AsyncAmServiceRequest.Client(proto);
+                AsyncXdiServiceRequest.Client client = new AsyncXdiServiceRequest.Client(proto);
                 try {
                     client.handshakeStart(new RequestId(UUID.randomUUID().toString()), amResponsePort);
                 } catch (TException e) {
@@ -74,11 +74,11 @@ public class XdiClientFactory {
         return configService.getClient(host, port);
     }
 
-    public AmService.Iface remoteAmService(String host, int port) {
+    public XdiService.Iface remoteAmService(String host, int port) {
         return amService.getClient(host, port);
     }
 
-    public AsyncAmServiceRequest.Iface remoteOnewayAm(String host, int port) {
+    public AsyncXdiServiceRequest.Iface remoteOnewayAm(String host, int port) {
         return onewayAmService.getClient(host, port);
     }
 
@@ -86,12 +86,12 @@ public class XdiClientFactory {
         return legacyConfigService.getClient(host, port);
     }
 
-    public AsyncResourcePool<ThriftClientConnection<AmService.AsyncIface>> makeAmAsyncPool(String host, int port) throws
+    public AsyncResourcePool<ThriftClientConnection<XdiService.AsyncIface>> makeAmAsyncPool(String host, int port) throws
                                                                                                                IOException {
         TAsyncClientManager manager = new TAsyncClientManager();
         TProtocolFactory factory = new TBinaryProtocol.Factory();
         ConnectionSpecification cs = new ConnectionSpecification(host, port);
-        ThriftAsyncResourceImpl<AsyncIface> amImpl = new ThriftAsyncResourceImpl<>(cs, transport -> new AmService.AsyncClient(factory, manager, transport));
+        ThriftAsyncResourceImpl<AsyncIface> amImpl = new ThriftAsyncResourceImpl<>(cs, transport -> new XdiService.AsyncClient(factory, manager, transport));
 
         return new AsyncResourcePool<>(amImpl, 500);
     }

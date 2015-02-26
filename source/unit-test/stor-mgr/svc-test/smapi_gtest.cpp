@@ -9,13 +9,12 @@
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
-#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

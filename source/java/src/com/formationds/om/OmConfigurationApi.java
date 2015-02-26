@@ -3,6 +3,7 @@
  */
 package com.formationds.om;
 
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;

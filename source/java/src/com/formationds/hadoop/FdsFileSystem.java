@@ -1,5 +1,7 @@
 package com.formationds.hadoop;
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -47,7 +49,7 @@ public class FdsFileSystem extends FileSystem {
     public static final String CREATED_BY_USER = "created-by-user";
     public static final String CREATED_BY_GROUP = "created-by-group";
 
-    private AmService.Iface am;
+    private XdiService.Iface am;
     private Path workingDirectory;
     private URI uri;
     private int blockSize;
@@ -60,7 +62,7 @@ public class FdsFileSystem extends FileSystem {
         initialize(uri, conf);
     }
 
-    public FdsFileSystem(AmService.Iface am, String uri, int blockSize) throws URISyntaxException, IOException {
+    public FdsFileSystem(XdiService.Iface am, String uri, int blockSize) throws URISyntaxException, IOException {
         this();
         this.am = am;
         this.blockSize = blockSize;
@@ -77,7 +79,7 @@ public class FdsFileSystem extends FileSystem {
         String cs = conf.get("fds.cs.endpoint");
 
         XdiClientFactory cf = new XdiClientFactory();
-        AmService.Iface amClient = null;
+        XdiService.Iface amClient = null;
 
         this.uri = URI.create(getScheme() + "://" + uri.getAuthority());
         workingDirectory = new Path(uri);
