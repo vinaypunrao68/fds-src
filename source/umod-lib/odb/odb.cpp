@@ -15,6 +15,32 @@ namespace osm {
 #define WRITE_BUFFER_SIZE   50 * 1024 * 1024;
 #define FILTER_BITS_PER_KEY 128  // Todo: Change this to the max size of DiskLoc
 
+int doCopyFile(void * arg, const char* fname, fds_uint64_t length) {
+    fds_assert(fname && *fname != 0);
+
+    CopyDetails * details = reinterpret_cast<CopyDetails *>(arg);
+    GLOGNORMAL << "Copying file '" << fname << "' to directory '" << details->destPath
+            << "' from '" << details->srcPath;
+
+    std::string srcFile = details->srcPath + "/" + fname;
+    std::string destFile = details->destPath + "/" + fname;
+
+    std::ifstream infile(srcFile.c_str(), std::fstream::binary);
+    std::ofstream outfile(destFile.c_str(), std::fstream::binary);
+    if (static_cast<fds_uint64_t>(-1) == length) {
+        outfile << infile.rdbuf();
+    } else if (length) {
+        char * buffer = new char[length];
+        infile.read(buffer, length);
+        outfile.write(buffer, length);
+        delete[] buffer;
+    }
+    outfile.close();
+    infile.close();
+
+    return 0;
+}
+
 /** Constructs odb with filename.
  *
  * @param filename (i) Name of file for backing storage.
@@ -33,6 +59,9 @@ ObjectDB::ObjectDB(const std::string& filename,
     options.write_buffer_size = WRITE_BUFFER_SIZE;
 
     write_options.sync = sync_write;
+
+    env = new leveldb::CopyEnv(leveldb::Env::Default());
+    options.env = env;
 
     leveldb::Status status = leveldb::DB::Open(options, file, &db);
 
@@ -245,6 +274,35 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
     }
 
     *(obj_buf.data) = value;
+
+    return err;
+}
+
+/** Takes a persistent snapshot of the leveldb in ObjectDB
+ *
+ * @param fileName (i) Directory where the snapshot of leveldb is stored.
+ *
+ * @return ERR_OK if successful, err otherwise.
+ */
+fds::Error ObjectDB::PersistentSnap(const std::string& fileName) {
+
+    fds_assert(!fileName.empty());
+    fds::Error err(ERR_OK);
+    leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
+    fds_assert(env);
+
+    leveldb::Status status = env->CreateDir(fileName);
+    if (!status.ok()) {
+        GLOGNORMAL << " CreateDir failed for " << fileName << "status " << status.ToString() ;
+        err = Error(ERR_DISK_WRITE_FAILED);
+    }
+
+    CopyDetails * details = new CopyDetails(file, fileName);
+    status = env->Copy(file, &doCopyFile, reinterpret_cast<void *>(details));
+    if (!status.ok()) {
+        GLOGNORMAL << " Copy failed for " << file << " destination file " << fileName;
+        err = ERR_DISK_WRITE_FAILED;
+    }
 
     return err;
 }

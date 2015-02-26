@@ -865,10 +865,15 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     // for this migration client (which is addressed by executorID on destination side)
     migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
 
-    objectStore->snapshotMetadata(snapReq->token_id,
-                                  snapReq->smio_snap_resp_cb,
-                                  snapReq);
-
+    if (snapReq->isPersistent) {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_persist_snap_resp_cb,
+                                      snapReq);
+    } else {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_snap_resp_cb,
+                                      snapReq);
+    }
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);

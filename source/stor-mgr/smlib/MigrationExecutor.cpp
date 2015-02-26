@@ -155,14 +155,23 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                    << " to source SM "
                    << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         if (!testMode) {
-            auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
+            try {
+                auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+                asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                        perTokenMsgs[tok]);
-            asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                MigrationExecutor::objectRebalanceFilterSetResp));
-            asyncRebalSetReq->setTimeoutMs(5000);
-            // we are not waiting for response, so not setting a callback
-            asyncRebalSetReq->invoke();
+                asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+                    MigrationExecutor::objectRebalanceFilterSetResp));
+                asyncRebalSetReq->setTimeoutMs(5000);
+                // we are not waiting for response, so not setting a callback
+                asyncRebalSetReq->invoke();
+            }
+            /* TODO(Gurpreet): We should handle the exception and propogate the error to
+             * Token Migration Manager.
+             */
+            catch (...) {
+                LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
+                << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            }
         }
     }
 
