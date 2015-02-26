@@ -150,13 +150,6 @@ var setCustomQos = function( qos ){
 
     browser.sleep( 200 );
 
-    // panel should now be editable
-    var slaEditDisplay = createEl.element( by.css( '.volume-sla-edit-display' ) );
-    expect( slaEditDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
-
-    var slaTableDisplay = createEl.element( by.css( '.volume-display-only' ) );
-    expect( slaTableDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
-
     browser.actions().mouseMove( createEl.element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' )).get( qos.priority - 1 ) ).click().perform();
 
     browser.actions().mouseMove( createEl.element( by.css( '.volume-iops-slider' ) ).all( by.css( '.segment' )).get( qos.capacity/10 ) ).click().perform();
@@ -220,8 +213,8 @@ createVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineSt
     
     if ( data_type ){
             
-        var editDcButton = createEl.element( by.css( '.edit-data-connector-button' ) );
-        editDcButton.click();
+//        var editDcButton = createEl.element( by.css( '.edit-data-connector-button' ) );
+//        editDcButton.click();
 
         var typeMenu = createEl.element( by.css( '.data-connector-dropdown' ) );
         var blockEl = typeMenu.all( by.tagName( 'li' ) ).first();
@@ -240,8 +233,6 @@ createVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineSt
             objectEl.click();
         }
 
-        var doneName = createEl.element( by.css( '.save-name-type-data' ));
-        doneName.click();
     }// edit dc
     
     // let's set the qos stuff hooray!

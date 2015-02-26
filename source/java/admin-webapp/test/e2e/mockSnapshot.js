@@ -119,7 +119,9 @@ mockSnapshot = function(){
             
             savePolicies();
             
-            callback();
+            if ( angular.isFunction( callback ) ){
+                callback();
+            }
         };
         
         service.saveSnapshotPolicies = function( volumeId, policies, callback, failure ){
@@ -144,7 +146,10 @@ mockSnapshot = function(){
                     });
                 }
             }
-            callback();
+            
+            if ( angular.isFunction( callback ) ){
+                callback();
+            }
             
             savePolicies();
         };

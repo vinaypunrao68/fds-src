@@ -105,12 +105,10 @@
         </div>
     </section>
     
-<!--
     <section class="block-section">
         <div class="sub-header" translate>volumes.l_timeline</div>
         <time-slider valid-ranges="ranges" ng-model="thisVolume.timelineTime" label="{{ 'volumes.l_point_timeline' | translate }}" label-function="dateLabelFunction" domain-labels="domainLabels"></time-slider>
     </section>
--->
     
     <section class="block-section">
         <div class="sub-header" translate>volumes.l_timeline_settings</div>
@@ -118,7 +116,7 @@
             <div class="padded-right">
                 <div class="sub-header" translate>volumes.qos.l_overall_setting</div>
                 <div class="timeline-preset">{{ timelinePreset }}</div>
-                <div class="intentionally-blank">gh</div>
+                <div class="intentionally-blank"> </div>
             </div>
             <div ng-repeat="desc in snapshotPolicyDescriptions" class="padded-right">
                 <div class="sub-header">{{ desc.label }}</div>

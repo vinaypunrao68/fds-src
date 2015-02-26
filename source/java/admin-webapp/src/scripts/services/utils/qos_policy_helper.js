@@ -23,7 +23,7 @@ angular.module( 'utility-directives' ).factory( '$qos_policy_helper', ['$filter'
     
     service.convertRawToPreset = function( qos ){
         
-        for ( var i = 0; i < service.presets.length; i++ ){
+        for ( var i = 0; i < service.presets.length - 1; i++ ){
             
             var preset = service.presets[i];
             

@@ -342,10 +342,10 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
                         
                         // last week of the month
                         if ( policy.recurrenceRule.BYDAY[0].indexOf( '-1' ) !== -1 ){
-                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_last_week_of_the_month' );
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_last_weekly' );
                         }
                         else {
-                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_first_week_of_the_month' );
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_first_weekly' );
                         }
                     }
                     

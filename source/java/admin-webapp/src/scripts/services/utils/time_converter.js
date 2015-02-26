@@ -61,9 +61,13 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
             value = Math.round( ms / service.MS_PER_DAY );
             unit = service.DAYS;
         }
-        else if ( ms < service.MS_PER_YEAR ){
+        else if ( ms < service.MS_PER_4_WEEKS ){
             value = Math.round( ms / service.MS_PER_WEEK );
             unit = service.WEEKS;
+        }
+        else if ( ms < service.MS_PER_YEAR ){
+            value = 30*Math.round( ms / service.MS_PER_4_WEEKS );
+            unit = service.DAYS;
         }
         else {
             value = Math.round( ms / service.MS_PER_YEAR );
