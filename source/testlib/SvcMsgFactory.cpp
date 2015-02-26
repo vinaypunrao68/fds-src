@@ -6,6 +6,7 @@
 #include <ObjectId.h>
 #include <fdsp/ConfigurationService.h>
 #include <fdsp/dm_service_types.h>
+#include <fdsp/sm_service_types.h>
 #include <DataGen.hpp>
 #include <boost/make_shared.hpp>
 #include <SvcMsgFactory.h>

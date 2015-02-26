@@ -11,6 +11,10 @@
 // b/c dmCatReq is subclass in DataMgr and can't be forward declared
 #include <DataMgr.h>
 
+namespace FDS_ProtocolInterface {
+struct CtrlNotifyDLTUpdate;
+}
+
 namespace fds {
 
 class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {

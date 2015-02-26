@@ -34,6 +34,11 @@ extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updC
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
+
+extern std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
+extern std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
+extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
+extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 // ======
 
 AmDispatcher::AmDispatcher(const std::string &modName,

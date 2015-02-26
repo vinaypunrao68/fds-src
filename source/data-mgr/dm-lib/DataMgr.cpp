@@ -11,6 +11,7 @@
 #include <DataMgr.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
+#include "fdsp/sm_service_types.h"
 #include <dmhandler.h>
 
 namespace fds {

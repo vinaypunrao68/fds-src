@@ -13,8 +13,7 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fds_types.h>
-#include <fdsp/FDSP_types.h>
-#include <fdsp/sm_service_types.h>
+#include <fdsp/fds_service_types.h>
 #include <persistent-layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
 #include <util/fiu_util.h>
@@ -33,15 +32,6 @@ namespace apache { namespace thrift { namespace transport {
 namespace FDS_ProtocolInterface {
     class AsyncHdr;
     class SvcUuid;
-    class GetObjectMsg;
-    class GetObjectResp;
-    class PutObjectMsg;
-    class PutObjectRspMsg;
-    class DeleteObjectMsg;
-    class DeleteObjectRspMsg;
-    class ForwardCatalogRspMsg;
-    class AddObjectRefMsg;
-    class AddObjectRefRspMsg;
 }  // namespace FDS_ProtocolInterface
 
 namespace fpi = FDS_ProtocolInterface;
@@ -67,17 +57,6 @@ assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
 void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header);
 
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header);
-
-std::string logString(const FDS_ProtocolInterface::AddObjectRefMsg& msg);
-std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& msg);
-std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
-std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataSync& msg);
-std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
-std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& msg);
-std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
-std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
-std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
-std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 
 std::string quoteString(std::string const& text,
                         std::string const& delimiter = "\"",

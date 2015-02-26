@@ -9,7 +9,6 @@
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
-#include "fdsp/sm_service_types.h"
 #include <util/Log.h>
 
 #include <unordered_map>
@@ -33,6 +32,8 @@ class FDSP_OMControlPathReqClient;
 class FDSP_OMControlPathRespProcessor;
 class FDSP_OMControlPathRespIf;
 class FDSP_ControlPathRespClient;
+struct FDSP_DltCloseType;
+using FDSP_DltCloseTypePtr = boost::shared_ptr<FDSP_DltCloseType>;
 }  // namespace FDS_ProtocolInterface
 
 template <class A, class B, class C> class netClientSessionEx;
