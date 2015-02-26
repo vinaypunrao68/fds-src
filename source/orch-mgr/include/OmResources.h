@@ -20,7 +20,6 @@
 
 #include <fdsp/FDSP_ControlPathResp.h>
 #include "fdsp/sm_service_types.h"
-#include "fdsp/dm_service_types.h"
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
@@ -29,7 +28,15 @@ namespace FDS_ProtocolInterface {
     class FDSP_ControlPathReqClient;
     class FDSP_ControlPathRespProcessor;
     class FDSP_ControlPathRespIf;
-}
+
+    struct CtrlNotifyDMAbortMigration;
+    struct CtrlNotifyDMTClose;
+    struct CtrlNotifyDMTUpdate;
+    using CtrlNotifyDMAbortMigrationPtr = boost::shared_ptr<CtrlNotifyDMAbortMigration>;
+    using CtrlNotifyDMTClosePtr = boost::shared_ptr<CtrlNotifyDMTClose>;
+    using CtrlNotifyDMTUpdatePtr = boost::shared_ptr<CtrlNotifyDMTUpdate>;
+}  // namespace FDS_ProtocolInterface
+
 typedef netClientSessionEx<fpi::FDSP_ControlPathReqClient,
                 fpi::FDSP_ControlPathRespProcessor,
                 fpi::FDSP_ControlPathRespIf> netControlPathClientSession;

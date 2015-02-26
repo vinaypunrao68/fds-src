@@ -1,11 +1,12 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2014-2015 Formation Data Systems, Inc.
  */
 
 #include <string>
 #include <fdsp_utils.h>
 #include <fdsp/am_service_types.h>
 #include <fdsp/dm_service_types.h>
+#include <fdsp/sm_service_types.h>
 #include <fds_resource.h>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -183,13 +184,6 @@ std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
 {
     std::ostringstream oss;
     oss < " CommitBlobTxMs";
-    return oss.str();
-}
-
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delcatRspMsg)
-{
-    std::ostringstream oss;
-    oss < " DeleteCatalogObjectRspMsg";
     return oss.str();
 }
 

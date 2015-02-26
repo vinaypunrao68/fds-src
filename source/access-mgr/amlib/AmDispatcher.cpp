@@ -5,7 +5,11 @@
 #include <algorithm>
 #include <string>
 #include <vector>
-#include <fds_process.h>
+
+#include "fds_process.h"
+#include "fdsp/dm_service_types.h"
+#include "fdsp/sm_service_types.h"
+
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
 #include <net/net-service-tmpl.hpp>
@@ -18,6 +22,19 @@
 #include <AmDispatcherMocks.hpp>
 
 namespace fds {
+
+// Some logging routines have external linkage
+// ======
+extern std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
+extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
+// ======
 
 AmDispatcher::AmDispatcher(const std::string &modName,
                            DLTManagerPtr _dltMgr,

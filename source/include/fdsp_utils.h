@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2014-2015 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_INCLUDE_FDSP_UTILS_H_
@@ -14,8 +14,6 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fds_types.h>
 #include <fdsp/FDSP_types.h>
-#include <fdsp/am_service_types.h>
-#include <fdsp/dm_service_types.h>
 #include <fdsp/sm_service_types.h>
 #include <persistent-layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
@@ -37,18 +35,8 @@ namespace FDS_ProtocolInterface {
     class SvcUuid;
     class GetObjectMsg;
     class GetObjectResp;
-    class QueryCatalogMsg;
     class PutObjectMsg;
     class PutObjectRspMsg;
-    class UpdateCatalogMsg;
-    class UpdateCatalogRspMsg;
-    class StartBlobTxMsg;
-    class CommitBlobTxMsg;
-    class AbortBlobTxMsg;
-    class GetBlobMetaDataMsg;
-    class SetBlobMetaDataMsg;
-    class SetBlobMetaDataRspMsg;
-    class DeleteCatalogObjectRspMsg;
     class DeleteObjectMsg;
     class DeleteObjectRspMsg;
     class ForwardCatalogRspMsg;
@@ -79,32 +67,17 @@ assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
 void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header);
 
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header);
-std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
-std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
-std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
-std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
-std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
-std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
-std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
-std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
-std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
-std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delObjRsp);
-std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
-std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
-std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message);
-std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& message);
-std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& msg);
-std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
-std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& msg);
-std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg);
+
 std::string logString(const FDS_ProtocolInterface::AddObjectRefMsg& msg);
 std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& msg);
-std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
-std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
 std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
 std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataSync& msg);
-std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg);
+std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
+std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& msg);
+std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
+std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
+std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
+std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 
 std::string quoteString(std::string const& text,
                         std::string const& delimiter = "\"",

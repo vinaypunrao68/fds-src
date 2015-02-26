@@ -15,6 +15,13 @@
 #include <fdsp/snapshot_types.h>
 #include <net/SvcRequestPool.h>
 
+namespace FDS_ProtocolInterface {
+struct CreateSnapshotMsg;
+struct CreateVolumeCloneMsg;
+using CreateSnapshotMsgPtr = boost::shared_ptr<CreateSnapshotMsg>;
+using CreateVolumeCloneMsgPtr = boost::shared_ptr<CreateVolumeCloneMsg>;
+}
+
 namespace fds {
 class OrchMgr;
 namespace snapshot {
