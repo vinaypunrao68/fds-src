@@ -1,10 +1,17 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
+ *
+ * NOTE (bszmyd): 02/23/2015
+ * This file contains some of the common message structs that all
+ * the services support, probably because of their dependence on
+ * platform.
+ *
+ * Put any new service specific types in the respective thrift file.
+ * Message ids have to go here for now since all SvcRequests use the
+ * enum below.
  */
 
 include "FDSP.thrift"
-include "snapshot.thrift"
-include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol
@@ -86,20 +93,20 @@ enum  FDSPMsgTypeId {
     /* SM messages. */
     CtrlStartMigrationTypeId           = 2040,
     CtrlNotifyScavengerTypeId          = 2041,
-	CtrlQueryScavengerStatusTypeId	   = 2042,
-	CtrlQueryScavengerStatusRespTypeId = 2043,
-	CtrlQueryScavengerProgressTypeId   = 2044,
-	CtrlQueryScavengerProgressRespTypeId = 2045,
-	CtrlSetScavengerPolicyTypeId 	   = 2046,
-	CtrlSetScavengerPolicyRespTypeId   = 2047,
-	CtrlQueryScavengerPolicyTypeId     = 2048,
-	CtrlQueryScavengerPolicyRespTypeId = 2049,
-	CtrlQueryScrubberStatusTypeId	   = 2050,
-	CtrlQueryScrubberStatusRespTypeId  = 2051,
-	CtrlSetScrubberStatusTypeId		   = 2052,
-	CtrlSetScrubberStatusRespTypeId	   = 2053,
-	CtrlNotifyMigrationFinishedTypeId  = 2054,
-	CtrlNotifyMigrationStatusTypeId	   = 2055,
+    CtrlQueryScavengerStatusTypeId	   = 2042,
+    CtrlQueryScavengerStatusRespTypeId = 2043,
+    CtrlQueryScavengerProgressTypeId   = 2044,
+    CtrlQueryScavengerProgressRespTypeId = 2045,
+    CtrlSetScavengerPolicyTypeId 	   = 2046,
+    CtrlSetScavengerPolicyRespTypeId   = 2047,
+    CtrlQueryScavengerPolicyTypeId     = 2048,
+    CtrlQueryScavengerPolicyRespTypeId = 2049,
+    CtrlQueryScrubberStatusTypeId	   = 2050,
+    CtrlQueryScrubberStatusRespTypeId  = 2051,
+    CtrlSetScrubberStatusTypeId		   = 2052,
+    CtrlSetScrubberStatusRespTypeId	   = 2053,
+    CtrlNotifyMigrationFinishedTypeId  = 2054,
+    CtrlNotifyMigrationStatusTypeId	   = 2055,
 
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
@@ -115,6 +122,8 @@ enum  FDSPMsgTypeId {
     CtrlNotifyPushDMTTypeId            = 2080,
     CtrlNotifyDMTCloseTypeId           = 2081,
     CtrlNotifyDMTUpdateTypeId          = 2082,
+    CtrlNotifyDMAbortMigrationTypeId   = 2083,
+
 
     /* OM-> AM messages. */
     CtrlNotifyBucketStatTypeId         = 2100,
@@ -127,18 +136,18 @@ enum  FDSPMsgTypeId {
     CtrlCreateBucketTypeId             = 3002,
     CtrlDeleteBucketTypeId             = 3003,
     CtrlModifyBucketTypeId             = 3004,
-    CtrlPerfStatsTypeId                = 3005,
 
     /* Svc -> OM */
     CtrlSvcEventTypeId                 = 9000,
+    CtrlTokenMigrationAbortTypeId      = 9001,
 
     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
     GetObjectRespTypeId 	= 10001,
     PutObjectMsgTypeId		= 10002, 
     PutObjectRspMsgTypeId	= 10003,
-	DeleteObjectMsgTypeId,
-	DeleteObjectRspMsgTypeId,
+    DeleteObjectMsgTypeId,
+    DeleteObjectRspMsgTypeId,
     AddObjectRefMsgTypeId,
     AddObjectRefRspMsgTypeId,
     ShutdownMODMsgTypeId,
@@ -208,13 +217,14 @@ struct AsyncHdr {
     4: required SvcUuid       	msg_src_uuid;
     5: required SvcUuid       	msg_dst_uuid;
     6: required i32           	msg_code;
-    7: i64			rqSendStartTs;
-    8: i64			rqSendEndTs;
-    9: i64        		rqRcvdTs;
-    10: i64        		rqHndlrTs;
-    11: i64        		rspSerStartTs;	
-    12:i64        		rspSendStartTs;	
-    13:i64			rspRcvdTs;
+    7: optional i64             dlt_version = 0;
+    8: i64			rqSendStartTs;
+    9: i64			rqSendEndTs;
+    10:i64        		rqRcvdTs;
+    11:i64        		rqHndlrTs;
+    12:i64        		rspSerStartTs;	
+    13:i64        		rspSendStartTs;	
+    14:i64			rspRcvdTs;
 }
 
 /*
@@ -478,7 +488,6 @@ struct EmptyMsg {
 /* ----------------------  CtrlNotifyVolAddTypeId  ----------------------------- */
 struct CtrlNotifyVolAdd {
      1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
-     2: FDSP.FDSP_VolumeInfoType  vol_info;
      3: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 
@@ -497,18 +506,7 @@ struct CtrlNotifyVolMod {
 /* ----------------------  CtrlNotifySnapVolTypeId  ---------------------------- */
 struct CtrlNotifySnapVol {
      1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
-     2: FDSP.FDSP_VolumeInfoType  vol_info;
      3: FDSP.FDSP_NotifyVolFlag   vol_flag;
-}
-
-/* ------------------------  CtrlTierPolicyTypeId  ----------------------------- */
-struct CtrlTierPolicy {
-     1: FDSP.FDSP_TierPolicy      tier_policy;
-}
-
-/* ----------------------  CtrlTierPolicyAuditTypeId  -------------------------- */
-struct CtrlTierPolicyAudit {
-     1: FDSP.FDSP_TierPolicyAudit tier_audit;
 }
 
 /* ------------ Debug message for starting hybrid tier controller manually --------- */
@@ -516,471 +514,14 @@ struct CtrlStartHybridTierCtrlrMsg
 {
 }
 
-/* ----------------------  CtrlStartMigrationTypeId  --------------------------- */
-struct CtrlStartMigration {
-     1: FDSP.FDSP_DLT_Data_Type   dlt_data;
-}
-
-/* ----------------------  CtrlNotifyMigrationStatusTypeId  --------------------------- */
-struct CtrlNotifyMigrationStatus {
-     1: FDSP.FDSP_MigrationStatusType   status;
-}
-
-/* ---------------------  CtrlNotifyScavengerTypeId  --------------------------- */
-struct CtrlNotifyScavenger {
-     1: FDSP.FDSP_ScavengerType   scavenger;
-}
-
-struct CtrlNotifyQosControl {
-     1: FDSP.FDSP_QoSControlMsgType qosctrl;
-} 
-
-/* ---------------------  CtrlScavengerStatusTypeId  --------------------------- */
-enum FDSP_ScavengerStatusType {
-	 SCAV_ACTIVE				  = 1,
-	 SCAV_INACTIVE				  = 2,
-	 SCAV_DISABLED				  = 3,
-     SCAV_STOPPING                = 4	 
-}
-
-struct CtrlQueryScavengerStatus {
-}
-
-struct CtrlQueryScavengerStatusResp {
-	   1: FDSP_ScavengerStatusType 	status;
-}
 /* ---------------------  ShutdownMODMsgTypeId  --------------------------- */
 struct ShutdownMODMsg {
 }
 
-/* ---------------------  CtrlScavengerProgressTypeId  --------------------------- */
-struct CtrlQueryScavengerProgress {
-}
-
-struct CtrlQueryScavengerProgressResp {
-	   1: i32					  progress_pct;
-}	   
-
-/* ---------------------  CtrlScavengerPolicyTypeId  --------------------------- */
-struct CtrlSetScavengerPolicy {
-	   1: i32					  dsk_threshold1;
-	   2: i32					  dsk_threshold2;
-	   3: i32					  token_reclaim_threshold;
-	   4: i32					  tokens_per_dsk;
-}
-
-struct CtrlSetScavengerPolicyResp {
-}
-
-struct CtrlQueryScavengerPolicy {
-}
-
-struct CtrlQueryScavengerPolicyResp {
-       1: i32                     dsk_threshold1;
-       2: i32                     dsk_threshold2;
-       3: i32                     token_reclaim_threshold;
-       4: i32                     tokens_per_dsk;
-}
-
-/* ------------------------  CtrlQueryScrubberStatusTypeId  ------------------------- */
-struct CtrlQueryScrubberStatus {
-}
-
-/* ------------------------  CtrlQueryScrubberStatusRespTypeId  ---------------------- */
-struct CtrlQueryScrubberStatusResp {
-	 1: FDSP_ScavengerStatusType	scrubber_status;
-}
-
-/* ------------------------  CtrlQueryScrubberStatusRespTypeId  ---------------------- */
-enum FDSP_ScrubberStatusType {
-	 FDSP_SCRUB_ENABLE			 = 1,
-	 FDSP_SCRUB_DISABLE			 = 2
-}
-
-struct CtrlSetScrubberStatus {
-	 1: FDSP_ScrubberStatusType		scrubber_status;
-}
-
-struct CtrlSetScrubberStatusResp {
-}
-
-/* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
-struct CtrlNotifyDLTUpdate {
-     1: FDSP.FDSP_DLT_Data_Type   dlt_data;
-     2: i64                       dlt_version;
-}
-
-/* ---------------------- CtrlNotifySMStartMigration --------------------------- */
-struct SMTokenMigrationGroup {
-     1: SvcUuid                   source;
-     2: list<i32>                 tokens;
-}
-
-struct CtrlNotifySMStartMigration {
-     1: list<SMTokenMigrationGroup> migrations;
-	 2: i64							DLT_version;
-}
-
-/* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
-struct CtrlNotifyDLTClose {
-     1: FDSP.FDSP_DltCloseType    dlt_close;
-}
-
-/* ---------------------  CtrlNotifySMAbortMigrationTypeId  ---------------------------- */
-struct CtrlNotifySMAbortMigration {
-     1: i64  DLT_version;
-}
-
-/* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
-struct CtrlNotifyPushDMT {
-     1: FDSP.FDSP_PushMeta        dmt_push;
-}
-
-/* ---------------------  CtrlNotifyDMTCloseTypeId  ---------------------------- */
-struct CtrlNotifyDMTClose {
-     1: FDSP.FDSP_DmtCloseType    dmt_close;
-}
-
-/* --------------------  CtrlNotifyDMTUpdateTypeId  ---------------------------- */
-struct CtrlNotifyDMTUpdate {
-     1: FDSP.FDSP_DMT_Type        dmt_data;
-     2: i32                       dmt_version;
-}
-
-/* --------------------  CtrlNotifyBucketStatTypeId  --------------------------- */
-struct CtrlNotifyBucketStat {
-     1: FDSP.FDSP_BucketStatsRespType  bucket_stat;
-}
-
-/* ---------------------  CtrlNotifyThrottleTypeId  ---------------------------- */
-struct CtrlNotifyThrottle {
-     1: FDSP.FDSP_ThrottleMsgType      throttle;
-}
-struct CtrlNotifyQoSControl {
-     1: FDSP.FDSP_QoSControlMsgType    qosctrl;
-}
-struct CtrlTestBucket {
-     1: FDSP.FDSP_TestBucket           tbmsg;
-}
-struct CtrlGetBucketStats {
-     1: FDSP.FDSP_GetDomainStatsType   gds;
-     2: i32 req_cookie;
-}
-struct CtrlCreateBucket {
-     1: FDSP.FDSP_CreateVolType       cv;
-}
-struct CtrlDeleteBucket {
-    1:  FDSP.FDSP_DeleteVolType       dv;
-}
-struct CtrlModifyBucket {
-    1:  FDSP.FDSP_ModifyVolType      mv;
-}
-struct CtrlPerfStats {
-    1:  FDSP.FDSP_PerfstatsType     perfstats;
-}
-
-struct CtrlSvcEvent {
-    1: required SvcUuid    evt_src_svc_uuid; // The svc uuid that this event targets
-    2: required i32        evt_code;         // The error itself
-    3: FDSPMsgTypeId       evt_msg_type_id;  // The msg that trigged this event (if any)
-}
-
-
-/* Registration for streaming stats */
-struct StatStreamRegistrationMsg {
-   1:i32 id,
-   2:string url,
-   3:string method
-   4:SvcUuid dest,
-   5:list<i64> volumes,
-   6:i32 sample_freq_seconds,
-   7:i32 duration_seconds,
-}
-
-struct StatStreamRegistrationRspMsg {
-}
-
-struct StatStreamDeregistrationMsg {
-    1: i32 id;
-}
-
-struct StatStreamDeregistrationRspMsg {
-}
-
-/* snapshot message From OM => DM */
-struct CreateSnapshotMsg {
-    1:snapshot.Snapshot snapshot
-}  
-
-struct CreateSnapshotRespMsg {
-    1:i64 snapshotId
-}
-
-struct DeleteSnapshotMsg {
-    1:i64 snapshotId
-}
-
-struct DeleteSnapshotRespMsg {
-    1:i64 snapshotId
-}
-
-struct ReloadVolumeMsg {
-    1:i64 volId
-}
-
-struct CreateVolumeCloneMsg {
-     1:i64 volumeId,
-     2:i64 cloneId,
-     3:string cloneName,
-     4:i64 VolumePolicyId
-}  
-
-struct CreateVolumeCloneRespMsg {
-     1:i64 cloneId
-}
-
-/*
- * --------------------------------------------------------------------------------
- * SM service specific messages
- * --------------------------------------------------------------------------------
- */
-/* Get object request message */
-struct GetObjectMsg {
-   1: required i64    			volume_id;
-   2: required FDSP.FDS_ObjectIdType 	data_obj_id;
-}
-
-/* Get object response message */
-struct GetObjectResp {
-   1: i32              		data_obj_len;
-   2: binary           		data_obj;
-}
-
-/* Put object request message */
-struct PutObjectMsg {
-   1: i64    			volume_id;
-   2: i64                      	dlt_version;
-   3: FDSP.FDS_ObjectIdType 	data_obj_id;
-   4: i32                      	data_obj_len;
-   5: binary                   	data_obj;
-}
-
-/* Put object response message */
-struct PutObjectRspMsg {
-}
-
-/* Delete object request message */
-struct  DeleteObjectMsg {
- 1: i64 volId,
- 2: FDSP.FDS_ObjectIdType objId, 
- 3: i64 dlt_version
-}
-
-/* Delete object response message */
-struct DeleteObjectRspMsg {
-}
-
-/* Copy objects from source volume to destination */
-struct AddObjectRefMsg {
- 1: list<FDSP.FDS_ObjectIdType> objIds,
- 2: i64 srcVolId,
- 3: i64 destVolId
-}
-
-struct AddObjectRefRspMsg {
-}
-
-/**
- * SM Service.  Only put sync rpc calls in here.  Async RPC calls use
- * message passing provided by BaseAsyncSvc
- */
-service SMSvc extends PlatNetSvc {
-}
-
-/*
- * --------------------------------------------------------------------------------
- * DM service specific messages
- * --------------------------------------------------------------------------------
- */
- /* Query catalog request message */
-struct QueryCatalogMsg {
-   1: i64    			volume_id;
-   2: string   			blob_name;		/* User visible name of the blob*/
-   3: i64               start_offset;   /* Starting offset into the blob */
-   4: i64               end_offset;     /* End offset into the blob */
-   5: i64 		blob_version;   /* Version of the blob to query */
-   6: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
-   7: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
-   8: i64                       byteCount;  /* Blob size */
-}
-
-// TODO(Rao): Use QueryCatalogRspMsg.  In current implementation we are using QueryCatalogMsg
-// for response as well
-/* Query catalog request message */
-struct QueryCatalogRspMsg {
-}
-
-/* Update catalog request message */
-struct UpdateCatalogMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name; 	/* User visible name of the blob */
-   3: i64                       blob_version; 	/* Version of the blob */
-   4: i64                   	txId;
-   5: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-}
-
-/* Update catalog response message */
-struct UpdateCatalogRspMsg {
-}
-
-/* Update catalog once request message */
-struct UpdateCatalogOnceMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name; 	/* User visible name of the blob */
-   3: i64                       blob_version; 	/* Version of the blob */
-   4: i32 			blob_mode;
-   5: i64                       dmt_version;
-   6: i64                   	txId;
-   7: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-   8: FDSP.FDSP_MetaDataList 	meta_list;	/* sequence of arbitrary key/value pairs */
-}
-
-/* Update catalog once response message */
-struct UpdateCatalogOnceRspMsg {
-}
-
 /* Forward catalog update request message */
-struct ForwardCatalogMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name; 	/* User visible name of the blob */
-   3: i64                       blob_version; 	/* Version of the blob */
-   4: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-   5: FDSP.FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
-}
-
-/* Forward catalog update response message */
-struct ForwardCatalogRspMsg {
-}
-
-/* Start Blob  Transaction  request message */
-struct StartBlobTxMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   4: i32 			blob_mode;
-   5: i64 			txId;
-   6: i64                       dmt_version;
-}
-
-/* start Blob traction response message */
-struct StartBlobTxRspMsg {
-}
-
-/* Commit Blob  Transaction  request message */
-struct CommitBlobTxMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   4: i64 			txId;
-   5: i64                       dmt_version,
-}
-
-/* Commit Blob traction response message */
-struct CommitBlobTxRspMsg {
-}
-
-/* Abort Blob  Transaction  request message */
-struct AbortBlobTxMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   5: i64			txId;
-}
-
-/* Abort Blob traction response message */
-struct AbortBlobTxRspMsg {
-}
-/* delete catalog object Transaction  request message */
-struct DeleteCatalogObjectMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-}
-
-struct DeleteCatalogObjectRspMsg {
-}
-
 /* get the list of blobs in volume Transaction  request message */
 struct GetVolumeBlobListMsg {
    1: i64    			volume_id;
-}
-
-/* get the list of blobs in volume Transaction  request message */
-struct SetBlobMetaDataMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   4: FDSP.FDSP_MetaDataList    metaDataList; 
-   5: i64                   	txId;
-}
-
-/* Set blob metadata request message */
-struct SetBlobMetaDataRspMsg {
-}
-
-struct GetBlobMetaDataMsg {
-  1: i64                       volume_id;
-  2: string                    blob_name;
-  3: i64                       blob_version;
-  4: i64                       byteCount;
-  5: FDSP.FDSP_MetaDataList    metaDataList;
-}
-
-struct GetBucketMsg {
-  //request
-  1: required i64              volume_id;
-  2: i64                       startPos = 0;  
-  3: i64                       count = 10000;
-  4: string                    pattern = "";
-  5: common.BlobListOrder      orderBy = 0;
-  6: bool                      descending = false;
-}
-
-struct GetBucketRspMsg {
-  //response
-  1: required FDSP.BlobInfoListType     blob_info_list;
-}
-
-struct GetDmStatsMsg {
-  1: i64                       volume_id;
-  // response
-  2: i64                       commitlog_size;
-  3: i64                       extent0_size;
-  4: i64                       extent_size;
-  5: i64                       metadata_size;
-}
-
-struct GetVolumeMetaDataMsg {
-  1: i64                        volume_id;
-  //response
-  2: FDSP.FDSP_VolumeMetaData   volume_meta_data;
-}
-
-struct DeleteBlobMsg {
-  1: i64                       txId;
-  2: i64                       volume_id;
-  3: string                    blob_name;
-  4: i64                       blob_version;
-}
-
-/* Volume sync state msg sent from source to destination DM */
-struct VolSyncStateMsg
-{
-    1: i64        volume_id;
-    2: bool       forward_complete;   /* true = forwarding done, false = second rsync done */
-}
-
-struct VolSyncStateRspMsg {
 }
 
 /**
@@ -1007,173 +548,3 @@ struct StatStreamMsg {
     2: list<VolStatList>      volstats;
 }
 
-/**
- * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
- * message passing provided by BaseAsyncSvc
- */
-service DMSvc extends PlatNetSvc {
-}
-
-/**
- * AM Service.  Only put sync rpc calls in here.  Async RPC calls use
- * message passing provided by BaseAsyncSvc
- */
-service AMSvc extends PlatNetSvc {
-}
-
-exception OmRegisterException {
-}
-
-/**
- * OM Service.  Only put sync rpc calls in here.  Async RPC calls use
- * message passing provided by BaseAsyncSvc
- */
-service OMSvc extends PlatNetSvc {
-    void registerService(1: SvcInfo svcInfo) throws (1: OmRegisterException e);
-    list<SvcInfo> getSvcMap(1: i32 nullarg);
-}
-
-
-/* Object + subset of MetaData to determine if either the object or
- * associated MetaData (subset) needs sync'ing.
- */
-struct CtrlObjectMetaDataSync 
-{
-    /* Object ID */
-    1: FDSP.FDS_ObjectIdType objectID
-
-    /* RefCount of the object */
-    2: i64              objRefCnt
-
-    /* TODO(Sean):
-     * There can be more fields in the MetaData that should be sync'ed,
-     * but for now, RefCnt is only one we've identified.
-     */
-}
-
-/* Message body to initiate the object rebalance between two
- * SMs.  The set of objects is sent from the destination SM to source
- * SM.  The set is filtered against the existing objects on SM, only
- * the "diff'ed" objects and meta data is sync'ed.
- */
-struct CtrlObjectRebalanceFilterSet
-{
-    /* Target DLT version for rebalance */
-    1: i64 targetDltVersion
-
-    /* DLT token to be rebalance */
-    2: FDSP.FDSP_Token              tokenId
-
-    /* unique id of executor on the destination SM */
-    3: i64 executorID
-
-    /* sequence number */
-    4: i64 seqNum
-
-    /* true if this is the last message */
-    5: bool lastFilterSet
-    
-    /* Set of objects to be sync'ed */
-    6: list<CtrlObjectMetaDataSync> objectsToFilter
-}
-
-/* Object volume association */
-struct MetaDataVolumeAssoc
-{
-    /* object volume association */
-    1: i64 volumeAssoc  
-
-    /* reference count for volume association */
-    2: i64 volumeRefCnt
-}
-
-/* Object + Data + MetaData to be propogated to the destination SM from source SM */
-struct CtrlObjectMetaDataPropagate
-{
-    /* Object ID */
-    1: FDSP.FDS_ObjectIdType objectID
-
-    /* If this flag is set, then the ObjectMetaDataProgate contains 
-     * different data to be applied to the destination SM.
-     *
-     * TRUE -> Only objectVolumeAssoc and objectRefCnt are pertinent fields at this point.
-     *         If true, these fields contains changes to the MetaData since the 
-     *         object was migrated to the destination SM.
-     *         objectData and other members are not set.
-     * NOTE: If TRUE, treat ref_cnt (including volume association ref_cnt) as signed int64_t.
-     *
-     * FALSE -> All MetaData fields and objectData is set.  The MetaData and objectData
-     *          can just be applied.
-     *
-     */
-    2: bool isObjectMetaDataReconcile
-    
-    /* user data */
-    3: FDSP.FDSP_ObjectData  objectData
-
-    /* volume information */
-    4: list<MetaDataVolumeAssoc> objectVolumeAssoc
-
-    /* object refcnt */
-    5: i64              objectRefCnt
-    
-    /* Compression type for this object */
-    6: i32              objectCompressType
-
-    /* Size of data after compression */
-    7: i32              objectCompressLen
-
-    /* Object block size */
-    8: i32              objectBlkLen
-
-    /* object size */
-    9: i32              objectSize
-
-    /* object flag */
-    10: i32              objectFlags
-    
-    /* object expieration time */
-    11: i64              objectExpireTime
-}
-
-struct CtrlObjectRebalanceDeltaSet
-{
-    /*
-     * unique id of executor on the destination SM
-     */
-    1: i64 executorID
-
-    /* sequence number of the delta set.  It's not important to handle
-     * delta set sent from the source SM to the destination SM, but it's
-     * important 
-     */
-    2: i64      seqNum
-
-    /* boolean state to indicate that the whether this set is the last one
-     * or noe.
-     */
-    3: bool     lastDeltaSet
-
-    /* set of objects, which consists of data + metadata, to be applied 
-     * at the destination SM.
-     */
-    4: list<CtrlObjectMetaDataPropagate> objectToPropagate
-}
-
-/* Message body to request Source SM to calculate and send delta set
- * from the metadata diff betweent the first rebalance msg and now.
- * In this second round, destination SM does not need to send filter set
- * as it does in the first round, because there are no active IO for this
- * token on the destination SM -- there could be active IO on the sorce SM.
- */
-struct CtrlGetSecondRebalanceDeltaSet
-{
-    /* unique id of executor on the destination SM */
-    1: i64 executorID
-}
-
-/* Get second rebalance delta set message response */
-struct CtrlGetSecondRebalanceDeltaSetRsp {
-}
-
-#endif

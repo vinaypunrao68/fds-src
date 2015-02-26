@@ -47,7 +47,7 @@ PythonBind::PythonBind(const std::string &py_file) : p_filename(py_file),
                                                      p_calls_made(0),
                                                      p_func_last()
 {
-    fds_assert(p_filename.length() != 0)
+    fds_assert(p_filename.length() != 0);
     p_name = PyString_FromString(p_filename.c_str());
     fds_assert(p_name);
 }

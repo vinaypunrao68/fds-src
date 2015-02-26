@@ -6,7 +6,9 @@
 #include <DataMgr.h>
 #include <dmhandler.h>
 #include <DMSvcHandler.h>
-#include <dm-vol-cat/DmPersistVc.h>
+
+#define MAX_EXTENT0_OBJS 1024
+#define MAX_EXTENT_OBJS 2048
 
 namespace fds {
 namespace dm {

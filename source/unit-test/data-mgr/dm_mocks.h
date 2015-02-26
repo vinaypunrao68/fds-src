@@ -25,7 +25,7 @@ class MockDataMgr : public PlatformProcess {
   public:
     MockDataMgr(int argc, char *argv[]) {
         static Module *modVec[] = {};
-        init(argc, argv, "fds.dm.", "dm.log", &gl_DmPlatform, modVec);
+        init(argc, argv, "fds.dm.", "dm.log", nullptr, modVec);
     }
 
     virtual int run() override {

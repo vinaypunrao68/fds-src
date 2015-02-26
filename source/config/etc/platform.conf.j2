@@ -96,11 +96,7 @@ fds: {
             period = 5
         }
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 8
-            max_thread  = 10
+            num_threads = 10
         }
         /* Internal testing related info */
         testing: {
@@ -111,7 +107,9 @@ fds: {
         }
         /* Service layer stanza */
         svc: {
+	    /* service uuid */
 	    uuid = 10000L
+	    /* service port */
 	    port = 10000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -127,7 +125,9 @@ fds: {
 
     dm: {
         svc: {
+	    /* service uuid */
 	    uuid = 10002L
+	    /* service port */
 	    port = 12000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -188,11 +188,7 @@ fds: {
         }
 
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 8
-            max_thread  = 10
+            num_threads = 10
         }
 
         /* Internal testing related info */
@@ -223,7 +219,9 @@ fds: {
 
     sm: {
         svc: {
+	    /* service uuid */
 	    uuid = 10001L
+	    /* service port */
 	    port = 12000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -253,6 +251,9 @@ fds: {
         data_verify = {{ sm_data_verify }}
         /* verify data in background */
         data_verify_background = {{ sm_data_verify_background }}
+
+        /* daemonize or not */
+        daemonize=true
 
         objectstore: {
             /* Size of the hashed task synchronizer */
@@ -316,11 +317,7 @@ fds: {
             cold_threshold = 0
         }
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 8
-            max_thread  = 10
+            num_threads = 10
         }
         /* Migration related info */
         migration: {
@@ -339,7 +336,7 @@ fds: {
             verify_migration_data=false
 
             /* boolean to enable/disable SM token migration feature */
-            enable_feature = false
+            enable_feature = true
         }
 	tiering: {
 	    hybrid: {
@@ -364,7 +361,9 @@ fds: {
 
     am: {
         svc: {
+	    /* service uuid */
 	    uuid = 10003L
+	    /* service port */
 	    port = 13000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -394,18 +393,18 @@ fds: {
         s3_https_port=8443
         swift_port=9999
         memory_backend=false
-        nbd_server_port = 10809
-        enable_nbd_log=true
-        enable_nbd_block_exclusion=false
         fdsn_server_threads=30
         qos_threads=4
 
+        connector: {
+            nbd: {
+                server_port=10809
+                non_block_io=true
+            }
+        }
+
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 10
-            max_thread  = 15
+            num_threads = 10
         }
         cache: {
             /* Default max data entries in a volume's AM cache */
@@ -470,7 +469,9 @@ fds: {
     {
         /* Service layer stanza */
         svc: {
+	    /* service uuid */
 	    uuid = 1L
+	    /* service port */
 	    port = 9999
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
@@ -504,11 +505,7 @@ fds: {
         }
         test_mode=false
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 8
-            max_thread  = 10
+            num_threads = 10
         }
 
         snmp: {
@@ -535,11 +532,7 @@ fds: {
         enable_graphite = {{ metrics_enabled }}
 
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 3
-            max_thread  = 8
+            num_threads = 10
         }
     }
 

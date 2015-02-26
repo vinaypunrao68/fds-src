@@ -26,14 +26,16 @@ for node in $hosts ; do
     scp $WORKSPACE/source/tools/redis.sh $node:/tmp/
     ssh $node 'bash /tmp/redis.sh clean'
     ssh $node 'bash /tmp/redis.sh stop'
-    echo "$node -> remove fds-platform"
-    ssh $node 'apt-get remove -y fds-platform'
+    echo "$node -> remove fds-platform-rel"
+    ssh $node 'dpkg -P fds-platform-rel'
     echo "$node -> clean up shared memory"
     ssh $node 'rm -f /dev/shm/0x*-0'
     echo "$node -> unmount FDS disks"
     ssh $node 'umount /fds/dev/*'
     echo "$node -> remove /fds"
     ssh $node 'rm -fr /fds'
+    echo "fixing libcrypto"
+    ssh $node 'cp /usr/lib/libcryptopp.so /opt/fds-deps/embedded/lib/'
 done
 
 # deploy inventory file/confs

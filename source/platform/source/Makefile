@@ -64,8 +64,6 @@ fds_plat_lib_cpp :=                              \
                     node_agent.cpp               \
                     node_services.cpp            \
                     node_agent_evt.cpp           \
-                    BaseAsyncSvcHandler.cpp      \
-                    plat_net_svc_handler.cpp     \
                     node_work_flow.cpp           \
                     node_down.cpp                \
                     node_started.cpp             \

@@ -4,7 +4,8 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
-import com.formationds.protocol.*;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.util.blob.Mode;
 import org.apache.thrift.TException;
 

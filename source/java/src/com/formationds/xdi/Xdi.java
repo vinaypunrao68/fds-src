@@ -5,6 +5,7 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
@@ -26,10 +27,10 @@ public class Xdi {
     private ConfigurationApi config;
     private XdiAuthorizer authorizer;
 
-    public Xdi(AmService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer) {
+    public Xdi(AmService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
         this.am = am;
         this.config = config;
-        this.authorizer = new XdiAuthorizer(authenticator, authorizer, am, config);
+        this.authorizer = new XdiAuthorizer(authenticator, authorizer, asyncAm, config);
     }
 
     private void attemptVolumeAccess(AuthenticationToken token, String volumeName, Intent intent) throws SecurityException {

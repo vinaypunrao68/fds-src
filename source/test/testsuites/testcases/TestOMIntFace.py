@@ -18,37 +18,10 @@ import fdslib.restendpoint as rep
 # for use with an S3 connector in establishing a connection, for example.
 class TestGetAuthToken(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestGetAuthToken, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_GetAuthToken():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Retrieving an authorization token caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_GetAuthToken,
+                                             "Retrieving an authorization token")
 
     def test_GetAuthToken(self):
         """

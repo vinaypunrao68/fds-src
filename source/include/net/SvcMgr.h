@@ -12,20 +12,11 @@
 #include <net/PlatNetSvcHandler.h>
 #include <boost/shared_ptr.hpp>
 
+#define NET_SVC_RPC_CALL(eph, rpc, rpc_fn, ...)                                        \
+            fds_panic("not supported...use svcmgr api");
+
 #define EpInvokeRpc(SendIfT, func, svc_id, maj, min, ...)                       \
-    do {                                                                        \
-        try {                                                                   \
-            /* TODO(Rao): Fix this*/                                            \
-            fds_panic("not imple");                                             \
-            GLOGDEBUG << "[Svc] sent RPC "                                      \
-                << std::hex << svc_id.svc_uuid << std::dec;                     \
-        } catch(std::exception &e) {                                            \
-            GLOGDEBUG << "[Svc] RPC error " << e.what();                        \
-        } catch(...) {                                                          \
-            GLOGDEBUG << "[Svc] Unknown RPC error ";                            \
-            fds_assert(!"Unknown exception");                                   \
-        }                                                                       \
-    } while (0)
+            fds_panic("not supported...use svcmgr api");
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -237,6 +228,15 @@ struct SvcMgr : HasModuleProvider, Module {
      */
     inline PlatNetSvcHandlerPtr getSvcRequestHandler() const {
         return svcRequestHandler_;
+    }
+
+    /**
+    * @brief  Returns property for service with svcUuid.
+    */
+    template<class T>
+    T getSvcProperty(const fpi::SvcUuid &svcUuid, std::string& key) {
+        // TODO(Rao): Complete the implementation
+        return T();
     }
 
  protected:

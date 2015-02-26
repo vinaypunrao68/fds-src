@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include "fdsp_utils.h"
 #include "apis/apis_types.h"
 #include "fds_error.h"
 
@@ -27,8 +28,8 @@ class AmAsyncResponseApi {
     typedef Error error_type;
     typedef uint32_t size_type;
     typedef sp<std::string> shared_buffer_type;
-    typedef sp<apis::BlobDescriptor> shared_descriptor_type;
-    typedef sp<std::vector<apis::BlobDescriptor>> shared_descriptor_vec_type;
+    typedef sp<fpi::BlobDescriptor> shared_descriptor_type;
+    typedef sp<std::vector<fpi::BlobDescriptor>> shared_descriptor_vec_type;
     typedef sp<apis::TxDescriptor> shared_tx_ctx_type;
     typedef sp<apis::VolumeStatus> shared_status_type;
 

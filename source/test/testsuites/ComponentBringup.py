@@ -8,7 +8,7 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 import NodeWaitSuite
 
@@ -25,16 +25,16 @@ def suiteConstruction(self):
 
     # Bring up each component of the node separately, waiting until
     # one is up before proceeding to the next.
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestDMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestDMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestSMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestSMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
-    suite.addTest(testcases.TestFDSModMgt.TestAMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMBringUp())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestOMBringUp())
+    suite.addTest(testcases.TestFDSServiceMgt.TestOMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestDMBringUp())
+    suite.addTest(testcases.TestFDSServiceMgt.TestDMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMBringUp())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestAMBringup())
+    suite.addTest(testcases.TestFDSServiceMgt.TestAMWait())
 
     # Check that the node is up.
     nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)

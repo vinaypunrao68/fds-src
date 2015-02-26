@@ -17,36 +17,10 @@ import os
 # the transaction load provided by the com.formationds.smoketest.SmokeTestRunner suite.
 class TestSmokeLoad(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestSmokeLoad, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_SmokeLoad():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Smoke load caused exception:")
-            self.log.error(traceback.format_exc())
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_SmokeLoad,
+                                             "Smoke load")
 
     def test_SmokeLoad(self):
         """
@@ -59,21 +33,21 @@ class TestSmokeLoad(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        nodes = fdscfg.rt_get_obj('cfg_am')
+        nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            self.log.info("Apply smoke load to node %s." % n.nd_conf_dict['fds_node'])
+            self.log.info("Apply smoke load to node %s." % n.nd_conf_dict['node-name'])
 
             cur_dir = os.getcwd()
             os.chdir(fdscfg.rt_env.env_fdsSrc + '/Build/linux-x86_64.debug/tools')
-            status, stdout = n.nd_am_node.nd_agent.exec_wait('./smokeTest %s' %
-                                                     n.nd_am_node.nd_host, return_stdin=True)
+            status, stdout = n.nd_agent.exec_wait('./smokeTest %s' %
+                                                     n.nd_host, return_stdin=True)
             if stdout is not None:
                 self.log.info(stdout)
 
             os.chdir(cur_dir)
 
             if status != 0:
-                self.log.error("Application of smoke load on %s returned status %d." %(n.nd_conf_dict['fds_node'], status))
+                self.log.error("Application of smoke load on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
 
         return True

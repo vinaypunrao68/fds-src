@@ -21,7 +21,6 @@ namespace fds {
 struct EPSvcRequest;
 
 const fds_token_id SMTokenInvalidID = 0xffffffff;
-const uint64_t invalidExecutorID = 0xffffffffffffffff;
 
 /**
  * This is the client class for token migration.  This class is instantiated by the
@@ -46,7 +45,8 @@ class MigrationClient {
             MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE,
             MIG_CLIENT_SECOND_PHASE_DELTA_SET,
             MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE,
-            MIG_CLIENT_FINISH
+            MIG_CLIENT_FINISH,
+            MIG_CLIENT_ERROR
      };
 
     typedef std::unique_ptr<MigrationClient> unique_ptr;
@@ -103,8 +103,9 @@ class MigrationClient {
 
     /**
      * Will set forwarding flag to true
+     * @param smToken is SM token, for sanity check
      */
-    void setForwardingFlag();
+    void setForwardingFlagIfSecondPhase(fds_token_id smTok);
 
     /**
      * Forwards requests if given DLT token is migrating and migration
@@ -134,6 +135,11 @@ class MigrationClient {
                         EPSvcRequest* svcReq,
                         const Error& error,
                         boost::shared_ptr<std::string> payload);
+
+    /**
+     * In error, sets error state and report error to OM
+     */
+    void handleMigrationError(const Error& error);
 
     /**
      * Return sequence number for delta set message from source SM to

@@ -1,57 +1,20 @@
 {
 	"test_sets" : {
-		"test_basic_op" : [
-				{
-					"name" : "TestCreateMultipleBuckets",
-					"file" : "test_create_multiple_buckets.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3GetConn",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3CrtBucket",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3LoadSBLOB",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3DelBucketKeys",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : [],
-					"config" : ""
-				},
-				{
-					"name" : "TestS3DelBucket",
-					"file" : "TestS3IntFace.py",
-					"arguments" : [],
-					"depends" : ["TestS3DelBucketKeys"],
-					"config" : ""
-				}
-		],
-		"system_framework_migration" : [
+		"multi_am_tests" : [
 			{
-				"name" : "TestGetAuthToken",
-				"file" : "TestOMIntFace.py",
+				"name" : "TestDifferentBlobSizes",
+				"file" : "test_different_blob_sizes.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
-			}	
+			},
+			{
+				"name" : "TestGigabyteBlobSize",
+				"file" : "test_gigabyte_blob_size.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}
 		]
 	}
 }

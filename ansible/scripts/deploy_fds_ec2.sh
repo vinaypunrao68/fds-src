@@ -42,6 +42,7 @@ E() {
     exit 1
 }
 
+PATH=$PATH:/opt/fds-deploy/embedded/bin
 inventory="${1}"
 instance_count="${2}"
 deploy_source="${3}"

@@ -7,10 +7,10 @@ package com.formationds.commons.model;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.iCalFrequency;
 import com.formationds.commons.model.type.iCalKeys;
-import com.formationds.commons.model.type.iCalWeekDays;
 import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 import com.google.gson.annotations.SerializedName;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,7 +66,7 @@ public class RecurrenceRule
     private String weekStartDay;
 
     @SerializedName( "BYDAY" )
-    private WeekDays<iCalWeekDays> days = null;
+    private WeekDays<String> days = null;
 
     /**
      * default constructor
@@ -179,11 +179,11 @@ public class RecurrenceRule
         this.monthDays = monthDays;
     }
 
-    public WeekDays<iCalWeekDays> getDays() {
+    public WeekDays<String> getDays() {
         return days;
     }
 
-    public void setDays( final WeekDays<iCalWeekDays> days ) {
+    public void setDays( final WeekDays<String> days ) {
         this.days = days;
     }
 

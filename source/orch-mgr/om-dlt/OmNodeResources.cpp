@@ -12,13 +12,13 @@
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
 #include <OmDeploy.h>
-#include <net/RpcFunc.h>
 #include <orchMgr.h>
 #include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 
 #include "platform/node_data.h"
 #include "platform/platform.h"
@@ -62,43 +62,10 @@ OM_NodeAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType my
 void
 OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
 {
-    // TODO(Andrew): Add this back when OM actually responds
-    // to node registrations
-    // if (peer->get_node_name() == get_node_name()) {
-    // return;
-    // }
-    fpi::FDSP_MsgHdrTypePtr     m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_Node_Info_TypePtr n_inf(new fpi::FDSP_Node_Info_Type);
-
-    this->init_msg_hdr(m_hdr);
-    this->init_node_info_pkt(n_inf);
-
-    m_hdr->msg_code        = fpi::FDSP_MSG_NOTIFY_NODE_ADD;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
-
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyNodeAdd, m_hdr, n_inf);
-        return;
-    }
-    try {
-        if (node_state() == fpi::FDS_Node_Down) {
-            OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeRmv(m_hdr, n_inf);
-        } else {
-            n_inf->node_state = fpi::FDS_Node_Up;
-            OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
-        }
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return;
-    } catch(...) {
-        LOGCRITICAL << "caught unexpected exception!!!";
-        throw;
-    }
-
-    LOGNORMAL << "Send node info from " << get_node_name()
-              << " to " << peer->get_node_name() << std::endl;
+    // TODO(Andrew): This function is deprecated and should not
+    // be called. It is not in any main code path but has a long
+    // deprecated call chain that can be removed when OM is re-factored.
+    LOGWARN << "You're calling a dead function";
 }
 
 // ----------------
@@ -131,7 +98,18 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
                       const Error& error,
                       boost::shared_ptr<std::string> payload) {
     if (vol == NULL || vol->rs_get_uuid() == 0) {
-        LOGWARN << "response received for invalid volume . ignored.";
+        
+        /*
+         * TODO Tinius 02/11/2015
+         * 
+         * FS-936 -- AM and OM continously log errors with "invalid bucket SYSTEM_VOLUME_0"
+         * 
+         * Not sure if this is expected behavior? Once re-written we will
+         * handle this correctly. But for now remove the logging noise
+         * 
+         * LOGWARN << "response received for invalid volume . ignored.";
+         */
+
         return;
     }
     LOGNORMAL << "received vol cmd response " << vol->vol_get_name();
@@ -223,7 +201,17 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                   << ", uuid " << get_uuid().uuid_get_val() << std::dec
                   << ", port " << ctrl_port;
     } else {
-        LOGNORMAL << log << ", no vol to node " << get_node_name();
+        
+        /*
+         * TODO Tinius 02/11/2015
+         * 
+         * FS-936 -- AM and OM continously log errors with "invalid bucket SYSTEM_VOLUME_0"
+            
+         * Not sure if this is expected behavior? Once re-written we will
+         * handle this correctly. But for now remove the logging noise
+         * 
+         * LOGNORMAL << log << ", no vol to node " << get_node_name();
+         */
     }
     return Error(ERR_OK);
 }
@@ -250,7 +238,7 @@ OM_NodeAgent::om_send_reg_resp(const Error &err)
 }
 
 Error
-OM_NodeAgent::om_send_abort_migration(fds_uint64_t dltVersion) {
+OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t dltVersion) {
     Error err(ERR_OK);
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
@@ -258,7 +246,7 @@ OM_NodeAgent::om_send_abort_migration(fds_uint64_t dltVersion) {
 
     // send request
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration), msg);
-    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_migration_resp, this, msg,
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_sm_migration_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
     om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
@@ -272,7 +260,7 @@ OM_NodeAgent::om_send_abort_migration(fds_uint64_t dltVersion) {
 }
 
 void
-OM_NodeAgent::om_send_abort_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
+OM_NodeAgent::om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr msg,
                                            EPSvcRequest* req,
                                            const Error& error,
                                            boost::shared_ptr<std::string> payload)
@@ -288,6 +276,48 @@ OM_NodeAgent::om_send_abort_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr ms
     OM_DLTMod *dltMod = om->om_dlt_mod();
     dltMod->dlt_deploy_event(DltRecoverAckEvt(true, node_uuid, error));
 }
+
+Error
+OM_NodeAgent::om_send_dm_abort_migration(fds_uint64_t dmtVersion) {
+    Error err(ERR_OK);
+    auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::CtrlNotifyDMAbortMigrationPtr msg(new fpi::CtrlNotifyDMAbortMigration());
+    msg->DMT_version = dmtVersion;
+
+    // send request
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMAbortMigration), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_dm_migration_resp, this, msg,
+            std::placeholders::_1, std::placeholders::_2,
+            std::placeholders::_3));
+    om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
+    om_req->invoke();
+
+    LOGNORMAL << "OM: Send abort DM migration (DMT version " << dmtVersion
+                << ") to " << get_node_name() << " uuid 0x"
+                << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
+void
+OM_NodeAgent::om_send_abort_dm_migration_resp(fpi::CtrlNotifyDMAbortMigrationPtr msg,
+        EPSvcRequest* req,
+        const Error& error,
+        boost::shared_ptr<std::string> payload)
+{
+    LOGNOTIFY << "OM received response for DM Abort Migration from node "
+                << std::hex << req->getPeerEpId().svc_uuid << std::dec
+                << " with version " << msg->DMT_version
+                << " " << error;
+
+    // notify DLT state machine
+    NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    // TODO(xxx): There is no DmtRecoverAckEvt currently so the next line is commented out
+    // dmtMod->dmt_deploy_event(DmtRecoverAckEvt());
+}
+
 
 Error
 OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
@@ -317,7 +347,7 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
-    om_req->setTimeoutMs(20000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(60000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     curDlt->dump();
@@ -1671,22 +1701,6 @@ om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr msg,
     OM_SmAgent::agt_cast_ptr(node)->om_send_node_throttle_lvl(msg);
 }
 
-// om_bcast_vol_tier_policy
-// ------------------------
-//
-void
-OM_NodeContainer::om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier)
-{
-}
-
-// om_bcast_vol_tier_audit
-// -----------------------
-//
-void
-OM_NodeContainer::om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier)
-{
-}
-
 // om_bcast_throttle_lvl
 // ---------------------
 //
@@ -1716,22 +1730,6 @@ OM_NodeContainer::om_set_throttle_lvl(float level)
     om_bcast_throttle_lvl(level);
 }
 
-// om_bcast_tier_policy
-// --------------------
-//
-void
-OM_NodeContainer::om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy)
-{
-}
-
-// om_bcast_tier_audit
-// -------------------
-//
-void
-OM_NodeContainer::om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit)
-{
-}
-
 // om_send_dlt
 // -----------------------
 //
@@ -1755,11 +1753,13 @@ OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
     } else if (svc_type == fpi::FDSP_STOR_MGR) {
         count += dc_sm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " SM services successfully";
-    } else {
+    } else if (svc_type == fpi::FDSP_STOR_HVISOR) {
         // this method must only be called for either DM, SM or AM!
         fds_verify(svc_type == fpi::FDSP_STOR_HVISOR);
         count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " AM services successfully";
+    } else {
+        LOGERROR << "Received request to bcast DMT to invalid svc type.";
     }
 #ifdef LLIU_WORK_IN_PROGRESS
     //   the following is to test for PM to receive dmt
@@ -1883,7 +1883,7 @@ OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
 static Error
 om_send_sm_migration_abort(fds_uint64_t cur_dlt_version, NodeAgent::pointer agent)
 {
-    return OM_SmAgent::agt_cast_ptr(agent)->om_send_abort_migration(cur_dlt_version);
+    return OM_SmAgent::agt_cast_ptr(agent)->om_send_sm_abort_migration(cur_dlt_version);
 }
 
 // om_bcast_sm_migration_abort
@@ -1900,6 +1900,29 @@ OM_NodeContainer::om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version)
     LOGDEBUG << "Sent SM Migration Abort to " << count << " nodes successfully";
     return count;
 }
+
+// om_send_dm_migration_abort
+// --------------------------
+//
+static Error
+om_send_dm_migration_abort(fds_uint64_t cur_dmt_version, NodeAgent::pointer agent)
+{
+    return OM_DmAgent::agt_cast_ptr(agent)->om_send_dm_abort_migration(cur_dmt_version);
+}
+
+// om_bcast_dm_migration_abort
+// ---------------------------
+// @return number of nodes we sent message to
+//
+fds_uint32_t
+OM_NodeContainer::om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version) {
+    fds_uint32_t count = 0;
+    count = dc_dm_nodes->agent_ret_foreach<fds_uint64_t>(cur_dmt_version,
+            om_send_dm_migration_abort);
+    LOGDEBUG << "Sent DM migration abort to " << count << "nodes.";
+    return count;
+}
+
 
 
 // om_send_dlt_close

@@ -9,7 +9,9 @@ user_cpp         := \
 	SvcRequestTracker.cpp \
 	SvcRequestPool.cpp \
 	SvcRequest.cpp \
-	SvcProcess.cpp
+	SvcProcess.cpp \
+	SvcHandler.cpp \
+	SvcBaseHandler.cpp
 
 
 user_ar_libs     := fds-svc-request

@@ -113,7 +113,7 @@ void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     if (updated) {
         /* Prepare update svc map message */
         boost::shared_ptr<std::string>buf;
-        auto header = SvcRequestPool::newSvcRequestHeaderPtr(
+        auto header = getSvcMgr()->getSvcRequestMgr()->newSvcRequestHeaderPtr(
             SvcRequestPool::SVC_UNTRACKED_REQ_ID,
             FDSP_MSG_TYPEID(fpi::UpdateSvcMapMsg),
             svcMgr_->getSelfSvcUuid(),

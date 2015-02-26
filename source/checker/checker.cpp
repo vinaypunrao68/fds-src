@@ -283,7 +283,7 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
 
  private:
     // XXX: list of blobs in volume goes here
-    BlobInfoListType *resp_vector;
+    BlobDescriptorListType *resp_vector;
     FDSP_BlobDigestType *resp_digest;
     FDSP_BlobObjectList *resp_obj_list;
     concurrency::TaskStatus *get_resp_monitor_;

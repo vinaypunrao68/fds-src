@@ -2,6 +2,7 @@
 -   name: set the root password
     action: user name=root
         password=$1$M7e8qbJh$0nDQnqfGh5Ce80bbYKp5U/
+    when: no_password_change is not defined
     tags:
         - setup
 

@@ -22,7 +22,6 @@
 #include <net/net-service.h>
 #include <concurrency/ThreadPool.h>
 #include <fds_typedefs.h>
-#include <net/RpcFunc.h>
 
 
 namespace fds {

@@ -4,7 +4,7 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.apis.ApiException;
-import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.xdi.Xdi;

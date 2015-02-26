@@ -17,7 +17,7 @@ const fds_uint32_t DmPersistVolFile::MMAP_CACHE_SIZE = 100;
 DmPersistVolFile::DmPersistVolFile(fds_volid_t volId, fds_uint32_t objSize,
                    fds_bool_t snapshot, fds_bool_t readOnly,
                    fds_volid_t srcVolId /* = invalid_vol_id */)
-        : DmPersistVolDir(volId, objSize, snapshot, readOnly, fpi::FDSP_VOL_BLKDEV_TYPE,
+        : DmPersistVolCat(volId, objSize, snapshot, readOnly, fpi::FDSP_VOL_BLKDEV_TYPE,
         srcVolId), metaFd_(-1), objFd_(-1), configHelper_(g_fdsprocess->get_conf_helper()) {
     mmapCache_.reset(new SharedKvCache<fds_uint64_t, DmOIDArrayMmap>(
             std::string("DmOIDArrayMmap") + std::to_string(volId), MMAP_CACHE_SIZE));

@@ -115,7 +115,8 @@ ObjectStore::putObject(fds_volid_t volId,
 
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
-            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
+                        << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
@@ -150,7 +151,7 @@ ObjectStore::putObject(fds_volid_t volId,
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
 
     // either new data or dup, update assoc entry
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->updateAssocEntry(objId, volId);
     volumeTbl->updateDupObj(volId,
@@ -224,7 +225,8 @@ ObjectStore::getObject(fds_volid_t volId,
 
     // check if object corrupted
     if (objMeta->isObjCorrupted()) {
-        LOGCRITICAL << "Obj metadata indicates data corrupted, will return err";
+        LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
+                    << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         err = ERR_ONDISK_DATA_CORRUPT;
         return NULL;
     }
@@ -319,13 +321,14 @@ ObjectStore::deleteObject(fds_volid_t volId,
 
     // if object corrupted, no point of updating metadata
     if (objMeta->isObjCorrupted()) {
-        LOGCRITICAL << "Object corrupted, returning error ";
+        LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
+                    << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         return err = ERR_ONDISK_DATA_CORRUPT;
     }
 
     // Create new object metadata to update the refcnts
     updatedMeta.reset(new ObjMetaData(objMeta));
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     // remove volume assoc entry
     fds_bool_t change = updatedMeta->deleteAssocEntry(objId,
@@ -459,7 +462,7 @@ Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
 
     if (!objMeta->onTier(diskio::DataTier::diskTier)) {
         LOGNOTIFY << "Object " << objId << " hasn't made it to disk yet.  Ignoring move";
-        return ERR_SM_TIER_WRITEBACK_NOT_DONE; 
+        return ERR_SM_TIER_WRITEBACK_NOT_DONE;
     }
 
     /* Remove flash as the phsycal location */
@@ -503,7 +506,7 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 
     // copy association entry
     updatedMeta.reset(new ObjMetaData(objMeta));
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->copyAssocEntry(objId, srcVolId, destVolId);
 
@@ -568,8 +571,9 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                 // on-disk data corruption
                 // mark object metadata as corrupted! will copy it to new
                 // location anyway so we can debug the issue
-                LOGCRITICAL << "Encountered a on-disk data corruption object "
-                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex();
+                LOGCRITICAL << "CORRUPTION: On-disk corruption detected: "
+                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex()
+                            << " ObjMetaData=" << updatedMeta->logString();
                 // set flag in object metadata
                 updatedMeta->setObjCorrupted();
             }
@@ -593,10 +597,10 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         }
     } else {
         // not going to copy object to new location
-        LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
+        LOGDEBUG << "Will garbage-collect " << objId << " on tier " << tier;
         // remove entry from index db if data + meta is garbage
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
-            LOGNORMAL << "Removing metadata for " << objId
+            LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
@@ -632,7 +636,8 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
-            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
+                        << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
@@ -652,7 +657,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
             // check if data is the same
             if (*existObjData != *objData) {
-                LOGCRITICAL << "Mismatch between data in object store and data received "
+                LOGCRITICAL << "CORRUPTION: Mismatch between data in object store and data received "
                             << "from source SM for " << objId << " !!!";
                 return ERR_SM_TOK_MIGRATION_DATA_MISMATCH;
             }

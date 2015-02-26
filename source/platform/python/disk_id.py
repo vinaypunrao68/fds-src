@@ -16,33 +16,49 @@ header_output = False
 class Disk:
     # Static disk parsing stuff
     #
-    dsk_prefix = '/dev/'
+    DSK_PREFIX = '/dev/'
 
-    dsk_typ_ssd = 'SSD'
-    dsk_typ_hdd = 'HDD'
-    dsk_typ_unknown = 'UKN'
+    DSK_TYP_SSD = 'SSD'
+    DSK_TYP_HDD = 'HDD'
+    DSK_TYP_UNKNOWN = 'UKN'
 
-    p_dev   = re.compile('sd[a-z]$')
+    DISK_BUS_SATA = 'SATA'
+    DISK_BUS_SAS = 'SAS'
+    DISK_BUS_NA = 'NA'
+
+    p_dev = re.compile('sd[a-z]$')
 
     # We are using 1000*1000
     # device size with M = 1024*1024:     1907729 MBytes
     # device size with M = 1000*1000:     2000398 MBytes (2000 GB)
-    dsk_gsize = 1000 * 1000 * 1000
+    DSK_GSIZE = 1000 * 1000 * 1000
 
     # Save lshw result once
-    dsk_lshw_xml  = None
+    dsk_lshw_xml = None
 
 ## Public member functions
 ## -----------------------
     # Parse the disk information
-    def __init__(self, path, virtualized):
+    def __init__(self, path, virtualized, sdb_non_os):
         assert path != None
-        assert re.match(Disk.dsk_prefix, path)
+        assert re.match(Disk.DSK_PREFIX, path)
 
         self.dsk_path = path
         self.dsk_cap  = 0
-        self.dsk_typ  = Disk.dsk_typ_unknown
+        self.dsk_typ  = Disk.DSK_TYP_UNKNOWN
         self.dsk_formatted = 'Unknown'
+        self.dsk_index_use = False
+        self.dsk_bus = Disk.DISK_BUS_NA
+
+        if path == '/dev/sda':
+            self.dsk_os_use = True
+        elif path == '/dev/sdb':
+            if sdb_non_os:
+                self.dsk_os_use = False
+            else:
+                self.dsk_os_use = True
+        else:
+            self.dsk_os_use = False
 
         # parse disk information
         self.__parse_with_lshw(path, virtualized)
@@ -51,15 +67,23 @@ class Disk:
     def get_type(self):
         return self.dsk_typ
 
-    # disk capacity in GB
-    def get_capacity(self):
-        return self.dsk_cap
+    # get os_use
+    def get_os_use(self):
+        return self.dsk_os_use
 
     # file system path of disk
     def get_path(self):
         return self.dsk_path
 
-    # print all the parsed fields
+    # set_index, mark this device as an index storage device
+    def set_index(self):
+        self.dsk_index_use = True
+
+    # set_bus, configure this device's bus type, only used by HDDs
+    def set_bus(self, bus_type):
+        self.dsk_bus = bus_type
+
+    # print all the disk details
     def print_disk(self, disk_file = None):
         global header_output
         dest = sys.stdout
@@ -68,20 +92,20 @@ class Disk:
             dest = disk_file
 
         if not header_output:
-            print >>dest, '#path     type  capacity (GB)'
+            print >>dest, '#path      os_use  index_use  type  bus   capacity (GB)'
             header_output = True
-        print >>dest, '%-10s%-5s%-5d' % (self.get_path(), self.get_type(), self.get_capacity())
+        print >>dest, '%-11s%-8s%-11s%-6s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_bus, self.dsk_cap)
 
 ## ----------------------------------------------------------------
 
     # get all Disk objects in the system, including the boot device(s)
     @staticmethod
-    def sys_disks(virtualized):
+    def sys_disks(virtualized, sdb_non_os):
         dev_list  = []
         path_list = Disk.__get_sys_disks_path()
-    
+
         for path in path_list:
-            disk = Disk(path, virtualized)
+            disk = Disk(path, virtualized, sdb_non_os)
             dev_list.append(disk)
 
         return dev_list
@@ -100,7 +124,6 @@ class Disk:
             if node.get('id') == 'cdrom':
                 continue
             node_logicalname = node.find('logicalname')
-            print "node_logicalname.text = ", node_logicalname.text
             assert node_logicalname != None
 
             if node_logicalname.text != path:
@@ -111,7 +134,7 @@ class Disk:
 
             units = node_size.get('units')
             if units == 'bytes':
-                self.dsk_cap = int(node_size.text) / Disk.dsk_gsize
+                self.dsk_cap = int(node_size.text) / Disk.DSK_GSIZE
                 break
             else:
                 self.dsk_cap = 0
@@ -127,23 +150,23 @@ class Disk:
         fp.close()
 
         if rotation == '0':                    # SSD
-            self.dsk_typ = Disk.dsk_typ_ssd
+            self.dsk_typ = Disk.DSK_TYP_SSD
         elif rotation > '6000':                # HDD
-            self.dsk_typ = Disk.dsk_typ_hdd
-        elif virtualized:                      # Virtualized treated as HDD's
-            self.dsk_typ = Disk.dsk_typ_hdd
-                                               # else this device is on a hardware controller, 
+            self.dsk_typ = Disk.DSK_TYP_HDD
+        elif virtualized:                      # Virtualized treated as HDD's, can tune in the config file
+            self.dsk_typ = Disk.DSK_TYP_HDD
+                                               # else this device is on a hardware controller,
                                                # so leave the dsk_typ set to the default UKN (unknown)
 
     @staticmethod
     def __get_sys_disks_path():
-        path_info = subprocess.Popen(['ls', Disk.dsk_prefix], stdout=subprocess.PIPE).stdout
+        path_info = subprocess.Popen(['ls', Disk.DSK_PREFIX], stdout=subprocess.PIPE).stdout
         path_list = []
         for rec in path_info:
             dsk = Disk.p_dev.match(rec)
             if dsk:
-                dbg_print('Found Disk: ' + Disk.dsk_prefix + dsk.group(0))
-                path_list.append(Disk.dsk_prefix + dsk.group(0))
+                dbg_print('Found Disk: ' + Disk.DSK_PREFIX + dsk.group(0))
+                path_list.append(Disk.DSK_PREFIX + dsk.group(0))
         return path_list
 
 ## -------------------------------------------------------------------------------
@@ -155,6 +178,13 @@ def dbg_print(msg):
         else:
             print msg
 
+def debug_dump (devlist):
+    print "==========="
+    print "DEBUG DUMP"
+    print "==========="
+    for disk in devlist:
+        disk.print_disk()
+
 def disk_type_with_stor_cli (stor_client):
     '''
     This uses the megaraid storcli64 tool to inspect the raid controllers and enclosures
@@ -164,24 +194,21 @@ def disk_type_with_stor_cli (stor_client):
         stor_client:  Full path and binary name of the storcli64 tool
 
     returns:
-        A list of class Disk device types, e.g., ['SSD', 'SSD', 'HDD', 'HDD']
+        A list of Disk device types and bus type for HDD's
+        e.g., ['SSD', 'SSD', 'HDD', 'SAS', 'HDD', 'SATA']
 
     notes:
         This may need to be expanded in the future to limit commands to certain
         controllers or enclosures.
     '''
 
-    # Regular expressions to find the particular details needed from storcli64 output
+    # Regular expressions to find particular details needed from storcli64 output
 
     # don't bother looking for drive info until we find the drive info section
     drive_info_section = re.compile ("^Drive Information :$")
 
     # Only look for online drives, others are not exposed to the OS
     online_drive_info = re.compile (".* Onln .* (HDD|SSD) .*")
-
-    # Once an online device is found, determine the type
-    check_for_SSD = re.compile (".* SSD .*")
-    check_for_HDD = re.compile (".* HDD .*")
 
     found_drive_info = False
     return_list = []
@@ -193,7 +220,10 @@ def disk_type_with_stor_cli (stor_client):
     #    show  = the actual command being issued
     output = subprocess.Popen([stor_client, "/call/eall/sall", "show"], stdout=subprocess.PIPE).stdout
 
+    last_drive_group = 99999999
+
     for line in output:
+        # Look for beginning of drive information section in output
         if not found_drive_info:
             drive_info_section_found = drive_info_section.match (line)
             if drive_info_section_found:
@@ -202,11 +232,29 @@ def disk_type_with_stor_cli (stor_client):
             continue
         drive_found = online_drive_info.match(line)
         if drive_found:
-            if check_for_HDD.match(line):
-                return_list.append(Disk.dsk_typ_hdd)
+            # EID:Slt DID State DG      Size Intf Med SED PI SeSz Model             Sp
+            # 245:0    26 Onln   0 465.25 GB SATA HDD N   N  512B ST500DM002-1BD142 U
+   # itemindex 0      1   2     3       4 5  6    7   8   9  10   11                12
+            items = line.strip ('\r\n').split()
+
+            # check for hardware raid array
+            if last_drive_group == items[3]:
                 continue
-            if check_for_SSD.match(line):
-                return_list.append(Disk.dsk_typ_ssd)
+            last_drive_group = items[3]
+
+            if Disk.DSK_TYP_HDD == items[7]:
+                return_list.append(Disk.DSK_TYP_HDD)
+                if Disk.DISK_BUS_SAS == items[6]:
+                    return_list.append (Disk.DISK_BUS_SAS)
+                    continue
+                if Disk.DISK_BUS_SATA == items[6]:
+                    return_list.append (Disk.DISK_BUS_SATA)
+                    continue
+                print "Unexpected interface type found in:  ", line
+                sys.exit(1)
+
+            if Disk.DSK_TYP_SSD == items[7]:
+                return_list.append(Disk.DSK_TYP_SSD)
                 continue
             # This should never happen, but...
             print "Unexpected entity found:  ", line
@@ -222,13 +270,14 @@ if __name__ == "__main__":
 
     parser.add_option('-f', '--fds-root', dest = 'fds_root', default='/fds', help = 'Path to fds-root')
     parser.add_option('-s', '--stor', dest = 'stor_cli', default='/usr/local/MegaRAID Storage Manager/StorCLI/storcli64', help = 'Full path and file name of the StorCli binary')
-    parser.add_option('-p', '--print', dest = 'print_disk', action = 'store_true', help = 'Display the disk information on screen and do not write to the config file')
+    parser.add_option('-n', '--sdb-non-os', dest = 'sdb_non_os', action = 'store_true', default=False, help = 'Treat /dev/sdb as a non OS device.  Use this when using hardware raid1 for the OS drive or a single OS drive device.')
     parser.add_option('-D', '--debug', dest = 'debug', action = 'store_true', help = 'Turn on debugging')
-    parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment (Treats all detected drives as HDD), also disables the check for storcli64')
+    parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs and disables checking for storage controller tools')
+    parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
 
-    (options, args) = parser.parse_args()
-    debug_on     = options.debug
-    print_disk   = options.print_disk
+    (options, args)   = parser.parse_args()
+    debug_on          = options.debug
+    write_disk_config = options.write_disk
 
     # verify UID=0
     if os.getuid() != 0:
@@ -244,7 +293,7 @@ if __name__ == "__main__":
     destination_dir = options.fds_root + "/dev"
 
     # verify destination directory exists
-    if not options.print_disk:
+    if write_disk_config:
         if not os.path.isdir (destination_dir):
             print ( "Error:  Directory '" + destination_dir + "', does not exist.  Can not continue.")
             sys.exit(1)
@@ -253,7 +302,7 @@ if __name__ == "__main__":
     sys.stdout.flush()
     dbg_print ('')
 
-    dev_list = Disk.sys_disks(options.virtual)
+    dev_list = Disk.sys_disks(options.virtual, options.sdb_non_os)
 
     sys.stdout.write ("Complete")
     sys.stdout.flush()
@@ -261,7 +310,7 @@ if __name__ == "__main__":
     controller_disk_list = []   # List of disk types attached via add-in controllers
 
     for disk in dev_list:
-        if disk.get_type() == Disk.dsk_typ_unknown:
+        if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
             sys.stdout.write ("  Phase 2:   ")
             sys.stdout.flush()
             dbg_print ('')
@@ -271,36 +320,82 @@ if __name__ == "__main__":
             sys.stdout.write ("Complete")
             sys.stdout.flush()
 
-            break;
+            break
     print ''
 
     dbg_print ("controller_disk_list = " + ', '.join(controller_disk_list))
 
     for disk in dev_list:
-        if disk.get_type() == Disk.dsk_typ_unknown:
+        if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
             if len(controller_disk_list) > 0:
                 disk.dsk_typ = controller_disk_list.pop(0)
+                if disk.dsk_typ == Disk.DSK_TYP_HDD:
+                    disk.set_bus (controller_disk_list.pop(0))
             else:
                 # devices exist in /dev/sd* that can't be identified.
                 print ( "Error:  Identified but unknown type devices remain, but are not known to controller cards.  Can not continue.")
+                #debug_dump (dev_list)
                 sys.exit(1)
 
     # no more devices are known in /dev/sd*, but we have more drives documented on hardware controllers
     if len (controller_disk_list) > 0:
         print ( "Error:  Unexpected devices remain identified.  Are raid devices present on controller cards?  Can not continue.")
-        #### DJN ADD THIS BACK
-        #sys.exit(1)
+        #debug_dump (dev_list)
+        sys.exit(1)
 
-    if print_disk:
-        print "=============================================================================================="
-        print "This disk list is NOT saved, this is what would be written if -p was not on the comnmand line."
-        print "=============================================================================================="
-        for disk in dev_list:
-            disk.print_disk()
-    else:  # store the disk.hints map
-        hints_file = destination_dir + '/disk-hints.conf'
-        file_on_disk = open (hints_file, 'w')  
+    # Now figure out which drives will hold the meta data indexes
+    # Possible scenarios
+    #     3 SSDs (excluding the os drives), medium and large systems
+    #     2 SSDs (excluding the OS drives and only 2 present SSDs, on small systems
+    #     only SSD and first HDD, Odd hardware combination?
+    #     first 2 HDDs, soak clusters and VMs
+    #
+    ssd_device_list = []
+    hdd_device_list = []
+
+    for disk in dev_list:
+        if True == disk.get_os_use():
+            continue
+        if Disk.DSK_TYP_SSD == disk.get_type():
+            ssd_device_list.append (disk.get_path())
+            if 3 == len(ssd_device_list):
+                break
+        else:
+            if len(hdd_device_list) < 2:
+                hdd_device_list.append (disk.get_path())
+
+    if len (ssd_device_list) + len (hdd_device_list) < 2:
+        print "Error:  At least 2 devices usable as data storage must be present.  Found %d device(s).  Perhaps --sdb-non-os can be used?  Can not continue." % (len (ssd_device_list) + len (hdd_device_list))
+        sys.exit(1)
+
+    # reverse these two lists -- pop() works from the tail of the list
+    ssd_device_list.reverse()
+    hdd_device_list.reverse()
+
+    index_device_list = []
+
+    # copy all the SSDs into the index_device_list
+    while len (ssd_device_list) > 0:
+        index_device_list.append (ssd_device_list.pop())
+
+    # add enough HDDs to ensure two drives are marked as index drives
+    while len (index_device_list) < 2:
+        index_device_list.append (hdd_device_list.pop())
+
+    for disk in dev_list:
+        if disk.get_path() in index_device_list:
+            disk.set_index()
+
+    if write_disk_config:
+        hints_file = destination_dir + '/disk-config.conf'
+        file_on_disk = open (hints_file, 'w')
         for disk in dev_list:
             disk.print_disk(file_on_disk)
         file_on_disk.close()
-        print "Disk type hints have been written to ", hints_file
+        print "The disk config has been written to ", hints_file
+    else:  # store the disk.hints map
+        print "===================================================================================================="
+        print "This disk configuration is NOT saved, this would be written if -w was included on the comnmand line."
+        print "===================================================================================================="
+        for disk in dev_list:
+            disk.print_disk()
