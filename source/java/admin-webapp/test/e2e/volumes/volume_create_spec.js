@@ -192,9 +192,9 @@ describe( 'Testing volume creation permutations', function(){
                 settings: [
                     { predicate: 'Kept', value: 'for 1 day' },
                     { predicate: 'at 12am', value: 'for 1 week' },
-                    { predicate: 'Mondays', value: 'for 4 weeks' },
-                    { predicate: 'First day of the month', value: 'for 26 weeks' },
-                    { predicate: 'Januarys', value: 'for 5 years' }
+                    { predicate: 'Mondays', value: 'for 30 days' },
+                    { predicate: 'First day of the month', value: 'for 180 days' },
+                    { predicate: 'January', value: 'for 5 years' }
                 ]
             }
         );
@@ -228,8 +228,8 @@ describe( 'Testing volume creation permutations', function(){
                     { predicate: 'Kept', value: 'for 1 day' },
                     { predicate: 'at 12am', value: 'for 2 days' },
                     { predicate: 'Mondays', value: 'for 1 week' },
-                    { predicate: 'First day of the month', value: 'for 4 weeks' },
-                    { predicate: 'Januarys', value: 'for 2 years' }
+                    { predicate: 'First day of the month', value: 'for 30 days' },
+                    { predicate: 'January', value: 'for 2 years' }
                 ]
             }
         );
@@ -260,10 +260,10 @@ describe( 'Testing volume creation permutations', function(){
                 preset: DENSE, 
                 settings: [
                     { predicate: 'Kept', value: 'for 2 days' },
-                    { predicate: 'at 12am', value: 'for 4 weeks' },
-                    { predicate: 'Mondays', value: 'for 30 weeks' },
+                    { predicate: 'at 12am', value: 'for 30 days' },
+                    { predicate: 'Mondays', value: 'for 240 days' },
                     { predicate: 'First day of the month', value: 'for 2 years' },
-                    { predicate: 'Januarys', value: 'for 15 years' }
+                    { predicate: 'January', value: 'for 15 years' }
                 ]
             }
         ); 
@@ -323,7 +323,7 @@ describe( 'Testing volume creation permutations', function(){
                     { predicate: 'at 3am', value: 'for 3 days' },
                     { predicate: 'Thursdays', value: 'for 60 days' },
                     { predicate: 'First day of the month', value: 'for 1 year' },
-                    { predicate: 'Septembers', value: 'for 2 years' }
+                    { predicate: 'September', value: 'for 2 years' }
                 ]
             }
         ); 
