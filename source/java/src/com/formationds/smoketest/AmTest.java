@@ -1,5 +1,7 @@
 package com.formationds.smoketest;
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.protocol.BlobDescriptor;
@@ -22,7 +24,7 @@ import static org.junit.Assert.assertEquals;
 
 @Ignore
 public class AmTest {
-    private static AmService.Iface amService;
+    private static XdiService.Iface amService;
     private static ConfigurationService.Iface configService;
     private String volumeName;
     public static final int OBJECT_SIZE = 1024 * 1024 * 2;

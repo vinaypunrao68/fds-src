@@ -5,8 +5,8 @@
 package com.formationds.om.webkit.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;

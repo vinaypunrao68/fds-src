@@ -231,11 +231,11 @@ AmDataApi::commitBlobTx(boost::shared_ptr<std::string>& domainName,
 
     handler->wait();
     if (handler->error != ERR_OK) {
-        apis::ApiException fdsE;
+        fpi::ApiException fdsE;
         if (handler->error == ERR_BLOB_NOT_FOUND) {
-            fdsE.errorCode = apis::MISSING_RESOURCE;
+            fdsE.errorCode = fpi::MISSING_RESOURCE;
         } else {
-            fdsE.errorCode = apis::BAD_REQUEST;
+            fdsE.errorCode = fpi::BAD_REQUEST;
         }
         throw fdsE;
     }
@@ -324,11 +324,11 @@ AmDataApi::getBlob(std::string& _return,
     getHandler->wait();
 
     if (getHandler->error != ERR_OK) {
-        apis::ApiException fdsE;
+        fpi::ApiException fdsE;
         if (getHandler->error == ERR_BLOB_NOT_FOUND) {
-            fdsE.errorCode = apis::MISSING_RESOURCE;
+            fdsE.errorCode = fpi::MISSING_RESOURCE;
         } else {
-            fdsE.errorCode = apis::BAD_REQUEST;
+            fdsE.errorCode = fpi::BAD_REQUEST;
         }
         throw fdsE;
     }
@@ -446,7 +446,7 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
 
         // Throw an exception if we didn't get an OK response
     if (putHandler->status != ERR_OK) {
-        apis::ApiException fdsE;
+        fpi::ApiException fdsE;
         throw fdsE;
     }
 }
@@ -519,7 +519,7 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
 
     // Throw an exception if we didn't get an OK response
     if (putHandler->status != ERR_OK) {
-        apis::ApiException fdsE;
+        fpi::ApiException fdsE;
         throw fdsE;
     }
 }
@@ -554,11 +554,11 @@ AmDataApi::deleteBlob(boost::shared_ptr<std::string>& domainName,
     txnPtr->txId = txnId.txId;
     try {
         handler->process();
-    } catch(apis::ApiException& e) {
+    } catch(fpi::ApiException& e) {
         LOGDEBUG << "delete failed with exception : " << e.what();
         try {
             abortBlobTx(domainName, volumeName, blobName, txnPtr);
-        } catch(apis::ApiException& e) {
+        } catch(fpi::ApiException& e) {
             LOGERROR << "exception @ abortBlobTx : " << e.what();
         }
         throw e;

@@ -27,7 +27,6 @@ user_fds_ar_libs  :=  \
     fds-lib \
     fds-util \
     fds-fdsp \
-    fds-xdi \
     fds-hash \
     fds-thread \
     fds-osdep

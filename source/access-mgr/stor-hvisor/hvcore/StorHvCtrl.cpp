@@ -13,7 +13,6 @@
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
 #include <am-platform.h>
-#include <fdsp_utils.h>
 
 #include "requests/requests.h"
 

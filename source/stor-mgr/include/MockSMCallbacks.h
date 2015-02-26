@@ -4,7 +4,6 @@
 #define SOURCE_STOR_MGR_INCLUDE_MOCKSMCALLBACKS_H_
 
 #include <StorMgr.h>
-#include <fdsp_utils.h>
 #include <sm-platform.h>
 #include <SMSvcHandler.h>
 

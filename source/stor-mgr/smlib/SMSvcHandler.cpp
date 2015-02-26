@@ -3,7 +3,6 @@
  */
 #include <StorMgr.h>
 #include <net/net-service-tmpl.hpp>
-#include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
 // #include <platform/flags_map.h>

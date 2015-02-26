@@ -7,7 +7,6 @@
 #include <vector>
 #include <net/net_utils.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
 #include <net/net-service.h>

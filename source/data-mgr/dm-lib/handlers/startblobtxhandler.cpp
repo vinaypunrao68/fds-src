@@ -5,7 +5,6 @@
 #include <dmhandler.h>
 #include <util/Log.h>
 #include <fds_error.h>
-#include <fdsp_utils.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
                            // incomplete type errors in BaseAsyncSvcHandler.h
 #include <net/BaseAsyncSvcHandler.h>
