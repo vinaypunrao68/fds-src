@@ -257,7 +257,7 @@ int SvcMgr::getSvcPort() const
     return svcInfo_.svc_port;
 }
 
-void SvcMgr::getOmIPPort(std::string &omIp, int &port) const
+void SvcMgr::getOmIPPort(std::string &omIp, fds_uint32_t &port) const
 {
     omIp = omIp_;
     port = omPort_;

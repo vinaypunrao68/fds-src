@@ -128,7 +128,6 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     fds_uint64_t total_bytes = 0;
     fds_uint64_t total_blobs = 0;
     fds_uint64_t total_objects = 0;
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
 
     // find all volumes for which this DM is primary (we only need
     // to collect capacity stats from DMs that are primary).
@@ -906,8 +905,7 @@ void DataMgr::mod_startup()
 
     // Get config values from that platform lib.
     //
-    omConfigPort = modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
-    omIpStr      = *modProvider_->get_plf_manager()->plf_get_om_ip();
+    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
 
     use_om = !(modProvider_->get_fds_config()->get<bool>("fds.dm.no_om", false));
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
@@ -915,7 +913,7 @@ void DataMgr::mod_startup()
         runMode = TEST_MODE;
     }
     LOGNORMAL << "Data Manager using control port "
-              << modProvider_->get_plf_manager()->plf_get_my_ctrl_port();
+              << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
 
     /* Set up FDSP RPC endpoints */
     nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
@@ -959,15 +957,9 @@ void DataMgr::mod_startup()
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    fpi::StorCapMsg stor_cap;
-    if (!feature.isTestMode()) {
-        const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
-        NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
-        my_agent->init_stor_cap_msg(&stor_cap);
-    } else {
-        stor_cap.disk_iops_min = 60*1000;  // for testing
-    }
-    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
+    auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+    fds_uint32_t diskIOPsMin = feature.isTestMode() ? 60*1000 :
+            svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getSelfSvcUuid(), "disk_iops_min");
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -975,7 +967,8 @@ void DataMgr::mod_enable_service() {
     // totalRate to disk_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
-    scheduleRate = 2*stor_cap.disk_iops_min;
+    scheduleRate = 2 * diskIOPsMin;
+    LOGNOTIFY << "Will set totalRate to " << scheduleRate;
 
     /*
      *  init Data Manager  QOS class.
@@ -1078,7 +1071,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
     metadatapath_session = nstable->\
             createServerSession<netMetaDataPathServerSession>(
                 myIpInt,
-                modProvider_->get_plf_manager()->plf_get_my_data_port(),
+                MODULEPROVIDER()->getSvcMgr()->getSvcPort(),
                 node_name,
                 FDSP_STOR_HVISOR,
                 metadatapath_handler);
@@ -1152,8 +1145,7 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
         fds_verify(nodes->getLength() > 0);
 
-        const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-        return (*mySvcUuid == nodes->get(0));
+        return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
     }
     return false;
 }
@@ -1271,7 +1263,8 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->src_id = FDSP_DATA_MGR;
     msgHdr->dst_id = FDSP_STOR_MGR;
 
-    msgHdr->src_node_name = *(modProvider_->get_plf_manager()->plf_get_my_name());
+    auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+    msgHdr->src_node_name = svcmgr->getSvcProperty<std::string>(svcmgr->getSelfSvcUuid(), "node_name");
 
     msgHdr->origin_timestamp = fds::get_fds_timestamp_ms();
 

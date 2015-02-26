@@ -5,7 +5,6 @@
 
 #include <StorMgr.h>
 #include <fdsp_utils.h>
-#include <sm-platform.h>
 #include <SMSvcHandler.h>
 
 namespace fds {

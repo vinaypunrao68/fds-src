@@ -466,7 +466,6 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     Error err(ERR_OK);
     char buf[50];
 
-    const NodeUuid *mySvcUuid = dataMgr->modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     const std::string fileName = root->dir_user_repo_stats() + std::to_string(vol_id) +
             std::string("/") + (isMin ? "stat_min.log" : "stat_hour.log");
@@ -497,10 +496,11 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
         DmtColumnPtr nodes = dataMgr->omClient->getDMTNodesForVolume(vol_id);
         fds_verify(nodes->getLength() > 0);
 
+        auto selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (fds_uint32_t i = 0; i < nodes->getLength(); i++) {
             LOGDEBUG << " rsync node id: " << (nodes->get(i)).uuid_get_val()
-                               << "myuuid" << *mySvcUuid;
-           if (*mySvcUuid != nodes->get(i).uuid_get_val()) {
+                               << "myuuid: " << selfSvcUuid.svc_uuid;
+           if (selfSvcUuid != nodes->get(i).toSvcUuid()) {
               volStatSync(nodes->get(i).uuid_get_val(), vol_id);
            }
         }
@@ -515,26 +515,27 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     const std::string src_dir = root->dir_user_repo_stats() + std::to_string(vol_id) +
                                               std::string("/");
-    int retcode = 0;
+    const fpi::SvcUuid & dmSvcUuid = dm_uuid.toSvcUuid();
+    auto svcmgr = MODULEPROVIDER()->getSvcMgr();
 
-    NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(dm_uuid);
-    DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
-
-    std::string dst_ip;
-    if (NetMgr::ep_mgr_singleton()->ep_uuid_binding(dm_uuid.toSvcUuid(), 0, 0, &dst_ip) < 0) {
+    fpi::SvcInfo dmSvcInfo;
+    if (!svcmgr->getSvcInfo(dmSvcUuid, dmSvcInfo)) {
         LOGERROR << "Failed to sync vol stat: Failed to get IP address for destination DM "
-                 << std::hex << dm_uuid.uuid_get_val() << std::dec;
+                << std::hex << dmSvcUuid.svc_uuid << std::dec;
         return ERR_NOT_FOUND;
     }
 
-    const std::string dst_node = dm->get_node_root() + "user-repo/vol-stats/" +
+    std::string node_root = svcmgr->getSvcProperty<std::string>(dmSvcUuid, "fds_root");
+    std::string dst_ip = dmSvcInfo.ip;
+
+    const std::string dst_node = node_root + "user-repo/vol-stats/" +
                                     std::to_string(vol_id) + std::string("/");
     const std::string rsync_cmd = "sshpass -p passwd rsync -r "
             + src_dir + "  root@" + dst_ip + ":" + dst_node + "";
 
     LOGDEBUG << "system rsync: " <<  rsync_cmd;
 
-    retcode = std::system((const char *)rsync_cmd.c_str());
+    int retcode = std::system((const char *)rsync_cmd.c_str());
     return err;
 }
 

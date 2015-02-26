@@ -178,7 +178,7 @@ struct SvcMgr : HasModuleProvider, Module {
     * @param omIp
     * @param port
     */
-    void getOmIPPort(std::string &omIp, int &port) const;
+    void getOmIPPort(std::string &omIp, fds_uint32_t &port) const;
 
     /**
     * @brief
@@ -234,7 +234,7 @@ struct SvcMgr : HasModuleProvider, Module {
     * @brief  Returns property for service with svcUuid.
     */
     template<class T>
-    T getSvcProperty(const fpi::SvcUuid &svcUuid, std::string& key) {
+    T getSvcProperty(const fpi::SvcUuid &svcUuid, const std::string& key) {
         // TODO(Rao): Complete the implementation
         return T();
     }

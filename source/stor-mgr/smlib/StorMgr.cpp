@@ -17,8 +17,6 @@
 #include <fds_timestamp.h>
 #include <fdsp_utils.h>
 #include <net/net_utils.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <SMSvcHandler.h>
 

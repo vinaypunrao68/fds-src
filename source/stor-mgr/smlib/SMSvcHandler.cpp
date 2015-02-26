@@ -2,18 +2,16 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <StorMgr.h>
-#include <net/net-service-tmpl.hpp>
 #include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
-// #include <platform/flags_map.h>
-#include <sm-platform.h>
 #include <string>
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
 #include <random>
 #include <chrono>
 #include <MockSMCallbacks.h>
+#include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
 #include <OMgrClient.h>
@@ -84,7 +82,7 @@ SMSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& head
     // the OM because it's not easy for the OM to properly set the
     // version (it doesn't have a DLTManagerPtr to set).
     const DLT *curDlt = objStorMgr->getDLT();
-    if ((gl_OmUuid != header->msg_src_uuid) &&
+    if ((MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid() != header->msg_src_uuid) &&
         (curDlt) &&
         (curDlt->isClosed()) &&
         (curDlt->getVersion() > (fds_uint64_t)header->dlt_version)) {
