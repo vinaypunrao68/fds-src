@@ -19,6 +19,8 @@
 
 namespace fds {
 
+extern std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
+
 ObjectStore::ObjectStore(const std::string &modName,
                          SmIoReqHandler *data_store,
                          StorMgrVolumeTable* volTbl)

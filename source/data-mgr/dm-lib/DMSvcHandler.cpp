@@ -6,6 +6,7 @@
 #include <DMSvcHandler.h>
 #include <dm-platform.h>
 #include <StatStreamAggregator.h>
+#include "fdsp/sm_service_types.h"
 
 namespace fds {
 DMSvcHandler::DMSvcHandler()

@@ -8,6 +8,10 @@
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/SMSvc.h>
 
+namespace FDS_ProtocolInterface {
+struct CtrlNotifyDMTUpdate;
+}
+
 namespace fds {
 
 /* Forward declarations */
