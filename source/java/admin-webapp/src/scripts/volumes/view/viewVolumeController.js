@@ -279,7 +279,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     */
     var initSnapshotDescriptions = function(){
         
-        $scope.timelinePreset = $timeline_policy_helper.convertRawToPrest( $scope.timelinePolicies.policies ).label;
+        $scope.timelinePreset = $timeline_policy_helper.convertRawToPreset( $scope.timelinePolicies.policies ).label;
         
         // must be in this order:  continuous = 0, daily = 1, weekly = 2, monthly = 3, yearly = 4
         for ( var i = 0; i < $scope.timelinePolicies.policies.length; i++ ){

@@ -4,8 +4,27 @@ mockSnapshot = function(){
         var service = {};
         
         var policies = [];
+        
+        var savePolicies = function(){
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            window.localStorage.setItem( 'policies', JSON.stringify( policies ) );
+        };
 
         service.getPolicies = function(){
+            
+            if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
+                policies = JSON.parse( window.localStorage.getItem( 'policies' ) );
+            }
+            
+            // handles the init case
+            if ( policies === null ){
+                policies = [];
+                savePolicies();
+            }
+            
             return policies;
         };
         
@@ -72,6 +91,8 @@ mockSnapshot = function(){
             if ( angular.isFunction( callback ) ){
                 callback( policy );
             }
+            
+            savePolicies();
         };
 
         service.deleteSnapshotPolicy = function( policy, callback, failure ){
@@ -83,6 +104,8 @@ mockSnapshot = function(){
             }
             
             policies.splice( i, 1 );
+            
+            savePolicies();
         };
 
         service.editSnapshotPolicy = function( policy, callback, failure ){
@@ -93,6 +116,8 @@ mockSnapshot = function(){
                     break;
                 }
             }
+            
+            savePolicies();
             
             callback();
         };
@@ -120,12 +145,53 @@ mockSnapshot = function(){
                 }
             }
             callback();
+            
+            savePolicies();
         };
 
         service.attachPolicyToVolume = function( policy, volumeId, callback, failure ){
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            var policySet = window.localStorage.getItem( 'volume_' + volumeId + '_snapshot_policies' );
+            
+            if ( !angular.isDefined( policySet ) || policySet === null ){
+                policySet = [];
+            }
+            else {
+                policySet = JSON.parse( policySet );
+            }
+            
+            policySet.push( policy );
+            
+            window.localStorage.setItem( 'volume_' + volumeId + '_snapshot_policies', JSON.stringify( policySet ) );
         };
 
         service.detachPolicy = function( policy, volumeId, callback, failure ){
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            var policySet = window.localStorage.getItem( 'volume_' + volumeId + '_snapshot_policies' );
+            
+            if ( angular.isDefined( policySet ) && policySet !== null ){
+
+                policySet = JSON.parse( policySet );
+                
+                for ( var i = 0; i < policySet.length; i++ ){
+                    
+                    if ( policySet[i].id === policy.id ){
+                        policySet.splice( i, 1 );
+                        break;
+                    }
+                }
+            }            
+            
+            window.localStorage.setItem( 'volume_' + volumeId + '_snapshot_policies', JSON.stringify( policySet ) );
+            
             return policy;
         };
 

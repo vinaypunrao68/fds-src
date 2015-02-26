@@ -55,7 +55,7 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
             
             $scope.getIconColor = function(){
                 
-                if ( angular.isDefined( $scope.data[ $scope.visibleIndex ] ) && 
+                if ( angular.isDefined( $scope.data ) && angular.isDefined( $scope.data[ $scope.visibleIndex ] ) && 
                     angular.isDefined( $scope.data[ $scope.visibleIndex ].iconColor ) ){
                     return $scope.data[ $scope.visibleIndex ].iconColor;
                 }

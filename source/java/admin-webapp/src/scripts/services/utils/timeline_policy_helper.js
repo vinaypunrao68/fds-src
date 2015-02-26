@@ -175,8 +175,8 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                 if ( rule.recurrenceRule.FREQ === rule2.recurrenceRule.FREQ ){
                     
                     // all types have byhour and by minute so check these two first as a sanity check.
-                    if ( parseInt( rule.recurrenceRule.BYMINUTE[0] ) !== parseInt( rule2.recurrenceRule.BYMINUTE[0] ) ||
-                        parseInt( rule.recurrenceRule.BYHOUR[0] ) !== parseInt( rule2.recurrenceRule.BYHOUR[0] ) ){
+                    if ( rule.recurrenceRule.BYMINUTE[0] != rule2.recurrenceRule.BYMINUTE[0] ||
+                        rule.recurrenceRule.BYHOUR[0] != rule2.recurrenceRule.BYHOUR[0] ){
                         match = false;
                         break;
                     }
@@ -184,7 +184,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                     // if there is a day field, check it
                     if ( angular.isDefined( rule.recurrenceRule.BYDAY ) ){
                         
-                        if ( !angular.isDefined( rule2.recurrenceRule.BYDAY ) || rule.recurrenceRule.BYDAY[0] !== rule2.recurrenceRule.BYDAY[0] ){
+                        if ( !angular.isDefined( rule2.recurrenceRule.BYDAY ) || rule.recurrenceRule.BYDAY[0] != rule2.recurrenceRule.BYDAY[0] ){
                             match = false;
                             break;
                         }
@@ -193,7 +193,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                     // if there is a by month day field, check it
                     if ( angular.isDefined( rule.recurrenceRule.BYMONTHDAY ) ){
                         
-                        if ( !angular.isDefined( rule2.recurrenceRule.BYMONTHDAY ) || rule.recurrenceRule.BYMONTHDAY[0] !== rule2.recurrenceRule.BYMONTHDAY[0] ){
+                        if ( !angular.isDefined( rule2.recurrenceRule.BYMONTHDAY ) || rule.recurrenceRule.BYMONTHDAY[0] != rule2.recurrenceRule.BYMONTHDAY[0] ){
                             match = false;
                             break;
                         }
@@ -202,7 +202,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
                     // if there is a month field, check it
                     if ( angular.isDefined( rule.recurrenceRule.BYMONTH ) ){
                         
-                        if ( !angular.isDefined( rule2.recurrenceRule.BYMONTH ) || rule.recurrenceRule.BYMONTH[0] !== rule2.recurrenceRule.BYMONTH[0] ){
+                        if ( !angular.isDefined( rule2.recurrenceRule.BYMONTH ) || rule.recurrenceRule.BYMONTH[0] != rule2.recurrenceRule.BYMONTH[0] ){
                             match = false;
                             break;
                         }
@@ -222,7 +222,7 @@ angular.module( 'utility-directives' ).factory( '$timeline_policy_helper', ['$fi
         return true;
     };
     
-    service.convertRawToPrest = function( policies ){
+    service.convertRawToPreset = function( policies ){
         
         for ( var i = 0; i < service.presets.length; i++ ){
             

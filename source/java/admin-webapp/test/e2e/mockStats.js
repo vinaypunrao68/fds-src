@@ -263,11 +263,17 @@ mockStats = function(){
             var stats = getStatsToUse( filter );
             var nodes = window.localStorage.getItem( 'nodes' );
             
-            if ( !angular.isDefined( stats ) || stats.length === 0 || stats[0] === null || nodes === null ){
+            if ( !angular.isDefined( stats ) || stats.length === 0 || stats[0] === null ){
                 return rz;
             }
             
-            nodes = JSON.parse( nodes );
+            if ( nodes === null ){
+                nodes = ['node'];
+            }
+            else {
+                nodes = JSON.parse( nodes );
+            }
+            
             var bucketObj = bucketByTime( stats, time );
             
             // put the data into the result
