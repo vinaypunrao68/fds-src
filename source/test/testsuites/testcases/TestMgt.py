@@ -155,7 +155,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
             # Start this node according to the specified action.
-<<<<<<< HEAD
+
             for script in nds:
                 print "LOOKING FOR {}".format(script)
                 found = False
