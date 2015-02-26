@@ -7,10 +7,11 @@ iodepths="1 2 4 8 16 32 64 128 256"
 workers="4"
 workloads="randread read randwrite write"
 
-#bsizes="4096"
+bsizes="4096"
 #iodepths="1 2 4 8 16 32 64 128 256"
-#workers="4"
-#workloads="randread"
+iodepths="32"
+workers="4"
+workloads="randread"
 fio --name=write --rw=write --filename=/dev/nbd15 --bs=4096 --numjobs=1 --iodepth=32 --ioengine=libaio --direct=1 --size=$size
 
 for worker in $workers ; do
