@@ -291,7 +291,7 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                 
                 var details = $scope.snapToValidPointByValue( newVal );
                 $scope.sliderPosition = details.position;
-                $scope.selectedValue = details.value;
+                return details.value;
             });
             
             $scope.$on( 'fds::timeslider-refresh', function(){

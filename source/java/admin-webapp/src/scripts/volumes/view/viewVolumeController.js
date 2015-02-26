@@ -19,7 +19,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityLineStipples = [ '2,2', 'none' ];
     $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];
     $scope.capacityColors = [ '#ABD3F5', '#72AEEB' ];
-    $scope.performanceColors = [ '#489AE1', '#606ED7', '#8784DE' ];
+    $scope.performanceColors = [ '#489AE1', '#4857C4', '#8784DE' ];
     $scope.performanceLine = ['#8784DE', 'white', 'white']; 
     
     $scope.dedupLabel = '';
@@ -183,8 +183,8 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.performanceStats = data;
         $scope.performanceItems = [
             {number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )},
-            {number: data.calculated[1].percentage, description: $filter( 'translate' )( 'status.desc_ssd_percent' ), iconClass: 'icon-storage', iconColor: '#8784DE', suffix: '%' },
-            {number: data.calculated[2].percentage, description: $filter( 'translate' )( 'status.desc_hdd_percent' ), iconClass: 'icon-performance', iconColor: '#606ED7', suffix: '%' }
+            {number: data.calculated[1].percentage, description: $filter( 'translate' )( 'status.desc_ssd_percent' ), iconClass: 'icon-lightningbolt', iconColor: '#8784DE', suffix: '%' },
+            {number: data.calculated[2].percentage, description: $filter( 'translate' )( 'status.desc_hdd_percent' ), iconClass: 'icon-disk', iconColor: '#4857C4', suffix: '%' }
         ];
         $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.l_avg_puts' );
         $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.l_avg_gets' );
@@ -358,7 +358,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
                 case 'YEARLY':
                     $scope.snapshotPolicyDescriptions[4] = {
                         label: $filter( 'translate' )( 'volumes.snapshot.l_yearly' ),
-                        predicate: $filter( 'translate' )( 'volumes.snapshot.desc_plural_days', { day: $timeline_policy_helper.convertMonthNumberToString( parseInt( policy.recurrenceRule.BYMONTH[0] ) ) } ),
+                        predicate: $timeline_policy_helper.convertMonthNumberToString( parseInt( policy.recurrenceRule.BYMONTH[0] ) ),
                         value: value
                     };
                     break;
@@ -374,38 +374,52 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         };
     };
     
+    // gets the volume info and regenerates the screen
+    var initializeVolume = function(){
+        
+        $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ 
+            $scope.snapshots = data;
+            initTimeline();
+        });
+
+        $scope.thisVolume = $scope.volumeVars.selectedVolume;
+
+        $scope.dataConnector = $scope.thisVolume.data_connector;
+
+        initQosSettings();
+
+        initSnapshotSettings().then( function(){
+            // must come after the snapshot settings initialization
+            initSnapshotDescriptions();
+        });
+
+        buildQueries();
+
+        capacityIntervalId = $interval( pollCapacity, 60000 );
+        performanceIntervalId = $interval( pollPerformance, 60000 );
+        pollCapacity();
+        pollPerformance();        
+    };
+    
     // when we get shown, get all the snapshots and policies.  THen do the chugging
     // to display the summary and set the hidden forms.
     $scope.$watch( 'volumeVars.viewing', function( newVal ){
 
         if ( newVal === true ){
-            $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ 
-                $scope.snapshots = data;
-                initTimeline();
-            });
-            
-            $scope.thisVolume = $scope.volumeVars.selectedVolume;
-            
-            $scope.dataConnector = $scope.thisVolume.data_connector;
-            
-            initQosSettings();
-            
-            initSnapshotSettings().then( function(){
-                // must come after the snapshot settings initialization
-                initSnapshotDescriptions();
-            });
-            
-            buildQueries();
-            
-            capacityIntervalId = $interval( pollCapacity, 60000 );
-            performanceIntervalId = $interval( pollPerformance, 60000 );
-            pollCapacity();
-            pollPerformance();
+            initializeVolume();   
         }
         else {
             $interval.cancel( capacityIntervalId );
             $interval.cancel( performanceIntervalId );
             $scope.$broadcast( 'fds::cancel_editing' );
+        }
+    });
+    
+    // when we're done editing we should refresh the screen as well.
+    $scope.$watch( 'volumeVars.editing', function( newVal, oldVal ){
+        
+        if ( newVal === false ){
+            initializeVolume();
         }
     });
     

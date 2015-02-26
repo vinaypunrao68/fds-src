@@ -51,7 +51,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
         $scope.volumeVars.back();
     };
     
-    $scope.save = function(){
+    $scope.commitChanges = function(){
         
         $scope.thisVolume.sla = $scope.qos.sla;
         $scope.thisVolume.priority = $scope.qos.priority;
@@ -59,8 +59,9 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
         
         $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.continuous;
         
-        $volume_api.save( $scope.thisVolume, function(){
+        $volume_api.save( $scope.thisVolume, function( volume ){
             $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );
+            $scope.volumeVars.selectedVolume = volume;
             $scope.cancel();
         });
     };

@@ -84,7 +84,7 @@ mockVolume = function(){
                     saveVolumes();
                     
                     if ( angular.isDefined( callback ) ){
-                        callback();
+                        callback( volume );
                     }
 
                     return;

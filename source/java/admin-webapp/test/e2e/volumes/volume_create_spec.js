@@ -124,153 +124,153 @@ describe( 'Testing volume creation permutations', function(){
         expect( volumeTable.length ).toBe( undefined );
     });
 
-//    it( 'pressing create should show the create dialog and push the screen to the left', function(){
-//
-//        createLink.click();
-//        browser.sleep( 200 );
-//        expect( createEl.getAttribute( 'style' ) ).not.toContain( 'hidden' );
-//        expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
-//    });
-//
-//    it( 'should save with just a name', function(){
-//        
-//        newText.sendKeys( 'Test Volume' );
-//        browser.sleep( 100 );
-//        
-//        createButton.click();
-//
-//        expect( mainEl.getAttribute( 'style' ) ).not.toContain( '-100%' );
-//
-//        element.all( by.repeater( 'volume in volumes' )).then( function( results ){
-//            expect( results.length ).toBe( 1 );
-//        });
-//
-//
-//        element.all( by.css( '.volume-row .name' ) ).then( function( nameCols ){
-//
-//            nameCols.forEach( function( td ){
-//                td.getText().then( function( txt ){
-//                    expect( txt ).toBe( 'Test Volume' );
-//                });
-//            });
-//        });
-//
-//        // check that the default priority was correct
-//        element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){
-//            priorityCols.forEach( function( td ){
-//                td.getText().then( function( txt ){
-//                    expect( txt ).toBe( '7' );
-//                });
-//            });
-//        });
-//    });
-//    
-//    it ( 'should go to the edit screen on press of the edit button', function(){
-//        
-//        clickRow( 'Test Volume' );
-//        
-//        // the screen should slide over
-//        expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
-//        expect( viewEl.getAttribute( 'style' ) ).toContain( '0%' );
-//        
-//        // title should be the volume title
-//        viewEl.element( by.css( '.volume-name' )).getText().then( function( txt ){
-//            expect( txt ).toBe( 'Test Volume' );
-//        });
-//        
-//    });
-//    
-//    it ( 'should have default values for all other fields in the created volume', function(){
-//        
-//        // check the actual settings
-//        verifyVolume( 
-//            'Test Volume', 
-//            'Flash Only',
-//            { preset: STANDARD, priority: '7', sla: 'None', limit: 'Unlimited'},
-//            { 
-//                preset: STANDARD, 
-//                settings: [
-//                    { predicate: 'Kept', value: 'for 1 day' },
-//                    { predicate: 'at 12am', value: 'for 1 week' },
-//                    { predicate: 'Mondays', value: 'for 4 weeks' },
-//                    { predicate: 'First day of the month', value: 'for 26 weeks' },
-//                    { predicate: 'Januarys', value: 'for 5 years' }
-//                ]
-//            }
-//        );
-//        
-//        // go back
-//        var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();
-//    });
-//    
-//    it( 'should be able to create a volume with lowest presets', function(){
-//        
-//        var qos = { preset: 0 };
-//        var timeline = { preset: 0 };
-//        
-//        var name = 'Dumb One';
-//        
-//        createVolume( name, undefined, qos, 'HYBRID_ONLY', timeline );
-//
-//        browser.sleep( 200 );
-//        
-//        clickRow( name );
-//
-//        browser.sleep( 300 );
-//        
-//        verifyVolume( 
-//            name, 
-//            'Hybrid',
-//            { preset: LEAST, priority: '10', sla: 'None', limit: 'Unlimited'},
-//            { 
-//                preset: SPARSE, 
-//                settings: [
-//                    { predicate: 'Kept', value: 'for 1 day' },
-//                    { predicate: 'at 12am', value: 'for 2 days' },
-//                    { predicate: 'Mondays', value: 'for 1 week' },
-//                    { predicate: 'First day of the month', value: 'for 4 weeks' },
-//                    { predicate: 'Januarys', value: 'for 2 years' }
-//                ]
-//            }
-//        );
-//        
-//        // go back
-//        var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();
-//    });
-//    
-//    it( 'should be able to create a volume with the highest presets', function(){
-//        var qos = { preset: 2 };
-//        var timeline = { preset: 2 };
-//        
-//        var name = 'Awesome One';
-//        
-//        createVolume( name, undefined, qos, 'HDD_ONLY', timeline );
-//
-//        browser.sleep( 200 );
-//        
-//        clickRow( name );
-//
-//        browser.sleep( 200 );
-//        
-//        verifyVolume( 
-//            name, 
-//            'Disk Only',
-//            { preset: MOST, priority: '1', sla: 'None', limit: 'Unlimited'},
-//            { 
-//                preset: DENSE, 
-//                settings: [
-//                    { predicate: 'Kept', value: 'for 2 days' },
-//                    { predicate: 'at 12am', value: 'for 4 weeks' },
-//                    { predicate: 'Mondays', value: 'for 30 weeks' },
-//                    { predicate: 'First day of the month', value: 'for 2 years' },
-//                    { predicate: 'Januarys', value: 'for 15 years' }
-//                ]
-//            }
-//        ); 
-//        
-//        // go back
-//        var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();
-//    });
+    it( 'pressing create should show the create dialog and push the screen to the left', function(){
+
+        createLink.click();
+        browser.sleep( 200 );
+        expect( createEl.getAttribute( 'style' ) ).not.toContain( 'hidden' );
+        expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
+    });
+
+    it( 'should save with just a name', function(){
+        
+        newText.sendKeys( 'Test Volume' );
+        browser.sleep( 100 );
+        
+        createButton.click();
+
+        expect( mainEl.getAttribute( 'style' ) ).not.toContain( '-100%' );
+
+        element.all( by.repeater( 'volume in volumes' )).then( function( results ){
+            expect( results.length ).toBe( 1 );
+        });
+
+
+        element.all( by.css( '.volume-row .name' ) ).then( function( nameCols ){
+
+            nameCols.forEach( function( td ){
+                td.getText().then( function( txt ){
+                    expect( txt ).toBe( 'Test Volume' );
+                });
+            });
+        });
+
+        // check that the default priority was correct
+        element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){
+            priorityCols.forEach( function( td ){
+                td.getText().then( function( txt ){
+                    expect( txt ).toBe( '7' );
+                });
+            });
+        });
+    });
+    
+    it ( 'should go to the edit screen on press of the edit button', function(){
+        
+        clickRow( 'Test Volume' );
+        
+        // the screen should slide over
+        expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
+        expect( viewEl.getAttribute( 'style' ) ).toContain( '0%' );
+        
+        // title should be the volume title
+        viewEl.element( by.css( '.volume-name' )).getText().then( function( txt ){
+            expect( txt ).toBe( 'Test Volume' );
+        });
+        
+    });
+    
+    it ( 'should have default values for all other fields in the created volume', function(){
+        
+        // check the actual settings
+        verifyVolume( 
+            'Test Volume', 
+            'Flash Only',
+            { preset: STANDARD, priority: '7', sla: 'None', limit: 'Unlimited'},
+            { 
+                preset: STANDARD, 
+                settings: [
+                    { predicate: 'Kept', value: 'for 1 day' },
+                    { predicate: 'at 12am', value: 'for 1 week' },
+                    { predicate: 'Mondays', value: 'for 4 weeks' },
+                    { predicate: 'First day of the month', value: 'for 26 weeks' },
+                    { predicate: 'Januarys', value: 'for 5 years' }
+                ]
+            }
+        );
+        
+        // go back
+        var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();
+    });
+    
+    it( 'should be able to create a volume with lowest presets', function(){
+        
+        var qos = { preset: 0 };
+        var timeline = { preset: 0 };
+        
+        var name = 'Dumb One';
+        
+        createVolume( name, undefined, qos, 'HYBRID_ONLY', timeline );
+
+        browser.sleep( 200 );
+        
+        clickRow( name );
+
+        browser.sleep( 300 );
+        
+        verifyVolume( 
+            name, 
+            'Hybrid',
+            { preset: LEAST, priority: '10', sla: 'None', limit: 'Unlimited'},
+            { 
+                preset: SPARSE, 
+                settings: [
+                    { predicate: 'Kept', value: 'for 1 day' },
+                    { predicate: 'at 12am', value: 'for 2 days' },
+                    { predicate: 'Mondays', value: 'for 1 week' },
+                    { predicate: 'First day of the month', value: 'for 4 weeks' },
+                    { predicate: 'Januarys', value: 'for 2 years' }
+                ]
+            }
+        );
+        
+        // go back
+        var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();
+    });
+    
+    it( 'should be able to create a volume with the highest presets', function(){
+        var qos = { preset: 2 };
+        var timeline = { preset: 2 };
+        
+        var name = 'Awesome One';
+        
+        createVolume( name, undefined, qos, 'HDD_ONLY', timeline );
+
+        browser.sleep( 200 );
+        
+        clickRow( name );
+
+        browser.sleep( 200 );
+        
+        verifyVolume( 
+            name, 
+            'Disk Only',
+            { preset: MOST, priority: '1', sla: 'None', limit: 'Unlimited'},
+            { 
+                preset: DENSE, 
+                settings: [
+                    { predicate: 'Kept', value: 'for 2 days' },
+                    { predicate: 'at 12am', value: 'for 4 weeks' },
+                    { predicate: 'Mondays', value: 'for 30 weeks' },
+                    { predicate: 'First day of the month', value: 'for 2 years' },
+                    { predicate: 'Januarys', value: 'for 15 years' }
+                ]
+            }
+        ); 
+        
+        // go back
+        var backLink = element( by.css( '.slide-window-stack-breadcrumb' ) ).click();
+    });
     
     it( 'should be able to create a volume with custom settings', function(){
         
