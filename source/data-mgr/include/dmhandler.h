@@ -13,7 +13,6 @@
 #include <net/SvcMgr.h>
 #include <fds_module_provider.h>
 #include <DmIoReq.h>
-#include <dm-platform.h>
 #include <DmBlobTypes.h>
 
 #define DMHANDLER(CLASS, IOTYPE) \

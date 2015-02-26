@@ -8,7 +8,6 @@
 #include <vector>
 #include <fds_process.h>
 #include <net/net-service.h>
-#include <dm-platform.h>
 #include <lib/Catalog.h>
 #include <dm-vol-cat/DmPersistVc.h>
 

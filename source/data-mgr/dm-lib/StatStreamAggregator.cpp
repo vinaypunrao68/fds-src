@@ -5,8 +5,6 @@
 #include <limits>
 #include <vector>
 #include <fds_process.h>
-// TODO(Rao): Remove dependancy on net-service.  Instead use SvcMgr.h
-#include <net/net-service.h>
 #include <net/SvcMgr.h>
 #include <util/math-util.h>
 #include <DataMgr.h>

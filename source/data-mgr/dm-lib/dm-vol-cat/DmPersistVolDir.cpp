@@ -10,8 +10,6 @@
 
 #include <fds_process.h>
 #include <fds_module.h>
-#include <dm-platform.h>
-#include <net/net-service.h>
 
 #include <dm-vol-cat/DmPersistVolDir.h>
 

@@ -8,7 +8,6 @@
 #include <net/BaseAsyncSvcHandler.h>
 #include <util/Log.h>
 #include <fds_assert.h>
-#include <dm-platform.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
 

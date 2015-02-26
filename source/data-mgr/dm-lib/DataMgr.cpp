@@ -10,8 +10,6 @@
 #include <fdsp_utils.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
 #include <dmhandler.h>
 
 namespace fds {
@@ -953,12 +951,6 @@ void DataMgr::mod_startup()
          * be used for testing DM by itself.
          */
         omClient->startAcceptingControlMessages();
-
-        /*
-         * Registers the DM with the OM. Uses OM for bootstrapping
-         * on start. Requires the OM to be up and running prior.
-         */
-        omClient->registerNodeWithOM(modProvider_->get_plf_manager());
     }
 
     setup_metasync_service();
