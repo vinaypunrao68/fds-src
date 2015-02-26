@@ -9,7 +9,8 @@ user_thrift       := \
 	$(topdir)/fdsp/snapshot.thrift \
 	$(topdir)/fdsp/xdi.thrift \
 	$(topdir)/fdsp/configuration_service.thrift \
-	$(topdir)/fdsp/fds_service.thrift
+	$(topdir)/fdsp/fds_service.thrift \
+	$(topdir)/fdsp/pm_service.thrift
 
 user_thrift_flag  := -r --gen java
 

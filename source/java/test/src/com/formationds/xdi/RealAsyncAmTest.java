@@ -1,7 +1,7 @@
 package com.formationds.xdi;
 
 import com.formationds.protocol.ApiException;
-import com.formationds.apis.AsyncAmServiceRequest;
+import com.formationds.apis.AsyncXdiServiceRequest;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.RequestId;
 import org.junit.Test;
@@ -19,7 +19,7 @@ import static org.mockito.Mockito.mock;
 public class RealAsyncAmTest {
     @Test
     public void testTimeoutsBubbleUp() throws Exception {
-        RealAsyncAm asyncAm = new RealAsyncAm(mock(AsyncAmServiceRequest.Iface.class), 10000, 100, TimeUnit.MILLISECONDS);
+        RealAsyncAm asyncAm = new RealAsyncAm(mock(AsyncXdiServiceRequest.Iface.class), 10000, 100, TimeUnit.MILLISECONDS);
         asyncAm.start(false);
 
         try {
@@ -36,7 +36,7 @@ public class RealAsyncAmTest {
 
     @Test
     public void testThriftErrorsAreBubbled() throws Exception {
-        AsyncAmServiceRequest.Iface requestService = mock(AsyncAmServiceRequest.Iface.class);
+        AsyncXdiServiceRequest.Iface requestService = mock(AsyncXdiServiceRequest.Iface.class);
         doThrow(new IllegalStateException()).when(requestService).statBlob(any(RequestId.class), anyString(), anyString(), anyString());
         RealAsyncAm asyncAm = new RealAsyncAm(requestService, 10000, 100, TimeUnit.MILLISECONDS);
         asyncAm.start(false);

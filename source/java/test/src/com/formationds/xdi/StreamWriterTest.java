@@ -50,7 +50,7 @@ public class StreamWriterTest {
         assertArrayEquals(controlDigest, result);
     }
 
-    private class StubAm implements AmService.Iface {
+    private class StubAm implements XdiService.Iface {
         boolean isCommitted = false;
         List<byte[]> objectsWritten = new ArrayList<>();
 
