@@ -130,6 +130,11 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt);
+
+    void
+    NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                      boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
+                      const Error                                 &err);
 };
 
 }  // namespace fds
