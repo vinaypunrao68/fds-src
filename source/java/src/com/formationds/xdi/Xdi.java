@@ -4,8 +4,6 @@
 
 package com.formationds.xdi;
 
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -152,7 +150,6 @@ public class Xdi {
         TxDescriptor tx = am.startBlobTx(domain, volume, blob, 0);
         am.updateMetadata(domain, volume, blob, tx, metadataMap);
         am.commitBlobTx(domain, volume, blob, tx);
-
     }
 
     public AuthenticationToken authenticate(String login, String password) throws LoginException {
