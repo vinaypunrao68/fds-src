@@ -50,6 +50,7 @@ dependency "pycurl"
 dependency "python-scp"
 dependency "libcryptopp"
 dependency "server-jre"
+dependency "mdadm"
 
 # Version manifest file
 dependency "version-manifest"
