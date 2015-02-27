@@ -8,6 +8,7 @@ from boto.s3.key import Key
 
 import config
 import s3
+import samples
 import users
 import utils
 import testsets.testcase as testcase
@@ -35,10 +36,8 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         self.hash_table = {}
     
     def runTest(self):
-        if not os.path.exists(config.SAMPLE_DIR):
-            os.makedirs(config.SAMPLE_DIR)
-        if not os.path.exists(config.DOWNLOAD_DIR):
-            os.makedirs(config.DOWNLOAD_DIR)
+        
+        utils.create_dir(config.DOWNLOAD_DIR)
 
         self.create_random_size_files()
         s3conn = s3.S3Connection(
@@ -46,6 +45,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
             None,
             self.om_ip_address,
             config.FDS_S3_PORT,
+            self.om_ip_address,
         )
         s3conn.s3_connect()
         bucket_name = "volume_blob_test"
@@ -64,12 +64,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         # Delete the bucket
         self.destroy_volume(bucket, s3conn)
         # remove the existing file
-        if os.path.exists(config.SAMPLE_DIR):
-            self.log.info("Removing %s" % config.SAMPLE_DIR)
-            shutil.rmtree(config.SAMPLE_DIR)
-        if os.path.exists(config.DOWNLOAD_DIR):
-            self.log.info("Removing %s" % config.DOWNLOAD_DIR)
-            shutil.rmtree(config.DOWNLOAD_DIR)
+        utils.remove_dir(config.DOWNLOAD_DIR)
 
     def check_files_hash(self):
         '''
@@ -117,9 +112,9 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         '''
         # add the data files to the bucket.
         k = Key(bucket)
-        #path = os.path.join(config.SAMPLE_DIR, sample)
+        #path = os.path.join(config.TEST_DIR, sample)
         for sample in self.sample_files:
-            path = os.path.join(config.SAMPLE_DIR, sample)
+            path = os.path.join(config.TEST_DIR, sample)
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,
@@ -130,13 +125,9 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
     
     def create_random_size_files(self):
         # lets produce 1000 files for each volume
-        f_sample = "sample_file_%s"
-        for i in xrange(0, 10):
-            current = f_sample % i
-            # produce a number between 1 - 1000
-            file_size = random.randint(1, 100)
-            if utils.create_file_sample(current, file_size):
+        for current in samples.sample_mb_files:
+            path = os.path.join(config.TEST_DIR, current)
+            if os.path.exists(path):
                 self.sample_files.append(current)
-                path = os.path.join(config.SAMPLE_DIR, current)
                 encode = utils.hash_file_content(path)
                 self.hash_table[current] = encode
