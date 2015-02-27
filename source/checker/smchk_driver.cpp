@@ -34,12 +34,16 @@ SMChkDriver::SMChkDriver(int argc, char *argv[],
     po::options_description desc("Run SM checker");
     desc.add_options()
             ("help,h", "Print this help message")
-            ("sm-count,c",
-                    po::value<int>(&sm_count)->default_value(1),
-                    "Number of active SMs.")
+            ("verbose,v", "Verbose output")
             ("full-check,f",
                     po::bool_switch()->default_value(false),
                     "Run full consistency check")
+            ("check-ownership,o",
+                    po::bool_switch()->default_value(false),
+                    "check SM token ownership when running full-check")
+            ("check-active-only,a",
+                    po::bool_switch()->default_value(false),
+                    "check only active metadata when running full-check")
             ("list-tokens",
                     po::bool_switch()->default_value(false),
                     "Print all tokens by path.")
@@ -82,15 +86,17 @@ SMChkDriver::SMChkDriver(int argc, char *argv[],
     } else {
         cmd = RunFunc::FULL_CHECK;
     }
-    sm_count = vm["sm-count"].as<int>();
+    ownershipCheck = vm["check-ownership"].as<bool>();
+    checkOnlyActive = vm["check-active-only"].as<bool>();
+    verbose = vm.count("verbose");
 }
 
 int SMChkDriver::run() {
-    checker = new SMChk(sm_count, smDiskMap, smObjStore, smMdDb);
+    checker = new SMChk(smDiskMap, smObjStore, smMdDb, verbose);
     bool success = false;
     switch (cmd) {
         case RunFunc::FULL_CHECK:
-            success = checker->full_consistency_check();
+            success = checker->full_consistency_check(ownershipCheck, checkOnlyActive);
             break;
         case RunFunc::PRINT_MD:
             checker->list_metadata();
@@ -113,7 +119,7 @@ int SMChkDriver::run() {
             success = true;
             break;
         default:
-            success = checker->full_consistency_check();
+            success = checker->full_consistency_check(ownershipCheck, checkOnlyActive);
             break;
     }
     return (success ? 0 : 1);
@@ -139,7 +145,6 @@ main(int argc, char** argv) {
     for (int i = 0; i < argc; ++i) {
         new_argv.push_back(argv[i]);
     }
-    new_argv.push_back("--fds.sm.testing.standalone=true");
     new_argv.push_back("--fds.sm.enable_graphite=false");
 
     argc = new_argv.size();

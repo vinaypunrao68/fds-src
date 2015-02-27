@@ -2,8 +2,8 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
-				"name" : "TestMultiConnToMultiVolume",
-				"file" : "test_multiconn_to_multivolumes.py",
+				"name" : "TestMultiConnections",
+				"file" : "test_multiconnections.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
