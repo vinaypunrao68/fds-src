@@ -25,7 +25,7 @@ build do
   env = with_standard_compiler_flags(with_embedded_path)
   env['CFLAGS'] << " -liconv"
 
-  command "PATH=/usr/lib:$PATH ./configure" \
+  command "./configure" \
           " --prefix=#{install_dir}/embedded", env: env
 
   command "sed -i -e '/gets is a security/d' lib/stdio.in.h"
