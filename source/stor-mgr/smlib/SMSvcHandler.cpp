@@ -20,6 +20,10 @@
 namespace fds {
 
 extern ObjectStorMgr    *objStorMgr;
+extern std::string logString(const FDS_ProtocolInterface::AddObjectRefMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetObjectMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& msg);
 
 SMSvcHandler::SMSvcHandler()
 {
