@@ -190,11 +190,7 @@ var setCustomQos = function( pageEl, qos ){
     browser.actions().mouseMove( pageEl.element( by.css( '.volume-limit-slider' ) ).all( by.css( '.segment' )).get( limitSegment ) ).click().perform();  
 };
 
-var setVolumeValues = function( pageEl, name, data_type, qos, mediaPolicy, timeline, timelineStartTimes ){
-    
-    var nameText = pageEl.element( by.css( '.volume-name-input') );
-    nameText = nameText.element( by.tagName( 'input' ) );
-    nameText.sendKeys( name );
+var setVolumeValues = function( pageEl, data_type, qos, mediaPolicy, timeline, timelineStartTimes ){
     
     if ( data_type ){
             
@@ -268,9 +264,6 @@ var setVolumeValues = function( pageEl, name, data_type, qos, mediaPolicy, timel
     if ( timelineStartTimes ){
         setTimelineStartTimes( pageEl, timelineStartTimes );
     }
-    
-    element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
-    browser.sleep( 300 );
 };
 
 // timeline: [{ slider: #, value: #, unit: #index }... ] || preset: <index>
@@ -288,15 +281,22 @@ createVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineSt
     
     var createEl = $('.create-panel.volumes');
     
-    setVolumeValues( createEl, name, data_type, qos, mediaPolicy, timeline, timelineStartTimes );
+    var nameText = createEl.element( by.css( '.volume-name-input') );
+    nameText = nameText.element( by.tagName( 'input' ) );
+    nameText.sendKeys( name );
+    
+    setVolumeValues( createEl, data_type, qos, mediaPolicy, timeline, timelineStartTimes );
+    
+    element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
+    browser.sleep( 300 );
 };
 
 editVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineStartTimes ){
     
     //assume that you are on the volume list page
-    var viewEl = element( by.css( '.view-volume-screen' ) );
+    var mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
     
-    viewEl.all( by.css( '.volume-row td.name' )).each( function( elem ){
+    mainEl.all( by.css( '.volume-row td.name' )).each( function( elem ){
         elem.getText().then( function( text ){
             if ( text === name ){
                 elem.click();
@@ -306,13 +306,18 @@ editVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineStar
     
     browser.sleep( 220 );
     
+    var viewEl = element( by.css( '.view-volume-screen' ));
+    
     viewEl.element( by.css( '.edit-volume-button' )).click();
     
     browser.sleep( 220 );
     
     var editEl = element( by.css( '.edit-panel' ));
     
-    setVolumeValues( editEl, name, data_type, qos, undefined, timeline, timelineStartTimes );
+    setVolumeValues( editEl, data_type, qos, undefined, timeline, timelineStartTimes );
+    
+    element( by.css( '.submit-changes-button' )).click();
+    browser.sleep( 300 );
 };
 
 deleteVolume = function( row ){
@@ -320,19 +325,13 @@ deleteVolume = function( row ){
 
     browser.sleep( 500 );
 
-    var viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
+    var viewEl = element( by.css( '.view-volume-screen' ) );
     viewEl.element( by.css( '.delete-volume' ) ).click();
 
     browser.sleep( 200 );
 
     //accept the warning
     element( by.css( '.fds-modal-ok' ) ).click();
-
-    browser.sleep( 200 );
-
-    element.all( by.css( 'volume-row' )).then( function( rows ){
-        expect( rows.length ).toBe( 0 );
-    });
 
     browser.sleep( 200 );
 };

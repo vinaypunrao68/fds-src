@@ -5,6 +5,14 @@ mockSnapshot = function(){
         
         var policies = [];
         
+        var num = (new Date()).getTime();
+        
+        var nextNum = function(){
+            
+            num++;
+            return num;
+        };
+        
         var savePolicies = function(){
             if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
                 return;
@@ -85,7 +93,8 @@ mockSnapshot = function(){
 
         service.createSnapshotPolicy = function( policy, callback, failure ){
 
-            policy.id = (new Date()).getTime();
+            policy.id = nextNum();
+            
             policies.push( policy );
             
             if ( angular.isFunction( callback ) ){
@@ -96,7 +105,7 @@ mockSnapshot = function(){
         };
 
         service.deleteSnapshotPolicy = function( policy, callback, failure ){
-            alert( 'here' );
+        
             for( i = 0; i < policies.length; i++ ){
                 if ( policy.id === policies[i].id ){
                     break;
@@ -109,7 +118,7 @@ mockSnapshot = function(){
         };
 
         service.editSnapshotPolicy = function( policy, callback, failure ){
-            console.log( 'saving policy: ' + policy.id );
+            
             for( i = 0; i < policies.length; i++ ){
                 if ( policy.id === policies[i].id ){
                     policies[i] = policy;
@@ -140,7 +149,7 @@ mockSnapshot = function(){
                     service.editSnapshotPolicy( sPolicy, function(){} );
                 }
                 else {
-
+                    
                     service.createSnapshotPolicy( sPolicy, function( policy ){
                         service.attachPolicyToVolume( policy, volumeId, function(){} );
                     });

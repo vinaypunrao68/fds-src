@@ -225,6 +225,11 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     });
     
     var initSnapshotSettings = function(){
+        
+        if ( !angular.isDefined( $scope.volumeVars.selectedVolume ) ){
+            return;
+        }
+        
         return $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
 
             var notTimelinePolicies = [];
@@ -376,6 +381,10 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     // gets the volume info and regenerates the screen
     var initializeVolume = function(){
+        
+        if ( !angular.isDefined( $scope.volumeVars.selectedVolume ) ){
+            return;
+        }
         
         $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ 
             $scope.snapshots = data;
