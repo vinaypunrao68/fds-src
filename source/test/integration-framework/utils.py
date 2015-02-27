@@ -10,14 +10,18 @@ import random
 import re
 import requests
 import socket
+import shutil
 import struct
 import subprocess
 import sys
+import tarfile
 import time
+import urllib2
 from subprocess import list2cmdline
 
 import config
 import config_parser
+import samples
 import testsets.testcases.fdslib.TestUtils as TestUtils 
 
 
@@ -26,6 +30,40 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
+
+def hostname_to_ip(hostname):
+    return socket.gethostbyname(hostname)
+    
+def untar_file(fname):
+    if (fname.endswith("tar.gz")):
+        tar = tarfile.open(fname)
+        tar.extractall()
+        tar.close()
+        log.info("Extracted in %s" % fname)
+    else:
+        log.warning("Not a tar.gz file: '%s'" % fname)
+
+
+def download_file(url):
+    f = urllib2.urlopen(url)
+    name = get_file_name_from_url(url)
+    create_dir(config.DOWNLOAD_DIR)
+    source = os.path.join(config.DOWNLOAD_DIR, name)
+    log.info("Downloading to %s" % source)
+    with open(source, "wb") as code:
+        code.write(f.read())
+    return source
+
+def create_dir(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+def remove_dir(path):
+    if os.path.exists(path):
+        shutil.rmtree(path)
+
+def get_file_name_from_url(url):
+    return url.strip().split('/')[-1]
 
 def hash_file_content(path):
     '''
@@ -77,6 +115,11 @@ def create_file_sample(fname, size, unit="M"):
             log.warning("Invalid Unit size. Must be Megabytes(M) or " \
                 "Gigabytes(G). Will default to Megabytes")
             unit = "M"
+
+        if unit == "M":
+            return samples.sample_mb_files
+        else:
+            return samples.sample_gb_files
         path = os.path.join(config.SAMPLE_DIR, fname)
         cmd = "fallocate -l %s%s %s" % (size, unit, path)
         subprocess.call([cmd], shell=True)

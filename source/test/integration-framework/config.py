@@ -54,6 +54,7 @@ MAX_NUM_VOLUMES = 1023
 SAMPLE_FILE = "test.txt"
 SAMPLE_DIR = "./samples/"
 BACKUP_DIR = "./backup/"
+REPOSITORY_URL = "http://coke.formationds.com/jenkins_tests/samples.tar.gz"
 DOWNLOAD_DIR = "./downloads/"
 ROOT = "/root/"
 ANSIBLE_ROOT = "../../../ansible/"
