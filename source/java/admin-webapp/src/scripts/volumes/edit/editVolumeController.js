@@ -5,9 +5,9 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
     $scope.thisVolume = {};
     
     var initQosSettings = function(){
-        $scope.qos.capacity = $scope.thisVolume.sla;
-        $scope.qos.limit = $scope.thisVolume.limit;
-        $scope.qos.priority = $scope.thisVolume.priority;
+        $scope.editQos.capacity = $scope.thisVolume.sla;
+        $scope.editQos.limit = $scope.thisVolume.limit;
+        $scope.editQos.priority = $scope.thisVolume.priority;
         $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
     };
     
@@ -42,6 +42,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
             initSnapshotSettings();
             
             $scope.$broadcast('fds::fui-slider-refresh' );
+            $scope.$broadcast( 'fds::qos-reinit' );
         }
     });
     
@@ -53,9 +54,9 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
     
     $scope.commitChanges = function(){
         
-        $scope.thisVolume.sla = $scope.qos.sla;
-        $scope.thisVolume.priority = $scope.qos.priority;
-        $scope.thisVolume.limit = $scope.qos.limit;
+        $scope.thisVolume.sla = $scope.eidtQos.sla;
+        $scope.thisVolume.priority = $scope.editQos.priority;
+        $scope.thisVolume.limit = $scope.editQos.limit;
         
         $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.continuous;
         
