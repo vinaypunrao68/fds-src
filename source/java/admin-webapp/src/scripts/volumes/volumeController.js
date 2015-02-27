@@ -163,6 +163,7 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         if ( newVal === 0 ){
             $scope.volumeVars.viewing = false;
             $scope.volumeVars.creating = false;
+            $scope.volumeVars.editing = false;
         }
     });
     
