@@ -1103,6 +1103,11 @@ ObjectStorMgr::storeCurrentDLT()
     // TODO(Sean):  cleanup when going moving to online smcheck
     DLT *currentDLT = const_cast<DLT *>(objStorMgr->omClient->getCurrentDLT());
     std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
+
+    // Must remove pre-existing file.  Otherwise, it will append a new version to the
+    // end of the file.  When de-serializing, it read from the beginning of the file,
+    // thus getting the oldest copy of DLT, if not removed.
+    remove(dltPath.c_str());
     currentDLT->storeToFile(dltPath);
 
     // To validate the token ownership by SM, we also need UUID of the SM to compare it
