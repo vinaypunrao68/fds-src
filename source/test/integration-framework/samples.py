@@ -3,7 +3,6 @@ root_sample_file = "test_files"
 sample_mb_files = (
    "test_sample_1M",
    "test_sample_50M",
-   "test_file_1M",
    "test_sample_5M",
    "test_sample_30M",
    "test_sample_10M",
