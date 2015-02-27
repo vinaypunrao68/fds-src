@@ -55,7 +55,6 @@ SMSvcHandler::SMSvcHandler()
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartMigration, StartMigration);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
@@ -235,18 +234,6 @@ void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::ShutdownMODMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message... shuttting down...";
     objStorMgr->~ObjectStorMgr();
-}
-
-void SMSvcHandler::StartMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
-        boost::shared_ptr<fpi::CtrlStartMigration>& startMigration) {
-    LOGCRITICAL << "We shouldn't received this message anymore!";
-    // TODO(Anna) we should remove this method, OM does not send this msg anymore
-
-    fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
-    msg->status.DLT_version = objStorMgr->omClient->getDltVersion();
-    msg->status.context = 0;
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyMigrationStatus), *msg);
-    LOGDEBUG << "Async response sent";
 }
 
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
