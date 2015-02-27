@@ -21,9 +21,43 @@ extern "C" {
 #include "fds_process.h"
 #include "fdsp/configuration_service_types.h"
 
+
+/// These constants come from the Nbd Protocol
+/// ******************************************
+static constexpr uint8_t NBD_MAGIC[]    = { 0x49, 0x48, 0x41, 0x56, 0x45, 0x4F, 0x50, 0x54 };
+static constexpr char    NBD_MAGIC_PWD[]  {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
+static constexpr uint8_t NBD_REQUEST_MAGIC[]    = { 0x25, 0x60, 0x95, 0x13 };
+static constexpr uint8_t NBD_RESPONSE_MAGIC[]   = { 0x67, 0x44, 0x66, 0x98 };
+static constexpr uint8_t NBD_PROTO_VERSION[]    = { 0x00, 0x01 };
+static constexpr int32_t NBD_OPT_EXPORT         = 1;
+static constexpr int16_t NBD_FLAG_HAS_FLAGS     = 0b000001;
+static constexpr int16_t NBD_FLAG_READ_ONLY     = 0b000010;
+static constexpr int16_t NBD_FLAG_SEND_FLUSH    = 0b000100;
+static constexpr int16_t NBD_FLAG_SEND_FUA      = 0b001000;
+static constexpr int16_t NBD_FLAG_ROTATIONAL    = 0b010000;
+static constexpr int16_t NBD_FLAG_SEND_TRIM     = 0b100000;
+static constexpr int32_t NBD_CMD_READ           = 0;
+static constexpr int32_t NBD_CMD_WRITE          = 1;
+static constexpr int32_t NBD_CMD_DISC           = 2;
+static constexpr int32_t NBD_CMD_FLUSH          = 3;
+static constexpr int32_t NBD_CMD_TRIM           = 4;
+/// ******************************************
+
+
+/// Some useful constants for us
+/// ******************************************
+// TODO(Andrew): This is a total hack. Go ask OM you lazy...
+static constexpr char   four_kay_zeros[4096]{0};  // NOLINT
+static constexpr size_t object_size = 4096;
+static constexpr size_t max_chunks = (2 * 1024 * 1024) / object_size;
+/// ******************************************
+
 template<typename T>
 constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
 { return const_cast<typename std::remove_cv<T>::type*>(t); }
+
+static constexpr bool ensure(bool b)
+{ return (!b ? throw fds::NbdError::connection_closed : true); }
 
 static std::array<std::string, 5> const io_to_string = {
     { "READ", "WRITE", "DISCONNECT", "FLUSH", "TRIM" }
@@ -48,19 +82,15 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
           nbdOps(boost::make_shared<NbdOperations>(this)),
           clientSocket(clientsd),
           nbd_state(NbdProtoState::PREINIT),
-          doUturn(false),
           resp_needed(0u),
           attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
           request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, nullptr }),
           response(nullptr),
           total_blocks(0ull),
           write_offset(-1ll),
-          maxChunks(0ull),
-          readyHandles(2000),
           readyResponses(4000),
           current_response(nullptr) {
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-    toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
     if (config.get_abs<bool>("fds.am.connector.nbd.non_block_io", true)) {
         fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
     } else {
@@ -85,26 +115,6 @@ NbdConnection::~NbdConnection() {
     shutdown(clientSocket, SHUT_RDWR);
     close(clientSocket);
 }
-
-constexpr uint8_t NbdConnection::NBD_MAGIC[];
-constexpr uint8_t NbdConnection::NBD_REQUEST_MAGIC[];
-constexpr uint8_t NbdConnection::NBD_RESPONSE_MAGIC[];
-constexpr char NbdConnection::NBD_MAGIC_PWD[];
-constexpr uint8_t NbdConnection::NBD_PROTO_VERSION[];
-constexpr fds_int32_t NbdConnection::NBD_OPT_EXPORT;
-constexpr fds_int16_t NbdConnection::NBD_FLAG_HAS_FLAGS;
-constexpr fds_int16_t NbdConnection::NBD_FLAG_READ_ONLY;
-constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_FLUSH;
-constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_FUA;
-constexpr fds_int16_t NbdConnection::NBD_FLAG_ROTATIONAL;
-constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_TRIM;
-constexpr fds_int32_t NbdConnection::NBD_CMD_READ;
-constexpr fds_int32_t NbdConnection::NBD_CMD_WRITE;
-constexpr fds_int32_t NbdConnection::NBD_CMD_DISC;
-constexpr fds_int32_t NbdConnection::NBD_CMD_FLUSH;
-constexpr fds_int32_t NbdConnection::NBD_CMD_TRIM;
-
-constexpr char NbdConnection::fourKayZeros[];
 
 bool
 NbdConnection::write_response() {
@@ -223,24 +233,24 @@ NbdConnection::option_request(ev::io &watcher) {
     auto volumeName = boost::make_shared<std::string>(attach.data.begin(),
                                                  attach.data.begin() + attach.header.length);
     apis::VolumeDescriptor volume_desc;
-    if (toggleStandAlone) {
+    FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
+    if (config.get_abs<bool>("fds.am.testing.toggleStandAlone", false)) {
         volume_desc.policy.maxObjectSizeInBytes = 4096;
         volume_desc.policy.blockDeviceSizeInBytes = 10737418240;
     } else {
         LOGNORMAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volume_desc);
+        omConfigApi.reset(); // No need for this reference anymore
         if (ERR_OK != err || apis::BLOCK != volume_desc.policy.volumeType)
             throw NbdError::connection_closed;
     }
 
     // Fix endianness
     volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
-    maxChunks = (2 * 1024 * 1024) / volume_desc.policy.maxObjectSizeInBytes;
 
     LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
               << volume_desc.policy.blockDeviceSizeInBytes
-              << " max object size " << volume_desc.policy.maxObjectSizeInBytes
-              << " max number of chunks " << maxChunks;
+              << " max object size " << volume_desc.policy.maxObjectSizeInBytes;
     nbdOps->init(volumeName, volume_desc.policy.maxObjectSizeInBytes);
 
     return true;
@@ -253,7 +263,7 @@ NbdConnection::option_reply(ev::io &watcher) {
     static iovec const vectors[] = {
         { nullptr,                  sizeof(volume_size) },
         { to_iovec(&optFlags),      sizeof(optFlags)    },
-        { to_iovec(fourKayZeros),   124                 },
+        { to_iovec(four_kay_zeros), 124                 },
     };
 
     if (!response) {
@@ -315,7 +325,7 @@ NbdConnection::io_reply(ev::io &watcher) {
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
-        response = resp_vector_type(new iovec[kMaxChunks + 3]);
+        response = resp_vector_type(new iovec[max_chunks + 3]);
         response[0].iov_base = to_iovec(NBD_RESPONSE_MAGIC);
         response[0].iov_len = sizeof(NBD_RESPONSE_MAGIC);
         response[1].iov_base = to_iovec(&error_ok); response[1].iov_len = sizeof(error_ok);
@@ -325,34 +335,10 @@ NbdConnection::io_reply(ev::io &watcher) {
 
     Error err = ERR_OK;
     if (write_offset == -1) {
-        total_blocks = 3;
-        if (doUturn) {
-            // Iterate and send each ready response
-            if (!readyHandles.empty()) {
-                UturnPair rep;
-                ensure(readyHandles.pop(rep));
-
-                response[2].iov_base = &rep.handle; response[2].iov_len = sizeof(rep.handle);
-
-                fds_uint32_t length = rep.length;
-                fds_int32_t opType = rep.opType;
-                if (NBD_CMD_READ == opType) {
-                    // TODO(Andrew): Remove this verify and handle sub-4K
-                    ensure((length % 4096) == 0);
-                    total_blocks += length / 4096;
-                }
-
-                for (size_t i = 3; i < total_blocks; ++i) {
-                    response[i].iov_base = to_iovec(fourKayZeros);
-                    response[i].iov_len = sizeof(fourKayZeros);
-                }
-            }
-            return true;
-        }
-
-        // no uturn
         if (readyResponses.empty())
             { return false; }
+
+        total_blocks = 3;
 
         NbdResponseVector* resp = NULL;
         ensure(readyResponses.pop(resp));
@@ -403,36 +389,13 @@ NbdConnection::dispatchOp() {
     auto& length = request.header.length;
 
     switch (request.header.opType) {
-        UturnPair utPair;
         case NBD_CMD_READ:
-            if (doUturn) {
-                // TODO(Andrew): Hackey uturn code. Remove.
-                utPair.handle = handle;
-                utPair.length = length;
-                utPair.opType = NBD_CMD_READ;
-                readyHandles.push(utPair);
-
-                // We have something to write, so ask for events
-                ioWatcher->set(ev::READ | ev::WRITE);
-            } else {
-                // do read from AM
-                nbdOps->read(length, offset, handle);
-            }
+            // do read from AM
+            nbdOps->read(length, offset, handle);
             break;
         case NBD_CMD_WRITE:
-            if (doUturn) {
-                // TODO(Andrew): Hackey uturn code. Remove.
-                utPair.handle = handle;
-                utPair.length = length;
-                utPair.opType = NBD_CMD_WRITE;
-                readyHandles.push(utPair);
-
-                // We have something to write, so ask for events
-                ioWatcher->set(ev::READ | ev::WRITE);
-            } else {
-                 fds_assert(request.data);
-                 nbdOps->write(request.data, length, offset, handle);
-            }
+            fds_assert(request.data);
+            nbdOps->write(request.data, length, offset, handle);
             break;
         case NBD_CMD_FLUSH:
             break;
@@ -513,8 +476,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 // If the queue is empty, stop writing. Reading at this
                 // point is determined by whether we have an Operations
                 // instance to queue to.
-                if ((!current_response) &&
-                    (doUturn ? readyHandles.empty() : readyResponses.empty()))
+                if ((!current_response) && readyResponses.empty())
                     { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
                 break;
             default:
