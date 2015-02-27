@@ -2,6 +2,7 @@
 # coding: utf8
 from boto.s3.connection import S3Connection
 import config
+import config_parser
 import utils
 import s3
 import sys
@@ -16,6 +17,10 @@ def test_download_file():
 
 def test_hostname_to_ip():
     print utils.hostname_to_ip('fre-lxcnode-01')
+
+def test_get_ips_from_inventory():
+    print config_parser.get_ips_from_inventory('integration-framework-cluster')
+    print config_parser.get_om_ipaddress_from_inventory('integration-framework-cluster')
 
 def test_s3():
     s3conn = S3Connection(
@@ -45,4 +50,4 @@ def test_s3():
     key.get_file(fp)
 
 if __name__ == "__main__":
-    test_download_file()
+    test_get_ips_from_inventory()
