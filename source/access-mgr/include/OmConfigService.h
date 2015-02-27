@@ -6,7 +6,7 @@
 
 #include <string>
 #include <fds_types.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
 
 namespace fds {
 

@@ -9,7 +9,6 @@
 #include <NetSession.h>
 #include <OmResources.h>
 #include <net/SvcRequest.h>
-#include <fdsp_utils.h>
 #include <fiu-local.h>
 #include <fdsp/fds_service_types.h>
 #include <net/BaseAsyncSvcHandler.h>
@@ -684,18 +683,6 @@ void FDSP_OMControlPathReqHandler::RegisterNode(
               << ", node uuid " << reg_node_req->node_uuid.uuid
               << ", svc uuid " << new_node_uuid.uuid_get_val()
               << ", node type " << reg_node_req->node_type << std::dec;
-}
-
-void FDSP_OMControlPathReqHandler::NotifyQueueFull(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_NotifyQueueStateType& queue_state_info){
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::NotifyQueueFull(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_NotifyQueueStateTypePtr& queue_state_info) {
-    orchMgr->NotifyQueueFull(fdsp_msg, queue_state_info);
 }
 
 void FDSP_OMControlPathReqHandler::migrationDone(boost::shared_ptr<fpi::AsyncHdr>& hdr,

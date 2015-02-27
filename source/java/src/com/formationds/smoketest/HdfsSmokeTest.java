@@ -346,7 +346,7 @@ public class HdfsSmokeTest {
                 .getOrDefault("fds.host", "localhost");
 
         ConfigurationService.Iface cs = xdiCf.remoteOmService(host, 9090);
-        AmService.Iface am = xdiCf.remoteAmService(host, 9988);
+        XdiService.Iface am = xdiCf.remoteAmService(host, 9988);
 
         String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
         String userName = "hdfs-user-" + UUID.randomUUID().toString();

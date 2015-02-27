@@ -3,7 +3,7 @@
  */
 #ifndef SOURCE_ORCH_MGR_INCLUDE_CONVERT_H_
 #define SOURCE_ORCH_MGR_INCLUDE_CONVERT_H_
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
 #include <fds_typedefs.h>
 #include <string>
 #include <OmResources.h>

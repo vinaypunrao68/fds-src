@@ -3,8 +3,8 @@
  */
 package com.formationds.security;
 
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.User;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.util.thrift.ConfigurationApi;

@@ -174,13 +174,13 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                         fds_verify(offData.count(offset) == 0);
                         offData[offset] = localData;
                     }
-                } catch(apis::ApiException fdsE) {
+                } catch(fpi::ApiException fdsE) {
                     fds_panic("write failed");
                 }
             } else if (opType == GET) {
                 try {
                     nbdOps->read(blobSize, offset, ++handle);
-                } catch(apis::ApiException fdsE) {
+                } catch(fpi::ApiException fdsE) {
                     fds_panic("read failed");
                 }
             } else {

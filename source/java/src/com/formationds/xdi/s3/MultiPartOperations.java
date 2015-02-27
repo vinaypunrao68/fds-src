@@ -3,7 +3,7 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ApiException;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.*;
 import com.formationds.security.AuthenticationToken;

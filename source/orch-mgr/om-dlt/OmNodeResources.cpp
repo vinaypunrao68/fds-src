@@ -17,6 +17,7 @@
 #include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
+#include <fdsp/am_service_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
 
@@ -62,43 +63,10 @@ OM_NodeAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType my
 void
 OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
 {
-    // TODO(Andrew): Add this back when OM actually responds
-    // to node registrations
-    // if (peer->get_node_name() == get_node_name()) {
-    // return;
-    // }
-    fpi::FDSP_MsgHdrTypePtr     m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_Node_Info_TypePtr n_inf(new fpi::FDSP_Node_Info_Type);
-
-    this->init_msg_hdr(m_hdr);
-    this->init_node_info_pkt(n_inf);
-
-    m_hdr->msg_code        = fpi::FDSP_MSG_NOTIFY_NODE_ADD;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
-
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyNodeAdd, m_hdr, n_inf);
-        return;
-    }
-    try {
-        if (node_state() == fpi::FDS_Node_Down) {
-            OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeRmv(m_hdr, n_inf);
-        } else {
-            n_inf->node_state = fpi::FDS_Node_Up;
-            OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
-        }
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return;
-    } catch(...) {
-        LOGCRITICAL << "caught unexpected exception!!!";
-        throw;
-    }
-
-    LOGNORMAL << "Send node info from " << get_node_name()
-              << " to " << peer->get_node_name() << std::endl;
+    // TODO(Andrew): This function is deprecated and should not
+    // be called. It is not in any main code path but has a long
+    // deprecated call chain that can be removed when OM is re-factored.
+    LOGWARN << "You're calling a dead function";
 }
 
 // ----------------

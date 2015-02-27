@@ -6,7 +6,7 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include <thrift/concurrency/Monitor.h>
 #include <snapshot/schedulertask.h>
-#include <apis/apis_types.h>
+#include <fdsp/snapshot_types.h>
 #include <fds_types.h>
 #include <util/Log.h>
 #include <map>

@@ -7,11 +7,11 @@
 #include <vector>
 #include <net/net_utils.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
+#include "fdsp/sm_service_types.h"
 #include <dmhandler.h>
 
 namespace fds {

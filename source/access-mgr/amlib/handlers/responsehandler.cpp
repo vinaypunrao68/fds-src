@@ -10,27 +10,27 @@
 #define XCHECKSTATUS(status)                                        \
 if (status != ERR_OK) {                                             \
     LOGWARN << " status:" << status;                                \
-    apis::ApiException e;                                           \
+    fpi::ApiException e;                                           \
     switch (status) {                                               \
         case FDSN_StatusEntityDoesNotExist:                         \
         case ERR_NOT_FOUND:                                         \
         case ERR_VOL_NOT_FOUND:                                     \
-            e.errorCode = apis::ErrorCode::MISSING_RESOURCE;        \
+            e.errorCode = fpi::ErrorCode::MISSING_RESOURCE;        \
             break;                                                  \
         case ERR_NOT_READY:                                         \
-            e.errorCode = apis::ErrorCode::SERVICE_NOT_READY;       \
+            e.errorCode = fpi::ErrorCode::SERVICE_NOT_READY;       \
             break;                                                  \
         case ERR_VOL_NOT_EMPTY:                                     \
-            e.errorCode = apis::ErrorCode::RESOURCE_NOT_EMPTY;      \
+            e.errorCode = fpi::ErrorCode::RESOURCE_NOT_EMPTY;      \
             break;                                                  \
         case ERR_DUPLICATE:                                         \
-            e.errorCode = apis::ErrorCode::RESOURCE_ALREADY_EXISTS; \
+            e.errorCode = fpi::ErrorCode::RESOURCE_ALREADY_EXISTS; \
             break;                                                  \
         case ERR_SHUTTING_DOWN:                                     \
-            e.errorCode = apis::ErrorCode::SERVICE_SHUTTING_DOWN;   \
+            e.errorCode = fpi::ErrorCode::SERVICE_SHUTTING_DOWN;   \
             break;                                                  \
         default:                                                    \
-            e.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
+            e.errorCode = fpi::ErrorCode::INTERNAL_SERVER_ERROR;   \
     }                                                               \
     e.message = toString(status);                                   \
     throw e;                                                        \
@@ -146,8 +146,8 @@ StatBlobResponseHandler::StatBlobResponseHandler(
 
 void StatBlobResponseHandler::process() {
     if (error == ERR_CAT_ENTRY_NOT_FOUND) {
-        apis::ApiException fdsE;
-        fdsE.errorCode = apis::MISSING_RESOURCE;
+        fpi::ApiException fdsE;
+        fdsE.errorCode = fpi::MISSING_RESOURCE;
         throw fdsE;
     }
     XCHECKSTATUS(status);

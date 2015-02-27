@@ -2,9 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#ifndef __FDSP_H__
-#define __FDSP_H__
-
 include "common.thrift"
 
 namespace c_glib FDS_ProtocolInterface
@@ -815,34 +812,22 @@ service FDSP_ConfigPathResp {
  */
 service FDSP_OMControlPathReq {
   oneway void RegisterNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_req),
-  oneway void NotifyQueueFull(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_info),
 }
 
 service FDSP_OMControlPathResp {
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
-  oneway void NotifyQueueFullResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyQueueStateType queue_state_rsp),
 }
 
 service FDSP_ControlPathReq {
 
   /* OM to SM/DM/SH control messages */
 
-  oneway void AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_req),
-  oneway void DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_req),
-  oneway void NotifyNodeAdd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
-  oneway void NotifyNodeActive(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateNodeType act_node_req),
-  oneway void NotifyNodeRmv(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
   oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
   oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
 }
 
 service FDSP_ControlPathResp {
-  oneway void AttachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_resp),
-  oneway void DetachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_resp),
-  oneway void NotifyNodeAddResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
-  oneway void NotifyNodeRmvResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
-  oneway void NotifyNodeActiveResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp),
   oneway void NotifyDMTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_resp),
   oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)
@@ -858,5 +843,3 @@ service FDSP_MetaSyncResp {
     oneway void PushMetaSyncResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_resp)
     oneway void MetaSyncDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
 }
-
-#endif

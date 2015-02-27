@@ -17,7 +17,7 @@ extern "C" {
 #include <vector>
 
 #include "leveldb/db.h"
-#include "fdsp/fds_service_types.h"
+#include "fdsp/sm_service_types.h"
 #include "fdsp/FDSP_types.h"
 #include "fds_volume.h"
 #include "fds_types.h"
@@ -69,8 +69,14 @@ class ObjMetaData : public serialize::Serializable {
     uint64_t getModificationTs() const;
 
     void diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData);
+
+    void syncObjectMetaData(fpi::CtrlObjectMetaDataSync& objMetaData);
+
+    bool isEqualSyncObjectMetaData(fpi::CtrlObjectMetaDataSync& objMetaData);
+
     void propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData,
-                                 bool reconcileMetaDataOnly);
+                                 fpi::ObjectMetaDataReconcileFlags reconcileFlag);
+
     Error updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
 
     void setObjCorrupted();

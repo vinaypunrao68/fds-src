@@ -15,7 +15,6 @@
 #include <StorMgr.h>
 #include <NetSession.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <net/net_utils.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
@@ -865,10 +864,15 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     // for this migration client (which is addressed by executorID on destination side)
     migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
 
-    objectStore->snapshotMetadata(snapReq->token_id,
-                                  snapReq->smio_snap_resp_cb,
-                                  snapReq);
-
+    if (snapReq->isPersistent) {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_persist_snap_resp_cb,
+                                      snapReq);
+    } else {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_snap_resp_cb,
+                                      snapReq);
+    }
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
@@ -999,7 +1003,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
         ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
-        bool reconcileMetaDataOnly = (readDeltaSetReq->deltaSet)[i].second;
+        fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
@@ -1007,11 +1011,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         /* copy metadata to object propagation message. */
         objMetaDataPtr->propagateObjectMetaData(objMetaDataPropagate,
-                                                reconcileMetaDataOnly);
-        /* If reconciling only the metadata, there is no need to read the
-         * data from the object store.
-         */
-        if (!reconcileMetaDataOnly) {
+                                                reconcileFlag);
+
+        /* Read object data, if NO_RECONCILE or OVERWRITE */
+        if (fpi::OBJ_METADATA_NO_RECONCILE == reconcileFlag) {
 
             /* get the object from metadata information. */
             boost::shared_ptr<const std::string> dataPtr =
@@ -1032,7 +1035,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
 
         LOGMIGRATE << "Adding DeltaSet element: " << objID
-                   << " reconcileMetaDataOnly=" << reconcileMetaDataOnly;
+                   << " reconcileFlag=" << reconcileFlag;
     }
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());

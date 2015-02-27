@@ -50,7 +50,7 @@ OmConfigApi::statVolume(boost::shared_ptr<std::string> volumeName,
     try {
         std::string domain("Fake domain");
         omConfigClient->statVolume(volDesc, domain, *volumeName);
-    } catch(apis::ApiException fdsE) {
+    } catch(fpi::ApiException fdsE) {
         return ERR_NOT_FOUND;
     }
     return ERR_OK;

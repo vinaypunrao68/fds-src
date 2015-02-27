@@ -254,7 +254,7 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
         self.passedNode2 = node2
         self.passedVolume = volume
 
-    @TestCase.expectedFailure
+    @TestCase.expectedFailure("FS-810")
     def test_VerifyDMStaticMigration(self):
         """
         Test Case:
