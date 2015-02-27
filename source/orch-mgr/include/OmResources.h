@@ -19,6 +19,7 @@
 #include "platform/domain_container.h"
 
 #include <fdsp/FDSP_ControlPathResp.h>
+#include "fdsp/sm_service_types.h"
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
@@ -27,7 +28,15 @@ namespace FDS_ProtocolInterface {
     class FDSP_ControlPathReqClient;
     class FDSP_ControlPathRespProcessor;
     class FDSP_ControlPathRespIf;
-}
+
+    struct CtrlNotifyDMAbortMigration;
+    struct CtrlNotifyDMTClose;
+    struct CtrlNotifyDMTUpdate;
+    using CtrlNotifyDMAbortMigrationPtr = boost::shared_ptr<CtrlNotifyDMAbortMigration>;
+    using CtrlNotifyDMTClosePtr = boost::shared_ptr<CtrlNotifyDMTClose>;
+    using CtrlNotifyDMTUpdatePtr = boost::shared_ptr<CtrlNotifyDMTUpdate>;
+}  // namespace FDS_ProtocolInterface
+
 typedef netClientSessionEx<fpi::FDSP_ControlPathReqClient,
                 fpi::FDSP_ControlPathRespProcessor,
                 fpi::FDSP_ControlPathRespIf> netControlPathClientSession;
@@ -453,12 +462,7 @@ class OM_NodeContainer : public DomainContainer
     }
 
     virtual void om_set_throttle_lvl(float level);
-    virtual void om_send_bucket_stats(fds_uint32_t, const NodeUuid&, fds_uint32_t);
-    virtual void om_handle_perfstats_from_am(const fpi::FDSP_VolPerfHistListType &list,
-                                             const std::string start_timestamp);
 
-    virtual void om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy);
-    virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
     virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_snap(VolumeInfo::pointer vol);
@@ -466,8 +470,6 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
                                              fds_bool_t check_only);
     virtual fds_uint32_t om_bcast_vol_detach(VolumeInfo::pointer vol);
-    virtual void om_bcast_vol_tier_policy(const fpi::FDSP_TierPolicyPtr &tier);
-    virtual void om_bcast_vol_tier_audit(const fpi::FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
     virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt,
                                       fds_bool_t to_sm = true,
@@ -702,7 +704,8 @@ class OM_NodeDomainMod : public Module
      */
     virtual void
     om_service_down(const Error& error,
-                    const NodeUuid& svcUuid);
+                    const NodeUuid& svcUuid,
+                    fpi::FDSP_MgrIdType svcType);
 
     /**
      * Unregister the node matching uuid from the domain manager.
@@ -816,83 +819,6 @@ class OM_NodeDomainMod : public Module
 class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
   public:
     OM_ControlRespHandler();
-
-    void NotifyAddVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_NotifyVolType& not_add_vol_resp);
-    void NotifyAddVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_add_vol_resp);
-
-    void NotifyRmVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp);
-    void NotifyRmVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp);
-
-    void NotifyModVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_NotifyVolType& not_mod_vol_resp);
-    void NotifyModVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
-
-    void NotifySnapVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp);
-    void NotifySnapVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp);
-
-    void AttachVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
-    void AttachVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp);
-
-    void DetachVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp);
-    void DetachVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp);
-
-    void NotifyNodeAddResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeAddResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-    void NotifyNodeRmvResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeRmvResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-    void NotifyNodeActiveResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeActiveResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-    void NotifyDLTUpdateResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp);
-    void NotifyDLTUpdateResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp);
-
-    void NotifyDLTCloseResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp);
-    void NotifyDLTCloseResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp);
 
     void NotifyDMTUpdateResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

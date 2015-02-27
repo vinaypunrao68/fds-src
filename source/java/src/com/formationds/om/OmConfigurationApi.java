@@ -3,6 +3,7 @@
  */
 package com.formationds.om;
 
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
@@ -153,7 +154,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     void startConfigurationUpdater() {
-        new Thread(new Updater()).start();
+        new Thread(new Updater(),"om_config_updater").start();
     }
 
     private Iface getConfig() {

@@ -4,7 +4,7 @@
 package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import com.formationds.apis.AmService;
+import com.formationds.apis.XdiService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.events.EventManager;
@@ -132,11 +132,12 @@ public class Main {
             ConfigServiceClientFactory.newConfigService("localhost", omConfigPort);
 
         final OmConfigurationApi configCache = new OmConfigurationApi(configApiFactory);
+        configCache.startConfigurationUpdater();
         SingletonConfigAPI.instance().api( configCache );
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
 
-        AmService.Iface amService = AmServiceClientFactory.newAmService(amHost, amServicePort).getClient();
+        XdiService.Iface amService = AmServiceClientFactory.newAmService(amHost, amServicePort).getClient();
         SingletonAmAPI.instance().api( amService );
 
         String omHost = "localhost";

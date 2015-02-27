@@ -11,6 +11,7 @@
 #include <MigrationClient.h>
 #include <fds_process.h>
 #include <MigrationTools.h>
+#include "fdsp/om_service_types.h"
 
 #include <object-store/SmDiskMap.h>
 
@@ -19,9 +20,11 @@ namespace fds {
 
 MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
                                  NodeUuid& _destSMNodeID,
+                                 fds_uint64_t& _targetDltVersion,
                                  fds_uint32_t bitsPerToken)
     : dataStore(_dataStore),
       destSMNodeID(_destSMNodeID),
+      targetDltVersion(_targetDltVersion),
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
       forwardingIO(false),
@@ -32,6 +35,7 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
     seqNumDeltaSet = ATOMIC_VAR_INIT(0UL);
 
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
+    snapshotRequest.isPersistent = true;
     SMTokenID = SMTokenInvalidID;
     executorID = SM_INVALID_EXECUTOR_ID;
 
@@ -44,9 +48,11 @@ MigrationClient::~MigrationClient()
 }
 
 void
-MigrationClient::setForwardingFlag(fds_token_id smTok) {
-    fds_verify(smTok == SMTokenID);
-    if (getMigClientState() != MIG_CLIENT_ERROR) {
+MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
+    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET) {
+        fds_verify(smTok == SMTokenID);
+        LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
+                   << " executorId " << std::hex << executorID << std::dec;
         forwardingIO = true;
     }
 }
@@ -131,23 +137,24 @@ MigrationClient::migClientSnapshotMetaData()
     fds_verify(executorID != SM_INVALID_EXECUTOR_ID);
     snapshotRequest.token_id = SMTokenID;
     snapshotRequest.executorId = executorID;
+    snapshotRequest.targetDltVersion = targetDltVersion;
 
     fds_assert((getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) ||
                (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET));
     if (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET) {
-        snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotFirstPhaseCb,
+        snapshotRequest.snapNum = "1";
+        snapshotRequest.smio_persist_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotFirstPhaseCb,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      std::placeholders::_4);
+                                                      std::placeholders::_3);
     } else {
-        snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotSecondPhaseCb,
+        snapshotRequest.snapNum = "2";
+        snapshotRequest.smio_persist_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotSecondPhaseCb,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      std::placeholders::_4);
+                                                      std::placeholders::_3);
     }
 
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
@@ -180,8 +187,11 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
     }
 }
 
+/* TODO(Gurpreet): Propogate error to Token Migration Manager
+ */
 void
-MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bool>>& objMetaDataSet,
+MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
+                                                            fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
                                       fds_bool_t lastSet)
 {
     Error err(ERR_OK);
@@ -200,7 +210,7 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bo
                                 std::placeholders::_1,
                                 std::placeholders::_2);
 
-    std::vector<std::pair<ObjMetaData::ptr, bool>>::iterator itFirst, itLast;
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>>::iterator itFirst, itLast;
     itFirst = objMetaDataSet.begin();
     itLast = objMetaDataSet.end();
     readDeltaSetReq->deltaSet.assign(itFirst, itLast);
@@ -217,11 +227,12 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bo
     fds_verify(err.ok());
 }
 
+/* TODO(Gurpreet): Propogate error to Token Migration Manager
+ */
 void
 MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
-                                               leveldb::ReadOptions& options,
-                                               leveldb::DB *db)
+                                               std::string &snapDir)
 {
     // on error, set error state (abort migration)
     if (!error.ok()) {
@@ -232,15 +243,33 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
         return;
     }
 
-    std::vector<std::pair<ObjMetaData::ptr, bool>> objMetaDataSet;
-
-    firstPhaseLevelDB = db;
-    /* save off the ReadOptions from first snapshot.  The second snapshot
-     * information is store in options.
+    /* The reconcileFlag in the second is used to determine what action is needed for
+     * metada data.  One of 3 possibilities:
+     * 1) no reconcile -- write out both meta data and object data on the destination SM.
+     * 2) reconcile -- need to reconcile meta data on the destination SM.
+     * 3) overwrite -- overwrite meta data.  The destination SM already has object data, but
+     *                 metadata may be stale.
      */
-    firstPhaseReadOptions = options;
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
 
-    leveldb::Iterator *iterDB = firstPhaseLevelDB->NewIterator(options);
+    /* First phase snapshot directory
+     */
+    firstPhaseSnapshotDir = snapDir;
+
+    /* Setup db Options and create leveldb from the snapshot.
+     */
+    leveldb::DB* dbFromFirstSnap;
+    leveldb::Options options;
+    leveldb::ReadOptions read_options;
+
+    leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
+    if (!status.ok()) {
+        LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
+                   << "status " << status.ToString();
+        return;
+    } 
+
+    leveldb::Iterator *iterDB = dbFromFirstSnap->NewIterator(read_options);
 
     /* Iterate through level db and filter against the objectFilterSet.
      */
@@ -269,12 +298,15 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
          */
         auto objectIdFiltered = filterObjectSet.find(objId);
         /* 1) Didn't find the object in the filtered set.  or
-         * 2) Found it, and ref cnt is > 0,
+         * 2) Found it, and state of the object metadat is not the same.
          * Add to the list of object to send back to the destionation SM.
          *
          */
         if (objectIdFiltered == filterObjectSet.end()) {
 
+            /* Didn't find the object in the filter set.  Need to send both
+             * metadata and object
+             */
             ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
 
             /* Get metadata associated with the object. */
@@ -299,9 +331,14 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
             if (!objMetaDataPtr->isObjCorrupted() && (objMetaDataPtr->getRefCnt() > 0UL)) {
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                            << ": Selecting object " << objMetaDataPtr->logString();
-                objMetaDataSet.emplace_back(objMetaDataPtr, false);
+                objMetaDataSet.emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_NO_RECONCILE);
             } else {
-                LOGERROR << "CORRUPTION: Skipping object ID " << objId;
+                if (objMetaDataPtr->isObjCorrupted()) {
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMetaDataPtr->logString();
+                }
             }
 
         } else {
@@ -325,24 +362,22 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
             /* compare the refcnt of the filteredObject and object in the
              * leveldb snapshot.
              */
-            /* TODO(Sean): Do we need to also check the volume association when filtering
-             *             in the future?
-             */
-            if (objMetaDataPtr->getRefCnt() != objectIdFiltered->second) {
+            if (!objMetaDataPtr->isEqualSyncObjectMetaData(objectIdFiltered->second)) {
                 /* add to the set of objec IDs to be sent to the QoS.
                  */
 
-                /* Note:  we have to deal with snapshot metadata, not from the disk
-                 *        state later.  With active IO, we need to look at if
-                 *        active IOs have change the metadat state, and change
+                /* Note:  we deal with snapshot metadata, not from the disk
+                 *        state.  With active IO, we need to look at if
+                 *        active IOs have change the metadata state, and change
                  *        accordingly on the destination SM.
                  */
                 if (!objMetaDataPtr->isObjCorrupted()) {
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
-                               << ": Selecting object " << objMetaDataPtr->logString();
-                    objMetaDataSet.emplace_back(objMetaDataPtr, false);
+                               << ": Found in filter set with object state change: "
+                               << objMetaDataPtr->logString();
+                    objMetaDataSet.emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_OVERWRITE);
                 } else {
-                    LOGERROR << "CORRUPTION: Skipping object ID " << objId;
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
                 }
             }
         }
@@ -361,15 +396,17 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     migClientAddMetaData(objMetaDataSet, true);
 
     delete iterDB;
+    delete dbFromFirstSnap;
 
     setMigClientState(MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE);
 }
 
+/* TODO(Gurpreet): Propogate error to Token Migration Manager
+ */
 void
 MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
-                                               leveldb::ReadOptions& options,
-                                               leveldb::DB *db)
+                                               std::string &snapDir)
 {
     // on error, set error state (abort migration)
     if (!error.ok()) {
@@ -380,20 +417,20 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         return;
     }
 
-    std::vector<std::pair<ObjMetaData::ptr, bool>> objMetaDataSet;
+    /* The reconcileFlag in the second is used to determine what action is needed for
+     * metada data.  One of 3 possibilities:
+     * 1) no reconcile -- write out both meta data and object data on the destination SM.
+     * 2) reconcile -- need to reconcile meta data on the destination SM.
+     * 3) overwrite -- overwrite meta data.  The destination SM already has object data, but
+     *                 metadata may be stale.
+     */
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
 
     fds_verify(MIG_CLIENT_SECOND_PHASE_DELTA_SET == getMigClientState());
 
-    /* Save off pointer to the level DB.  This level DB should be the same as
-     * the first phase levelDB.
+    /* Second phase snapshot directory
      */
-    secondPhaseLevelDB = db;
-    fds_verify(secondPhaseLevelDB == firstPhaseLevelDB);
-
-    /* save off the ReadOptions from second snapshot.  The second snapshot
-     * information is store in options.
-     */
-    secondPhaseReadOptions = options;
+    secondPhaseSnapshotDir = snapDir;
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << "Starting diff between First and Second Phase snapshot.";
@@ -407,9 +444,37 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      *             consumption.
      */
     metadata::metadata_diff_type diffObjMetaData;
-    metadata::diff(db,
-                   firstPhaseReadOptions.snapshot,
-                   secondPhaseReadOptions.snapshot,
+
+    /* Setup db options and create leveldbs from the snapshots.
+     * Leveldb instances then gets passed to the diff function.
+     */
+    leveldb::DB* dbFromFirstSnap;
+    leveldb::DB* dbFromSecondSnap;
+    leveldb::Options options;
+
+    leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
+    /* TODO(Gurpreet): Propogate error to Token Migration Manager.
+     */
+    if (!status.ok()) {
+        LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot." 
+                   << "status " << status.ToString();
+        return;
+    }
+
+    status = leveldb::DB::Open(options, secondPhaseSnapshotDir, &dbFromSecondSnap);
+    /* TODO(Gurpreet): Propogate error to Token Migration Manager.
+     */
+    if (!status.ok()) {
+        LOGCRITICAL << "Could not open leveldb instance for Second Phase snapshot."
+                   << "status " << status.ToString();
+        return;
+    }
+
+    /* Figure out the differences between the first and second snapshot
+     * of SM token
+     */
+    metadata::diff(dbFromFirstSnap,
+                   dbFromSecondSnap,
                    diffObjMetaData);
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
@@ -435,26 +500,60 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         if (objMD.first == nullptr) {
             fds_verify(objMD.second != nullptr);
 
-            /* only send if the object is not corrupted */
+            /* only send if the object is not corrupted, or have a positive refcnt.
+             * If object is new, but have refcnt == 0, then there is no need to migrate
+             * them.
+             */
             if (!objMD.second->isObjCorrupted() && (objMD.second->getRefCnt() > 0UL)) {
 
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                            << ": Selecting object " << objMD.second->logString();
 
-                objMetaDataSet.emplace_back(objMD.second, false);
+                /* Add to object metadata set */
+                objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
+            } else {
+                if (objMD.second->isObjCorrupted()) {
+                    LOGCRITICAL << "CORRUPTION: Skipping object: " << objMD.second->logString();
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMD.second->logString();
+                }
             }
         } else {
-            /* Ok. There is change in object metadata.  Calculate the difference
-             * and stuff the diff (ref_cnt's only) to the second of a pair.
-             * Also, indicate that this is metadata update only when staging to
-             * form a delta set to be sent to the destination SM.
+            /* Here we have 2 possible cases.
+             * 1) the object was alive (i.e. ref_cnt > 0) on the first snapshot, and
+             *    the metadata and object was migrated to the destination SM during the first phase.
+             * 2) the object was dead (i.e. ref_cnt == 0) on the first snapshot, where the
+             *    metadata and object didn't migrate, but was resurrected before the second
+             *    snapshot.  In this case, we treat it as a new object.
              */
-            objMD.second->diffObjectMetaData(objMD.first);
+            if (objMD.first->getRefCnt() == 0UL) {
+                /* This is counted as resurrection, but migrate only if the second snapshot of the object has
+                 * the ref_cnt > 0.
+                 */
+                if (objMD.second->getRefCnt() > 0UL) {
+                    /* Treat this as a new object. */
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": Object resurrected: Selecting object " << objMD.second->logString();
 
-            LOGMIGRATE << "MigClientState=" << getMigClientState()
-                       << ": Diff'ed MetaData " << objMD.second->logString();
+                    objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
+                } else {
+                    LOGMIGRATE << "MigClientState=" << getMigClientState()
+                               << ": skipping object: " << objMD.second->logString();
+                }
+            } else {
+                /* Ok. There is change in object metadata.  Calculate the difference
+                 * and stuff the diff (ref_cnt's only) to the second of a pair.
+                 * Also, indicate that this is metadata update only when staging to
+                 * form a delta set to be sent to the destination SM.
+                 */
+                objMD.second->diffObjectMetaData(objMD.first);
 
-            objMetaDataSet.emplace_back(objMD.second, true);
+                LOGMIGRATE << "MigClientState=" << getMigClientState()
+                           << ": Diff'ed MetaData " << objMD.second->logString();
+
+                objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_RECONCILE);
+            }
         }
 
         /* Once we fill up the delta set to max size, then send it
@@ -472,11 +571,16 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      */
     migClientAddMetaData(objMetaDataSet, true);
 
-    /* We no longer need these snapshots.  Release them now.
+    /* We no longer need these snapshots. 
+     * Delete the snapshot directory and files.
      */
-    db->ReleaseSnapshot(firstPhaseReadOptions.snapshot);
-    db->ReleaseSnapshot(secondPhaseReadOptions.snapshot);
+    leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
 
+    status = env->DeleteDir(firstPhaseSnapshotDir);
+    status = env->DeleteDir(secondPhaseSnapshotDir);
+
+    delete dbFromFirstSnap;
+    delete dbFromSecondSnap;
     /* Set the migration client state to indicate the second delta set is sent. */
     setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE);
 }
@@ -572,7 +676,7 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
      */
     for (auto& objAndRefCnt : filterSet->objectsToFilter) {
       filterObjectSet.emplace(ObjectID(objAndRefCnt.objectID.digest),
-                              objAndRefCnt.objRefCnt);
+                              objAndRefCnt);
     }
     migClientLock.unlock();
 

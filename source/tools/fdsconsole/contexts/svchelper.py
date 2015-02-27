@@ -16,26 +16,33 @@ from operator import itemgetter
 log = process.setup_logger('cli.log')
 
 class ServiceMap:
-    serviceMap = None
+    __serviceMap = None
+    config = None
+
     @staticmethod
     def init(ip, port):
         #print 'ip: %s  - port: %s' % (ip,port)
-        ServiceMap.serviceMap = SvcMap(ip, int(port))
+        ServiceMap.__serviceMap = SvcMap(ip, int(port))
+
+    @staticmethod
+    def serviceMap():
+        if ServiceMap.__serviceMap == None:
+            ServiceMap.__serviceMap = ServiceMap.config.getPlatform().svcMap
+        return ServiceMap.__serviceMap
 
     @staticmethod
     def omConfig():
-        try :
+        try:
             ServiceMap.check()
-            client =  ServiceMap.serviceMap.omConfig()
+            return ServiceMap.serviceMap().omConfig()
         except:
             raise Exception("unable to get a client connection")
-        return client
-    
+
     @staticmethod
     def check():
         try :
-            om =  ServiceMap.serviceMap.omConfig()
-            om.configurationVersion(1)            
+            om =  ServiceMap.serviceMap().omConfig()
+            om.configurationVersion(1)
         except:
             ServiceMap.refresh()
 
@@ -43,7 +50,7 @@ class ServiceMap:
     def client(*args):
         try:
             ServiceMap.check()
-            client = ServiceMap.serviceMap.client(*args)
+            client = ServiceMap.serviceMap().client(*args)
         except Exception as e:
             log.exception(e)
             raise Exception("unable to get a client connection")
@@ -53,7 +60,7 @@ class ServiceMap:
     def list(*args):
         try:
             ServiceMap.check()
-            return ServiceMap.serviceMap.list(*args)
+            return ServiceMap.serviceMap().list(*args)
         except Exception as e:
             log.exception(e)
             raise Exception("unable to get a client connection")
@@ -61,6 +68,6 @@ class ServiceMap:
     @staticmethod
     def refresh(*args):
         try :
-            return ServiceMap.serviceMap.refresh(*args)
+            return ServiceMap.serviceMap().refresh(*args)
         except:
             raise Exception("unable to get a client connection")

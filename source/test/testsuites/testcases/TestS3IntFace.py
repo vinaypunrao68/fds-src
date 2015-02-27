@@ -10,9 +10,11 @@ import TestCase
 
 # Module-specific requirements
 import sys
+import uuid
 import os
 import math
 import hashlib
+import httplib
 from filechunkio import FileChunkIO
 import boto
 from boto.s3 import connection
@@ -25,6 +27,8 @@ class S3(object):
         self.conn = conn
         self.bucket1 = None
         self.keys = []  # As we add keys to the bucket, add them here as well.
+        self.verifiers = {} # As we track objects to verify, add object name 
+                            # and hash here
 
 
 # This class contains the attributes and methods to test
@@ -106,6 +110,48 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
             if not s3.bucket1:
                 self.log.error("s3.conn.create_bucket() failed to create bucket bucket1.")
                 return False
+
+        return True
+
+
+class TestS3Acls(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3Acls,
+                                             "Testing ACLs with Boto")
+
+    def test_S3Acls(self):
+        """
+        Test Case:
+        Attempt to set ACL parameters with Boto.
+        """
+
+        if not "s3" in self.parameters:
+            self.log.error("No S3 interface object with which to create a bucket.")
+            return False
+        elif self.parameters["s3"].conn is None:
+            self.log.error("No S3 connection with which to create a bucket.")
+            return False
+        else:
+            s3 = self.parameters["s3"]
+            bucket_name = str(uuid.uuid4())
+            random_bucket = s3.conn.create_bucket(bucket_name)
+            key_name = str(uuid.uuid4())
+            conn = httplib.HTTPConnection("localhost:8000")
+
+            # Try a PUT without setting the ACL first, should be rejected
+            conn.request("PUT", "/" + bucket_name + "/" + key_name, "file contents")
+            result = conn.getresponse()
+            self.assertEqual(403, result.status)
+
+            # Anonymous PUT should be accepted after ACL has been set
+            random_bucket.set_acl('public-read-write')
+            conn = httplib.HTTPConnection("localhost:8000")
+            conn.request("PUT", "/" + bucket_name + "/" + key_name, "file contents")
+            result = conn.getresponse()
+            self.assertEqual(200, result.status)
+
 
         return True
 
@@ -563,6 +609,129 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 
             return test_passed
 
+
+# This class contains the attributes and methods to test
+# the FDS S3 interface to put an objected with verifiable content
+# in place for later retrieval and validation
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3LoadVerifiableObject,
+                                             "Load a verifiable object into S3 bucket")
+
+        self.passedBucket=bucket
+        self.verifiableObjectSha=None
+
+    def test_S3LoadVerifiableObject(self):
+        """
+        Test Case:
+        Attempt to load an object with verifiable contents into a bucket
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
+            self.log.error("No S3 connection with which to load an object.")
+            return False
+
+        # Check if a bucket was passed to us.
+        if self.passedBucket is not None:
+            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
+            if self.parameters["s3"].bucket1 is None:
+                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
+                return False
+
+        if not self.parameters["s3"].bucket1:
+            self.log.error("No S3 bucket with which to load an object.")
+            return False
+        else:
+            self.log.info("Load an object with verifiable contents into an S3 bucket.")
+            bucket = self.parameters["s3"].bucket1
+
+            verifiable_file_contents = "a" * 1024
+            verifiable_object = bucket.new_key('s3VerifiableObject')
+            verifiable_object.set_contents_from_string(verifiable_file_contents)
+
+            # Grab the object and capture the hash for verification
+
+            try:
+                obj = bucket.get_key('s3VerifiableObject')
+            except:
+                self.log.error("Could not verify object")
+            else:
+                if obj:
+                    stored_hash = hashlib.sha1(obj.get_contents_as_string()).hexdigest()
+                    self.log.info("Hash of object stored in FDS: %s" % stored_hash)
+                    self.parameters["s3"].verifiers['s3VerifiableObject'] = stored_hash
+                    test_passed = True
+                else:
+                    test_passed = False
+
+            return test_passed
+
+# This class contains the attributes and methods to test
+# the FDS S3 interface to verify an object with verifiable content
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3CheckVerifiableObject,
+                                             "Check verifiable object in S3 bucket")
+
+        self.passedBucket=bucket
+
+    def test_S3CheckVerifiableObject(self):
+        """
+        Test Case:
+        Attempt to get an object with verifiable contents and validate the
+        checksum matches what we have stored
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
+            self.log.error("No S3 connection with which to get an object.")
+            return False
+
+        # Check if a bucket was passed to us.
+        if self.passedBucket is not None:
+            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
+            if self.parameters["s3"].bucket1 is None:
+                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
+                return False
+
+        if not self.parameters["s3"].bucket1:
+            self.log.error("No S3 bucket with which to get an object.")
+            return False
+        else:
+            self.log.info("Verify contents of verifiable object in an S3 bucket.")
+            bucket = self.parameters["s3"].bucket1
+
+            verifiable_object = bucket.get_key('s3VerifiableObject')
+            verify_hash = hashlib.sha1(verifiable_object.get_contents_as_string()).hexdigest()
+            self.log.info("Hash of object read from FDS: %s" % verify_hash)
+            stored_verify_hash = self.parameters['s3'].verifiers['s3VerifiableObject']
+            self.log.info("Hash of object stored from LoadVerifiableObject: %s" % stored_verify_hash)
+            if stored_verify_hash == verify_hash:
+                test_passed = True
+            else:
+                self.log.error("S3 Verifiable Object hash did not match")
+                test_passed = False
+
+            return test_passed
 
 # This class contains the attributes and methods to test
 # the FDS S3 interface to list the keys of a bucket.

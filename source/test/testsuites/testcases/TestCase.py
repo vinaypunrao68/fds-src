@@ -8,6 +8,8 @@ import os
 import getopt
 import traceback
 import unittest
+from unittest.case import (_ExpectedFailure, _UnexpectedSuccess)
+import functools
 import logging
 import fdslib.TestUtils as TestUtils
 
@@ -31,6 +33,23 @@ log = None
 # This global is ued to indicate whether we've already
 # generated parameters for the test fixture.
 _parameters = None
+
+
+def expectedFailure(problem=None):
+    def expectedFailure_decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if problem is not None:
+                log.info("Expected failure due to %s." % problem)
+
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                raise _ExpectedFailure(sys.exc_info())
+        wrapper.__expected_failure__ = True
+        return wrapper
+    return expectedFailure_decorator
+
 
 def setUpModule():
     """
@@ -89,7 +108,7 @@ def setUpModule():
             log.info("Run as root (--run-as-root or .ini config 'run_as_root'): %s." % _parameters["run_as_root"])
             log.info("Verbose logging (-v|--verbose or .ini config 'verbose'): %s." % _parameters["verbose"])
             log.info("'Dry run' test (-r|--dryrun or .ini config 'dryrun'): %s." % _parameters["dryrun"])
-            log.info("Install from release package (-i|--install or .ini config 'install'): %s." % _parameters["tar_file"])
+            log.info("Install from release package (-i|--install or .ini config 'install'): %s." % _parameters["install"])
             log.info("FDS config file (.ini config 'fds_config_file'): %s." % _parameters["fds_config_file"])
 
 
@@ -176,13 +195,15 @@ class FDSTestCase(unittest.TestCase):
         try:
             if not self.passedTestCaseDriver():
                 test_passed = False
-        except Exception as inst:
+        except _ExpectedFailure as e:
+            test_passed = False
+        except Exception as e:
             self.log.error("%s caused exception:" % self.passedTestCaseDescription)
             self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
+            self.log.error(e.message)
             test_passed = False
 
-        self.reportTestCaseResult(test_passed)
+        self.reportTestCaseResult(test_passed, hasattr(self.passedTestCaseDriver, "__expected_failure__"))
 
         # If there is any test fixture teardown to be done, do it here.
 
@@ -196,23 +217,40 @@ class FDSTestCase(unittest.TestCase):
                 os._exit(0 if test_passed else -1)
 
         if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
+            # If the test case driver method has been decorated with "expected failure",
+            # then we have either an unexpected success
+            # or an expected failure. We will know which by whether the test
+            # case passed or not. In these cases we will want to raise the
+            # appropriate exception to the parent class in unittest so that
+            # its results can be recorded accordingly.
+            if not hasattr(self.passedTestCaseDriver, "__expected_failure__"):
+                self.assertTrue(test_passed)
+            elif test_passed:
+                raise _UnexpectedSuccess
+            else:
+                raise _ExpectedFailure(sys.exc_info())
         else:
             return test_passed
 
-    def reportTestCaseResult(self, test_passed):
+    def reportTestCaseResult(self, test_passed, failExpected):
         """
         Just a quick report of results for the test case.
         """
         global pyUnitTCFailure
 
         if test_passed:
-            self.log.info("Test Case %s passed." % self.__class__.__name__)
+            if failExpected:
+                self.log.warn("Test Case %s passed unexpectedly." % self.__class__.__name__)
+            else:
+                self.log.info("Test Case %s passed." % self.__class__.__name__)
         else:
-            self.log.info("Test Case %s failed." % self.__class__.__name__)
+            if failExpected:
+                self.log.info("Test Case %s failed as expected." % self.__class__.__name__)
+            else:
+                self.log.error("Test Case %s failed." % self.__class__.__name__)
 
-            if self.parameters["stop_on_fail"]:
-                pyUnitTCFailure = True
+                if self.parameters["stop_on_fail"]:
+                    pyUnitTCFailure = True
 
 
     @staticmethod

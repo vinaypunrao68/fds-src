@@ -702,14 +702,17 @@ Error DLTManager::setCurrent(fds_uint64_t version) {
 void DLTManager::setCurrentDltClosed() {
     fds_verify(curPtr != NULL);
     fds_uint64_t curVersion = curPtr->getVersion();
-    LOGNOTIFY << "Setting current DLT (version " << curVersion
-              << ") to closed";
 
     // because curPtr is const pointer, we are searching again...
     std::vector<DLT*>::const_iterator iter;
     for (iter = dltList.begin(); iter != dltList.end(); ++iter) {
         if (curVersion == (*iter)->version) {
+            LOGNOTIFY << "Setting current DLT (version " << curVersion
+                      << ") to closed";
             (*iter)->setClosed();
+            // Update curPtr since it's apparently not
+            // done already.
+            setCurrent(curVersion);
             break;
         }
     }

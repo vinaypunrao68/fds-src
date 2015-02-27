@@ -14,6 +14,7 @@
 #include <fds_module_provider.h>
 #include <util/fiu_util.h>
 #include <thrift/transport/TTransportUtils.h>  // For TException.
+#include "fdsp/om_service_types.h"
 
 namespace fds {
 
@@ -174,7 +175,7 @@ int injerr_socket_close = 0;  // gdb set this value to trigger remote connection
 using boost::lockfree::detail::unlikely;
 void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 {
-    auto header = SvcRequestPool::newSvcRequestHeader(id_, msgTypeId_, myEpId_, peerEpId);
+    auto header = gSvcRequestPool->newSvcRequestHeader(id_, msgTypeId_, myEpId_, peerEpId);
     header.msg_type_id = msgTypeId_;
 
     DBG(GLOGDEBUG << fds::logString(header));
@@ -214,33 +215,33 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
            fds_assert(ret == true);
        }
     } catch(util::FiuException &e) {
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
         gSvcRequestPool->postError(respHdr);
     } catch(apache::thrift::TException &tx) {
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGWARN << logString() << " Warning: " << respHdr->msg_code
             << " exception: " << tx.what();
         gSvcRequestPool->postError(respHdr);
     } catch(std::runtime_error &e) {
         GLOGERROR << logString() << " No healthy endpoints left";
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
         gSvcRequestPool->postError(respHdr);
     } catch(std::exception &e) {
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
         gSvcRequestPool->postError(respHdr);
         fds_assert(!"Unknown exception");
     } catch(...) {
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code;
         gSvcRequestPool->postError(respHdr);
@@ -310,11 +311,11 @@ void EPSvcRequest::invoke2()
 {
     auto ep = NetMgr::ep_mgr_singleton()->\
             svc_get_handle<fpi::BaseAsyncSvcClient>(peerEpId_, 0 , minor_version);
-    auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
+    auto header = gSvcRequestPool->newSvcRequestHeaderPtr(id_, msgTypeId_,
             myEpId_, peerEpId_);
     gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
-            ep->getAffinity(),
-            &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
+        ep->getAffinity(),
+        &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
     // TODO(Rao): Start a timer
 }
 
@@ -331,10 +332,10 @@ void FailoverSvcRequest::invoke2()
         /* No healthy endpoints left.  Lets post an error.  This error
          * We will simulate as if the error is from last endpoint
          */
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_,
-                                                              msgTypeId_,
-                                                              epReqs_[curEpIdx_]->peerEpId_,
-                                                              myEpId_);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(id_,
+                                                               msgTypeId_,
+                                                               epReqs_[curEpIdx_]->peerEpId_,
+                                                               myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         gSvcRequestPool->postError(respHdr);
     }
@@ -348,8 +349,10 @@ void FailoverSvcRequest::invoke2()
     auto ep = NetMgr::ep_mgr_singleton()->\
             svc_get_handle<fpi::BaseAsyncSvcClient>(
                     epReqs_[curEpIdx_]->peerEpId_, 0 , minor_version);
-    auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
-            myEpId_, epReqs_[curEpIdx_]->peerEpId_);
+    auto header = gSvcRequestPool->newSvcRequestHeaderPtr(id_,
+                                                          msgTypeId_,
+                                                          myEpId_,
+                                                          epReqs_[curEpIdx_]->peerEpId_);
 
     gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
         ep->getAffinity(),
@@ -365,8 +368,10 @@ void QuorumSvcRequest::invoke2()
     for (auto epReq : epReqs_) {
         auto ep = NetMgr::ep_mgr_singleton()->\
                 svc_get_handle<fpi::BaseAsyncSvcClient>(epReq->peerEpId_, 0 , minor_version);
-        auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
-                myEpId_, epReq->peerEpId_);
+        auto header = gSvcRequestPool->newSvcRequestHeaderPtr(id_,
+                                                              msgTypeId_,
+                                                              myEpId_,
+                                                              epReq->peerEpId_);
         gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
                 ep->getAffinity(),
                 &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
@@ -434,7 +439,7 @@ void EPSvcRequest::invokeWork_()
         SVCPERF(gSvcRequestCntrs->sendPayloadLat.update(sw.getElapsedNanos()));
     } else {
         GLOGERROR << logString() << " No healthy endpoints left";
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId_, myEpId_);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId_, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         gSvcRequestPool->postError(respHdr);
     }
@@ -645,10 +650,10 @@ void FailoverSvcRequest::invokeWork_()
         /* No healthy endpoints left.  Lets post an error.  This error
          * we will simulate as if the error is from last endpoint.
          */
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_,
-                                                              msgTypeId_,
-                                                              epReqs_[curEpIdx_]->peerEpId_,
-                                                              myEpId_);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(id_,
+                                                               msgTypeId_,
+                                                               epReqs_[curEpIdx_]->peerEpId_,
+                                                               myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         gSvcRequestPool->postError(respHdr);
     }
@@ -720,6 +725,7 @@ void FailoverSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& he
         complete(ERR_OK);
         if (respCb_) {
             SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
+            /* NOTE: We are using last failure code in this case */
             respCb_(this, header->msg_code, payload);
         }
         gSvcRequestCntrs->appsuccess.incr();

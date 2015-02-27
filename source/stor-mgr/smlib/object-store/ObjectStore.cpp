@@ -19,6 +19,8 @@
 
 namespace fds {
 
+extern std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
+
 ObjectStore::ObjectStore(const std::string &modName,
                          SmIoReqHandler *data_store,
                          StorMgrVolumeTable* volTbl)
@@ -115,7 +117,8 @@ ObjectStore::putObject(fds_volid_t volId,
 
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
-            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
+                        << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
@@ -224,7 +227,8 @@ ObjectStore::getObject(fds_volid_t volId,
 
     // check if object corrupted
     if (objMeta->isObjCorrupted()) {
-        LOGCRITICAL << "Obj metadata indicates data corrupted, will return err";
+        LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
+                    << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         err = ERR_ONDISK_DATA_CORRUPT;
         return NULL;
     }
@@ -319,7 +323,8 @@ ObjectStore::deleteObject(fds_volid_t volId,
 
     // if object corrupted, no point of updating metadata
     if (objMeta->isObjCorrupted()) {
-        LOGCRITICAL << "Object corrupted, returning error ";
+        LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
+                    << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         return err = ERR_ONDISK_DATA_CORRUPT;
     }
 
@@ -568,8 +573,9 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                 // on-disk data corruption
                 // mark object metadata as corrupted! will copy it to new
                 // location anyway so we can debug the issue
-                LOGCRITICAL << "Encountered a on-disk data corruption object "
-                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex();
+                LOGCRITICAL << "CORRUPTION: On-disk corruption detected: "
+                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex()
+                            << " ObjMetaData=" << updatedMeta->logString();
                 // set flag in object metadata
                 updatedMeta->setObjCorrupted();
             }
@@ -630,9 +636,16 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         // token migration always applies both data and metadata first, then updates metadata
         fds_verify(objMeta->dataPhysicallyExists());
 
+        // If the metadata was found on the destination, then the object already exists.
+        // This means we either have to reconcile or overwrite existing metadata on
+        // destination SM.
+        fds_assert((msg.objectReconcileFlag == fpi::OBJ_METADATA_RECONCILE) ||
+                   (msg.objectReconcileFlag == fpi::OBJ_METADATA_OVERWRITE));
+
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
-            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
+                        << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
@@ -652,7 +665,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
             // check if data is the same
             if (*existObjData != *objData) {
-                LOGCRITICAL << "Mismatch between data in object store and data received "
+                LOGCRITICAL << "CORRUPTION: Mismatch between data in object store and data received "
                             << "from source SM for " << objId << " !!!";
                 return ERR_SM_TOK_MIGRATION_DATA_MISMATCH;
             }
@@ -667,6 +680,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
         fds_verify(err == ERR_NOT_FOUND);
+
+        // If we didn't find the metadata on the destination SM, then there is
+        // no need for metadata reconcile or overwrite
+        fds_assert(msg.objectReconcileFlag == fpi::OBJ_METADATA_NO_RECONCILE);
+
         err = ERR_OK;
         // make sure we got object data as well in this message
         if (msg.objectData.size() == 0) {
@@ -684,6 +702,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // the metadata, the orphaned object data will get cleaned up
     // on a subsequent scavenger pass.
     if (err.ok()) {
+
         // new object in this SM, put object to data store
         boost::shared_ptr<const std::string> objData = boost::make_shared<std::string>(
             msg.objectData);
@@ -741,6 +760,14 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
+
+    // TODO(Sean):
+    // So, if the reconcile flag is OVERWRITE, how would it work with tiering?  Overwrite
+    // means that a SM node is added with existing data.  Not sure what it means to added
+    // a new node with existing objects and volume.  What if the volume policy has changed?
+    // How does volume policy propagated to SM?
+    // For now, do nothing with tiering, and keep the existing tier.
+
     // update metadata
     // note that we are not updating assoc entry as with datapath put
     // we are copying assoc entries from the msg and also copying ref count
@@ -763,6 +790,13 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 void
 ObjectStore::snapshotMetadata(fds_token_id smTokId,
                               SmIoSnapshotObjectDB::CbType notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
+    metaStore->snapshot(smTokId, notifFn, snapReq);
+}
+
+void
+ObjectStore::snapshotMetadata(fds_token_id smTokId,
+                              SmIoSnapshotObjectDB::CbTypePersist notifFn,
                               SmIoSnapshotObjectDB* snapReq) {
     metaStore->snapshot(smTokId, notifFn, snapReq);
 }

@@ -1,9 +1,9 @@
 {
 	"test_sets" : {
-		"fio_tests" : [
+		"multi_am_tests" : [
 			{
-				"name" : "TestAMFIO",
-				"file" : "test_am_fio.py",
+				"name" : "TestMultiConnToMultiVolume",
+				"file" : "test_multiconn_to_multivolumes.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""

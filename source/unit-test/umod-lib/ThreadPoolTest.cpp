@@ -153,7 +153,7 @@ TestSuiteBase::TestSuiteBase(int thpool_cnt, int test_cnt)
     for (i = 0; i < test_cnt; i++) {
         _ts_tests[i] = 0;
     }
-    _ts_pool = new fds::fds_threadpool(-1, 10, 2, 2, thpool_cnt);
+    _ts_pool = new fds::fds_threadpool(thpool_cnt);
 }
 
 /** \~TestSuiteBase
@@ -162,8 +162,6 @@ TestSuiteBase::TestSuiteBase(int thpool_cnt, int test_cnt)
  */
 TestSuiteBase::~TestSuiteBase()
 {
-    /* TODO: implement barrier */
-    _ts_pool->thp_barrier();
     sleep(1);
     delete _ts_pool;
 

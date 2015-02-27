@@ -17,13 +17,31 @@
 #include <fdsp/FDSP_types.h>
 #include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/dm_service_types.h>
 #include <fdsp/fds_stream_types.h>
 
 #define FdsDmSysTaskId      0x8fffffff
 #define FdsDmSysTaskPrio    5
 
 namespace fds {
+
+// Some logging routines have external linkage
+// ======
+extern std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
+extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
+// ======
 
     /*
      * TODO: Make more generic name than catalog request

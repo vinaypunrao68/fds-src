@@ -9,6 +9,7 @@
 
 #include "fds-shmobj.h"
 #include "fds_resource.h"
+#include "fdsp/pm_service_types.h"
 #include "typedefs.h"
 
 namespace fds

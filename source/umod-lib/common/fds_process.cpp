@@ -144,15 +144,8 @@ void FdsProcess::init(int argc, char *argv[],
         }
         /* If threadpool option is specified, create one. */
         if (conf_helper_.exists("threadpool")) {
-            int max_task, spawn_thres, idle_sec, min_thr, max_thr;
-
-            max_task    = conf_helper_.get<int>("threadpool.max_task", 10);
-            spawn_thres = conf_helper_.get<int>("threadpool.spawn_thres", 5);
-            idle_sec    = conf_helper_.get<int>("threadpool.idle_sec", 3);
-            min_thr     = conf_helper_.get<int>("threadpool.min_thread", 3);
-            max_thr     = conf_helper_.get<int>("threadpool.max_thread", 8);
-            proc_thrp   = new fds_threadpool(max_task, spawn_thres,
-                                             idle_sec, min_thr, max_thr);
+            int num_thr = conf_helper_.get<int>("threadpool.num_threads", 10);
+            proc_thrp   = new fds_threadpool(num_thr);
         }
     } else {
         g_fdslog  = new fds_log(def_log_file, proc_root->dir_fds_logs());

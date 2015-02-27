@@ -46,11 +46,9 @@ OmSvcHandler::OmSvcHandler()
 
     /* svc->om response message */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetBucketStats, GetBucketStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlCreateBucket, CreateBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDeleteBucket, DeleteBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
 
@@ -77,7 +75,7 @@ void OmSvcHandler::init_svc_event_handlers() {
 
            if (agent) {
                agent->set_node_state(FDS_Node_Down);
-               domain->om_service_down(error, svc);
+               domain->om_service_down(error, svc, agent->om_agent_type());
            } else {
                LOGERROR << "unknown service: " << svc;
            }
@@ -131,30 +129,6 @@ OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::    GetBucketStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlGetBucketStats> &msg)
-{
-    fpi::FDSP_GetDomainStatsType * get_stats_msg = &msg->gds;
-
-    try {
-        int domain_id = get_stats_msg->domain_id;
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        NodeUuid svc_uuid(hdr->msg_src_uuid.svc_uuid);
-
-        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id
-                  << " from node " << hdr->msg_src_uuid.svc_uuid << ":"
-                  << std::hex << svc_uuid.uuid_get_val() << std::dec;
-
-        /* Use default domain for now... */
-        local->om_send_bucket_stats(5, svc_uuid, msg->req_cookie);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing get domain stats";
-    }
-}
-
-void
 OmSvcHandler::    CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlCreateBucket> &msg)
 {
@@ -199,14 +173,6 @@ OmSvcHandler::    ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     const FdspModVolPtr mod_buck_req(new fpi::FDSP_ModifyVolType());
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_modify_vol(mod_buck_req);
-}
-
-void
-OmSvcHandler::    PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlPerfStats> &msg)
-{
-    extern OrchMgr *gl_orch_mgr;
-    gl_orch_mgr->NotifyPerfstats(hdr, &msg->perfstats);
 }
 
 void

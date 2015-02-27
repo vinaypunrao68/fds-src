@@ -467,12 +467,19 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
     LOGMIGRATE << "OLD Object MetaData: " << oldObjMetaData->logString();
     LOGMIGRATE << "NEW Object MetaData: " << logString();
 
-    fds_assert(memcmp(obj_map.obj_id.metaDigest, oldObjMetaData->obj_map.obj_id.metaDigest,
+    fds_assert(memcmp(obj_map.obj_id.metaDigest,
+               oldObjMetaData->obj_map.obj_id.metaDigest,
                sizeof(obj_map.obj_id.metaDigest)) == 0);
 
     /* calculate the refcnt change */
     obj_map.obj_refcnt = (uint64_t)((int64_t)obj_map.obj_refcnt -
                                     (int64_t)oldObjMetaData->obj_map.obj_refcnt);
+
+    /* Assert that obj_refcnt cannot be 0. Since we are currently only concerned about
+     * refcnt, if the recnt is 0, that means that the ref cnt is the same.
+     */
+    fds_assert(obj_map.obj_refcnt != 0);
+
 
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     fds_assert(oldObjMetaData->obj_map.obj_num_assoc_entry == oldObjMetaData->assoc_entry.size());
@@ -550,17 +557,67 @@ ObjMetaData::diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData)
     LOGMIGRATE << "DIFF of OLD/NEW: " << logString();
 }
 
+void
+ObjMetaData::syncObjectMetaData(fpi::CtrlObjectMetaDataSync &objMetaData)
+{
+    fds::assign(objMetaData.objectID, obj_map.obj_id);
+
+    objMetaData.objRefCnt = getRefCnt();
+
+    fds_verify(obj_map.obj_num_assoc_entry == assoc_entry.size());
+    for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
+        /* Intentionally, not checking if the volume refcnt is > 0, since
+         * this is used to filter against the the destination's object
+         * set against the source SM.
+         * If anything is different on source, we will , then we will
+         */
+        fds_verify(assoc_entry[i].vol_uuid != 0);
+        fpi::MetaDataVolumeAssoc volAssoc;
+        volAssoc.volumeAssoc = assoc_entry[i].vol_uuid;
+        volAssoc.volumeRefCnt = assoc_entry[i].ref_cnt;
+        objMetaData.objVolAssoc.push_back(volAssoc);
+    }
+}
+
+bool
+ObjMetaData::isEqualSyncObjectMetaData(fpi::CtrlObjectMetaDataSync &objMetaData)
+{
+    ObjectID oid(obj_map.obj_id.metaDigest);
+    std::string oidStr = oid.ToString();
+
+    /* If any of the field do not match, then return false */
+    if ((oidStr != objMetaData.objectID.digest) ||
+        (obj_map.obj_refcnt != (fds_uint64_t)objMetaData.objRefCnt)) {
+        return false;
+    }
+
+    /* if the volume association entry size is different, then
+     * metadata is different.
+     */
+    if (assoc_entry.size() !=objMetaData.objVolAssoc.size()) {
+        return false;
+    } else {
+        /* assoc_entry size is the same.  Just memcmp the vector data */
+        if (0 != memcmp(assoc_entry.data(),
+                        objMetaData.objVolAssoc.data(),
+                        sizeof(obj_assoc_entry_t) * assoc_entry.size())) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 void
 ObjMetaData::propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaData,
-                                     bool reconcileMetaDataOnly)
+                                     fpi::ObjectMetaDataReconcileFlags reconcileFlag)
 {
     fds::assign(objMetaData.objectID, obj_map.obj_id);
 
     /* Even ObjectMetaDataReconcileOny flag is set, still copy over
      * the entire ObjectMetaData.
      */
-    objMetaData.isObjectMetaDataReconcile = reconcileMetaDataOnly;
+    objMetaData.objectReconcileFlag = reconcileFlag;
     objMetaData.objectRefCnt = getRefCnt();
     objMetaData.objectCompressType = obj_map.compress_type;
     objMetaData.objectCompressLen = obj_map.compress_len;
@@ -586,7 +643,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
 {
     Error err(ERR_OK);
 
-    if (objMetaData.isObjectMetaDataReconcile) {
+    if (fpi::OBJ_METADATA_RECONCILE == objMetaData.objectReconcileFlag) {
         // objMetaData contain changes to the metadata since object
         // was migrated to this SM
 
@@ -634,12 +691,12 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                         assoc_entry.erase(it);
                         obj_map.obj_num_assoc_entry = assoc_entry.size();
                     }
+                    // sum up volume refcnt to sum for validation later.
+                    sumVolRefCnt += newRefcnt;
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
 
-                // sum up volume refcnt to sum for validation.
-                sumVolRefcnt += newRefcnt;
             } else {
                 // this is a new association..
                 if (volAssoc.volumeRefCnt >= 0) {
@@ -648,11 +705,12 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                     new_association.ref_cnt = volAssoc.volumeRefCnt;
                     assoc_entry.push_back(new_association);
                     obj_map.obj_num_assoc_entry = assoc_entry.size();
+
+                    // sum up volume refcnt to sum for validation later.
+                    sumVolRefCnt += new_association.ref_cnt;
                 } else {
                     err = ERR_SM_TOK_MIGRATION_METADATA_MISMATCH;
                 }
-
-                sumVolRefcnt += new_association_ref_cnt;
             }
 
             if (!err.ok()) {
@@ -669,6 +727,11 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         // For now, the best thing is to panic if this occurs.
         fds_verify(obj_map.obj_refcnt == sumVolRefCnt);
     } else {
+
+        // In either NO_RECONCILE or OVERWRITE, we are just overwriting the meta
+        fds_verify((fpi::OBJ_METADATA_NO_RECONCILE == objMetaData.objectReconcileFlag) ||
+                   (fpi::OBJ_METADATA_OVERWRITE == objMetaData.objectReconcileFlag));
+
         // !metadatareconcileonly
         // over-write metadata
         if (objMetaData.objectRefCnt < 0) {
@@ -700,8 +763,8 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
             }
             new_association.ref_cnt = volAssoc.volumeRefCnt;
             assoc_entry.push_back(new_association);
-            obj_map.obj_num_assoc_entry = assoc_entry.size();
         }
+        obj_map.obj_num_assoc_entry = assoc_entry.size();
     }
 
     return ERR_OK;
@@ -721,6 +784,11 @@ bool ObjMetaData::dataPhysicallyExists() const
 
 void ObjMetaData::setObjCorrupted() {
     obj_map.obj_flags |= OBJ_FLAG_CORRUPTED;
+
+    ObjectID oid(obj_map.obj_id.metaDigest);
+
+    LOGCRITICAL << "CORRUPTION: Setting OBJ_FLAG_CORRUPTED flag on obj="
+                << oid;
 }
 
 fds_bool_t ObjMetaData::isObjCorrupted() const {
@@ -753,15 +821,20 @@ fds_bool_t ObjMetaData::isObjCorrupted() const {
  */
 bool ObjMetaData::operator==(const ObjMetaData &rhs) const
 {
+    /* Add assert for debug code only */
+    fds_assert(0 == memcmp(obj_map.obj_id.metaDigest,
+                           rhs.obj_map.obj_id.metaDigest,
+                           sizeof(obj_map.obj_id.metaDigest)));
+
     /* If any of the field do not match, then return false */
     if ((0 != memcmp(obj_map.obj_id.metaDigest,
                      rhs.obj_map.obj_id.metaDigest,
                      sizeof(obj_map.obj_id.metaDigest))) ||
+        (obj_map.obj_refcnt != rhs.obj_map.obj_refcnt) ||
         (obj_map.compress_type != rhs.obj_map.compress_type) ||
         (obj_map.compress_len != rhs.obj_map.compress_len) ||
         (obj_map.obj_blk_len != rhs.obj_map.obj_blk_len) ||
         (obj_map.obj_size != rhs.obj_map.obj_size) ||
-        (obj_map.obj_refcnt != rhs.obj_map.obj_refcnt) ||
         (obj_map.expire_time != rhs.obj_map.expire_time)) {
         return false;
     }
@@ -795,8 +868,8 @@ std::string ObjMetaData::logString() const
 
     oss << "id=" << obj_id
         << " refcnt=" << obj_map.obj_refcnt
-        << " flags=" << (uint32_t)obj_map.obj_flags
-        << " compression_type=" << obj_map.compress_type
+        << " flags=" << std::hex << obj_map.obj_flags << std::dec
+        << " compression_type=" << (uint32_t)obj_map.compress_type
         << " compress_len=" << obj_map.compress_len
         << " blk_len=" << obj_map.obj_blk_len
         << " len=" << obj_map.obj_size

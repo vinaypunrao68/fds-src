@@ -17,6 +17,7 @@
 #include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
+#include <fdsp/am_service_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
 
@@ -62,43 +63,10 @@ OM_NodeAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType my
 void
 OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
 {
-    // TODO(Andrew): Add this back when OM actually responds
-    // to node registrations
-    // if (peer->get_node_name() == get_node_name()) {
-    // return;
-    // }
-    fpi::FDSP_MsgHdrTypePtr     m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_Node_Info_TypePtr n_inf(new fpi::FDSP_Node_Info_Type);
-
-    this->init_msg_hdr(m_hdr);
-    this->init_node_info_pkt(n_inf);
-
-    m_hdr->msg_code        = fpi::FDSP_MSG_NOTIFY_NODE_ADD;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
-
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyNodeAdd, m_hdr, n_inf);
-        return;
-    }
-    try {
-        if (node_state() == fpi::FDS_Node_Down) {
-            OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeRmv(m_hdr, n_inf);
-        } else {
-            n_inf->node_state = fpi::FDS_Node_Up;
-            OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
-        }
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return;
-    } catch(...) {
-        LOGCRITICAL << "caught unexpected exception!!!";
-        throw;
-    }
-
-    LOGNORMAL << "Send node info from " << get_node_name()
-              << " to " << peer->get_node_name() << std::endl;
+    // TODO(Andrew): This function is deprecated and should not
+    // be called. It is not in any main code path but has a long
+    // deprecated call chain that can be removed when OM is re-factored.
+    LOGWARN << "You're calling a dead function";
 }
 
 // ----------------
@@ -131,7 +99,18 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
                       const Error& error,
                       boost::shared_ptr<std::string> payload) {
     if (vol == NULL || vol->rs_get_uuid() == 0) {
-        LOGWARN << "response received for invalid volume . ignored.";
+        
+        /*
+         * TODO Tinius 02/11/2015
+         * 
+         * FS-936 -- AM and OM continously log errors with "invalid bucket SYSTEM_VOLUME_0"
+         * 
+         * Not sure if this is expected behavior? Once re-written we will
+         * handle this correctly. But for now remove the logging noise
+         * 
+         * LOGWARN << "response received for invalid volume . ignored.";
+         */
+
         return;
     }
     LOGNORMAL << "received vol cmd response " << vol->vol_get_name();
@@ -223,7 +202,17 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                   << ", uuid " << get_uuid().uuid_get_val() << std::dec
                   << ", port " << ctrl_port;
     } else {
-        LOGNORMAL << log << ", no vol to node " << get_node_name();
+        
+        /*
+         * TODO Tinius 02/11/2015
+         * 
+         * FS-936 -- AM and OM continously log errors with "invalid bucket SYSTEM_VOLUME_0"
+            
+         * Not sure if this is expected behavior? Once re-written we will
+         * handle this correctly. But for now remove the logging noise
+         * 
+         * LOGNORMAL << log << ", no vol to node " << get_node_name();
+         */
     }
     return Error(ERR_OK);
 }
@@ -359,7 +348,7 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
-    om_req->setTimeoutMs(20000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(60000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     curDlt->dump();
@@ -1713,22 +1702,6 @@ om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr msg,
     OM_SmAgent::agt_cast_ptr(node)->om_send_node_throttle_lvl(msg);
 }
 
-// om_bcast_vol_tier_policy
-// ------------------------
-//
-void
-OM_NodeContainer::om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier)
-{
-}
-
-// om_bcast_vol_tier_audit
-// -----------------------
-//
-void
-OM_NodeContainer::om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier)
-{
-}
-
 // om_bcast_throttle_lvl
 // ---------------------
 //
@@ -1756,22 +1729,6 @@ OM_NodeContainer::om_set_throttle_lvl(float level)
     LOGNOTIFY << "Setting throttle level for local domain at " << level << std::endl;
 
     om_bcast_throttle_lvl(level);
-}
-
-// om_bcast_tier_policy
-// --------------------
-//
-void
-OM_NodeContainer::om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy)
-{
-}
-
-// om_bcast_tier_audit
-// -------------------
-//
-void
-OM_NodeContainer::om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit)
-{
 }
 
 // om_send_dlt

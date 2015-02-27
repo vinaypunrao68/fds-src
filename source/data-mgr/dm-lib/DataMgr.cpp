@@ -7,11 +7,11 @@
 #include <vector>
 #include <net/net_utils.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
+#include "fdsp/sm_service_types.h"
 #include <dmhandler.h>
 
 namespace fds {
@@ -1032,6 +1032,12 @@ void DataMgr::mod_enable_service() {
         std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
     timeline.open();
+
+    // Register the DLT manager with service layer so that
+    // outbound requests have the correct dlt_version.
+    if (!feature.isTestMode()) {
+        gSvcRequestPool->setDltManager(omClient->getDltManager());
+    }
 }
 
 void DataMgr::mod_shutdown()
@@ -1217,7 +1223,7 @@ DataMgr::snapVolCat(dmCatReq *io) {
         // because we are serializing the updates to the same blob.
         // so they will also make it in order (assuming that sending
         // update A before update B will also cause receiving DM to receive
-        // udpdate A before update B -- otherwise we will have a race
+        // update A before update B -- otherwise we will have a race
         // which will also happen with other forwarded updates).
         vol_map_mtx->lock();
         fds_verify(vol_meta_map.count(snapReq->volId) > 0);
@@ -1289,7 +1295,7 @@ Error
 DataMgr::expungeObjectsIfPrimary(fds_volid_t volid,
                                  const std::vector<ObjectID>& oids) {
     Error err(ERR_OK);
-    if (runMode == TEST_MODE) return err;  // no SMs, noone to notify
+    if (runMode == TEST_MODE) return err;  // no SMs, no one to notify
     if (amIPrimary(volid) == false) return err;  // not primary
 
     for (std::vector<ObjectID>::const_iterator cit = oids.cbegin();
@@ -1320,7 +1326,6 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     // Set message parameters
     expReq->volId = volId;
     fds::assign(expReq->objId, objId);
-    expReq->dlt_version = omClient->getDltVersion();
 
     // Make RPC call
 

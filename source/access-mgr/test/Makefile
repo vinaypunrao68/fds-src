@@ -11,7 +11,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
     fds-qos-lib \
     fds-am-engine \
-    fds-am-engine \
+    fds-am-connectors \
     fds-am-plat \
     fds-plat-lib \
     fds-net-svc \
@@ -20,7 +20,6 @@ user_fds_ar_libs  :=  \
     fds-lib \
     fds-util \
     fds-fdsp \
-    fds-xdi \
     fds-hash \
     fds-thread \
     fds-osdep

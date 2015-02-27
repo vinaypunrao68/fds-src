@@ -10,6 +10,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 import unittest
 import xmlrunner
 
@@ -126,6 +127,8 @@ class Operation(object):
                 # make the integration-framework-cluster version the default one
                 self.multicluster = multinode.Multinode(type=self.args.type,
                                               inventory=self.args.inventory)
+        self.logger.info("Sleeping for 60 seconds before starting tests")
+        time.sleep(60)
 
     '''
     Stop the cluster
@@ -157,7 +160,7 @@ class Operation(object):
                 self.logger.info("Creating %s" % testset_path)
                 os.makedirs(testset_path)
             else:
-                self.logger.info("%s already esists. Skipping." % testset_path)
+                self.logger.info("%s already exists. Skipping." % testset_path)
 
             self.test_sets.append(current_ts)
 

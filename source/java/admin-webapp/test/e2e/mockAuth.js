@@ -23,6 +23,15 @@ mockAuth = function() {
     angular.module( 'user-management', [] ).factory( '$authentication', function(){
 
         var service = {};
+        
+        var saveUser = function(){
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            window.localStorage.setItem( 'user', JSON.stringify( user ) );
+        };
 
         service.login = function( username, password ){
 
@@ -30,11 +39,15 @@ mockAuth = function() {
                 service.isAuthenticated = true;
                 service.error = undefined;
                 user = admin;
+                
+                saveUser();
             }
             else if ( username === 'goldman' && password === 'goldman' ){
                 service.isAuthenticated = true;
                 service.error = undefined;
                 user = goldman;
+                
+                saveUser();
             }
             else {
                 service.isAuthenticated = false;
@@ -45,6 +58,12 @@ mockAuth = function() {
         service.logout = function(){
             service.isAuthenticated = false;
             service.error = undefined;
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            window.localStorage.removeItem( 'user' );
         };
 
         service.getUserInfo = function(){
@@ -54,6 +73,17 @@ mockAuth = function() {
         service.isAuthenticated = false;
         service.error = undefined;
 
+        if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
+            
+            var raw = window.localStorage.getItem( 'user' );
+            
+            if ( angular.isDefined( raw ) && raw !== null ){
+                
+                user = JSON.parse( raw );
+                service.isAuthenticated = true;   
+            }
+        }
+        
         return service;
     });
 
@@ -88,14 +118,19 @@ mockAuth = function() {
         // for specific information
         service.getUsername = function(){
 
-            return user.identifier;
+            if ( user !== null ){
+                return user.identifier;
+            }
+            else {
+                return undefined;
+            }
         };
 
         // access control service that can be used to see
         // if the current user should have access to something
         service.isAllowed = function( feature ){
 
-            for ( var i = 0; angular.isDefined( user.features ) && i < user.features.length; i++ ){
+            for ( var i = 0; user !== null && angular.isDefined( user ) && angular.isDefined( user.features ) && i < user.features.length; i++ ){
                 if ( user.features[i] === feature ){
                     return true;
                 }

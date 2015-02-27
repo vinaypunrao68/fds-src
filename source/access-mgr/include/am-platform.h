@@ -61,30 +61,6 @@ class AmPlatform : public Platform
 
     virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
 
-    void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
-    void NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                     fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
-    void NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_NotifyVolTypePtr &vol_msg);
-
-    void AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                   fpi::FDSP_AttachVolTypePtr &vol_msg);
-
-    void DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                   fpi::FDSP_AttachVolTypePtr &vol_msg);
-
-    void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                       fpi::FDSP_Node_Info_TypePtr &node_info);
-
-    void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                       fpi::FDSP_Node_Info_TypePtr &node_info);
-
-    void NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                         fpi::FDSP_DLT_Data_TypePtr &dlt_info);
-
     void NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,   // NOLINT
                          fpi::FDSP_DMT_TypePtr   &dmt_info);
 

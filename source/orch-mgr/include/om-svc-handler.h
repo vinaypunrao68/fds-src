@@ -5,7 +5,7 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OM_SVC_HANDLER_H_
 
 #include <OmResources.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/om_service_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <OmEventTracker.h>
 
@@ -28,10 +28,6 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
                  boost::shared_ptr<fpi::CtrlTestBucket> &msg);
 
     virtual void
-    GetBucketStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlGetBucketStats> &msg);
-
-    virtual void
     CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlCreateBucket> &msg);
 
@@ -42,10 +38,6 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
     virtual void
     ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlModifyBucket> &msg);
-
-    virtual void
-    PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlPerfStats> &msg);
 
     virtual void
     SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,

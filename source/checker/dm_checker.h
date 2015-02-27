@@ -124,7 +124,7 @@ class LevelDBChecker : public BaseChecker {
     boost::shared_ptr<DatapathRespImpl> dp_resp_handler_;
     boost::shared_ptr<MetaDatapathRespImpl> md_resp_handler_;
 
-    BlobDescriptorListType resp_vector;
+    std::vector<BlobDescriptor> resp_vector;
     FDSP_BlobDigestType resp_digest;
     FDSP_BlobObjectList resp_obj_list;    
 };

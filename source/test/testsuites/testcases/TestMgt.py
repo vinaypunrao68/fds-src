@@ -19,12 +19,12 @@ import xmlrunner
 
 import NodeWaitSuite
 import NodeVerifyDownSuite
-import ClusterBootSuite
-import ClusterShutdownSuite
+import DomainBootSuite
+import DomainShutdownSuite
 
 import TestFDSEnvMgt
 import TestFDSSysMgt
-import TestFDSModMgt
+import TestFDSServiceMgt
 import TestFDSPolMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
@@ -70,6 +70,11 @@ def queue_up_scenario(suite, scenario, log_dir=None):
     # test case(s) to be executed.
     script = scenario.nd_conf_dict['script']
 
+    # Is there a marker to be logged with the scenario?
+    if 'log_marker' in scenario.nd_conf_dict:
+        suite.addTest(TestLogMarker(scenario=scenario.nd_conf_dict['scenario-name'],
+                                    marker=scenario.nd_conf_dict['log_marker']))
+
     # Has the scenario indicated that some sort of delay
     # or wait should follow?
     #
@@ -95,24 +100,24 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
     # Based on the script defined in the scenario, take appropriate
     # action which typically includes executing one or more test cases.
-    if re.match('\[cluster\]', script) is not None:
-        # What action should be taken against the cluster? If not stated, assume "install-boot-activate".
+    if re.match('\[domain\]', script) is not None:
+        # What action should be taken against the domain? If not stated, assume "install-boot-activate".
         if "action" in scenario.nd_conf_dict:
             action = scenario.nd_conf_dict['action']
         else:
             action = "install-boot-activate"
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
-            # Start this cluster as indicated by the action.
-            clusterBootSuite = ClusterBootSuite.suiteConstruction(self=None, action=action)
-            suite.addTest(clusterBootSuite)
+            # Start this domain as indicated by the action.
+            domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
+            suite.addTest(domainBootSuite)
         elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
                 (action.count("uninst") > 0):
-            # Shutdown the cluster as indicated by the action.
-            clusterShutdownSuite = ClusterShutdownSuite.suiteConstruction(self=None, action=action)
-            suite.addTest(clusterShutdownSuite)
+            # Shutdown the domain as indicated by the action.
+            domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
+            suite.addTest(domainShutdownSuite)
         else:
-            log.error("Unrecognized cluster action '%s' for scenario %s" %
+            log.error("Unrecognized domain action '%s' for scenario %s" %
                       (action, scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
@@ -141,14 +146,14 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
                     if (action.count("boot") > 0):
                         # Now bring up PM.
-                        suite.addTest(TestFDSModMgt.TestPMBringUp(node=node))
-                        suite.addTest(TestFDSModMgt.TestPMWait(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
 
                         # If the node also supports an OM, start the OM
                         # as well.
                         if node.nd_run_om():
-                            suite.addTest(TestFDSModMgt.TestOMBringUp(node=node))
-                            suite.addTest(TestFDSModMgt.TestOMWait(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
                             suite.addTest(TestWait(delay=10, reason="to let OM initialize"))
 
                     if (action.count("activate") > 0):
@@ -161,8 +166,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the node some time to initialize if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow node " + script + " to initialize"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow node " + script + " to initialize"))
             else:
                 log.error("Node not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -190,10 +194,9 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                     break
 
             if found:
-                # Give the cluster some time to reinitialize if requested.
+                # Give the domain some time to reinitialize if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow cluster " + script + " to reinitialize"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow domain " + script + " to reinitialize"))
             else:
                 log.error("Node not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -266,14 +269,14 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
             if (action.count("boot") > 0):
                 # Now bring up PM.
-                suite.addTest(TestFDSModMgt.TestPMBringUp(node=node))
-                suite.addTest(TestFDSModMgt.TestPMWait(node=node))
+                suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
+                suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
 
                 # If the node also supports an OM, start the OM
                 # as well.
                 if node.nd_run_om():
-                    suite.addTest(TestFDSModMgt.TestOMBringUp(node=node))
-                    suite.addTest(TestFDSModMgt.TestOMWait(node=node))
+                    suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
+                    suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
 
             if (action.count("activate") > 0):
                 # Now activate the node's configured services.
@@ -282,8 +285,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
             # Give the node some time to initialize if requested.
             if 'delay_wait' in scenario.nd_conf_dict:
-                suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow node " + script + " to initialize"))
+                suite.addTest(TestWait(delay=delay, reason="to allow node " + script + " to initialize"))
         elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
             # Shutdown the node according to the specified action.
             if (action.count("remove") > 0):
@@ -331,8 +333,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 #                if found:
 #                    # Give the AM some time to initialize if requested.
 #                    if 'delay_wait' in scenario.nd_conf_dict:
-#                        suite.addTest(TestWait(delay=delay,
-#                                                                 reason="to allow AM " + script + " to initialize"))
+#                        suite.addTest(TestWait(delay=delay, reason="to allow AM " + script + " to initialize"))
 #                else:
 #                    log.error("AM not found for scenario '%s'" %
 #                              (scenario.nd_conf_dict['scenario-name']))
@@ -403,8 +404,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume policy some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume policy create " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume policy create " + script + " to propagate"))
             else:
                 log.error("Volume policy not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -421,8 +421,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume policy delete some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume policy delete " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume policy delete " + script + " to propagate"))
             else:
                 log.error("Volume policy not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -450,8 +449,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume creation some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume creation " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume creation " + script + " to propagate"))
             else:
                 log.error("Volume not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -467,8 +465,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume attachment some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume attachment " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume attachment " + script + " to propagate"))
             else:
                 log.error("Volume not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -484,8 +481,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             if found:
                 # Give the volume deletion some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay,
-                                                             reason="to allow volume deletion " + script + " to propagate"))
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume deletion " + script + " to propagate"))
             else:
                 log.error("Volume not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
@@ -531,8 +527,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         if found:
             # Give the test some time if requested.
             if 'delay_wait' in scenario.nd_conf_dict:
-                suite.addTest(TestWait(delay=delay,
-                                                         reason="just because"))
+                suite.addTest(TestWait(delay=delay, reason="just because"))
         else:
             log.error("Node not found for scenario '%s'" %
                       (scenario.nd_conf_dict['scenario-name']))
@@ -551,8 +546,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         # Give the test some time if requested.
         if 'delay_wait' in scenario.nd_conf_dict:
-            suite.addTest(TestWait(delay=delay,
-                                                     reason="just because"))
+            suite.addTest(TestWait(delay=delay, reason="just because"))
 
     elif re.match('\[testcases.+\]', script) is not None:
         # Do we have any parameters?
@@ -629,7 +623,17 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                       (scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
-        suite.addTest(TestFork(scenario=scenario, log_dir=log_dir))
+        suite.addTest(TestForkScenario(scenario=scenario, log_dir=log_dir))
+
+    elif re.match('\[kill\]', script) is not None:
+        # This script indicates that a previously forked process should be
+        # killed.
+        suite.addTest(TestKillScenario(scenario=scenario))
+
+    elif re.match('\[join\]', script) is not None:
+        # This script indicates that a previously forked process should be
+        # joined.
+        suite.addTest(TestJoinScenario(scenario=scenario))
 
     else:
         log.error("Unrecognized script '%s' for scenario %s" %
@@ -702,18 +706,18 @@ class TestWait(TestCase.FDSTestCase):
 # This class contains the attributes and methods to
 # run the specified object (test case, test suite, or
 # scenario script) in a separate process.
-class TestFork(TestCase.FDSTestCase):
+class TestForkScenario(TestCase.FDSTestCase):
     def __init__(self, parameters=None, scenario=None, log_dir=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_Fork,
-                                             "Fork",
+                                             self.test_ForkScenario,
+                                             "Fork scenario",
                                              fork=True)
 
         self.passedScenario = scenario
         self.passedLogDir = log_dir
 
-    def test_Fork(self):
+    def test_ForkScenario(self):
         """
         Test Case:
         Set up the scenario to run in a forked process.
@@ -726,6 +730,9 @@ class TestFork(TestCase.FDSTestCase):
         elif self.childPID > 0:
             self.log.info("Forked child %d to execute scenario %s." % (self.childPID,
                                                                        self.passedScenario.nd_conf_dict['scenario-name']))
+            # Store the child PID for later reference.
+            child_pid_dict = self.parameters["child_pid"]
+            child_pid_dict[self.passedScenario.nd_conf_dict['scenario-name']] = self.childPID
             return True
         else:
             self.log.error("Failed to fork a child process to execute scenario %s." %
@@ -778,6 +785,127 @@ class TestFork(TestCase.FDSTestCase):
         # Now run the test suite.
         runner = xmlrunner.XMLTestRunner(output=self.passedLogDir)
         runner.run(test_suite)
+
+        return True
+
+
+# This class contains the attributes and methods to
+# kill the forked process indicated by the provided scenario name.
+class TestKillScenario(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, scenario=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_KillScenario,
+                                             "Kill scenario")
+
+        self.passedScenario = scenario
+
+    def test_KillScenario(self):
+        """
+        Test Case:
+        Kill the named scenario.
+        """
+
+        child_pid_dict = self.parameters["child_pid"]
+        killScenarioName = self.passedScenario.nd_conf_dict['kill_scenario']
+
+        if killScenarioName in child_pid_dict:
+            self.log.info("Attempting to kill child PID %s from scenario %s." %
+                           (child_pid_dict[killScenarioName], killScenarioName))
+
+            fdscfg = self.parameters["fdscfg"]
+            localhost = fdscfg.rt_get_obj('cfg_localhost')
+
+            cmd = "kill -9 %s" % child_pid_dict[killScenarioName]
+            status = localhost.nd_agent.exec_wait(cmd)
+
+            if status == 0:
+                self.log.info("Killed process %s forked for scenario %s." %
+                              (child_pid_dict[killScenarioName], killScenarioName))
+            else:
+                self.log.error("Attempting to kill child PID %s from scenario %s returned status %d." %
+                               (child_pid_dict[killScenarioName], killScenarioName, status))
+                return False
+        else:
+            self.log.warning("No child forked for scenario %s." % killScenarioName)
+            return False
+
+        # Note: The child process is not removed from the child_pid dictionary.
+
+        return True
+
+
+# This class contains the attributes and methods to
+# join the forked process indicated by the provided scenario name.
+class TestJoinScenario(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, scenario=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_JoinScenario,
+                                             "Join scenario")
+
+        self.passedScenario = scenario
+
+    def test_JoinScenario(self):
+        """
+        Test Case:
+        Join the PID forked from the named scenario.
+        """
+
+        child_pid_dict = self.parameters["child_pid"]
+        joinScenarioName = self.passedScenario.nd_conf_dict['join_scenario']
+
+        if joinScenarioName in child_pid_dict:
+            self.log.info("Attempting to join child PID %s from scenario %s." %
+                           (child_pid_dict[joinScenarioName], joinScenarioName))
+
+            pid, status = os.waitpid(child_pid_dict[joinScenarioName], 0)
+
+            if (pid == child_pid_dict[joinScenarioName]) and (status == 0):
+                self.log.info("Joined process %s forked for scenario %s." %
+                              (child_pid_dict[joinScenarioName], joinScenarioName))
+            elif status == 127:
+                self.log.warning("No child process %s found for forked scenario %s." %
+                                 (child_pid_dict[joinScenarioName], joinScenarioName))
+            else:
+                self.log.error("Attempting to join child PID %s from scenario %s returned status %s." %
+                               (child_pid_dict[joinScenarioName], joinScenarioName, status))
+                return False
+        else:
+            self.log.warning("No child forked for scenario %s." % joinScenarioName)
+            return False
+
+        # Note: The child process is not removed from the child_pid dictionary.
+
+        return True
+
+
+# This class contains the attributes and methods to
+# log a "marker" in the SysTest log to aid reading.
+class TestLogMarker(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, scenario=None, marker=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_LogMarker,
+                                             "Log marker")
+
+        self.passedScenario = scenario
+        self.passedMarker = marker
+
+    def test_LogMarker(self):
+        """
+        Test Case:
+        Log the marker.
+        """
+
+        if (self.passedScenario is None) or (self.passedMarker is None):
+            self.log.warning("************************************")
+            self.log.warning("Log marker called but parameters missing: scenario name or marker text.")
+            self.log.warning("************************************")
+        else:
+            self.log.info("************ %s ************" % self.passedScenario)
+            self.log.info("** %s" % self.passedMarker)
+            self.log.info("************************************")
 
         return True
 

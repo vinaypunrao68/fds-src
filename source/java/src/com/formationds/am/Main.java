@@ -3,8 +3,8 @@ package com.formationds.am;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.AmService;
-import com.formationds.apis.AsyncAmServiceRequest;
+import com.formationds.apis.XdiService;
+import com.formationds.apis.AsyncXdiServiceRequest;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
@@ -111,7 +111,7 @@ public class Main {
         int amServicePortBase = 9988;
         int amServicePort = amServicePortBase + amInstanceId;
 
-        AmService.Iface am = useFakeAm ? new FakeAmService() :
+        XdiService.Iface am = useFakeAm ? new FakeAmService() :
                 clientFactory.remoteAmService(amHost, amServicePort);
 
         // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
@@ -148,7 +148,7 @@ public class Main {
 
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
-        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
+        AsyncXdiServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
         AsyncAm asyncAm = useFakeAm ?
                 new FakeAsyncAm() :
                 new RealAsyncAm(oneWayAm, amResponsePort);

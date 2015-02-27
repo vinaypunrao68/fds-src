@@ -1,10 +1,10 @@
-[fre-soak-clus]
+[fre-dogfood-clus]
 fre-clus-01
 fre-clus-02
 fre-clus-03
 fre-clus-04
 
-[fre-soak-clus:vars]
+[fre-dogfood-clus:vars]
 cluster_location=fre
 fds_build=release
 clean_fds=yes

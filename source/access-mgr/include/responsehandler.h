@@ -7,9 +7,9 @@
 #include <concurrency/taskstatus.h>
 #include <native/types.h>
 #include <string>
-#include <apis/apis_types.h>
+#include <fdsp/xdi_types.h>
+#include <fdsp/configuration_service_types.h>
 #include <vector>
-#include <AmAsyncResponseApi.h>
 
 namespace fds {
 /**

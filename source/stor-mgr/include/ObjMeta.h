@@ -17,7 +17,7 @@ extern "C" {
 #include <vector>
 
 #include "leveldb/db.h"
-#include "fdsp/fds_service_types.h"
+#include "fdsp/sm_service_types.h"
 #include "fdsp/FDSP_types.h"
 #include "fds_volume.h"
 #include "fds_types.h"
@@ -69,8 +69,14 @@ class ObjMetaData : public serialize::Serializable {
     uint64_t getModificationTs() const;
 
     void diffObjectMetaData(const ObjMetaData::ptr oldObjMetaData);
+
+    void syncObjectMetaData(fpi::CtrlObjectMetaDataSync& objMetaData);
+
+    bool isEqualSyncObjectMetaData(fpi::CtrlObjectMetaDataSync& objMetaData);
+
     void propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate& objMetaData,
-                                 bool reconcileMetaDataOnly);
+                                 fpi::ObjectMetaDataReconcileFlags reconcileFlag);
+
     Error updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
 
     void setObjCorrupted();
@@ -151,7 +157,7 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
         << "  create_time " << objMd.obj_map.obj_create_time
         << "  del_time " << objMd.obj_map.obj_del_time
         << "  mod_time " << objMd.obj_map.assoc_mod_time
-        << "  flags " << std::hex << (fds_uint16_t)objMd.obj_map.obj_flags << std::dec
+        << "  flags " << std::hex << objMd.obj_map.obj_flags << std::dec
         << "  migration_version " << objMd.obj_map.migration_ver
         << "  migration reconcile refcnt " << objMd.obj_map.migration_reconcile_ref_cnt
         << std::endl;

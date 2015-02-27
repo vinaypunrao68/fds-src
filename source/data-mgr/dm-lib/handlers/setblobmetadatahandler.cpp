@@ -5,7 +5,6 @@
 #include <dmhandler.h>
 #include <fds_assert.h>
 #include <util/Log.h>
-#include <fdsp_utils.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
@@ -23,12 +22,18 @@ SetBlobMetaDataHandler::SetBlobMetaDataHandler() {
 
 void SetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                            boost::shared_ptr<fpi::SetBlobMetaDataMsg>& message) {
-    DBG(GLOGDEBUG << logString(*asyncHdr));
+    LOGDEBUG << logString(*asyncHdr) << logString(*message);
 
-    // TODO(xxx) implement uturn
-    if (dataMgr->testUturnAll || dataMgr->testUturnSetMeta) {
-        GLOGNOTIFY << "Uturn testing set metadata";
-        fds_panic("not implemented");
+    HANDLE_INVALID_TX_ID();
+
+    // Handle U-turn
+    HANDLE_U_TURN();
+
+    // U-turn specific to set metadata
+    if (dataMgr->testUturnSetMeta) {
+        LOGNOTIFY << "Uturn testing" << logString(*message);
+        handleResponse(asyncHdr, message, ERR_OK, nullptr);
+        return;
     }
 
     auto dmReq = new DmIoSetBlobMetaData(message);
@@ -46,10 +51,6 @@ void SetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
     helper.err = dataMgr->timeVolCat_->updateBlobTx(typedRequest->volId,
                                                     typedRequest->ioBlobTxDesc,
                                                     typedRequest->md_list);
-    if (!helper.err.ok()) {
-        PerfTracer::incr(typedRequest->opReqFailedPerfEventType, typedRequest->getVolId(),
-                typedRequest->perfNameStr);
-    }
 }
 
 void SetBlobMetaDataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -59,11 +60,7 @@ void SetBlobMetaDataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& as
     asyncHdr->msg_code = e.GetErrno();
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::SetBlobMetaDataRspMsgTypeId, fpi::SetBlobMetaDataRspMsg());
 
-    if (dataMgr->testUturnAll || dataMgr->testUturnSetMeta) {
-        fds_panic("not implemented");
-    } else {
-        delete dmRequest;
-    }
+    delete dmRequest;
 }
 
 }  // namespace dm

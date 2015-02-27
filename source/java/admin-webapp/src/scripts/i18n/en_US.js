@@ -225,7 +225,10 @@ var en_US = {
             desc_iops_capacity: 'IOPs Capacity',
             l_data_connector_settings: 'Data Connector Settings',
             l_performance_settings: 'Performance Settings',
-            l_volume_details: 'Volume Details'
+            l_volume_details: 'Volume Details',
+            l_avg_puts: 'Avg. # of PUTS',
+            l_avg_gets: 'Avg. # of GETS',
+            l_avg_ssd_gets: 'Avg. # of GETS from SSD'
         },
         
         tiering: {

@@ -118,22 +118,6 @@ std::string FdsCli::mediaPolicyToString(
     return "unknown";
 }
 
-FDS_ProtocolInterface::FDSP_ScavengerCmd FdsCli::stringToScavengerCommand(
-    const std::string& cmd)
-{
-    if (cmd == "start") {
-        return FDS_ProtocolInterface::FDSP_SCAVENGER_START;
-    } else if (cmd == "stop") {
-        return FDS_ProtocolInterface::FDSP_SCAVENGER_STOP;
-    } else if (cmd == "enable") {
-        return FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE;
-    } else if (cmd == "disable") {
-        return FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE;
-    }
-    fds_verify(false);
-}
-
-
 FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
     netConfigPathClientSession *client_session =
             net_session_tbl->
@@ -205,8 +189,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "Remove services: remove-services <node_name> "
              "[ -e \"am,dm,sm\" ]")
             ("throttle", "Throttle traffic: throttle -t <throttle_level> ")
-            ("scavenger", po::value<std::string>(),
-             "scavenger enable|disable|start|stop")
             ("policy-show", po::value<std::string>(), "Show policy")
             ("volume-size,s", po::value<double>(), "volume capacity")
             ("volume-policy,p", po::value<int>(), "volume policy")
@@ -371,35 +353,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             cout << "Got non-network exception, probably volume not found" << std::endl;
         }
 
-    } else if (vm.count("volume-attach") &&
-               vm.count("volume-id") &&
-               vm.count("node-id")) {
-        LOGNOTIFY << " Attach Volume ";
-        LOGNOTIFY << vm["volume-attach"].as<std::string>() << " -volume name";
-        LOGNOTIFY << vm["volume-id"].as<int>() << " -volume id";
-        LOGNOTIFY << vm["node-id"].as<std::string>() << " -node id";
-
-        FDS_ProtocolInterface::FDSP_AttachVolCmdType volData;
-        volData.vol_name = vm["volume-attach"].as<std::string>();
-        volData.node_id = vm["node-id"].as<std::string>();
-        msg_hdr.src_node_name = vm["node-id"].as<std::string>();
-
-        NETWORKCHECK(cfgPrx->AttachVol(msg_hdr, volData));
-
-    } else if (vm.count("volume-detach") &&
-               vm.count("volume-id") &&
-               vm.count("node-id")) {
-        LOGNOTIFY << " Detach Volume ";
-        LOGNOTIFY << vm["volume-detach"].as<std::string>() << " -volume name";
-        LOGNOTIFY << vm["volume-id"].as<int>() << " -volume id";
-        LOGNOTIFY << vm["node-id"].as<std::string>() << " -node id";
-
-        FDS_ProtocolInterface::FDSP_AttachVolCmdType volData;
-        volData.vol_name = vm["volume-detach"].as<std::string>();
-        volData.node_id = vm["node-id"].as<std::string>();
-        msg_hdr.src_node_name = vm["node-id"].as<std::string>();
-
-        NETWORKCHECK(cfgPrx->DetachVol(msg_hdr, volData));
     } else if (vm.count("list-volumes")) {
         LOGNOTIFY << "List volumes";
 
@@ -513,6 +466,11 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         FDS_ProtocolInterface::FDSP_RemoveServicesType removeServiceData;
         removeServiceData.node_name = vm["remove-services"].as<std::string>();
         removeServiceData.node_uuid.uuid = 0;
+        if (vm.count("node-uuid")) {
+            removeServiceData.node_uuid.uuid = vm["node-uuid"].as<fds_uint64_t>();
+            LOGNOTIFY << "Node uuid " << std::hex
+                      << removeServiceData.node_uuid.uuid << std::dec;
+        }
         removeServiceData.remove_sm = false;
         removeServiceData.remove_dm = false;
         removeServiceData.remove_am = false;
@@ -630,15 +588,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_id = vm["domain-id"].as<int>();
 
         NETWORKCHECK(cfgPrx->ShutdownDomain(msg_hdr, domainData));
-    } else if (vm.count("domain-stats") && vm.count("domain-id")) {
-        LOGNOTIFY << " Domain Stats ";
-        LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
-
-        FDS_ProtocolInterface::FDSP_GetDomainStatsType domainData;
-        domainData.domain_id = vm["domain-id"].as<int>();
-
-        NETWORKCHECK(cfgPrx->GetDomainStats(msg_hdr, domainData));
-
     } else if (vm.count("throttle") && vm.count("throttle-level")) {
         LOGNOTIFY << " Throttle ";
         LOGNOTIFY << vm["throttle-level"].as<float>() << "-throttle_level";
@@ -648,19 +597,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         throttle_msg.throttle_level = vm["throttle-level"].as<float>();
 
         NETWORKCHECK(cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg));
-    } else if (vm.count("scavenger")) {
-        std::string cmd = vm["scavenger"].as<string>();
-        if ((cmd.compare("start") == 0) || (cmd.compare("stop") == 0) ||
-            (cmd.compare("enable") == 0) || (cmd.compare("disable") == 0)) {
-            LOGNOTIFY << "Will do Scavenger " << cmd << " command";
-
-            FDS_ProtocolInterface::FDSP_ScavengerType gc_msg;
-            gc_msg.cmd = stringToScavengerCommand(cmd);
-            NETWORKCHECK(cfgPrx->ScavengerCommand(msg_hdr, gc_msg));
-        } else {
-            LOGNOTIFY << "Unrecognized scavenger command!";
-            std::cout << "Unrecognized scavenger command";
-        }
     } else if (vm.count("volume-snap")) {
         LOGNOTIFY << "Constructing the CLI";
         LOGNOTIFY << " Snap Volume ";
