@@ -10,9 +10,9 @@ import logging
 from FDS_ProtocolInterface.ttypes import *
 from fds_service.ttypes import *
 from fds_service.constants import *
-from fds_service import SMSvc
-from fds_service import DMSvc
-from fds_service import PlatNetSvc
+from sm_service import SMSvc
+from dm_service import DMSvc
+from pm_service import PlatNetSvc
 
 from FdsException import *
 
