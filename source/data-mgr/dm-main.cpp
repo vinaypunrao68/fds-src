@@ -38,8 +38,9 @@ class DMMain : public SvcProcess
         closeAllFDs();
 
         /* Init Service process */
+        fds_bool_t registerWithOM = !(get_fds_config()->get<bool>("fds.dm.no_om", false));
         init<fds::DMSvcHandler, fpi::DMSvcProcessor>(argc, argv, "platform.conf",
-                "fds.dm.", "dm.log", dmVec);
+                "fds.dm.", "dm.log", dmVec, registerWithOM);
 
         /* Daemonize */
         fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);

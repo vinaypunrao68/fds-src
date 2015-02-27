@@ -28,7 +28,10 @@ class SMMain : public SvcProcess
         closeAllFDs();
 
         /* Init platform process */
-        init<fds::SMSvcHandler, fpi::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.", "sm.log", smVec);
+        fds_bool_t registerWithOM = !(get_fds_config()->get<bool>(
+                "fds.sm.testing.standalone", false));
+        init<fds::SMSvcHandler, fpi::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.",
+                "sm.log", smVec, registerWithOM);
 
         /* setup signal handler */
         setupSigHandler();

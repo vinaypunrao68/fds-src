@@ -20,11 +20,13 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                        const std::string &def_cfg_file,
                        const std::string &base_path,
                        const std::string &def_log_file,
-                       fds::Module **mod_vec)
+                       fds::Module **mod_vec,
+                       fds_bool_t registerWithOM)
 {
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec, handler, processor);
+    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
+            handler, processor, registerWithOM);
 }
 
 SvcProcess::SvcProcess(int argc, char *argv[],
@@ -33,9 +35,11 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                                const std::string &def_log_file,
                                fds::Module **mod_vec,
                                PlatNetSvcHandlerPtr handler,
-                               fpi::PlatNetSvcProcessorPtr processor)
+                               fpi::PlatNetSvcProcessorPtr processor,
+                               fds_bool_t registerWithOM)
 {
-    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec, handler, processor);
+    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
+            handler, processor, registerWithOM);
 }
 
 SvcProcess::~SvcProcess()
@@ -48,7 +52,8 @@ void SvcProcess::init(int argc, char *argv[],
                           const std::string &def_log_file,
                           fds::Module **mod_vec,
                           PlatNetSvcHandlerPtr handler,
-                          fpi::PlatNetSvcProcessorPtr processor)
+                          fpi::PlatNetSvcProcessorPtr processor,
+                          fds_bool_t registerWithOM)
 {
     /* Set up process related services such as logger, timer, etc. */
     FdsProcess::init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
@@ -65,7 +70,9 @@ void SvcProcess::init(int argc, char *argv[],
     /* Default implementation registers with OM.  Until registration complets
      * this will not return
      */
-    registerSvcProcess();
+    if (registerWithOM) {
+        registerSvcProcess();
+    }
 
     /* After registraion is complete other modules can proceed.  See FdsProcess::main() */
 }

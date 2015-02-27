@@ -39,9 +39,7 @@
 #include "lib/OMgrClient.h"
 
 #include "fds_module.h"
-#include "platform/typedefs.h"
 
-// #include "NetSession.h"
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>
@@ -108,10 +106,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      boost::shared_ptr<netSessionTbl> nst_;
      boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
      netDataPathServerSession *datapath_session_;
-
-     /** Helper for accessing datapth response client */
-     DPRespClientPtr fdspDataPathClient(const std::string& session_uuid);
-     NodeAgentDpClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
 
      /*
       * TODO: this one should be the singleton by itself.  Need to make it
