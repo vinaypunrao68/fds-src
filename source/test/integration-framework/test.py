@@ -22,6 +22,10 @@ def test_get_ips_from_inventory():
     print config_parser.get_ips_from_inventory('integration-framework-cluster')
     print config_parser.get_om_ipaddress_from_inventory('integration-framework-cluster')
 
+def test_hash_file_content():
+    path = "./downloads/test_sample_1M"
+    print utils.hash_file_content(path)
+
 def test_s3():
     s3conn = S3Connection(
             config.FDS_DEFAULT_ADMIN_USER,
@@ -50,4 +54,4 @@ def test_s3():
     key.get_file(fp)
 
 if __name__ == "__main__":
-    test_get_ips_from_inventory()
+    test_hash_file_content()

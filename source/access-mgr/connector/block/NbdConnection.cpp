@@ -390,7 +390,6 @@ NbdConnection::dispatchOp() {
 
     switch (request.header.opType) {
         case NBD_CMD_READ:
-            // do read from AM
             nbdOps->read(length, offset, handle);
             break;
         case NBD_CMD_WRITE:
@@ -401,10 +400,9 @@ NbdConnection::dispatchOp() {
             break;
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
+        default:
             throw NbdError::shutdown_requested;
             break;
-        default:
-            fds_panic("Unknown NBD op %d", request.header.opType);
     }
     return ERR_OK;
 }
