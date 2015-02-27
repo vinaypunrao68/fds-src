@@ -120,7 +120,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     void wakeupCb(ev::async &watcher, int revents);
     void callback(ev::io &watcher, int revents);
 
-    enum NbdHandshakeState {
+    enum class NbdProtoState {
         INVALID   = 0,
         PREINIT   = 1,
         POSTINIT  = 2,
@@ -128,14 +128,21 @@ struct NbdConnection : public NbdOperationsResponseIface {
         SENDOPTS  = 4,
         DOREQS    = 5
     };
-    NbdHandshakeState hsState;
 
-    bool hsPreInit(ev::io &watcher);
-    void hsPostInit(ev::io &watcher);
-    bool hsAwaitOpts(ev::io &watcher);
-    bool hsSendOpts(ev::io &watcher);
-    bool hsReq(ev::io &watcher);
-    bool hsReply(ev::io &watcher);
+    NbdProtoState nbd_state;
+
+    // Handshake State
+    bool handshake_start(ev::io &watcher);
+    void handshake_complete(ev::io &watcher);
+
+    // Option Negotiation State
+    bool option_request(ev::io &watcher);
+    bool option_reply(ev::io &watcher);
+
+    // Data IO State
+    bool io_request(ev::io &watcher);
+    bool io_reply(ev::io &watcher);
+
     Error dispatchOp();
     bool write_response();
 };

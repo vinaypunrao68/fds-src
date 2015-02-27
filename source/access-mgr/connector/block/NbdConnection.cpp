@@ -28,6 +28,10 @@ static std::array<std::string, 5> const io_to_string = {
     { "READ", "WRITE", "DISCONNECT", "FLUSH", "TRIM" }
 };
 
+static std::array<std::string, 6> const state_to_string = {
+    { "INVALID", "PREINIT", "POSTINIT", "AWAITOPTS", "SENDOPTS", "DOREQS" }
+};
+
 namespace fds
 {
 
@@ -42,7 +46,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
         : omConfigApi(omApi),
           nbdOps(boost::make_shared<NbdOperations>(this)),
           clientSocket(clientsd),
-          hsState(PREINIT),
+          nbd_state(NbdProtoState::PREINIT),
           doUturn(false),
           resp_needed(0u),
           attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
@@ -158,8 +162,7 @@ NbdConnection::write_response() {
 }
 
 // Send initial message to client with NBD magic and proto version
-bool
-NbdConnection::hsPreInit(ev::io &watcher) {
+bool NbdConnection::handshake_start(ev::io &watcher) {
     // Vector always starts from this state
     static iovec const vectors[] = {
         { to_iovec(NBD_MAGIC_PWD),       sizeof(NBD_MAGIC_PWD)      },
@@ -186,8 +189,7 @@ NbdConnection::hsPreInit(ev::io &watcher) {
     return true;
 }
 
-void
-NbdConnection::hsPostInit(ev::io &watcher) {
+void NbdConnection::handshake_complete(ev::io &watcher) {
     // Accept client ack
     fds_uint32_t ack;
     ssize_t nread = 0;
@@ -201,7 +203,7 @@ NbdConnection::hsPostInit(ev::io &watcher) {
 }
 
 bool
-NbdConnection::hsAwaitOpts(ev::io &watcher) {
+NbdConnection::option_request(ev::io &watcher) {
     if (attach.header_off >= 0) {
         if (!get_message_header(watcher.fd, attach))
             return false;
@@ -243,7 +245,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
 }
 
 bool
-NbdConnection::hsSendOpts(ev::io &watcher) {
+NbdConnection::option_reply(ev::io &watcher) {
     static fds_int16_t const optFlags =
         ntohs(NBD_FLAG_HAS_FLAGS);
     static iovec const vectors[] = {
@@ -270,8 +272,7 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
     return true;
 }
 
-bool
-NbdConnection::hsReq(ev::io &watcher) {
+bool NbdConnection::io_request(ev::io &watcher) {
     if (request.header_off >= 0) {
         if (!get_message_header(watcher.fd, request))
             return false;
@@ -306,7 +307,7 @@ NbdConnection::hsReq(ev::io &watcher) {
 }
 
 bool
-NbdConnection::hsReply(ev::io &watcher) {
+NbdConnection::io_reply(ev::io &watcher) {
     static int32_t const error_ok = htonl(0);
     static int32_t const error_bad = htonl(-1);
 
@@ -460,24 +461,25 @@ NbdConnection::callback(ev::io &watcher, int revents) {
 
     try {
     if (revents & EV_READ) {
-        switch (hsState) {
-            case POSTINIT:
-                hsPostInit(watcher);
-                hsState = AWAITOPTS;
+        switch (nbd_state) {
+            case NbdProtoState::POSTINIT:
+                handshake_complete(watcher);
+                nbd_state = NbdProtoState::AWAITOPTS;
                 break;
-            case AWAITOPTS:
-                if (hsAwaitOpts(watcher)) {
-                    hsState = SENDOPTS;
+            case NbdProtoState::AWAITOPTS:
+                if (option_request(watcher)) {
+                    nbd_state = NbdProtoState::SENDOPTS;
                     ioWatcher->set(ev::READ | ev::WRITE);
                 }
                 break;
-            case DOREQS:
+            case NbdProtoState::DOREQS:
                 // Read all the requests off the socket
-                while (hsReq(watcher))
+                while (io_request(watcher))
                     { continue; }
                 break;
             default:
-                LOGDEBUG << "Asked to read in state: " << hsState;
+                LOGDEBUG << "Asked to read in state: "
+                         << state_to_string[static_cast<uint32_t>(nbd_state)];
                 // We could have read and writes waiting and are not in the
                 // correct state to handle more requests...yet
                 break;
@@ -485,25 +487,25 @@ NbdConnection::callback(ev::io &watcher, int revents) {
     }
 
     if (revents & EV_WRITE) {
-        switch (hsState) {
-            case PREINIT:
-                if (hsPreInit(watcher)) {
-                    hsState = POSTINIT;
+        switch (nbd_state) {
+            case NbdProtoState::PREINIT:
+                if (handshake_start(watcher)) {
+                    nbd_state = NbdProtoState::POSTINIT;
                     // Wait for read event from client
                     ioWatcher->set(ev::READ);
                 }
                 break;
-            case SENDOPTS:
-                if (hsSendOpts(watcher)) {
-                    hsState = DOREQS;
+            case NbdProtoState::SENDOPTS:
+                if (option_reply(watcher)) {
+                    nbd_state = NbdProtoState::DOREQS;
                     LOGDEBUG << "Done with NBD handshake";
                     // Wait for read events from client
                     ioWatcher->set(ev::READ);
                 }
                 break;
-            case DOREQS:
+            case NbdProtoState::DOREQS:
                 // Write everything we can
-                while (hsReply(watcher))
+                while (io_reply(watcher))
                     { continue; }
 
                 // If the queue is empty, stop writing. Reading at this
@@ -514,7 +516,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                     { ioWatcher->set(nbdOps ? ev::READ : ev::NONE); }
                 break;
             default:
-                fds_panic("Unknown NBD connection state %d", hsState);
+                fds_panic("Unknown NBD connection state %d", nbd_state);
         }
     }
     } catch(NbdError const& e) {
