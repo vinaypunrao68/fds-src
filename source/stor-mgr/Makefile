@@ -31,7 +31,7 @@ user_fds_ar_libs  :=                   \
     fds-odb \
     fds-hash \
     fds-net-svc \
-    fds-xdi
+    fds-fdsp
 
 user_non_fds_libs := \
     boost_timer \

@@ -16,6 +16,7 @@
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_OMControlPathReq.h>
 #include <fdsp/FDSP_ControlPathResp.h>
+#include <fdsp/sm_service_types.h>
 #include <fds_typedefs.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>

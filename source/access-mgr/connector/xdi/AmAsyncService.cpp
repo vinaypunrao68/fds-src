@@ -21,9 +21,9 @@ namespace fds {
 
 
 class AsyncAmServiceRequestIfCloneFactory
-    : virtual public apis::AsyncAmServiceRequestIfFactory
+    : virtual public apis::AsyncXdiServiceRequestIfFactory
 {
-    using request_if = apis::AsyncAmServiceRequestIf;
+    using request_if = apis::AsyncXdiServiceRequestIf;
  public:
     AsyncAmServiceRequestIfCloneFactory() {}
     ~AsyncAmServiceRequestIfCloneFactory() {}
@@ -87,7 +87,7 @@ AsyncDataServer::mod_shutdown() {
 void
 AsyncDataServer::init_server() {
     // Setup API processor
-    processorFactory.reset(new apis::AsyncAmServiceRequestProcessorFactory(
+    processorFactory.reset(new apis::AsyncXdiServiceRequestProcessorFactory(
             boost::make_shared<AsyncAmServiceRequestIfCloneFactory>() ));
 
     // processor, protocolFactory, port, threadManager));
