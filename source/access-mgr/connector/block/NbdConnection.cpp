@@ -19,6 +19,7 @@ extern "C" {
 #include "connector/block/NbdConnection.h"
 #include "OmConfigService.h"
 #include "fds_process.h"
+#include "fdsp/configuration_service_types.h"
 
 template<typename T>
 constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
@@ -221,25 +222,26 @@ NbdConnection::option_request(ev::io &watcher) {
     // In case volume name is not NULL terminated.
     auto volumeName = boost::make_shared<std::string>(attach.data.begin(),
                                                  attach.data.begin() + attach.header.length);
+    apis::VolumeDescriptor volume_desc;
     if (toggleStandAlone) {
-        volDesc.policy.maxObjectSizeInBytes = 4096;
-        volDesc.policy.blockDeviceSizeInBytes = 10737418240;
+        volume_desc.policy.maxObjectSizeInBytes = 4096;
+        volume_desc.policy.blockDeviceSizeInBytes = 10737418240;
     } else {
         LOGNORMAL << "Will stat volume " << *volumeName;
-        Error err = omConfigApi->statVolume(volumeName, volDesc);
-        if (ERR_OK != err || apis::BLOCK != volDesc.policy.volumeType)
+        Error err = omConfigApi->statVolume(volumeName, volume_desc);
+        if (ERR_OK != err || apis::BLOCK != volume_desc.policy.volumeType)
             throw NbdError::connection_closed;
     }
 
     // Fix endianness
-    volume_size = __builtin_bswap64(volDesc.policy.blockDeviceSizeInBytes);
-    maxChunks = (2 * 1024 * 1024) / volDesc.policy.maxObjectSizeInBytes;
+    volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
+    maxChunks = (2 * 1024 * 1024) / volume_desc.policy.maxObjectSizeInBytes;
 
     LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
-              << volDesc.policy.blockDeviceSizeInBytes
-              << " max object size " << volDesc.policy.maxObjectSizeInBytes
+              << volume_desc.policy.blockDeviceSizeInBytes
+              << " max object size " << volume_desc.policy.maxObjectSizeInBytes
               << " max number of chunks " << maxChunks;
-    nbdOps->init(volumeName, volDesc.policy.maxObjectSizeInBytes);
+    nbdOps->init(volumeName, volume_desc.policy.maxObjectSizeInBytes);
 
     return true;
 }

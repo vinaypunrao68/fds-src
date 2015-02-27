@@ -60,7 +60,6 @@ struct NbdConnection : public NbdOperationsResponseIface {
 
   private:
     int clientSocket;
-    apis::VolumeDescriptor volDesc;
     size_t volume_size;
 
     boost::shared_ptr<OmConfigApi> omConfigApi;
