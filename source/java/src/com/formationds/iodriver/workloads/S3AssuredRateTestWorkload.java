@@ -49,7 +49,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
             throw new IllegalArgumentException("systemThrottle cannot be less than 1, passed "
                                                + systemThrottle + ".");
         }
-        if ((competingBuckets + 1) * VOLUME_HARD_MIN - systemThrottle < MEASURABLE_IO_THRESHOLD)
+        if (systemThrottle - (competingBuckets + 1) * VOLUME_HARD_MIN < MEASURABLE_IO_THRESHOLD)
         {
             throw new IllegalArgumentException("With a hard minimum of " + VOLUME_HARD_MIN
                                                + " IOPS and " + competingBuckets

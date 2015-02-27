@@ -8,6 +8,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.logging.ConsoleLogger;
 import com.formationds.iodriver.logging.Logger;
+import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.S3Operation;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.WorkflowEventListener;
@@ -31,26 +32,20 @@ public final class Main
             if (args == null) throw new NullArgumentException("args");
 
             Config config = new Config(args);
-            if (config.isHelpNeeded())
+            if (handleHelp(config))
             {
-                config.showHelp();
+                if (config.isHelpExplicitlyRequested())
+                {
+                    result = 0;
+                }
+                else
+                {
+                    result = 2;
+                }
             }
-
-            WorkflowEventListener listener = config.getListener();
-            try (ConsoleProgressReporter reporter =
-                    new ConsoleProgressReporter(System.out,
-                                                listener.started,
-                                                listener.stopped,
-                                                listener.volumeAdded))
+            else
             {
-                Driver<?, ?> driver =
-                        new Driver<S3Endpoint, S3Workload>(config.getEndpoint(),
-                                                           config.getSelectedWorkload(S3Endpoint.class,
-                                                                                      S3Operation.class),
-                                                           listener,
-                                                           config.getValidator());
-                driver.runWorkload();
-                result = driver.getResult();
+                result = runWorkload(config);
             }
         }
         catch (Exception ex)
@@ -79,4 +74,63 @@ public final class Main
      * This class's logger.
      */
     private static final Logger LOGGER;
+
+    /**
+     * Display help if necessary.
+     * 
+     * @param config The runtime config to use.
+     * 
+     * @return Whether help was shown.
+     */
+    private static boolean handleHelp(Config config)
+    {
+        if (config == null) throw new NullArgumentException("config");
+
+        if (config.isHelpNeeded())
+        {
+            config.showHelp();
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    /**
+     * Run the requested workload.
+     * 
+     * @param config The runtime config to use.
+     * 
+     * @return A system return code.
+     * 
+     * @throws ExecutionException when there is an unexpected error running the workload.
+     */
+    private static int runWorkload(Config config) throws ExecutionException
+    {
+        if (config == null) throw new NullArgumentException("config");
+
+        WorkflowEventListener listener = config.getListener();
+        try (ConsoleProgressReporter reporter =
+                new ConsoleProgressReporter(System.out,
+                                            listener.started,
+                                            listener.stopped,
+                                            listener.volumeAdded))
+        {
+            Driver<?, ?> driver =
+                    new Driver<S3Endpoint, S3Workload>(config.getEndpoint(),
+                                                       config.getSelectedWorkload(S3Endpoint.class,
+                                                                                  S3Operation.class),
+                                                       listener,
+                                                       config.getValidator());
+            driver.runWorkload();
+            int result = driver.getResult();
+
+            return result;
+        }
+        catch (Exception e)
+        {
+            throw new ExecutionException("Error executing workload.", e);
+        }
+    }
 }
