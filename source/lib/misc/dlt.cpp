@@ -53,7 +53,7 @@ DLT::DLT(fds_uint32_t numBitsForToken,
     }
     timestamp = fds::util::getTimeStampMillis();
     refcnt = ATOMIC_VAR_INIT(0);
-    omDltUpdateCb = NULL;
+    omDltUpdateCb = nullptr;
 }
 
 DLT::DLT(const DLT& dlt)
@@ -67,7 +67,7 @@ DLT::DLT(const DLT& dlt)
           closed(false),
           mapNodeTokens(dlt.mapNodeTokens) {
     refcnt = ATOMIC_VAR_INIT(0);
-    omDltUpdateCb = NULL;
+    omDltUpdateCb = nullptr;
 }
 
 DLT::~DLT() {
@@ -145,11 +145,11 @@ fds_uint64_t DLT::decRefcnt() {
         // refcnt ensures that we call callback once
         // (once refcnt becomes 0); however, not critical
         // if we call callback more than once
-        if (omDltUpdateCb) {
+        if (omDltUpdateCb != nullptr) {
             LOGDEBUG << "Refcnt became 0, will respond to DLT update"
                      << " for version " << version;
             omDltUpdateCb(ERR_OK);
-            omDltUpdateCb = NULL;
+            omDltUpdateCb = nullptr;
         }
     }
     return (refcount - 1);
@@ -157,8 +157,8 @@ fds_uint64_t DLT::decRefcnt() {
 
 Error DLT::addCbIfRefcnt(OmDltUpdateRespCbType cb) {
     fds_uint64_t refcount = std::atomic_load(&refcnt);
-    if (cb && (refcount > 0)) {
-        fds_verify(omDltUpdateCb == NULL);
+    if ((cb != nullptr) && (refcount > 0)) {
+        fds_verify(omDltUpdateCb == nullptr);
         LOGDEBUG << "Will respond to DLT update when refcnt becomes 0"
                  << ", current refcnt = " << refcount;
         omDltUpdateCb = cb;
@@ -623,7 +623,7 @@ Error DLTManager::add(const DLT& _newDlt,
 
     SCOPEDWRITE(dltLock);
     // check refcnt of the current DLT, if 0
-    if (curPtr && cb) {
+    if (curPtr && (cb != nullptr)) {
         err = curPtr->addCbIfRefcnt(cb);
     }
 
@@ -719,7 +719,7 @@ bool DLTManager::add(const DLTDiff& dltDiff) {
 }
 
 
-const DLT* DLTManager::getDLT(const fds_uint64_t version) {
+const DLT* DLTManager::getDLT(const fds_uint64_t version) const {
     SCOPEDREAD(dltLock);
     if (0 == version) {
         return curPtr;
@@ -782,7 +782,7 @@ Error DLTManager::setCurrent(fds_uint64_t version) {
     std::vector<DLT*>::const_iterator iter;
 
     SCOPEDWRITE(dltLock);
-    for (iter = dltList.begin(); iter != dltList.end(); iter++) {
+    for (iter = dltList.begin(); iter != dltList.end(); ++iter) {
         if (version == (*iter)->version) {
             curPtr = *iter;
             return ERR_OK;
@@ -812,24 +812,24 @@ void DLTManager::setCurrentDltClosed() {
     }
 }
 
-DltTokenGroupPtr DLTManager::getNodes(fds_token_id token) {
+DltTokenGroupPtr DLTManager::getNodes(fds_token_id token) const {
     SCOPEDREAD(dltLock);
     return curPtr->getNodes(token);
 }
 
-DltTokenGroupPtr DLTManager::getNodes(const ObjectID& objId) {
+DltTokenGroupPtr DLTManager::getNodes(const ObjectID& objId) const {
     SCOPEDREAD(dltLock);
     return curPtr->getNodes(objId);
 }
 
 // get the primary node for a token/objid
 // NOTE:: from the current dlt!!!
-NodeUuid DLTManager::getPrimary(fds_token_id token) {
+NodeUuid DLTManager::getPrimary(fds_token_id token) const {
     SCOPEDREAD(dltLock);
     return curPtr->getPrimary(token);
 }
 
-NodeUuid DLTManager::getPrimary(const ObjectID& objId) {
+NodeUuid DLTManager::getPrimary(const ObjectID& objId) const {
     return getPrimary(objId);
 }
 

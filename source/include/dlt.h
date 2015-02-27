@@ -229,7 +229,7 @@ namespace fds {
          * but previous DLT has refcount > 0; otherwise ERR_OK if DLT was added successfully
          */
         Error add(const DLT& dlt,
-                  OmDltUpdateRespCbType cb = NULL);
+                  OmDltUpdateRespCbType cb = nullptr);
         bool add(const DLTDiff& dltDiff);
         /**
          * Adds DLT to the list and makes this DLT "committed" (current)
@@ -242,7 +242,7 @@ namespace fds {
                                bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version
-        const DLT* getDLT(fds_uint64_t version = 0);
+        const DLT* getDLT(fds_uint64_t version = 0) const;
         /**
          * Returns the current DLT and increments refcount for DLT accesses
          */
@@ -261,13 +261,13 @@ namespace fds {
 
         // get all the Nodes for a token/objid
         // NOTE:: from the current dlt!!!
-        DltTokenGroupPtr getNodes(fds_token_id token);
-        DltTokenGroupPtr getNodes(const ObjectID& objId);
+        DltTokenGroupPtr getNodes(fds_token_id token) const;
+        DltTokenGroupPtr getNodes(const ObjectID& objId) const;
 
         // get the primary node for a token/objid
         // NOTE:: from the current dlt!!!
-        NodeUuid getPrimary(fds_token_id token);
-        NodeUuid getPrimary(const ObjectID& objId);
+        NodeUuid getPrimary(fds_token_id token) const;
+        NodeUuid getPrimary(const ObjectID& objId) const;
 
         uint32_t virtual write(serialize::Serializer*  s) const;
         uint32_t virtual read(serialize::Deserializer* d);
@@ -282,7 +282,7 @@ namespace fds {
   private:
         DLT* curPtr = NULL;
         std::vector<DLT*> dltList;
-        fds_rwlock dltLock;  /**< lock protecting curPtr and dltList */
+        fds_rwlock mutable dltLock;  /**< lock protecting curPtr and dltList */
         void checkSize();
         fds_uint8_t maxDlts;
     };
