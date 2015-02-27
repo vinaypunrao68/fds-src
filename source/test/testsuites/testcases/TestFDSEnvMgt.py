@@ -133,7 +133,7 @@ class TestFDSInstall(TestCase.FDSTestCase):
                                       '-e "s/ s3_http_port=8000/ s3_http_port=%s/g" '
                                       '-e "s/ s3_https_port=8443/ s3_https_port=%s/g" '
                                       '-e "s/ swift_port=9999/ swift_port=%s/g" '
-                                              '-e "s/ server_port = 10809/ server_port = %s/g" '
+                                              '-e "s/ server_port=10809/ server_port=%s/g" '
                                       '-e "1,$w %s/platform.conf" '
                                       '%s/platform.conf ' %
                                       (port, node.nd_nodeID, s3_http_port, s3_https_port,

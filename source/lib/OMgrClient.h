@@ -9,11 +9,11 @@
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
+#include "fdsp/sm_service_types.h"
 #include <util/Log.h>
 
 #include <unordered_map>
 #include <concurrency/RwLock.h>
-#include <net-proxies/vol_policy.h>
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <LocalClusterMap.h>
@@ -76,8 +76,6 @@ typedef void (*node_event_handler_t)(int node_id,
                                      int node_state,
                                      fds_uint32_t node_port,
                                      FDSP_MgrIdType node_type);
-typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
-typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
 typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
                                            const FDSP_BucketStatsRespTypePtr& buck_stats);
 typedef Error (*catalog_event_handler_t)(fds_catalog_action_t cat_action,
@@ -110,8 +108,6 @@ class OMgrClient {
     node_event_handler_t node_evt_hdlr;
     migration_event_handler_t migrate_evt_hdlr;
     dltclose_event_handler_t dltclose_evt_hdlr;
-    tier_cmd_handler_t       tier_cmd_hdlr;
-    tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
     catalog_event_handler_t catalog_evt_hdlr;
 
@@ -163,7 +159,6 @@ class OMgrClient {
     NodeUuid getUuid() const;
     FDSP_MgrIdType getNodeType() const;
 
-    int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
     int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
@@ -174,18 +169,10 @@ class OMgrClient {
     //
     fds_log        *omc_log;
 
-    // Extneral plugin object to handle policy requests.
-    VolPolicyServ  *omc_srv_pol;
-
     // int subscribeToOmEvents(unsigned int om_ip_addr,
     // int tennant_id, int domain_id, int omc_port_num= 0);
     int startAcceptingControlMessages();
     int registerNodeWithOM(Platform *plat);
-    int pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& volInfo);
-    int pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo);
-    int pushModifyBucketToOM(const std::string& bucket_name,
-                             const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
-    int pushGetBucketStatsToOM(fds_uint32_t req_cookie);
     int sendMigrationStatusToOM(const Error& err);
 
     int getNodeInfo(fds_uint64_t node_id,
@@ -217,27 +204,14 @@ class OMgrClient {
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t dmt_version);
     fds_uint64_t getDMTVersion() const;
     fds_bool_t hasCommittedDMT() const;
-    int pushPerfstatsToOM(const std::string& start_ts,
-                          int stat_slot_len,
-                          const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);
     int testBucket(const std::string& bucket_name,
                    const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_info,
                    fds_bool_t attach_vol_reqd,
                    const std::string& accessKeyId,
                    const std::string& secretAccessKey);
 
-    int recvNodeEvent(int node_id,
-                      FDSP_MgrIdType node_type,
-                      unsigned int node_ip,
-                      int node_state,
-                      const FDSP_Node_Info_TypePtr& node_info);
     int recvMigrationEvent(bool dlt_type);
     Error updateDlt(bool dlt_type, std::string& dlt_data);
-    int recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info, const std::string& session_uuid);
-    int recvDLTClose(FDSP_DltCloseTypePtr& close_info, const std::string& session_uuid);
-    int sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
-                            const std::string& session_uuid);
-    Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     Error recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
     Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
     Error sendDMTPushMetaAck(const Error& op_err, const std::string& session_uuid);
@@ -247,11 +221,6 @@ class OMgrClient {
     Error updateDmt(bool dmt_type, std::string& dmt_data);
     int sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
                             const std::string& session_uuid);
-
-    int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
-    int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
-    int recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr,
-                        const FDSP_BucketStatsRespTypePtr& buck_stats_msg);
 };
 
 class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
@@ -260,62 +229,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
   public:
     explicit OMgrClientRPCI(OMgrClient *om_c);
-
-    void AttachVol(const FDSP_MsgHdrType& fdsp_msg, const FDSP_AttachVolType& atc_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg);
-
-
-    void DetachVol(const FDSP_MsgHdrType& fdsp_msg,
-                   const FDSP_AttachVolType& dtc_vol_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void DetachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg);
-
-    void NotifyNodeAdd(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_Node_Info_Type& node_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr,
-                       FDSP_Node_Info_TypePtr& node_info);
-
-    void NotifyNodeActive(const FDSP_MsgHdrType& fdsp_msg,
-                          const FDSP_ActivateNodeType& act_node_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyNodeActive(FDSP_MsgHdrTypePtr& msg_hdr,
-                          FDSP_ActivateNodeTypePtr& act_node_req) {}
-
-    void NotifyNodeRmv(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_Node_Info_Type& node_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyNodeRmv(FDSP_MsgHdrTypePtr& msg_hdr,
-                       FDSP_Node_Info_TypePtr& node_info);
-
-    void NotifyDLTUpdate(const FDSP_MsgHdrType& fdsp_msg,
-                         const FDSP_DLT_Data_Type& dlt_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-                         FDSP_DLT_Data_TypePtr& dlt_info);
-
-    void NotifyDLTClose(const FDSP_MsgHdrType& fdsp_msg,
-                        const FDSP_DltCloseType& dlt_close) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
-                        FDSP_DltCloseTypePtr& dlt_close);
 
     void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
                         const FDSP_PushMeta& push_meta_req) {
@@ -339,35 +252,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
                          FDSP_DMT_TypePtr& dmt_info);
-
-    void TierPolicy(const FDSP_TierPolicy &tier) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void TierPolicy(FDSP_TierPolicyPtr &tier);
-
-    void TierPolicyAudit(const FDSP_TierPolicyAudit &audit) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void TierPolicyAudit(FDSP_TierPolicyAuditPtr &audit);
-
-    void NotifyBucketStats(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
-                           const FDS_ProtocolInterface::FDSP_BucketStatsRespType& buck_stats_msg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyBucketStats(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                           FDS_ProtocolInterface::FDSP_BucketStatsRespTypePtr& buck_stats_msg);
-
-
-    void NotifyStartMigration(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
-                              const FDS_ProtocolInterface::FDSP_DLT_Data_Type& dlt_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyStartMigration(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                              FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info);
 };
 
 }  // namespace fds
