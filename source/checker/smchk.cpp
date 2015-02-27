@@ -33,7 +33,9 @@ SMChk::SMChk(SmDiskMap::ptr smDiskMap,
 
     std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
     if (access(uuidPath.c_str(), F_OK) == -1) {
-       std::cout << "uuid file doesn't exists.  Cannot properly map DLT tokens.  Exiting..." << std::endl;
+       std::cout << "uuid file (" << uuidPath << ") doesn't exists.  "
+                 << "Cannot properly map DLT tokens.  Exiting..." 
+                 << std::endl;
        exit(0);
     }
 
@@ -50,7 +52,9 @@ SMChk::SMChk(SmDiskMap::ptr smDiskMap,
     curDLT = new DLT(0, 0, 0, false);
     std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
     if (access(dltPath.c_str(), F_OK) == -1) {
-       std::cout << "DLT file doesn't exists.  Cannot properly map DLT tokens.  Exiting..." << std::endl;
+       std::cout << "DLT file (" << dltPath << ") doesn't exists.  "
+                 << "Cannot properly map DLT tokens.  Exiting..." 
+                 << std::endl;
        exit(0);
     }
     curDLT->loadFromFile(dltPath);
