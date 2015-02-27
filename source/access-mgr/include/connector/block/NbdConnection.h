@@ -6,7 +6,6 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTION_H_
 
 #include <array>
-#include <atomic>
 #include <memory>
 #include <string>
 #include <utility>
@@ -70,7 +69,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     fds_bool_t toggleStandAlone;
     fds_bool_t doUturn;
 
-    std::atomic_uint resp_needed;
+    size_t resp_needed;
 
     message<attach_header, std::array<char, 1024>> attach;
     message<request_header, boost::shared_ptr<std::string>> request;

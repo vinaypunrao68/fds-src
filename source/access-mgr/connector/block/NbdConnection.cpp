@@ -298,7 +298,7 @@ bool NbdConnection::io_request(ev::io &watcher) {
           << " handle 0x" << std::hex << request.header.handle
           << " offset 0x" << request.header.offset << std::dec
           << " length " << request.header.length
-          << " ahead of you: " <<  resp_needed.fetch_add(1, std::memory_order_relaxed);
+          << " ahead of you: " <<  resp_needed++;
 
     Error err = dispatchOp();
     request.data.reset();
@@ -386,7 +386,7 @@ NbdConnection::io_reply(ev::io &watcher) {
     }
     LOGIO << " handle 0x" << std::hex << current_response->handle << std::dec
           << " done (" << err << ") "
-          << resp_needed.fetch_sub(1, std::memory_order_relaxed) - 1 << " requests behind you";
+          << --resp_needed << " requests behind you";
 
     response[2].iov_base = nullptr;
     current_response.reset();
