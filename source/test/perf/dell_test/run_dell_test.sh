@@ -7,11 +7,12 @@ iodepths="1 2 4 8 16 32 64 128 256"
 workers="4"
 workloads="randread read randwrite write"
 
-bsizes="4096"
+#bsizes="4096"
 #iodepths="1 2 4 8 16 32 64 128 256"
-iodepths="32"
-workers="4"
-workloads="randread"
+#iodepths="32"
+#workers="4"
+#workloads="randread"
+
 if [ ! -e .disk ] ; then
     echo cannot find nbd disk definition file
     exit 1
