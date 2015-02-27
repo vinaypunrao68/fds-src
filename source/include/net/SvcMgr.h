@@ -68,6 +68,7 @@ using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>
 template<class T>
 extern boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
                                            const bool &blockOnConnect);
+
 /**
 * @brief Overall manager class for service layer
 */
@@ -151,6 +152,20 @@ struct SvcMgr : HasModuleProvider, Module {
     void postSvcSendError(fpi::AsyncHdrPtr &header);
 
     /**
+    * @brief  Returns property for service with svcUuid.
+    */
+    template<class T>
+    T getSvcProperty(const fpi::SvcUuid &svcUuid, const std::string& key) {
+        // TODO(Rao): Replace hard coded values with appropraite apis when exposed.
+        if (key == "fds_root") {
+            return boost::lexical_cast<T>("/fds");
+        } else if (key == "disk_iops_min") {
+            return boost::lexical_cast<T>("6000");
+        }
+        fds_panic("Unknown property");
+    }
+
+    /**
     * @brief Returns svc base uuid
     */
     fpi::SvcUuid getSelfSvcUuid() const;
@@ -160,6 +175,8 @@ struct SvcMgr : HasModuleProvider, Module {
     *
     */
     fpi::SvcInfo getSelfSvcInfo() const;
+
+    std::string getSelfSvcName() const;
 
     /**
     * @brief 
@@ -228,15 +245,6 @@ struct SvcMgr : HasModuleProvider, Module {
      */
     inline PlatNetSvcHandlerPtr getSvcRequestHandler() const {
         return svcRequestHandler_;
-    }
-
-    /**
-    * @brief  Returns property for service with svcUuid.
-    */
-    template<class T>
-    T getSvcProperty(const fpi::SvcUuid &svcUuid, const std::string& key) {
-        // TODO(Rao): Complete the implementation
-        return T();
     }
 
  protected:

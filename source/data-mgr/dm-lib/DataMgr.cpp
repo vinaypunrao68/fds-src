@@ -884,12 +884,11 @@ int DataMgr::run()
 {
     // TODO(Rao): Move this into module init
     initHandlers();
-    try {
-        nstable->listenServer(metadatapath_session);
+
+    while (true) {
+        sleep(1);
     }
-    catch(...){
-        std::cout << "starting server threw an exception" << std::endl;
-    }
+
     return 0;
 }
 
@@ -903,8 +902,6 @@ void DataMgr::mod_startup()
 
     runMode = NORMAL_MODE;
 
-    // Get config values from that platform lib.
-    //
     MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
 
     use_om = !(modProvider_->get_fds_config()->get<bool>("fds.dm.no_om", false));
@@ -915,17 +912,6 @@ void DataMgr::mod_startup()
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
 
-    /* Set up FDSP RPC endpoints */
-    nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
-    myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-    assert(myIp.empty() == false);
-    std::string node_name = "_DM_" + myIp;
-
-    LOGNORMAL << "Data Manager using IP:"
-              << myIp << " and node name " << node_name;
-
-    setup_metadatapath_server(myIp);
-
     if (use_om) {
         LOGDEBUG << " Initialising the OM client ";
         /*
@@ -934,19 +920,13 @@ void DataMgr::mod_startup()
         omClient = new OMgrClient(FDSP_DATA_MGR,
                                   omIpStr,
                                   omConfigPort,
-                                  node_name,
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
                                   GetLog(),
-                                  nstable,
-                                  modProvider_->get_plf_manager());
+                                  nullptr,
+                                  nullptr);
         omClient->setNoNetwork(false);
         omClient->initialize();
         omClient->registerCatalogEventHandler(volcat_evt_handler);
-        /*
-         * Brings up the control path interface.
-         * This does not require OM to be running and can
-         * be used for testing DM by itself.
-         */
-        omClient->startAcceptingControlMessages();
     }
 
     setup_metasync_service();
@@ -1056,25 +1036,6 @@ void DataMgr::mod_shutdown()
     delete omClient;
     delete vol_map_mtx;
     delete qosCtrl;
-}
-
-void DataMgr::setup_metadatapath_server(const std::string &ip)
-{
-    metadatapath_handler.reset(new ReqHandler());
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_DM_" + ip;
-    // TODO(Andrew): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(Andrew): Figure out who cleans up datapath_session_
-    metadatapath_session = nstable->\
-            createServerSession<netMetaDataPathServerSession>(
-                myIpInt,
-                MODULEPROVIDER()->getSvcMgr()->getSvcPort(),
-                node_name,
-                FDSP_STOR_HVISOR,
-                metadatapath_handler);
 }
 
 void DataMgr::setup_metasync_service()
@@ -1264,7 +1225,7 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->dst_id = FDSP_STOR_MGR;
 
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-    msgHdr->src_node_name = svcmgr->getSvcProperty<std::string>(svcmgr->getSelfSvcUuid(), "node_name");
+    msgHdr->src_node_name = svcmgr->getSelfSvcName();
 
     msgHdr->origin_timestamp = fds::get_fds_timestamp_ms();
 

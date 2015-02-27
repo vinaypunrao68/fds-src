@@ -101,18 +101,12 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
     } else {
         omc_log = new fds_log("omc", "logs");
     }
-    nst_ = nst;
 
-    clustMap = new LocalClusterMap();
-    plf_mgr  = plf;
     fNoNetwork = false;
 }
 
 OMgrClient::~OMgrClient()
 {
-    nst_->endSession(omrpc_handler_session_->getSessionTblKey());
-    omrpc_handler_thread_->join();
-
     delete clustMap;
 }
 
@@ -140,24 +134,11 @@ void OMgrClient::registerCatalogEventHandler(catalog_event_handler_t evt_hdlr) {
     catalog_evt_hdlr = evt_hdlr;
 }
 
-/**
- * @brief Starts OM RPC handling server.  This function is to be run on a
- * separate thread.  OMgrClient destructor does a join() on this thread
- */
-void OMgrClient::start_omrpc_handler()
-{
-    if (fNoNetwork) return;
-    try {
-        nst_->listenServer(omrpc_handler_session_);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "unable to listen at the given port - check the port";
-        LOGERROR << "error during network call : " << e.what();
-        fds_panic("Unable to listen on server...");
-    }
-}
-
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
-int OMgrClient::startAcceptingControlMessages() {
+int OMgrClient::startAcceptingControlMessages() {   
+    // TODO(Rao): Remove this function
+    fds_panic("Deprecated");
+#if 0
     if (fNoNetwork) return 0;
     std::string myIp = fds::net::get_local_ip(
         g_fdsprocess->get_fds_config()->get<std::string>("fds.nic_if"));
@@ -178,6 +159,7 @@ int OMgrClient::startAcceptingControlMessages() {
     LOGNOTIFY << "OMClient accepting control requests at port "
               << ctrlPort;
 
+#endif
     return (0);
 }
 
@@ -210,6 +192,9 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 // Should be called after calling starting subscription endpoint and control path endpoint.
 int OMgrClient::registerNodeWithOM(Platform *plat)
 {
+    // TODO(Rao): Remove this function
+    fds_panic("Deprecated");
+#if 0
     if (fNoNetwork) return 0;
     try {
         omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(
@@ -263,6 +248,7 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
         LOGCRITICAL << "OMClient unable to register node with OrchMgr. "
                 "Please check if OrchMgr is up and restart.";
     }
+#endif
     return (0);
 }
 
@@ -306,6 +292,9 @@ Error OMgrClient::sendDMTPushMetaAck(const Error& op_err,
     Error err(ERR_OK);
     if (fNoNetwork) return err;
 
+    // TODO(Rao): Remove this panic once implemented
+    fds_panic("This should happen via service layer");
+#if 0
     // send ack back to OM
     boost::shared_ptr<fpi::FDSP_ControlPathRespClient> resp_client_prx =
             omrpc_handler_session_->getRespClient(session_uuid);
@@ -329,6 +318,7 @@ Error OMgrClient::sendDMTPushMetaAck(const Error& op_err,
                  << " Check if OM is up and restart";
         err = Error(ERR_NETWORK_TRANSPORT);
     }
+#endif
 
     return err;
 }
@@ -337,6 +327,10 @@ Error OMgrClient::sendDMTCommitAck(const Error& op_err,
                                    const std::string& session_uuid) {
     Error err(ERR_OK);
 
+    // TODO(Rao): Remove this panic once implemented
+    fds_panic("This should happen via service layer");
+
+#if 0
     // send ack back to OM
     boost::shared_ptr<fpi::FDSP_ControlPathRespClient> resp_client_prx =
             omrpc_handler_session_->getRespClient(session_uuid);
@@ -356,6 +350,7 @@ Error OMgrClient::sendDMTCommitAck(const Error& op_err,
         LOGERROR << "OMClient failed to send DMT response to OM";
         err = ERR_NETWORK_TRANSPORT;
     }
+#endif
 
     return err;
 }

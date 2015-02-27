@@ -242,6 +242,10 @@ fpi::SvcInfo SvcMgr::getSelfSvcInfo() const {
     return svcInfo_;
 }
 
+std::string SvcMgr::getSelfSvcName() const {
+    return svcInfo_.name;
+}
+
 bool SvcMgr::getSvcInfo(const fpi::SvcUuid &svcUuid, fpi::SvcInfo& info) const {
     fds_scoped_lock lock(svcHandleMapLock_);
     auto svcHandleItr = svcHandleMap_.find(svcUuid);

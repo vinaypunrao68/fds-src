@@ -265,7 +265,6 @@ void ObjectStorMgr::mod_startup()
          * Register/boostrap from OM
          */
         omClient->initialize();
-        omClient->startAcceptingControlMessages();
     }
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
