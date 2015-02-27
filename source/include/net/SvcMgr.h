@@ -247,6 +247,26 @@ struct SvcMgr : HasModuleProvider, Module {
         return svcRequestHandler_;
     }
 
+    /**
+    * @brief maps svcName->FDSP_MgrIdType
+    *
+    * @param svcName
+    *
+    * @return 
+    */
+    static fpi::FDSP_MgrIdType mapToSvcType(const std::string &svcName); 
+
+    /**
+    * @brief Based on the svcType and platforPort (as the base) determines what the service
+    * port should be
+    *
+    * @param platformPort
+    * @param svcType
+    *
+    * @return 
+    */
+    static int32_t mapToSvcPort(const int32_t &platformPort, const fpi::FDSP_MgrIdType& svcType);
+
  protected:
     /**
     * @brief For getting service handle.

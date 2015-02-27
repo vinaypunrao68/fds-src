@@ -74,6 +74,34 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     gSvcRequestPool = svcRequestMgr_;
 }
 
+fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
+{
+    if (svcName == "pm") {
+        return fpi::FDSP_PLATFORM;
+    } else if (svcName == "sm") {
+        return fpi::FDSP_STOR_MGR;
+    } else if (svcName == "dm") {
+        return fpi::FDSP_DATA_MGR;
+    } else if (svcName == "am") {
+        return fpi::FDSP_STOR_HVISOR;
+    } else if (svcName == "om") {
+        return fpi::FDSP_ORCH_MGR;
+    } else if (svcName == "console") {
+        return fpi::FDSP_CONSOLE;
+    } else if (svcName == "test") {
+        return fpi::FDSP_TEST_APP;
+    } else {
+        fds_panic("Unknown svcName");
+        return fpi::FDSP_INVALID_SVC;
+    }
+}
+
+int32_t SvcMgr::mapToSvcPort(const int32_t &platformPort, const fpi::FDSP_MgrIdType& svcType)
+{
+    int offset = static_cast<int>(svcType - fpi::FDSP_PLATFORM);
+    return platformPort + offset;
+}
+
 SvcMgr::~SvcMgr()
 {
     svcServer_->stop();
