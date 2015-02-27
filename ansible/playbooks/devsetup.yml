@@ -37,6 +37,7 @@
       apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
       with_items:
         - automake
+        - binutils-dev
         - cmake
         - cpanminus
         - git

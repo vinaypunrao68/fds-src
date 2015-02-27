@@ -13,7 +13,7 @@ build do
   env = with_standard_compiler_flags(with_embedded_path)
 
   command "./configure" \
-          " --prefix=#{install_dir}/embedded", env: env
+          " --prefix=#{install_dir}/embedded --with-sysroot=#{install_dir}/embedded", env: env
 
   make "-j #{workers}", env: env
   make "install", env: env
