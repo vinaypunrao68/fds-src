@@ -363,7 +363,6 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
 void
 AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
-    const DLT* dlt = dltMgr->getDLT();
     fds_verify(amReq->data_len > 0);
 
     fiu_do_on("am.uturn.dispatcher",
@@ -378,20 +377,28 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
         reinterpret_cast<const char*>(amReq->obj_id.GetId()),
         amReq->obj_id.GetLen());
 
+    // get DLT and add refcnt to account for in-flight IO sent with
+    // this DLT version; when DLT version changes, we don't ack to OM
+    // until all in-flight IO for the previous version complete
+    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
+
     PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
 
     auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(
             dlt->getNodes(amReq->obj_id)));
     asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-    asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb, amReq));
+    asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
+                                                   amReq, dlt->getVersion()));
     asyncPutReq->invoke();
 
-    LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg);
+    LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg)
+             << " DLT version " << dlt->getVersion();
 }
 
 void
 AmDispatcher::putObjectCb(AmRequest* amReq,
+                          fds_uint64_t dltVersion,
                           QuorumSvcRequest* svcReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload) {
@@ -405,8 +412,12 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
             << " blob name: " << amReq->getBlobName()
             << " offset: " << amReq->blob_offset << " Error: " << error;
     } else {
-        LOGDEBUG << svcReq->logString() << logString(*putObjRsp);
+        LOGDEBUG << svcReq->logString() << logString(*putObjRsp)
+                 << " DLT version " << dltVersion;
     }
+
+    // notify DLT manager that request completed, so we can decrement refcnt
+    dltMgr->decDLTRefcnt(dltVersion);
 
     static_cast<fds::PutBlobReq*>(amReq)->notifyResponse(error);
 }
@@ -445,10 +456,15 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
         reinterpret_cast<const char*>(objId.GetId()),
         objId.GetLen());
 
+    // get DLT and add refcnt to account for in-flight IO sent with
+    // this DLT version; when DLT version changes, we don't ack to OM
+    // until all in-flight IO for the previous version complete
+    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
+
     auto asyncGetReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(dltMgr->getDLT()->getNodes(objId)));
+        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
     asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
-    asyncGetReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq));
+    asyncGetReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq, dlt->getVersion()));
     asyncGetReq->invoke();
 
     LOGDEBUG << asyncGetReq->logString() << logString(*getObjMsg);
@@ -456,19 +472,23 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
 
 void
 AmDispatcher::getObjectCb(AmRequest* amReq,
-                        FailoverSvcRequest* svcReq,
-                        const Error& error,
-                        boost::shared_ptr<std::string> payload)
+                          fds_uint64_t dltVersion,
+                          FailoverSvcRequest* svcReq,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload)
 {
     fds_verify(amReq->magicInUse());
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    // notify DLT manager that request completed, so we can decrement refcnt
+    dltMgr->decDLTRefcnt(dltVersion);
 
     fpi::GetObjectRespPtr getObjRsp =
         net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
     if (error == ERR_OK) {
-        LOGDEBUG << svcReq->logString() << logString(*getObjRsp);
+        LOGDEBUG << svcReq->logString() << logString(*getObjRsp)
+                 << " DLT version " << dltVersion;
         /* NOTE: we are currently supporting only getting the whole blob
          * so the requester does not know about the blob length, 
          * we get the blob length in response from SM;
