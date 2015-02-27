@@ -33,6 +33,13 @@ interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
 
 def hostname_to_ip(hostname):
     return socket.gethostbyname(hostname)
+
+def create_test_files_dir():
+    create_dir(config.TEST_DIR)
+    # data files aren't there, download them
+    if os.listdir(config.TEST_DIR) == []:
+        fname = download_file(config.REPOSITORY_URL)
+        untar_file(fname)
     
 def untar_file(fname):
     if (fname.endswith("tar.gz")):

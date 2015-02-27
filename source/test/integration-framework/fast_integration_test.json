@@ -2,8 +2,8 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
-				"name" : "TestMultiConnections",
-				"file" : "test_multiconnections.py",
+				"name" : "TestDifferentBlobSizes",
+				"file" : "test_different_blob_sizes.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
