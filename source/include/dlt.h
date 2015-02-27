@@ -132,6 +132,9 @@ namespace fds {
         uint32_t virtual write(serialize::Serializer*  s) const;
         uint32_t virtual read(serialize::Deserializer* d);
 
+        bool loadFromFile(std::string filename);
+        bool storeToFile(std::string filename);
+
         uint32_t getEstimatedSize() const;
 
         // print the dlt to the logs

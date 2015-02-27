@@ -885,6 +885,10 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // sure we garbage collect only when DLT is closed
     objStorMgr->omClient->setCurrentDLTClosed();
 
+    // Store the current DLT to the presistent storage to be used
+    // by offline smcheck.
+    objStorMgr->storeCurrentDLT();
+
     // re-enable GC and Tier Migration
     // If this SM did not receive start migration or rebalance
     // message and GC and TierMigration were not disabled, this operation

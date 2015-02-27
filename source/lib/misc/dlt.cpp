@@ -514,6 +514,22 @@ uint32_t DLT::read(serialize::Deserializer* d) {
     return b;
 }
 
+bool DLT::loadFromFile(std::string filename) {
+    LOGNOTIFY << "loading dltmgr from file : " << filename;
+    serialize::Deserializer *d= serialize::getFileDeserializer(filename);
+    read(d);
+    delete d;
+    return true;
+}
+
+bool DLT::storeToFile(std::string filename) {
+    LOGNOTIFY << "storing dltmgr to file : " << filename;
+    serialize::Serializer *s= serialize::getFileSerializer(filename);
+    write(s);
+    delete s;
+    return true;
+}
+
 uint32_t DLT::getEstimatedSize() const {
     return 512*KB;
 }
