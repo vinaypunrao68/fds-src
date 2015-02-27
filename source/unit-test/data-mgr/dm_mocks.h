@@ -14,81 +14,22 @@
 #include <string>
 #include <vector>
 
-#include "platform/platform_process.h"
+#include <net/SvcProcess.h>
+
+static Module * modVec[] = {};
 
 namespace fds {
 // TODO(Rao): Get rid of this singleton
 DataMgr *dataMgr = 0;
 
-
-class MockDataMgr : public PlatformProcess {
+class MockDataMgr : public SvcProcess {
   public:
-    MockDataMgr(int argc, char *argv[]) {
-        static Module *modVec[] = {};
-        init(argc, argv, "fds.dm.", "dm.log", nullptr, modVec);
+    MockDataMgr(int argc, char *argv[]) : SvcProcess(argc, argv, "platform.conf",
+            "fds.dm.", "dm.log", modVec, false) {
     }
 
     virtual int run() override {
         return 0;
-    }
-};
-
-
-struct TestDmContainer :  DmContainer
-{
-  public:
-    // typedef boost::intrusive_ptr<DmContainer> pointer;
-    TestDmContainer() : DmContainer(fpi::FDSP_DATA_MGR) {}
-
-    virtual void agent_activate(NodeAgent::pointer agent) {
-        rs_register(agent);
-    }
-
-    virtual ~TestDmContainer() {}
-    virtual Resource *rs_new(const ResourceUUID &uuid) {
-        return new DmAgent(uuid);
-    }
-};
-
-
-struct TestPlatform : Platform {
-    TestDmContainer dmContainer;
-    TestPlatform() : Platform("DM-Platform",
-                              fpi::FDSP_DATA_MGR,
-                              new DomainContainer("DM-Platform-NodeInv",
-                                                  NULL,
-                                                  new SmContainer(fpi::FDSP_STOR_MGR),
-                                                  new TestDmContainer(),
-                                                  new AmContainer(fpi::FDSP_STOR_HVISOR),
-                                                  new PmContainer(fpi::FDSP_PLATFORM),
-                                                  new OmContainer(fpi::FDSP_ORCH_MGR)),
-                              new DomainClusterMap("DM-Platform-ClusMap",
-                                                   NULL,
-                                                   new SmContainer(fpi::FDSP_STOR_MGR),
-                                                   new TestDmContainer(),
-                                                   new AmContainer(fpi::FDSP_STOR_HVISOR),
-                                                   new PmContainer(fpi::FDSP_PLATFORM),
-                                                   new OmContainer(fpi::FDSP_ORCH_MGR)),
-                              new DomainResources("DM-Resources"),
-                              NULL) {
-        Platform::platf_assign_singleton(this);
-        plf_node_type = fpi::FDSP_DATA_MGR;
-        plf_my_ip = "127.0.0.1";
-        plf_my_node_name = "dm-test";
-        fpi::FDSP_Uuid uuid;
-        uuid.uuid = 12345678;
-
-        plf_my_uuid = 12345678;
-        plf_my_svc_uuid = 12345678;
-        plf_my_plf_svc_uuid = 12345678;
-        fpi::FDSP_RegisterNodeTypePtr nodeTypeMsg(new fpi::FDSP_RegisterNodeType());
-        nodeTypeMsg->node_type = fpi::FDSP_DATA_MGR;
-        nodeTypeMsg->node_uuid = uuid;
-        nodeTypeMsg->service_uuid = uuid;
-        nodeTypeMsg->node_name = plf_my_node_name;
-
-        NodeAgent::pointer dmAgent;
-        plf_dm_cluster()->agent_register(plf_my_uuid, nodeTypeMsg, &dmAgent, true);
     }
 };
 
@@ -154,7 +95,6 @@ struct DMTester :  FdsProcess {
     virtual ~DMTester() {}
 
     void initDM() {
-        gl_PlatformSvc = new TestPlatform();
         std::cout << "initing dm" << std::endl;
         PerfTracer::setEnabled(false);
         dataMgr = new DataMgr(this);
@@ -172,8 +112,8 @@ struct DMTester :  FdsProcess {
                                                dataMgr->omConfigPort,
                                                "dm",
                                                GetLog(),
-                                               nstable,
-                                               get_plf_manager());
+                                               nullptr,
+                                               nullptr);
 
         dataMgr->omClient->initialize();
         dataMgr->initHandlers();
