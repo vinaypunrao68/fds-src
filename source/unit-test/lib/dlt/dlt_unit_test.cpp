@@ -92,7 +92,7 @@ TEST_CASE ("Dlt Manager" , "[mgr]") {
     std::string buffer;
     dlt3.getSerialized(buffer);
 
-    dltMgr.addSerializedDLT(buffer);
+    dltMgr.addSerializedDLT(buffer, NULL);
 
     ptr=dltMgr.getDLT(3);
     REQUIRE (ptr->getVersion() == (fds_uint64_t) 3);

@@ -364,14 +364,13 @@ Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
     Error err(ERR_OK);
     LOGNOTIFY << "OMClient received new DLT version  " << dlt_type;
 
-    omc_lock.write_lock();
-    err = dltMgr->addSerializedDLT(dlt_data, dlt_type);
+    // dltMgr is threadsafe
+    err = dltMgr->addSerializedDLT(dlt_data, NULL, dlt_type);
     if (err.ok()) {
         dltMgr->dump();
     } else {
-        LOGERROR << "Failed to update DLT! check dlt_data was set";
+        LOGERROR << "Failed to update DLT! check dlt_data was set " << err;
     }
-    omc_lock.write_unlock();
 
     return err;
 }
@@ -493,47 +492,30 @@ OMgrClient::getNodeInfo(fds_uint64_t node_id,
 
 fds_uint32_t OMgrClient::getLatestDlt(std::string& dlt_data) {
     // TODO(x): Set to a macro'd invalid version
-    omc_lock.read_lock();
+    // dltMgr is threadsafe, no need to take a lock
     Error err = const_cast <DLT* > (dltMgr->getDLT())->getSerialized(dlt_data);
     fds_verify(err.ok());
-    omc_lock.read_unlock();
-
     return 0;
 }
 
 const DLT* OMgrClient::getCurrentDLT() {
-    omc_lock.read_lock();
-    const DLT *dlt = dltMgr->getDLT();
-    omc_lock.read_unlock();
-
-    return dlt;
+    return dltMgr->getDLT();
 }
 
 void OMgrClient::setCurrentDLTClosed() {
-    omc_lock.write_lock();
     dltMgr->setCurrentDltClosed();
-    omc_lock.write_unlock();
 }
 
 const DLT*
 OMgrClient::getPreviousDLT() {
-    omc_lock.read_lock();
     fds_uint64_t version = (dltMgr->getDLT()->getVersion()) - 1;
     const DLT *dlt = dltMgr->getDLT(version);
-    omc_lock.read_unlock();
-
     return dlt;
 }
 
 fds_uint64_t
 OMgrClient::getDltVersion() {
-    // TODO(x): Set to a macro'd invalid version
-    fds_uint64_t version = DLT_VER_INVALID;
-    omc_lock.read_lock();
-    version = dltMgr->getDLT()->getVersion();
-    omc_lock.read_unlock();
-
-    return version;
+    return dltMgr->getDLT()->getVersion();
 }
 
 NodeUuid

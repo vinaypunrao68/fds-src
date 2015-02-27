@@ -249,8 +249,37 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
     LOGNOTIFY << "OMClient received new DLT commit version  "
               << dlt->dlt_data.dlt_type;
-    err = dataMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
-    hdr->msg_code = err.GetErrno();
+
+    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    err = dltMgr->addSerializedDLT(dlt->dlt_data.dlt_data,
+                                   std::bind(
+                                       &DMSvcHandler::NotifyDLTUpdateCb,
+                                       this, hdr, dlt,
+                                       std::placeholders::_1),
+                                   dlt->dlt_data.dlt_type);
+    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
+        // added DLT
+        dltMgr->dump();
+    } else {
+        LOGERROR << "Failed to update DLT! Check dlt_data was set " << err;
+    }
+
+    // send response right away on error or if there is no IO pending for
+    // the previous DLT
+    if (err != ERR_DLT_IO_PENDING) {
+        NotifyDLTUpdateCb(hdr, dlt, err);
+    }
+    // else we will get a callback from DLT manager when there are no more
+    // IO pending for the previous DLT, and then we will send response
+}
+
+void
+DMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                                boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
+                                const Error                                 &err) {
+    LOGDEBUG << "Sending response for DLT version " << dlt->dlt_data.dlt_type
+             << " "  << err;
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
 }
 

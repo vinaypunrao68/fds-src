@@ -159,6 +159,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * Callback for get blob responses.
      */
     void getObjectCb(AmRequest* amReq,
+                     fds_uint64_t dltVersion,
                      FailoverSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
@@ -210,6 +211,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * Callback for put object responses.
      */
     void putObjectCb(AmRequest* amReq,
+                     fds_uint64_t dltVersion,
                      QuorumSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
