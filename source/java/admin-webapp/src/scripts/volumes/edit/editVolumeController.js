@@ -54,7 +54,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
     
     $scope.commitChanges = function(){
         
-        $scope.thisVolume.sla = $scope.eidtQos.sla;
+        $scope.thisVolume.sla = $scope.editQos.sla;
         $scope.thisVolume.priority = $scope.editQos.priority;
         $scope.thisVolume.limit = $scope.editQos.limit;
         
