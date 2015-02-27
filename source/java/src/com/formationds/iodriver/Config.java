@@ -423,15 +423,44 @@ public final class Config
      */
     public boolean isHelpNeeded()
     {
-        CommandLine commandLine;
         try
         {
-            commandLine = getCommandLine();
+            return isHelpRequested();
         }
         catch (ParseException e)
         {
             return true;
         }
+    }
+
+    /**
+     * Determine if we know that the user requested that help be shown.
+     * 
+     * @return Whether the command-line was successfully parsed and the help option was specified.
+     */
+    public boolean isHelpExplicitlyRequested()
+    {
+        try
+        {
+            return isHelpRequested();
+        }
+        catch (ParseException e)
+        {
+            return false;
+        }
+    }
+
+    /**
+     * Determine if the user requested that help be shown.
+     * 
+     * @return Whether the user requested that help be shown.
+     * 
+     * @throws ParseException when command-line arguments could not be parsed.
+     */
+    public boolean isHelpRequested() throws ParseException
+    {
+        CommandLine commandLine = getCommandLine();
+
         return commandLine.hasOption("help");
     }
 
@@ -442,7 +471,7 @@ public final class Config
     {
         showHelp(System.out);
     }
-    
+
     /**
      * Show the command-line help.
      * 
@@ -451,12 +480,12 @@ public final class Config
     public void showHelp(PrintStream stream)
     {
         if (stream == null) throw new NullArgumentException("stream");
-        
+
         // We intentionally don't close a stream we don't own.
         PrintWriter writer = new PrintWriter(stream);
         showHelp(writer);
     }
-    
+
     /**
      * Show the command-line help.
      * 
@@ -465,11 +494,13 @@ public final class Config
     public void showHelp(PrintWriter writer)
     {
         if (writer == null) throw new NullArgumentException("writer");
-        
+
         HelpFormatter formatter = new HelpFormatter();
         int width = Console.getWidth();
         Options options = getOptions();
-        formatter.printHelp(writer, width, "iodriver", null, options, 0, 0, null, true);
+        formatter.printHelp(writer, width, "iodriver", null, options, 0, 2, null, true);
+        
+        writer.flush();
     }
 
     /**
@@ -502,6 +533,12 @@ public final class Config
      * The command-line options supported. {@code null} prior to {@link #getOptions()}.
      */
     private Options _options;
+
+    /**
+     * {@code null} unless an error occurred while parsing command-line options, the error that
+     * occurred.
+     */
+    private ParseException _replayParseError;
 
     /**
      * Runtime configuration {@link #getRuntimeConfig()}.
@@ -561,10 +598,25 @@ public final class Config
     {
         if (_commandLine == null)
         {
-            Options options = getOptions();
-            CommandLineParser parser = new PosixParser();
+            if (_replayParseError == null)
+            {
+                try
+                {
+                    Options options = getOptions();
+                    CommandLineParser parser = new PosixParser();
 
-            _commandLine = parser.parse(options, _args);
+                    _commandLine = parser.parse(options, _args);
+                }
+                catch (ParseException e)
+                {
+                    _replayParseError = e;
+                    throw e;
+                }
+            }
+            else
+            {
+                throw _replayParseError;
+            }
         }
         return _commandLine;
     }
@@ -585,7 +637,7 @@ public final class Config
                                  true,
                                  "The workload to run. Available options are "
                                          + String.join(", ", getAvailableWorkloadNames()) + ".");
-            
+
             _options = newOptions;
         }
         return _options;
