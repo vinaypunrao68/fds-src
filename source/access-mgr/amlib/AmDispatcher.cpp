@@ -67,7 +67,7 @@ AmDispatcher::mod_init(SysParams const *const param) {
 void
 AmDispatcher::mod_startup() {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    if (!conf.get<bool>("testing.toggleStandAlone")) {     
+    if (!conf.get<bool>("testing.standalone")) {     
         // Set the DLT manager in svc layer so that it knows to dispatch
         // requests on behalf of specific placement table versions.
         gSvcRequestPool->setDltManager(dltMgr);

@@ -20,13 +20,12 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                        const std::string &def_cfg_file,
                        const std::string &base_path,
                        const std::string &def_log_file,
-                       fds::Module **mod_vec,
-                       fds_bool_t registerWithOM)
+                       fds::Module **mod_vec)
 {
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
     init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
-            handler, processor, registerWithOM);
+            handler, processor);
 }
 
 SvcProcess::SvcProcess(int argc, char *argv[],
@@ -35,11 +34,10 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                                const std::string &def_log_file,
                                fds::Module **mod_vec,
                                PlatNetSvcHandlerPtr handler,
-                               fpi::PlatNetSvcProcessorPtr processor,
-                               fds_bool_t registerWithOM)
+                               fpi::PlatNetSvcProcessorPtr processor)
 {
     init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
-            handler, processor, registerWithOM);
+            handler, processor);
 }
 
 SvcProcess::~SvcProcess()
@@ -52,8 +50,7 @@ void SvcProcess::init(int argc, char *argv[],
                           const std::string &def_log_file,
                           fds::Module **mod_vec,
                           PlatNetSvcHandlerPtr handler,
-                          fpi::PlatNetSvcProcessorPtr processor,
-                          fds_bool_t registerWithOM)
+                          fpi::PlatNetSvcProcessorPtr processor)
 {
     /* Set up process related services such as logger, timer, etc. */
     FdsProcess::init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
@@ -70,6 +67,8 @@ void SvcProcess::init(int argc, char *argv[],
     /* Default implementation registers with OM.  Until registration complets
      * this will not return
      */
+    auto config = get_conf_helper();
+    bool registerWithOM = !(config.get<bool>("testing.standalone"));
     if (registerWithOM) {
         registerSvcProcess();
     }

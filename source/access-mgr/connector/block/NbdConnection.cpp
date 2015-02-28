@@ -234,7 +234,7 @@ NbdConnection::option_request(ev::io &watcher) {
                                                  attach.data.begin() + attach.header.length);
     apis::VolumeDescriptor volume_desc;
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-    if (config.get_abs<bool>("fds.am.testing.toggleStandAlone", false)) {
+    if (config.get_abs<bool>("fds.am.testing.standalone", false)) {
         volume_desc.policy.maxObjectSizeInBytes = 4096;
         volume_desc.policy.blockDeviceSizeInBytes = 10737418240;
     } else {

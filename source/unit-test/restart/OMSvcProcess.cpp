@@ -64,7 +64,7 @@ void OMSvcProcess::init(int argc, char *argv[])
 
     /* Set up process related services such as logger, timer, etc. */
     SvcProcess::init(argc, argv, "platform.conf", "fds.om.",
-                     "om.log", nullptr, handler, processor, false);
+                     "om.log", nullptr, handler, processor);
 }
 
 void OMSvcProcess::registerSvcProcess()

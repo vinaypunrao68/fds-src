@@ -80,7 +80,7 @@ public:
     std::string                 my_node_name;
 
     /// Toggle AM standalone mode for testing
-    fds_bool_t toggleStandAlone;
+    fds_bool_t standalone;
 
     /// Dispatcher layer module
     b_sp<fds::AmDispatcher> amDispatcher;
