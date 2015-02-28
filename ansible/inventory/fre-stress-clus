@@ -8,6 +8,7 @@ fre-lxcnode-04
 clean_fds=yes
 deploy_artifact=nightly
 cluster_location=fre
+fds_build=debug
 fds_default_nic=eth0
 fds_om_host=fre-lxcnode-01
 fds_metrics_enables=false
