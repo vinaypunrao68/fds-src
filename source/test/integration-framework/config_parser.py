@@ -5,6 +5,8 @@ import os
 import re
 import sys
  
+import utils
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
     
@@ -45,8 +47,16 @@ def get_om_ipaddress_from_inventory(inventory_file):
         raise KeyError, "fds_om_host not present in %s" % inventory_file
         sys.exit(1)
     else:
-        return fds_om_host
-    
+        if not utils.is_valid_ip(fds_om_host):
+            # convert the hostname to ip address
+            fds_om_host = utils.hostname_to_ip(fds_om_host)
+            if fds_om_host:
+                return fds_om_host
+            else:
+                raise ValueError, "Invalid OM hostname or ip: %s" %fds_om_host
+        else:
+            return fds_om_host
+
 def get_ips_from_inventory(inventory_file):
     '''
     Parse the given ansible inventory file given as parameter to this
@@ -64,9 +74,19 @@ def get_ips_from_inventory(inventory_file):
     inventory_path = os.path.join(config.ANSIBLE_INVENTORY,
                                   inventory_file)
     ip_addresses = []
+    seen = False
     with open(inventory_path, 'r') as f:
         records = f.readlines()
-        for record in records:
-            if re.search('^\s*[0-9]', record):
-                ip_addresses.append(record.strip())
+        for i in xrange(0, len(records)):
+            if re.search('^\s*[0-9]', records[i]):
+                ip_addresses.append(records[i].strip())
+            if records[i].startswith('[') and not seen:
+                i += 1
+                while not records[i].startswith('['):
+                    ip = utils.hostname_to_ip(records[i].strip())
+                    if ip != "0.0.0.0":
+                        ip_addresses.append(ip)
+                    i += 1
+                seen = True
+                break
     return ip_addresses

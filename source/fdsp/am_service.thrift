@@ -4,6 +4,7 @@
 
 include "FDSP.thrift"
 include "fds_service.thrift"
+include "pm_service.thrift"
 include "dm_service.thrift"
 include "sm_service.thrift"
 
@@ -16,19 +17,14 @@ namespace cpp FDS_ProtocolInterface
 service AMSvc extends fds_service.PlatNetSvc {
 }
 
-/* --------------------  CtrlNotifyBucketStatTypeId  --------------------------- */
-struct CtrlNotifyBucketStat {
-     1: FDSP.FDSP_BucketStatsRespType  bucket_stat;
-}
-
 /* ---------------------  CtrlNotifyThrottleTypeId  ---------------------------- */
 struct CtrlNotifyThrottle {
      1: FDSP.FDSP_ThrottleMsgType      throttle;
 }
+
 struct CtrlNotifyQoSControl {
      1: FDSP.FDSP_QoSControlMsgType    qosctrl;
 }
-
 
 service TestAMSvc {
     i32 associate(1: string myip, 2: i32 port);

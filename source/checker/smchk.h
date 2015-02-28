@@ -7,6 +7,7 @@
 class ObjectStore;
 class SmDiskMap;
 class ObjectMetadataDb;
+class DLT;
 
 namespace fds {
 
@@ -25,21 +26,24 @@ typedef boost::shared_ptr<ObjMetaData> MdPtr;
 class SMChk {
 // friend class MetadataIterator;
   public:
-    SMChk(int sm_count, SmDiskMap::ptr smDiskMap,
-            ObjectDataStore::ptr smObjStore,
-            ObjectMetadataDb::ptr smMdDb);
+    SMChk(SmDiskMap::ptr smDiskMap,
+          ObjectDataStore::ptr smObjStore,
+          ObjectMetadataDb::ptr smMdDb,
+          bool verboseMsg);
     SMChk(ObjectDataStore::ptr smObjStore,
-            ObjectMetadataDb::ptr smMdDb);
-    ~SMChk() {}
+          ObjectMetadataDb::ptr smMdDb);
+    ~SMChk() { delete curDLT; }
 
     void list_path_by_token();
     void list_token_by_path();
     void list_metadata();
     void list_active_metadata();
-    bool full_consistency_check();
+    bool full_consistency_check(bool checkOwnership, bool checkOnlyActive);
     int  bytes_reclaimable();
     bool consistency_check(ObjectID obj_id);  // test a single object
     bool consistency_check(fds_token_id tokId); // test a single token
+
+    bool checkObjectOwnership(const ObjectID& objId);
 
   protected:
     // Data
@@ -51,6 +55,11 @@ class SMChk {
     // Methods
     SmTokenSet getSmTokens();
     ObjectID hash_data(boost::shared_ptr<const std::string> dataPtr, fds_uint32_t obj_size);
+
+    DLT *curDLT;
+    NodeUuid smUuid;
+
+    bool verbose;
 
     class MetadataIterator {
       public:

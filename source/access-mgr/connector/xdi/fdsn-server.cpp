@@ -68,7 +68,7 @@ FdsnServer::init_server() {
     threadManager->start();
 
     // Setup API processor
-    processor.reset(new apis::AmServiceProcessor(
+    processor.reset(new apis::XdiServiceProcessor(
         dataApi));
     // event_handler_.reset(new ServerEventHandler(*this));
 

@@ -127,8 +127,8 @@ void SmDiskMap::getDiskMap() {
     }
 }
 
-Error SmDiskMap::handleNewDlt(const DLT* dlt) {
-    Error err(ERR_OK);
+Error SmDiskMap::handleNewDlt(const DLT* dlt)
+{
     // get list of DLT tokens that this SM is responsible for
     // according to the DLT
     NodeUuid mySvcUuid;
@@ -137,6 +137,14 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt) {
     } else {
         mySvcUuid = 1;
     }
+
+    return handleNewDlt(dlt, mySvcUuid);
+}
+
+Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
+{
+    Error err(ERR_OK);
+
     const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
     // if there are no DLT tokens that belong to this SM
     // we don't care about this DLT

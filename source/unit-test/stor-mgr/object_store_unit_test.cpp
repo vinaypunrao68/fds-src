@@ -290,7 +290,7 @@ initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg) {
     MetaDataVolumeAssoc volAssoc;
     volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
     volAssoc.volumeRefCnt = 1;
-    msg.isObjectMetaDataReconcile = false;
+    msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
     msg.objectVolumeAssoc.push_back(volAssoc);
     msg.objectRefCnt = 1;
     msg.objectCompressType = 0;
@@ -353,7 +353,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     initMetaDataPropagate(msg);
     fds::assign(msg.objectID, newOid);
     // if we add data during second phase, we should still set reconcile = false
-    msg.isObjectMetaDataReconcile = false;
+    msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
     msg.objectData.clear();
     msg.objectData.resize(newData->length());
     msg.objectData.assign(*newData);
@@ -379,7 +379,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
         // update msg fields that depend on particular object/test
         initMetaDataPropagate(msg);
         fds::assign(msg.objectID, oid);
-        msg.isObjectMetaDataReconcile = false;
+        msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
         msg.objectData.clear();
         msg.objectData.resize(data->length());
         msg.objectData.assign(*data);
@@ -397,14 +397,14 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
         EXPECT_TRUE((migrVolume->testdata_).dataset_map_[oid].isValid(retData));
 
         // increase refcount (+2) and apply metadata again
-        msg.isObjectMetaDataReconcile = true;
+        msg.objectReconcileFlag = fpi::OBJ_METADATA_RECONCILE;
         msg.objectRefCnt = 2;
         msg.objectVolumeAssoc[0].volumeRefCnt = 2;
         err = objectStore->applyObjectMetadataData(oid, msg);
         EXPECT_TRUE(err.ok());
 
         // decrease refcnt (-1) and apply metadata again
-        msg.isObjectMetaDataReconcile = true;
+        msg.objectReconcileFlag = fpi::OBJ_METADATA_RECONCILE;
         msg.objectRefCnt = -1;
         msg.objectVolumeAssoc[0].volumeRefCnt = -1;
         err = objectStore->applyObjectMetadataData(oid, msg);

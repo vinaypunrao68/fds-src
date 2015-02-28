@@ -9,7 +9,12 @@ user_fds_ar_libs  := \
     fds-qos-lib \
     fds-dm-lib \
     fds-dsk-mgnt \
+<<<<<<< HEAD
     fds-xdi
+=======
+    fds-net-svc \
+    fds-fdsp
+>>>>>>> master
 
 user_non_fds_libs := \
     jemalloc \

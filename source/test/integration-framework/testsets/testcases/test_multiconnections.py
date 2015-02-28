@@ -24,6 +24,7 @@ from boto.s3.bucket import Bucket
 from filechunkio import FileChunkIO
 
 import s3
+import samples
 import testsets.testcase as testcase
 import utils
 
@@ -41,22 +42,17 @@ class TestMultiConnections(testcase.FDSTestCase):
         self.hash_table = {}
         self.sample_files = []
         self.s3_connections = []
-        
-        f_sample = "sample_file_%s"
-        if not os.path.exists(config.SAMPLE_DIR):
-            os.makedirs(config.SAMPLE_DIR)
-        if not os.path.exists(config.DOWNLOAD_DIR):
-            os.makedirs(config.DOWNLOAD_DIR)
+    
+        utils.create_dir(config.TEST_DIR)
+        utils.create_dir(config.DOWNLOAD_DIR)
             
         # for this test, we will create 5 sample files, 2MB each
-        for i in xrange(0, 5):
-            current = f_sample % i
-            if utils.create_file_sample(current, 2):
+        for current in samples.sample_mb_files[:3]:
+            path = os.path.join(config.TEST_DIR, current)
+            if os.path.exists(path):
                 self.sample_files.append(current)
-                path = os.path.join(config.SAMPLE_DIR, current)
                 encode = utils.hash_file_content(path)
                 self.hash_table[current] = encode
-        
     
     def create_multiple_connections(self, ip):
         # creates 20 s3 connections for each AM node
@@ -75,53 +71,22 @@ class TestMultiConnections(testcase.FDSTestCase):
 
     def runTest(self):
         self.log.info("Starting the multivolume test...\n")
-        for ip in self.ip_addresses[:1]:
+        for ip in self.ip_addresses:
             # create multiple connections
             self.create_multiple_connections(ip)
             self.concurrently_volumes()
-        
         self.log.info("Removing the sample files created.")
-        if os.path.exists(config.SAMPLE_DIR):
-            self.log.info("Removing %s" % config.SAMPLE_DIR)
-            shutil.rmtree(config.SAMPLE_DIR)
-        if os.path.exists(config.DOWNLOAD_DIR):
-            self.log.info("Removing %s" % config.DOWNLOAD_DIR)
-            shutil.rmtree(config.DOWNLOAD_DIR)
+        utils.remove_dir(config.DOWNLOAD_DIR)
         self.reportTestCaseResult(self.test_passed)
-    
-    def create_volume(self, s3conn, bucket_name):
-        '''
-        For each of the AM instances, create a single bucket for every volume,
-        and populate that volume with sample data.
-        
-        Attributes:
-        -----------
-        s3conn: S3Connection
-            a S3Connection to the host machine
-        bucket_name:
-            the name of the bucket being created
-            
-        Returns:
-        --------
-        bucket : The S3 bucket object
-        '''
-        bucket = s3conn.conn.create_bucket(bucket_name)
-        if bucket == None:
-            raise Exception("Invalid bucket.")
-            # We won't be waiting for it to complete, short circuit it.
-            self.test_passed = False
-            self.reportTestCaseResult(self.test_passed)
-
-        self.log.info("Volume %s created..." % bucket.name)
-        return bucket
     
     def concurrently_volumes(self):
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_volumes = { executor.submit(self.create_volumes, s3conn): 
                                  s3conn for s3conn in self.s3_connections}
             for future in concurrent.futures.as_completed(future_volumes):
-                #s3conn = futures_volume[future]
+                s3conn = future_volumes[future]
                 try:
+                    self.delete_volumes(s3conn)
                     self.test_passed = True
                 except Exception as exc:
                     self.log.exception('generated an exception: %s' % (exc))
@@ -143,15 +108,14 @@ class TestMultiConnections(testcase.FDSTestCase):
         '''
         bucket_name = "volume0%s-test"
         buckets = []
-        for i in xrange(1, 10):
+        for i in xrange(0, 1):
             bucket = s3conn.conn.create_bucket(bucket_name % i)
             if bucket == None:
                 raise Exception("Invalid bucket.")
                 # We won't be waiting for it to complete, short circuit it.
                 self.test_passed = False
                 self.reportTestCaseResult(self.test_passed)
-            
-            self.log.info("Volume %s created..." % bucket.name)
+            self.log.info("Bucket %s created" % bucket.name)
             self.buckets.append(bucket)
             self.store_file_to_volume(bucket)
             
@@ -159,17 +123,20 @@ class TestMultiConnections(testcase.FDSTestCase):
             # ensure data consistency by hashing (MD5) the file and comparing
             # with the one stored in S3
             self.download_files(bucket)
-            
             for k, v in self.hash_table.iteritems():
                 # hash the current file, and compare with the key
                 self.log.info("Hashing for file %s" % k)
                 path = os.path.join(config.DOWNLOAD_DIR, k)
                 hashcode = utils.hash_file_content(path)
-                if v != hashcode:
-                    self.log.warning("%s != %s" % (v, hashcode))
+                if hashcode == None:
+                    continue
+                elif v != hashcode:
+                    self.log.exception("%s != %s" % (v, hashcode))
                     self.test_passed = False
                     self.reportTestCaseResult(self.test_passed)
-            self.test_passed = True
+                    break
+                else:
+                    self.test_passed = True
             
         return s3conn
 
@@ -197,7 +164,7 @@ class TestMultiConnections(testcase.FDSTestCase):
         k = Key(bucket)
         #path = os.path.join(config.SAMPLE_DIR, sample)
         for sample in self.sample_files:
-            path = os.path.join(config.SAMPLE_DIR, sample)
+            path = os.path.join(config.TEST_DIR, sample)
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,
@@ -216,10 +183,14 @@ class TestMultiConnections(testcase.FDSTestCase):
             the connection object to the FDS instance via S3
             
         '''
-        for bucket in self.buckets:
-            if bucket:
-                for key in bucket.list():
-                    bucket.delete_key(key)
-                self.log.info("Deleting bucket: %s", bucket.name)
-                s3conn.conn.delete_bucket(bucket.name)
-        self.buckets = []
+        try:
+            for bucket in self.buckets:
+                if bucket:
+                    s3.meta.client.head_bucket(Bucket=bucket.name)
+                    for key in bucket.list():
+                        bucket.delete_key(key)
+                    self.log.info("Deleting bucket: %s", bucket.name)
+                    s3conn.conn.delete_bucket(bucket.name)
+            self.buckets = []
+        except Exception:
+            return

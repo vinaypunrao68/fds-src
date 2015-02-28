@@ -15,7 +15,6 @@
 #include <StorMgr.h>
 #include <NetSession.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <net/net_utils.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
@@ -795,10 +794,15 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     // for this migration client (which is addressed by executorID on destination side)
     migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
 
-    objectStore->snapshotMetadata(snapReq->token_id,
-                                  snapReq->smio_snap_resp_cb,
-                                  snapReq);
-
+    if (snapReq->isPersistent) {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_persist_snap_resp_cb,
+                                      snapReq);
+    } else {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_snap_resp_cb,
+                                      snapReq);
+    }
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
@@ -929,7 +933,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
         ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
-        bool reconcileMetaDataOnly = (readDeltaSetReq->deltaSet)[i].second;
+        fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
@@ -937,11 +941,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         /* copy metadata to object propagation message. */
         objMetaDataPtr->propagateObjectMetaData(objMetaDataPropagate,
-                                                reconcileMetaDataOnly);
-        /* If reconciling only the metadata, there is no need to read the
-         * data from the object store.
-         */
-        if (!reconcileMetaDataOnly) {
+                                                reconcileFlag);
+
+        /* Read object data, if NO_RECONCILE or OVERWRITE */
+        if (fpi::OBJ_METADATA_NO_RECONCILE == reconcileFlag) {
 
             /* get the object from metadata information. */
             boost::shared_ptr<const std::string> dataPtr =
@@ -962,7 +965,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
 
         LOGMIGRATE << "Adding DeltaSet element: " << objID
-                   << " reconcileMetaDataOnly=" << reconcileMetaDataOnly;
+                   << " reconcileFlag=" << reconcileFlag;
     }
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
@@ -1020,6 +1023,31 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
     }
     delete moveReq;
 }
+
+void
+ObjectStorMgr::storeCurrentDLT()
+{
+    // Store current DLT to a file in log directory, so offline smcheck can use it to
+    // verify dlt ownership.
+    //
+    // TODO(Sean):  cleanup when going moving to online smcheck
+    DLT *currentDLT = const_cast<DLT *>(objStorMgr->omClient->getCurrentDLT());
+    std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
+
+    // Must remove pre-existing file.  Otherwise, it will append a new version to the
+    // end of the file.  When de-serializing, it read from the beginning of the file,
+    // thus getting the oldest copy of DLT, if not removed.
+    remove(dltPath.c_str());
+    currentDLT->storeToFile(dltPath);
+
+    // To validate the token ownership by SM, we also need UUID of the SM to compare it
+    // against DLT
+    NodeUuid myUuid = getUuid();
+    std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
+    ofstream uuidFile(uuidPath);
+    uuidFile <<  myUuid.uuid_get_val();
+}
+
 
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);

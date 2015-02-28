@@ -12,7 +12,6 @@ user_fds_ar_libs  := \
 	fds-umod \
 	fds-thread \
 	fds-plat-lib \
-	fds-xdi	\
         fds-osdep
 
 user_non_fds_libs := \

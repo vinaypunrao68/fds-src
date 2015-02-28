@@ -215,6 +215,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
             NodeUuid executorNodeUuid(executorSmUuid);
             migrClient.reset(new MigrationClient(smReqHandler,
                                                  executorNodeUuid,
+                                                 targetDltVersion,
                                                  bitsPerDltToken));
             migrClients[executorId] = migrClient;
         } else {

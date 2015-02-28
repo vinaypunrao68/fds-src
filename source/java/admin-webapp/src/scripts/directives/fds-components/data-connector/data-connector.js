@@ -9,76 +9,45 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         controller: function( $scope, $data_connector_api ){
             
             $scope.sizes = [{name:'GB'}, {name:'TB'},{name:'PB'}];
-            $scope._selectedSize = 10;
-            $scope._selectedUnit = $scope.sizes[0];
             $scope.connectors = $data_connector_api.connectors;
-            
-            if ( !angular.isDefined( $scope.dataConnector.type ) ){
-                $scope.dataConnector = $scope.connectors[1];
-            }
+            $scope._selectedSize = 1;
+            $scope._selectedUnit = $scope.sizes[0];
 
-            $scope.editing = false;
-            
-            if ( !angular.isDefined( $scope.editable ) ){
-                $scope.editable = 'true';
-            }
+            var findUnit = function(){
 
-            var findUnit = function( str ){
-
+                if ( !angular.isDefined( $scope.dataConnector.attributes ) ){
+                    return;
+                }
+                
                 for ( var i = 0; i < $scope.sizes.length; i++ ){
-                    if ( $scope.sizes[i].name == str ){
-                        return $scope.sizes[i];
+                    if ( $scope.sizes[i].name == $scope.dataConnector.attributes.size ){
+                        $scope._selectedUnit = $scope.sizes[i];
                     }
                 }
             };
-
-            $scope.startEditing = function(){
-                              
-                if ( angular.isDefined( $scope.editingConnector ) && 
-                    angular.isDefined( $scope.editingConnector.attributes ) ){
-                    
-                    $scope._selectedUnit = findUnit( $scope.editingConnector.attributes.unit );
-                    $scope._selectedSize = parseInt( $scope.editingConnector.attributes.size );
+            
+            $scope.$on( 'fds::refresh', function(){
+                
+                if ( angular.isDefined( $scope.dataConnector.attributes ) ){
+                    $scope.dataConnector.attributes.size = $scope._selectedSize;
+                    $scope.dataConnector.attributes.unit = $scope._selectedUnit.name;
                 }
-                
-                for( var i = 0; i < $scope.connectors.length; i++ ){
-                    if ( $scope.connectors[i].type === $scope.dataConnector.type.toUpperCase() ){
-                        $scope.editingConnector = $scope.connectors[i];
-                        break;
-                    }
-                }
-                
-                $scope.editing = true;
-                
-            };
-
-            $scope.stopEditing = function(){
-                $scope.editing = false;
-            };
-
-            $scope.saveConnectorChanges = function(){
-
-                $scope.dataConnector = $scope.editingConnector;
-                
-                if ( $scope.dataConnector.type.toLowerCase() === 'block' ){
-                    $scope.dataConnector.attributes = {
-                        size: $scope._selectedSize,
-                        unit: $scope._selectedUnit.name
-                    };
-                }
-                
-                $data_connector_api.editConnector( $scope.editingConnector );
-                $scope.stopEditing();
-            };
+            });
 
             $scope.$watch( 'dataConnector', function( newVal ){
                 
                 if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.type ) ){
+                    $scope.dataConnector = $scope.connectors[1];
                     return;
                 }
                 
                 $scope.$emit( 'fds::data_connector_changed' );
                 $scope.$emit( 'change' );
+                
+                if ( $scope.dataConnector.attributes ){
+                    $scope._selectedSize = $scope.dataConnector.attributes.size;
+                    findUnit();
+                }
                 
             });
             

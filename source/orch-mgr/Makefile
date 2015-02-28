@@ -26,7 +26,7 @@ user_fds_ar_libs  := \
     fds-om-discovery \
     fds-om-plat \
     fds-plat-lib \
-    fds-xdi
+    fds-fdsp
 
 user_non_fds_libs := \
     leveldb ical

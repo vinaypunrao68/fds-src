@@ -4,7 +4,7 @@
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
 #include <string>
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
 #include <SvcMsgFactory.h>
 #include <TestFixtures.h>
 

@@ -2,9 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#ifndef __FDSP_H__
-#define __FDSP_H__
-
 include "common.thrift"
 
 namespace c_glib FDS_ProtocolInterface
@@ -847,5 +844,3 @@ service FDSP_MetaSyncResp {
     oneway void PushMetaSyncResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_resp)
     oneway void MetaSyncDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
 }
-
-#endif
