@@ -5,7 +5,12 @@
 #include <util/Log.h>
 #include <stdlib.h>
 #include <string>
-namespace fds { namespace kvstore {
+#include <fdsp_utils.h>
+namespace fds { 
+namespace kvstore {
+
+using redis::Reply;
+using redis::RedisException;
 
 PlatformDB::PlatformDB(const std::string& host,
                    uint port,
@@ -42,7 +47,7 @@ bool PlatformDB::getNodeInfo(fpi::NodeInfo& nodeInfo) {
     return true;
 }
 
-bool setNodeDiskCapability(const fpi::FDSP_AnnounceDiskCapability& diskCapability) {
+bool PlatformDB::setNodeDiskCapability(const fpi::FDSP_AnnounceDiskCapability& diskCapability) {
     try {
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(diskCapability, serialized);
@@ -54,7 +59,7 @@ bool setNodeDiskCapability(const fpi::FDSP_AnnounceDiskCapability& diskCapabilit
     return true;
 }
 
-bool getNodeDiskCapability(fpi::FDSP_AnnounceDiskCapability& diskCapability) {
+bool PlatformDB::getNodeDiskCapability(fpi::FDSP_AnnounceDiskCapability& diskCapability) {
     try {
         Reply reply = r.get("node.disk.capability");
         if (reply.isNil()) return false;
