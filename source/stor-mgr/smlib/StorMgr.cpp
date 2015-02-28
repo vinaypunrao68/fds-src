@@ -187,8 +187,6 @@ void ObjectStorMgr::mod_startup()
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
-    std::string     myIp;
-
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
@@ -198,11 +196,6 @@ void ObjectStorMgr::mod_startup()
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
-        /* Set up FDSP RPC endpoints */
-        nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-        myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-        setup_datapath_server(myIp);
-
         /*
          * Register this node with OM.
          */
@@ -214,9 +207,9 @@ void ObjectStorMgr::mod_startup()
         omClient = new OMgrClient(FDSP_STOR_MGR,
                                   omIP,
                                   omPort,
-                                  "localhost-sm",
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
                                   GetLog(),
-                                  nst_, MODULEPROVIDER()->get_plf_manager());
+                                  nullptr, MODULEPROVIDER()->get_plf_manager());
     }
 
     /*
@@ -371,32 +364,13 @@ void ObjectStorMgr::mod_shutdown()
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
         return;  // no migration or netsession
     }
-    nst_->endAllSessions();
-    nst_.reset();
-}
-
-void ObjectStorMgr::setup_datapath_server(const std::string &ip)
-{
-    ObjectStorMgrI *osmi = new ObjectStorMgrI();
-    datapath_handler_.reset(osmi);
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_SM";
-    // TODO(???): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(???): Figure out who cleans up datapath_session_
-    datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
-        myIpInt,
-        MODULEPROVIDER()->getSvcMgr()->getSvcPort(),
-        node_name,
-        FDSP_STOR_HVISOR,
-        datapath_handler_);
 }
 
 int ObjectStorMgr::run()
 {
-    nst_->listenServer(datapath_session_);
+    while (true) {
+        sleep(1);
+    }
     return 0;
 }
 

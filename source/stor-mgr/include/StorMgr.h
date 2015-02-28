@@ -99,15 +99,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      SmTokenMigrationMgr::unique_ptr migrationMgr;
 
      /*
-      * FDSP RPC members
-      * The map is used for sending back the response to the
-      * appropriate SH/DM
-      */
-     boost::shared_ptr<netSessionTbl> nst_;
-     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
-     netDataPathServerSession *datapath_session_;
-
-     /*
       * TODO: this one should be the singleton by itself.  Need to make it
       * a stand-alone module like resource manager for volume.
       * Volume specific members
@@ -201,7 +192,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
 
     protected:
-     void setup_datapath_server(const std::string &ip);
      void setup_migration_svc(const std::string &obj_dir);
 
   public:
