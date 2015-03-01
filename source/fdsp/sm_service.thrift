@@ -2,8 +2,10 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+include "common.thrift"
 include "fds_service.thrift"
 include "FDSP.thrift"
+include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
 
@@ -11,7 +13,7 @@ namespace cpp FDS_ProtocolInterface
  * SM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service SMSvc extends fds_service.PlatNetSvc {
+service SMSvc extends pm_service.PlatNetSvc {
 }
 
 /* ---------------------  CtrlScavengerStatusTypeId  --------------------------- */
@@ -35,6 +37,26 @@ enum FDSP_ScavengerCmd {
   FDSP_SCAVENGER_STOP        // stop GC if it's running
 }
 
+enum ObjectMetaDataReconcileFlags {
+    /* No need to reconcile meta data.  This is for a new object
+     * when the delta set is sent to the destination SM.
+     */
+    OBJ_METADATA_NO_RECONCILE = 0,
+
+    /* Need to reconcile meta data.  This means that the meta data
+     * has changed since the last migration, so during the second 
+     * phase of the delta set, we need to reconcile meta data.
+     */
+    OBJ_METADATA_RECONCILE    = 1,
+    
+    /* No need to reconcile, but the destination SM already has the
+     * object.  However, the metadata on the destination may be stale,
+     * so we trust the source SM's object meta data and blindly
+     * overwrite on the destination SM.
+     */
+    OBJ_METADATA_OVERWRITE    = 2
+}
+
 struct FDSP_ScavengerType {
   1: FDSP_ScavengerCmd  cmd
 }
@@ -47,13 +69,14 @@ struct FDSP_DLT_Data_Type {
 
 /* ---------------------- CtrlNotifySMStartMigration --------------------------- */
 struct SMTokenMigrationGroup {
-   1: fds_service.SvcUuid                   source;
+   1: common.SvcUuid                   source;
    2: list<i32>                 tokens;
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
 struct FDSP_DltCloseType {
    1: i64 DLT_version
+
 }
 
 /* Object volume association */
@@ -66,26 +89,34 @@ struct MetaDataVolumeAssoc
     2: i64 volumeRefCnt
 }
 
+/* Object + subset of MetaData to determine if either the object or
+ * associated MetaData (subset) needs sync'ing.
+ */
+struct CtrlObjectMetaDataSync 
+{
+    /* Object ID */
+    1: FDSP.FDS_ObjectIdType objectID
+
+    /* RefCount of the object */
+    2: i64              objRefCnt
+
+    /* volume information */
+    3: list<MetaDataVolumeAssoc> objVolAssoc
+ 
+    /* TODO(Sean):
+     * There can be more fields in the MetaData that should be sync'ed,
+     * but for now, RefCnt is only one we've identified.
+     */
+}
+
 /* Object + Data + MetaData to be propogated to the destination SM from source SM */
 struct CtrlObjectMetaDataPropagate
 {
     /* Object ID */
     1: FDSP.FDS_ObjectIdType objectID
 
-    /* If this flag is set, then the ObjectMetaDataProgate contains 
-     * different data to be applied to the destination SM.
-     *
-     * TRUE -> Only objectVolumeAssoc and objectRefCnt are pertinent fields at this point.
-     *         If true, these fields contains changes to the MetaData since the 
-     *         object was migrated to the destination SM.
-     *         objectData and other members are not set.
-     * NOTE: If TRUE, treat ref_cnt (including volume association ref_cnt) as signed int64_t.
-     *
-     * FALSE -> All MetaData fields and objectData is set.  The MetaData and objectData
-     *          can just be applied.
-     *
-     */
-    2: bool isObjectMetaDataReconcile
+    /* Reconcile action */
+    2: ObjectMetaDataReconcileFlags objectReconcileFlag
     
     /* user data */
     3: FDSP.FDSP_ObjectData  objectData
@@ -113,23 +144,6 @@ struct CtrlObjectMetaDataPropagate
     
     /* object expieration time */
     11: i64              objectExpireTime
-}
-
-/* Object + subset of MetaData to determine if either the object or
- * associated MetaData (subset) needs sync'ing.
- */
-struct CtrlObjectMetaDataSync 
-{
-    /* Object ID */
-    1: FDSP.FDS_ObjectIdType objectID
-
-    /* RefCount of the object */
-    2: i64              objRefCnt
-
-    /* TODO(Sean):
-     * There can be more fields in the MetaData that should be sync'ed,
-     * but for now, RefCnt is only one we've identified.
-     */
 }
 
 /* Copy objects from source volume to destination */
@@ -281,10 +295,6 @@ struct CtrlSetScavengerPolicyResp {
 /* ------------------------  CtrlQueryScrubberStatusRespTypeId  ---------------------- */
 struct CtrlQueryScrubberStatusResp {
    1: FDSP_ScavengerStatusType	scrubber_status;
-}
-
-struct CtrlStartMigration {
-   1: FDSP_DLT_Data_Type   dlt_data;
 }
 
 /* ------------------------  CtrlQueryScrubberStatusTypeId  ------------------------- */

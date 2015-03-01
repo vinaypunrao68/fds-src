@@ -30,9 +30,12 @@ $page-padding: 0px;
 
 section.block-section {
 
-    padding-left: $page-padding;
-    padding-right: $page-padding;
-
+    color: $default_text_color;
+    
+    .padded-right {
+        padding-right: 48px;
+    }
+    
     .section-header {
 
     }

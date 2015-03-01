@@ -12,13 +12,12 @@
 #include <fds_types.h>
 
 #include <SmIo.h>
-
+#include <odb.h>
 #include <MigrationUtility.h>
 
 namespace fds {
 
 const fds_token_id SMTokenInvalidID = 0xffffffff;
-
 /**
  * This is the client class for token migration.  This class is instantiated by the
  * source SM.
@@ -32,6 +31,7 @@ class MigrationClient {
   public:
     explicit MigrationClient(SmIoReqHandler *_dataStore,
                              NodeUuid& _destinationSMNodeID,
+                             fds_uint64_t& targetDltVersion,
                              fds_uint32_t bitsPerToken);
     ~MigrationClient();
 
@@ -65,13 +65,11 @@ class MigrationClient {
      */
     void migClientSnapshotFirstPhaseCb(const Error& error,
                                        SmIoSnapshotObjectDB* snapRequest,
-                                       leveldb::ReadOptions& options,
-                                       leveldb::DB *db);
+                                       std::string &snapDir);
 
     void migClientSnapshotSecondPhaseCb(const Error& error,
                                         SmIoSnapshotObjectDB* snapRequest,
-                                        leveldb::ReadOptions& options,
-                                        leveldb::DB *db);
+                                        std::string &snapDir);
 
     /**
      * Add initial set of DLT and Objects to the clients
@@ -120,7 +118,8 @@ class MigrationClient {
 
     /* Add object meta data to the set to be sent to QoS.
      */
-    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr, bool>>& objMetaDataSet,
+    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
+                                                    fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
                               fds_bool_t lastSet);
 
     void fwdPutObjectCb(SmIoPutObjectReq* putReq,
@@ -176,6 +175,11 @@ class MigrationClient {
     fds_uint32_t bitsPerDltToken;
 
     /**
+     * Target DLT version for the undergoing SM token migration.
+     */
+    fds_uint64_t targetDltVersion;
+
+    /**
      * Flag indicating objects in SM token for which this migration
      * client is responsible need to be forwarded to destination SM
      * Does not need to be atomic, because currently it is set under
@@ -203,8 +207,8 @@ class MigrationClient {
      * TODO(Sean):  Need to optimize this.  If sizing is issue, we may
      *              need multiple set of object list and filter against
      *              snapshot multiple times.
-     *              1MB can hold 37,449 objects (28 bytes for <objectID+refcnt>)
-     *              1GB can hold 38,347,776 objects...
+     *              1MB can hold 23,831 objects (44 bytes for <objectID+refcnt+(volid+refcnt)>)
+     *              1GB can hold 24,443,223 objects...
      *
      * TODO(Sean): Second optimization is how to filter this object lists against the
      *             source SM snapshot.  If filterObjectList is big, then we have to something
@@ -212,7 +216,7 @@ class MigrationClient {
      *             filterObjectList and snapshot, and iterate like merge sort to get
      *             unique objects.
      */
-    std::unordered_map<ObjectID, fds_uint64_t, ObjectHash> filterObjectSet;
+    std::unordered_map<ObjectID, fpi::CtrlObjectMetaDataSync, ObjectHash> filterObjectSet;
 
     /**
      * Maintain the message from the destination SM to determine if all
@@ -223,7 +227,7 @@ class MigrationClient {
     MigrationSeqNum seqNumFilterSet;
 
     /**
-     * destination SM node ID.  This is the SM Node ID that's requesting the
+     * Destination SM node ID.  This is the SM Node ID that's requesting the
      * the set of objects associated with the
      */
     NodeUuid destSMNodeID;
@@ -246,16 +250,14 @@ class MigrationClient {
     SmIoSnapshotObjectDB snapshotRequest;
 
     /**
-     * Pointer to first leveldb snapshot.  This is set in the snapshot callback.
+     * First persistent leveldb snapshot directory.  This is set in the snapshot callback.
      */
-    leveldb::DB *firstPhaseLevelDB;
-    leveldb::ReadOptions firstPhaseReadOptions;
+    std::string firstPhaseSnapshotDir;
 
     /**
-     * Pointer to second leveldb snapshot.  This is set in the snapshot callback.
+     * Second persistent leveldb snapshot directory.  This is set in the snapshot callback.
      */
-    leveldb::DB *secondPhaseLevelDB;
-    leveldb::ReadOptions secondPhaseReadOptions;
+    std::string secondPhaseSnapshotDir;
 
     /**
      * Maximum number of objects to send in delta set back to the destination SM.

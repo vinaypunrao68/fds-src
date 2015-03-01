@@ -265,7 +265,7 @@ class TestVerifyDMStaticMigration(TestCase.FDSTestCase):
         self.passedNode2 = node2
         self.passedVolume = volume
 
-    @TestCase.expectedFailure
+    @TestCase.expectedFailure("FS-810")
     def test_VerifyDMStaticMigration(self):
         """
         Test Case:
@@ -411,7 +411,7 @@ class TestVerifySMStaticMigration(TestCase.FDSTestCase):
         # Capture stdout from smchk for node1.
         #
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout1 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --full-check) \"' %
+        status, stdout1 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --full-check -o -a) \"' %
                                                 (bin_dir, fds_dir1), return_stdin=True)
 
         if status != 0:
@@ -420,7 +420,7 @@ class TestVerifySMStaticMigration(TestCase.FDSTestCase):
             return False
 
         # Now capture stdout from smchk for node2.
-        status, stdout2 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --full-check) \"' %
+        status, stdout2 = n1.nd_agent.exec_wait('bash -c \"(nohup %s/smchk --fds-root=%s --full-check -o -a) \"' %
                                                 (bin_dir, fds_dir2), return_stdin=True)
 
         if status != 0:

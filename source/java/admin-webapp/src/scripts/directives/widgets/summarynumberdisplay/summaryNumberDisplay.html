@@ -4,8 +4,13 @@
         <div class="dot" ng-repeat="item in data" ng-class="{ filled : $index === visibleIndex }" ng-click="dotClicked( $index )"></div>
     </div>
     
-    <div class="flex" style="flex-wrap: nowrap;">
-        <div class="main-number" ng-style="{ 'min-width': numberMinWidth }">{{data[visibleIndex].wholeNumber}}</div>
+    <div class="flex items-parent" style="flex-wrap: nowrap;">
+        <div class="icon-parent" ng-show="data[visibleIndex].iconClass">
+            <i class="{{data[visibleIndex].iconClass}} icon-style" ng-style="{ color: getIconColor() }"></i>
+        </div>
+        <div class="main-number" ng-style="{ 'min-width': numberMinWidth }">
+            {{data[visibleIndex].wholeNumber}}
+        </div>
         <div class="decimals" ng-style="{ 'min-width': decimalMinWidth }">
             <span ng-show="data[visibleIndex].decimals > 0">{{ separator }}{{data[visibleIndex].decimals}}</span>
             <span>{{data[visibleIndex].suffix}}</span>

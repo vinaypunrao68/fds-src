@@ -7,13 +7,6 @@
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
-			},
-			{
-				"name" : "TestGigabyteBlobSize",
-				"file" : "test_gigabyte_blob_size.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
 			}
 		]
 	}

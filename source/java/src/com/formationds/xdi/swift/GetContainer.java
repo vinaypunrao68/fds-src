@@ -3,9 +3,9 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ApiException;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;

@@ -7,6 +7,7 @@
 
 #include <list>
 #include <utility>
+#include <leveldb/db.h>
 #include <boost/shared_ptr.hpp>
 
 namespace leveldb
@@ -20,17 +21,31 @@ namespace fds
 struct ObjMetaData;
 namespace metadata
 {
-
 template<typename T>
 using output_type = std::list<T>;
 using elem_type = boost::shared_ptr<ObjMetaData>;
 using metadata_diff_type = output_type<std::pair<elem_type, elem_type>>;
+
+/*
+ * Diff function for diffing the leveldbs 
+ * inited out of persistent SM snapshots.
+ */
+void
+diff(leveldb::DB* dbFromFirstSnap,
+     leveldb::DB* dbFromSecondSnap,
+     metadata_diff_type& diff);
 
 void
 diff(leveldb::DB* db,
      leveldb::Snapshot const* lhs,
      leveldb::Snapshot const* rhs,
      metadata_diff_type& diff);
+
+
+void
+diffSnapshots(leveldb::Iterator *l_it,
+              leveldb::Iterator *r_it,
+              metadata_diff_type& diff);
 
 }  // namespace metadata
 }  // namespace fds

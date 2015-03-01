@@ -1,0 +1,20 @@
+{
+	"test_sets" : {
+		"test_basic_op" : [
+			{
+				"name" : "TestCreateThreehundredObjectVolumes",
+				"file" : "Test300VolsObj.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateThreehundredBlockVolumes",
+				"file" : "test300VolsBlock.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}
+		]
+	}
+}

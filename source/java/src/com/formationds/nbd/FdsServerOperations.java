@@ -2,6 +2,8 @@ package com.formationds.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobListOrder;
 import io.netty.buffer.ByteBuf;
@@ -24,13 +26,13 @@ public class FdsServerOperations implements NbdServerOperations {
 
     public static final String BLOCK_DEV_NAME = "block_dev_0";
     public static final String FDS = "fds";
-    private AmService.Iface am;
+    private XdiService.Iface am;
     private ConfigurationService.Iface config;
     private final Executor executor;
     private final Map<String, Integer> volumeObjectSizes;
     private final Map<String, Long> volumeCapacity;
 
-    public FdsServerOperations(AmService.Iface am, ConfigurationService.Iface config, Executor executor) throws TException {
+    public FdsServerOperations(XdiService.Iface am, ConfigurationService.Iface config, Executor executor) throws TException {
         this.am = am;
         this.config = config;
         this.executor = executor;
@@ -38,7 +40,7 @@ public class FdsServerOperations implements NbdServerOperations {
         volumeCapacity = new ConcurrentHashMap<>();
     }
 
-    public FdsServerOperations(AmService.Iface am, ConfigurationService.Iface config) throws TException {
+    public FdsServerOperations(XdiService.Iface am, ConfigurationService.Iface config) throws TException {
         this(am, config, null);
     }
 

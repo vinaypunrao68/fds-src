@@ -3,15 +3,14 @@
  */
 #include <DataMgr.h>
 #include <net/net-service-tmpl.hpp>
-#include <fdsp_utils.h>
 #include <DMSvcHandler.h>
 #include <dm-platform.h>
 #include <StatStreamAggregator.h>
+#include "fdsp/sm_service_types.h"
 
 namespace fds {
 DMSvcHandler::DMSvcHandler()
 {
-    REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
     /* DM to DM service messages */
@@ -192,40 +191,6 @@ void DMSvcHandler::createVolumeClone(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                   createVolumeCloneResp);
 }
 
-void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                       boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg)
-{
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*delcatMsg));
-    /*
-     * allocate a new query cat log  class and  queue  to per volume queue.
-     */
-    auto dmDelCatReq = new DmIoDeleteCat(delcatMsg->volume_id,
-                                         delcatMsg->blob_name,
-                                         delcatMsg->blob_version);
-    dmDelCatReq->dmio_deletecat_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::deleteCatalogObjectCb, asyncHdr);
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmDelCatReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmDelCatReq));
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue Delete Catalog request "
-                << logString(*asyncHdr) << logString(*delcatMsg);
-        dmDelCatReq->dmio_deletecat_resp_cb(err, dmDelCatReq);
-    }
-}
-
-void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                         const Error &e, DmIoDeleteCat *req)
-{
-    LOGDEBUG << logString(*asyncHdr);
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::DeleteCatalogObjectRspMsg delcatRspMsg;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(DeleteCatalogObjectRspMsg), delcatRspMsg);
-
-    delete req;
-}
-
 /**
  * Destination handler for receiving a VolsyncStateMsg (rsync has finished).
  *
@@ -284,8 +249,37 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
     LOGNOTIFY << "OMClient received new DLT commit version  "
               << dlt->dlt_data.dlt_type;
-    err = dataMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
-    hdr->msg_code = err.GetErrno();
+
+    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    err = dltMgr->addSerializedDLT(dlt->dlt_data.dlt_data,
+                                   std::bind(
+                                       &DMSvcHandler::NotifyDLTUpdateCb,
+                                       this, hdr, dlt,
+                                       std::placeholders::_1),
+                                   dlt->dlt_data.dlt_type);
+    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
+        // added DLT
+        dltMgr->dump();
+    } else {
+        LOGERROR << "Failed to update DLT! Check dlt_data was set " << err;
+    }
+
+    // send response right away on error or if there is no IO pending for
+    // the previous DLT
+    if (err != ERR_DLT_IO_PENDING) {
+        NotifyDLTUpdateCb(hdr, dlt, err);
+    }
+    // else we will get a callback from DLT manager when there are no more
+    // IO pending for the previous DLT, and then we will send response
+}
+
+void
+DMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                                boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
+                                const Error                                 &err) {
+    LOGDEBUG << "Sending response for DLT version " << dlt->dlt_data.dlt_type
+             << " "  << err;
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
 }
 

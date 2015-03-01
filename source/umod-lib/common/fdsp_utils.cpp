@@ -1,11 +1,12 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2014-2015 Formation Data Systems, Inc.
  */
 
 #include <string>
 #include <fdsp_utils.h>
 #include <fdsp/am_service_types.h>
 #include <fdsp/dm_service_types.h>
+#include <fdsp/sm_service_types.h>
 #include <fds_resource.h>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -107,7 +108,7 @@ std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& 
 {
     std::ostringstream oss;
     oss << " CtrlObjectMetaDataPropagate for object " << ObjectID(msg.objectID.digest)
-	<< " reconcile " << msg.isObjectMetaDataReconcile
+	    << " reconcile " << msg.objectReconcileFlag
         << " refcnt " << msg.objectRefCnt
         << " objectCompressType " << msg.objectCompressType
         << " objectCompressLen " << msg.objectCompressLen
@@ -116,6 +117,20 @@ std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& 
         << " objectFlags " << (fds_uint16_t)msg.objectFlags
         << " objectExpireTime" << msg.objectExpireTime << std::endl;
     for (auto volAssoc : msg.objectVolumeAssoc) {
+        oss << "CtrlObjectMetaDataPropagate vol assoc "
+            << std::hex << volAssoc.volumeAssoc << std::dec
+            << " refcnt " << volAssoc.volumeRefCnt;
+    }
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataSync& msg)
+{
+    std::ostringstream oss;
+    oss << " CtrlObjectMetaDataSync for object " << ObjectID(msg.objectID.digest)
+        << " refcnt " << msg.objRefCnt << std::endl;
+
+    for (auto volAssoc : msg.objVolAssoc) {
         oss << "CtrlObjectMetaDataPropagate vol assoc "
             << std::hex << volAssoc.volumeAssoc << std::dec
             << " refcnt " << volAssoc.volumeRefCnt;
@@ -169,19 +184,6 @@ std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
 {
     std::ostringstream oss;
     oss < " CommitBlobTxMs";
-    return oss.str();
-}
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delcatMsg)
-{
-    std::ostringstream oss;
-    oss < " DeleteCatalogObjectMsg";
-    return oss.str();
-}
-
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delcatRspMsg)
-{
-    std::ostringstream oss;
-    oss < " DeleteCatalogObjectRspMsg";
     return oss.str();
 }
 

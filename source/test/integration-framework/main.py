@@ -53,7 +53,7 @@ class Operation(object):
 
         # create the test suit runner
         self.runner = xmlrunner.XMLTestRunner(output=self.log_dir)
-
+        utils.create_test_files_dir()
         # Get the ip address of the OM
         if self.args.ipaddress is not None:
                 self.om_ip_address = self.args.ipaddress
@@ -160,7 +160,7 @@ class Operation(object):
                 self.logger.info("Creating %s" % testset_path)
                 os.makedirs(testset_path)
             else:
-                self.logger.info("%s already esists. Skipping." % testset_path)
+                self.logger.info("%s already exists. Skipping." % testset_path)
 
             self.test_sets.append(current_ts)
 

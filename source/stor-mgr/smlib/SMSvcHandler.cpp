@@ -3,7 +3,6 @@
  */
 #include <StorMgr.h>
 #include <net/net-service-tmpl.hpp>
-#include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
 // #include <platform/flags_map.h>
@@ -21,6 +20,10 @@
 namespace fds {
 
 extern ObjectStorMgr    *objStorMgr;
+extern std::string logString(const FDS_ProtocolInterface::AddObjectRefMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetObjectMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& msg);
 
 SMSvcHandler::SMSvcHandler()
 {
@@ -52,7 +55,6 @@ SMSvcHandler::SMSvcHandler()
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartMigration, StartMigration);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
@@ -70,31 +72,7 @@ SMSvcHandler::SMSvcHandler()
 void
 SMSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                         boost::shared_ptr<std::string>& payload) {
-    // Requests to SM are relative to a DLT table that maps which
-    // SMs are responsible for which objects. If the DLT version
-    // being used by the sender is stale then this may not be the
-    // correct SM to contact. We know if other version are stale if
-    // our current version has been closed (see OM table propagation
-    // protocol). If we don't have a DLT version yet then have SM process
-    // the request.
-    // TODO(Andrew): For now, ignore the DLT version for messages from
-    // the OM because it's not easy for the OM to properly set the
-    // version (it doesn't have a DLTManagerPtr to set).
-    const DLT *curDlt = objStorMgr->getDLT();
-    if ((gl_OmUuid != header->msg_src_uuid) &&
-        (curDlt) &&
-        (curDlt->isClosed()) &&
-        (curDlt->getVersion() > (fds_uint64_t)header->dlt_version)) {
-        // Tell the sender that their DLT version is invalid.
-        LOGDEBUG << "Returning DLT mismatch using version "
-                 << (fds_uint64_t)header->dlt_version << " with current closed version "
-                 << curDlt->getVersion();
-
-        header->msg_code = ERR_IO_DLT_MISMATCH;
-        sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg());
-    } else {
-        PlatNetSvcHandler::asyncReqt(header, payload);
-    }
+    PlatNetSvcHandler::asyncReqt(header, payload);
 }
 
 void
@@ -215,12 +193,9 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                          asyncHdr->msg_src_uuid,
                                                          dlt->getNumBitsForToken());
 
-    // TODO(Anna) if we get an error, we should respond with error
-    // on a non-error case, we are not going to send responses
-    // beta 2: any migration error --> log, stop migration, and respond to OM
-    // with error
-    // TODO(Anna) respond with error in the next check in, for now asserting
-    fds_verify(err.ok());
+    // respond with error code
+    asyncHdr->msg_code = err.GetErrno();
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
 void
@@ -259,23 +234,6 @@ void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::ShutdownMODMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message... shuttting down...";
     objStorMgr->~ObjectStorMgr();
-}
-
-void SMSvcHandler::StartMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
-        boost::shared_ptr<fpi::CtrlStartMigration>& startMigration) {
-    LOGDEBUG << "Start migration handler called";
-
-    // TODO(brian): Do we need a write lock here?
-    DLTManagerPtr dlt_mgr = objStorMgr->omClient->getDltManager();
-    dlt_mgr->addSerializedDLT(startMigration->dlt_data.dlt_data,
-            startMigration->dlt_data.dlt_type);
-
-    LOGDEBUG << "Added serialized dlt to dlt mgr; sending async response";
-    fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
-    msg->status.DLT_version = objStorMgr->omClient->getDltVersion();
-    msg->status.context = 0;
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyMigrationStatus), *msg);
-    LOGDEBUG << "Async response sent";
 }
 
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -423,6 +381,29 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          getReq->getVolId(), getReq->perfNameStr);
     }
 
+    // Independent if error happend, check if this request matches
+    // currently closed DLT version. If not, we cannot guarantee that
+    // successessful get was in fact successful.
+    //
+    // Requests to SM are relative to a DLT table that maps which
+    // SMs are responsible for which objects. If the DLT version
+    // being used by the sender is stale then this may not be the
+    // correct SM to contact. We know if other version are stale if
+    // our current version has been closed (see OM table propagation
+    // protocol). If we don't have a DLT version yet then have SM process
+    // the request.
+    const DLT *curDlt = objStorMgr->getDLT();
+    if ((curDlt) &&
+        (curDlt->isClosed()) &&
+        (curDlt->getVersion() > (fds_uint64_t)asyncHdr->dlt_version)) {
+        // Tell the sender that their DLT version is invalid.
+        LOGDEBUG << "Returning DLT mismatch using version "
+                 << (fds_uint64_t)asyncHdr->dlt_version << " with current closed version "
+                 << curDlt->getVersion();
+
+        asyncHdr->msg_code = ERR_IO_DLT_MISMATCH;
+    }
+
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
     delete getReq;
 }
@@ -522,6 +503,34 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+
+    // Independent if error happend, check if this request matches
+    // currently closed DLT version. This should not happen, but if
+    // it did, we may end up with incorrect object refcount.
+    // TODO(Anna) If we see this error happening, we will have to
+    // process DLT close by taking write lock on object store
+    // (i.e. object store must not process any IO)
+    //
+    // Requests to SM are relative to a DLT table that maps which
+    // SMs are responsible for which objects. If the DLT version
+    // being used by the sender is stale then this may not be the
+    // correct SM to contact. We know if other version are stale if
+    // our current version has been closed (see OM table propagation
+    // protocol). If we don't have a DLT version yet then have SM process
+    // the request.
+    const DLT *curDlt = objStorMgr->getDLT();
+    if ((curDlt) &&
+        (curDlt->isClosed()) &&
+        (curDlt->getVersion() > (fds_uint64_t)asyncHdr->dlt_version)) {
+        // Tell the sender that their DLT version is invalid.
+        LOGCRITICAL << "Returning DLT mismatch using version "
+                    << (fds_uint64_t)asyncHdr->dlt_version
+                    << " with current closed version "
+                    << curDlt->getVersion();
+
+        asyncHdr->msg_code = ERR_IO_DLT_MISMATCH;
+    }
+
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::PutObjectRspMsg), *resp);
 
     if ((objStorMgr->testUturnAll == true) ||
@@ -599,6 +608,34 @@ void SMSvcHandler::deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto resp = boost::make_shared<fpi::DeleteObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+
+    // Independent if error happend, check if this request matches
+    // currently closed DLT version. This should not happen, but if
+    // it did, we may end up with incorrect object refcount.
+    // TODO(Anna) If we see this error happening, we will have to
+    // process DLT close by taking write lock on object store
+    // (i.e. object store must not process any IO)
+    //
+    // Requests to SM are relative to a DLT table that maps which
+    // SMs are responsible for which objects. If the DLT version
+    // being used by the sender is stale then this may not be the
+    // correct SM to contact. We know if other version are stale if
+    // our current version has been closed (see OM table propagation
+    // protocol). If we don't have a DLT version yet then have SM process
+    // the request.
+    const DLT *curDlt = objStorMgr->getDLT();
+    if ((curDlt) &&
+        (curDlt->isClosed()) &&
+        (curDlt->getVersion() > (fds_uint64_t)asyncHdr->dlt_version)) {
+        // Tell the sender that their DLT version is invalid.
+        LOGCRITICAL << "Returning DLT mismatch using version "
+                    << (fds_uint64_t)asyncHdr->dlt_version
+                    << " with current closed version "
+                    << curDlt->getVersion();
+
+        asyncHdr->msg_code = ERR_IO_DLT_MISMATCH;
+    }
+
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::DeleteObjectRspMsg), *resp);
 
     if (del_req) {
@@ -834,6 +871,10 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // DLT tokens that are no longer belong to this SM. We want to make
     // sure we garbage collect only when DLT is closed
     objStorMgr->omClient->setCurrentDLTClosed();
+
+    // Store the current DLT to the presistent storage to be used
+    // by offline smcheck.
+    objStorMgr->storeCurrentDLT();
 
     // re-enable GC and Tier Migration
     // If this SM did not receive start migration or rebalance

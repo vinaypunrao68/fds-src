@@ -14,6 +14,9 @@
     - name: add fds repo
       apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main" state=present
 
+    - name: add fds nightly repo
+      apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly" state=present
+
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
 
@@ -37,8 +40,10 @@
       apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
       with_items:
         - automake
+        - binutils-dev
         - cmake
         - cpanminus
+        - fds-deps
         - git
         - linux-generic
         - linux-headers-generic

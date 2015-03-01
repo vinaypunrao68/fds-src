@@ -24,7 +24,9 @@ class SMChkDriver : public FdsProcess {
     fds::SmDiskMap::ptr smDiskMap;
     fds::ObjectDataStore::ptr smObjStore;
     fds::ObjectMetadataDb::ptr smMdDb;
-    int sm_count;
+    bool verbose;
+    bool ownershipCheck;
+    bool checkOnlyActive;
 };
 }  // namespace fds
 
