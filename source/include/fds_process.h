@@ -187,6 +187,8 @@ class FdsProcess : public boost::noncopyable,
         return proc_thrp;
     }
 
+    virtual util::Properties* getProperties();
+
 
  protected:
     // static members/methods
@@ -209,6 +211,8 @@ class FdsProcess : public boost::noncopyable,
 
     /* Process wide config accessor */
     FdsConfigAccessor conf_helper_;
+
+    util::Properties properties;
 
     /* Process wide counters manager */
     boost::shared_ptr<FdsCountersMgr> cntrs_mgrPtr_;

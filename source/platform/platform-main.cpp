@@ -5,18 +5,48 @@
 #include <stdlib.h>
 #include <string>
 #include <iostream>  // NOLINT
-#include <net/net-service.h>
+#include <fds_process.h>
 
-#include "node_platform.h"
-#include "node_platform_process.h"
-#include "disk_plat_module.h"
-#include "platform_net_svc.h"
+#include <fdsp/fds_service_types.h>
+#include <net/SvcProcess.h>
+#include <platform/platformmanager.h>
+#include <platform/svchandler.h>
 
-int main(int argc, char **argv)
-{
-    fds::Module *plat_vec[] = { &fds::gl_NodePlatform, &fds::gl_DiskPlatMod, &fds::gl_NetService,
-                                &fds::gl_PlatformdNetSvc, NULL };
-    fds::NodePlatformProc plat(argc, argv, plat_vec);
+namespace fds {
 
-    return plat.main();
+class PlatformMain : public SvcProcess {
+  public:
+    PlatformMain(int argc, char *argv[]) {
+        platform = new fds::pm::PlatformManager();
+        /* Create the dependency vector */
+        static fds::Module *modules[] = {
+            platform,
+            NULL
+        };
+
+        closeAllFDs();
+
+        init<fds::pm::SvcHandler, fpi::PlatNetSvcProcessor>(argc, argv, "platform.conf",
+                                                            "fds.pm.", "pm.log", modules);
+        /* Daemonize */
+        fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.pm.testing.test_mode", false);
+        if (noDaemon == false) {
+            daemonize();
+        }
+    }
+
+    virtual int run() {
+        return platform->run();
+    }
+  protected:
+    fds::pm::PlatformManager* platform;
+
+};
+} // namespace fds
+
+int main(int argc, char **argv) {
+    auto pmMain = new fds::PlatformMain(argc, argv);
+    auto ret = pmMain->main();
+    delete pmMain;
+    return ret;
 }

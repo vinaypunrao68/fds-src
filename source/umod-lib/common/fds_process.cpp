@@ -153,7 +153,7 @@ void FdsProcess::init(int argc, char *argv[],
         setup_timer_service();
 
         /* if graphite is enabled, setup graphite task to dump counters */
-        if (conf_helper_.get<bool>("enable_graphite")) {
+        if (conf_helper_.get<bool>("enable_graphite",false)) {
             /* NOTE: Timer service will be setup as well */
             setup_graphite();
         }
@@ -167,7 +167,7 @@ void FdsProcess::init(int argc, char *argv[],
     }
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
-        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
+        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","NORMAL")));
 
     /* detect the core file size limit and print to log */
     struct rlimit crlim;
@@ -479,6 +479,10 @@ void FdsProcess::daemonize() {
     signal(SIGTTIN, SIG_IGN);
     signal(SIGHUP , SIG_IGN);
     // signal(SIGTERM,signal_handler);
+}
+
+util::Properties* FdsProcess::getProperties() {
+    return &properties;
 }
 
 fds_log* HasLogger::GetLog() const {

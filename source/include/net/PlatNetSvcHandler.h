@@ -58,6 +58,12 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg);  // NOLINT
     virtual void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg);  // NOLINT
 
+    virtual void getProperty(std::string& _return, const std::string& name);
+    virtual void getProperty(std::string& _return, boost::shared_ptr<std::string>& name);
+    virtual void getProperties(std::map<std::string, std::string> & _return, const int32_t nullarg);  // NOLINT
+    virtual void getProperties(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg);   // NOLINT
+
+
     virtual bool setFault(const std::string& command);
     virtual bool setFault(boost::shared_ptr<std::string>& command);  // NOLINT
     void getStatus(fpi::AsyncHdrPtr &header,
