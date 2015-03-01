@@ -38,19 +38,14 @@ class TestDomainActivate(TestCase.FDSTestCase):
 
         n = fdscfg.rt_om_node
         fds_dir = n.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
         self.log.info("Activate domain starting %s services on each node." % self.passedServices)
 
-        cur_dir = os.getcwd()
-        os.chdir(bin_dir)
-
         status = n.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e %s > '
                                       '%s/cli.out 2>&1) \"' %
-                                      (fds_dir, self.passedServices, log_dir if n.nd_agent.env_install else "."))
-
-        os.chdir(cur_dir)
+                                      (fds_dir, self.passedServices, log_dir),
+                                      fds_bin=True)
 
         if status != 0:
             self.log.error("Domain activation on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
@@ -59,7 +54,7 @@ class TestDomainActivate(TestCase.FDSTestCase):
         # After activation we should be able to spin through our nodes to obtain
         # some useful information about them.
         for n in fdscfg.rt_obj.cfg_nodes:
-            status = n.nd_populate_metadata(_bin_dir=bin_dir)
+            status = n.nd_populate_metadata()
             if status != 0:
                 break
 
@@ -170,10 +165,9 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
         om_node = fdscfg.rt_om_node
         fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
         nodes = fdscfg.rt_obj.cfg_nodes
 
         for n in nodes:
@@ -183,7 +177,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
             # If we're asked to activate nodes, we should be able to spin through our nodes to obtain
             # some useful information about them.
-            status = n.nd_populate_metadata(_bin_dir=bin_dir)
+            status = n.nd_populate_metadata()
             if status != 0:
                 self.log.error("Getting meta-data for node %s returned status %d." %
                                (n.nd_conf_dict['node-name'], status))
@@ -199,15 +193,10 @@ class TestNodeActivate(TestCase.FDSTestCase):
             if services != '':
                 self.log.info("Activate services %s for node %s." % (services, n.nd_conf_dict['node-name']))
 
-                cur_dir = os.getcwd()
-                os.chdir(bin_dir)
-
                 status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-services abc -k 1 -w %s -e %s > '
-                                              '%s/cli.out 2>&1) \"' %
-                                              (fds_dir, int(n.nd_uuid, 16), services,
-                                               log_dir if n.nd_agent.env_install else "."))
-
-                os.chdir(cur_dir)
+                                                    '%s/cli.out 2>&1) \"' %
+                                                    (fds_dir, int(n.nd_uuid, 16), services, log_dir),
+                                                    fds_bin=True)
 
             # By handling AM separately in a multi-node environment,
             # we avoid FS-879.

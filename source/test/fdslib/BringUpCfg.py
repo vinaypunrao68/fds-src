@@ -60,6 +60,13 @@ class FdsNodeConfig(FdsConfig):
             else:
                 self.nd_local = False
 
+                # In this case, the deployment scripts always sets "/fds" as fds_root
+                # regardless of test configuration.
+                self.nd_conf_dict['fds_root'] = '/fds'
+
+                # Additionally, we always need to boot Redis for a non-local node.
+                self.nd_conf_dict['redis'] = 'true'
+
     ###
     # Establish ssh connection with the remote node.  After this call, the obj
     # can use nd_agent to send ssh commands to the remote node.
@@ -97,20 +104,27 @@ class FdsNodeConfig(FdsConfig):
             else:
                 self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
 
-            # Set the default user ID from the Environment.
-            self.nd_agent.env_user = env.env_user
-            self.nd_agent.env_password = env.env_password
-            self.nd_agent.env_sudo_password = env.env_sudo_password
+            # A package install or deployment unconfigurably uses
+            # ID root/passwd.
+            if self.nd_agent.env_install:
+                self.nd_agent.env_user = 'root'
+                self.nd_agent.env_password = 'passwd'
+                self.nd_agent.env_sudo_password = 'passwd'
+            else:
+                # Set the default user ID from the Environment.
+                self.nd_agent.env_user = env.env_user
+                self.nd_agent.env_password = env.env_password
+                self.nd_agent.env_sudo_password = env.env_sudo_password
 
-            # Pick up anything configured for the node.
-            if 'user_name' in self.nd_conf_dict:
-                self.nd_agent.env_user = self.nd_conf_dict['user_name']
+                # Pick up anything configured for the node.
+                if 'user_name' in self.nd_conf_dict:
+                    self.nd_agent.env_user = self.nd_conf_dict['user_name']
 
-            if 'password' in self.nd_conf_dict:
-                self.nd_agent.env_password = self.nd_conf_dict['password']
+                if 'password' in self.nd_conf_dict:
+                    self.nd_agent.env_password = self.nd_conf_dict['password']
 
-            if 'sudo_password' in self.nd_conf_dict:
-                self.nd_agent.env_sudo_password = self.nd_conf_dict['sudo_password']
+                if 'sudo_password' in self.nd_conf_dict:
+                    self.nd_agent.env_sudo_password = self.nd_conf_dict['sudo_password']
         else:
             self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
 
@@ -193,11 +207,9 @@ class FdsNodeConfig(FdsConfig):
             print "\nStart OM in", self.nd_host_name()
 
             if test_harness:
-                cur_dir = os.getcwd()
-                os.chdir(bin_dir)
                 status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
-                                                 (fds_dir, log_dir if self.nd_agent.env_install else "."))
-                os.chdir(cur_dir)
+                                                 (fds_dir, log_dir),
+                                                 fds_bin=True)
             else:
                 status = self.nd_agent.ssh_exec_fds(
                     "orchMgr --fds-root=%s > %s/om.out" % (fds_dir, log_dir))
@@ -241,12 +253,10 @@ class FdsNodeConfig(FdsConfig):
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
         if test_harness:
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
             status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.%s.out 2>&1 &) \"' %
-                                            (fds_dir, log_dir if self.nd_agent.env_install else ".",
-                                             port))
-            os.chdir(cur_dir)
+                                            #(bin_dir, fds_dir, log_dir if self.nd_agent.env_install else ".",
+                                            (fds_dir, log_dir, port),
+                                             fds_bin=True)
         else:
             self.nd_agent.exec_wait('bash -c \"(rm -rf /dev/shm/0x*)\"')
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
@@ -260,7 +270,7 @@ class FdsNodeConfig(FdsConfig):
     ###
     # Capture the node's assigned name and UUID.
     #
-    def nd_populate_metadata(self, _bin_dir=None):
+    def nd_populate_metadata(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
 
         if 'fds_port' in self.nd_conf_dict:
@@ -270,18 +280,11 @@ class FdsNodeConfig(FdsConfig):
 
         fds_dir = self.nd_conf_dict['fds_root']
 
-        if _bin_dir is None:
-            bin_dir = fds_dir + '/bin'
-        else:
-            bin_dir = _bin_dir
-
         # From the --list-services output we can determine node name
         # and node UUID.
-        cur_dir = os.getcwd()
-        os.chdir(bin_dir)
         status, stdout = self.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root=%s --list-services) \"' % (fds_dir),
-                                                 return_stdin=True)
-        os.chdir(cur_dir)
+                                                 return_stdin=True,
+                                                 fds_bin=True)
 
         if status == 0:
             for line in stdout.split('\n'):
@@ -295,8 +298,12 @@ class FdsNodeConfig(FdsConfig):
                         self.nd_uuid = uuid
                         break
 
-            log.debug("Node %s has assigned name %s and UUID 0x%s." %
-                      (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
+            if (self.nd_assigned_name is None) or (self.nd_uuid is None):
+                log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
+                status = -1
+            else:
+                log.debug("Node %s has assigned name %s and UUID 0x%s." %
+                          (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
         else:
             log.error("status = %s" % status)
             log.error(stdout)

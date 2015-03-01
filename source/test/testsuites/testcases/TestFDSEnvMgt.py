@@ -50,6 +50,18 @@ class TestFDSInstall(TestCase.FDSTestCase):
             # Are we installing from a deployable package or a development environment?
             if n.nd_agent.env_install:
                 installResult = self.fromPkg(n)
+
+                # TODO(Greg): An assumption here that if one node is to be installed from a package, they all are.
+                if installResult == False:
+                    self.log.error("FDS installation on node %s failed." %
+                                   (n.nd_conf_dict['node-name']))
+                    return False
+                elif self.passedNode is not None:
+                    # If we were passed a specific node, just take care
+                    # of that one and exit.
+                    return True
+
+                break
             else:
                 installResult = self.fromDev(n)
 
@@ -165,13 +177,27 @@ class TestFDSInstall(TestCase.FDSTestCase):
         # Generate the inventory file.
         print os.getcwd()
         templateDir = fdscfg.rt_env.get_fds_source() + "test/testsuites/templates/"
-
-        localhost = fdscfg.rt_get_obj('cfg_localhost')
         tempInventory = tempfile.NamedTemporaryFile()
-        status = localhost.nd_agent.exec_wait('sed -e "s/<ip>/%s/" -e "1,$w %s" %s ' %
-                                             (node.nd_conf_dict['ip'],
-                                              tempInventory.name,
-                                              templateDir + install.nd_conf_dict['inventory-template']))
+
+        # Place the IP address or DNS name of the host machine.
+        # Please the IP address or DNS name of the OM node.
+        om_node = fdscfg.rt_om_node
+        localhost = fdscfg.rt_get_obj('cfg_localhost')
+        if node.nd_conf_dict['ip'] == om_node.nd_conf_dict['ip']:
+            status = localhost.nd_agent.exec_wait('sed -e "s/<ip>//g" '
+                                                  '-e "s/<om_ip>/%s/g" '
+                                                  '-e "1,$w %s" %s ' %
+                                                 (om_node.nd_conf_dict['ip'],
+                                                  tempInventory.name,
+                                                  templateDir + install.nd_conf_dict['inventory-template']))
+        else:
+            status = localhost.nd_agent.exec_wait('sed -e "s/<ip>/%s/g" '
+                                                  '-e "s/<om_ip>/%s/g" '
+                                                  '-e "1,$w %s" %s ' %
+                                                 (node.nd_conf_dict['ip'],
+                                                  om_node.nd_conf_dict['ip'],
+                                                  tempInventory.name,
+                                                  templateDir + install.nd_conf_dict['inventory-template']))
 
         if status != 0:
             self.log.error("Ansible inventory file generation failed.")
@@ -188,11 +214,12 @@ class TestFDSInstall(TestCase.FDSTestCase):
         cur_dir = os.getcwd()
         os.chdir(install.nd_conf_dict['deploy-script-dir'])
 
-        # Run the installation.
-        status = localhost.nd_agent.exec_wait('./%s %s %s ' %
+        # Run the installation. Let's log the stdout contents.
+        status, stdout = localhost.nd_agent.exec_wait('./%s %s %s ' %
                                              (install.nd_conf_dict['deploy-script'],
                                               tempInventory.name,
-                                              install.nd_conf_dict['deb-location']))
+                                              install.nd_conf_dict['deb-location']),
+                                              return_stdin=True)
         tempInventory.close()
 
         os.chdir(cur_dir)
@@ -201,6 +228,9 @@ class TestFDSInstall(TestCase.FDSTestCase):
             self.log.error("FDS package installation on node %s returned status %d." %
                            (node.nd_conf_dict['node-name'], status))
             return False
+
+        for line in stdout.splitlines():
+            self.log.info("[%s] %s" % (node.nd_conf_dict['ip'], line))
 
         return True
 
@@ -383,14 +413,6 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
-        # based on an install or a development environment. For now, we check for an install
-        # directory structure for Redis support. If not there, we assume a development environment.
-        if fdscfg.rt_env.env_install:
-            sbin_dir = fdscfg.rt_env.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         # If we were passed a node, use it and get out. Otherwise,
         # we use the one captured as the OM node during config parsing.
         if self.passedNode is not None:
@@ -398,27 +420,34 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        self.log.info("Restart Redis clean on %s." %n.nd_conf_dict['node-name'])
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        self.log.info("Restart Redis clean on %s." % n.nd_conf_dict['node-name'])
 
         status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
         time.sleep(2)
 
         if status != 0:
-            self.log.error("Restart Redis before clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            self.log.error("Restart Redis before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
         status = n.nd_agent.exec_wait("%s/redis.sh clean" % sbin_dir)
         time.sleep(2)
 
         if status != 0:
-            self.log.error("Clean Redis on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            self.log.error("Clean Redis on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
         status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
         time.sleep(2)
 
         if status != 0:
-            self.log.error("Restart Redis after clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            self.log.error("Restart Redis after clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
         return True
@@ -449,20 +478,19 @@ class TestBootRedis(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
-        # based on an install or a development environment. For now, we check for an install
-        # directory structure for Redis support. If not there, we assume a development environment.
-        if fdscfg.rt_env.env_install:
-            sbin_dir = fdscfg.rt_env.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         # If we were passed a node, use it and get out. Otherwise,
         # we use the one captured as the OM node during config parsing.
         if self.passedNode is not None:
             n = self.passedNode
         else:
             n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
         self.log.info("Boot Redis on node %s." %n.nd_conf_dict['node-name'])
 
@@ -502,14 +530,6 @@ class TestShutdownRedis(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
-        # based on an install or a development environment. For now, we check for an install
-        # directory structure for Redis support. If not there, we assume a development environment.
-        if fdscfg.rt_env.env_install:
-            sbin_dir = fdscfg.rt_env.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         # If we were passed a node, use it and get out. Otherwise,
         # we use the one captured as the OM node during config parsing.
         if self.passedNode is not None:
@@ -517,13 +537,20 @@ class TestShutdownRedis(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
         self.log.info("Shutdown Redis on node %s." %n.nd_conf_dict['node-name'])
 
         status = n.nd_agent.exec_wait("%s/redis.sh stop" % sbin_dir)
         time.sleep(2)
 
         if status != 0:
-            self.log.error("Boot Redis on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            self.log.error("Shutdown Redis on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
         return True
@@ -554,20 +581,19 @@ class TestVerifyRedisUp(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
-        # based on an install or a development environment. For now, we check for an install
-        # directory structure for Redis support. If not there, we assume a development environment.
-        if fdscfg.rt_env.env_install:
-            sbin_dir = fdscfg.rt_env.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         # If we were passed a node, use it and get out. Otherwise,
         # we use the one captured as the OM node during config parsing.
         if self.passedNode is not None:
             n = self.passedNode
         else:
             n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
         self.log.info("Verify Redis is up node %s." % n.nd_conf_dict['node-name'])
 
@@ -611,20 +637,19 @@ class TestVerifyRedisDown(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
-        # based on an install or a development environment. For now, we check for an install
-        # directory structure for Redis support. If not there, we assume a development environment.
-        if fdscfg.rt_env.env_install:
-            sbin_dir = fdscfg.rt_env.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         # If we were passed a node, use it and get out. Otherwise,
         # we use the one captured as the OM node during config parsing.
         if self.passedNode is not None:
             n = self.passedNode
         else:
             n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
         self.log.info("Verify Redis is down node %s." % n.nd_conf_dict['node-name'])
 

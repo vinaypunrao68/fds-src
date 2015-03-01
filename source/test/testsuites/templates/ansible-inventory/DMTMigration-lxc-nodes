@@ -1,17 +1,17 @@
 [DMTMigration-lxc-nodes]
-<ip>
+<node1>
+<node2>
 
 [DMTMigration-lxc-nodes:vars]
 clean_fds=yes
+ansible_sudo=true
 ansible_ssh_user=ubuntu
 ansible_ssh_pass=ubuntu
-ansible_sudo=yes
 ansible_sudo_pass=ubuntu
 cluster_location=bld
-#deploy_artifact=nightly
-#fds_default_nic=eth0
-fds_deploy_local_deps=true
-#fds_om_host=10.2.10.190
+fds_default_nic=eth0
+#fds_deploy_local_deps=true
+fds_om_host=<om_ip>
 #fds_metrics_enabled=false
 #fds_metricsdb_ip=192.168.2.1
 #fds_ssh_user=root

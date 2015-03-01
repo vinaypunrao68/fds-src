@@ -5,7 +5,6 @@
 
 # FDS test-case pattern requirements.
 import unittest
-import traceback
 
 import xmlrunner
 import TestCase
@@ -29,7 +28,6 @@ def getSvcPIDforNode(svc, node, javaClass=None):
     """
     log = logging.getLogger('TestFDSModMgt' + '.' + 'getSvcPIDforNode')
 
-    status = 0
     cmd = "pgrep %s" % svc
 
     status, stdout = node.nd_agent.exec_wait(cmd, return_stdin=True)
@@ -44,20 +42,39 @@ def getSvcPIDforNode(svc, node, javaClass=None):
             if len(stdout2) > 0:
                 # We've got the details of the process. Let's see if it is supporting
                 # the node of interest.
-                cmd3 = "grep %s" % node.nd_conf_dict['node-name']
-                status, stdout3 = node.nd_agent.exec_wait(cmd3, return_stdin=True, cmd_input=stdout2)
+                #cmd3 = "grep %s" % node.nd_conf_dict['node-name']
+                #status, stdout3 = node.nd_agent.exec_wait(cmd3, return_stdin=True, cmd_input=stdout2)
 
-                # For java processes, we have also to look for the initial class of execution.
-                if (len(stdout3) > 0) and (svc == "java") and (javaClass is not None):
-                    cmd3_1 = "grep %s" % javaClass
-                    status, stdout3 = node.nd_agent.exec_wait(cmd3_1, return_stdin=True, cmd_input=stdout3)
-                elif (svc == "java") and (javaClass is None):
-                    log.error("When searching for a java process also include the java class name.")
-                    raise Exception
+                if node.nd_agent.env_install:
+                    # For java processes, we have also to look for the initial class of execution.
+                    if (svc == "java") and (javaClass is not None):
+                        if stdout2.count(javaClass) > 0:
+                            return pid
+                    elif (svc == "java") and (javaClass is None):
+                        log.error("When searching for a java process also include the java class name.")
+                        raise Exception
+                    else:
+                        if len(stdout.splitlines()) > 1:
+                            # When the node is installed/deployed from a package,
+                            # we expect only one process-set per service.
+                            log.warning("More %s processes than expected: %s." % (svc, stdout))
 
-                if len(stdout3) > 0:
-                    # Found it!
-                    return pid
+                        return pid
+                else:
+                    # For java processes, we have also to look for the initial class of execution.
+                    #if (len(stdout3) > 0) and (svc == "java") and (javaClass is not None):
+                    if (stdout2.count(node.nd_conf_dict['node-name']) > 0) and (svc == "java") and (javaClass is not None):
+                        #cmd3_1 = "grep %s" % javaClass
+                        #status, stdout3 = node.nd_agent.exec_wait(cmd3_1, return_stdin=True, cmd_input=stdout3)
+                        stdout2 = stdout2 if stdout2.count(javaClass) > 0 else ''
+                    elif (svc == "java") and (javaClass is None):
+                        log.error("When searching for a java process also include the java class name.")
+                        raise Exception
+
+                    #if len(stdout3) > 0:
+                    if stdout2.count(node.nd_conf_dict['node-name']) > 0:
+                        # Found it!
+                        return pid
 
     # Didn't find it.
     return -1
@@ -116,7 +133,6 @@ def modWait(mod, node, forShutdown = False):
         found = False
 
     status = 0
-    cmd = "pgrep %s" % mod
     while (count < maxcount) and ((forShutdown and found) or (not forShutdown and not found)):
         time.sleep(1)
 
@@ -194,8 +210,8 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-            log_dir = fdscfg.rt_env.get_log_dir()
+            bin_dir = n.nd_agent.get_bin_dir(debug=False)
+            log_dir = n.nd_agent.get_log_dir()
 
             # Make sure DM should be running on this node.
             if n.nd_services.count("dm") == 0:
@@ -207,8 +223,9 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
             self.log.info("Start DM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/DataMgr --fds-root=%s > %s/dm.%s.out 2>&1 &) \"' %
-                                          (bin_dir, fds_dir, log_dir, port))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./DataMgr --fds-root=%s > %s/dm.%s.out 2>&1 &) \"' %
+                                          (fds_dir, log_dir, port),
+                                          fds_bin=True)
 
             if status != 0:
                 self.log.error("DM bringup on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -412,8 +429,8 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-            log_dir = fdscfg.rt_env.get_log_dir()
+            bin_dir = n.nd_agent.get_bin_dir(debug=False)
+            log_dir = n.nd_agent.get_log_dir()
 
             # Make sure SM should be running on this node.
             if n.nd_services.count("sm") == 0:
@@ -425,8 +442,9 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
             self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
-                                          (bin_dir, fds_dir, log_dir, port))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
+                                          (fds_dir, log_dir, port),
+                                          fds_bin=True)
 
             if status != 0:
                 self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -620,8 +638,6 @@ class TestPMBringUp(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
         om_node = fdscfg.rt_om_node
         om_ip = om_node.nd_conf_dict['ip']
 
@@ -634,15 +650,18 @@ class TestPMBringUp(TestCase.FDSTestCase):
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMBringUp()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
-                    self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
+                    self.log.info("Skipping OM's PM on %s." % n.nd_conf_dict['node-name'])
                     continue
 
-            self.log.info("Start PM on %s." %n.nd_conf_dict['node-name'])
+            bin_dir = n.nd_agent.get_bin_dir(debug=False)
+            log_dir = n.nd_agent.get_log_dir()
+
+            self.log.info("Start PM on %s." % n.nd_conf_dict['node-name'])
 
             status = n.nd_start_platform(om_ip, test_harness=True, _bin_dir=bin_dir, _log_dir=log_dir)
 
             if status != 0:
-                self.log.error("PM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                self.log.error("PM on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # If we were passed a specific node, just install
@@ -835,9 +854,9 @@ class TestPMForOMBringUp(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
         om_node = fdscfg.rt_om_node
+        bin_dir = om_node.nd_agent.get_bin_dir(debug=False)
+        log_dir = om_node.nd_agent.get_log_dir()
 
         # Start the PM for this OM.
         om_ip = om_node.nd_conf_dict['ip']
@@ -1005,9 +1024,6 @@ class TestOMBringUp(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
-
         # If we were passed a node and it is not the OM node
         # captured during config parsing, just exit.
         if self.passedNode is not None:
@@ -1021,6 +1037,8 @@ class TestOMBringUp(TestCase.FDSTestCase):
 
         if om_node is not None:
             self.log.info("Start OM on %s." % om_node.nd_conf_dict['node-name'])
+            bin_dir = om_node.nd_agent.get_bin_dir(debug=False)
+            log_dir = om_node.nd_agent.get_log_dir()
 
             status = om_node.nd_start_om(test_harness=True, _bin_dir=bin_dir, _log_dir=log_dir)
 
@@ -1119,7 +1137,7 @@ class TestOMKill(TestCase.FDSTestCase):
 
             # Probably we get the -9 return because pkill for a java process will
             # not find it based on the class name alone. See getSvcPIDforNode().
-            if status != -9:
+            if (status != -9) and (status != 0):
                 self.log.error("OM (com.formationds.om.Main) kill on %s returned status %d." %
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
@@ -1202,8 +1220,6 @@ class TestAMBringup(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         nodes = fdscfg.rt_obj.cfg_nodes
 
         for n in nodes:
@@ -1224,13 +1240,13 @@ class TestAMBringup(TestCase.FDSTestCase):
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
+            bin_dir = n.nd_agent.get_bin_dir(debug=False)
+            log_dir = n.nd_agent.get_log_dir()
 
             # The AMAgent script expected to be invoked from the bin directory in which it resides.
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> ./am.%s.out &) \"' %
-                                                     (fds_dir, n.nd_nodeID, port))
-            os.chdir(cur_dir)
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> %s/am.%s.out &) \"' %
+                                          (fds_dir, n.nd_nodeID, log_dir, port),
+                                          fds_bin=True)
 
             if status != 0:
                 self.log.error("AM on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
@@ -1267,19 +1283,15 @@ class TestAMActivate(TestCase.FDSTestCase):
 
         n = fdscfg.rt_om_node
         fds_dir = n.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
+        bin_dir = n.nd_agent.get_bin_dir(debug=False)
+        log_dir = n.nd_agent.get_log_dir()
 
         self.log.info("Activate domain AMs from OM node %s." % n.nd_conf_dict['node-name'])
 
-        cur_dir = os.getcwd()
-        os.chdir(bin_dir)
-
         status = n.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e am > '
                                       '%s/cli.out 2>&1) \"' %
-                                      (fds_dir, log_dir if n.nd_agent.env_install else "."))
-
-        os.chdir(cur_dir)
+                                      (fds_dir, log_dir),
+                                      fds_bin=True)
 
         if status != 0:
             self.log.error("AM activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
