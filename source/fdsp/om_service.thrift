@@ -7,6 +7,7 @@ include "FDSP.thrift"
 include "fds_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol
 
 struct CtrlCreateBucket {
      1: FDSP.FDSP_CreateVolType       cv;
@@ -42,5 +43,5 @@ exception OmRegisterException {
  */
 service OMSvc extends fds_service.PlatNetSvc {
     void registerService(1: fds_service.SvcInfo svcInfo) throws (1: OmRegisterException e);
-    list<fds_service.SvcInfo> getSvcMap(1: i32 nullarg);
+    list<fds_service.SvcInfo> getSvcMap(1: i64 nullarg);
 }

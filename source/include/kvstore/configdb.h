@@ -124,7 +124,10 @@ struct ConfigDB : KVStore {
     bool deleteSnapshot(const int64_t volumeId, const int64_t snapshotId);
     bool setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state);
     bool setSnapshotState(const int64_t volumeId, const int64_t snapshotId, fpi::ResourceState state); //NOLINT
-    bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
+   bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
+
+    
+    // service map 
     bool getSvcMap(fpi::SvcInfo& svcinfo);
     bool listSvcMap(std::vector<fpi::SvcInfo> & vecSvcInfo, const int64_t svcId);
     bool deleteSvcMap(const int64_t svcId);

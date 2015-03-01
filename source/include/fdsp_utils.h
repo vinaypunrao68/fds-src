@@ -58,6 +58,9 @@ FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rh
 FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
 
+FDS_ProtocolInterface::FDSP_Uuid&
+assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs);
+
 void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header);
 
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header);

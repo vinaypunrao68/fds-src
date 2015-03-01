@@ -57,19 +57,26 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
                  boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
 
     /* Overrides from OMSvcIf */
-    virtual void registerService(const SvcInfo& svcInfo) override {}
-    virtual void getSvcMap(std::vector<SvcInfo> & _return, const int32_t nullarg) override {}
-    virtual void registerService(boost::shared_ptr<SvcInfo>& svcInfo) override;
-    virtual void getSvcMap(std::vector<SvcInfo> & _return, boost::shared_ptr<int32_t>& nullarg) override;
+    virtual void registerService(const fpi::SvcInfo& svcInfo);
+    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return, const int64_t nullarg);
+    virtual void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
+    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return, boost::shared_ptr<int64_t>& nullarg);
     void AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                              boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg);
 
+    void setConfigDB(kvstore::ConfigDB* configDB);
+    
   protected:
     OM_NodeDomainMod         *om_mod;
     EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
 
   private:
     void init_svc_event_handlers();
+    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
+                fpi::FDSP_RegisterNodeTypePtr& reg_node_req);
+    
+    kvstore::ConfigDB* configDB = NULL;
+    
 };
 
 }  // namespace fds
