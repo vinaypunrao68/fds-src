@@ -3,6 +3,7 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -50,7 +51,7 @@ public class StreamWriterTest {
         assertArrayEquals(controlDigest, result);
     }
 
-    private class StubAm implements AmService.Iface {
+    private class StubAm implements XdiService.Iface {
         boolean isCommitted = false;
         List<byte[]> objectsWritten = new ArrayList<>();
 

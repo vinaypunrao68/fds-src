@@ -57,7 +57,7 @@ AccessMgr::mod_init(SysParams const *const param) {
         new AsyncDataServer("AM Async Server", instanceId));
     asyncServer->init_server();
 
-    if (!conf.get<bool>("testing.toggleStandAlone")) {
+    if (!conf.get<bool>("testing.standalone")) {
         omConfigApi = boost::make_shared<OmConfigApi>();
     }
 

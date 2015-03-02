@@ -3,7 +3,6 @@
  */
 #include <string>
 #include <dlt.h>
-#include <odb.h>
 #include <PerfTrace.h>
 #include <fds_process.h>
 #include <object-store/SmDiskMap.h>
@@ -114,16 +113,34 @@ void
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
                            leveldb::DB*& db,
                            leveldb::ReadOptions& opts) {
-    osm::ObjectDB *odb = NULL;
+    osm::ObjectDB* odb = nullptr;
+
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
         fds_verify(iter != tokenTbl.end());
         odb = iter->second;
     }
-    fds_verify(odb != NULL);
+    fds_verify(odb != nullptr);
 
     db = odb->GetDB();
     opts.snapshot = db->GetSnapshot();
+}
+
+Error
+ObjectMetadataDb::snapshot(fds_token_id smTokId,
+                           std::string &snapDir) {
+    osm::ObjectDB *odb = nullptr;
+    read_synchronized(dbmapLock_) {
+        TokenTblIter iter = tokenTbl.find(smTokId);
+        fds_verify(iter != tokenTbl.end());
+        odb = iter->second;
+    }
+
+    if (odb == nullptr) {
+        return ERR_NOT_FOUND;
+    } else {
+        return odb->PersistentSnap(snapDir);
+    }
 }
 
 void ObjectMetadataDb::closeObjectDB(fds_token_id smTokId) {
@@ -162,7 +179,6 @@ ObjectMetadataDb::get(fds_volid_t volId,
 
     ObjMetaData::const_ptr objMeta(new ObjMetaData(buf));
     // objMeta->deserializeFrom(buf);
-
     // TODO(Anna) token sync code -- objMeta.checkAndDemoteUnsyncedData;
 
     return objMeta;

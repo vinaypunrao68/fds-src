@@ -73,37 +73,3 @@ class S3Connection():
         if self.conn == None:
             self.s3_connect()
         return self.conn
-    
-
-import sys
-
-def percent_cb(complete, total):
-    sys.stdout.write('=')
-    sys.stdout.flush()
-
-if __name__ == "__main__":
-    s3conn = S3Connection(
-                config.FDS_DEFAULT_ADMIN_USER,
-                None,
-                '10.2.10.200',
-                config.FDS_S3_PORT,
-                '10.2.10.200'
-            )
-    s3conn.s3_connect()
-    bucket = s3conn.conn.create_bucket('phil-bucket05-test')
-    print bucket
-    print "Sleeping 30 sec"
-    time.sleep(30)
-    testfile = "sample_file"
-    print 'Uploading %s to Amazon S3 bucket %s' % \
-       (testfile, bucket.name)
-    k = Key(bucket)
-    k.key = 'testfile'
-    k.set_contents_from_filename(testfile,
-            cb=percent_cb, num_cb=10)
-    
-    #print "Downloading the file..."
-    #time.sleep(30)
-    #key = bucket.get_key('testfile')
-    #fp = open('testfile', 'w')
-    #key.get_file(fp)

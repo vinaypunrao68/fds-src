@@ -34,16 +34,14 @@ struct SvcProcess : FdsProcess {
                    const std::string &def_cfg_file,
                    const std::string &base_path,
                    const std::string &def_log_file,
-                   fds::Module **mod_vec,
-                   fds_bool_t registerWithOM = true);
+                   fds::Module **mod_vec);
     SvcProcess(int argc, char *argv[],
                    const std::string &def_cfg_file,
                    const std::string &base_path,
                    const std::string &def_log_file,
                    fds::Module **mod_vec,
                    PlatNetSvcHandlerPtr handler,
-                   fpi::PlatNetSvcProcessorPtr processor,
-                   fds_bool_t registerWithOM);
+                   fpi::PlatNetSvcProcessorPtr processor);
     virtual ~SvcProcess();
 
     /**
@@ -68,8 +66,7 @@ struct SvcProcess : FdsProcess {
               const std::string &def_log_file,
               fds::Module **mod_vec,
               PlatNetSvcHandlerPtr handler,
-              fpi::PlatNetSvcProcessorPtr processor,
-              fds_bool_t registerWithOM);
+              fpi::PlatNetSvcProcessorPtr processor);
 
     // XXX: Handler should be of type PlatNetSvcHandler and Processor
     //      should be of type fpi::PlatNetSvcProcessor
@@ -78,12 +75,11 @@ struct SvcProcess : FdsProcess {
               const std::string &def_cfg_file,
               const std::string &base_path,
               const std::string &def_log_file,
-              fds::Module **mod_vec,
-              fds_bool_t registerWithOM = true) {
+              fds::Module **mod_vec) {
         auto handler = boost::make_shared<Handler>(this);
         auto processor = boost::make_shared<Processor>(handler);
         init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
-                handler, processor, registerWithOM);
+                handler, processor);
     }
 
     /**

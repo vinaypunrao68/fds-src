@@ -8,6 +8,10 @@
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/SMSvc.h>
 
+namespace FDS_ProtocolInterface {
+struct CtrlNotifyDMTUpdate;
+}
+
 namespace fds {
 
 /* Forward declarations */
@@ -123,9 +127,6 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
 
     void shutdownSM(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::ShutdownMODMsg> &shutdownMsg);
-
-    void StartMigration(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::CtrlStartMigration> &startMigration);
 
     /**
     * Handler for the new SM token migration messages

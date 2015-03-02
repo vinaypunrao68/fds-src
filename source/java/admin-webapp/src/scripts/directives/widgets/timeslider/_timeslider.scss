@@ -47,13 +47,14 @@
     }    
     
     .bar {
-        width: 100%;
         height: 10px;
         position: absolute;
         top: 8px;
         background-color: #ECF6FD;
         padding-left: 8px;
         padding-right: 8px;
+        right: 30px;
+        left: 0px;
     }
     
     .select-range {

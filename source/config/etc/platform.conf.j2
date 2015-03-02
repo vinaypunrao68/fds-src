@@ -100,6 +100,7 @@ fds: {
         }
         /* Internal testing related info */
         testing: {
+	    standalone = false
             /* overwrite node capabilities from this config */
             manual_nodecap = true
             disk_iops_max  = 100000
@@ -193,8 +194,7 @@ fds: {
 
         /* Internal testing related info */
         testing: {
-            /* General testing mode...should depricate */
-            test_mode = false
+            standalone = false
 
             /* Forces all DM APIs to immediately return success */
             uturn_all = false
@@ -421,7 +421,7 @@ fds: {
         /* Internal testing related info */
         testing: {
             /* Toggle stand alone mode */
-            toggleStandAlone = false
+            standalone = false
 
             /* Toggle to disable stats collection for metadata streaming */
             toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }}
@@ -486,6 +486,11 @@ fds: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }
+	/* Testing stanza */
+	testing: {
+            /* Toggle stand alone mode */
+            standalone = false
+	}
         id="om"
         prefix=""
         log_severity = "{{ om_log_severity }}"

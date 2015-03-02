@@ -369,22 +369,46 @@ class SmIoSnapshotObjectDB : public SmIoReq {
                                 SmIoSnapshotObjectDB*,
                                 leveldb::ReadOptions& options,
                                 leveldb::DB* db)> CbType;
+    typedef std::function<void (const Error&,
+                                SmIoSnapshotObjectDB*,
+                                std::string &snapDir)> CbTypePersist;
  public:
     SmIoSnapshotObjectDB() {
         token_id = 0;
+        isPersistent = false;
         executorId = SM_INVALID_EXECUTOR_ID;
+        snapNum = "";
+        targetDltVersion = 0;
     }
 
     /* In: Token to take snapshot of*/
     fds_token_id token_id;
+
+    /* In: Persistant or in-memory snapshot?
+     */
+    bool isPersistent;
+
     /**
      * ID of the executor for which this snapshort is taken for
      * 0 if we are taking snapshot not for token migration
      */
     fds_uint64_t executorId;
 
-    /* Response callback */
+    /** 
+     * SM token's snapshot number
+     */
+    std::string snapNum;
+
+    /**
+     * Target DLT version for which this snapshot will be taken.
+     */
+    fds_uint64_t targetDltVersion;
+
+    /* Response callback for in-memory snapshot request*/
     CbType smio_snap_resp_cb;
+
+    /* Response callback for persistent snapshot request */
+    CbTypePersist smio_persist_snap_resp_cb;
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const SmIoSnapshotObjectDB& snapReq) {
@@ -484,7 +508,7 @@ class SmIoReadObjDeltaSetReq: public SmIoReq {
     // Set of Object MetaData to be used to read objects and form
     // CtrlObjectRebalanceDeltaSet
     // vector of a pair <ObjMetaPata::ptr, bool reconcileMetaData>
-    std::vector<std::pair<ObjMetaData::ptr, bool>> deltaSet;
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> deltaSet;
 
     // Response callback for batch object read.
     cbType smioReadObjDeltaSetReqCb;

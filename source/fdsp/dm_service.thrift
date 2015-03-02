@@ -6,6 +6,7 @@ include "fds_service.thrift"
 include "FDSP.thrift"
 include "common.thrift"
 include "snapshot.thrift"
+include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
 
@@ -14,6 +15,30 @@ namespace cpp FDS_ProtocolInterface
  * message passing provided by BaseAsyncSvc
  */
 service DMSvc extends fds_service.PlatNetSvc {
+}
+
+/**
+ * time slot containing volume stats
+ */
+struct VolStatSlot {
+    1: i64    rel_seconds;    // timestamp in seconds relative to start_timestamp
+    2: binary slot_data;      // represents time slot of stats
+}
+
+/**
+ * Volume's time-series of stats
+ */
+struct VolStatList {
+    1: i64                  volume_id;  // volume id
+    2: list<VolStatSlot>    statlist;   // list of time slots
+}
+
+/**
+ * Stats from a service to DM for aggregation
+ */
+struct StatStreamMsg {
+    1: i64                    start_timestamp;
+    2: list<VolStatList>      volstats;
 }
 
 /* Abort Blob  Transaction  request message */
@@ -63,11 +88,6 @@ struct CreateVolumeCloneRespMsg {
      1:i64 cloneId
 }
 
-/* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
-struct CtrlNotifyPushDMT {
-     1: FDSP.FDSP_PushMeta        dmt_push;
-}
-
 /* ---------------------  CtrlNotifyDMTCloseTypeId  ---------------------------- */
 struct CtrlNotifyDMTClose {
      1: FDSP.FDSP_DmtCloseType    dmt_close;
@@ -93,16 +113,6 @@ struct DeleteBlobMsg {
 }
 
 struct DeleteBlobRspMsg {
-}
-
-/* delete catalog object Transaction  request message */
-struct DeleteCatalogObjectMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-}
-
-struct DeleteCatalogObjectRspMsg {
 }
 
 struct DeleteSnapshotMsg {
@@ -146,9 +156,12 @@ struct GetBucketMsg {
   6: bool                      descending = false;
 }
 
+/* A detailed list of blob stats. */
+typedef list<common.BlobDescriptor> BlobDescriptorListType
+
 struct GetBucketRspMsg {
   //response
-  1: required common.BlobDescriptorListType     blob_descr_list;
+  1: required BlobDescriptorListType     blob_descr_list;
 }
 
 struct GetDmStatsMsg {
@@ -234,7 +247,7 @@ struct StatStreamRegistrationMsg {
    1:i32 id,
    2:string url,
    3:string method
-   4:fds_service.SvcUuid dest,
+   4:common.SvcUuid dest,
    5:list<i64> volumes,
    6:i32 sample_freq_seconds,
    7:i32 duration_seconds,

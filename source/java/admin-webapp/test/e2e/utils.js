@@ -85,7 +85,7 @@ createTenant = function( name ){
 setTimelineTimes = function( pageEl, timeline ){
     
     var timelinePanel = pageEl.element( by.css( '.protection-policy' ));
-    timelinePanel.element( by.css( '.icon-edit' )).click();
+    timelinePanel.all( by.css( '.button-bar-button' )).get( 3 ).click();
     
     var sliderWidget = pageEl.element( by.css( '.waterfall-slider' ));
 
@@ -114,14 +114,11 @@ setTimelineTimes = function( pageEl, timeline ){
 
         browser.sleep( 500 );
     }
-
-    pageEl.element( by.css( '.save-timeline' )).click();
-    
 };
 
 setTimelineStartTimes = function( pageEl, timelineStartTimes ){
     var timelinePanel = pageEl.element( by.css( '.protection-policy' ));
-    timelinePanel.element( by.css( '.icon-edit' )).click();
+    timelinePanel.all( by.css( '.button-bar-button' )).get( 3 ).click();
     
     pageEl.element( by.css( '.create-volume-button-panel' )).click();
         
@@ -140,12 +137,139 @@ setTimelineStartTimes = function( pageEl, timelineStartTimes ){
     var yearChoice = timelinePanel.element( by.css( '.year-choice' ));
     yearChoice.click();
     yearChoice.all( by.tagName( 'li' )).get( timelineStartTimes.years ).click();
-    
-    pageEl.element( by.css( '.save-timeline' )).click();
 };
 
-// timeline: [{ slider: #, value: #, unit: #index }... ]
-createVolume = function( name, data_type, qos, timeline, timelineStartTimes ){
+// set the custom portion of qos
+var setCustomQos = function( pageEl, qos ){
+    
+    // changing the QoS
+    var editQosButton = pageEl.all( by.css( '.qos-panel .button-bar-button' )).get( 3 );
+    editQosButton.click();
+
+    browser.sleep( 200 );
+
+    browser.actions().mouseMove( pageEl.element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' )).get( qos.priority - 1 ) ).click().perform();
+
+    browser.actions().mouseMove( pageEl.element( by.css( '.volume-iops-slider' ) ).all( by.css( '.segment' )).get( qos.capacity/10 ) ).click().perform();
+
+    var limitSegment = 0;
+
+    switch( qos.limit ){
+        case 100:
+            limitSegment = 0;
+            break;
+        case 200:
+            limitSegment = 1;
+            break;
+        case 300:
+            limitSegment = 2;
+            break;
+        case 400:
+            limitSegment = 3;
+            break;
+        case 500:
+            limitSegment = 4;
+            break;
+        case 750:
+            limitSegment = 5;
+            break;
+        case 1000:
+            limitSegment = 6;
+            break;
+        case 2000:
+            limitSegment = 7;
+            break;
+        case 3000: 
+            limitSegment = 8;
+            break;
+        default:
+            limitSegment = 9;
+            break;
+    }
+
+    browser.actions().mouseMove( pageEl.element( by.css( '.volume-limit-slider' ) ).all( by.css( '.segment' )).get( limitSegment ) ).click().perform();  
+};
+
+var setVolumeValues = function( pageEl, data_type, qos, mediaPolicy, timeline, timelineStartTimes ){
+    
+    if ( data_type ){
+            
+//        var editDcButton = createEl.element( by.css( '.edit-data-connector-button' ) );
+//        editDcButton.click();
+
+        var typeMenu = pageEl.element( by.css( '.data-connector-dropdown' ) );
+        var blockEl = typeMenu.all( by.tagName( 'li' ) ).first();
+        var objectEl = typeMenu.all( by.tagName( 'li' ) ).last();
+
+        typeMenu.click();
+        
+        if ( data_type.type === 'block' ){
+            blockEl.click();
+            
+            var sizeSpinner = pageEl.element( by.css( '.data-connector-size-spinner' )).element( by.tagName( 'input' ));
+            sizeSpinner.clear();
+            sizeSpinner.sendKeys( data_type.attributes.size );
+        }
+        else {
+            objectEl.click();
+        }
+
+    }// edit dc
+    
+    // let's set the qos stuff hooray!
+    if ( qos ){
+        
+        if ( qos.preset !== undefined && !isNaN( parseInt( qos.preset ) ) ){
+            pageEl.all( by.css( '.qos-panel .button-bar-button' )).get( parseInt( qos.preset ) ).click();
+        }
+        else {
+            setCustomQos( pageEl, qos );
+        }
+    }
+
+    if ( mediaPolicy ){
+        
+        var index = 0;
+        
+        switch( mediaPolicy ){
+            case 'SSD_ONLY':
+                index = 0;
+                break;
+            case 'HDD_ONLY':
+                index = 2;
+                break;
+            case 'HYBRID_ONLY':
+                index = 1;
+                break;
+            default: 
+                index = 0;
+                break;
+        }
+        
+        pageEl.all( by.css( '.tiering-policy-panel .button-bar-button' )).get( index ).click();
+        
+    }
+    
+    // set the timeline numbers
+    if ( timeline ){
+        
+        if ( timeline.preset !== undefined && !isNaN( parseInt( timeline.preset ) ) ){
+            pageEl.all( by.css( '.protection-policy .button-bar-button' )).get( parseInt( timeline.preset ) ).click();
+        }
+        else {
+            setTimelineTimes( pageEl, timeline );
+        }
+    }
+    
+    if ( timelineStartTimes ){
+        setTimelineStartTimes( pageEl, timelineStartTimes );
+    }
+};
+
+// timeline: [{ slider: #, value: #, unit: #index }... ] || preset: <index>
+// qos: { preset: <index>, capacity:, limt:, priority: }
+// media policy: SSD_ONLY, HYBRID_ONLY, HDD_ONLY
+createVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineStartTimes ){
     
     goto( 'volumes' );
     browser.sleep( 200 );
@@ -157,107 +281,42 @@ createVolume = function( name, data_type, qos, timeline, timelineStartTimes ){
     
     var createEl = $('.create-panel.volumes');
     
-    var nameText = element( by.css( '.volume-name-input') );
+    var nameText = createEl.element( by.css( '.volume-name-input') );
     nameText = nameText.element( by.tagName( 'input' ) );
     nameText.sendKeys( name );
     
-    if ( data_type ){
-            
-        var editDcButton = createEl.element( by.css( '.edit-data-connector-button' ) );
-        editDcButton.click();
-
-        var typeMenu = createEl.element( by.css( '.data-connector-dropdown' ) );
-        var blockEl = typeMenu.all( by.tagName( 'li' ) ).first();
-        var objectEl = typeMenu.all( by.tagName( 'li' ) ).last();
-
-        typeMenu.click();
-        
-        if ( data_type.type === 'block' ){
-            blockEl.click();
-            
-            var sizeSpinner = createEl.element( by.css( '.data-connector-size-spinner' )).element( by.tagName( 'input' ));
-            sizeSpinner.clear();
-            sizeSpinner.sendKeys( data_type.attributes.size );
-        }
-        else {
-            objectEl.click();
-        }
-
-        var doneName = createEl.element( by.css( '.save-name-type-data' ));
-        doneName.click();
-    }// edit dc
-    
-    // let's set the qos stuff hooray!
-    if ( qos ){
-        
-        // changing the QoS
-        var editQosButton = createEl.element( by.css( '.qos-panel .icon-edit' ));
-        editQosButton.click();
-        
-        browser.sleep( 200 );
-
-        // panel should now be editable
-        var slaEditDisplay = createEl.element( by.css( '.volume-sla-edit-display' ) );
-        expect( slaEditDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
-        
-        var slaTableDisplay = createEl.element( by.css( '.volume-display-only' ) );
-        expect( slaTableDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
-        
-        browser.actions().mouseMove( createEl.element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' )).get( qos.priority - 1 ) ).click().perform();
-        
-        browser.actions().mouseMove( createEl.element( by.css( '.volume-iops-slider' ) ).all( by.css( '.segment' )).get( qos.capacity/10 ) ).click().perform();
-        
-        var limitSegment = 0;
-        
-        switch( qos.limit ){
-            case 100:
-                limitSegment = 0;
-                break;
-            case 200:
-                limitSegment = 1;
-                break;
-            case 300:
-                limitSegment = 2;
-                break;
-            case 400:
-                limitSegment = 3;
-                break;
-            case 500:
-                limitSegment = 4;
-                break;
-            case 750:
-                limitSegment = 5;
-                break;
-            case 1000:
-                limitSegment = 6;
-                break;
-            case 2000:
-                limitSegment = 7;
-                break;
-            case 3000: 
-                limitSegment = 8;
-                break;
-            default:
-                limitSegment = 9;
-                break;
-        }
-        
-        browser.actions().mouseMove( createEl.element( by.css( '.volume-limit-slider' ) ).all( by.css( '.segment' )).get( limitSegment ) ).click().perform();
-        
-        var doneButton = createEl.element( by.css( '.save-qos-settings' ) );
-        doneButton.click();
-    }
-    
-    // set the timeline numbers
-    if ( timeline ){
-        setTimelineTimes( createEl, timeline );
-    }
-    
-    if ( timelineStartTimes ){
-        setTimelineStartTimes( createEl, timelineStartTimes );
-    }
+    setVolumeValues( createEl, data_type, qos, mediaPolicy, timeline, timelineStartTimes );
     
     element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
+    browser.sleep( 300 );
+};
+
+editVolume = function( name, data_type, qos, mediaPolicy, timeline, timelineStartTimes ){
+    
+    //assume that you are on the volume list page
+    var mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
+    
+    mainEl.all( by.css( '.volume-row td.name' )).each( function( elem ){
+        elem.getText().then( function( text ){
+            if ( text === name ){
+                elem.click();
+            }
+        });
+    });
+    
+    browser.sleep( 220 );
+    
+    var viewEl = element( by.css( '.view-volume-screen' ));
+    
+    viewEl.element( by.css( '.edit-volume-button' )).click();
+    
+    browser.sleep( 220 );
+    
+    var editEl = element( by.css( '.edit-panel' ));
+    
+    setVolumeValues( editEl, data_type, qos, undefined, timeline, timelineStartTimes );
+    
+    element( by.css( '.submit-changes-button' )).click();
     browser.sleep( 300 );
 };
 
@@ -266,19 +325,13 @@ deleteVolume = function( row ){
 
     browser.sleep( 500 );
 
-    var viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
+    var viewEl = element( by.css( '.view-volume-screen' ) );
     viewEl.element( by.css( '.delete-volume' ) ).click();
 
     browser.sleep( 200 );
 
     //accept the warning
     element( by.css( '.fds-modal-ok' ) ).click();
-
-    browser.sleep( 200 );
-
-    element.all( by.css( 'volume-row' )).then( function( rows ){
-        expect( rows.length ).toBe( 0 );
-    });
 
     browser.sleep( 200 );
 };

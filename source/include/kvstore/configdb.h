@@ -13,8 +13,7 @@
 #include <fds_volume.h>
 #include <dlt.h>
 #include <fds_dmt.h>
-#include <fdsp/fds_stream_types.h>
-#include <apis/apis_types.h>
+#include <fdsp/configuration_service_types.h>
 #include <exception>
 namespace fds {
 struct node_data;
@@ -125,7 +124,10 @@ struct ConfigDB : KVStore {
     bool deleteSnapshot(const int64_t volumeId, const int64_t snapshotId);
     bool setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state);
     bool setSnapshotState(const int64_t volumeId, const int64_t snapshotId, fpi::ResourceState state); //NOLINT
-    bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
+   bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
+
+    
+    // service map 
     bool getSvcMap(fpi::SvcInfo& svcinfo);
     bool listSvcMap(std::vector<fpi::SvcInfo> & vecSvcInfo, const int64_t svcId);
     bool deleteSvcMap(const int64_t svcId);

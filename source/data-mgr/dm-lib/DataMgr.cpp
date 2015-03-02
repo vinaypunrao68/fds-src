@@ -7,9 +7,9 @@
 #include <vector>
 #include <net/net_utils.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
+#include "fdsp/sm_service_types.h"
 #include <dmhandler.h>
 
 namespace fds {
@@ -1274,15 +1274,18 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     fds::assign(expReq->objId, objId);
 
     // Make RPC call
+    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    // get DLT and increment refcount so that DM will respond to
+    // DLT commit of the next DMT only after all deletes with this DLT complete
+    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
 
     auto asyncExpReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(omClient->getDLTNodesForDoidKey(objId)));
+        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
     asyncExpReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), expReq);
     asyncExpReq->setTimeoutMs(5000);
-    // TODO(brian): How to do cb?
-    // asyncExpReq->onResponseCb(NULL);  // in other areas respcb is a parameter
+    asyncExpReq->onResponseCb(RESPONSE_MSG_HANDLER(DataMgr::expungeObjectCb,
+                                                   dlt->getVersion()));
     asyncExpReq->invoke();
-    // Return any errors
     return err;
 }
 
@@ -1290,10 +1293,13 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
  * Callback for expungeObject call
  */
 void
-DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
+DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
+                         QuorumSvcRequest* svcReq,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
+    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    dltMgr->decDLTRefcnt(dltVersion);
 }
 
 void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::

@@ -23,40 +23,35 @@ namespace fds {
 class ResourceUUID;
 class UuidHash;
 
-typedef std::string NodeStrName;
+using NodeStrName = std::string;
 
-typedef ResourceUUID NodeUuid;
+using NodeUuid = ResourceUUID;
 
-typedef fds_uint64_t VersionNumber;
-typedef std::unordered_set<NodeUuid, UuidHash> NodeUuidSet;
+using VersionNumber = fds_uint64_t;
+using NodeUuidSet = std::unordered_set<NodeUuid, UuidHash>;
 
-typedef std::string fds_node_name_t;
-typedef FDS_ProtocolInterface::FDSP_MgrIdType fds_node_type_t;
-typedef FDS_ProtocolInterface::FDSP_NodeState FdspNodeState;
+using fds_node_name_t = NodeStrName;
+using fds_node_type_t = fpi::FDSP_MgrIdType;
+using FdspNodeState = fpi::FDSP_NodeState;
 
-typedef FDS_ProtocolInterface::FDSP_MsgHdrTypePtr     FdspMsgHdrPtr;
-typedef FDS_ProtocolInterface::FDSP_CreateVolTypePtr  FdspCrtVolPtr;
-typedef FDS_ProtocolInterface::FDSP_DeleteVolTypePtr  FdspDelVolPtr;
-typedef FDS_ProtocolInterface::FDSP_ModifyVolTypePtr  FdspModVolPtr;
+using FdspMsgHdrPtr = fpi::FDSP_MsgHdrTypePtr;
+using FdspCrtVolPtr = fpi::FDSP_CreateVolTypePtr;
+using FdspDelVolPtr = fpi::FDSP_DeleteVolTypePtr;
+using FdspModVolPtr = fpi::FDSP_ModifyVolTypePtr;
 
-typedef FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr FdspCrtPolPtr;
-typedef FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr FdspDelPolPtr;
-typedef FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr FdspModPolPtr;
+using FdspCrtPolPtr = fpi::FDSP_CreatePolicyTypePtr;
+using FdspDelPolPtr = fpi::FDSP_DeletePolicyTypePtr;
+using FdspModPolPtr = fpi::FDSP_ModifyPolicyTypePtr;
 
 /*
  * NOTE: AttVolCmd is the command in the config plane, received at OM from CLI/GUI.
  * AttVol is the attach vol message sent from the OM to the HVs in the control plane.
  */
-typedef FDS_ProtocolInterface::FDSP_AttachVolTypePtr        FdspAttVolPtr;
-typedef FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr     FdspAttVolCmdPtr;
-typedef FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr     FdspRegNodePtr;
-typedef FDS_ProtocolInterface::FDSP_TestBucketPtr           FdspTestBucketPtr;
-typedef FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr  FdspMigrationStatusPtr;
+using FdspAttVolPtr = fpi::FDSP_AttachVolTypePtr;
+using FdspAttVolCmdPtr = fpi::FDSP_AttachVolCmdTypePtr;
 
-typedef FDS_ProtocolInterface::FDSP_VolumeDescTypePtr FdspVolDescPtr;
-typedef FDS_ProtocolInterface::FDSP_PolicyInfoTypePtr FdspPolInfoPtr;
-typedef FDS_ProtocolInterface::FDSP_CreateDomainTypePtr  FdspCrtDomPtr;
-typedef FDS_ProtocolInterface::FDSP_RemoveServicesTypePtr FdspRmServicesPtr;
+using FdspVolDescPtr = fpi::FDSP_VolumeDescTypePtr;
+using FdspCrtDomPtr = fpi::FDSP_CreateDomainTypePtr;
 
 }  // namespace fds
 

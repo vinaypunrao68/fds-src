@@ -20,13 +20,12 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                        const std::string &def_cfg_file,
                        const std::string &base_path,
                        const std::string &def_log_file,
-                       fds::Module **mod_vec,
-                       fds_bool_t registerWithOM)
+                       fds::Module **mod_vec)
 {
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
     init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
-            handler, processor, registerWithOM);
+            handler, processor);
 }
 
 SvcProcess::SvcProcess(int argc, char *argv[],
@@ -35,11 +34,10 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                                const std::string &def_log_file,
                                fds::Module **mod_vec,
                                PlatNetSvcHandlerPtr handler,
-                               fpi::PlatNetSvcProcessorPtr processor,
-                               fds_bool_t registerWithOM)
+                               fpi::PlatNetSvcProcessorPtr processor)
 {
     init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
-            handler, processor, registerWithOM);
+            handler, processor);
 }
 
 SvcProcess::~SvcProcess()
@@ -52,8 +50,7 @@ void SvcProcess::init(int argc, char *argv[],
                           const std::string &def_log_file,
                           fds::Module **mod_vec,
                           PlatNetSvcHandlerPtr handler,
-                          fpi::PlatNetSvcProcessorPtr processor,
-                          fds_bool_t registerWithOM)
+                          fpi::PlatNetSvcProcessorPtr processor)
 {
     /* Set up process related services such as logger, timer, etc. */
     FdsProcess::init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
@@ -70,6 +67,8 @@ void SvcProcess::init(int argc, char *argv[],
     /* Default implementation registers with OM.  Until registration complets
      * this will not return
      */
+    auto config = get_conf_helper();
+    bool registerWithOM = !(config.get<bool>("testing.standalone"));
     if (registerWithOM) {
         registerSvcProcess();
     }
@@ -119,13 +118,15 @@ void SvcProcess::setupConfigDb_()
 void SvcProcess::setupSvcInfo_()
 {
     auto config = get_conf_helper();
-    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(config.get<long long>("svc.uuid"));
+    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(config.get<long long>("svc.uuid",0));
     svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
-    svcInfo_.svc_port = config.get<int>("svc.port");
-    svcInfo_.svc_type = SvcMgr::mapToSvcType(config.get<std::string>("id"));
+    svcInfo_.svc_port = config.get<int>("svc.port",7000);
+    svcInfo_.svc_type = SvcMgr::mapToSvcType(config.get<std::string>("id","pm"));
     svcInfo_.svc_status = fpi::SVC_STATUS_ACTIVE;
+
+    // TODO(Rao): set up correct incarnation no
     svcInfo_.incarnationNo = util::getTimeStampSeconds();
-    svcInfo_.name = config.get<std::string>("id");
+    svcInfo_.name = config.get<std::string>("id","pm");
 }
 
 void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,

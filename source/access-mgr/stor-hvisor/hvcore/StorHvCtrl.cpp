@@ -102,8 +102,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                                  GetLog());
 
     // Check the AM standalone toggle
-    toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
-    if (toggleStandAlone) {
+    standalone = config.get_abs<bool>("fds.am.testing.standalone");
+    if (standalone) {
         LOGWARN << "Starting SH CTRL in stand alone mode";
     }
 
@@ -123,7 +123,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       rpcSessionTbl,
 			       nullptr,
 			       instanceId);
-    if (toggleStandAlone) {
+    if (standalone) {
 	om_client->setNoNetwork(true);
     } else {
 	om_client->initialize();
@@ -143,7 +143,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     DMTManagerPtr dmtMgr;
     DLTManagerPtr dltMgr;
-    if (toggleStandAlone) {
+    if (standalone) {
         dmtMgr = boost::make_shared<DMTManager>(1);
         dltMgr = boost::make_shared<DLTManager>();
     } else {
@@ -184,7 +184,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
 
-    if (toggleStandAlone) {
+    if (standalone) {
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
                                                          NULL);
     } else {

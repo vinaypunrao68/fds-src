@@ -1,4 +1,4 @@
-package com.formationds.commons.model.calculated.capacity;
+package com.formationds.commons.model.calculated.performance;
 
 import com.formationds.commons.model.abs.Calculated;
 import com.google.gson.annotations.SerializedName;

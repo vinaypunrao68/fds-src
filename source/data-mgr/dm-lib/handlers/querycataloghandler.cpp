@@ -5,7 +5,6 @@
 #include <dmhandler.h>
 #include <fds_assert.h>
 #include <util/Log.h>
-#include <fdsp_utils.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
 #include <fds_error.h>

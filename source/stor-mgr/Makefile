@@ -29,7 +29,8 @@ user_fds_ar_libs  :=                   \
     fds-dsk-mgnt \
     fds-odb \
     fds-hash \
-    fds-xdi
+    fds-net-svc \
+    fds-fdsp
 
 user_non_fds_libs := \
     boost_timer \

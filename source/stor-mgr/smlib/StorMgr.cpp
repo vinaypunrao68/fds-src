@@ -15,7 +15,6 @@
 #include <StorMgr.h>
 #include <NetSession.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <net/net_utils.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
@@ -187,8 +186,6 @@ void ObjectStorMgr::mod_startup()
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
-    std::string     myIp;
-
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
@@ -198,11 +195,6 @@ void ObjectStorMgr::mod_startup()
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
-        /* Set up FDSP RPC endpoints */
-        nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-        myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-        setup_datapath_server(myIp);
-
         /*
          * Register this node with OM.
          */
@@ -214,9 +206,9 @@ void ObjectStorMgr::mod_startup()
         omClient = new OMgrClient(FDSP_STOR_MGR,
                                   omIP,
                                   omPort,
-                                  "localhost-sm",
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
                                   GetLog(),
-                                  nst_, MODULEPROVIDER()->get_plf_manager());
+                                  nullptr, MODULEPROVIDER()->get_plf_manager());
     }
 
     /*
@@ -371,32 +363,13 @@ void ObjectStorMgr::mod_shutdown()
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
         return;  // no migration or netsession
     }
-    nst_->endAllSessions();
-    nst_.reset();
-}
-
-void ObjectStorMgr::setup_datapath_server(const std::string &ip)
-{
-    ObjectStorMgrI *osmi = new ObjectStorMgrI();
-    datapath_handler_.reset(osmi);
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_SM";
-    // TODO(???): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(???): Figure out who cleans up datapath_session_
-    datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
-        myIpInt,
-        MODULEPROVIDER()->getSvcMgr()->getSvcPort(),
-        node_name,
-        FDSP_STOR_HVISOR,
-        datapath_handler_);
 }
 
 int ObjectStorMgr::run()
 {
-    nst_->listenServer(datapath_session_);
+    while (true) {
+        sleep(1);
+    }
     return 0;
 }
 
@@ -821,10 +794,15 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     // for this migration client (which is addressed by executorID on destination side)
     migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
 
-    objectStore->snapshotMetadata(snapReq->token_id,
-                                  snapReq->smio_snap_resp_cb,
-                                  snapReq);
-
+    if (snapReq->isPersistent) {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_persist_snap_resp_cb,
+                                      snapReq);
+    } else {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_snap_resp_cb,
+                                      snapReq);
+    }
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
@@ -955,7 +933,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
     for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
         ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
-        bool reconcileMetaDataOnly = (readDeltaSetReq->deltaSet)[i].second;
+        fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
@@ -963,11 +941,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         /* copy metadata to object propagation message. */
         objMetaDataPtr->propagateObjectMetaData(objMetaDataPropagate,
-                                                reconcileMetaDataOnly);
-        /* If reconciling only the metadata, there is no need to read the
-         * data from the object store.
-         */
-        if (!reconcileMetaDataOnly) {
+                                                reconcileFlag);
+
+        /* Read object data, if NO_RECONCILE or OVERWRITE */
+        if (fpi::OBJ_METADATA_NO_RECONCILE == reconcileFlag) {
 
             /* get the object from metadata information. */
             boost::shared_ptr<const std::string> dataPtr =
@@ -988,7 +965,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
         objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
 
         LOGMIGRATE << "Adding DeltaSet element: " << objID
-                   << " reconcileMetaDataOnly=" << reconcileMetaDataOnly;
+                   << " reconcileFlag=" << reconcileFlag;
     }
 
     auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
@@ -1046,6 +1023,31 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
     }
     delete moveReq;
 }
+
+void
+ObjectStorMgr::storeCurrentDLT()
+{
+    // Store current DLT to a file in log directory, so offline smcheck can use it to
+    // verify dlt ownership.
+    //
+    // TODO(Sean):  cleanup when going moving to online smcheck
+    DLT *currentDLT = const_cast<DLT *>(objStorMgr->omClient->getCurrentDLT());
+    std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
+
+    // Must remove pre-existing file.  Otherwise, it will append a new version to the
+    // end of the file.  When de-serializing, it read from the beginning of the file,
+    // thus getting the oldest copy of DLT, if not removed.
+    remove(dltPath.c_str());
+    currentDLT->storeToFile(dltPath);
+
+    // To validate the token ownership by SM, we also need UUID of the SM to compare it
+    // against DLT
+    NodeUuid myUuid = getUuid();
+    std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
+    ofstream uuidFile(uuidPath);
+    uuidFile <<  myUuid.uuid_get_val();
+}
+
 
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);

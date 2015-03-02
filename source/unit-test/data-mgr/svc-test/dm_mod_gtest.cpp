@@ -7,6 +7,7 @@
 #include <net/SvcRequest.h>
 #include <net/net-service-tmpl.hpp>
 #include <google/profiler.h>
+#include "fdsp/dm_service_types.h"
 static fds_uint32_t MAX_OBJECT_SIZE = 1024 * 1024 * 2;    // 2MB
 static fds_uint32_t NUM_OBJTS = 1;    // 2MB
 // static fds_uint64_t BLOB_SIZE = static_cast<fds_uint64_t>(10) * 1024 * 1024 * 1024;   // 1GB

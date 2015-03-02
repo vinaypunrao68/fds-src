@@ -67,6 +67,13 @@ extern ObjectStorMgr *objStorMgr;
 using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
 using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
 
+
+/* File names for storing DLT and UUID.  Mainly used by smchk to
+ * determine proper token ownership.
+ */
+const std::string DLTFileName = "/currentDLT";
+const std::string UUIDFileName = "/uuidDLT";
+
 /*
  * Forward declarations
  */
@@ -97,15 +104,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      ObjectStore::unique_ptr objectStore;
      /// Manager of token migration
      SmTokenMigrationMgr::unique_ptr migrationMgr;
-
-     /*
-      * FDSP RPC members
-      * The map is used for sending back the response to the
-      * appropriate SH/DM
-      */
-     boost::shared_ptr<netSessionTbl> nst_;
-     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
-     netDataPathServerSession *datapath_session_;
 
      /*
       * TODO: this one should be the singleton by itself.  Need to make it
@@ -201,7 +199,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
 
     protected:
-     void setup_datapath_server(const std::string &ip);
      void setup_migration_svc(const std::string &obj_dir);
 
   public:
@@ -323,6 +320,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void readObjDeltaSet(SmIoReq* ioReq);
 
      void handleDltUpdate();
+
+     void storeCurrentDLT();
 
      static Error volEventOmHandler(fds::fds_volid_t volume_id,
                                     fds::VolumeDesc *vdb,

@@ -103,10 +103,17 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         // add object id to the thrift paired set of object ids and ref count
         omd.deserializeFrom(it->value());
 
-
+        // Copy object metadata ref count, including volume association.
+        // If the source refcnt or volume assoction information has changed, then we
+        // need to get that information from the source SM and overwrite it (since
+        // for now we are going to blindly trust that source SM object meta data is
+        // the correct one.
+        //
+        // TODO(Sean):  For now, we are dealing only with the object ref_cnt and
+        //              per volume association volume ref_cnt.
         fpi::CtrlObjectMetaDataSync omdFilter;
-        omdFilter.objectID.digest = it->key().ToString();
-        omdFilter.objRefCnt = omd.getRefCnt();
+        omd.syncObjectMetaData(omdFilter);
+
 
         /* TODO(Sean):  We should add to filter object set if the ref cnt is positive (???)
          *              Are there other checks before adding to the filter set?
@@ -149,14 +156,23 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                    << " to source SM "
                    << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         if (!testMode) {
-            auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
+            try {
+                auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+                asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                        perTokenMsgs[tok]);
-            asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                MigrationExecutor::objectRebalanceFilterSetResp));
-            asyncRebalSetReq->setTimeoutMs(5000);
-            // we are not waiting for response, so not setting a callback
-            asyncRebalSetReq->invoke();
+                asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+                    MigrationExecutor::objectRebalanceFilterSetResp));
+                asyncRebalSetReq->setTimeoutMs(5000);
+                // we are not waiting for response, so not setting a callback
+                asyncRebalSetReq->invoke();
+            }
+            /* TODO(Gurpreet): We should handle the exception and propogate the error to
+             * Token Migration Manager.
+             */
+            catch (...) {
+                LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
+                << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            }
         }
     }
 
@@ -188,11 +204,11 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
     fds_verify((curState == ME_APPLYING_DELTA) ||
                (curState == ME_APPLYING_SECOND_DELTA));
 
-    LOGMIGRATE << "Sync Delta Object Set " << deltaSet->objectToPropagate.size()
-               << " objects, executor ID " << deltaSet->executorID
-               << " seqNum " << deltaSet->seqNum
-               << " lastSet " << deltaSet->lastDeltaSet
-               << " first rebalance round? " << (curState == ME_APPLYING_DELTA);
+    LOGMIGRATE << "Sync Delta Object Set: " << deltaSet->objectToPropagate.size()
+               << " objects, executor ID=" << deltaSet->executorID
+               << " seqNum=" << deltaSet->seqNum
+               << " lastSet=" << deltaSet->lastDeltaSet
+               << " first rebalance round=" << (curState == ME_APPLYING_DELTA);
 
     // if the obj data+meta list is empty, and lastDeltaSet == true,
     // nothing to apply, but have to check if we are done with migration
@@ -244,7 +260,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                    << " qosSeq=" << applyReq->qosSeqNum
                    << " qosLastSet=" << applyReq->qosLastSet
                    << " size of qos set=" << applyReq->deltaSet.size()
-                   << " first rebalance round? " << (curState == ME_APPLYING_DELTA);
+                   << " first rebalance round=" << (curState == ME_APPLYING_DELTA);
 
         // enqueue to QoS queue
         err = dataStore->enqueueMsg(FdsSysTaskQueueId, applyReq);

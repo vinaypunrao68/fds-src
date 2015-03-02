@@ -32,12 +32,12 @@ struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
         om_->registerService(svcInfo);
     }
 
-    void getSvcMap(std::vector<fpi::SvcInfo> & _return, const int32_t nullarg) {
+    void getSvcMap(std::vector<fpi::SvcInfo> & _return, const int64_t nullarg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
 
-    void getSvcMap(std::vector<fpi::SvcInfo> & _return, boost::shared_ptr<int32_t>& nullarg) {
+    void getSvcMap(std::vector<fpi::SvcInfo> & _return, boost::shared_ptr<int64_t>& nullarg) {
         // Your implementation goes here
         om_->getSvcMap(_return);
     }
@@ -64,7 +64,7 @@ void OMSvcProcess::init(int argc, char *argv[])
 
     /* Set up process related services such as logger, timer, etc. */
     SvcProcess::init(argc, argv, "platform.conf", "fds.om.",
-                     "om.log", nullptr, handler, processor, false);
+                     "om.log", nullptr, handler, processor);
 }
 
 void OMSvcProcess::registerSvcProcess()
@@ -90,11 +90,11 @@ int OMSvcProcess::run() {
 
 void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
-    GLOGNOTIFY << "Regiser svc request.  Svcinfo: " << fds::logString(*svcInfo);
+    GLOGNOTIFY << "Register service request.  Svcinfo: " << fds::logString(*svcInfo);
 
     bool updated = false;
     {
-        /* admit and update peristence */
+        /* admit and update persistent */
         fds_scoped_lock l(svcMapLock_);
         auto mapItr = svcMap_.find(svcInfo->svc_id.svc_uuid);
         if (mapItr == svcMap_.end()) {
@@ -111,7 +111,7 @@ void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     }
 
     if (updated) {
-        /* Prepare update svc map message */
+        /* Prepare update service map message */
         boost::shared_ptr<std::string>buf;
         auto header = getSvcMgr()->getSvcRequestMgr()->newSvcRequestHeaderPtr(
             SvcRequestPool::SVC_UNTRACKED_REQ_ID,

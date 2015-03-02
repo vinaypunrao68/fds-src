@@ -1429,7 +1429,7 @@ bool ConfigDB::createSvcMap(fpi::SvcInfo& svcinfo) {
     TRACKMOD();
     try {
         if (r.hexists("svcmap", svcinfo.svc_id.svc_uuid.svc_uuid)) {
-            throw ConfigException("another snapshot exists with Svc ID:" + svcinfo.svc_id.svc_uuid.svc_uuid); //NOLINT
+            throw ConfigException("another service exists with Svc ID:" + svcinfo.svc_id.svc_uuid.svc_uuid); //NOLINT
         }
 
         boost::shared_ptr<std::string> serialized;
@@ -1451,7 +1451,7 @@ bool ConfigDB::deleteSvcMap(const int64_t svcId) {
         svcinfo.svc_id.svc_uuid.svc_uuid = svcId;
 
         if (!getSvcMap(svcinfo)) {
-            LOGWARN << "unable to fetch service map [snap:" << svcId <<"]";
+            LOGWARN << "unable to fetch service map [service id:" << svcId <<"]";
             NOMOD();
             return false;
         }

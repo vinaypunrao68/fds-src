@@ -25,7 +25,7 @@ DataMgr *dataMgr = 0;
 class MockDataMgr : public SvcProcess {
   public:
     MockDataMgr(int argc, char *argv[]) : SvcProcess(argc, argv, "platform.conf",
-            "fds.dm.", "dm.log", modVec, false) {
+            "fds.dm.", "dm.log", modVec) {
     }
 
     virtual int run() override {
