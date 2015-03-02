@@ -46,10 +46,10 @@ static constexpr int32_t NBD_CMD_TRIM           = 4;
 
 /// Some useful constants for us
 /// ******************************************
-// TODO(Andrew): This is a total hack. Go ask OM you lazy...
-static constexpr char   four_kay_zeros[4096]{0};  // NOLINT
-static constexpr size_t object_size = 4096;
-static constexpr size_t max_chunks = (2 * 1024 * 1024) / object_size;
+static constexpr size_t Ki = 1024;
+static constexpr size_t Mi = Ki * Ki;
+static constexpr size_t Gi = Ki * Mi;
+static constexpr ssize_t max_block_size = 8 * Mi;
 /// ******************************************
 
 template<typename T>
@@ -83,6 +83,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
           clientSocket(clientsd),
           nbd_state(NbdProtoState::PREINIT),
           resp_needed(0u),
+          handshake({ { 0x01u },  0x00ull, 0x00ull, nullptr }),
           attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
           request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, nullptr }),
           response(nullptr),
@@ -200,21 +201,14 @@ bool NbdConnection::handshake_start(ev::io &watcher) {
     return true;
 }
 
-void NbdConnection::handshake_complete(ev::io &watcher) {
-    // Accept client ack
-    fds_uint32_t ack;
-    ssize_t nread = 0;
-
-    do {
-        nread = read(watcher.fd, &ack, sizeof(ack));
-    } while ((0 > nread) && (EINTR == errno));
-
-    ensure(0 < nread);
-    ensure(0 == ack);
+bool NbdConnection::handshake_complete(ev::io &watcher) {
+    if (!get_message_header(watcher.fd, handshake))
+        return false;
+    ensure(0 == handshake.header.ack);
+    return true;
 }
 
-bool
-NbdConnection::option_request(ev::io &watcher) {
+bool NbdConnection::option_request(ev::io &watcher) {
     if (attach.header_off >= 0) {
         if (!get_message_header(watcher.fd, attach))
             return false;
@@ -235,35 +229,35 @@ NbdConnection::option_request(ev::io &watcher) {
     apis::VolumeDescriptor volume_desc;
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     if (config.get_abs<bool>("fds.am.testing.toggleStandAlone", false)) {
-        volume_desc.policy.maxObjectSizeInBytes = 4096;
-        volume_desc.policy.blockDeviceSizeInBytes = 10737418240;
+        object_size = 4 * Ki;
+        volume_size = 1 * Gi;
     } else {
         LOGNORMAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volume_desc);
         omConfigApi.reset(); // No need for this reference anymore
         if (ERR_OK != err || apis::BLOCK != volume_desc.policy.volumeType)
             throw NbdError::connection_closed;
+        object_size = volume_desc.policy.maxObjectSizeInBytes;
+        volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
     }
 
-    // Fix endianness
-    volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
-
-    LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
-              << volume_desc.policy.blockDeviceSizeInBytes
-              << " max object size " << volume_desc.policy.maxObjectSizeInBytes;
-    nbdOps->init(volumeName, volume_desc.policy.maxObjectSizeInBytes);
+    LOGNORMAL << "Attaching volume name " << *volumeName
+              << " of size " << volume_size
+              << " object size " << object_size;
+    nbdOps->init(volumeName, object_size);
 
     return true;
 }
 
 bool
 NbdConnection::option_reply(ev::io &watcher) {
-    static fds_int16_t const optFlags =
+    static char const zeros[124]{0};  // NOLINT
+    static int16_t const optFlags =
         ntohs(NBD_FLAG_HAS_FLAGS);
     static iovec const vectors[] = {
-        { nullptr,                  sizeof(volume_size) },
-        { to_iovec(&optFlags),      sizeof(optFlags)    },
-        { to_iovec(four_kay_zeros), 124                 },
+        { nullptr,             sizeof(volume_size) },
+        { to_iovec(&optFlags), sizeof(optFlags)    },
+        { to_iovec(zeros),     sizeof(zeros)       },
     };
 
     if (!response) {
@@ -292,6 +286,13 @@ bool NbdConnection::io_request(ev::io &watcher) {
         request.header.opType = ntohl(request.header.opType);
         request.header.offset = __builtin_bswap64(request.header.offset);
         request.header.length = ntohl(request.header.length);
+
+        if (max_block_size < request.header.length) {
+            LOGWARN << "Client used a block size, "
+                    << request.header.length << "B, "
+                    << "larger than the supported " << max_block_size << "B.";
+            throw NbdError::shutdown_requested;
+        }
 
         // Construct Buffer for Write Payload
         if (NBD_CMD_WRITE == request.header.opType) {
@@ -325,7 +326,7 @@ NbdConnection::io_reply(ev::io &watcher) {
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
-        response = resp_vector_type(new iovec[max_chunks + 3]);
+        response = resp_vector_type(new iovec[(max_block_size / object_size) + 3]);
         response[0].iov_base = to_iovec(NBD_RESPONSE_MAGIC);
         response[0].iov_len = sizeof(NBD_RESPONSE_MAGIC);
         response[1].iov_base = to_iovec(&error_ok); response[1].iov_len = sizeof(error_ok);
@@ -426,8 +427,8 @@ NbdConnection::callback(ev::io &watcher, int revents) {
     if (revents & EV_READ) {
         switch (nbd_state) {
             case NbdProtoState::POSTINIT:
-                handshake_complete(watcher);
-                nbd_state = NbdProtoState::AWAITOPTS;
+                if (handshake_complete(watcher))
+                    { nbd_state = NbdProtoState::AWAITOPTS; }
                 break;
             case NbdProtoState::AWAITOPTS:
                 if (option_request(watcher)) {
@@ -539,7 +540,7 @@ bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
 {
     static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
     ssize_t nread = read_from_socket(fd, data, off, len);
-    if (nread <= 0) {
+    if (0 > nread) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
                 LOGTRACE << "Payload not there.";
