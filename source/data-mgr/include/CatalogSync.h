@@ -24,17 +24,9 @@
 #include <net/PlatNetSvcHandler.h>
 #include <net/SvcRequest.h>
 #include <fdsp/DMSvc.h>
+#include <fdsp/common_types.h>
 
 namespace fpi = FDS_ProtocolInterface;
-
-namespace FDS_ProtocolInterface {
-    class FDSP_MetaSyncReqClient;
-    class FDSP_MetaSyncRespProcessor;
-    class FDSP_MetaSyncRespIf;
-}
-typedef netClientSessionEx<fpi::FDSP_MetaSyncReqClient,
-                fpi::FDSP_MetaSyncRespProcessor,
-                fpi::FDSP_MetaSyncRespIf> netMetaSyncClientSession;
 
 namespace fds {
 
@@ -214,11 +206,6 @@ namespace fds {
          * vols_done are used for both initial sync and delta sync
          */
         std::atomic<fds_uint32_t> vols_done;  // num of vols synced
-
-        /**
-         * Client to destination DM with uuid 'node_uuid'
-         */
-        netMetaSyncClientSession *meta_client;
     };
 
     typedef boost::shared_ptr<CatalogSync> CatalogSyncPtr;
@@ -321,7 +308,6 @@ namespace fds {
          * Volume id to Catalog Sync object which are already doing
          * sync job or are scheduled to perform sync job
          */
-        std::string cat_sync_context;  // to return when sync is done
         CatSyncMap cat_sync_map;
         fds_mutex cat_sync_lock;  // protects catSyncMap and sync_in_progress
 
