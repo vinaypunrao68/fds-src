@@ -45,56 +45,6 @@ ObjectStorMgrI::~ObjectStorMgrI()
 {
 }
 
-void
-ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
-                          FDSP_PutObjTypePtr& putObj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
-                          FDSP_GetObjTypePtr& getObj)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
-                             FDSP_DeleteObjTypePtr& delObj)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::OffsetWriteObject(FDSP_MsgHdrTypePtr& msg_hdr,
-                                  FDSP_OffsetWriteObjTypePtr& offset_write_obj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr,
-                                FDSP_RedirReadObjTypePtr& redir_read_obj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void ObjectStorMgrI::GetObjectMetadata(
-        boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
 /**
  * Storage manager member functions
  *

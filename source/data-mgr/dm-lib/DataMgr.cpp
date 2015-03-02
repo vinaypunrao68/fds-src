@@ -1167,43 +1167,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
     return false;
 }
 
-void
-DataMgr::ReqHandler::StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
-                                 boost::shared_ptr<std::string> &volumeName,
-                                 boost::shared_ptr<std::string> &blobName,
-                                 FDS_ProtocolInterface::TxDescriptorPtr &txDesc) {
-    GLOGDEBUG << "Received start blob transction request for volume "
-              << *volumeName << " and blob " << *blobName;
-    fds_panic("must not get here");
-}
-
-void
-DataMgr::ReqHandler::StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
-                              boost::shared_ptr<std::string> &volumeName,
-                              boost::shared_ptr<std::string> &blobName) {
-    GLOGDEBUG << "Received stat blob requested for volume "
-              << *volumeName << " and blob " << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
-                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                              FDS_ProtocolInterface::
-                                              FDSP_UpdateCatalogTypePtr
-                                              &update_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
-                                             FDSP_MsgHdrTypePtr &msg_hdr,
-                                             FDS_ProtocolInterface::
-                                             FDSP_QueryCatalogTypePtr
-                                             &query_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
 /**
  * Make snapshot of volume catalog for sync and notify
  * CatalogSync.
@@ -1355,46 +1318,6 @@ DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
     DBG(GLOGDEBUG << "Expunge cb called");
     DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
     dltMgr->decDLTRefcnt(dltVersion);
-}
-
-void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
-                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                              FDS_ProtocolInterface::
-                                              FDSP_DeleteCatalogTypePtr
-                                              &delete_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& msgHeader,
-                                          boost::shared_ptr<std::string>& volumeName,
-                                          boost::shared_ptr<std::string>& blobName,
-                                          boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
-    GLOGDEBUG << " Set metadata for volume:" << *volumeName
-              << " blob:" << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& msgHeader,
-                                          boost::shared_ptr<std::string>& volumeName,
-                                          boost::shared_ptr<std::string>& blobName) {
-    GLOGDEBUG << " volume:" << *volumeName
-              << " blob:" << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
-                                            boost::shared_ptr<std::string>& volumeName) {
-    Error err(ERR_OK);
-    GLOGDEBUG << " volume:" << *volumeName << " txnid:" << header->req_cookie;
-
-    dmCatReq* request = new dmCatReq(header->glob_volume_id,
-                                     "",
-                                     header->session_uuid,
-                                     blob_version_invalid,
-                                     FDS_GET_VOLUME_METADATA);
-    err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
-    fds_verify(err == ERR_OK);
 }
 
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
