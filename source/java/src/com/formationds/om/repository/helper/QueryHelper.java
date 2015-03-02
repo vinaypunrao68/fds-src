@@ -10,6 +10,7 @@ import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
+import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.capacity.*;
 import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
@@ -24,6 +25,7 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
@@ -116,14 +118,41 @@ public class QueryHelper {
 	            final Map<String, List<VolumeDatapoint>> originated =
 	                byVolumeNameTimestamp( queryResults );
 	
-	            if( isFirebreakQuery( query.getSeriesType() ) ) {
+	            // is this our "find the last firebreak for each volume" query?
+	            if( isFirebreakQuery( query.getSeriesType() ) && query.getPoints() == 1 ) {
 	
 	                series.addAll( new FirebreakHelper().processFirebreak( queryResults ) );
 	                final FirebreaksLast24Hours firebreak = new FirebreaksLast24Hours();
 	                firebreak.setCount( last24Hours( series ) );
 	                calculatedList.add( firebreak );
 	
-	            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
+	            } 
+	            // a raw firebreak query that will collect all occurrences
+	            // in the time range and specify x as time and y as firebreak type
+	            else if ( isFirebreakQuery( query.getSeriesType() ) ) {
+	            	
+	            	Map<String, List<VolumeDatapointPair>> firebreaks = 
+	            		new FirebreakHelper().findAllFirebreaksByVolume( queryResults );
+	            	
+	            	// create the series
+	            	firebreaks.keySet().stream().forEach( key -> {
+	            		
+	            		final Series seri = new Series();
+	            		
+	            		firebreaks.get( key ).stream().forEach( firePoints -> {
+	            			
+	            			Datapoint dp = new Datapoint();
+	            			dp.setX( new Double( firePoints.getShortTermSigma().getTimestamp() ) );
+	            			dp.setY( new Double( firePoints.getFirebreakType().ordinal() ) );
+	            			
+	            			seri.getDatapoints().add( dp );
+	            		});
+	            		
+	            		series.add( seri );
+	            		
+	            	});
+            	}
+	            else if( isPerformanceQuery( query.getSeriesType() ) ) {
 	
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,

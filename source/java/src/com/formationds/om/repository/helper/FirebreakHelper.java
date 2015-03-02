@@ -109,6 +109,37 @@ public class FirebreakHelper {
 
         return series;
     }
+    
+    /**
+     * This method will get a list of all firebreak events from the datapoint list organized by volume ID
+     * @param datapoints
+     * @return
+     * @throws TException
+     */
+    public Map<String, List<VolumeDatapointPair>> findAllFirebreaksByVolume( final List<VolumeDatapoint> datapoints ) throws TException {
+    
+    	final Map<String, List<VolumeDatapointPair>> results = new HashMap<String, List<VolumeDatapointPair>>();
+    	
+    	final List<VolumeDatapointPair> paired = extractPairs( datapoints );
+    	
+    	paired.stream().forEach( pair -> {
+    	
+    		String key = pair.getShortTermSigma().getVolumeId();
+    		
+    		if ( !results.containsKey( key ) ){
+    			
+    			List<VolumeDatapointPair> listOfEvents = new ArrayList<VolumeDatapointPair>();
+    			results.put( key, listOfEvents );
+    		}
+    		
+    		// if it is a firebreak, add it to the list
+    		if ( isFirebreak( pair ) ){
+    			results.get( key ).add( pair );
+    		}
+    	});
+    	
+    	return results;
+    }
 
     /**
      * Find firebreak related stats for display in the UI.  This is similar to {@link #findFirebreakEvents},

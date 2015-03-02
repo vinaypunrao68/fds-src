@@ -234,7 +234,9 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
              StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
              StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
              Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
-             Math.round( (new Date()).getTime() / 1000 ) );
+             Math.round( (new Date()).getTime() / 1000 ),
+             1
+        );
     
         return filter;
     };

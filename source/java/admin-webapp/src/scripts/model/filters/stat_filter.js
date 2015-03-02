@@ -11,7 +11,7 @@ var StatQueryFilter = {
     GETS: 'GETS',
     SSD_GETS: 'SSD_GETS',
     
-    create: function( contextList, seriesTypes, startTime, endTime ){
+    create: function( contextList, seriesTypes, startTime, endTime, datapoints ){
         
         var val = { 
             seriesType: seriesTypes,
@@ -21,6 +21,10 @@ var StatQueryFilter = {
                 end: endTime
             }
         };
+        
+        if ( angular.isDefined( datapoints ) ){
+            val.points = datapoints;
+        }
         
         return val;
     }

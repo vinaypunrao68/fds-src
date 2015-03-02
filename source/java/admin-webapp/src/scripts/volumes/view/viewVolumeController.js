@@ -4,6 +4,15 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         return $filter( 'translate' )( key );
     };
     
+    $scope.firebreakModel = [
+        { x: ((new Date()).getTime()/1000) - (6*60*60), y: 1 },
+        { x: ((new Date()).getTime()/1000) - (10*60*60), y: 1 }
+    ];
+    
+    $scope.firebreakDomain = [ 3600*24, 3600*12, 3600*6, 3600*3, 3600, 0 ];
+    $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
+    $scope.lastTwentyFour = { start: ((new Date()).getTime()/1000) - (24*60*60), end: ((new Date()).getTime()/1000 ) };
+    
     $scope.snapshots = [];
     $scope.ranges = [];
     $scope.snapshotPolicies = [];
