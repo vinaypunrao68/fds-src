@@ -230,22 +230,20 @@ bool NbdConnection::option_request(ev::io &watcher) {
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     if (config.get_abs<bool>("fds.am.testing.toggleStandAlone", false)) {
         object_size = 4 * Ki;
-        volume_desc.policy.blockDeviceSizeInBytes = 10737418240;
+        volume_size = 1 * Gi;
     } else {
         LOGNORMAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volume_desc);
         omConfigApi.reset(); // No need for this reference anymore
         if (ERR_OK != err || apis::BLOCK != volume_desc.policy.volumeType)
             throw NbdError::connection_closed;
+        object_size = volume_desc.policy.maxObjectSizeInBytes;
+        volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
     }
 
-    // Fix endianness
-    object_size = volume_desc.policy.blockDeviceSizeInBytes;
-    volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
-
-    LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
-              << volume_desc.policy.blockDeviceSizeInBytes
-              << " block size " << object_size;
+    LOGNORMAL << "Attaching volume name " << *volumeName
+              << " of size " << volume_size
+              << " object size " << object_size;
     nbdOps->init(volumeName, object_size);
 
     return true;
