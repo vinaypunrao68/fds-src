@@ -704,53 +704,15 @@ service FDSP_Service {
 }
 
 service FDSP_DataPathReq {
-    oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
-    oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
-    oneway void DeleteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
-    oneway void OffsetWriteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
-    oneway void RedirReadObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
-
-    /* Exposed for testing */
-    oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req),
-    FDSP_TokenMigrationStats GetTokenMigrationStats(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 service FDSP_DataPathResp {
-    oneway void GetObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
-    oneway void PutObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
-    oneway void DeleteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
-    oneway void OffsetWriteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
-    oneway void RedirReadObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
-    /* Exposed for testing */
-    oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
 }
 
 service FDSP_MetaDataPathReq {
-    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
-    oneway void StartBlobTx(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName, 4:TxDescriptor txId),
-    oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
-    oneway void QueryCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
-    oneway void DeleteCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
-
-    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
-    oneway void StatBlob(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName)
-    oneway void SetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName, 4:FDSP_MetaDataList metaDataList)
-    oneway void GetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName)
-    oneway void GetVolumeMetaData(1:FDSP_MsgHdrType header, 2:string volumeName)
 }
 
 service FDSP_MetaDataPathResp {
-    /* Using cleaner API convention. Only success or error is returned. Done in msg hdr for legacy */
-    oneway void StartBlobTxResp(1:FDSP_MsgHdrType fds_msg),
-    oneway void UpdateCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
-    oneway void QueryCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
-    oneway void DeleteCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
-
-    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
-    oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:common.BlobDescriptor blobDesc)
-    oneway void SetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName)
-    oneway void GetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName, 3:FDSP_MetaDataList metaDataList)
-    oneway void GetVolumeMetaDataResp(1:FDSP_MsgHdrType header, 2:FDSP_VolumeMetaData volumeMeta)
 }
 
 struct FDSP_CreateVolType {
@@ -808,12 +770,7 @@ service FDSP_ControlPathResp {
 }
 
 service FDSP_MetaSyncReq {
-    oneway void PushMetaSyncReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_req)
-    oneway void MetaSyncDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
-
 }
 
 service FDSP_MetaSyncResp {
-    oneway void PushMetaSyncResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_resp)
-    oneway void MetaSyncDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
 }
