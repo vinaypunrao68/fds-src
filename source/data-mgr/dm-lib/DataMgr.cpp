@@ -819,7 +819,7 @@ int DataMgr::mod_init(SysParams const *const param)
     Error err(ERR_OK);
 
     omConfigPort = 0;
-    use_om = true;
+    standalone = true;
     numTestVols = 10;
     scheduleRate = 10000;
 
@@ -904,7 +904,7 @@ void DataMgr::mod_startup()
 
     MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
 
-    use_om = !(modProvider_->get_fds_config()->get<bool>("fds.dm.no_om", false));
+    standalone = !(modProvider_->get_fds_config()->get<bool>("fds.dm.no_om", false));
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
@@ -912,7 +912,7 @@ void DataMgr::mod_startup()
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
 
-    if (use_om) {
+    if (standalone) {
         LOGDEBUG << " Initialising the OM client ";
         /*
          * Setup communication with OM.

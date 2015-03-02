@@ -4,7 +4,6 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_
 
-#include <net/net-service.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fds_typedefs.h>
 #include <fdsp/AMSvc.h>

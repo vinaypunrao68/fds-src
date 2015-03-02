@@ -12,7 +12,6 @@
 
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
-#include <net/net-service-tmpl.hpp>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include "AsyncResponseHandlers.h"
@@ -103,7 +102,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
     GetVolumeMetaDataReq * volReq =
             static_cast<fds::GetVolumeMetaDataReq*>(amReq);
     GetVolumeMetaDataMsgPtr volMDMsg =
-        net::ep_deserialize<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
 
     if (ERR_OK == error)
         volReq->volumeMetadata = volMDMsg->volume_meta_data;
@@ -323,7 +322,7 @@ AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
     fpi::UpdateCatalogOnceRspMsgPtr updCatRsp =
-        net::ep_deserialize<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
 
     auto blobReq = static_cast<PutBlobReq *>(amReq);
     if (error != ERR_OK) {
@@ -347,7 +346,7 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
-        net::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << amReq->obj_id
@@ -405,7 +404,7 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
     fpi::PutObjectRspMsgPtr putObjRsp =
-            net::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
+            fds::deserializeFdspMsg<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << amReq->obj_id
@@ -483,7 +482,7 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
     dltMgr->decDLTRefcnt(dltVersion);
 
     fpi::GetObjectRespPtr getObjRsp =
-        net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
     if (error == ERR_OK) {
@@ -577,7 +576,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
 {
     fds_verify(amReq->magicInUse());
     fpi::QueryCatalogMsgPtr qryCatRsp =
-        net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
@@ -686,7 +685,7 @@ AmDispatcher::setBlobMetadataCb(AmRequest *amReq,
                                 boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     fpi::SetBlobMetaDataRspMsgPtr setMDRsp =
-        net::ep_deserialize<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
     if (error != ERR_OK) {
         LOGERROR << "Set metadata blob name: " << amReq->getBlobName() << " Error: " << error;
     } else {
@@ -754,7 +753,7 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     fpi::CommitBlobTxRspMsgPtr response =
-        net::ep_deserialize<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
     LOGDEBUG << svcReq->logString();
     if (ERR_OK == error) {
         auto blobReq =  static_cast<CommitBlobTxReq *>(amReq);

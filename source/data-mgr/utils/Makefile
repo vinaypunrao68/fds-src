@@ -9,7 +9,6 @@ user_fds_ar_libs  := \
     fds-qos-lib \
     fds-dm-lib \
     fds-dsk-mgnt \
-    fds-net-svc \
     fds-fdsp
 
 user_non_fds_libs := \
