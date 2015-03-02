@@ -79,9 +79,6 @@ typedef void (*node_event_handler_t)(int node_id,
                                      FDSP_MgrIdType node_type);
 typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
                                            const FDSP_BucketStatsRespTypePtr& buck_stats);
-typedef Error (*catalog_event_handler_t)(fds_catalog_action_t cat_action,
-                                         const FDSP_PushMetaPtr& push_meta,
-                                         const std::string& session_uuid);
 
 class OMgrClient {
   protected:
@@ -110,7 +107,6 @@ class OMgrClient {
     migration_event_handler_t migrate_evt_hdlr;
     dltclose_event_handler_t dltclose_evt_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
-    catalog_event_handler_t catalog_evt_hdlr;
 
     /**
      * Session table for OM client
@@ -214,8 +210,6 @@ class OMgrClient {
     int recvMigrationEvent(bool dlt_type);
     Error updateDlt(bool dlt_type, std::string& dlt_data);
     Error recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
-    Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
-    Error sendDMTPushMetaAck(const Error& op_err, const std::string& session_uuid);
     Error sendDMTCommitAck(const Error& op_err, const std::string& session_uuid);
 
     void recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
@@ -230,29 +224,6 @@ class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 
   public:
     explicit OMgrClientRPCI(OMgrClient *om_c);
-
-    void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
-                        const FDSP_PushMeta& push_meta_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
-                        FDSP_PushMetaPtr& push_meta_req);
-
-    void NotifyDMTClose(const FDSP_MsgHdrType& fdsp_msg,
-                        const FDSP_DmtCloseType& dmt_close) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
-                        FDSP_DmtCloseTypePtr& dmt_close);
-
-    void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,
-                         const FDSP_DMT_Type& dmt_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-                         FDSP_DMT_TypePtr& dmt_info);
 };
 
 }  // namespace fds

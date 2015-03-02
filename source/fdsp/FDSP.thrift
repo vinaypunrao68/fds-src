@@ -598,27 +598,10 @@ struct FDSP_MsgHdrType {
   32: string      session_cache,  // this will be removed once we have  transcation journel  in DM
 }
 
-typedef list<i64> vol_List_Type
-/* meta data  structure list of Volumes and  destination nodes */
-struct FDSP_metaData
-{
-    /* Object Metadata */
-    1: vol_List_Type  volList;
-    2: FDSP_Uuid  node_uuid,
-}
-
 struct FDSP_VolMetaState
 {
     1: i64        vol_uuid;
     2: bool       forward_done;   /* true means forwarding done, false means second rsync done */
-}
-
-typedef list<FDSP_metaData> FDSP_metaDataList
-/* DM meta data migration request */
-struct FDSP_PushMeta
-{
-     /* meta data */
-     2: FDSP_metaDataList          metaVol;
 }
 
 /* Token type */
@@ -818,18 +801,10 @@ service FDSP_OMControlPathResp {
 }
 
 service FDSP_ControlPathReq {
-
   /* OM to SM/DM/SH control messages */
-
-  oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
-  oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
-  oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
 }
 
 service FDSP_ControlPathResp {
-  oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp),
-  oneway void NotifyDMTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_resp),
-  oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)
 }
 
 service FDSP_MetaSyncReq {
