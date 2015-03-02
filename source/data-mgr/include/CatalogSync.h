@@ -24,7 +24,6 @@
 #include <net/PlatNetSvcHandler.h>
 #include <net/SvcRequest.h>
 #include <fdsp/DMSvc.h>
-#include <fdsp/common_types.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -179,7 +178,7 @@ namespace fds {
         fds_uint32_t recordVolSyncDone(csStateType expected_state);
 
   private:
-        SvcUuid svc_uuid;
+        fpi::SvcUuid svc_uuid;
         NodeUuid node_uuid;  // destination node
 
         std::atomic<csStateType> state;  // current state
