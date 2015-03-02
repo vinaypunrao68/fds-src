@@ -6,8 +6,6 @@
 
 #include "fds_process.h"
 
-#include "am-platform.h"
-
 #include "AmCache.h"
 #include "AccessMgr.h"
 #include "StorHvCtrl.h"
@@ -17,8 +15,6 @@
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/fdsn-server.h"
 #include "connector/block/NbdConnector.h"
-
-extern AmPlatform gl_AmPlatform;
 
 namespace fds {
 
@@ -67,9 +63,6 @@ AccessMgr::mod_init(SysParams const *const param) {
 
     blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(omConfigApi));
 
-    // Update the AM's platform with our instance ID so that
-    // common fields (e.g., ports) can be updated
-    gl_AmPlatform.setInstanceId(instanceId);
     return 0;
 }
 

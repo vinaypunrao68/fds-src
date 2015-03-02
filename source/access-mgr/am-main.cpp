@@ -1,37 +1,23 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
 #include <string>
-#include <util/fds_stat.h>
-#include <am-platform.h>
-#include <net/net-service.h>
 #include <AccessMgr.h>
 
-#include "platform/platform_process.h"
+#include "net/SvcProcess.h"
 
 namespace fds {
 
-class AMMain : public PlatformProcess
+class AMMain : public SvcProcess
 {
   public:
     virtual ~AMMain() {}
-    AMMain(int argc, char **argv,
-               Platform *platform, Module **mod_vec)
-        : PlatformProcess(argc, argv, "fds.am.", "am.log", platform, mod_vec) {}
-
-    void proc_pre_startup() override
-    {
-        int    argc;
-        char **argv;
-
-        PlatformProcess::proc_pre_startup();
-
-        argv = mod_vectors_->mod_argv(&argc);
-        am = AccessMgr::unique_ptr(new AccessMgr("AMMain AM Module",
-                                                 this));
-        proc_add_module(am.get());
-        Module *lckstp[] = { am.get(), NULL };
-        proc_assign_locksteps(lckstp);
+    AMMain(int argc, char **argv, Module **mod_vec) {
+        am = AccessMgr::unique_ptr(new AccessMgr("AMMain AM Module", this));
+        fds::Module *am_mod_vec[] = {
+            am.get(),
+            nullptr
+        };
     }
 
     int run() override {
@@ -49,13 +35,6 @@ class AMMain : public PlatformProcess
 
 int main(int argc, char **argv)
 {
-    fds::Module *am_mod_vec[] = {
-        &fds::gl_fds_stat,
-        &fds::gl_AmPlatform,
-        &fds::gl_NetService,
-        nullptr
-    };
-
-    fds::AMMain amMain(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
+    fds::AMMain amMain(argc, argv, am_mod_vec);
     return amMain.main();
 }

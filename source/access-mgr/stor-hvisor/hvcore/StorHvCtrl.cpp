@@ -6,19 +6,17 @@
 #include "NetSession.h"
 #include <dlt.h>
 #include <ObjectId.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <net/net_utils.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
-#include <am-platform.h>
 #include <fdsp_utils.h>
 
 #include "requests/requests.h"
 
 #include "lib/StatsCollector.h"
 #include "AmCache.h"
+#include "AccessMgr.h"
 #include "AmDispatcher.h"
 #include "AmProcessor.h"
 #include "am-tx-mgr.h"
@@ -123,7 +121,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       node_name,
 			       GetLog(),
 			       rpcSessionTbl,
-			       &gl_AmPlatform,
+			       nullptr,
 			       instanceId);
     if (toggleStandAlone) {
 	om_client->setNoNetwork(true);
@@ -225,15 +223,6 @@ SysParams* StorHvCtrl::getSysParams() {
 }
 
 void StorHvCtrl::StartOmClient() {
-    /*
-     * Start listening for OM control messages
-     * Appropriate callbacks were setup by data placement and volume table objects
-     */
-    if (om_client) {
-        LOGNOTIFY << "StorHvCtrl - Started accepting control messages from OM";
-        om_client->registerNodeWithOM(&gl_AmPlatform);
-    }
-
     // Call the dispatcher startup function here since this
     // legacy class doesn't actually extend from Module but
     // needs a member's startup to be called.
