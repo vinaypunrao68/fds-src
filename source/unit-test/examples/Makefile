@@ -25,8 +25,7 @@ user_fds_ar_libs  := \
     fds-migrations \
     fds-odb       \
     fds-sm-plat   \
-    fds-smlib \
-    platform_core
+    fds-smlib
 
 local_nginx_libs   :=  \
     ngx-http-module \

@@ -19,7 +19,7 @@ user_fds_ar_libs  +=  \
     fds-dsk-mgnt \
     fds-hash \
     fds-fdsp \
-    platform_core
+    fds-plat-lib
 
 local_nginx_libs   :=  \
     ngx-http-module \
