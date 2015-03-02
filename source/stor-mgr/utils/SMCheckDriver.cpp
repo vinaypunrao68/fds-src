@@ -4,7 +4,6 @@
 
 #include <fds_assert.h>
 #include <fds_process.h>
-#include <sm_ut_utils.h>
 #include <object-store/SmDiskMap.h>
 #include <object-store/ObjectMetaDb.h>
 #include <object-store/ObjectMetadataStore.h>
@@ -13,19 +12,21 @@
 #include <string>
 #include <boost/program_options.hpp>
 
-#include "smchk_driver.h"
+#include <SMCheckDriver.h>
+#include <SMCheck.h>
 
 namespace fds {
 
-SMChkDriver::SMChkDriver(int argc, char *argv[],
-        const std::string &config,
-        const std::string &basePath, Module *vec[],
-        fds::SmDiskMap::ptr smDiskMap,
-        fds::ObjectDataStore::ptr smObjStore):
-        FdsProcess(argc, argv, config, basePath, "smchk.log", vec),
-        checker(nullptr),
-        smDiskMap(smDiskMap),
-        smObjStore(smObjStore) {
+SMCheckDriver::SMCheckDriver(int argc, char *argv[],
+                             const std::string &config,
+                             const std::string &basePath, Module *vec[],
+                             SmDiskMap::ptr smDiskMap,
+                             ObjectDataStore::ptr smObjStore)
+    : FdsProcess(argc, argv, config, basePath, "smchk.log", vec),
+      checker(nullptr),
+      smDiskMap(smDiskMap),
+      smObjStore(smObjStore)
+{
     // Create the metadata db
     smMdDb = fds::ObjectMetadataDb::ptr(
             new fds::ObjectMetadataDb());
@@ -91,8 +92,8 @@ SMChkDriver::SMChkDriver(int argc, char *argv[],
     verbose = vm.count("verbose");
 }
 
-int SMChkDriver::run() {
-    checker = new SMChk(smDiskMap, smObjStore, smMdDb, verbose);
+int SMCheckDriver::run() {
+    checker = new SMCheck(smDiskMap, smObjStore, smMdDb, verbose);
     bool success = false;
     switch (cmd) {
         case RunFunc::FULL_CHECK:
@@ -149,7 +150,7 @@ main(int argc, char** argv) {
 
     argc = new_argv.size();
 
-    fds::SMChkDriver smChk(argc, &new_argv[0], "platform.conf", "fds.sm.",
+    fds::SMCheckDriver smChk(argc, &new_argv[0], "platform.conf", "fds.sm.",
             vec, smDiskMap, smObjStore);
     int ret = smChk.main();
     return ret;
