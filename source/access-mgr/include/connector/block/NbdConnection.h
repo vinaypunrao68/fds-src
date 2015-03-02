@@ -28,6 +28,10 @@ struct attach_header {
     fds_int32_t optSpec, length;
 };
 
+struct handshake_header {
+    uint32_t ack;
+};
+
 struct request_header {
     uint8_t magic[4];
     fds_int32_t opType;
@@ -71,6 +75,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     size_t resp_needed;
 
     message<attach_header, std::array<char, 1024>> attach;
+    message<handshake_header, nullptr_t> handshake;
     message<request_header, boost::shared_ptr<std::string>> request;
 
     resp_vector_type response;
@@ -99,7 +104,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
 
     // Handshake State
     bool handshake_start(ev::io &watcher);
-    void handshake_complete(ev::io &watcher);
+    bool handshake_complete(ev::io &watcher);
 
     // Option Negotiation State
     bool option_request(ev::io &watcher);
