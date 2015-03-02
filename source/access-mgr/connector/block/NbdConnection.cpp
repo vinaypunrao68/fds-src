@@ -229,7 +229,7 @@ bool NbdConnection::option_request(ev::io &watcher) {
     apis::VolumeDescriptor volume_desc;
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     if (config.get_abs<bool>("fds.am.testing.toggleStandAlone", false)) {
-        block_size = 4 * Ki;
+        object_size = 4 * Ki;
         volume_desc.policy.blockDeviceSizeInBytes = 10737418240;
     } else {
         LOGNORMAL << "Will stat volume " << *volumeName;
@@ -240,13 +240,13 @@ bool NbdConnection::option_request(ev::io &watcher) {
     }
 
     // Fix endianness
-    block_size = volume_desc.policy.blockDeviceSizeInBytes;
+    object_size = volume_desc.policy.blockDeviceSizeInBytes;
     volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
 
     LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
               << volume_desc.policy.blockDeviceSizeInBytes
-              << " block size " << block_size;
-    nbdOps->init(volumeName, block_size);
+              << " block size " << object_size;
+    nbdOps->init(volumeName, object_size);
 
     return true;
 }
@@ -328,7 +328,7 @@ NbdConnection::io_reply(ev::io &watcher) {
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
-        response = resp_vector_type(new iovec[(max_block_size / block_size) + 3]);
+        response = resp_vector_type(new iovec[(max_block_size / object_size) + 3]);
         response[0].iov_base = to_iovec(NBD_RESPONSE_MAGIC);
         response[0].iov_len = sizeof(NBD_RESPONSE_MAGIC);
         response[1].iov_base = to_iovec(&error_ok); response[1].iov_len = sizeof(error_ok);
