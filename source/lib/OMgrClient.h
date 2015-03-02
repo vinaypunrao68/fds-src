@@ -208,13 +208,8 @@ class OMgrClient {
 
     int recvMigrationEvent(bool dlt_type);
     Error updateDlt(bool dlt_type, std::string& dlt_data);
-    Error recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
-    Error sendDMTCommitAck(const Error& op_err, const std::string& session_uuid);
 
-    void recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
-    int sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
-                            const std::string& session_uuid);
 };
 
 class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
