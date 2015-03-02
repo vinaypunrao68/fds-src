@@ -4,7 +4,9 @@ from boto.s3.connection import S3Connection
 import config
 import config_parser
 import utils
+import select
 import s3
+import ssh
 import sys
 
 def percent_cb(complete, total):
@@ -14,6 +16,20 @@ def percent_cb(complete, total):
 def test_download_file():
     fname = utils.download_file(config.REPOSITORY_URL)
     utils.untar_file(fname)
+
+def test_ssh_connection():
+    local_ssh = ssh.SSHConn('10.2.10.200', config.SSH_USER,
+                            config.SSH_PASSWORD)
+    #cmd = "%s && %s" % (config.FDS_SBIN, config.START_ALL_CLUSTER)
+    #local_ssh.channel.exec_command(cmd)
+    #print local_ssh.channel.recv(1024)
+    cluster = config.STOP_ALL_CLUSTER % config.FORMATION_CONFIG
+    print cluster
+    cmd = "cd %s && %s" % (config.FDS_SBIN, cluster)
+    print cmd
+    #cmd = "cd /fds/sbin && /fds-tool.py -f deploy_formation.conf -u"
+    local_ssh.channel.exec_command(cmd)
+    print local_ssh.channel.recv(1024)
 
 def test_hostname_to_ip():
     print utils.hostname_to_ip('fre-lxcnode-01')
@@ -54,4 +70,4 @@ def test_s3():
     key.get_file(fp)
 
 if __name__ == "__main__":
-    test_hash_file_content()
+    test_ssh_connection()
