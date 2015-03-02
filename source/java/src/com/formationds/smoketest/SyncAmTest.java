@@ -18,6 +18,48 @@ import static org.junit.Assert.assertEquals;
 @Ignore
 public class SyncAmTest extends BaseAmTest {
     @Test
+    public void testTransaction() throws Exception {
+        String blobName = "key";
+        byte[] first = new byte[OBJECT_SIZE];
+        new Random().nextBytes(first);
+        amService.updateBlobOnce(FdsFileSystem.DOMAIN, volumeName, blobName, 1, ByteBuffer.wrap(first), OBJECT_SIZE, new ObjectOffset(0), new HashMap<>());
+
+        int arbitrarySize = 42;
+        byte[] second = new byte[arbitrarySize];
+        new Random().nextBytes(second);
+        TxDescriptor tx = amService.startBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, 1);
+        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(second), arbitrarySize, new ObjectOffset(0), true);
+        amService.commitBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, tx);
+
+        byte[] result = new byte[arbitrarySize];
+        ByteBuffer bb = amService.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, arbitrarySize, new ObjectOffset(0));
+        bb.get(result);
+        assertArrayEquals(second, result);
+    }
+
+    @Test
+    public void testUpdateOnceSeveralTimes() throws Exception {
+        String blobName = "key";
+        byte[] first = new byte[OBJECT_SIZE];
+        byte[] second = new byte[OBJECT_SIZE];
+        new Random().nextBytes(first);
+        new Random().nextBytes(second);
+        amService.updateBlobOnce(FdsFileSystem.DOMAIN, volumeName, blobName, 1, ByteBuffer.wrap(first), OBJECT_SIZE, new ObjectOffset(0), new HashMap<>());
+        amService.updateBlobOnce(FdsFileSystem.DOMAIN, volumeName, blobName, 1, ByteBuffer.wrap(second), OBJECT_SIZE, new ObjectOffset(1), new HashMap<>());
+        assertEquals(2 * OBJECT_SIZE, amService.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).getByteCount());
+
+        byte[] result = new byte[OBJECT_SIZE];
+
+        ByteBuffer bb = amService.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, OBJECT_SIZE, new ObjectOffset(0));
+        bb.get(result);
+        assertArrayEquals(first, result);
+
+        bb = amService.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, OBJECT_SIZE, new ObjectOffset(1));
+        bb.get(result);
+        assertArrayEquals(second, result);
+    }
+
+    @Test
     public void testDeleteBlob() throws Exception {
         String blobName = "key";
         byte[] buf = new byte[10];
