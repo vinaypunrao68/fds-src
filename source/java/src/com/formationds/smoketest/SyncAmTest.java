@@ -1,11 +1,11 @@
 package com.formationds.smoketest;
 
-import com.formationds.apis.ErrorCode;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ErrorCode;
 import org.junit.Ignore;
 import org.junit.Test;
 

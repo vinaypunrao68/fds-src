@@ -1,9 +1,9 @@
 package com.formationds.smoketest;
 
-import com.formationds.apis.ErrorCode;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.ErrorCode;
 import com.google.common.collect.Maps;
 import org.junit.Ignore;
 import org.junit.Test;
