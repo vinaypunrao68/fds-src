@@ -6,6 +6,7 @@
 #include <fdsp_utils.h>
 #include <fdsp/am_service_types.h>
 #include <fdsp/dm_service_types.h>
+#include <fdsp/om_service_types.h>
 #include <fdsp/sm_service_types.h>
 #include <fds_resource.h>
 
@@ -51,6 +52,13 @@ FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
 {
     lhs.svc_uuid = rhs.uuid_get_val();
+    return lhs;
+}
+
+FDS_ProtocolInterface::FDSP_Uuid&
+assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs)
+{
+    lhs.uuid = rhs.svc_uuid.svc_uuid;
     return lhs;
 }
 

@@ -5,22 +5,27 @@
 #include <vector>
 #include <iostream>  // NOLINT
 #include <thrift/protocol/TDebugProtocol.h>
-#include <om-svc-handler.h>
-#include <OmResources.h>
-#include <OmDeploy.h>
-#include <OmDmtDeploy.h>
-#include <OmDataPlacement.h>
-#include <OmVolumePlacement.h>
-#include <orch-mgr/om-service.h>
-#include <util/Log.h>
-#include <orchMgr.h>
+#include "om-svc-handler.h"
+#include "OmResources.h"
+#include "OmDeploy.h"
+#include "OmDmtDeploy.h"
+#include "OmDataPlacement.h"
+#include "OmVolumePlacement.h"
+#include "orch-mgr/om-service.h"
+#include "util/Log.h"
+#include "orchMgr.h"
+#include "kvstore/redis.h"
+#include "kvstore/configdb.h"
+#include "net/net_utils.h"
 
 namespace fds {
 
 template<typename T>
 static T
 get_config(std::string const& option, T const& default_value)
-{ return MODULEPROVIDER()->get_fds_config()->get<T>(option, default_value); }
+{ 
+    return MODULEPROVIDER()->get_fds_config()->get<T>(option, default_value); 
+}
 
 template <typename T, typename Cb>
 static std::unique_ptr<TrackerBase<NodeUuid>>
@@ -42,9 +47,8 @@ OmSvcHandler::OmSvcHandler()
 : PlatNetSvcHandler(MODULEPROVIDER())
 {
     om_mod = OM_NodeDomainMod::om_local_domain();
-    // REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);
-    // REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, om_node_svc_info);
 
+    this->configDB = gl_orch_mgr->getConfigDB();
 
     /* svc->om response message */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
@@ -52,6 +56,8 @@ OmSvcHandler::OmSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDeleteBucket, DeleteBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
+//    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);
+//    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcMapMsg, getSvcMap);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
 
@@ -106,24 +112,24 @@ void OmSvcHandler::init_svc_event_handlers() {
 // ----------------
 //
 void
-OmSvcHandler::om_node_svc_info(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
-                               boost::shared_ptr<fpi::NodeSvcInfo> &msg)
+OmSvcHandler::om_node_svc_info(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                               boost::shared_ptr<fpi::NodeSvcInfo> &svc)
 {
-    LOGNORMAL << "Service up";
+    LOGNORMAL << "Node Service Info received for " << svc.get()->node_auto_name;
 }
 
 // om_node_info
 // ------------
 //
 void
-OmSvcHandler::om_node_info(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+OmSvcHandler::om_node_info(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                            boost::shared_ptr<fpi::NodeInfoMsg> &node)
 {
-    LOGNORMAL << "Node up";
+    LOGNORMAL << "Node Info received for " << node.get()->node_loc.svc_auto_name;
 }
 
 void
-OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                  boost::shared_ptr<fpi::CtrlTestBucket> &msg)
 {
     LOGNORMAL << " receive test bucket msg";
@@ -132,7 +138,7 @@ OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+OmSvcHandler::CreateBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                  boost::shared_ptr<fpi::CtrlCreateBucket> &msg)
 {
     const FdspCrtVolPtr crt_buck_req(new fpi::FDSP_CreateVolType());
@@ -158,7 +164,7 @@ OmSvcHandler::CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::DeleteBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+OmSvcHandler::DeleteBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                  boost::shared_ptr<fpi::CtrlDeleteBucket> &msg)
 {
     LOGNORMAL << " receive delete bucket from " << hdr->msg_src_uuid.svc_uuid;
@@ -169,8 +175,8 @@ OmSvcHandler::DeleteBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlModifyBucket> &msg)
+OmSvcHandler::ModifyBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                           boost::shared_ptr<fpi::CtrlModifyBucket> &msg)
 {
     LOGNORMAL << " receive delete bucket from " << hdr->msg_src_uuid.svc_uuid;
     const FdspModVolPtr mod_buck_req(new fpi::FDSP_ModifyVolType());
@@ -179,8 +185,8 @@ OmSvcHandler::ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 }
 
 void
-OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlSvcEvent> &msg)
+OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                       boost::shared_ptr<fpi::CtrlSvcEvent> &msg)
 {
     LOGDEBUG << " received " << msg->evt_code
              << " from:" << std::hex << msg->evt_src_svc_uuid.svc_uuid << std::dec;
@@ -197,34 +203,107 @@ OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
 void
 OmSvcHandler::getSvcMap(boost::shared_ptr<fpi::AsyncHdr>&hdr,
-                 boost::shared_ptr<fpi::GetSvcMapMsg> &msg)
+                        boost::shared_ptr<fpi::GetSvcMapMsg> &msg)
 {
     Error err(ERR_OK);
     LOGDEBUG << " received " << hdr->msg_code
              << " from:" << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
 
-    fpi::GetSvcMapRespMsgPtr respMsg(new fpi::GetSvcMapRespMsg());
-    boost::shared_ptr<int32_t> nullarg;
-    getSvcMap(respMsg->svcMap, nullarg);
+    fpi::GetSvcMapRespMsgPtr respMsg (new fpi::GetSvcMapRespMsg());
+    boost::shared_ptr<int64_t> nullarg;
+    getSvcMap (respMsg->svcMap, nullarg);
 
-    // init the Resp message with the service map
+    // initialize the response message with the service map
     hdr->msg_code = 0;
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
-
+    sendAsyncResp (*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
 }
 
-void OmSvcHandler::registerService(boost::shared_ptr<SvcInfo>& svcInfo)
-{
-    // TODO(Sanjay): Impl
-    fds_panic("Unimpl");
+void OmSvcHandler::registerService(const fpi::SvcInfo& svcInfo)
+{    
+    
 }
 
-void OmSvcHandler::getSvcMap(std::vector<SvcInfo> & _return,
-                             boost::shared_ptr<int32_t>& nullarg)
+void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
-    // TODO(Sanjay): Impl
-    // get the  serice map from config DB.
-    fds_panic("Unimpl");
+    LOGDEBUG << "Register service request. Svcinfo: " << fds::logString(*svcInfo);
+
+    if (configDB->getSvcMap(*svcInfo))
+    {
+        LOGWARN << " service already registered! service: " << fds::logString(*svcInfo);
+        return;
+    }
+    
+    
+    try
+    {
+        bool bResults = configDB->createSvcMap(*svcInfo);
+        if (!bResults)
+        {
+            return;
+        }
+        
+        fpi::FDSP_RegisterNodeTypePtr reg_node_req;
+        reg_node_req.reset(new FdspNodeReg());
+        
+        fromTo(svcInfo, reg_node_req);
+        
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        NodeUuid new_node_uuid;
+
+        if (reg_node_req->node_uuid.uuid == 0) {
+            LOGERROR << "Refuse to register a node without valid uuid: node_type "
+                << reg_node_req->node_type << ", name " << reg_node_req->node_name;
+            return;
+        }
+        
+        new_node_uuid.uuid_set_type(reg_node_req->node_uuid.uuid, 
+                                    reg_node_req->node_type);
+        Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
+        if (!err.ok()) 
+        {
+            LOGERROR << "Node Registration failed for "
+                     << reg_node_req->node_name << ":" << std::hex
+                     << new_node_uuid.uuid_get_val() << std::dec
+                     << " node_type " << reg_node_req->node_type
+                     << ", result: " << err.GetErrstr();
+            return;
+        }
+        
+        LOGNORMAL << "Done Registered new node " << reg_node_req->node_name 
+                  << std::hex << ", node uuid " << reg_node_req->node_uuid.uuid
+                  << ", service uuid " << new_node_uuid.uuid_get_val()
+                  << ", node type " << reg_node_req->node_type << std::dec;
+        
+    } 
+    catch(const kvstore::ConfigException e)
+    {
+        LOGERROR << "Orchestration Manager encountered exception while "
+                 << "processing register service -- "
+                 << e.what()
+                 << " SvcInfo: " << fds::logString(*svcInfo);
+    }
+    catch(const redis::RedisException e)
+    {
+        LOGERROR << "Orchestration Manager encountered exception while "
+                 << "processing register service."
+                 << " SvcInfo: " << fds::logString(*svcInfo);
+    }
+   
+}
+
+void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return, const int64_t nullarg)
+{
+    LOGDEBUG << "Service map request";
+    if (!configDB->listSvcMap(_return, nullarg)) 
+    {
+        LOGWARN << "Failed to list service map";
+    } 
+}
+
+void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                             boost::shared_ptr<int64_t>& nullarg)
+{
+    getSvcMap( _return, nullarg);
 }
 
 void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -238,6 +317,32 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // tell DLT state machine about abort (error state)
     dltMod->dlt_deploy_event(DltErrorFoundEvt(NodeUuid(hdr->msg_src_uuid),
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
+}
+
+void OmSvcHandler::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
+                          fpi::FDSP_RegisterNodeTypePtr& reg_node_req)
+{       
+       
+//    FDS_ProtocolInterface::FDSP_AnnounceDiskCapability& capacity;
+//    capacity = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
+//    reg_node_req->disk_info = capacity;
+//    reg_node_req->domain_id = 0;
+//    reg_node_req->ip_hi_addr = 0;
+//    reg_node_req->metasync_port = 0;
+//    reg_node_req->migration_port = 0;
+//    reg_node_req->node_root = new std::string();    
+//    reg_node_req->node_uuid = new FDSP_Uuid(); 
+    
+    reg_node_req->control_port = svcInfo->svc_port;
+    reg_node_req->data_port = svcInfo->svc_port;
+    reg_node_req->ip_lo_addr = fds::net::ipString2Addr(svcInfo->ip);  
+    reg_node_req->node_name = svcInfo->name;   
+    reg_node_req->node_type = svcInfo->svc_type;
+    
+   
+    FDS_ProtocolInterface::FDSP_Uuid uuid;
+    reg_node_req->service_uuid = fds::assign(uuid, svcInfo->svc_id);
+    
 }
 
 }  //  namespace fds

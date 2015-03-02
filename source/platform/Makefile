@@ -5,13 +5,9 @@ user_rtime_env   := user
 speedup          = -j $(threads)
 user_build_dir   := include source python
 
-user_incl_dir    := include ../net-service/include
+user_incl_dir    := include $(topdir)
 
-user_fds_ar_libs :=                  \
-                    platform_core    \
-                    fds-net-svc      \
-                    fds-fdsp
-
+user_fds_ar_libs := fds-pm-lib
 user_non_fds_libs :=           \
                      udev      \
                      rt        \

@@ -6,7 +6,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <fds_config.hpp>
-
+#include <util/properties.h>
 namespace fds {
 
 /* Forward declarations */
@@ -52,6 +52,8 @@ class CommonModuleProviderIf {
     virtual TracebufferPool* getTracebufferPool() {return nullptr; }
 
     virtual SvcMgr* getSvcMgr() {return nullptr;}
+
+    virtual util::Properties* getProperties() { return nullptr;}
 };
 
 #define MODULEPROVIDER() getModuleProvider()

@@ -118,13 +118,15 @@ void SvcProcess::setupConfigDb_()
 void SvcProcess::setupSvcInfo_()
 {
     auto config = get_conf_helper();
-    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(config.get<long long>("svc.uuid"));
+    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(config.get<long long>("svc.uuid",0));
     svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
-    svcInfo_.svc_port = config.get<int>("svc.port");
-    svcInfo_.svc_type = SvcMgr::mapToSvcType(config.get<std::string>("id"));
+    svcInfo_.svc_port = config.get<int>("svc.port",7000);
+    svcInfo_.svc_type = SvcMgr::mapToSvcType(config.get<std::string>("id","pm"));
     svcInfo_.svc_status = fpi::SVC_STATUS_ACTIVE;
+
+    // TODO(Rao): set up correct incarnation no
     svcInfo_.incarnationNo = util::getTimeStampSeconds();
-    svcInfo_.name = config.get<std::string>("id");
+    svcInfo_.name = config.get<std::string>("id","pm");
 }
 
 void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,
