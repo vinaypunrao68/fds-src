@@ -14,8 +14,7 @@ user_fds_ar_libs  := \
     fds-om-dlt \
     fds-om-discovery \
     fds-om-plat \
-    fds-plat-lib \
-    fds-xdi
+    fds-plat-lib
 
 user_non_fds_libs := \
     leveldb \
