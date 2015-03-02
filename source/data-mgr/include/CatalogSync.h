@@ -38,7 +38,6 @@ typedef netClientSessionEx<fpi::FDSP_MetaSyncReqClient,
 
 namespace fds {
 
-     class OMgrClient;
      class CatalogSyncMgr;
 
      // Callback to DM svc handler for any DMT migration events
@@ -56,7 +55,6 @@ namespace fds {
      */
      typedef std::function<void (catsync_notify_evt_t event,
                                  fds_volid_t vol_id,
-                                 OMgrClient* omclient,
                                  const Error& error)> catsync_done_handler_t;
 
     /**
@@ -82,7 +80,6 @@ namespace fds {
     class CatalogSync {
   public:
         CatalogSync(const NodeUuid &uuid,
-                    OMgrClient* omclient,
                     DmIoReqHandler* dm_req_hdlr);
         ~CatalogSync();
 
@@ -208,11 +205,6 @@ namespace fds {
         catsync_done_handler_t done_evt_handler;
 
         /**
-         * Cashed OM client passed via constructor, does not own
-         */
-        OMgrClient* om_client;
-
-        /**
          * Cashed volumes we are working with
          */
         std::set<fds_volid_t> sync_volumes;
@@ -253,8 +245,7 @@ namespace fds {
          * cat sync is still in progress, later we may revisit this...
          */
         Error startCatalogSync(const fpi::FDSP_metaDataList& metaVol,
-                               OMgrClient* omclient,
-                               const std::string& context);
+                               OmDMTMsgCbType cb);
 
         /**
          * Called when DM receives DMT commit so that in-progress catalog syncs
@@ -262,8 +253,7 @@ namespace fds {
          * @return ERR_NOT_READY if called in the middle of initial rsync; returns
          * ERR_OK if success.
          */
-        Error startCatalogSyncDelta(const std::string& context,
-                                    OmDMTMsgCbType cb);
+        Error startCatalogSyncDelta(OmDMTMsgCbType cb);
 
         /**
          * Forward catalog update to DM to which we are pushing vol meta for the
@@ -305,7 +295,6 @@ namespace fds {
          */
         void syncDoneCb(catsync_notify_evt_t event,
                         fds_volid_t volid,
-                        OMgrClient* omclient,
                         const Error& error);
 
         /**
@@ -343,6 +332,7 @@ namespace fds {
 
         // callback to svc handler to send ack for DMT update
         OmDMTMsgCbType omDmtUpdateCb;
+        OmDMTMsgCbType omPushMetaCb;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;
