@@ -15,5 +15,5 @@ fds_dm_catalog_write_buffer_size=52428800
 fds_am_testing_am_testing_toggleDisableStreamingStats=true
 fds_svc_plat_lftp_enable=true
 fds_build=release
-fds_om_host=luke
+fds_om_host=OM_HOST
 clean_fds=yes

@@ -60,6 +60,11 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &msg);
 
+    void
+    NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                      boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
+                      const Error                                 &err);
+
     virtual void
     shutdownAM(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                boost::shared_ptr<fpi::ShutdownMODMsg>   &shutdownMsg);

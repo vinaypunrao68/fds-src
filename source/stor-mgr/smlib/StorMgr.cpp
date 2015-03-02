@@ -1094,6 +1094,31 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
     delete moveReq;
 }
 
+void
+ObjectStorMgr::storeCurrentDLT()
+{
+    // Store current DLT to a file in log directory, so offline smcheck can use it to
+    // verify dlt ownership.
+    //
+    // TODO(Sean):  cleanup when going moving to online smcheck
+    DLT *currentDLT = const_cast<DLT *>(objStorMgr->omClient->getCurrentDLT());
+    std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
+
+    // Must remove pre-existing file.  Otherwise, it will append a new version to the
+    // end of the file.  When de-serializing, it read from the beginning of the file,
+    // thus getting the oldest copy of DLT, if not removed.
+    remove(dltPath.c_str());
+    currentDLT->storeToFile(dltPath);
+
+    // To validate the token ownership by SM, we also need UUID of the SM to compare it
+    // against DLT
+    NodeUuid myUuid = getUuid();
+    std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
+    ofstream uuidFile(uuidPath);
+    uuidFile <<  myUuid.uuid_get_val();
+}
+
+
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);

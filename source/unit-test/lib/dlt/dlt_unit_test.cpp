@@ -18,7 +18,7 @@ TEST_CASE ("TokenGroup" , "[token]") {
     tokenGroup[2]=30;
     tokenGroup[3]=40;
     CAPTURE ( tokenGroup[2].uuid_get_val() );
-    //cout << tokenGroup ; 
+    //cout << tokenGroup ;
     for (uint i=0;i<4;i++) {
         REQUIRE (tokenGroup[i].uuid_get_val() == (i+1)*10);
     }
@@ -40,7 +40,7 @@ TEST_CASE ("Assigning values", "[dlt]" ) {
 
 TEST_CASE ("Node Positions", "[dlt]") {
     DLT dlt(3,4,1,true);
-    
+
     CAPTURE(dlt.getNumBitsForToken());
     CAPTURE(dlt.getDepth());
     CAPTURE( dlt.getNumTokens() );
@@ -64,7 +64,7 @@ TEST_CASE ("Dlt Manager" , "[mgr]") {
     DLT dlt2(3,4,2,true);
     DLT dlt3(3,4,3,true);
 
-    fillDltNodes(&dlt1,10);        
+    fillDltNodes(&dlt1,10);
     fillDltNodes(&dlt2,100);
     fillDltNodes(&dlt3,20);
 
@@ -72,7 +72,7 @@ TEST_CASE ("Dlt Manager" , "[mgr]") {
     DLTManager dltMgr(maxDlts);
     dltMgr.add(dlt1);
     dltMgr.add(dlt2);
-    
+
     // check teh first DLT
     const DLT *ptr=dltMgr.getDLT(1);
     REQUIRE (ptr->getNumTokens() == 8);
@@ -92,13 +92,13 @@ TEST_CASE ("Dlt Manager" , "[mgr]") {
     std::string buffer;
     dlt3.getSerialized(buffer);
 
-    dltMgr.addSerializedDLT(buffer);
+    dltMgr.addSerializedDLT(buffer, NULL);
 
     ptr=dltMgr.getDLT(3);
     REQUIRE (ptr->getVersion() == (fds_uint64_t) 3);
     verifyDltNodes(ptr,20);
 
-    
+
 }
 
 TEST_CASE("Tokens" , "[token]") {
@@ -106,18 +106,18 @@ TEST_CASE("Tokens" , "[token]") {
     fds_uint32_t dltDepth=4;
     fds_uint32_t hashsize=sizeof(fds_uint64_t)*8;
 
-#if 0    // SAN 
+#if 0    // SAN
     fds_uint64_t high((fds_uint64_t)7<<(hashsize-numBitsForToken)),low((fds_uint64_t)9<<(hashsize-numBitsForToken));
     ObjectID objId(high,low);
-    
+
     REQUIRE( objId.GetHigh() == ((fds_uint64_t)7<<(hashsize-numBitsForToken)) ) ;
     REQUIRE( objId.GetLow() == ((fds_uint64_t)9<<(hashsize-numBitsForToken)) );
 
     DLT dlt(numBitsForToken,dltDepth,1);
     fds_token_id token=dlt.getToken(objId);
-    
+
     REQUIRE(token == 7);
-#endif 
+#endif
 }
 
 TEST_CASE ("Mem Serialize" ,"[serialize]") {
@@ -155,7 +155,7 @@ TEST_CASE ("DLT Serialize" , "[dlt][serialize]") {
     CAPTURE( dlt.getNumTokens() );
 
     fillDltNodes(&dlt,10);
-        
+
     uint32_t bytesWritten = dlt.write(s);
     CAPTURE(bytesWritten);
 
@@ -164,9 +164,9 @@ TEST_CASE ("DLT Serialize" , "[dlt][serialize]") {
     std::string buffer = s->getBufferAsString();
 
     DLT dlt1(0,0,0,false);
-    
+
     Deserializer *d = getMemDeserializer(buffer);
-    
+
     uint32_t bytesRead = dlt1.read(d);
     CAPTURE(bytesRead);
     //cout<<"bytesRead:"<<bytesRead<<endl;
@@ -177,7 +177,7 @@ TEST_CASE ("DLT Serialize" , "[dlt][serialize]") {
     REQUIRE (dlt1.getVersion() == (fds_uint64_t) 1);
     REQUIRE (dlt1.getNumTokens() == pow(2,dlt1.getNumBitsForToken()));
     REQUIRE (dlt1.getDepth() == 4);
-    
+
 }
 
 TEST_CASE ("DLT Serialize2","[dlt][serialize]") {
@@ -187,18 +187,36 @@ TEST_CASE ("DLT Serialize2","[dlt][serialize]") {
     CAPTURE(dlt.getNumTokens());
 
     fillDltNodes(&dlt,10);
-        
+
     std::string buffer;
     dlt.getSerialized(buffer);
 
     DLT dlt1(0,0,0,false);
-    
+
     dlt1.loadSerialized(buffer);
     //printDlt(&dlt1);
     verifyDltNodes(&dlt1,10);
     REQUIRE (dlt1.getVersion() == (fds_uint64_t) 1);
     REQUIRE (dlt1.getNumTokens() == pow(2,dlt1.getNumBitsForToken()));
     REQUIRE (dlt1.getDepth() == 4);
+}
+
+TEST_CASE ("DLT Serialize file", "[dlt][serialize]")
+{
+    DLT dlt1(3, 4, 1, true);
+    fillDltNodes(&dlt1, 10);
+
+    cout << dlt1;
+    dlt1.storeToFile("/tmp/dlt_serialize_test");
+
+    DLT dlt2(0, 0, 0, false);
+    dlt2.loadFromFile("/tmp/dlt_serialize_test");
+    cout << dlt2;
+
+    verifyDltNodes(&dlt2, 10);
+    REQUIRE(dlt1.getVersion() == dlt2.getVersion());
+    REQUIRE(dlt1.getNumTokens() == dlt2.getNumTokens());
+    REQUIRE(dlt1.getDepth() == dlt2.getDepth());
 }
 
 TEST_CASE ("DLT Manager Serialize" ,"[dlt][serialize][mgr]") {
@@ -220,7 +238,7 @@ TEST_CASE ("DLT Manager Serialize" ,"[dlt][serialize][mgr]") {
         Serializer *s = serialize::getMemSerializer();
         uint32_t bytesWritten = dltMgr->write(s);
         std::string buffer= s->getBufferAsString();
-        
+
         Deserializer *d = serialize::getMemDeserializer(buffer);
         uint32_t bytesRead = dltMgr->read(d);
         REQUIRE( bytesWritten == bytesRead );

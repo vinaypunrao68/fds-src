@@ -8,12 +8,12 @@ fre-lxcnode-04
 clean_fds=yes
 deploy_artifact=nightly
 cluster_location=fre
+fds_build=debug
 fds_default_nic=eth0
 fds_om_host=fre-lxcnode-01
 fds_metrics_enables=false
 fds_metricsdb_ip=127.0.0.1
 fds_ssh_user=root
 fds_ssh_password=passwd
-ansible_ssh_user=ubuntu
-ansible_ssh_pass=ubuntu
-ansible_sudo_pass=ubuntu
+ansible_ssh_user=root
+ansible_ssh_pass=passwd

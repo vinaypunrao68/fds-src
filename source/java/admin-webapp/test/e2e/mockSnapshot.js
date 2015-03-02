@@ -4,8 +4,35 @@ mockSnapshot = function(){
         var service = {};
         
         var policies = [];
+        
+        var num = (new Date()).getTime();
+        
+        var nextNum = function(){
+            
+            num++;
+            return num;
+        };
+        
+        var savePolicies = function(){
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            window.localStorage.setItem( 'policies', JSON.stringify( policies ) );
+        };
 
         service.getPolicies = function(){
+            
+            if ( angular.isDefined( window ) && angular.isDefined( window.localStorage ) ){
+                policies = JSON.parse( window.localStorage.getItem( 'policies' ) );
+            }
+            
+            // handles the init case
+            if ( policies === null ){
+                policies = [];
+                savePolicies();
+            }
+            
             return policies;
         };
         
@@ -66,16 +93,19 @@ mockSnapshot = function(){
 
         service.createSnapshotPolicy = function( policy, callback, failure ){
 
-            policy.id = (new Date()).getTime();
+            policy.id = nextNum();
+            
             policies.push( policy );
             
             if ( angular.isFunction( callback ) ){
                 callback( policy );
             }
+            
+            savePolicies();
         };
 
         service.deleteSnapshotPolicy = function( policy, callback, failure ){
-            alert( 'here' );
+        
             for( i = 0; i < policies.length; i++ ){
                 if ( policy.id === policies[i].id ){
                     break;
@@ -83,10 +113,12 @@ mockSnapshot = function(){
             }
             
             policies.splice( i, 1 );
+            
+            savePolicies();
         };
 
         service.editSnapshotPolicy = function( policy, callback, failure ){
-            console.log( 'saving policy: ' + policy.id );
+            
             for( i = 0; i < policies.length; i++ ){
                 if ( policy.id === policies[i].id ){
                     policies[i] = policy;
@@ -94,7 +126,11 @@ mockSnapshot = function(){
                 }
             }
             
-            callback();
+            savePolicies();
+            
+            if ( angular.isFunction( callback ) ){
+                callback();
+            }
         };
         
         service.saveSnapshotPolicies = function( volumeId, policies, callback, failure ){
@@ -113,19 +149,63 @@ mockSnapshot = function(){
                     service.editSnapshotPolicy( sPolicy, function(){} );
                 }
                 else {
-
+                    
                     service.createSnapshotPolicy( sPolicy, function( policy ){
                         service.attachPolicyToVolume( policy, volumeId, function(){} );
                     });
                 }
             }
-            callback();
+            
+            if ( angular.isFunction( callback ) ){
+                callback();
+            }
+            
+            savePolicies();
         };
 
         service.attachPolicyToVolume = function( policy, volumeId, callback, failure ){
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            var policySet = window.localStorage.getItem( 'volume_' + volumeId + '_snapshot_policies' );
+            
+            if ( !angular.isDefined( policySet ) || policySet === null ){
+                policySet = [];
+            }
+            else {
+                policySet = JSON.parse( policySet );
+            }
+            
+            policySet.push( policy );
+            
+            window.localStorage.setItem( 'volume_' + volumeId + '_snapshot_policies', JSON.stringify( policySet ) );
         };
 
         service.detachPolicy = function( policy, volumeId, callback, failure ){
+            
+            if ( !angular.isDefined( window ) || !angular.isDefined( window.localStorage ) ){
+                return;
+            }
+            
+            var policySet = window.localStorage.getItem( 'volume_' + volumeId + '_snapshot_policies' );
+            
+            if ( angular.isDefined( policySet ) && policySet !== null ){
+
+                policySet = JSON.parse( policySet );
+                
+                for ( var i = 0; i < policySet.length; i++ ){
+                    
+                    if ( policySet[i].id === policy.id ){
+                        policySet.splice( i, 1 );
+                        break;
+                    }
+                }
+            }            
+            
+            window.localStorage.setItem( 'volume_' + volumeId + '_snapshot_policies', JSON.stringify( policySet ) );
+            
             return policy;
         };
 
