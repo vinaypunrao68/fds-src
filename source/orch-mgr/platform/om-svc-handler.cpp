@@ -218,8 +218,13 @@ OmSvcHandler::getSvcMap(boost::shared_ptr<fpi::AsyncHdr>&hdr,
     sendAsyncResp (*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
 }
 
+void OmSvcHandler::registerService(const fpi::SvcInfo& svcInfo)
+{    
+    
+}
+
 void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
-{      
+{
     LOGDEBUG << "Register service request. Svcinfo: " << fds::logString(*svcInfo);
 
     if (configDB->getSvcMap(*svcInfo))
@@ -231,14 +236,14 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     
     try
     {
-        fpi::FDSP_RegisterNodeTypePtr reg_node_req;
-        reg_node_req.reset(new FdspNodeReg());
-        
         bool bResults = configDB->createSvcMap(*svcInfo);
         if (!bResults)
         {
             return;
         }
+        
+        fpi::FDSP_RegisterNodeTypePtr reg_node_req;
+        reg_node_req.reset(new FdspNodeReg());
         
         fromTo(svcInfo, reg_node_req);
         
