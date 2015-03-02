@@ -12,7 +12,6 @@ user_fds_ar_libs  :=  \
     fds-qos-lib \
     fds-am-engine \
     fds-am-connectors \
-    fds-net-svc \
     fds-svc-request \
     fds-umod \
     fds-lib \

@@ -244,7 +244,7 @@ struct DataMgr : Module, DmIoReqHandler {
      */
     std::string  stor_prefix;   /* String prefix to make file unique */
     fds_uint32_t  scheduleRate;
-    fds_bool_t   use_om;        /* Whether to bootstrap from OM */
+    fds_bool_t   standalone;    /* Whether to bootstrap from OM */
     std::string  omIpStr;       /* IP addr of the OM used to bootstrap */
     fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
 

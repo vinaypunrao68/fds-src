@@ -6,6 +6,8 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <fds_process.h>
+
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
     class PlatNetSvcProcessor;

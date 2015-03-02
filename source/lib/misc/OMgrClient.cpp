@@ -15,6 +15,7 @@
 
 #include <net/net_utils.h>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include "platform/platform_process.h"
 #include "platform/platform.h"
 #include <fds_typedefs.h>
@@ -25,7 +26,6 @@ using namespace std; // NOLINT
 using namespace fds; // NOLINT
 
 namespace fds {
-extern const NodeUuid gl_OmUuid;
 extern SvcRequestPool *gSvcRequestPool;
 
 OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
@@ -260,7 +260,7 @@ int OMgrClient::testBucket(const std::string& bucket_name,
 {
     if (fNoNetwork) return 0;
     try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+        auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
         fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
         fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
         test_buck_msg->bucket_name = bucket_name;

@@ -4,6 +4,7 @@
 #include <string>
 #include <AccessMgr.h>
 
+#include "AMSvcHandler.h"
 #include "net/SvcProcess.h"
 
 namespace fds {
@@ -12,12 +13,16 @@ class AMMain : public SvcProcess
 {
   public:
     virtual ~AMMain() {}
-    AMMain(int argc, char **argv, Module **mod_vec) {
+    AMMain(int argc, char **argv) {
         am = AccessMgr::unique_ptr(new AccessMgr("AMMain AM Module", this));
-        fds::Module *am_mod_vec[] = {
+        fds::Module *modVec[] = {
             am.get(),
             nullptr
         };
+
+        /* Init service process */
+        init<AMSvcHandler, fpi::AMSvcProcessor>(argc, argv, "platform.conf",
+                "fds.am.", "am.log", modVec);
     }
 
     int run() override {
@@ -35,6 +40,6 @@ class AMMain : public SvcProcess
 
 int main(int argc, char **argv)
 {
-    fds::AMMain amMain(argc, argv, am_mod_vec);
+    fds::AMMain amMain(argc, argv);
     return amMain.main();
 }
