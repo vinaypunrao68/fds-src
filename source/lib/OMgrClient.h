@@ -159,7 +159,6 @@ class OMgrClient {
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
     int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
-    void registerCatalogEventHandler(catalog_event_handler_t evt_hdlr);
 
     // This logging is public for external plugins.  Avoid making this object
     // too big and all methods uses its data as global variables with big lock.

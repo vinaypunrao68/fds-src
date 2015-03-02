@@ -32,34 +32,6 @@ OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
     this->om_client = omc;
 }
 
-void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-                                     FDSP_DMT_TypePtr& dmt_info) {
-    #if 0
-    Error err(ERR_OK);
-    err = om_client->recvDMTUpdate(dmt_info, msg_hdr->session_uuid);
-    if (om_client->getNodeType() == fpi::FDSP_DATA_MGR) {
-        // if not error, commit ack is async, so only reply here on error
-        if (!err.ok()) {
-            LOGERROR << "Commit DMT failed, volume meta may not be synced properly";
-            // ignore not ready errors
-            if (err == ERR_NOT_READY) err = ERR_OK;
-            om_client->sendDMTCommitAck(err, msg_hdr->session_uuid);
-        }
-    } else {
-        // DMT commit is sync for all other services, send response now
-        om_client->sendDMTCommitAck(err, msg_hdr->session_uuid);
-    }
-    #endif
-}
-
-
-void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
-                                    FDSP_DmtCloseTypePtr& dmt_close) {
-#if 0
-    om_client->recvDMTClose(dmt_close->DMT_version, fdsp_msg->session_uuid);
-#endif
-}
-
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
                        fds_uint32_t _omPort,
