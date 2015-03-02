@@ -211,16 +211,11 @@ OmSvcHandler::getSvcMap(boost::shared_ptr<fpi::AsyncHdr>&hdr,
 
     fpi::GetSvcMapRespMsgPtr respMsg (new fpi::GetSvcMapRespMsg());
     boost::shared_ptr<int64_t> nullarg;
-    getSvcMap (respMsg->svcMap, nullarg);
+    getSvcMap(respMsg->svcMap, nullarg);
 
     // initialize the response message with the service map
     hdr->msg_code = 0;
     sendAsyncResp (*hdr, FDSP_MSG_TYPEID(fpi::GetSvcMapRespMsg), *respMsg);
-}
-
-void OmSvcHandler::registerService(const fpi::SvcInfo& svcInfo)
-{    
-    
 }
 
 void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
@@ -291,19 +286,36 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
    
 }
 
-void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return, const int64_t nullarg)
+void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
+                       boost::shared_ptr<int64_t>& nullarg)
 {
     LOGDEBUG << "Service map request";
-    if (!configDB->listSvcMap(_return, nullarg)) 
+    if (!configDB->listSvcMap(_return)) 
     {
         LOGWARN << "Failed to list service map";
     } 
 }
 
-void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
-                             boost::shared_ptr<int64_t>& nullarg)
+void OmSvcHandler::setServiceProperty(boost::shared_ptr< fpi::SvcUuid>& svcUuid,
+                                      boost::shared_ptr<std::string>& key,
+                                      boost::shared_ptr<std::string>& value)
 {
-    getSvcMap( _return, nullarg);
+}
+
+void OmSvcHandler::getServicePropery(std::string& _return,
+                                     boost::shared_ptr< fpi::SvcUuid>& svcUuid,
+                                     boost::shared_ptr<std::string>& key)
+{
+}
+
+void OmSvcHandler::setServiceProperties(boost::shared_ptr< fpi::SvcUuid>& svcUuid,
+                            boost::shared_ptr<std::map<std::string, std::string> >& props)
+{
+}
+
+void OmSvcHandler::getServiceProperties(std::map<std::string, std::string> & _return,
+                                        boost::shared_ptr< fpi::SvcUuid>& svcUuid)
+{
 }
 
 void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,

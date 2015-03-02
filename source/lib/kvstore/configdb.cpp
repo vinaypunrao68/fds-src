@@ -1465,10 +1465,10 @@ bool ConfigDB::deleteSvcMap(const int64_t svcId) {
     return true;
 }
 
-bool ConfigDB::listSvcMap(std::vector<fpi::SvcInfo> & vecSvcInfo, const int64_t svcId) {
+bool ConfigDB::listSvcMap(std::vector<fpi::SvcInfo> & vecSvcInfo) {
     TRACKMOD();
     try {
-        Reply reply = r.sendCommand("svcmap", svcId);
+        Reply reply = r.sendCommand("svcmap");
         StringList strings;
         reply.toVector(strings);
         fpi::SvcInfo svcinfo;
