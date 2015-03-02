@@ -88,6 +88,15 @@ struct CreateVolumeCloneRespMsg {
      1:i64 cloneId
 }
 
+/* --------------------- CtrlMigrateMeta -------------------------------------*/
+
+/* DM meta data migration request sent to source DM */
+struct CtrlDMMigrateMeta
+{
+     /* meta data */
+     2: FDSP.FDSP_metaDataList          metaVol;
+}
+
 /* ---------------------  CtrlNotifyDMTCloseTypeId  ---------------------------- */
 struct CtrlNotifyDMTClose {
      1: FDSP.FDSP_DmtCloseType    dmt_close;

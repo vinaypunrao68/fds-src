@@ -27,18 +27,8 @@
 
 namespace fpi = FDS_ProtocolInterface;
 
-namespace FDS_ProtocolInterface {
-    class FDSP_MetaSyncReqClient;
-    class FDSP_MetaSyncRespProcessor;
-    class FDSP_MetaSyncRespIf;
-}
-typedef netClientSessionEx<fpi::FDSP_MetaSyncReqClient,
-                fpi::FDSP_MetaSyncRespProcessor,
-                fpi::FDSP_MetaSyncRespIf> netMetaSyncClientSession;
-
 namespace fds {
 
-     class OMgrClient;
      class CatalogSyncMgr;
 
      // Callback to DM svc handler for any DMT migration events
@@ -56,7 +46,6 @@ namespace fds {
      */
      typedef std::function<void (catsync_notify_evt_t event,
                                  fds_volid_t vol_id,
-                                 OMgrClient* omclient,
                                  const Error& error)> catsync_done_handler_t;
 
     /**
@@ -82,7 +71,6 @@ namespace fds {
     class CatalogSync {
   public:
         CatalogSync(const NodeUuid &uuid,
-                    OMgrClient* omclient,
                     DmIoReqHandler* dm_req_hdlr);
         ~CatalogSync();
 
@@ -190,7 +178,7 @@ namespace fds {
         fds_uint32_t recordVolSyncDone(csStateType expected_state);
 
   private:
-        SvcUuid svc_uuid;
+        fpi::SvcUuid svc_uuid;
         NodeUuid node_uuid;  // destination node
 
         std::atomic<csStateType> state;  // current state
@@ -208,11 +196,6 @@ namespace fds {
         catsync_done_handler_t done_evt_handler;
 
         /**
-         * Cashed OM client passed via constructor, does not own
-         */
-        OMgrClient* om_client;
-
-        /**
          * Cashed volumes we are working with
          */
         std::set<fds_volid_t> sync_volumes;
@@ -222,11 +205,6 @@ namespace fds {
          * vols_done are used for both initial sync and delta sync
          */
         std::atomic<fds_uint32_t> vols_done;  // num of vols synced
-
-        /**
-         * Client to destination DM with uuid 'node_uuid'
-         */
-        netMetaSyncClientSession *meta_client;
     };
 
     typedef boost::shared_ptr<CatalogSync> CatalogSyncPtr;
@@ -253,8 +231,7 @@ namespace fds {
          * cat sync is still in progress, later we may revisit this...
          */
         Error startCatalogSync(const fpi::FDSP_metaDataList& metaVol,
-                               OMgrClient* omclient,
-                               const std::string& context);
+                               OmDMTMsgCbType cb);
 
         /**
          * Called when DM receives DMT commit so that in-progress catalog syncs
@@ -262,8 +239,7 @@ namespace fds {
          * @return ERR_NOT_READY if called in the middle of initial rsync; returns
          * ERR_OK if success.
          */
-        Error startCatalogSyncDelta(const std::string& context,
-                                    OmDMTMsgCbType cb);
+        Error startCatalogSyncDelta(OmDMTMsgCbType cb);
 
         /**
          * Forward catalog update to DM to which we are pushing vol meta for the
@@ -305,7 +281,6 @@ namespace fds {
          */
         void syncDoneCb(catsync_notify_evt_t event,
                         fds_volid_t volid,
-                        OMgrClient* omclient,
                         const Error& error);
 
         /**
@@ -332,7 +307,6 @@ namespace fds {
          * Volume id to Catalog Sync object which are already doing
          * sync job or are scheduled to perform sync job
          */
-        std::string cat_sync_context;  // to return when sync is done
         CatSyncMap cat_sync_map;
         fds_mutex cat_sync_lock;  // protects catSyncMap and sync_in_progress
 
@@ -343,6 +317,7 @@ namespace fds {
 
         // callback to svc handler to send ack for DMT update
         OmDMTMsgCbType omDmtUpdateCb;
+        OmDMTMsgCbType omPushMetaCb;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;

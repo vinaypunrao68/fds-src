@@ -94,7 +94,7 @@ enum  FDSPMsgTypeId {
     CtrlNotifyDMTCloseTypeId           = 2081,
     CtrlNotifyDMTUpdateTypeId          = 2082,
     CtrlNotifyDMAbortMigrationTypeId   = 2083,
-
+    CtrlDMMigrateMetaTypeId            = 2084,
 
     /* OM-> AM messages. */
     CtrlNotifyThrottleTypeId           = 2101,

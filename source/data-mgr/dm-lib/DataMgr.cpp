@@ -24,9 +24,10 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
     OMgrClient* om_client = dataMgr->omClient;
     LOGNORMAL << "Received volume catalog action request " << catalog_action;
     if (catalog_action == fds_catalog_push_meta) {
+        fds_panic("We moved to new service layer, must not be called!");
         if (dataMgr->feature.isCatSyncEnabled()) {
             err = dataMgr->catSyncMgr->startCatalogSync(
-                push_meta->metaVol, om_client, session_uuid);
+                push_meta->metaVol, NULL);
         } else {
             LOGWARN << "catalog sync feature - NOT enabled";
         }
@@ -34,7 +35,7 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
         fds_panic("We moved to new service layer, must not be called!");
         // this will ignore this msg if catalog sync is not in progress
         if (dataMgr->feature.isCatSyncEnabled()) {
-            err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid, NULL);
+            err = dataMgr->catSyncMgr->startCatalogSyncDelta(NULL);
         } else {
             LOGWARN << "catalog sync feature - NOT enabled";
         }
