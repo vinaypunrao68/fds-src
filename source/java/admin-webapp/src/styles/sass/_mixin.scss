@@ -73,3 +73,8 @@
     -webkit-justify-content: $value;
     justify-content: $value;
 }
+
+@mixin align-items( $value ){
+    -webkit-align-items: $value;
+    align-items: $value;
+}

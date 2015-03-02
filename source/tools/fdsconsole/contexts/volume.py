@@ -1,7 +1,5 @@
 from svchelper import *
-import  fdslib.pyfdsp.apis as apis
-from apis import ttypes
-from apis.ttypes import ApiException
+from common.ttypes import ApiException
 from common.ttypes import ResourceState
 from platformservice import *
 

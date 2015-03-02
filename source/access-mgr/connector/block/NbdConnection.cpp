@@ -83,6 +83,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
           clientSocket(clientsd),
           nbd_state(NbdProtoState::PREINIT),
           resp_needed(0u),
+          handshake({ { 0x01u },  0x00ull, 0x00ull, nullptr }),
           attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
           request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, nullptr }),
           response(nullptr),
@@ -200,21 +201,14 @@ bool NbdConnection::handshake_start(ev::io &watcher) {
     return true;
 }
 
-void NbdConnection::handshake_complete(ev::io &watcher) {
-    // Accept client ack
-    fds_uint32_t ack;
-    ssize_t nread = 0;
-
-    do {
-        nread = read(watcher.fd, &ack, sizeof(ack));
-    } while ((0 > nread) && (EINTR == errno));
-
-    ensure(0 < nread);
-    ensure(0 == ack);
+bool NbdConnection::handshake_complete(ev::io &watcher) {
+    if (!get_message_header(watcher.fd, handshake))
+        return false;
+    ensure(0 == handshake.header.ack);
+    return true;
 }
 
-bool
-NbdConnection::option_request(ev::io &watcher) {
+bool NbdConnection::option_request(ev::io &watcher) {
     if (attach.header_off >= 0) {
         if (!get_message_header(watcher.fd, attach))
             return false;
@@ -399,7 +393,6 @@ NbdConnection::dispatchOp() {
 
     switch (request.header.opType) {
         case NBD_CMD_READ:
-            // do read from AM
             nbdOps->read(length, offset, handle);
             break;
         case NBD_CMD_WRITE:
@@ -410,10 +403,9 @@ NbdConnection::dispatchOp() {
             break;
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
+        default:
             throw NbdError::shutdown_requested;
             break;
-        default:
-            fds_panic("Unknown NBD op %d", request.header.opType);
     }
     return ERR_OK;
 }
@@ -437,8 +429,8 @@ NbdConnection::callback(ev::io &watcher, int revents) {
     if (revents & EV_READ) {
         switch (nbd_state) {
             case NbdProtoState::POSTINIT:
-                handshake_complete(watcher);
-                nbd_state = NbdProtoState::AWAITOPTS;
+                if (handshake_complete(watcher))
+                    { nbd_state = NbdProtoState::AWAITOPTS; }
                 break;
             case NbdProtoState::AWAITOPTS:
                 if (option_request(watcher)) {
@@ -550,7 +542,7 @@ bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
 {
     static_assert(EAGAIN == EWOULDBLOCK, "EAGAIN != EWOULDBLOCK");
     ssize_t nread = read_from_socket(fd, data, off, len);
-    if (nread <= 0) {
+    if (0 > nread) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
                 LOGTRACE << "Payload not there.";

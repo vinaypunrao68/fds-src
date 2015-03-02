@@ -250,6 +250,7 @@ mockNode = function(){
 
         var getNodes = function(){
 
+            return service.nodes;
         };
         
         return service;

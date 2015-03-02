@@ -6,14 +6,9 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
         replace: true,
         templateUrl: 'scripts/directives/fds-components/tiering/tiering.html',
         scope: { policy: '=ngModel', disabled: '=?' },
-        controller: function( $scope, $filter ){
+        controller: function( $scope, $media_policy_helper ){
             
-            $scope.tieringChoices = [
-                { label: $filter( 'translate' )( 'volumes.tiering.l_ssd_only' ), value: 'SSD_ONLY' },
-                { label: $filter( 'translate' )( 'volumes.tiering.l_hybrid' ), value: 'HYBRID_ONLY' },
-                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_only' ), value: 'HDD_ONLY' }
-//                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_preferred' ), value: 'HDD_PREFERRED' }
-            ];
+            $scope.tieringChoices = $media_policy_helper.availablePolicies;
             
             if ( !angular.isDefined( $scope.disabled ) ){
                 $scope.disabled = false;
@@ -22,15 +17,10 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
             var fixPolicySetting = function(){
                 
                 if ( angular.isNumber( $scope.policy )){
-                    $scope.policy = $scope.tieringChoices[ $scope.policy ];
+                    $scope.policy = $media_policy_helper.availablePolicies[ $scope.policy ];
                 }
                 else if ( angular.isString( $scope.policy ) ){
-                    for ( var i = 0; i < $scope.tieringChoices.length; i++ ){
-                        if ( $scope.tieringChoices[i].value === $scope.policy ){
-                            $scope.policy = $scope.tieringChoices[i];
-                            break;
-                        }
-                    }
+                    $scope.policy = $media_policy_helper.convertRawToObjects( $scope.policy );
                 }
                 
                 if ( !angular.isDefined( $scope.policy ) || Object.keys( $scope.policy ).length === 0){

@@ -1,10 +1,3 @@
-/**@import 'vendor/bootstrap_imports_and_overrides';
-@import 'vendor/retina/retina';
-@import 'vendor/retina/sprite';
-@import 'vendor/retina/background';
-@import 'vendor/nvd3';
-@import 'vendor/magnific_popup';
-**/
 @import 'variables';
 @import 'mixin';
 @import 'base';
@@ -14,25 +7,22 @@
 
 @import 'login/form';
 @import 'main/mainshell';
-@import 'components/widgets';
 @import 'components/menu';
-@import 'components/popups';
 @import 'components/tables';
 @import 'components/buttons';
 @import 'components/tap_form';
-@import 'components/content';
+@import 'components/popups';
 @import 'components/collapse_form';
 @import 'components/page_slider';
 @import 'components/page_defaults';
-@import 'components/forms/errorHandling';
-@import 'components/forms/summaryforms';
-@import 'components/forms/snapshotforms';
+@import 'components/forms';
 @import 'components/comingsoon';
 
 @import 'admin/index';
 @import 'volumes/index';
 @import 'volumes/new';
 @import 'volumes/view';
+@import 'volumes/clone';
 @import 'system/system';
 @import 'status/index';
 @import 'account/index';
