@@ -52,8 +52,12 @@ function clean_up_environment
 
 function build_fds
 {
+    start_time=$(date +%s)
     message "RUNNING DEVSETUP"
     make devsetup
+    end_time=$(date +%s)
+
+    performance_report ANSIBLE $(( ${end_time} - ${start_time} ))
 
     start_time=$(date +%s)
     if [[ ${BUILD_TYPE} == 'release' ]] ; then
