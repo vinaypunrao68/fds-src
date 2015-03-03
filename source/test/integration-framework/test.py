@@ -57,7 +57,7 @@ def test_s3():
     print bucket
     print "Sleeping 30 sec"
     time.sleep(30)
-    testfile = "/root/fds-src/source/test/integration-framework/test_file"
+    testfile = "test_file"
     print 'Uploading %s to Amazon S3 bucket %s' % \
        (testfile, bucket.name)
     k = Key(bucket)
