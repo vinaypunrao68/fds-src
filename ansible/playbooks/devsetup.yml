@@ -2,6 +2,8 @@
 -   name: install needed packages for devsetup
     hosts: localhost
     sudo: yes
+    vars:
+        - influxdb_version: 0.8.8
 
     tasks:
 
@@ -157,3 +159,21 @@
         owner=root
         mode=0777
         state=directory
+
+    - name: get InfluxDB package
+      get_url: url=https://s3.amazonaws.com/influxdb/influxdb_{{ influxdb_version }}_amd64.deb
+           dest=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+           validate_certs=no
+           sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
+
+    -   name: create influxdb user and group
+        group: name=influxdb
+
+    -   user: name=influxdb
+           createhome=no
+           group=influxdb
+
+    -   name: install InfluxDB
+        apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+        register: install
+
