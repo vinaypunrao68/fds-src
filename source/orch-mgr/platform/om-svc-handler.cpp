@@ -41,14 +41,10 @@ create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_
 
 OmSvcHandler::~OmSvcHandler() {}
 
-OmSvcHandler::OmSvcHandler()
-// NOTE: Below MODULEPROVIDER() is globlal.  OmSvcHandler should take MODULEPROVIDER()
-// as param
-: PlatNetSvcHandler(MODULEPROVIDER())
+OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
+: PlatNetSvcHandler(provider)
 {
     om_mod = OM_NodeDomainMod::om_local_domain();
-
-    this->configDB = gl_orch_mgr->getConfigDB();
 
     /* svc->om response message */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
@@ -60,13 +56,18 @@ OmSvcHandler::OmSvcHandler()
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcMapMsg, getSvcMap);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
+}
 
+int OmSvcHandler::mod_init(SysParams const *const param)
+{
+    this->configDB = gl_orch_mgr->getConfigDB();
     // TODO(bszmyd): Tue 20 Jan 2015 10:24:45 PM PST
     // This isn't probably where this should go, but for now it doesn't make
     // sense anymore for it to go anywhere else. When then dependencies are
     // better determined we should move this.
     // Register event trackers
     init_svc_event_handlers();
+    return 0;
 }
 
 // Right now all handlers are using the same callable which will down the

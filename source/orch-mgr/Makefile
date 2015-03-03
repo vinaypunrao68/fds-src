@@ -10,10 +10,8 @@ user_build_dir    := \
 	om-dlt \
 	om-common \
 	om-lib \
-	om-discovery \
 	configservice \
 	snapshot \
-    om-domain \
 	platform
 
 user_fds_ar_libs  := \
@@ -38,12 +36,23 @@ user_incl_dir     := $(topdir) include \
 	$(JAVA_HOME)/include/linux
 
 orch_mgr_cpp      := $(wildcard *.cpp)
+
+om_output_prefix := lib
+om_output_ext := .so
 user_ld_flags     := -shared
+
+ifdef OM_AS_BINARY
+user_ld_flags     :=
+om_output_prefix :=
+om_output_ext :=
+endif
 
 user_hh           := $(wildcard *.h)
 user_no_style     := $(wildcard com_*.h)
 user_cpp          := $(orch_mgr_cpp)
-user_bin_exe      := liborchmgr.so
-liborchmgr.so     := $(orch_mgr_cpp)
+user_bin_exe      := $(om_output_prefix)orchmgr$(om_output_ext)
+$(om_output_prefix)orchmgr$(om_output_ext)     := $(orch_mgr_cpp)
+#user_bin_exe      := orchmgr
+#orchmgr     	  := $(orch_mgr_cpp)
 
 include $(topdir)/Makefile.incl
