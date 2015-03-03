@@ -284,11 +284,14 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
  *
  * @return ERR_OK if successful, err otherwise.
  */
-fds::Error ObjectDB::PersistentSnap(const std::string& fileName) {
+fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
+                                    leveldb::CopyEnv **cenv) {
 
     fds_assert(!fileName.empty());
     fds::Error err(ERR_OK);
-    leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
+    leveldb::CopyEnv *env;
+
+    env = static_cast<leveldb::CopyEnv*>(options.env);
     fds_assert(env);
 
     leveldb::Status status = env->CreateDir(fileName);
@@ -304,6 +307,7 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName) {
         err = ERR_DISK_WRITE_FAILED;
     }
 
+    *cenv = env;
     return err;
 }
 

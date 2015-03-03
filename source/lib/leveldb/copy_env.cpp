@@ -78,6 +78,51 @@ Status CopyEnv::DeleteFile(const std::string & f) {
     return s;
 }
 
+
+Status CopyEnv::DeleteDir(const std::string & dir) {
+    // Get consistent view of all files.
+    mtx_.lock();
+
+    Status s;
+    if (copying_ || !deferredDeletions_.empty()) {
+        mtx_.unlock();
+        GLOGERROR << "Copying going on for the directory " << dir;
+        return Status::IOError("delete directory failed");
+    }
+
+    std::vector<std::string> files;
+    s = GetChildren(dir, &files);
+    if (!s.ok()) {
+        mtx_.unlock();
+        GLOGERROR << "GetChildren failed with status " << s.ToString();
+        return s;
+    }
+
+    std::vector<fds_uint64_t> lengths(files.size());
+    for (size_t i = 0; i < files.size(); i++) {
+        if ('.' == files[i][0]) {
+            continue;
+        }
+
+        s = target()->DeleteFile(dir + "/" + files[i]);
+        if (!s.ok()) {
+            mtx_.unlock();
+            GLOGERROR << "Could not delete file " << files[i] << " status " << s.ToString();
+        }
+    }
+
+    target()->DeleteDir(dir);
+    if (!s.ok()) {
+        mtx_.unlock();
+        GLOGERROR << "Could not delete directory " << dir << " status " << s.ToString();
+        return s;
+    }
+
+    mtx_.unlock();
+    return s;
+}
+
+
 // Call (*save)(arg, filename, length) for every file that
 // should be copied to construct a consistent view of the
 // database. "length" may be negative to indicate that the entire
