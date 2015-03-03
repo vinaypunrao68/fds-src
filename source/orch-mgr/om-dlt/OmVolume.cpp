@@ -10,7 +10,6 @@
 #include <OmResources.h>
 #include <OmVolumePlacement.h>
 #include <orchMgr.h>
-#include <om-discovery.h>
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
 #include <util/type.h>

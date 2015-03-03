@@ -110,7 +110,7 @@ OmPlatform::mod_startup()
     Platform::mod_startup();
     om_plugin = new OMEpPlugin(this);
 
-    om_ctrl_rcv = bo::shared_ptr<OmSvcHandler>(new OmSvcHandler());
+    om_ctrl_rcv = bo::shared_ptr<OmSvcHandler>(new OmSvcHandler(nullptr));
     base_port   = plf_get_om_svc_port();
     om_ctrl_ep  = new OmControlEp(plf_get_my_data_port(base_port),
                                   gl_OmUuid, NodeUuid(0ULL),
