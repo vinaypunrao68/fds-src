@@ -60,8 +60,8 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 {
     auto config = MODULEPROVIDER()->get_conf_helper();
     omIp_ = config.get_abs<std::string>("fds.common.om_ip_list");
-    omPort_ = config.get_abs<int>("fds.common.om_port",8904);
-    omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<long long>("fds.common.om_uuid",0));
+    omPort_ = config.get_abs<int>("fds.common.om_port");
+    omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<long long>("fds.common.om_uuid"));
 
     svcRequestHandler_ = handler;
     svcInfo_ = svcInfo;
@@ -177,6 +177,17 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
         }
     }
     GLOGDEBUG << "After update.  Servic map size: " << svcHandleMap_.size();
+}
+
+void SvcMgr::getSvcMap(std::vector<fpi::SvcInfo> &entries)
+{
+    entries.clear();
+    fds_scoped_lock lock(svcHandleMapLock_);
+    for (auto &itr : svcHandleMap_) {
+        fpi::SvcInfo info;
+        itr.second->getSvcInfo(info);
+        entries.push_back(info);
+    }
 }
 
 bool SvcMgr::getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) const

@@ -126,11 +126,6 @@ struct ConfigDB : KVStore {
     bool setSnapshotState(const int64_t volumeId, const int64_t snapshotId, fpi::ResourceState state); //NOLINT
    bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
 
-    
-    // service map 
-    bool updateSvcMap(const fpi::SvcInfo& svcinfo);
-    bool getSvcMap(std::vector<fpi::SvcInfo>& svcMap);
-
   protected:
     void setModified();
     struct ModificationTracker {

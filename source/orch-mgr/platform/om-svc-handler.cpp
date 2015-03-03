@@ -16,7 +16,7 @@
 #include "orchMgr.h"
 #include "kvstore/redis.h"
 #include "kvstore/configdb.h"
-#include "net/net_utils.h"
+#include <net/SvcMgr.h>
 
 namespace fds {
 
@@ -222,84 +222,19 @@ OmSvcHandler::getSvcMap(boost::shared_ptr<fpi::AsyncHdr>&hdr,
 void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
     LOGDEBUG << "Register service request. Svcinfo: " << fds::logString(*svcInfo);
-
-    /* TODO(OMteam): This registration should be handled in synchronized manner (single thread
-     * handling is better) to avoid race conditions.
-     */
-
-    try
-    {
-        /* First update the service map */
-        /* NOTE: Currently the new registation protocol is using existing code for node
-         * registartion to reduce the amount of code churn.  Once they are unitfied, lot
-         * of the ugly hacks below should go away
-         */
-        bool bResults = configDB->updateSvcMap(*svcInfo);
-        if (!bResults)
-        {
-            return;
-        }
-        
-        /* Convert new registration request to existing registration request */
-        fpi::FDSP_RegisterNodeTypePtr reg_node_req;
-        reg_node_req.reset(new FdspNodeReg());
-        
-        fromTo(svcInfo, reg_node_req);
-        
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        NodeUuid new_node_uuid;
-
-        if (reg_node_req->node_uuid.uuid == 0) {
-            LOGERROR << "Refuse to register a node without valid uuid: node_type "
-                << reg_node_req->node_type << ", name " << reg_node_req->node_name;
-            return;
-        }
-
-        new_node_uuid.uuid_set_type(reg_node_req->node_uuid.uuid, 
-                                    reg_node_req->node_type);
-        /* Do the registration */
-        Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
-        if (!err.ok()) 
-        {
-            LOGERROR << "Node Registration failed for "
-                     << reg_node_req->node_name << ":" << std::hex
-                     << new_node_uuid.uuid_get_val() << std::dec
-                     << " node_type " << reg_node_req->node_type
-                     << ", result: " << err.GetErrstr();
-            return;
-        }
-        
-        LOGNORMAL << "Done Registered new node " << reg_node_req->node_name 
-                  << std::hex << ", node uuid " << reg_node_req->node_uuid.uuid
-                  << ", service uuid " << new_node_uuid.uuid_get_val()
-                  << ", node type " << reg_node_req->node_type << std::dec;
-        
-        // TODO(Paul/Rao): Broadcast the service map
-    } 
-    catch(const kvstore::ConfigException e)
-    {
-        LOGERROR << "Orchestration Manager encountered exception while "
-                 << "processing register service -- "
-                 << e.what()
-                 << " SvcInfo: " << fds::logString(*svcInfo);
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    Error err = domain->om_register_service(svcInfo);
+    if (err) {
+        LOGERROR << logString(*svcInfo) << err;
+        throw fpi::OmRegisterException();
     }
-    catch(const redis::RedisException e)
-    {
-        LOGERROR << "Orchestration Manager encountered exception while "
-                 << "processing register service."
-                 << " SvcInfo: " << fds::logString(*svcInfo);
-    }
-   
 }
 
 void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
                        boost::shared_ptr<int64_t>& nullarg)
 {
     LOGDEBUG << "Service map request";
-    if (!configDB->getSvcMap(_return)) 
-    {
-        LOGWARN << "Failed to list service map";
-    } 
+    MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
 }
 
 void OmSvcHandler::setServiceProperty(boost::shared_ptr< fpi::SvcUuid>& svcUuid,
@@ -335,32 +270,6 @@ void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // tell DLT state machine about abort (error state)
     dltMod->dlt_deploy_event(DltErrorFoundEvt(NodeUuid(hdr->msg_src_uuid),
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
-}
-
-void OmSvcHandler::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
-                          fpi::FDSP_RegisterNodeTypePtr& reg_node_req)
-{       
-       
-//    FDS_ProtocolInterface::FDSP_AnnounceDiskCapability& capacity;
-//    capacity = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
-//    reg_node_req->disk_info = capacity;
-//    reg_node_req->domain_id = 0;
-//    reg_node_req->ip_hi_addr = 0;
-//    reg_node_req->metasync_port = 0;
-//    reg_node_req->migration_port = 0;
-//    reg_node_req->node_root = new std::string();    
-//    reg_node_req->node_uuid = new FDSP_Uuid(); 
-    
-    reg_node_req->control_port = svcInfo->svc_port;
-    reg_node_req->data_port = svcInfo->svc_port;
-    reg_node_req->ip_lo_addr = fds::net::ipString2Addr(svcInfo->ip);  
-    reg_node_req->node_name = svcInfo->name;   
-    reg_node_req->node_type = svcInfo->svc_type;
-    
-   
-    FDS_ProtocolInterface::FDSP_Uuid uuid;
-    reg_node_req->service_uuid = fds::assign(uuid, svcInfo->svc_id);
-    
 }
 
 }  //  namespace fds

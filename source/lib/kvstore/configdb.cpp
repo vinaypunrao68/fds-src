@@ -1425,6 +1425,10 @@ bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId
     return setSnapshotState(snapshot, state);
 }
 
+#if 0
+/* NOTE (March 3, 2015): Keeping this code commented here in hopes this code will get
+ * uncommented.  If this code isn't used in 2 months, it's safe to get rid of it
+ */
 bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
     TRACKMOD();
     try {
@@ -1462,6 +1466,7 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
     return true;
 
 }
+#endif
 
 }  // namespace kvstore
 }  // namespace fds

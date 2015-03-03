@@ -41,7 +41,7 @@ om_output_prefix := lib
 om_output_ext := .so
 user_ld_flags     := -shared
 
-ifdef OM_AS_BINARY
+ifdef BINARY
 user_ld_flags     :=
 om_output_prefix :=
 om_output_ext :=
@@ -52,7 +52,5 @@ user_no_style     := $(wildcard com_*.h)
 user_cpp          := $(orch_mgr_cpp)
 user_bin_exe      := $(om_output_prefix)orchmgr$(om_output_ext)
 $(om_output_prefix)orchmgr$(om_output_ext)     := $(orch_mgr_cpp)
-#user_bin_exe      := orchmgr
-#orchmgr     	  := $(orch_mgr_cpp)
 
 include $(topdir)/Makefile.incl

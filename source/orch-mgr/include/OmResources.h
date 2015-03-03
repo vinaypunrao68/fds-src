@@ -511,6 +511,11 @@ class OM_NodeContainer : public DomainContainer
 
     virtual void om_send_me_qosinfo(NodeAgent::pointer me);
 
+    /**
+    * @brief Broadcasts svcmap around the domain
+    */
+    virtual void om_bcast_svcmap();
+
   private:
     friend class OM_NodeDomainMod;
 
@@ -696,6 +701,15 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
+    /**
+    * @brief Registers the service
+    *
+    * @param svcInfo
+    *
+    * @return 
+    */
+    virtual Error om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
+
 
     /**
      * Notification that service is down to DLT and DMT state machines
@@ -804,6 +818,9 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(ShutdownEvt const &evt);
 
   protected:
+    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
+                fpi::FDSP_RegisterNodeTypePtr& reg_node_req);
+
     fds_bool_t                       om_test_mode;
     OM_NodeContainer                *om_locDomain;
     kvstore::ConfigDB               *configDB;

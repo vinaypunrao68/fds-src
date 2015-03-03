@@ -115,8 +115,6 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
 
   private:
     void init_svc_event_handlers();
-    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
-                fpi::FDSP_RegisterNodeTypePtr& reg_node_req);
     
     kvstore::ConfigDB* configDB = NULL;
     

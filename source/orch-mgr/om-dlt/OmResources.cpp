@@ -16,6 +16,8 @@
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <fds_process.h>
+#include <net/net_utils.h>
+#include <net/SvcMgr.h>
 
 #define OM_WAIT_NODES_UP_SECONDS   (5*60)
 #define OM_WAIT_START_SECONDS      1
@@ -953,6 +955,81 @@ OM_NodeDomainMod::om_rm_sm_configDB(const NodeUuid& uuid)
 
     return true;
 }
+
+// om_register_service
+// ----------------
+//
+Error
+OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
+{
+    Error err;
+    /* TODO(OM team): This registration should be handled in synchronized manner (single thread
+     * handling is better) to avoid race conditions.
+     */
+
+
+    /* Convert new registration request to existing registration request */
+    fpi::FDSP_RegisterNodeTypePtr reg_node_req;
+    reg_node_req.reset(new FdspNodeReg());
+
+    fromTo(svcInfo, reg_node_req);
+
+    NodeUuid new_node_uuid;
+    if (reg_node_req->node_uuid.uuid == 0) {
+        LOGERROR << "Refuse to register a node without valid uuid: node_type "
+            << reg_node_req->node_type << ", name " << reg_node_req->node_name;
+        err = ERR_INVALID_ARG;
+        return err;
+    }
+
+    // TODO(Rao): Check with Paul why this is needed
+    new_node_uuid.uuid_set_type(reg_node_req->node_uuid.uuid, 
+                                reg_node_req->node_type);
+
+    /* Update the service layer service map upfront so that any subsequent communitcation
+     * with that service will work.
+     */
+    MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+
+    /* Do the registration */
+    err = om_reg_node_info(new_node_uuid, reg_node_req);
+
+    if (err.ok()) {
+        om_locDomain->om_bcast_svcmap();
+    } else {
+        /* We updated the svcmap before, undo it by setting svc status to invalid */
+        svcInfo->svc_status = SVC_STATUS_INVALID;
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+    }
+    return err;
+}
+
+void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
+                          fpi::FDSP_RegisterNodeTypePtr& reg_node_req)
+{       
+       
+//    FDS_ProtocolInterface::FDSP_AnnounceDiskCapability& capacity;
+//    capacity = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
+//    reg_node_req->disk_info = capacity;
+//    reg_node_req->domain_id = 0;
+//    reg_node_req->ip_hi_addr = 0;
+//    reg_node_req->metasync_port = 0;
+//    reg_node_req->migration_port = 0;
+//    reg_node_req->node_root = new std::string();    
+//    reg_node_req->node_uuid = new FDSP_Uuid(); 
+    
+    reg_node_req->control_port = svcInfo->svc_port;
+    reg_node_req->data_port = svcInfo->svc_port;
+    reg_node_req->ip_lo_addr = fds::net::ipString2Addr(svcInfo->ip);  
+    reg_node_req->node_name = svcInfo->name;   
+    reg_node_req->node_type = svcInfo->svc_type;
+    
+   
+    FDS_ProtocolInterface::FDSP_Uuid uuid;
+    reg_node_req->service_uuid = fds::assign(uuid, svcInfo->svc_id);
+    
+}
+
 
 // om_reg_node_info
 // ----------------

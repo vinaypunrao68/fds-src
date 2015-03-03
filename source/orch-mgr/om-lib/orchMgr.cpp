@@ -17,6 +17,7 @@
 #include <orch-mgr/om-service.h>
 #include <fdsp/OMSvc.h>
 #include <om-svc-handler.h>
+#include <net/SvcMgr.h>
 
 namespace fds {
 
@@ -182,6 +183,9 @@ void OrchMgr::proc_pre_service()
 void OrchMgr::registerSvcProcess()
 {
     LOGNOTIFY;
+
+    /* Add om information to service map */
+    svcMgr_->updateSvcMap({svcInfo_});
 }
 
 int OrchMgr::run()

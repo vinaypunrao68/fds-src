@@ -116,6 +116,13 @@ struct SvcMgr : HasModuleProvider, Module {
     * @param entries
     */
     void updateSvcMap(const std::vector<fpi::SvcInfo> &entries);
+
+    /**
+    * @brief Returns the cached service info entries
+    *
+    * @param entries
+    */
+    void getSvcMap(std::vector<fpi::SvcInfo> &entries);
     
 
     /**

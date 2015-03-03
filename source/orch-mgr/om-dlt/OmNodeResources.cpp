@@ -1986,5 +1986,33 @@ OM_NodeContainer::om_bcast_shutdown_msg()
     LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully";
 }
 
+void OM_NodeContainer::om_bcast_svcmap()
+{
+    LOGDEBUG << "Broadcasting service map";
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+    boost::shared_ptr<std::string>buf;
+    fpi::UpdateSvcMapMsgPtr updateMsg = boost::make_shared<fpi::UpdateSvcMapMsg>(); 
+
+    /* Construct svcmap message */
+    svcMgr->getSvcMap(updateMsg->updates);
+    fds::serializeFdspMsg(*updateMsg, buf);
+
+    /* Update the domain by broadcasting */
+    auto header = svcMgr->getSvcRequestMgr()->newSvcRequestHeaderPtr(
+        SvcRequestPool::SVC_UNTRACKED_REQ_ID,
+        FDSP_MSG_TYPEID(fpi::UpdateSvcMapMsg),
+        svcMgr->getSelfSvcUuid(),
+        fpi::SvcUuid());
+
+    /* NOTE: Ideally service map should be persisted in configdb also..But the current
+     * code stores node information which is slightly different from svc map.  Once,
+     * we unify svc map and node/domain container concpets, we will broadcast the persisted
+     * svc map
+     */
+    // TODO(Rao): add the filter so that we don't send the broad cast to om
+    svcMgr->broadcastAsyncSvcReqMessage(header, buf,
+                                        [](const fpi::SvcInfo& info) {return true;});
+}
 
 }  // namespace fds

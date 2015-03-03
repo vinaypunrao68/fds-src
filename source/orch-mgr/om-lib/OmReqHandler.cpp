@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 #include <orchMgr.h>
-#include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
 #include <OmResources.h>
 #include <net/SvcRequest.h>

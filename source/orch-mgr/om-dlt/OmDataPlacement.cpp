@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 #include <string>
-#include <net/net-service-tmpl.hpp>
+#include <fdsp_utils.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include <NetSession.h>
@@ -260,8 +260,8 @@ void DataPlacement::startMigrationResp(NodeUuid uuid,
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
         fpi::CtrlNotifyMigrationStatusPtr status =
-                net::ep_deserialize<fpi::CtrlNotifyMigrationStatus>(
-                const_cast<Error&>(error), payload);
+                fds::deserializeFdspMsg<fpi::CtrlNotifyMigrationStatus>(
+                    const_cast<Error&>(error), payload);
         err = domain->om_recv_migration_done(uuid,
                                              status->status.DLT_version,
                                              error);
