@@ -46,7 +46,7 @@ public:
 
     Status DeleteFile(const std::string & f);
 
-    Status DeleteDir(const std::string & dir);
+    Status DeleteDir(const std::string & dir) override;
 
     // Call (*save)(arg, filename, length) for every file that
     // should be copied to construct a consistent view of the
