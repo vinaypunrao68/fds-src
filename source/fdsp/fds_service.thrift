@@ -221,6 +221,8 @@ struct SvcInfo {
     6: string				 ip;
     7: i32                               incarnationNo;
     8: string				 name;
+    /* <key, value> properties */
+    9: map<string, string>               props;
 }
 
 /* Message to sent to update the service information */

@@ -222,21 +222,24 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
     LOGDEBUG << "Register service request. Svcinfo: " << fds::logString(*svcInfo);
 
-    if (configDB->getSvcMap(*svcInfo))
-    {
-        LOGWARN << " service already registered! service: " << fds::logString(*svcInfo);
-        return;
-    }
-    
-    
+    /* TODO(OMteam): This registration should be handled in synchronized manner (single thread
+     * handling is better) to avoid race conditions.
+     */
+
     try
     {
-        bool bResults = configDB->createSvcMap(*svcInfo);
+        /* First update the service map */
+        /* NOTE: Currently the new registation protocol is using existing code for node
+         * registartion to reduce the amount of code churn.  Once they are unitfied, lot
+         * of the ugly hacks below should go away
+         */
+        bool bResults = configDB->updateSvcMap(*svcInfo);
         if (!bResults)
         {
             return;
         }
         
+        /* Convert new registration request to existing registration request */
         fpi::FDSP_RegisterNodeTypePtr reg_node_req;
         reg_node_req.reset(new FdspNodeReg());
         
@@ -250,9 +253,10 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                 << reg_node_req->node_type << ", name " << reg_node_req->node_name;
             return;
         }
-        
+
         new_node_uuid.uuid_set_type(reg_node_req->node_uuid.uuid, 
                                     reg_node_req->node_type);
+        /* Do the registration */
         Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
         if (!err.ok()) 
         {
@@ -269,6 +273,7 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                   << ", service uuid " << new_node_uuid.uuid_get_val()
                   << ", node type " << reg_node_req->node_type << std::dec;
         
+        // TODO(Paul/Rao): Broadcast the service map
     } 
     catch(const kvstore::ConfigException e)
     {
@@ -290,7 +295,7 @@ void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
                        boost::shared_ptr<int64_t>& nullarg)
 {
     LOGDEBUG << "Service map request";
-    if (!configDB->listSvcMap(_return)) 
+    if (!configDB->getSvcMap(_return)) 
     {
         LOGWARN << "Failed to list service map";
     } 

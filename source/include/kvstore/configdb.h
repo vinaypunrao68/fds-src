@@ -128,10 +128,8 @@ struct ConfigDB : KVStore {
 
     
     // service map 
-    bool getSvcMap(fpi::SvcInfo& svcinfo);
-    bool listSvcMap(std::vector<fpi::SvcInfo> & vecSvcInfo);
-    bool deleteSvcMap(const int64_t svcId);
-    bool createSvcMap(fpi::SvcInfo& svcinfo);
+    bool updateSvcMap(const fpi::SvcInfo& svcinfo);
+    bool getSvcMap(std::vector<fpi::SvcInfo>& svcMap);
 
   protected:
     void setModified();
