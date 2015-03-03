@@ -52,7 +52,17 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
     } else {
         omc_log = new fds_log("omc", "logs");
     }
-    nst_ = nst;
+
+    // TODO(Andrew): Need to completely remove the NetSession references. Right
+    // now we're stuck with it because RegisterNode hasn't been moved to service
+    // layer. Maybe just removing this whole file is easier (hint, hint).
+    if (nullptr == nst_) {
+        // Make up a netsession server to use if the user of the library has
+        // freed itself of netsession.
+        nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
+    } else {
+        nst_ = nst;
+    }
 
     clustMap = new LocalClusterMap();
     plf_mgr  = plf;

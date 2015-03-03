@@ -183,11 +183,6 @@ void netSessionTbl::listenServer(netSession* server_session) {
     switch (localMgrId) {
         case FDSP_STOR_MGR:
         case FDSP_PLATFORM:
-            {
-                netDataPathServerSession *servSession =
-                        reinterpret_cast<netDataPathServerSession *>(server_session);
-                servSession->listenServer();
-            }
             break;
 
         case FDSP_DATA_MGR:

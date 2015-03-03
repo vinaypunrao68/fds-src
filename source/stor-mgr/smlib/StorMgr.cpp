@@ -34,17 +34,6 @@ fds_bool_t  stor_mgr_stopping = false;
 
 ObjectStorMgr *objStorMgr;
 
-/*
- * SM's FDSP interface member functions
- */
-ObjectStorMgrI::ObjectStorMgrI()
-{
-}
-
-ObjectStorMgrI::~ObjectStorMgrI()
-{
-}
-
 /**
  * Storage manager member functions
  *
@@ -138,8 +127,6 @@ void ObjectStorMgr::mod_startup()
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
-    std::string     myIp;
-
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
@@ -149,10 +136,6 @@ void ObjectStorMgr::mod_startup()
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
-        /* Set up FDSP RPC endpoints */
-        nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-        myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-        setup_datapath_server(myIp);
 
         /*
          * Register this node with OM.
@@ -164,7 +147,7 @@ void ObjectStorMgr::mod_startup()
                                   modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),
                                   "localhost-sm",
                                   GetLog(),
-                                  nst_, modProvider_->get_plf_manager());
+                                  nullptr, modProvider_->get_plf_manager());
     }
 
     /*
@@ -323,38 +306,14 @@ void ObjectStorMgr::mod_shutdown()
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
         return;  // no migration or netsession
     }
-    nst_->endAllSessions();
-    nst_.reset();
-}
-
-void ObjectStorMgr::setup_datapath_server(const std::string &ip)
-{
-    ObjectStorMgrI *osmi = new ObjectStorMgrI();
-    datapath_handler_.reset(osmi);
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_SM";
-    // TODO(???): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(???): Figure out who cleans up datapath_session_
-    datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
-        myIpInt,
-        modProvider_->get_plf_manager()->plf_get_my_data_port(),
-        node_name,
-        FDSP_STOR_HVISOR,
-        datapath_handler_);
 }
 
 int ObjectStorMgr::run()
 {
-    nst_->listenServer(datapath_session_);
+    while (true) {
+        sleep(1);
+    }
     return 0;
-}
-
-DPRespClientPtr
-ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
-    return datapath_session_->getRespClient(session_uuid);
 }
 
 const TokenList&
@@ -695,41 +654,6 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
 
     getReq->response_cb(err, getReq);
     return err;
-}
-
-NodeAgentDpClientPtr
-ObjectStorMgr::getProxyClient(ObjectID& oid,
-                              const FDSP_MsgHdrTypePtr& msg) {
-    const DLT* dlt = getDLT();
-    NodeUuid uuid = 0;
-
-    // TODO(Andrew): Why is it const if we const_cast it?
-    FDSP_MsgHdrTypePtr& fdsp_msg = const_cast<FDSP_MsgHdrTypePtr&> (msg);
-    // get the first Node that is not ME!!
-    DltTokenGroupPtr nodes = dlt->getNodes(oid);
-    for (uint i = 0; i < nodes->getLength(); i++) {
-        if (nodes->get(i) != getUuid()) {
-            uuid = nodes->get(i);
-            break;
-        }
-    }
-
-    fds_verify(uuid != getUuid());
-
-    LOGDEBUG << "obj " << oid << " not located here "
-             << getUuid() << " proxy_count " << fdsp_msg->proxy_count;
-    LOGDEBUG << "proxying request to " << uuid;
-    fds_int32_t node_state = -1;
-
-    NodeAgent::pointer node = modProvider_->get_plf_manager()->plf_node_inventory()->
-            dc_get_sm_nodes()->agent_info(uuid);
-    SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
-    NodeAgentDpClientPtr smClient = sm->get_sm_client();
-
-    // Increment the proxy count so the receiver knows
-    // this is a proxied request
-    fdsp_msg->proxy_count++;
-    return smClient;
 }
 
 /**
