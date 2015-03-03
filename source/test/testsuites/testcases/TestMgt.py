@@ -250,59 +250,81 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         # Validate the service in question
         if "service" in scenario.nd_conf_dict:
-            if scenario.nd_conf_dict['service'] not in ['pm', 'dm', 'sm', 'am', 'om']:
+            if scenario.nd_conf_dict['service'] not in ['pm', 'dm', 'sm', 'om', 'am']:
                 log.error("Service %s is not valid for scenario '%s'." %
                           (scenario.nd_conf_dict['service'], scenario.nd_conf_dict['scenario-name']))
                 raise Exception
+            else:
+                service = scenario.nd_conf_dict['service']
         else:
-            log.error("service option not found for scenario '%s'" %
+            log.error("Service option not found for scenario '%s'" %
                       (scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
-        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
-            # Start this service according to the specified action.
-            if (action.count("install") > 0):
-                # First, build out the installation directory and start Redis.
-                suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
-                # Boot Redis on the machine if requested.
-                if 'redis' in node.nd_conf_dict:
-                    if node.nd_conf_dict['redis'] == 'true':
-                        suite.addTest(TestFDSEnvMgt.TestRestartRedisClean(node=node))
-
-            if (action.count("boot") > 0):
-                # Now bring up PM.
+        if (action.count("boot") > 0):
+            if service == "pm":
                 suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
                 suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
+            elif service == "dm":
+                suite.addTest(TestFDSServiceMgt.TestDMBringUp(node=node))
+                suite.addTest(TestFDSServiceMgt.TestDMWait(node=node))
+            elif service == "sm":
+                suite.addTest(TestFDSServiceMgt.TestSMBringUp(node=node))
+                suite.addTest(TestFDSServiceMgt.TestSMWait(node=node))
+            elif service == "om":
+                suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
+                suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
+            elif service == "am":
+                suite.addTest(TestFDSServiceMgt.TestAMBringUp(node=node))
+                suite.addTest(TestFDSServiceMgt.TestAMWait(node=node))
 
-                # If the node also supports an OM, start the OM
-                # as well.
-                if node.nd_run_om():
-                    suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
-                    suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
+        if (action.count("activate") > 0):
+            if service == "pm":
+                log.error("Activate action not valid for PM service for scenario '%s'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+            elif service == "dm":
+                suite.addTest(TestFDSServiceMgt.TestDMActivate(node=node))
+            elif service == "sm":
+                suite.addTest(TestFDSServiceMgt.TestSMActivate(node=node))
+            elif service == "om":
+                log.error("Activate action not valid for OM service for scenario '%s'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+            elif service == "am":
+                suite.addTest(TestFDSServiceMgt.TestAMActivate(node=node))
 
-            if (action.count("activate") > 0):
-                # Now activate the node's configured services.
-                suite.addTest(TestFDSSysMgt.TestNodeActivate(node=node))
-                suite.addTest(TestWait(delay=10, reason="to let the node activate"))
+        if (action.count("remove") > 0):
+            if service == "pm":
+                log.error("Remove action not valid for PM service for scenario '%s'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+            elif service == "dm":
+                suite.addTest(TestFDSServiceMgt.TestDMRemove(node=node))
+            elif service == "sm":
+                suite.addTest(TestFDSServiceMgt.TestSMRemove(node=node))
+            elif service == "om":
+                log.error("Remove action not valid for OM service for scenario '%s'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+            elif service == "am":
+                suite.addTest(TestFDSServiceMgt.TestAMRemove(node=node))
 
-            # Give the node some time to initialize if requested.
-            if 'delay_wait' in scenario.nd_conf_dict:
-                suite.addTest(TestWait(delay=delay, reason="to allow node " + script + " to initialize"))
-        elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
-            # Shutdown the node according to the specified action.
-            if (action.count("remove") > 0):
-                suite.addTest(TestFDSSysMgt.TestNodeRemoveServices(node=node))
+        if (action.count("kill") > 0):
+            if service == "pm":
+                suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
+            elif service == "dm":
+                suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
+            elif service == "sm":
+                suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
+            elif service == "om":
+                suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
+            elif service == "am":
+                suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
 
-            if (action.count("kill") > 0):
-                suite.addTest(TestFDSSysMgt.TestNodeKill(node=node))
-
-            if (action.count("uninst") > 0):
-                suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
-
-                # Shutdown Redis on the machine if we started it.
-                if 'redis' in node.nd_conf_dict:
-                    if node.nd_conf_dict['redis'] == 'true':
-                        suite.addTest(TestFDSEnvMgt.TestShutdownRedis(node=node))
+        # Give the service action some time to complete if requested.
+        if 'delay_wait' in scenario.nd_conf_dict:
+            suite.addTest(TestWait(delay=delay, reason="to allow " + service + " " + script + " to complete"))
 
     # We'll leave this here in case a need arises to treat AM's separately (for example
     # booting them on nodes without a PM), but for now AM sections will be flagged.
@@ -329,7 +351,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 #                for am in scenario.cfg_sect_ams:
 #                    if '[' + am.nd_conf_dict['am-name'] + ']' == script:
 #                        found = True
-#                        suite.addTest(TestFDSModMgt.TestAMBringup(am=am))
+#                        suite.addTest(TestFDSModMgt.TestAMBringUp(am=am))
 #                        break
 #
 #                if found:

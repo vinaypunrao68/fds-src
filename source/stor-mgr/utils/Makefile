@@ -3,7 +3,7 @@ user_target       := exe
 user_std_libs     := true
 user_rtime_env    := user
 speedup           = -j $(threads)
-user_incl_dir     := $(topdir) ../include $(topdir)/unit-test/stor-mgr /usr/include/cryptopp
+user_incl_dir     := $(topdir) ../include /usr/include/cryptopp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
@@ -23,11 +23,7 @@ user_non_fds_libs := \
     cryptopp \
     leveldb
 
-user_ar_libs      := smchk
-smchk             := smchk.cpp
-
-user_cpp          := smchk.cpp
 user_bin_exe      := smchk
-smchk             := smchk.cpp smchk_driver.cpp
+smchk             := SMCheckDriver.cpp
 
 include $(topdir)/Makefile.incl

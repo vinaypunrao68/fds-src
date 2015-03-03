@@ -17,14 +17,14 @@
 #include <string>
 #include <boost/program_options.hpp>
 
-#include "smchk.h"
+#include <SMCheck.h>
 
 namespace fds {
 
-SMChk::SMChk(SmDiskMap::ptr smDiskMap,
-             ObjectDataStore::ptr smObjStore,
-             ObjectMetadataDb::ptr smMdDb,
-             bool verboseMsg = false)
+SMCheck::SMCheck(SmDiskMap::ptr smDiskMap,
+                 ObjectDataStore::ptr smObjStore,
+                 ObjectMetadataDb::ptr smMdDb,
+                 bool verboseMsg = false)
     : smDiskMap(smDiskMap),
       smObjStore(smObjStore),
       smMdDb(smMdDb),
@@ -34,7 +34,7 @@ SMChk::SMChk(SmDiskMap::ptr smDiskMap,
     std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
     if (access(uuidPath.c_str(), F_OK) == -1) {
        std::cout << "uuid file (" << uuidPath << ") doesn't exists.  "
-                 << "Cannot properly map DLT tokens.  Exiting..." 
+                 << "Cannot properly map DLT tokens.  Exiting..."
                  << std::endl;
        exit(0);
     }
@@ -53,7 +53,7 @@ SMChk::SMChk(SmDiskMap::ptr smDiskMap,
     std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
     if (access(dltPath.c_str(), F_OK) == -1) {
        std::cout << "DLT file (" << dltPath << ") doesn't exists.  "
-                 << "Cannot properly map DLT tokens.  Exiting..." 
+                 << "Cannot properly map DLT tokens.  Exiting..."
                  << std::endl;
        exit(0);
     }
@@ -75,7 +75,7 @@ SMChk::SMChk(SmDiskMap::ptr smDiskMap,
 
 }
 
-SMChk::SMChk(ObjectDataStore::ptr smObjStore, ObjectMetadataDb::ptr smMdDb)
+SMCheck::SMCheck(ObjectDataStore::ptr smObjStore, ObjectMetadataDb::ptr smMdDb)
         : smDiskMap(nullptr),
           sm_count(0),
           smObjStore(smObjStore),
@@ -86,11 +86,11 @@ SMChk::SMChk(ObjectDataStore::ptr smObjStore, ObjectMetadataDb::ptr smMdDb)
     curDLT = NULL;
 }
 
-SmTokenSet SMChk::getSmTokens() {
+SmTokenSet SMCheck::getSmTokens() {
     return smDiskMap->getSmTokens();
 }
 
-void SMChk::list_path_by_token() {
+void SMCheck::list_path_by_token() {
     SmTokenSet smToks = getSmTokens();
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
@@ -101,7 +101,7 @@ void SMChk::list_path_by_token() {
     }
 }
 
-void SMChk::list_token_by_path() {
+void SMCheck::list_token_by_path() {
     std::unordered_map<std::string, std::vector<fds_token_id>> rev_map;
 
     SmTokenSet smToks = getSmTokens();
@@ -118,14 +118,14 @@ void SMChk::list_token_by_path() {
     }
 }
 
-void SMChk::list_metadata() {
+void SMCheck::list_metadata() {
     MetadataIterator md_iter(this);
     for (md_iter.start(); !md_iter.end(); md_iter.next()) {
         std::cout << *(md_iter.value()) << "\n";
     }
 }
 
-void SMChk::list_active_metadata() {
+void SMCheck::list_active_metadata() {
     MetadataIterator md_iter(this);
     for (md_iter.start(); !md_iter.end(); md_iter.next()) {
         boost::shared_ptr<ObjMetaData> omd = md_iter.value();
@@ -135,7 +135,7 @@ void SMChk::list_active_metadata() {
     }
 }
 
-int SMChk::bytes_reclaimable() {
+int SMCheck::bytes_reclaimable() {
     int bytes = 0;
     MetadataIterator md_it(this);
     for (md_it.start(); !md_it.end(); md_it.next()) {
@@ -148,12 +148,12 @@ int SMChk::bytes_reclaimable() {
     return bytes;
 }
 
-ObjectID SMChk::hash_data(boost::shared_ptr<const std::string> dataPtr, fds_uint32_t obj_size) {
+ObjectID SMCheck::hash_data(boost::shared_ptr<const std::string> dataPtr, fds_uint32_t obj_size) {
     return ObjIdGen::genObjectId((*dataPtr).c_str(),
             static_cast<size_t>(obj_size));
 }
 
-bool SMChk::consistency_check(fds_token_id token) {
+bool SMCheck::consistency_check(fds_token_id token) {
     leveldb::DB *ldb;
     leveldb::Iterator *it;
     leveldb::ReadOptions options;
@@ -205,11 +205,11 @@ bool SMChk::consistency_check(fds_token_id token) {
     return true;
 }
 
-bool SMChk::consistency_check(ObjectID obj_id) {
+bool SMCheck::consistency_check(ObjectID obj_id) {
     return true;
 }
 
-bool SMChk::checkObjectOwnership(const ObjectID& objId)
+bool SMCheck::checkObjectOwnership(const ObjectID& objId)
 {
     bool found = false;
 
@@ -224,7 +224,7 @@ bool SMChk::checkObjectOwnership(const ObjectID& objId)
     return found;
 }
 
-bool SMChk::full_consistency_check(bool checkOwnership, bool checkOnlyActive) {
+bool SMCheck::full_consistency_check(bool checkOwnership, bool checkOnlyActive) {
     int corruptionCount = 0;
     int ownershipMismatch = 0;
     int objs_count = 0;
@@ -306,14 +306,14 @@ bool SMChk::full_consistency_check(bool checkOwnership, bool checkOnlyActive) {
 
 // ---------------------- MetadataIterator -------------------------------- //
 
-SMChk::MetadataIterator::MetadataIterator(SMChk * instance) {
+SMCheck::MetadataIterator::MetadataIterator(SMCheck * instance) {
     smchk = instance;
     ldb = nullptr;
     ldb_it = nullptr;
     all_toks = smchk->getSmTokens();
 }
 
-void SMChk::MetadataIterator::start() {
+void SMCheck::MetadataIterator::start() {
     token_it = all_toks.begin();
     GLOGNORMAL << "Reading metadata db for SM token " << *token_it << "\n";
     smchk->smMdDb->snapshot(*token_it, ldb, options);
@@ -324,7 +324,7 @@ void SMChk::MetadataIterator::start() {
     }
 }
 
-bool SMChk::MetadataIterator::end() {
+bool SMCheck::MetadataIterator::end() {
     if (token_it == all_toks.end()) {
         if (!ldb_it->Valid()) {
             return true;
@@ -333,7 +333,7 @@ bool SMChk::MetadataIterator::end() {
     return false;
 }
 
-void SMChk::MetadataIterator::next() {
+void SMCheck::MetadataIterator::next() {
     // If we're currently valid, lets try to call next
     if (ldb_it->Valid()) {
         ldb_it->Next();
@@ -355,11 +355,11 @@ void SMChk::MetadataIterator::next() {
     }
 }
 
-std::string SMChk::MetadataIterator::key() {
+std::string SMCheck::MetadataIterator::key() {
     return ldb_it->key().ToString();
 }
 
-boost::shared_ptr<ObjMetaData> SMChk::MetadataIterator::value() {
+boost::shared_ptr<ObjMetaData> SMCheck::MetadataIterator::value() {
     if (!end()) {
         // We should have a valid levelDB / ldb_it
         omd = boost::shared_ptr<ObjMetaData>(new ObjMetaData());

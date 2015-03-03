@@ -311,8 +311,6 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
 
 typedef netClientSessionEx<FDSP_MetaDataPathReqClient,
         FDSP_MetaDataPathRespProcessor,FDSP_MetaDataPathRespIf> netMetaDataPathClientSession;
-typedef netClientSessionEx<FDSP_ControlPathReqClient,
-        FDSP_ControlPathRespProcessor,FDSP_ControlPathRespIf> netControlPathClientSession;
 typedef netClientSessionEx<FDSP_OMControlPathReqClient,
         FDSP_OMControlPathRespProcessor,FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 typedef netClientSessionEx<FDSP_ConfigPathReqClient,
@@ -640,8 +638,6 @@ class netServerSessionEx: public netSession {
 
 typedef netServerSessionEx<FDSP_MetaDataPathReqProcessor,
         FDSP_MetaDataPathReqIf, FDSP_MetaDataPathRespClient> netMetaDataPathServerSession;
-typedef netServerSessionEx<FDSP_ControlPathReqProcessor,
-        FDSP_ControlPathReqIf, FDSP_ControlPathRespClient> netControlPathServerSession;
 typedef netServerSessionEx<FDSP_OMControlPathReqProcessor,
         FDSP_OMControlPathReqIf, FDSP_OMControlPathRespClient> netOMControlPathServerSession;
 typedef netServerSessionEx<FDSP_ConfigPathReqProcessor,
