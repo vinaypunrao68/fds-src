@@ -15,14 +15,15 @@
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
+#include <fdsp/OMSvc.h>
+#include <om-svc-handler.h>
 
 namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
-    : PlatformProcess(argc, argv, "fds.om.", "om.log", platform, mod_vec),
-      conf_port_num(0),
+OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
+    : conf_port_num(0),
       ctrl_port_num(0),
       test_mode(false),
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
@@ -31,6 +32,12 @@ OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
       snapshotMgr(this), deleteScheduler(this)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
+    fds::gl_orch_mgr = this;
+
+    static fds::Module *omVec[] = {
+        omModule,
+        NULL
+    };
 
     for (int i = 0; i < MAX_OM_NODES; i++) {
         /*
@@ -39,6 +46,9 @@ OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
          */
         node_id_to_name[i] = "";
     }
+
+    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
+                                                 "fds.om.", "om.log", omVec);
 
     /*
      * Testing code for loading test info from disk.
@@ -56,6 +66,7 @@ OrchMgr::~OrchMgr()
     if (policy_mgr) {
         delete policy_mgr;
     }
+    fds::gl_orch_mgr =  nullptr;
 }
 
 void OrchMgr::proc_pre_startup()
@@ -63,7 +74,6 @@ void OrchMgr::proc_pre_startup()
     int    argc;
     char **argv;
 
-    PlatformProcess::proc_pre_startup();
     argv = mod_vectors_->mod_argv(&argc);
 
     /*
@@ -167,6 +177,11 @@ void OrchMgr::proc_pre_service()
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
     local_domain->om_load_state(config_db_up ? configDB : NULL);
+}
+
+void OrchMgr::registerSvcProcess()
+{
+    LOGNOTIFY;
 }
 
 int OrchMgr::run()

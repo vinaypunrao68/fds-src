@@ -24,9 +24,9 @@
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
-#include "platform/platform_process.h"
 #include <snapshot/manager.h>
 #include <deletescheduler.h>
+#include <net/SvcProcess.h>
 #include <net/PlatNetSvcHandler.h>
 
 #define MAX_OM_NODES            (512)
@@ -57,10 +57,13 @@ typedef netServerSessionEx<fpi::FDSP_ConfigPathReqProcessor,
 
 namespace fds {
 
-class OrchMgr: public PlatformProcess {
+class OM_Module;
+
+class OrchMgr: public SvcProcess {
   private:
     fds_log *om_log;
     SysParams *sysParams;
+
     /* net session tbl for OM control path*/
     boost::shared_ptr<netSessionTbl> omcp_session_tbl;
     netOMControlPathServerSession *omc_server_session;
@@ -96,7 +99,7 @@ class OrchMgr: public PlatformProcess {
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
-    OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
+    OrchMgr(int argc, char *argv[], OM_Module *omModule);
     ~OrchMgr();
     void start_cfgpath_server();
 
@@ -109,6 +112,8 @@ class OrchMgr: public PlatformProcess {
      */
     virtual int  run() override;
     virtual void interrupt_cb(int signum) override;
+
+    virtual void registerSvcProcess() override;
 
     bool loadFromConfigDB();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket

@@ -23,8 +23,10 @@ namespace fds {
 class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
 {
   public:
-    OmSvcHandler();
+    explicit OmSvcHandler(CommonModuleProviderIf *provider);
     virtual ~OmSvcHandler();
+
+    int mod_init(SysParams const *const param);
     /**
      * Stub Overrides from OMSvcIf
      */
