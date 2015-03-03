@@ -55,14 +55,30 @@ function build_fds
     message "RUNNING DEVSETUP"
     make devsetup
 
-		if [ ${BUILD_TYPE} == 'release' ] ; then
-      message "BUILDING FORMATION PLATFORM - BUILD_TYPE: release"
-			jenkins_scripts/build_fds.py -r
-		else
-      message "BUILDING FORMATION PLATFORM - BUILD_TYPE: debug"
-			jenkins_scripts/build_fds.py
-		fi
+    start_time=$(date +%s)
+    if [[ ${BUILD_TYPE} == 'release' ]] ; then
+        message "BUILDING FORMATION PLATFORM - BUILD_TYPE: release"
+        jenkins_scripts/build_fds.py -r
+    else
+        message "BUILDING FORMATION PLATFORM - BUILD_TYPE: debug"
+        jenkins_scripts/build_fds.py
+    fi
+    end_time=$(date +%s)
 
+    performance_report BUILD_FDS $(( ${end_time} - ${start_time} ))
+}
+
+function performance_report
+{
+   unit=$1
+   seconds=$2
+
+   if [[ ${seconds} -lt 60 ]]
+   then
+      message "${unit} TIME = ${seconds} seconds"
+   else
+      message "${unit} TIME = ${seconds} seconds or $(( ${seconds} / 60 )) minute(s) $(( ${seconds} % 60 )) seconds"
+   fi
 }
 
 function cache_report
