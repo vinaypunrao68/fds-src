@@ -325,7 +325,7 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
     sync_in_progress = true;
 
     for (auto metavol : metaVolList) {
-        NodeUuid uuid(metavol.node_uuid.uuid);
+        NodeUuid uuid(metavol.node_uuid);
 
         // create CatalogSync object to handle syncing vols to node 'uuid'
         fds_verify(cat_sync_map.count(uuid) == 0);

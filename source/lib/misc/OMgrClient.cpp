@@ -28,10 +28,6 @@ namespace fds {
 extern const NodeUuid gl_OmUuid;
 extern SvcRequestPool *gSvcRequestPool;
 
-OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
-    this->om_client = omc;
-}
-
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
                        fds_uint32_t _omPort,
@@ -75,9 +71,6 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
 
 OMgrClient::~OMgrClient()
 {
-    nst_->endSession(omrpc_handler_session_->getSessionTblKey());
-    omrpc_handler_thread_->join();
-
     delete clustMap;
 }
 
@@ -98,47 +91,6 @@ int OMgrClient::registerEventHandlerForDltCloseEvents(dltclose_event_handler_t d
 int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr) {
     bucket_stats_cmd_hdlr = cmd_hdlr;
     return 0;
-}
-
-/**
- * @brief Starts OM RPC handling server.  This function is to be run on a
- * separate thread.  OMgrClient destructor does a join() on this thread
- */
-void OMgrClient::start_omrpc_handler()
-{
-    if (fNoNetwork) return;
-    try {
-        nst_->listenServer(omrpc_handler_session_);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "unable to listen at the given port - check the port";
-        LOGERROR << "error during network call : " << e.what();
-        fds_panic("Unable to listen on server...");
-    }
-}
-
-// Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
-int OMgrClient::startAcceptingControlMessages() {
-    if (fNoNetwork) return 0;
-    std::string myIp = fds::net::get_local_ip(
-        g_fdsprocess->get_fds_config()->get<std::string>("fds.nic_if"));
-    int myIpInt = netSession::ipString2Addr(myIp);
-    omrpc_handler_.reset(new OMgrClientRPCI(this));
-    // TODO(x): Ideally createServerSession should take a shared pointer
-    // for omrpc_handler_.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    fds_uint32_t ctrlPort = plf_mgr->plf_get_my_ctrl_port() + instanceId;
-    omrpc_handler_session_ =
-            nst_->createServerSession<netControlPathServerSession>(myIpInt,
-                                                                   ctrlPort,
-                                                                   my_node_name,
-                                                                   FDSP_ORCH_MGR,
-                                                                   omrpc_handler_);
-    omrpc_handler_thread_.reset(new boost::thread(&OMgrClient::start_omrpc_handler, this));
-
-    LOGNOTIFY << "OMClient accepting control requests at port "
-              << ctrlPort;
-
-    return (0);
 }
 
 void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)

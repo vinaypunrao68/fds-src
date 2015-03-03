@@ -96,7 +96,7 @@ struct FDSP_metaData
 {
     /* Object Metadata */
     1: vol_List_Type  volList;
-    2: FDSP.FDSP_Uuid  node_uuid,
+    2: common.SvcUuid  node_uuid,
 }
 
 typedef list<FDSP_metaData> FDSP_metaDataList

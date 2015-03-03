@@ -258,7 +258,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                  idx < ((push_meta_msgs[src_dm])->metaVol).size();
                  ++idx) {
                 fds_uint64_t uuid_val;
-                uuid_val = ((push_meta_msgs[src_dm])->metaVol)[idx].node_uuid.uuid;
+                uuid_val = ((push_meta_msgs[src_dm])->metaVol)[idx].node_uuid.svc_uuid;
                 if (uuid_val == (*cit).uuid_get_val()) {
                     ((push_meta_msgs[src_dm])->metaVol)[idx].volList.push_back(volid);
                     found = true;
@@ -267,7 +267,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
             }
             if (!found) {
                 fpi::FDSP_metaData meta;
-                meta.node_uuid.uuid = (*cit).uuid_get_val();
+                meta.node_uuid = (*cit).toSvcUuid();
                 meta.volList.push_back(volid);
                 ((push_meta_msgs[src_dm])->metaVol).push_back(meta);
             }
@@ -285,7 +285,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 volid_str.append(",");
             }
             LOGDEBUG << "Src node " << std::hex << it->first << ", Dst node "
-                     << metavol.node_uuid.uuid << std::dec << " volumes " << volid_str;
+                     << metavol.node_uuid.svc_uuid << std::dec << " volumes " << volid_str;
         }
         if (OM_NodeDomainMod::om_in_test_mode()) {
             LOGDEBUG << "IN TEST MODE: not sending push meta messages";
