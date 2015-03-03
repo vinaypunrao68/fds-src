@@ -703,12 +703,6 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
-service FDSP_MetaDataPathReq {
-}
-
-service FDSP_MetaDataPathResp {
-}
-
 struct FDSP_CreateVolType {
   1: string                  vol_name,
   2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
