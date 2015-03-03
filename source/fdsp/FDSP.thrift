@@ -703,12 +703,6 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
-service FDSP_DataPathReq {
-}
-
-service FDSP_DataPathResp {
-}
-
 service FDSP_MetaDataPathReq {
 }
 
@@ -767,10 +761,4 @@ service FDSP_ControlPathReq {
 }
 
 service FDSP_ControlPathResp {
-}
-
-service FDSP_MetaSyncReq {
-}
-
-service FDSP_MetaSyncResp {
 }
