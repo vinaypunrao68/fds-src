@@ -63,7 +63,11 @@ void SvcProcess::init(int argc, char *argv[],
 
     /* Set up service layer */
     setupSvcMgr_(handler, processor);
+}
 
+void SvcProcess::proc_pre_startup()
+{
+    LOGNOTIFY << "Registering the service with om";
     /* Default implementation registers with OM.  Until registration complets
      * this will not return
      */

@@ -85,6 +85,11 @@ struct SvcProcess : FdsProcess {
     }
 
     /**
+    * @brief Here we register the service by invoking registerSvcProcess()
+    */
+    void proc_pre_startup() override;
+
+    /**
     * @brief Registers the service.  Default implementation will register the service
     * with OM.
     * Override this behavior depedning on the service type.
