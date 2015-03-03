@@ -21,7 +21,6 @@ user_fds_ar_libs  := \
     fds-om-common \
     fds-om-lib \
     fds-om-dlt \
-    fds-om-discovery \
     fds-om-plat \
     fds-plat-lib \
     fds-fdsp
