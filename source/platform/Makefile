@@ -7,7 +7,7 @@ user_build_dir   := include source python
 
 user_incl_dir    := include $(topdir)
 
-user_fds_ar_libs := fds-pm-lib
+user_fds_ar_libs := fds-pm-lib fds-disk-lib
 user_non_fds_libs :=           \
                      udev      \
                      rt        \

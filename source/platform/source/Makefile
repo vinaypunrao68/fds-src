@@ -10,6 +10,12 @@ platform_cpp  := \
 	svchandler.cpp \
 	process.cpp
 
+disk_cpp := \
+	$(wildcard pm_disk_*.cpp) \
+	$(wildcard file_disk_*.cpp) \
+	$(wildcard disk_*.cpp)
+
+
 fds_plat_lib_cpp :=                              \
                     platform.cpp                 \
                     domain_cluster_map.cpp       \
@@ -49,8 +55,9 @@ fds_plat_lib_cpp :=                              \
                     fds_flags.cpp
 
 user_cpp := $(platfrom_cpp) $(fds_plat_lib_cpp)
-user_ar_libs := fds-pm-lib fds-plat-lib
+user_ar_libs := fds-pm-lib fds-plat-lib fds-disk-lib
 fds-pm-lib   := $(platform_cpp)
 fds-plat-lib := $(fds_plat_lib_cpp)
+fds-disk-lib := $(disk_cpp)
 
 include $(topdir)/Makefile.incl

@@ -11,7 +11,7 @@
 #include <net/SvcProcess.h>
 #include <platform/platformmanager.h>
 #include <platform/svchandler.h>
-
+#include <disk_plat_module.h>
 namespace fds {
 
 class PlatformMain : public SvcProcess {
@@ -20,7 +20,8 @@ class PlatformMain : public SvcProcess {
         platform = new fds::pm::PlatformManager();
         /* Create the dependency vector */
         static fds::Module *modules[] = {
-            platform,
+            &gl_DiskPlatMod,
+            platform,            
             NULL
         };
 
