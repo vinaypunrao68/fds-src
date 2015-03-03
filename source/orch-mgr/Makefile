@@ -12,7 +12,6 @@ user_build_dir    := \
 	om-lib \
 	configservice \
 	snapshot \
-	platform
 
 user_fds_ar_libs  := \
     fds-util \
@@ -21,7 +20,6 @@ user_fds_ar_libs  := \
     fds-om-common \
     fds-om-lib \
     fds-om-dlt \
-    fds-om-plat \
     fds-plat-lib \
     fds-fdsp
 
