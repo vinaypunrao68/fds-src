@@ -22,7 +22,7 @@ user_cpp          :=                   \
     ObjStats.cpp                       \
     TierMigration.cpp                  \
     TierEngine.cpp                     \
-    HybridTierCtrlr.cpp		       \
+    HybridTierCtrlr.cpp		           \
     ObjMeta.cpp                        \
     SMSvcHandler.cpp                   \
     MockSMCallbacks.cpp                \
@@ -30,7 +30,8 @@ user_cpp          :=                   \
     MigrationExecutor.cpp              \
     MigrationClient.cpp                \
     MigrationUtility.cpp               \
-    MigrationTools.cpp
+    MigrationTools.cpp				   \
+	SMCheck.cpp 
 
 user_ar_libs      := fds-smlib
 fds-smlib         := $(user_cpp)

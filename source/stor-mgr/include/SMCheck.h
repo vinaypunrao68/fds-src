@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#ifndef SOURCE_CHECKER_SMCHK_H_
-#define SOURCE_CHECKER_SMCHK_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_SMCHECK_H_
+#define SOURCE_STOR_MGR_INCLUDE_SMCHECK_H_
 
 class ObjectStore;
 class SmDiskMap;
@@ -23,16 +23,16 @@ enum RunFunc {
 
 typedef boost::shared_ptr<ObjMetaData> MdPtr;
 
-class SMChk {
+class SMCheck {
 // friend class MetadataIterator;
   public:
-    SMChk(SmDiskMap::ptr smDiskMap,
-          ObjectDataStore::ptr smObjStore,
-          ObjectMetadataDb::ptr smMdDb,
-          bool verboseMsg);
-    SMChk(ObjectDataStore::ptr smObjStore,
-          ObjectMetadataDb::ptr smMdDb);
-    ~SMChk() { delete curDLT; }
+    SMCheck(SmDiskMap::ptr smDiskMap,
+            ObjectDataStore::ptr smObjStore,
+            ObjectMetadataDb::ptr smMdDb,
+            bool verboseMsg);
+    SMCheck(ObjectDataStore::ptr smObjStore,
+            ObjectMetadataDb::ptr smMdDb);
+    ~SMCheck() { delete curDLT; }
 
     void list_path_by_token();
     void list_token_by_path();
@@ -49,9 +49,9 @@ class SMChk {
     // Data
     int sm_count;
     RunFunc cmd;
-    fds::SmDiskMap::ptr smDiskMap;
-    fds::ObjectDataStore::ptr smObjStore;
-    fds::ObjectMetadataDb::ptr smMdDb;
+    SmDiskMap::ptr smDiskMap;
+    ObjectDataStore::ptr smObjStore;
+    ObjectMetadataDb::ptr smMdDb;
     // Methods
     SmTokenSet getSmTokens();
     ObjectID hash_data(boost::shared_ptr<const std::string> dataPtr, fds_uint32_t obj_size);
@@ -63,7 +63,7 @@ class SMChk {
 
     class MetadataIterator {
       public:
-        MetadataIterator(SMChk * instance);
+        explicit MetadataIterator(SMCheck * instance);
         ~MetadataIterator() {}
         bool end();
         void start();
@@ -71,7 +71,7 @@ class SMChk {
         std::string key();
         void next();
       private:
-        SMChk * smchk;
+        SMCheck *smchk;
 
         SmTokenSet all_toks;
         SmTokenSet::iterator token_it;
@@ -84,4 +84,4 @@ class SMChk {
     };
 };
 }  // namespace fds
-#endif  // SOURCE_PLATFORM_INCLUDE_DISK_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_SMCHECK_H_
