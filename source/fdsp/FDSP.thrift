@@ -720,12 +720,6 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
-service FDSP_DataPathReq {
-}
-
-service FDSP_DataPathResp {
-}
-
 service FDSP_MetaDataPathReq {
 }
 
@@ -792,10 +786,4 @@ service FDSP_ControlPathResp {
   oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp),
   oneway void NotifyDMTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_resp),
   oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)
-}
-
-service FDSP_MetaSyncReq {
-}
-
-service FDSP_MetaSyncResp {
 }

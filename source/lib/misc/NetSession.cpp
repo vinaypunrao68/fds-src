@@ -187,10 +187,6 @@ void netSessionTbl::listenServer(netSession* server_session) {
                 netControlPathServerSession *servSession =
                     reinterpret_cast<netControlPathServerSession *>(server_session);
                 servSession->listenServer();
-            } else {
-                netDataPathServerSession *servSession =
-                    reinterpret_cast<netDataPathServerSession *>(server_session);
-                servSession->listenServer();
             }
             break;
 
