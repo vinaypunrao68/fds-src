@@ -35,8 +35,8 @@ BaseChecker::mod_load_from_config()
 {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 /*
-    plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
-    plf_om_ctrl_port = conf.get_abs<int>("fds.plat.om_port");
+    plf_om_ip_str    = conf.get_abs<std::string>("fds.pm.om_ip");
+    plf_om_ctrl_port = conf.get_abs<int>("fds.pm.om_port");
     plf_my_ctrl_port = conf.get_abs<int>("fds.checker.control_port");
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = plf_my_ip;
