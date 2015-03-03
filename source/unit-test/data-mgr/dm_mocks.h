@@ -99,7 +99,7 @@ struct DMTester :  FdsProcess {
         PerfTracer::setEnabled(false);
         dataMgr = new DataMgr(this);
         dataMgr->runMode = DataMgr::TEST_MODE;
-        dataMgr->use_om = false;
+        dataMgr->standalone = true;
         dataMgr->omConfigPort = 8904;
         dataMgr->omIpStr = "localhost";
         dataMgr->vol_map_mtx = new fds_mutex("Volume map mutex");

@@ -18,8 +18,8 @@
 #include <dm_checker.h>
 #include <FdsCrypto.h>
 #include <ObjectId.h>
-#include <am-platform.h>
 #include <stdlib.h>
+#include <fdsp/dm_service_types.h>
 
 namespace fs = boost::filesystem;
 
