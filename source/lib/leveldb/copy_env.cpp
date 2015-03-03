@@ -100,7 +100,7 @@ Status CopyEnv::DeleteDir(const std::string & dir) {
 
     std::vector<fds_uint64_t> lengths(files.size());
     for (size_t i = 0; i < files.size(); i++) {
-        if ('.' == files[i][0]) {
+        if ("." == files[i] || ".." == files[i]) {
             continue;
         }
 
