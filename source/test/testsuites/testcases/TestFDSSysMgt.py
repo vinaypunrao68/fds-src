@@ -36,25 +36,25 @@ class TestDomainActivate(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        n = fdscfg.rt_om_node
-        fds_dir = n.nd_conf_dict['fds_root']
-        log_dir = n.nd_agent.get_log_dir()
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
 
         self.log.info("Activate domain starting %s services on each node." % self.passedServices)
 
-        status = n.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e %s > '
-                                      '%s/cli.out 2>&1) \"' %
-                                      (fds_dir, self.passedServices, log_dir),
-                                      fds_bin=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e %s > '
+                                            '%s/cli.out 2>&1) \"' %
+                                            (fds_dir, self.passedServices, log_dir),
+                                            fds_bin=True)
 
         if status != 0:
-            self.log.error("Domain activation on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            self.log.error("Domain activation on %s returned status %d." % (om_node.nd_conf_dict['node-name'], status))
             return False
 
         # After activation we should be able to spin through our nodes to obtain
         # some useful information about them.
         for n in fdscfg.rt_obj.cfg_nodes:
-            status = n.nd_populate_metadata()
+            status = n.nd_populate_metadata(om_node=om_node)
             if status != 0:
                 break
 
