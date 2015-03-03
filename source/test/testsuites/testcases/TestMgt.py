@@ -137,7 +137,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
                     if (action.count("install") > 0):
                         # First, build out the installation directory and start Redis.
-                        suite.addTest(TestFDSEnvMgt.TestFDSCreateInstDir(node=node))
+                        suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
 
                         # Boot Redis on the machine if requested.
                         if 'redis' in node.nd_conf_dict:
@@ -157,6 +157,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                             suite.addTest(TestWait(delay=10, reason="to let OM initialize"))
 
                     if (action.count("activate") > 0):
+                        suite.addTest(TestWait(delay=10, reason="to let node initialize before activation"))
+
                         # Now activate the node's configured services.
                         suite.addTest(TestFDSSysMgt.TestNodeActivate(node=node))
                         suite.addTest(TestWait(delay=10, reason="to let the node activate"))
@@ -261,7 +263,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             # Start this service according to the specified action.
             if (action.count("install") > 0):
                 # First, build out the installation directory and start Redis.
-                suite.addTest(TestFDSEnvMgt.TestFDSCreateInstDir(node=node))
+                suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
                 # Boot Redis on the machine if requested.
                 if 'redis' in node.nd_conf_dict:
                     if node.nd_conf_dict['redis'] == 'true':
