@@ -182,7 +182,7 @@ void OrchMgr::proc_pre_service()
 
 void OrchMgr::registerSvcProcess()
 {
-    LOGNOTIFY;
+    LOGNOTIFY << "register service process";
 
     /* Add om information to service map */
     svcMgr_->updateSvcMap({svcInfo_});

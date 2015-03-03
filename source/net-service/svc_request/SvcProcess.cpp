@@ -78,7 +78,7 @@ void SvcProcess::init(int argc, char *argv[],
 
 void SvcProcess::registerSvcProcess()
 {
-    LOGNOTIFY;
+    LOGNOTIFY << "register service process ( parent )";
     std::vector<fpi::SvcInfo> svcMap;
 
     do {
@@ -110,7 +110,7 @@ SvcMgr* SvcProcess::getSvcMgr() {
 
 void SvcProcess::setupConfigDb_()
 {
-    LOGNOTIFY;
+    LOGNOTIFY << "setting up configDB";
     // TODO(Rao): Set up configdb
     // fds_panic("Unimpl");
 }
@@ -134,7 +134,7 @@ void SvcProcess::setupSvcInfo_()
 void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,
                               fpi::PlatNetSvcProcessorPtr processor)
 {
-    LOGNOTIFY;
+    LOGNOTIFY << "setup service manager";
 
     handler->mod_init(nullptr);
 
