@@ -224,7 +224,7 @@ namespace fds
 
             if (use_feature_control_disk_simulation)
             {
-                if (conf.get_abs<bool>("fds.plat.force_disk_simulation"))
+                if (conf.get_abs<bool>("fds.pm.force_disk_simulation"))
                 {
                     if (! mode_logged)
                     {
