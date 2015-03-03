@@ -15,6 +15,7 @@ import sys
 import time
 import logging
 import shlex
+import pdb
 
 
 def getSvcPIDforNode(svc, node, javaClass=None):
@@ -175,6 +176,23 @@ def modWait(mod, node, forShutdown = False):
     return True
 
 
+def findNodeFromInv(node_inventory, target):
+    '''
+    Looks for target in node_inventory and returns the target object.
+    :param node_inventory: A list of nodes to search through (typically nd_confg_dict)
+    :param target: Target node to find (a parameter passed into the test case)
+    :return: Returns the node object identified by target
+    '''
+
+    # If we didn't get a string, just return the original object
+    if not isinstance(target, str):
+        return target
+
+    # Otherwise look for a node with the target name
+    for node in node_inventory:
+        if node.nd_conf_dict['node-name'] == target:
+            return node
+
 # This class contains the attributes and methods to test
 # bringing up a Data Manager (DM) service.
 class TestDMBringUp(TestCase.FDSTestCase):
@@ -205,7 +223,7 @@ class TestDMBringUp(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we boot all DMs we have.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
@@ -266,7 +284,7 @@ class TestDMWait(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a node, check that one and exit.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure this node is configured for DM.
             if "dm" not in n.nd_services:
@@ -448,7 +466,7 @@ class TestDMKill(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure DM should be running on this node.
             if n.nd_services.count("dm") == 0:
@@ -512,7 +530,7 @@ class TestDMVerifyDown(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             self.log.info("Verify the DM on %s is down." %n.nd_conf_dict['node-name'])
 
@@ -555,7 +573,7 @@ class TestSMBringUp(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we boot all SMs we have.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
@@ -615,7 +633,7 @@ class TestSMWait(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a node, check that one and exit.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure this node is configured for SM.
             if "sm" not in n.nd_services:
@@ -798,7 +816,7 @@ class TestSMKill(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure SM should be running on this node.
             if n.nd_services.count("sm") == 0:
@@ -826,7 +844,8 @@ class TestSMKill(TestCase.FDSTestCase):
             if status != 0:
                 self.log.error("SM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
-            elif self.passedNode is not None:
+
+            if self.passedNode is not None:
                 # Took care of the one node passed so get out.
                 break
 
@@ -862,7 +881,7 @@ class TestSMVerifyDown(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             self.log.info("Verify the SM on %s is down." %n.nd_conf_dict['node-name'])
 
@@ -908,7 +927,7 @@ class TestPMBringUp(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we spin through in defined node setting it up.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMBringUp()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
@@ -964,7 +983,7 @@ class TestPMWait(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we spin through all defined nodes setting them up.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMWait()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
@@ -1013,7 +1032,7 @@ class TestPMKill(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMKill()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
@@ -1075,7 +1094,7 @@ class TestPMVerifyDown(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMKill()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
@@ -1488,7 +1507,7 @@ class TestAMBringUp(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we boot all AMs we have.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure AM should be running on this node.
             if n.nd_services.count("am") == 0:
@@ -1733,7 +1752,7 @@ class TestAMKill(TestCase.FDSTestCase):
         for n in nodes:
             # If a specific node was passed in, use that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure there is supposed to be an AM service on this node.
             if n.nd_services.count("am") == 0:
@@ -1824,7 +1843,7 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, check that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             self.log.info("Verify AM on %s is down" % n.nd_conf_dict['node-name'])
 
