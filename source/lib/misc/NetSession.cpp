@@ -186,11 +186,6 @@ void netSessionTbl::listenServer(netSession* server_session) {
             break;
 
         case FDSP_DATA_MGR:
-            {
-                netMetaDataPathServerSession *servSession =
-                        reinterpret_cast<netMetaDataPathServerSession *>(server_session);
-                servSession->listenServer();
-            }
             break;
 
         case FDSP_STOR_HVISOR:

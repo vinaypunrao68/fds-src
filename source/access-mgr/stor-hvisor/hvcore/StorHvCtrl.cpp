@@ -92,8 +92,6 @@ StorHvCtrl::StorHvCtrl(int argc,
     struct ifaddrs *ifa          = NULL;
     void   *tmpAddrPtr           = NULL;
 
-    rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
-
     LOGNOTIFY << "StorHvCtrl - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
 
     /*  Create the QOS Controller object */
@@ -121,7 +119,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       omConfigPort,
 			       node_name,
 			       GetLog(),
-			       rpcSessionTbl,
+			       nullptr,
 			       &gl_AmPlatform,
 			       instanceId);
     if (toggleStandAlone) {

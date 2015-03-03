@@ -62,11 +62,6 @@ extern DataMgr *dataMgr;
 struct DataMgr : Module, DmIoReqHandler {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
-    class ReqHandler;
-
-    typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
-    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
-
     OMgrClient     *omClient;
 
     /* Common module provider */
@@ -237,14 +232,6 @@ struct DataMgr : Module, DmIoReqHandler {
         }
     };
 
-    /*
-     * RPC handlers and comm endpoints.
-     */
-    ReqHandlerPtr  metadatapath_handler;
-    boost::shared_ptr<netSessionTbl> nstable;
-    netMetaDataPathServerSession *metadatapath_session;
-    // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
-
     fds_rwlock respMapMtx;
 
     FDS_VolumeQueue*  sysTaskQueue;
@@ -313,7 +300,6 @@ struct DataMgr : Module, DmIoReqHandler {
                                fds_volid_t volume_id,
                                const std::vector<StatSlot>& slots);
 
-    void setup_metadatapath_server(const std::string &ip);
     void setup_metasync_service();
 
     explicit DataMgr(CommonModuleProviderIf *modProvider);
@@ -343,10 +329,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
-
-    inline RespHandlerPrx respHandleCli(const string& session_uuid) {
-        return metadatapath_session->getRespClient(session_uuid);
-    }
 
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void updateCatalog(dmCatReq *io);
@@ -378,15 +360,6 @@ struct DataMgr : Module, DmIoReqHandler {
     Error deleteSnapshot(const fds_uint64_t snapshotId);
 
     Error deleteVolumeContents(fds_volid_t volId);
-
-    /*
-     * Nested class that manages the server interface.
-     */
-    class ReqHandler : public FDS_ProtocolInterface::FDSP_MetaDataPathReqIf {
-      public:
-        ReqHandler();
-        ~ReqHandler();
-    };
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
