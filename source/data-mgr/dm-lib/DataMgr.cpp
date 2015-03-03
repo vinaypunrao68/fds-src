@@ -915,13 +915,6 @@ void DataMgr::mod_startup()
         omClient->initialize();
 
         /*
-         * Brings up the control path interface.
-         * This does not require OM to be running and can
-         * be used for testing DM by itself.
-         */
-        omClient->startAcceptingControlMessages();
-
-        /*
          * Registers the DM with the OM. Uses OM for bootstrapping
          * on start. Requires the OM to be up and running prior.
          */

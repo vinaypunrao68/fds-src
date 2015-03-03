@@ -12,7 +12,6 @@
 namespace FDS_ProtocolInterface
 {
     class PlatNetSvcClient;
-    class FDSP_ControlPathReqClient;
     class FDSP_OMControlPathReqClient;
     class FDSP_DataPathReqClient;
 }  // namespace FDS_ProtocolInterface
@@ -25,7 +24,6 @@ namespace fds
     typedef fpi::FDSP_MgrIdType FdspNodeType;
     typedef fpi::FDSP_ActivateNodeTypePtr FdspNodeActivatePtr;
 
-    typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpReqtSessPtr;
     typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
     typedef boost::shared_ptr<fpi::FDSP_DataPathReqClient>        NodeAgentDpClientPtr;
 

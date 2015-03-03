@@ -3,11 +3,9 @@
 #include <arpa/inet.h>
 #include "fdsp/FDSP_ConfigPathReq.h"
 #include "fdsp/FDSP_constants.h"
-#include "fdsp/FDSP_ControlPathResp.h"
 #include "fdsp/FDSP_DataPathResp.h"
 #include "fdsp/FDSP_MetaDataPathResp.h"
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_MetaDataPathReq.h"
 #include "fdsp/FDSP_SessionReq.h"
 #include "fdsp/FDSP_DataPathReq.h"
@@ -95,41 +93,6 @@ fdspMetaDataPathRespReceiver(boost::shared_ptr<TProtocol>& prot,
         }
         catch (TException& tx) {
             printf("fdspMetaDataPathResponse Receiver exception");
-        }
-    }
-
-public:
-    boost::shared_ptr<TProtocol> prot_;
-    boost::shared_ptr<TProcessor> processor_;
-};
-
-
-class fdspControlPathRespReceiver: public Runnable {
-public:
-fdspControlPathRespReceiver(boost::shared_ptr<TProtocol>& prot,
-                            boost::shared_ptr<FDSP_ControlPathRespIf>& hdlr)
-        : prot_(prot),
-            processor_(new FDSP_ControlPathRespProcessor(hdlr)) {
-    }
-    
-    void run() {
-        /* wait for connection to be established */
-        /* for now just busy wait */
-        while (!prot_->getTransport()->isOpen()) {
-            printf("fdspControlPathRespReceiver: waiting for transport...\n");
-            usleep(500);
-        }
-        
-        try {
-            for (;;) {
-                if (!processor_->process(prot_, prot_, NULL) ||
-                    !prot_->getTransport()->peek()) {
-                    break;
-                }
-            }
-        }
-        catch (TException& tx) {
-            printf("fdspControlPathResponse Receiver exception");
         }
     }
 

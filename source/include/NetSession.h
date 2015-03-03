@@ -317,8 +317,6 @@ typedef netClientSessionEx<FDSP_DataPathReqClient,
         FDSP_DataPathRespProcessor,FDSP_DataPathRespIf> netDataPathClientSession;
 typedef netClientSessionEx<FDSP_MetaDataPathReqClient,
         FDSP_MetaDataPathRespProcessor,FDSP_MetaDataPathRespIf> netMetaDataPathClientSession;
-typedef netClientSessionEx<FDSP_ControlPathReqClient,
-        FDSP_ControlPathRespProcessor,FDSP_ControlPathRespIf> netControlPathClientSession;
 typedef netClientSessionEx<FDSP_OMControlPathReqClient,
         FDSP_OMControlPathRespProcessor,FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 typedef netClientSessionEx<FDSP_ConfigPathReqClient,
@@ -650,8 +648,6 @@ typedef netServerSessionEx<FDSP_DataPathReqProcessor,
         FDSP_DataPathReqIf, FDSP_DataPathRespClient> netDataPathServerSession;
 typedef netServerSessionEx<FDSP_MetaDataPathReqProcessor,
         FDSP_MetaDataPathReqIf, FDSP_MetaDataPathRespClient> netMetaDataPathServerSession;
-typedef netServerSessionEx<FDSP_ControlPathReqProcessor,
-        FDSP_ControlPathReqIf, FDSP_ControlPathRespClient> netControlPathServerSession;
 typedef netServerSessionEx<FDSP_OMControlPathReqProcessor,
         FDSP_OMControlPathReqIf, FDSP_OMControlPathRespClient> netOMControlPathServerSession;
 typedef netServerSessionEx<FDSP_ConfigPathReqProcessor,

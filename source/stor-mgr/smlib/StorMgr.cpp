@@ -213,7 +213,6 @@ void ObjectStorMgr::mod_startup()
          * Register/boostrap from OM
          */
         omClient->initialize();
-        omClient->startAcceptingControlMessages();
         omClient->registerNodeWithOM(modProvider_->get_plf_manager());
     }
 

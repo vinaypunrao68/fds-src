@@ -1492,10 +1492,4 @@ OM_NodeDomainMod::om_persist_node_info(fds_uint32_t idx)
 {
 }
 
-/**
- * Constructor for OM control path response handling
- */
-OM_ControlRespHandler::OM_ControlRespHandler() {
-}
-
 }  // namespace fds

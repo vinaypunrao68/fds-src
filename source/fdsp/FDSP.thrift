@@ -762,13 +762,6 @@ service FDSP_OMControlPathResp {
   oneway void RegisterNodeResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RegisterNodeType reg_node_rsp),
 }
 
-service FDSP_ControlPathReq {
-  /* OM to SM/DM/SH control messages */
-}
-
-service FDSP_ControlPathResp {
-}
-
 service FDSP_MetaSyncReq {
 }
 
