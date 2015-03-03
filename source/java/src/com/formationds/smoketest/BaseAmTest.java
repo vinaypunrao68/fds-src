@@ -32,7 +32,7 @@ public abstract class BaseAmTest {
         amService = xdiCf.remoteAmService("localhost", 9988);
         configService = xdiCf.remoteOmService("localhost", 9090);
         asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm("localhost", 8899), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
-        asyncAm.start();
+        //asyncAm.start();
     }
 
     @Before
