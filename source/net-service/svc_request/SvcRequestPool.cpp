@@ -46,14 +46,14 @@ SvcRequestPool::SvcRequestPool(CommonModuleProviderIf *moduleProvider,
     finishTrackingCb_ = std::bind(&SvcRequestTracker::popFromTracking,
             svcRequestTracker_, std::placeholders::_1);
 
-    if (true == get_config<bool>("fds.plat.svc.lftp.enable")) {
+    if (true == get_config<bool>("fds.pm.svc.lftp.enable")) {
         svcSendTp_.reset(new LFMQThreadpool(get_config<uint32_t>(
-                    "fds.plat.svc.lftp.io_thread_cnt")));
+                    "fds.pm.svc.lftp.io_thread_cnt")));
         svcWorkerTp_.reset(new LFMQThreadpool(get_config<uint32_t>(
-                    "fds.plat.svc.lftp.worker_thread_cnt")));
+                    "fds.pm.svc.lftp.worker_thread_cnt")));
         fiu_enable("svc.use.lftp", 1, NULL, 0);
     }
-    reqTimeout_ = get_config<uint32_t>("fds.plat.svc.timeout.thrift_message");
+    reqTimeout_ = get_config<uint32_t>("fds.pm.svc.timeout.thrift_message");
 }
 
 /**

@@ -56,8 +56,8 @@ pid_t PlatformManager::startAM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.plat.platform_port=%d",conf->get<int>("platform_port")));
-    args.push_back(std::string("--fds.plat.om_ip=") + conf->get<std::string>("om_ip"));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port")));
+    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip"));
     args.push_back(std::string("--fds.am.om_ip=") + conf->get<std::string>("om_ip"));
     args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", nodeInfo.uuid));
     
@@ -75,8 +75,8 @@ pid_t PlatformManager::startDM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.plat.platform_port=%d",conf->get<int>("platform_port")));
-    args.push_back(std::string("--fds.plat.om_ip=") + conf->get<std::string>("om_ip"));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port")));
+    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip"));
     args.push_back(std::string("--fds.dm.om_ip=") + conf->get<std::string>("om_ip"));
     args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", nodeInfo.uuid));
     
@@ -96,8 +96,8 @@ pid_t PlatformManager::startSM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.plat.platform_port=%d",conf->get<int>("platform_port")));
-    args.push_back(std::string("--fds.plat.om_ip=") + conf->get<std::string>("om_ip"));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port")));
+    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip"));
     args.push_back(std::string("--fds.sm.om_ip=") + conf->get<std::string>("om_ip"));
     args.push_back(util::strformat("--fds.sm.svc.uuid=%lld", nodeInfo.uuid));
     pid = fds_spawn_service("StorMgr", rootDir, args, true);

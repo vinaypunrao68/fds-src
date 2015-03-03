@@ -54,8 +54,8 @@ StorHvCtrl::StorHvCtrl(int argc,
      * some in ubd. We need to unify this.
      */
     if (mode == NORMAL) {
-        omIpStr = config.get_abs<string>("fds.plat.om_ip");
-        omConfigPort = config.get_abs<int>("fds.plat.om_port");
+        omIpStr = config.get_abs<string>("fds.pm.om_ip");
+        omConfigPort = config.get_abs<int>("fds.pm.om_port");
     }
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "--om_ip=", 8) == 0) {

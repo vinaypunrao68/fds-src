@@ -186,16 +186,16 @@ class FdsNodeConfig(FdsConfig):
     # Start platform services in all nodes.
     #
     def nd_start_platform(self, om_ip = None, test_harness=False, _bin_dir=None, _log_dir=None):
-        port_arg = '--fds-root=%s --fds.plat.id=%s' % \
+        port_arg = '--fds-root=%s --fds.pm.id=%s' % \
                    (self.nd_conf_dict['fds_root'], self.nd_conf_dict['node-name'])
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
-            port_arg = port_arg + (' --fds.plat.platform_port=%s' % port)
+            port_arg = port_arg + (' --fds.pm.platform_port=%s' % port)
         else:
             port = 7000  # PM default.
 
         if om_ip is not None:
-            port_arg = port_arg + (' --fds.plat.om_ip=%s' % om_ip)
+            port_arg = port_arg + (' --fds.pm.om_ip=%s' % om_ip)
 
         fds_dir = self.nd_conf_dict['fds_root']
 
