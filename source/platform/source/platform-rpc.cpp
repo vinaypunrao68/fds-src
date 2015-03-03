@@ -75,43 +75,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
-                                 const FDSP_DMT_Type   &dmt_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
-                                 fpi::FDSP_DMT_TypePtr   &dmt)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyDMTClose(const FDSP_MsgHdrType &msg_hdr,
-                                const FDSP_DmtCloseType &dmt)
-    {
-    }
-    void
-    PlatRpcReqt::NotifyDMTClose(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                                fpi::FDSP_DmtCloseTypePtr &dmt_close)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::PushMetaDMTReq(const FDSP_MsgHdrType &msg_hdr,
-                                const FDSP_PushMeta &push_meta_resp)
-    {
-    }
-    void
-    PlatRpcReqt::PushMetaDMTReq(fpi::FDSP_MsgHdrTypePtr &msg_hdr,
-                                fpi::FDSP_PushMetaPtr &push_meta_resp)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::SetThrottleLevel(const FDSP_MsgHdrType      &msg_hdr,
                                   const FDSP_ThrottleMsgType &throttle_msg)
     {

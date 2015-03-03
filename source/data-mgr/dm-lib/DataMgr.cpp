@@ -16,38 +16,6 @@
 
 namespace fds {
 
-Error
-DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
-                            const FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
-                            const std::string& session_uuid) {
-    Error err(ERR_OK);
-    OMgrClient* om_client = dataMgr->omClient;
-    LOGNORMAL << "Received volume catalog action request " << catalog_action;
-    if (catalog_action == fds_catalog_push_meta) {
-        fds_panic("We moved to new service layer, must not be called!");
-        if (dataMgr->feature.isCatSyncEnabled()) {
-            err = dataMgr->catSyncMgr->startCatalogSync(
-                push_meta->metaVol, NULL);
-        } else {
-            LOGWARN << "catalog sync feature - NOT enabled";
-        }
-    } else if (catalog_action == fds_catalog_dmt_commit) {
-        fds_panic("We moved to new service layer, must not be called!");
-        // this will ignore this msg if catalog sync is not in progress
-        if (dataMgr->feature.isCatSyncEnabled()) {
-            err = dataMgr->catSyncMgr->startCatalogSyncDelta(NULL);
-        } else {
-            LOGWARN << "catalog sync feature - NOT enabled";
-        }
-    } else if (catalog_action == fds_catalog_dmt_close) {
-        // will finish forwarding when all queued updates are processed
-        err = dataMgr->notifyDMTClose();
-    } else {
-        fds_assert(!"Unknown catalog command");
-    }
-    return err;
-}
-
 /**
  * Receiver DM processing of volume sync state.
  * @param[in] fdw_complete false if rsync is completed = start processing
@@ -945,7 +913,7 @@ void DataMgr::mod_startup()
                                   modProvider_->get_plf_manager());
         omClient->setNoNetwork(false);
         omClient->initialize();
-        omClient->registerCatalogEventHandler(volcat_evt_handler);
+
         /*
          * Brings up the control path interface.
          * This does not require OM to be running and can

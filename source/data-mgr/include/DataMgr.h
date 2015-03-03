@@ -300,11 +300,6 @@ struct DataMgr : Module, DmIoReqHandler {
     Error notifyDMTClose();
     void finishForwarding(fds_volid_t volid);
 
-    static Error volcat_evt_handler(fds_catalog_action_t,
-                                    const fpi::FDSP_PushMetaPtr& push_meta,
-                                    const std::string& session_uuid);
-
-
     /**
      * A callback from stats collector to sample DM-specific stats
      */

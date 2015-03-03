@@ -825,27 +825,6 @@ class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
   public:
     OM_ControlRespHandler();
 
-    void NotifyDMTUpdateResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
-    void NotifyDMTUpdateResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
-
-    void NotifyDMTCloseResp(
-        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const ::FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
-    void NotifyDMTCloseResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
-
-    void PushMetaDMTResp(
-        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const ::FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp);
-    void PushMetaDMTResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp);
-
   private:
         // TODO(Andrew): Add ptr back to resource manager.
 };
