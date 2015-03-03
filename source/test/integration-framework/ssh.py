@@ -23,7 +23,9 @@ class SSHConn(object):
         the name of the keyfile to be used
     '''
     def __init__(self, hostname, user, pwd, filename=None):
-        self.ssh_conn = paramiko.SSHClient()
-        self.ssh_conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh_conn.connect(hostname, username=user, password=pwd,
+        self.client = paramiko.SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.client.connect(hostname, username=user, password=pwd,
                               key_filename=filename)
+        self.transport = self.client.get_transport()
+        self.channel = self.transport.open_session()

@@ -7,6 +7,7 @@
 #include <set>
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
+#include "fdsp/dm_service_types.h"
 
 namespace fds {
 
@@ -152,7 +153,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     fds_verify(dm_set != NULL);
 
     // node to send the push meta msg -> push_meta message
-    typedef std::map<fds_uint64_t, fpi::FDSP_PushMetaPtr> pm_msgs_t;
+    typedef std::map<fds_uint64_t, fpi::CtrlDMMigrateMetaPtr> pm_msgs_t;
     pm_msgs_t push_meta_msgs;
     RsArray vol_ary;
 
@@ -244,7 +245,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         fds_verify(src_dm != 0);
 
         if (push_meta_msgs.count(src_dm) == 0) {
-            fpi::FDSP_PushMetaPtr meta_msg(new fpi::FDSP_PushMeta());
+            fpi::CtrlDMMigrateMetaPtr meta_msg(new fpi::CtrlDMMigrateMeta());
             push_meta_msgs[src_dm] = meta_msg;
         }
         for (NodeUuidSet::const_iterator cit = new_dms.cbegin();

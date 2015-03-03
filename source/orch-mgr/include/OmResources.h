@@ -32,9 +32,11 @@ namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
     struct CtrlNotifyDMTClose;
     struct CtrlNotifyDMTUpdate;
+    struct CtrlDMMigrateMeta;
     using CtrlNotifyDMAbortMigrationPtr = boost::shared_ptr<CtrlNotifyDMAbortMigration>;
     using CtrlNotifyDMTClosePtr = boost::shared_ptr<CtrlNotifyDMTClose>;
     using CtrlNotifyDMTUpdatePtr = boost::shared_ptr<CtrlNotifyDMTUpdate>;
+    using CtrlDMMigrateMetaPtr = boost::shared_ptr<CtrlDMMigrateMeta>;
 }  // namespace FDS_ProtocolInterface
 
 typedef netClientSessionEx<fpi::FDSP_ControlPathReqClient,
@@ -151,7 +153,10 @@ class OM_NodeAgent : public NodeAgent
 
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
-    virtual Error om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg);
+    virtual Error om_send_pushmeta(fpi::CtrlDMMigrateMetaPtr& meta_msg);
+    void om_pushmeta_resp(EPSvcRequest* req,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload);
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
                                          fds_bool_t bAll);
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
@@ -819,27 +824,6 @@ class OM_NodeDomainMod : public Module
 class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
   public:
     OM_ControlRespHandler();
-
-    void NotifyDMTUpdateResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
-    void NotifyDMTUpdateResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
-
-    void NotifyDMTCloseResp(
-        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const ::FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
-    void NotifyDMTCloseResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
-
-    void PushMetaDMTResp(
-        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const ::FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp);
-    void PushMetaDMTResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp);
 
   private:
         // TODO(Andrew): Add ptr back to resource manager.

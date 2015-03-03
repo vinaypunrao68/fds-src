@@ -22,7 +22,6 @@ user_build_dir :=                       \
     stor-mgr                            \
     tools                               \
     testlib                             \
-    checker                             \
     unit-test                           \
     java
 

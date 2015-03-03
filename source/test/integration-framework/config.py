@@ -31,6 +31,13 @@ FDS_DEFAULT_KEYS_COUNT        = 10
 FDS_DEFAULT_FILE_PATH         = "/tmp/foobar"
 TEST_DEBUG                    = 1
 
+SSH_USER                      = 'root'
+SSH_PASSWORD                  = 'passwd'
+STOP_ALL_CLUSTER              = "./fds-tool.py -f %s -d"
+START_ALL_CLUSTER             = "./fds-tool.py -f %s -u"
+FDS_SBIN                      = "/fds/sbin"
+FORMATION_CONFIG              = "deploy_formation.conf"
+
 params = {
     'log_level' : 20,
     'stop_on_fail' : True,
