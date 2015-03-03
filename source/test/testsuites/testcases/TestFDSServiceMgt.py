@@ -1403,6 +1403,7 @@ class TestOMKill(TestCase.FDSTestCase):
         # If we were passed a node and it is not the OM node
         # captured during config parsing, just exit.
         if self.passedNode is not None:
+            self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
             om_node = None
             if self.passedNode.nd_conf_dict['node-name'] == fdscfg.rt_om_node.nd_conf_dict['node-name']:
                 om_node = self.passedNode
