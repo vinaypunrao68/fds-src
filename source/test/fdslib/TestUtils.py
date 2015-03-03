@@ -314,13 +314,6 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     else:
         setattr(options, "dryrun", False)
 
-    if "install" in params:
-        if params["install"] == False:
-            params["install"] = pyUnitInstall
-        setattr(options, "install", params["install"])
-    else:
-        setattr(options, "dryrun", False)
-
     if "sudo_password" in params:
         if params["sudo_password"] is None:
             params["sudo_password"] = pyUnitSudoPw
@@ -362,6 +355,11 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
 
     # FDS: Now record whether we are being run by PyUnit.
     params["pyUnit"] = pyUnit
+
+    # Currently, 3/2/2015, if we do an Ansible package install,
+    # we only want to do it once as it will install the software
+    # on all identified nodes at once.
+    params["ansible_install_done"] = False
 
     return params
 

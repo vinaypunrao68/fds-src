@@ -216,10 +216,10 @@ class FdsLocalEnv(FdsEnv):
         # We need to modify the command to use the credentials that have been configured.
         # This usage of 'sudo' will get the password from stdin (rather than the terminal device)
         # and ignore any cached credentials.
-        if fds_bin:
-            cmd_exec = ("sudo -S -k -u %s " % self.env_user +
-                        self.env_ldLibPath + 'cd ' + self.get_fds_root() +
-                        'bin; ulimit -c unlimited; ulimit -n 12800; ' + cmd)
+        if fds_bin and self.env_install:
+            cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() + 'bin; '
+                        'ulimit -c unlimited; ulimit -n 12800; ' +
+                        'sudo -S -k -u %s ' % self.env_user + cmd)
         else:
             cmd_exec = "sudo -S -k -u %s " % self.env_user + cmd
 
@@ -236,6 +236,11 @@ class FdsLocalEnv(FdsEnv):
 
         # Split the command into a list of strings as prefered by subprocess.Popen()
         call_args = shlex.split(cmd_exec)
+
+        # For FDS binaries in a development environment, we need to switch to that directory for execution.
+        cur_dir = os.getcwd()
+        if fds_bin and not self.env_install:
+            os.chdir(self.get_bin_dir(debug=True))
 
         p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -258,6 +263,10 @@ class FdsLocalEnv(FdsEnv):
             log.info("Not waiting.")
 
         status = p.returncode
+
+        # For FDS binaries in a development environment, we need to switch back to our original directory.
+        if fds_bin and not self.env_install:
+            os.chdir(cur_dir)
 
         if stderr is not None:
             for line in stderr.splitlines():

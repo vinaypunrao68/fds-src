@@ -5,7 +5,6 @@
 
 # FDS test-case pattern requirements.
 import unittest
-import traceback
 import TestCase
 
 # Module-specific requirements
@@ -13,6 +12,7 @@ import sys
 import os
 import time
 import tempfile
+import TestFDSSysMgt
 
 
 # This class contains attributes and methods to test
@@ -49,19 +49,13 @@ class TestFDSInstall(TestCase.FDSTestCase):
 
             # Are we installing from a deployable package or a development environment?
             if n.nd_agent.env_install:
-                installResult = self.fromPkg(n)
-
-                # TODO(Greg): An assumption here that if one node is to be installed from a package, they all are.
-                if installResult == False:
-                    self.log.error("FDS installation on node %s failed." %
-                                   (n.nd_conf_dict['node-name']))
-                    return False
-                elif self.passedNode is not None:
-                    # If we were passed a specific node, just take care
-                    # of that one and exit.
-                    return True
-
-                break
+                if not self.parameters["ansible_install_done"]:
+                    # TODO(Greg): We accommodate the Ansible deployment scripts which expect to handle
+                    # all package installation nodes at once.
+                    installResult = self.fromPkg(n)
+                    self.parameters["ansible_install_done"] = True
+                else:
+                    installResult = True
             else:
                 installResult = self.fromDev(n)
 
@@ -72,6 +66,22 @@ class TestFDSInstall(TestCase.FDSTestCase):
             elif self.passedNode is not None:
                 # If we were passed a specific node, just take care
                 # of that one and exit.
+
+                # Actually, before we return, given how Ansible works today (3/2/2915), let's
+                # spin though the list of nodes and force the Ansible installation now if any
+                # nodes require it.
+                for n2 in nodes:
+                    if n2.nd_agent.env_install:
+                        if not self.parameters["ansible_install_done"]:
+                            installResult = self.fromPkg(n2)
+
+                            if installResult == False:
+                                self.log.error("FDS installation on node %s failed." %
+                                               (n2.nd_conf_dict['node-name']))
+                                return False
+
+                            self.parameters["ansible_install_done"] = True
+
                 return True
 
         return True
@@ -183,21 +193,25 @@ class TestFDSInstall(TestCase.FDSTestCase):
         # Please the IP address or DNS name of the OM node.
         om_node = fdscfg.rt_om_node
         localhost = fdscfg.rt_get_obj('cfg_localhost')
-        if node.nd_conf_dict['ip'] == om_node.nd_conf_dict['ip']:
-            status = localhost.nd_agent.exec_wait('sed -e "s/<ip>//g" '
-                                                  '-e "s/<om_ip>/%s/g" '
-                                                  '-e "1,$w %s" %s ' %
-                                                 (om_node.nd_conf_dict['ip'],
-                                                  tempInventory.name,
-                                                  templateDir + install.nd_conf_dict['inventory-template']))
-        else:
-            status = localhost.nd_agent.exec_wait('sed -e "s/<ip>/%s/g" '
-                                                  '-e "s/<om_ip>/%s/g" '
-                                                  '-e "1,$w %s" %s ' %
-                                                 (node.nd_conf_dict['ip'],
-                                                  om_node.nd_conf_dict['ip'],
-                                                  tempInventory.name,
-                                                  templateDir + install.nd_conf_dict['inventory-template']))
+
+        # TODO(GREG): Until Ansible can install a single node at a time,
+        # we generate a new-line delimited list of machine names to replace all instances
+        # of <install_node> in the template with a list of all the nodes defined for the
+        # test. We only run Ansible once, therefore, to install FDS on all listed machines rather
+        # than for just the specified node.
+        inventory_machine_list = ''
+        for n in fdscfg.rt_obj.cfg_nodes:
+            if n.nd_agent.env_install or (om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']):
+                inventory_machine_list = inventory_machine_list + n.nd_conf_dict['ip'] + '\\' + '\n'
+
+        status = localhost.nd_agent.exec_wait('sed -e "s/<om_node>/%s/g" '
+                                              '-e "s/<install_node>/%s/g" '
+                                              '-e "1,$w %s" %s ' %
+                                             (om_node.nd_conf_dict['ip'],
+                                              #node.nd_conf_dict['ip'],
+                                              inventory_machine_list,
+                                              tempInventory.name,
+                                              templateDir + install.nd_conf_dict['inventory-template']))
 
         if status != 0:
             self.log.error("Ansible inventory file generation failed.")
@@ -231,6 +245,21 @@ class TestFDSInstall(TestCase.FDSTestCase):
 
         for line in stdout.splitlines():
             self.log.info("[%s] %s" % (node.nd_conf_dict['ip'], line))
+
+        # TODO(GREG): Until Ansible can install without booting up anything,
+        # we kill the domain Ansible booted and clean up log files, etc. to give
+        # the test a clean installation with which to work.
+        domainKill = TestFDSSysMgt.TestNodeKill(parameters=self.parameters)
+        testCaseSuccess = domainKill.test_NodeKill(ansibleBoot=True)
+        if not testCaseSuccess:
+            self.log.error("FDS package installation domain kill failed.")
+            return False
+
+        cleanup = TestFDSSelectiveInstDirClean(parameters=self.parameters)
+        testCaseSuccess = cleanup.test_FDSSelectiveInstDirClean()
+        if not testCaseSuccess:
+            self.log.error("FDS package installation domain clean failed." % status)
+            return False
 
         return True
 

@@ -38,7 +38,7 @@ class TestDomainActivate(TestCase.FDSTestCase):
 
         n = fdscfg.rt_om_node
         fds_dir = n.nd_conf_dict['fds_root']
-        log_dir = fdscfg.rt_env.get_log_dir()
+        log_dir = n.nd_agent.get_log_dir()
 
         self.log.info("Activate domain starting %s services on each node." % self.passedServices)
 
@@ -77,10 +77,13 @@ class TestNodeKill(TestCase.FDSTestCase):
 
         self.passedNode = node
 
-    def test_NodeKill(self):
+    def test_NodeKill(self, ansibleBoot=False):
         """
         Test Case:
         Attempt to kill all services on a node.
+
+        We try to kill just the services defined for a node unless we're killing
+        an Ansible boot in which case we go after all services on all nodes.
         """
 
         # Get the FdsConfigRun object for this test.
@@ -96,37 +99,37 @@ class TestNodeKill(TestCase.FDSTestCase):
             self.log.info("Kill node %s." % n.nd_conf_dict['node-name'])
 
             # First kill AM if on this node.
-            if n.nd_services.count("am") > 0:
+            if (n.nd_services.count("am") > 0) or ansibleBoot:
                 killAM = TestAMKill(node=n)
                 killSuccess = killAM.test_AMKill()
 
-                if not killSuccess:
+                if not killSuccess and not ansibleBoot:
                     self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
 
             # SM and DM next.
-            if n.nd_services.count("sm") > 0:
+            if (n.nd_services.count("sm") > 0) or ansibleBoot:
                 killSM = TestSMKill(node=n)
                 killSuccess = killSM.test_SMKill()
 
-                if not killSuccess:
+                if not killSuccess and not ansibleBoot:
                     self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
 
-            if n.nd_services.count("dm") > 0:
+            if (n.nd_services.count("dm") > 0) or ansibleBoot:
                 killDM = TestDMKill(node=n)
                 killSuccess = killDM.test_DMKill()
 
-                if not killSuccess:
+                if not killSuccess and not ansibleBoot:
                     self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
 
             # Next, kill OM if on this node.
-            if fdscfg.rt_om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']:
+            if (fdscfg.rt_om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']) or ansibleBoot:
                 killOM = TestOMKill(node=n)
                 killSuccess = killOM.test_OMKill()
 
-                if not killSuccess:
+                if not killSuccess and not ansibleBoot:
                     self.log.error("Node kill on %s failed." % (n.nd_conf_dict['node-name']))
                     return False
 
@@ -177,7 +180,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
             # If we're asked to activate nodes, we should be able to spin through our nodes to obtain
             # some useful information about them.
-            status = n.nd_populate_metadata()
+            status = n.nd_populate_metadata(om_node=om_node)
             if status != 0:
                 self.log.error("Getting meta-data for node %s returned status %d." %
                                (n.nd_conf_dict['node-name'], status))
@@ -240,10 +243,9 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
         om_node = fdscfg.rt_om_node
         fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
@@ -257,15 +259,10 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
 
             self.log.info("Remove services for node %s." % n.nd_conf_dict['node-name'])
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-
             status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e %s > '
-                                          '%s/cli.out 2>&1) \"' %
-                                          (fds_dir, n.nd_assigned_name, n.nd_services,
-                                           log_dir if n.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, n.nd_assigned_name, n.nd_services, log_dir),
+                                                fds_bin=True)
 
             if status != 0:
                 self.log.error("Service removal of node %s returned status %d." %
@@ -295,22 +292,16 @@ class TestDomainShutdown(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
         om_node = fdscfg.rt_om_node
         fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
 
         self.log.info("Shutdown domain.")
 
-        cur_dir = os.getcwd()
-        os.chdir(bin_dir)
-
         status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --domain-shutdown abc -k 1 > '
-                                      '%s/cli.out 2>&1) \"' %
-                                      (fds_dir,
-                                       log_dir if om_node.nd_agent.env_install else "."))
-
-        os.chdir(cur_dir)
+                                            '%s/cli.out 2>&1) \"' %
+                                            (fds_dir, log_dir),
+                                            fds_bin=True)
 
         if status != 0:
             self.log.error("Domain shutdown returned status %d." % (status))
@@ -336,22 +327,16 @@ class TestDomainCreate(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
         om_node = fdscfg.rt_om_node
         fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
 
         self.log.info("Create domain.")
 
-        cur_dir = os.getcwd()
-        os.chdir(bin_dir)
-
         status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --domain-create abc -k 1 > '
-                                      '%s/cli.out 2>&1) \"' %
-                                      (fds_dir,
-                                       log_dir if om_node.nd_agent.env_install else "."))
-
-        os.chdir(cur_dir)
+                                            '%s/cli.out 2>&1) \"' %
+                                            (fds_dir, log_dir),
+                                            fds_bin=True)
 
         if status != 0:
             self.log.error("Domain create returned status %d." % (status))

@@ -157,6 +157,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                             suite.addTest(TestWait(delay=10, reason="to let OM initialize"))
 
                     if (action.count("activate") > 0):
+                        suite.addTest(TestWait(delay=10, reason="to let node initialize before activation"))
+
                         # Now activate the node's configured services.
                         suite.addTest(TestFDSSysMgt.TestNodeActivate(node=node))
                         suite.addTest(TestWait(delay=10, reason="to let the node activate"))

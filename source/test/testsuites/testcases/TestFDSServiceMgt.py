@@ -210,7 +210,6 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
-            bin_dir = n.nd_agent.get_bin_dir(debug=False)
             log_dir = n.nd_agent.get_log_dir()
 
             # Make sure DM should be running on this node.

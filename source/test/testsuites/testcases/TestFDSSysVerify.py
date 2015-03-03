@@ -47,11 +47,11 @@ def fileSearch(searchFile, searchString, occurrences, sftp=None):
         searchLines = data.split('\n')
 
     occur = 0
-    log.info("Searching for exactly %d occurrence(s) of string [%s]." % (occurrences, searchString))
+    log.debug("Searching for exactly %d occurrence(s) of string [%s]." % (occurrences, searchString))
     for line in searchLines:
         if searchString in line:
             occur = occur + 1
-            log.info("Found occurrence %d: %s." % (occur, line))
+            log.debug("Found occurrence %d: %s." % (occur, line))
 
     if occur == occurrences:
         return True, occur
