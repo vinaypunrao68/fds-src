@@ -33,7 +33,7 @@ def suiteConstruction(self):
     suite.addTest(testcases.TestFDSServiceMgt.TestDMWait())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMBringUp())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
-    suite.addTest(testcases.TestFDSServiceMgt.TestAMBringup())
+    suite.addTest(testcases.TestFDSServiceMgt.TestAMBringUp())
     suite.addTest(testcases.TestFDSServiceMgt.TestAMWait())
 
     # Check that the node is up.
