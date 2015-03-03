@@ -14,7 +14,7 @@ namespace fds
     // --------------------------------------------------------------------------------------
     // SM Agent
     // --------------------------------------------------------------------------------------
-    SmAgent::SmAgent(const NodeUuid &uuid) : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL)
+    SmAgent::SmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
     {
         node_svc_type = fpi::FDSP_STOR_MGR;
         sm_ep_svc     = Platform::platf_singleton()->plat_new_sm_svc(this, 0, 0);
@@ -51,37 +51,6 @@ namespace fds
         NodeAgent::agent_bind_ep(ep, sm_ep_svc);
     }
 
-    // sm_handshake
-    // ------------
-    //
-    /* virtual */ void SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net)
-    {
-        std::string                                    ip = get_ip_str();
-        fds_uint32_t                                   base = node_base_port();
-        Platform                                      *plat = Platform::platf_singleton();
-
-        boost::shared_ptr<fpi::FDSP_DataPathRespIf>    resp;
-        sm_sess = net->startSession<netDataPathClientSession>(ip, plat->plf_get_my_data_port(
-                                                                  base), fpi::FDSP_STOR_MGR,
-                                                              1 /* just 1 channel */, resp);
-
-        sm_reqt    = sm_sess->getClient();
-        sm_sess_id = sm_sess->getSessionId();
-
-        FDS_PLOG(g_fdslog) << "Handshake with SM: " << ip
-        << ", port " << plat->plf_get_my_data_port(base) << ", sess id " << sm_sess_id;
-    }
-
-    NodeAgentDpClientPtr SmAgent::get_sm_client()
-    {
-        return sm_reqt;
-    }
-
-    std::string SmAgent::get_sm_sess_id()
-    {
-        return sm_sess_id;
-    }
-
     SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id)
     {
         ac_id = fpi::FDSP_STOR_MGR;
@@ -93,7 +62,5 @@ namespace fds
     void SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
                                       NodeAgent::pointer agent)
     {
-        SmAgent::pointer    sm = agt_cast_ptr<SmAgent>(agent);
-        sm->sm_handshake(net);
     }
 }  // namespace fds

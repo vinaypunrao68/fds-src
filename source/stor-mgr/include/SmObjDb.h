@@ -25,8 +25,6 @@ extern "C" {
 #include <utility>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_DataPathReq.h"
-#include "fdsp/FDSP_DataPathResp.h"
 #include "fds_volume.h"
 #include "fds_types.h"
 #include "odb.h"
