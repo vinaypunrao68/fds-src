@@ -208,6 +208,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
                                                                  
         // transform the raw data into the firebreaktimeline format
         for ( var i = 0; data.series.length > 0 && i < data.series[0].datapoints.length; i++ ){
+            
             $scope.firebreakModel.push( data.series[0].datapoints[i] );
         }
         

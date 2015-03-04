@@ -22,7 +22,7 @@ angular.module( 'display-widgets' ).directive( 'statusTimeline', function(){
                     return 0;
                 }
                 
-                var bucket = Math.floor( ( event.x - $scope.dateRange.start ) / $scope.bucketTime );
+                var bucket = Math.floor( ( parseInt( event.x ) - $scope.dateRange.start ) / $scope.bucketTime );
                 var px = bucket * 22;
                 
                 return px;
@@ -54,8 +54,8 @@ angular.module( 'display-widgets' ).directive( 'statusTimeline', function(){
                     
                     for( var j = 0; j < $scope.outOfRangeEvents.length; j++ ){
                         
-                        if ( $scope.outOfRangeEvents[j].x > lastFb ){
-                            lastFb = $scope.outOfRangeEvents[j].x;
+                        if ( parseInt( $scope.outOfRangeEvents[j].x ) > lastFb ){
+                            lastFb = parseInt( $scope.outOfRangeEvents[j].x );
                         }
                     }
                 }
@@ -89,14 +89,14 @@ angular.module( 'display-widgets' ).directive( 'statusTimeline', function(){
                 }
                 
                 for ( var i = 0; i < $scope.data.length; i++ ){
-                    var bucket = Math.floor( ($scope.data[i].x - $scope.dateRange.start)/$scope.bucketTime );
+                    var bucket = Math.floor( ( parseInt( $scope.data[i].x ) - $scope.dateRange.start)/$scope.bucketTime );
                     
                     if ( !angular.isDefined( bucket ) || !angular.isDefined( $scope.boxes[bucket] ) ){
                         $scope.outOfRangeEvents.push( $scope.data[i] );
                         continue;
                     }
                     
-                    $scope.boxes[bucket].y.push( $scope.data[i].y );
+                    $scope.boxes[bucket].y.push( parseInt( $scope.data[i].y ) );
                     $scope.data[i].pos = $scope.calculateEventPosition( $scope.data[i] );
                 }
                 
