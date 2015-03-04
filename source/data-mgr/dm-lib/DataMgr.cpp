@@ -856,11 +856,9 @@ int DataMgr::run()
 {
     // TODO(Rao): Move this into module init
     initHandlers();
-    try {
-        nstable->listenServer(metadatapath_session);
-    }
-    catch(...){
-        std::cout << "starting server threw an exception" << std::endl;
+    
+    while (true) {
+        sleep(1);
     }
     return 0;
 }
@@ -888,16 +886,9 @@ void DataMgr::mod_startup()
     LOGNORMAL << "Data Manager using control port "
               << modProvider_->get_plf_manager()->plf_get_my_ctrl_port();
 
-    /* Set up FDSP RPC endpoints */
-    nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
-    myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-    assert(myIp.empty() == false);
-    std::string node_name = "_DM_" + myIp;
+    std::string node_name = "_DM_";
 
-    LOGNORMAL << "Data Manager using IP:"
-              << myIp << " and node name " << node_name;
-
-    setup_metadatapath_server(myIp);
+    LOGNORMAL << "Data Manager using node name " << node_name;
 
     if (use_om) {
         LOGDEBUG << " Initialising the OM client ";
@@ -909,17 +900,10 @@ void DataMgr::mod_startup()
                                   omConfigPort,
                                   node_name,
                                   GetLog(),
-                                  nstable,
+                                  nullptr,
                                   modProvider_->get_plf_manager());
         omClient->setNoNetwork(false);
         omClient->initialize();
-
-        /*
-         * Brings up the control path interface.
-         * This does not require OM to be running and can
-         * be used for testing DM by itself.
-         */
-        omClient->startAcceptingControlMessages();
 
         /*
          * Registers the DM with the OM. Uses OM for bootstrapping
@@ -1042,25 +1026,6 @@ void DataMgr::mod_shutdown()
     delete qosCtrl;
 }
 
-void DataMgr::setup_metadatapath_server(const std::string &ip)
-{
-    metadatapath_handler.reset(new ReqHandler());
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_DM_" + ip;
-    // TODO(Andrew): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(Andrew): Figure out who cleans up datapath_session_
-    metadatapath_session = nstable->\
-            createServerSession<netMetaDataPathServerSession>(
-                myIpInt,
-                modProvider_->get_plf_manager()->plf_get_my_data_port(),
-                node_name,
-                FDSP_STOR_HVISOR,
-                metadatapath_handler);
-}
-
 void DataMgr::setup_metasync_service()
 {
     catSyncMgr.reset(new CatalogSyncMgr(1, this));
@@ -1111,12 +1076,6 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
     vol_map_mtx->unlock();
 
     return result;
-}
-
-DataMgr::ReqHandler::ReqHandler() {
-}
-
-DataMgr::ReqHandler::~ReqHandler() {
 }
 
 /**

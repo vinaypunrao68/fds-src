@@ -5,7 +5,6 @@
 
 # FDS test-case pattern requirements.
 import unittest
-import traceback
 
 import xmlrunner
 import TestCase
@@ -15,8 +14,8 @@ import TestCase
 import sys
 import time
 import logging
-import os
 import shlex
+import pdb
 
 
 def getSvcPIDforNode(svc, node, javaClass=None):
@@ -29,7 +28,6 @@ def getSvcPIDforNode(svc, node, javaClass=None):
     """
     log = logging.getLogger('TestFDSModMgt' + '.' + 'getSvcPIDforNode')
 
-    status = 0
     cmd = "pgrep %s" % svc
 
     status, stdout = node.nd_agent.exec_wait(cmd, return_stdin=True)
@@ -44,20 +42,39 @@ def getSvcPIDforNode(svc, node, javaClass=None):
             if len(stdout2) > 0:
                 # We've got the details of the process. Let's see if it is supporting
                 # the node of interest.
-                cmd3 = "grep %s" % node.nd_conf_dict['node-name']
-                status, stdout3 = node.nd_agent.exec_wait(cmd3, return_stdin=True, cmd_input=stdout2)
+                #cmd3 = "grep %s" % node.nd_conf_dict['node-name']
+                #status, stdout3 = node.nd_agent.exec_wait(cmd3, return_stdin=True, cmd_input=stdout2)
 
-                # For java processes, we have also to look for the initial class of execution.
-                if (len(stdout3) > 0) and (svc == "java") and (javaClass is not None):
-                    cmd3_1 = "grep %s" % javaClass
-                    status, stdout3 = node.nd_agent.exec_wait(cmd3_1, return_stdin=True, cmd_input=stdout3)
-                elif (svc == "java") and (javaClass is None):
-                    log.error("When searching for a java process also include the java class name.")
-                    raise Exception
+                if node.nd_agent.env_install:
+                    # For java processes, we have also to look for the initial class of execution.
+                    if (svc == "java") and (javaClass is not None):
+                        if stdout2.count(javaClass) > 0:
+                            return pid
+                    elif (svc == "java") and (javaClass is None):
+                        log.error("When searching for a java process also include the java class name.")
+                        raise Exception
+                    else:
+                        if len(stdout.splitlines()) > 1:
+                            # When the node is installed/deployed from a package,
+                            # we expect only one process-set per service.
+                            log.warning("More %s processes than expected: %s." % (svc, stdout))
 
-                if len(stdout3) > 0:
-                    # Found it!
-                    return pid
+                        return pid
+                else:
+                    # For java processes, we have also to look for the initial class of execution.
+                    #if (len(stdout3) > 0) and (svc == "java") and (javaClass is not None):
+                    if (stdout2.count(node.nd_conf_dict['node-name']) > 0) and (svc == "java") and (javaClass is not None):
+                        #cmd3_1 = "grep %s" % javaClass
+                        #status, stdout3 = node.nd_agent.exec_wait(cmd3_1, return_stdin=True, cmd_input=stdout3)
+                        stdout2 = stdout2 if stdout2.count(javaClass) > 0 else ''
+                    elif (svc == "java") and (javaClass is None):
+                        log.error("When searching for a java process also include the java class name.")
+                        raise Exception
+
+                    #if len(stdout3) > 0:
+                    if stdout2.count(node.nd_conf_dict['node-name']) > 0:
+                        # Found it!
+                        return pid
 
     # Didn't find it.
     return -1
@@ -116,7 +133,6 @@ def modWait(mod, node, forShutdown = False):
         found = False
 
     status = 0
-    cmd = "pgrep %s" % mod
     while (count < maxcount) and ((forShutdown and found) or (not forShutdown and not found)):
         time.sleep(1)
 
@@ -160,6 +176,23 @@ def modWait(mod, node, forShutdown = False):
     return True
 
 
+def findNodeFromInv(node_inventory, target):
+    '''
+    Looks for target in node_inventory and returns the target object.
+    :param node_inventory: A list of nodes to search through (typically nd_confg_dict)
+    :param target: Target node to find (a parameter passed into the test case)
+    :return: Returns the node object identified by target
+    '''
+
+    # If we didn't get a string, just return the original object
+    if not isinstance(target, str):
+        return target
+
+    # Otherwise look for a node with the target name
+    for node in node_inventory:
+        if node.nd_conf_dict['node-name'] == target:
+            return node
+
 # This class contains the attributes and methods to test
 # bringing up a Data Manager (DM) service.
 class TestDMBringUp(TestCase.FDSTestCase):
@@ -190,12 +223,11 @@ class TestDMBringUp(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we boot all DMs we have.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-            log_dir = fdscfg.rt_env.get_log_dir()
+            log_dir = n.nd_agent.get_log_dir()
 
             # Make sure DM should be running on this node.
             if n.nd_services.count("dm") == 0:
@@ -207,8 +239,9 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
             self.log.info("Start DM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/DataMgr --fds-root=%s > %s/dm.%s.out 2>&1 &) \"' %
-                                          (bin_dir, fds_dir, log_dir, port))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./DataMgr --fds-root=%s > %s/dm.%s.out 2>&1 &) \"' %
+                                          (fds_dir, log_dir, port),
+                                          fds_bin=True)
 
             if status != 0:
                 self.log.error("DM bringup on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -251,7 +284,7 @@ class TestDMWait(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a node, check that one and exit.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure this node is configured for DM.
             if "dm" not in n.nd_services:
@@ -264,6 +297,138 @@ class TestDMWait(TestCase.FDSTestCase):
             self.log.info("Wait for DM on %s." % n.nd_conf_dict['node-name'])
 
             if not modWait("DataMgr", n):
+                return False
+
+            if self.passedNode is not None:
+                break
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# activating Data Manager (DM) services on a domain.
+class TestDMActivate(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DMActivate,
+                                             "DM service activation")
+
+        self.passedNode = node
+
+    def test_DMActivate(self):
+        """
+        Test Case:
+        Attempt to activate the DM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
+
+        # Do all DMs in the domain or just the DM for the passed node?
+        if self.passedNode is None:
+            self.log.info("Activate domain DMs from OM node %s." % om_node.nd_conf_dict['node-name'])
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e dm > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, log_dir),
+                                                fds_bin=True)
+        else:
+            node = self.passedNode
+
+            # Make sure this node is configured for an DM service.
+            if node.nd_services.count("dm") == 0:
+                self.log.error("Node %s is not configured to host a DM service." % node.nd_conf_dict['node-name'])
+                return False
+
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Activate DM for node %s from OM node %s." % (node.nd_conf_dict['node-name'],
+                                                                        om_node.nd_conf_dict['node-name']))
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-services abc -k 1 -w %s -e dm > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, int(node.nd_uuid, 16), log_dir),
+                                                fds_bin=True)
+
+        if status != 0:
+            self.log.error("DM activation on %s returned status %d." % (self.passedNode.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# removing Data Manager (DM) services on a domain.
+class TestDMRemove(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DMRemove,
+                                             "DM service removal")
+
+        self.passedNode = node
+
+    def test_DMRemove(self):
+        """
+        Test Case:
+        Attempt to remove the DM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for node in nodes:
+            # If we were passed a node, check that one and exit.
+            if self.passedNode is not None:
+                node = self.passedNode
+
+            # Make sure this node is configured for an DM service.
+            if (node.nd_services.count("dm") == 0) and self.passedNode is not None:
+                self.log.error("Node %s is not configured to host a DM service." % node.nd_conf_dict['node-name'])
+                return False
+
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Remove DM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
+                                                                        om_node.nd_conf_dict['node-name']))
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e dm > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, node.nd_assigned_name, log_dir),
+                                                fds_bin=True)
+
+            if status != 0:
+                self.log.error("DM removal from %s returned status %d." % (node.nd_conf_dict['node-name'], status))
                 return False
 
             if self.passedNode is not None:
@@ -301,7 +466,7 @@ class TestDMKill(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure DM should be running on this node.
             if n.nd_services.count("dm") == 0:
@@ -365,7 +530,7 @@ class TestDMVerifyDown(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             self.log.info("Verify the DM on %s is down." %n.nd_conf_dict['node-name'])
 
@@ -408,12 +573,12 @@ class TestSMBringUp(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we boot all SMs we have.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-            log_dir = fdscfg.rt_env.get_log_dir()
+            bin_dir = n.nd_agent.get_bin_dir(debug=False)
+            log_dir = n.nd_agent.get_log_dir()
 
             # Make sure SM should be running on this node.
             if n.nd_services.count("sm") == 0:
@@ -425,8 +590,9 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
             self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
-                                          (bin_dir, fds_dir, log_dir, port))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
+                                          (fds_dir, log_dir, port),
+                                          fds_bin=True)
 
             if status != 0:
                 self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -467,7 +633,7 @@ class TestSMWait(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a node, check that one and exit.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure this node is configured for SM.
             if "sm" not in n.nd_services:
@@ -481,6 +647,138 @@ class TestSMWait(TestCase.FDSTestCase):
             self.log.info("Wait for SM on %s." %n.nd_conf_dict['node-name'])
 
             if not modWait("StorMgr", n):
+                return False
+
+            if self.passedNode is not None:
+                break
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# activating Storage Manager (SM) services on a domain.
+class TestSMActivate(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_SMActivate,
+                                             "SM service activation")
+
+        self.passedNode = node
+
+    def test_SMActivate(self):
+        """
+        Test Case:
+        Attempt to activate the SM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
+
+        # Do all SMs in the domain or just the SM for the passed node?
+        if self.passedNode is None:
+            self.log.info("Activate domain SMs from OM node %s." % om_node.nd_conf_dict['node-name'])
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e sm > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, log_dir),
+                                                fds_bin=True)
+        else:
+            node = self.passedNode
+
+            # Make sure this node is configured for an SM service.
+            if node.nd_services.count("sm") == 0:
+                self.log.error("Node %s is not configured to host an SM service." % node.nd_conf_dict['node-name'])
+                return False
+
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Activate SM for node %s from OM node %s." % (node.nd_conf_dict['node-name'],
+                                                                        om_node.nd_conf_dict['node-name']))
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-services abc -k 1 -w %s -e sm > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, int(node.nd_uuid, 16), log_dir),
+                                                fds_bin=True)
+
+        if status != 0:
+            self.log.error("SM activation on %s returned status %d." % (self.passedNode.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# removing Storage Manager (SM) services on a domain.
+class TestSMRemove(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_SMRemove,
+                                             "SM service removal")
+
+        self.passedNode = node
+
+    def test_SMRemove(self):
+        """
+        Test Case:
+        Attempt to remove the SM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for node in nodes:
+            # If we were passed a node, check that one and exit.
+            if self.passedNode is not None:
+                node = self.passedNode
+
+            # Make sure this node is configured for an SM service.
+            if (node.nd_services.count("sm") == 0) and self.passedNode is not None:
+                self.log.error("Node %s is not configured to host a SM service." % node.nd_conf_dict['node-name'])
+                return False
+
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Remove SM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
+                                                                        om_node.nd_conf_dict['node-name']))
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e sm > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, node.nd_assigned_name, log_dir),
+                                                fds_bin=True)
+
+            if status != 0:
+                self.log.error("SM removal from %s returned status %d." % (self.passedNode.nd_conf_dict['node-name'], status))
                 return False
 
             if self.passedNode is not None:
@@ -518,7 +816,7 @@ class TestSMKill(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure SM should be running on this node.
             if n.nd_services.count("sm") == 0:
@@ -546,7 +844,8 @@ class TestSMKill(TestCase.FDSTestCase):
             if status != 0:
                 self.log.error("SM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
-            elif self.passedNode is not None:
+
+            if self.passedNode is not None:
                 # Took care of the one node passed so get out.
                 break
 
@@ -582,7 +881,7 @@ class TestSMVerifyDown(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             self.log.info("Verify the SM on %s is down." %n.nd_conf_dict['node-name'])
 
@@ -620,8 +919,6 @@ class TestPMBringUp(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
         om_node = fdscfg.rt_om_node
         om_ip = om_node.nd_conf_dict['ip']
 
@@ -630,19 +927,22 @@ class TestPMBringUp(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we spin through in defined node setting it up.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMBringUp()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
-                    self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
+                    self.log.info("Skipping OM's PM on %s." % n.nd_conf_dict['node-name'])
                     continue
 
-            self.log.info("Start PM on %s." %n.nd_conf_dict['node-name'])
+            bin_dir = n.nd_agent.get_bin_dir(debug=False)
+            log_dir = n.nd_agent.get_log_dir()
+
+            self.log.info("Start PM on %s." % n.nd_conf_dict['node-name'])
 
             status = n.nd_start_platform(om_ip, test_harness=True, _bin_dir=bin_dir, _log_dir=log_dir)
 
             if status != 0:
-                self.log.error("PM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                self.log.error("PM on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # If we were passed a specific node, just install
@@ -683,7 +983,7 @@ class TestPMWait(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we spin through all defined nodes setting them up.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMWait()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
@@ -732,7 +1032,7 @@ class TestPMKill(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMKill()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
@@ -794,7 +1094,7 @@ class TestPMVerifyDown(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, shutdown that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
             else:
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMKill()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
@@ -835,9 +1135,9 @@ class TestPMForOMBringUp(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
         om_node = fdscfg.rt_om_node
+        bin_dir = om_node.nd_agent.get_bin_dir(debug=False)
+        log_dir = om_node.nd_agent.get_log_dir()
 
         # Start the PM for this OM.
         om_ip = om_node.nd_conf_dict['ip']
@@ -1005,9 +1305,6 @@ class TestOMBringUp(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
-
         # If we were passed a node and it is not the OM node
         # captured during config parsing, just exit.
         if self.passedNode is not None:
@@ -1021,6 +1318,8 @@ class TestOMBringUp(TestCase.FDSTestCase):
 
         if om_node is not None:
             self.log.info("Start OM on %s." % om_node.nd_conf_dict['node-name'])
+            bin_dir = om_node.nd_agent.get_bin_dir(debug=False)
+            log_dir = om_node.nd_agent.get_log_dir()
 
             status = om_node.nd_start_om(test_harness=True, _bin_dir=bin_dir, _log_dir=log_dir)
 
@@ -1104,6 +1403,7 @@ class TestOMKill(TestCase.FDSTestCase):
         # If we were passed a node and it is not the OM node
         # captured during config parsing, just exit.
         if self.passedNode is not None:
+            self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
             om_node = None
             if self.passedNode.nd_conf_dict['node-name'] == fdscfg.rt_om_node.nd_conf_dict['node-name']:
                 om_node = self.passedNode
@@ -1119,7 +1419,7 @@ class TestOMKill(TestCase.FDSTestCase):
 
             # Probably we get the -9 return because pkill for a java process will
             # not find it based on the class name alone. See getSvcPIDforNode().
-            if status != -9:
+            if (status != -9) and (status != 0):
                 self.log.error("OM (com.formationds.om.Main) kill on %s returned status %d." %
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
@@ -1180,7 +1480,7 @@ class TestOMVerifyDown(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # bringing up an Access Manager (AM) service.
-class TestAMBringup(TestCase.FDSTestCase):
+class TestAMBringUp(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
@@ -1202,15 +1502,13 @@ class TestAMBringup(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         nodes = fdscfg.rt_obj.cfg_nodes
 
         for n in nodes:
             # If we were passed a node, use it and get out. Otherwise,
             # we boot all AMs we have.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure AM should be running on this node.
             if n.nd_services.count("am") == 0:
@@ -1224,13 +1522,13 @@ class TestAMBringup(TestCase.FDSTestCase):
 
             port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
+            bin_dir = n.nd_agent.get_bin_dir(debug=False)
+            log_dir = n.nd_agent.get_log_dir()
 
             # The AMAgent script expected to be invoked from the bin directory in which it resides.
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> ./am.%s.out &) \"' %
-                                                     (fds_dir, n.nd_nodeID, port))
-            os.chdir(cur_dir)
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> %s/am.%s.out &) \"' %
+                                          (fds_dir, n.nd_nodeID, log_dir, port),
+                                          fds_bin=True)
 
             if status != 0:
                 self.log.error("AM on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
@@ -1245,7 +1543,7 @@ class TestAMBringup(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # activating Access Manager (AM) services on a domain.
 class TestAMActivate(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -1256,6 +1554,8 @@ class TestAMActivate(TestCase.FDSTestCase):
                                              self.test_AMActivate,
                                              "AM service activation")
 
+        self.passedNode = node
+
     def test_AMActivate(self):
         """
         Test Case:
@@ -1265,25 +1565,109 @@ class TestAMActivate(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        n = fdscfg.rt_om_node
-        fds_dir = n.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        log_dir = fdscfg.rt_env.get_log_dir()
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
 
-        self.log.info("Activate domain AMs from OM node %s." % n.nd_conf_dict['node-name'])
+        # Do all AMs in the domain or just the AM for the passed node?
+        if self.passedNode is None:
+            self.log.info("Activate domain AMs from OM node %s." % om_node.nd_conf_dict['node-name'])
 
-        cur_dir = os.getcwd()
-        os.chdir(bin_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e am > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, log_dir),
+                                                fds_bin=True)
+        else:
+            node = self.passedNode
 
-        status = n.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e am > '
-                                      '%s/cli.out 2>&1) \"' %
-                                      (fds_dir, log_dir if n.nd_agent.env_install else "."))
+            # Make sure this node is configured for an AM service.
+            if node.nd_services.count("am") == 0:
+                self.log.error("Node %s is not configured to host an AM service." % node.nd_conf_dict['node-name'])
+                return False
 
-        os.chdir(cur_dir)
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Activate AM for node %s from OM node %s." % (node.nd_conf_dict['node-name'],
+                                                                        om_node.nd_conf_dict['node-name']))
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-services abc -k 1 -w %s -e am > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, int(node.nd_uuid, 16), log_dir),
+                                                fds_bin=True)
 
         if status != 0:
-            self.log.error("AM activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            self.log.error("AM activation on %s returned status %d." % (self.passedNode.nd_conf_dict['node-name'], status))
             return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# removing Access Manager (AM) services on a domain.
+class TestAMRemove(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AMRemove,
+                                             "AM service removal")
+
+        self.passedNode = node
+
+    def test_AMRemove(self):
+        """
+        Test Case:
+        Attempt to remove the AM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        om_node = fdscfg.rt_om_node
+        fds_dir = om_node.nd_conf_dict['fds_root']
+        log_dir = om_node.nd_agent.get_log_dir()
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for node in nodes:
+            # If we were passed a node, check that one and exit.
+            if self.passedNode is not None:
+                node = self.passedNode
+
+            # Make sure this node is configured for an AM service.
+            if (node.nd_services.count("am") == 0) and self.passedNode is not None:
+                self.log.error("Node %s is not configured to host a AM service." % node.nd_conf_dict['node-name'])
+                return False
+
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Remove AM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
+                                                                        om_node.nd_conf_dict['node-name']))
+
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e am > '
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, node.nd_assigned_name, log_dir),
+                                                fds_bin=True)
+
+            if status != 0:
+                self.log.error("AM removal from %s returned status %d." % (self.passedNode.nd_conf_dict['node-name'], status))
+                return False
+
+            if self.passedNode is not None:
+                break
 
         return True
 
@@ -1369,7 +1753,7 @@ class TestAMKill(TestCase.FDSTestCase):
         for n in nodes:
             # If a specific node was passed in, use that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure there is supposed to be an AM service on this node.
             if n.nd_services.count("am") == 0:
@@ -1460,7 +1844,7 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
         for n in nodes:
             # If we were passed a specific node, check that one and get out.
             if self.passedNode is not None:
-                n = self.passedNode
+                n = findNodeFromInv(nodes, self.passedNode)
 
             self.log.info("Verify AM on %s is down" % n.nd_conf_dict['node-name'])
 

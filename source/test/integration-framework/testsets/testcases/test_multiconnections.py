@@ -36,8 +36,13 @@ class TestMultiConnections(testcase.FDSTestCase):
                                                    config_file=config_file,
                                                    om_ip_address=om_ip_address)
 
+        if self.inventory_file is None:
+            self.log.exception("Inventory file can't be null for this test")
+            raise ValueError, "Inventory file can't be null for this test"
+            sys.exit(2)
+
         self.ip_addresses = config_parser.get_ips_from_inventory(
-                                           config.DEFAULT_INVENTORY_FILE)
+                                           self.inventory_file)
         self.buckets = []
         self.hash_table = {}
         self.sample_files = []
@@ -53,11 +58,10 @@ class TestMultiConnections(testcase.FDSTestCase):
                 self.sample_files.append(current)
                 encode = utils.hash_file_content(path)
                 self.hash_table[current] = encode
-    
+        self.log.info("hash table: %s" % self.hash_table)
+
     def create_multiple_connections(self, ip):
         # creates 20 s3 connections for each AM node
-        self.s3_connections = []
-
         for i in xrange(0, 10):
             s3conn = s3.S3Connection(
                 config.FDS_DEFAULT_ADMIN_USER,
@@ -71,8 +75,9 @@ class TestMultiConnections(testcase.FDSTestCase):
 
     def runTest(self):
         self.log.info("Starting the multivolume test...\n")
-        for ip in self.ip_addresses:
+        for ip in self.ip_addresses[:1]:
             # create multiple connections
+            #self.log.info("Processing IP: %s" % ip)
             self.create_multiple_connections(ip)
             self.concurrently_volumes()
         self.log.info("Removing the sample files created.")
@@ -84,9 +89,9 @@ class TestMultiConnections(testcase.FDSTestCase):
             future_volumes = { executor.submit(self.create_volumes, s3conn): 
                                  s3conn for s3conn in self.s3_connections}
             for future in concurrent.futures.as_completed(future_volumes):
-                s3conn = future_volumes[future]
+                # s3conn = future_volumes[future]
                 try:
-                    self.delete_volumes(s3conn)
+                    # self.delete_volumes(s3conn)
                     self.test_passed = True
                 except Exception as exc:
                     self.log.exception('generated an exception: %s' % (exc))
@@ -115,6 +120,8 @@ class TestMultiConnections(testcase.FDSTestCase):
                 # We won't be waiting for it to complete, short circuit it.
                 self.test_passed = False
                 self.reportTestCaseResult(self.test_passed)
+                sys.exit(2)
+
             self.log.info("Bucket %s created" % bucket.name)
             self.buckets.append(bucket)
             self.store_file_to_volume(bucket)
@@ -137,7 +144,6 @@ class TestMultiConnections(testcase.FDSTestCase):
                     break
                 else:
                     self.test_passed = True
-            
         return s3conn
 
     def download_files(self, bucket):

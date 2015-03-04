@@ -9,6 +9,7 @@ include "snapshot.thrift"
 include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol.dm
 
 /**
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
@@ -96,7 +97,7 @@ struct FDSP_metaData
 {
     /* Object Metadata */
     1: vol_List_Type  volList;
-    2: FDSP.FDSP_Uuid  node_uuid,
+    2: common.SvcUuid  node_uuid,
 }
 
 typedef list<FDSP_metaData> FDSP_metaDataList

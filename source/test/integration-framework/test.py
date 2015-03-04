@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # coding: utf8
-from boto.s3.connection import S3Connection
+from filechunkio import FileChunkIO
+from boto.s3.key import Key
 import config
 import config_parser
 import utils
@@ -8,6 +9,7 @@ import select
 import s3
 import ssh
 import sys
+import time
 
 def percent_cb(complete, total):
     sys.stdout.write('=')
@@ -43,19 +45,19 @@ def test_hash_file_content():
     print utils.hash_file_content(path)
 
 def test_s3():
-    s3conn = S3Connection(
+    s3conn = s3.S3Connection(
             config.FDS_DEFAULT_ADMIN_USER,
             None,
-            '10.2.10.200',
+            '10.1.16.111',
             config.FDS_S3_PORT,
-            '10.2.10.200'
+            '10.1.16.111'
         )
     s3conn.s3_connect()
     bucket = s3conn.conn.create_bucket('phil-bucket05-test')
     print bucket
     print "Sleeping 30 sec"
     time.sleep(30)
-    testfile = "sample_file"
+    testfile = "test_2M"
     print 'Uploading %s to Amazon S3 bucket %s' % \
        (testfile, bucket.name)
     k = Key(bucket)
@@ -70,4 +72,4 @@ def test_s3():
     key.get_file(fp)
 
 if __name__ == "__main__":
-    test_ssh_connection()
+    test_s3()

@@ -20,12 +20,8 @@
 
 #include "fdsp/FDSP_ConfigPathReq.h"
 #include "fdsp/FDSP_constants.h"
-#include "fdsp/FDSP_ControlPathResp.h"
-#include "fdsp/FDSP_MetaDataPathResp.h"
 #include "fdsp/FDSP_OMControlPathResp.h"
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_ControlPathReq.h"  
-#include "fdsp/FDSP_MetaDataPathReq.h"
 #include "fdsp/FDSP_SessionReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
 
@@ -39,54 +35,6 @@ using namespace fds;
 using namespace FDS_ProtocolInterface;
 
 typedef void (*set_client_t)(const boost::shared_ptr<TTransport> transport, void* context);
-
-class FdsMetaDataPathReqProcessorFactory: public TProcessorFactory {
-public:
-FdsMetaDataPathReqProcessorFactory(const boost::shared_ptr<FDSP_MetaDataPathReqIfFactory> &handlerFactory,
-                                   set_client_t set_client_cb, void* context)
-        : handler_factory(handlerFactory), set_client_hdlr(set_client_cb), context_(context) {}
-
-  boost::shared_ptr<TProcessor> getProcessor(const TConnectionInfo& connInfo)
-  {
-    set_client_hdlr(connInfo.transport, context_);
-
-    ReleaseHandler<FDSP_MetaDataPathReqIfFactory> cleanup(handler_factory);
-    boost::shared_ptr<FDSP_MetaDataPathReqIf> handler(handler_factory->getHandler(connInfo), cleanup);
-    boost::shared_ptr<TProcessor> processor(new FDSP_MetaDataPathReqProcessor(handler));
-    return processor;
-  }
-
-protected:
-  boost::shared_ptr<FDSP_MetaDataPathReqIfFactory> handler_factory;
-
-private:
-  set_client_t set_client_hdlr;
-  void* context_;
-};
-
-class FdsControlPathReqProcessorFactory: public TProcessorFactory {
-public:
-FdsControlPathReqProcessorFactory(const boost::shared_ptr<FDSP_ControlPathReqIfFactory> &handlerFactory,
-                                  set_client_t set_client_cb, void* context)
-        : handler_factory(handlerFactory), set_client_hdlr(set_client_cb), context_(context) {}
-
-  boost::shared_ptr<TProcessor> getProcessor(const TConnectionInfo& connInfo)
-  {
-    set_client_hdlr(connInfo.transport, context_);
-
-    ReleaseHandler<FDSP_ControlPathReqIfFactory> cleanup(handler_factory);
-    boost::shared_ptr<FDSP_ControlPathReqIf> handler(handler_factory->getHandler(connInfo), cleanup);
-    boost::shared_ptr<TProcessor> processor(new FDSP_ControlPathReqProcessor(handler));
-    return processor;
-  }
-
-protected:
-  boost::shared_ptr<FDSP_ControlPathReqIfFactory> handler_factory;
-
-private:
-  set_client_t set_client_hdlr;
-  void* context_;
-};
 
 class FdsConfigPathReqProcessorFactory: public TProcessorFactory {
 public:

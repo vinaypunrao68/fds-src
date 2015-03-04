@@ -20,7 +20,7 @@ def suiteConstruction(self):
     suite = unittest.TestSuite()
 
     # Build the necessary FDS installation infrastructure assuming a development environment.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+    suite.addTest(testcases.TestFDSEnvMgt.TestFDSInstall())
     suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
 
     # Bring up each component of the node separately, waiting until
@@ -33,7 +33,7 @@ def suiteConstruction(self):
     suite.addTest(testcases.TestFDSServiceMgt.TestDMWait())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMBringUp())
     suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
-    suite.addTest(testcases.TestFDSServiceMgt.TestAMBringup())
+    suite.addTest(testcases.TestFDSServiceMgt.TestAMBringUp())
     suite.addTest(testcases.TestFDSServiceMgt.TestAMWait())
 
     # Check that the node is up.

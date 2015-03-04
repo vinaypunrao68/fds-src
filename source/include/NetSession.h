@@ -16,8 +16,6 @@
 // #include <thrift/transport/TServerSocket.h>
 // #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TTransportUtils.h>
-#include <fdsp/FDSP_MetaDataPathReq.h>
-#include <fdsp/FDSP_MetaDataPathResp.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_ConfigPathResp.h>
 #include <fdsp/FDSP_Service.h>
@@ -309,10 +307,6 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
   boost::shared_ptr<boost::thread> recv_thread_;
 };
 
-typedef netClientSessionEx<FDSP_MetaDataPathReqClient,
-        FDSP_MetaDataPathRespProcessor,FDSP_MetaDataPathRespIf> netMetaDataPathClientSession;
-typedef netClientSessionEx<FDSP_ControlPathReqClient,
-        FDSP_ControlPathRespProcessor,FDSP_ControlPathRespIf> netControlPathClientSession;
 typedef netClientSessionEx<FDSP_OMControlPathReqClient,
         FDSP_OMControlPathRespProcessor,FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 typedef netClientSessionEx<FDSP_ConfigPathReqClient,
@@ -638,10 +632,6 @@ class netServerSessionEx: public netSession {
   boost::shared_ptr<boost::thread> listen_thread_;
 };
 
-typedef netServerSessionEx<FDSP_MetaDataPathReqProcessor,
-        FDSP_MetaDataPathReqIf, FDSP_MetaDataPathRespClient> netMetaDataPathServerSession;
-typedef netServerSessionEx<FDSP_ControlPathReqProcessor,
-        FDSP_ControlPathReqIf, FDSP_ControlPathRespClient> netControlPathServerSession;
 typedef netServerSessionEx<FDSP_OMControlPathReqProcessor,
         FDSP_OMControlPathReqIf, FDSP_OMControlPathRespClient> netOMControlPathServerSession;
 typedef netServerSessionEx<FDSP_ConfigPathReqProcessor,

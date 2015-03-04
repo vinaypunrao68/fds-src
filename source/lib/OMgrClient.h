@@ -7,7 +7,6 @@
 #include <fds_volume.h>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
 #include <util/Log.h>
 
@@ -31,7 +30,6 @@ namespace FDS_ProtocolInterface {
 class FDSP_OMControlPathReqClient;
 class FDSP_OMControlPathRespProcessor;
 class FDSP_OMControlPathRespIf;
-class FDSP_ControlPathRespClient;
 struct FDSP_DltCloseType;
 using FDSP_DltCloseTypePtr = boost::shared_ptr<FDSP_DltCloseType>;
 }  // namespace FDS_ProtocolInterface
@@ -41,9 +39,6 @@ template <class A, class B, class C> class netServerSessionEx;
 typedef netClientSessionEx<FDSP_OMControlPathReqClient,
                            FDSP_OMControlPathRespProcessor,
                            FDSP_OMControlPathRespIf> netOMControlPathClientSession;
-typedef netServerSessionEx<FDSP_ControlPathReqProcessor,
-                           FDSP_ControlPathReqIf,
-                           FDSP_ControlPathRespClient> netControlPathServerSession;
 
 namespace fds {
 
@@ -114,19 +109,6 @@ class OMgrClient {
     boost::shared_ptr<netSessionTbl> nst_;
 
     /**
-     * RPC handler for request coming from OM
-     */
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathReqIf> omrpc_handler_;
-    /**
-     * Session associated with omrpc_handler_
-     */
-    netControlPathServerSession *omrpc_handler_session_;
-    /**
-     * omrpc_handler_ server is run on this thread
-     */
-    boost::shared_ptr<boost::thread> omrpc_handler_thread_;
-
-    /**
      * client for sending messages to OM
      */
     netOMControlPathClientSession* omclient_prx_session_;
@@ -151,7 +133,6 @@ class OMgrClient {
     }
     ~OMgrClient();
     int initialize();
-    void start_omrpc_handler();
 
     NodeUuid getUuid() const;
     FDSP_MgrIdType getNodeType() const;
@@ -167,7 +148,6 @@ class OMgrClient {
 
     // int subscribeToOmEvents(unsigned int om_ip_addr,
     // int tennant_id, int domain_id, int omc_port_num= 0);
-    int startAcceptingControlMessages();
     int registerNodeWithOM(Platform *plat);
     int sendMigrationStatusToOM(const Error& err);
 
@@ -210,14 +190,6 @@ class OMgrClient {
     Error updateDlt(bool dlt_type, std::string& dlt_data);
 
     Error updateDmt(bool dmt_type, std::string& dmt_data);
-};
-
-class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
-  private:
-    OMgrClient *om_client;
-
-  public:
-    explicit OMgrClientRPCI(OMgrClient *om_c);
 };
 
 }  // namespace fds

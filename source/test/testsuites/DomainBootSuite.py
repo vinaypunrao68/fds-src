@@ -44,7 +44,7 @@ def suiteConstruction(self, action="installbootactivate"):
     # just boot Redis but don't mess with it's state.
     if action.count("install") > 0:
         # Build the necessary FDS infrastructure.
-        suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+        suite.addTest(testcases.TestFDSEnvMgt.TestFDSInstall())
         suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
 

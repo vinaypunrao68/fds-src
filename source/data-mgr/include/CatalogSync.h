@@ -17,7 +17,6 @@
 #include <fds_config.hpp>
 #include <fds_process.h>
 #include <concurrency/Mutex.h>
-#include <fdsp/FDSP_types.h>
 #include <DmIoReq.h>
 #include <DmBlobTypes.h>
 #include <fdsp/fds_service_types.h>

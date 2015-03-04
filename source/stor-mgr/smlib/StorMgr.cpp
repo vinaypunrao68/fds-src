@@ -13,7 +13,6 @@
 #include <PerfTrace.h>
 #include <ObjMeta.h>
 #include <StorMgr.h>
-#include <NetSession.h>
 #include <fds_timestamp.h>
 #include <net/net_utils.h>
 #include <net/net-service.h>
@@ -196,7 +195,6 @@ void ObjectStorMgr::mod_startup()
          * Register/boostrap from OM
          */
         omClient->initialize();
-        omClient->startAcceptingControlMessages();
         omClient->registerNodeWithOM(modProvider_->get_plf_manager());
     }
 
@@ -304,9 +302,6 @@ void ObjectStorMgr::mod_enable_service()
 void ObjectStorMgr::mod_shutdown()
 {
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
-        return;  // no migration or netsession
-    }
 }
 
 int ObjectStorMgr::run()
@@ -988,7 +983,7 @@ ObjectStorMgr::storeCurrentDLT()
     // against DLT
     NodeUuid myUuid = getUuid();
     std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
-    ofstream uuidFile(uuidPath);
+    std::ofstream uuidFile(uuidPath);
     uuidFile <<  myUuid.uuid_get_val();
 }
 
