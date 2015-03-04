@@ -33,7 +33,6 @@
 
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
-#include <NetSession.h>
 #include <DmIoReq.h>
 #include <dmhandler.h>
 #include <CatalogSync.h>
