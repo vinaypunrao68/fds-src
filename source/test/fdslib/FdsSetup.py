@@ -310,8 +310,8 @@ class FdsLocalEnv(FdsEnv):
     # Execute command and wait for result. We'll also log
     # output in this case.
     #
-    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True, fds_bin=False):
-        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=True, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True, fds_bin=False, output=True):
+        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=output, return_stdin=return_stdin,
                                cmd_input=cmd_input)
 
     def local_close(self):
@@ -469,8 +469,8 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
-    def exec_wait(self, cmd, return_stdin = False, cmd_input=None, wait_compl=True, fds_bin=False):
-        return self.ssh_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=True, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin = False, cmd_input=None, wait_compl=True, fds_bin=False, output=True):
+        return self.ssh_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=output, return_stdin=return_stdin,
                              cmd_input=cmd_input)
 
     def ssh_close(self):
