@@ -19,7 +19,7 @@ class SMCheckDriver : public FdsProcess {
     int run() override;
 
   private:
-    SMCheck *checker;
+    SMCheckOffline *checker;
     RunFunc cmd;
     SmDiskMap::ptr smDiskMap;
     ObjectDataStore::ptr smObjStore;

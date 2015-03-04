@@ -39,24 +39,21 @@ SMCheckDriver::SMCheckDriver(int argc, char *argv[],
             ("full-check,f",
                     po::bool_switch()->default_value(false),
                     "Run full consistency check")
+            ("list-metadata,p",
+                    po::bool_switch()->default_value(false),
+                    "Print all metadata.")
+            ("check-active-only,a",
+                    po::bool_switch()->default_value(false),
+                    "check only active metadata when running full-check or list metadata")
             ("check-ownership,o",
                     po::bool_switch()->default_value(false),
                     "check SM token ownership when running full-check")
-            ("check-active-only,a",
-                    po::bool_switch()->default_value(false),
-                    "check only active metadata when running full-check")
             ("list-tokens",
                     po::bool_switch()->default_value(false),
                     "Print all tokens by path.")
             ("list-paths",
                     po::bool_switch()->default_value(false),
                     "Print paths by token.")
-            ("list-metadata,p",
-                    po::bool_switch()->default_value(false),
-                    "Print all metadata.")
-            ("list-active-metadata,l",
-                    po::bool_switch()->default_value(false),
-                    "Print all metadata with refcnt > 0.")
             ("gc,g",
                     po::bool_switch()->default_value(false),
                     "Calculate and print bytes reclaimable by garbage collector.");
@@ -80,8 +77,6 @@ SMCheckDriver::SMCheckDriver(int argc, char *argv[],
         cmd = RunFunc::PRINT_PATH_BY_TOK;
     } else if (vm["list-metadata"].as<bool>()) {
         cmd = RunFunc::PRINT_MD;
-    } else if (vm["list-active-metadata"].as<bool>()) {
-        cmd = RunFunc::PRINT_ACTIVE_MD;
     } else if (vm["gc"].as<bool>()) {
         cmd = RunFunc::CALC_BYTES_RECLAIMABLE;
     } else {
@@ -93,18 +88,14 @@ SMCheckDriver::SMCheckDriver(int argc, char *argv[],
 }
 
 int SMCheckDriver::run() {
-    checker = new SMCheck(smDiskMap, smObjStore, smMdDb, verbose);
+    checker = new SMCheckOffline(smDiskMap, smObjStore, smMdDb, verbose);
     bool success = false;
     switch (cmd) {
         case RunFunc::FULL_CHECK:
             success = checker->full_consistency_check(ownershipCheck, checkOnlyActive);
             break;
         case RunFunc::PRINT_MD:
-            checker->list_metadata();
-            success = true;
-            break;
-        case RunFunc::PRINT_ACTIVE_MD:
-            checker->list_active_metadata();
+            checker->list_metadata(checkOnlyActive);
             success = true;
             break;
         case RunFunc::PRINT_PATH_BY_TOK:
