@@ -3,7 +3,6 @@
  */
 #include <fds_config.hpp>
 #include <fds_process.h>
-#include "NetSession.h"
 #include <dlt.h>
 #include <ObjectId.h>
 #include <net/net-service.h>
