@@ -209,7 +209,7 @@ class FdsNodeConfig(FdsConfig):
 
             print "\nStart OM in", self.nd_host_name()
 
-            self.nd_start_influxdb(test_harness);
+            self.nd_start_influxdb();
 
             if test_harness:
                 status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
@@ -226,7 +226,7 @@ class FdsNodeConfig(FdsConfig):
 
         return status
 
-    def nd_start_influxdb(self, test_harness=False):
+    def nd_start_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
         log.info("Starting InfluxDB")
         print "\nStart influxdb on", self.nd_host_name()
@@ -240,19 +240,19 @@ class FdsNodeConfig(FdsConfig):
             status = 0
         return status
 
-    def nd_stop_influxdb(self, test_harness=False):
+    def nd_stop_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
         log.info("Stopping InfluxDB")
         status = self.nd_agent.exec_wait('service influxdb stop')
         return status
 
-    def nd_status_influxdb(self, test_harness=False):
+    def nd_status_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
         log.info("Checking InfluxDB")
         status = self.nd_agent.exec_wait('service influxdb status')
         return status
 
-    def nd_clean_influxdb(self, test_harness=False):
+    def nd_clean_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
 
         fds_dir = self.nd_conf_dict['fds_root']
