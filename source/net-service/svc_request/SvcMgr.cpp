@@ -112,7 +112,7 @@ SvcMgr::~SvcMgr()
 
 int SvcMgr::mod_init(SysParams const *const p)
 {
-    GLOGNOTIFY;
+    GLOGNOTIFY << "module initialize";
 
     svcRequestHandler_->setTaskExecutor(taskExecutor_);
     startServer();
