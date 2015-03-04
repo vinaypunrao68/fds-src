@@ -53,7 +53,7 @@ def suiteConstruction(self):
 
     #suite.addTest(testcases.TestFDSModMgt.TestAMKill())
     #suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestAMWait())
 
     suite.addTest(testcases.TestFDSServiceMgt.TestSMKill())

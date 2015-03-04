@@ -87,8 +87,9 @@ public class Configuration {
         properties.put("log4j.appender.rolling.MaxFileSize", "50MB");
         properties.put("log4j.appender.rolling.MaxBackupIndex", "10");
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
-        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
+//        properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
+//        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
+        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{dd MMM yyyy HH:mm:ss.SSS z} - %p %c - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
         //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);

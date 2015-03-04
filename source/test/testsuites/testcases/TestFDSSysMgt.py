@@ -12,7 +12,7 @@ import TestCase
 import sys
 import os
 from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
-from TestFDSServiceMgt import TestAMBringup
+from TestFDSServiceMgt import TestAMBringUp
 
 
 # This class contains the attributes and methods to test
@@ -205,7 +205,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
             # we avoid FS-879.
             if (n.nd_services.count('am') > 0) and (len(nodes) > 1):
                 # Boot instead of activate.
-                amBootTest = TestAMBringup(node=n)
+                amBootTest = TestAMBringUp(node=n)
                 amBooted = amBootTest.test_AMBringUp()
                 if not amBooted:
                     self.log.error("AM failed to boot on node %s." % n.nd_conf_dict['node-name'])

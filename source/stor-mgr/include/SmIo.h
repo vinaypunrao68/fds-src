@@ -17,6 +17,7 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <leveldb/db.h>
+#include <leveldb/copy_env.h>
 #include <persistent-layer/dm_io.h>
 #include <SmTypes.h>
 #include <ObjMeta.h>
@@ -371,7 +372,8 @@ class SmIoSnapshotObjectDB : public SmIoReq {
                                 leveldb::DB* db)> CbType;
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
-                                std::string &snapDir)> CbTypePersist;
+                                std::string &snapDir,
+                                leveldb::CopyEnv *env)> CbTypePersist;
  public:
     SmIoSnapshotObjectDB() {
         token_id = 0;

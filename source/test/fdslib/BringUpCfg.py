@@ -209,6 +209,8 @@ class FdsNodeConfig(FdsConfig):
 
             print "\nStart OM in", self.nd_host_name()
 
+            self.nd_start_influxdb();
+
             if test_harness:
                 status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
                                                  (fds_dir, log_dir),
@@ -222,6 +224,46 @@ class FdsNodeConfig(FdsConfig):
             log.warn("Attempting to start OM on node %s which is not configured to host OM." % self.nd_host_name())
             status = -1
 
+        return status
+
+    def nd_start_influxdb(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+        log.info("Starting InfluxDB")
+        print "\nStart influxdb on", self.nd_host_name()
+
+        ## check if influx is running on the node.  If not, start it
+        pidstat = self.nd_agent.exec_wait('pgrep -f influxdb', output=False)
+        if pidstat == 1:
+            status = self.nd_agent.exec_wait('service influxdb start')
+        else:
+            print "\nInfluxDB is already running."
+            status = 0
+        return status
+
+    def nd_stop_influxdb(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+        log.info("Stopping InfluxDB")
+        status = self.nd_agent.exec_wait('service influxdb stop')
+        return status
+
+    def nd_status_influxdb(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+        log.info("Checking InfluxDB")
+        status = self.nd_agent.exec_wait('service influxdb status')
+        return status
+
+    def nd_clean_influxdb(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+
+        fds_dir = self.nd_conf_dict['fds_root']
+        var_dir = fds_dir + '/var'
+
+        ## todo: read from influx config file or change if we put under /fds/var/db etc
+        influxdb_data_dir = "/opt/influxdb/shared/data/db"
+
+        log.info("Cleaning InfluxDB")
+        status = self.nd_agent.exec_wait('service influxdb stop')
+        self.nd_agent.exec_wait('rm -rf '  + influxdb_data_dir)
         return status
 
     ###
@@ -364,6 +406,9 @@ class FdsNodeConfig(FdsConfig):
         dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
 
+        ## note: needs to change if we move influx data under /fds/var/db
+        influxdb_data_dir = '/opt/influxdb/shared/data/db'
+
         if test_harness:
             log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
 
@@ -419,6 +464,11 @@ class FdsNodeConfig(FdsConfig):
                 log.info("Cleanup 0x* in: %s" % '/dev/shm')
                 self.nd_agent.exec_wait('rm -f /dev/shm/0x*')
 
+            status = self.nd_agent.exec_wait('ls ' + influxdb_data_dir )
+            if status == 0:
+                log.info("Cleanup influx database in: %s" % influxdb_data_dir)
+                self.nd_clean_influxdb()
+
             status = 0
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
@@ -430,6 +480,8 @@ class FdsNodeConfig(FdsConfig):
                 '(cd %s && rm -rf hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
                 '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
                 '(cd /dev/shm && rm -f 0x*)')
+            self.nd_clean_influxdb()
+
 
         if status == -1:
             # ssh_exec() returns -1 when there is output to syserr and

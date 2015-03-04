@@ -7,9 +7,12 @@ fre-lxcnode-08
 [fre-nightly-soak-clus:vars]
 clean_fds=yes
 deploy_artifact=nightly
-cluster_location=fre
 fds_build=release
+clean_fds=yes
+force=true
+fds_log_severity=normal
 fds_default_nic=eth0
+fds_log_severity=normal
 fds_om_host=fre-lxcnode-05
 fds_metrics_enables=false
 fds_metricsdb_ip=127.0.0.1
