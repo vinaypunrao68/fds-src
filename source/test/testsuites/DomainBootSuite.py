@@ -49,7 +49,6 @@ def suiteConstruction(self, action="installbootactivate"):
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
 
     if action.count("boot_noverify") > 0:
-        print "I want to be here"
         if action.count("install") == 0:
             suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
@@ -65,9 +64,7 @@ def suiteConstruction(self, action="installbootactivate"):
 
         # Give the nodes some time to initialize.
         suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the nodes initialize"))
-        print "Im done with boot_noverify"
     elif action.count("boot") > 0:
-        assert False, "Wrong!!!"
         if action.count("install") == 0:
             suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
