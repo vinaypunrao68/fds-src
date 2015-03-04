@@ -73,8 +73,9 @@ class FDSTestCase(unittest.TestCase):
             #                                       False, False,
             #                                       False, "passwd")
             self.parameters = {}
-            self.parameters['s3'] = self.s3conn
-            self.parameters['s3'].conn = self.s3conn.get_s3_connection()
+        
+        self.parameters['s3'] = self.s3conn
+        self.parameters['s3'].conn = self.s3conn.get_s3_connection()
         if config_file:
             self.config_file = config_parser.parse(config_file,
                                                    config.CONFIG_DIR)
