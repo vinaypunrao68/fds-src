@@ -467,7 +467,7 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + influxdb_data_dir )
             if status == 0:
                 log.info("Cleanup influx database in: %s" % influxdb_data_dir)
-                self.nd_clean_influxdb(test_harness)
+                self.nd_clean_influxdb()
 
             status = 0
         else:
@@ -480,7 +480,7 @@ class FdsNodeConfig(FdsConfig):
                 '(cd %s && rm -rf hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
                 '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
                 '(cd /dev/shm && rm -f 0x*)')
-            self.nd_clean_influxdb(test_harness)
+            self.nd_clean_influxdb()
 
 
         if status == -1:
