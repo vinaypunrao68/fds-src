@@ -75,6 +75,8 @@ void OrchMgr::proc_pre_startup()
     int    argc;
     char **argv;
 
+    SvcProcess::proc_pre_startup();
+
     argv = mod_vectors_->mod_argv(&argc);
 
     /*

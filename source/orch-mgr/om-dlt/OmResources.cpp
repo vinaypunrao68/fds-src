@@ -974,17 +974,17 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 
     fromTo(svcInfo, reg_node_req);
 
+    /* Following code is just to make sure the svc_uuid passed in mathces the 
+     * type encoding semantics.  The last six bits are supposed to include
+     * the service type
+     */
     NodeUuid new_node_uuid;
-    if (reg_node_req->node_uuid.uuid == 0) {
-        LOGERROR << "Refuse to register a node without valid uuid: node_type "
-            << reg_node_req->node_type << ", name " << reg_node_req->node_name;
-        err = ERR_INVALID_ARG;
-        return err;
-    }
-
-    // TODO(Rao): Check with Paul why this is needed
     new_node_uuid.uuid_set_type(reg_node_req->node_uuid.uuid, 
                                 reg_node_req->node_type);
+    fds_assert(static_cast<fds_uint64_t>(reg_node_req->node_uuid.uuid) ==
+               new_node_uuid.uuid_get_val());
+
+    // TODO(Rao): Check with Paul why this is needed
 
     /* Update the service layer service map upfront so that any subsequent communitcation
      * with that service will work.
@@ -1026,7 +1026,9 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
     
    
     FDS_ProtocolInterface::FDSP_Uuid uuid;
-    reg_node_req->service_uuid = fds::assign(uuid, svcInfo->svc_id);
+    reg_node_req->node_uuid =
+        reg_node_req->service_uuid =
+        fds::assign(uuid, svcInfo->svc_id);
     
 }
 
