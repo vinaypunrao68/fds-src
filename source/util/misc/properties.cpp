@@ -8,38 +8,63 @@ namespace fds {
 namespace util {
 
 #define RETURN_DEFAULT(...) \
-    auto iter = data.find(key); \
-    if (iter == data.end()) return defaultValue;
+    auto iter = data->find(key); \
+    if (iter == data->end()) return defaultValue;
+
+Properties::Properties(std::map<std::string, std::string>* data, bool fOwner) {
+    this->data = data;
+    this->fOwner = fOwner;
+}
+
+Properties::Properties() {
+    data = new std::map<std::string, std::string>();
+    fOwner = true;
+}
+
+Properties::~Properties() {
+    if (fOwner) {
+        delete data;
+    }
+}
+
+void Properties::setData(std::map<std::string, std::string>* data, bool fOwner) {
+    if (fOwner) {
+        delete data;
+    }
+    
+    this->data = data;
+    this->fOwner = fOwner;
+}
 
 bool Properties::hasValue(const std::string& key) {
-    auto iter = data.find(key);
-    return iter != data.end();
+    auto iter = data->find(key);
+    return iter != data->end();
 }
 
 bool Properties::set(const std::string& key, const std::string& value) {
-    auto iter = data.find(key);
-    data[key] = value;
-    return (iter == data.end());
+    auto iter = data->find(key);
+    (*data)[key] = value;
+    return (iter == data->end());
 }
 
-bool Properties::set(const std::string& key, const long long value) {
-    auto iter = data.find(key);
-    data[key] = std::to_string(value);
-    return (iter == data.end());
+bool Properties::setInt(const std::string& key, const long long value) {
+    auto iter = data->find(key);
+    (*data)[key] = std::to_string(value);
+    return (iter == data->end());
 
 }
 
-bool Properties::set(const std::string& key, const double value) {
-    auto iter = data.find(key);
-    data[key] = std::to_string(value);
-    return (iter == data.end());
+bool Properties::setDouble(const std::string& key, const double value) {
+    auto iter = data->find(key);
+    (*data)[key] = std::to_string(value);
+    return (iter == data->end());
 }
 
-bool Properties::set(const std::string& key, const bool value) {
-    auto iter = data.find(key);
-    if (value) data[key] = "1";
-    else data[key] = "0";
-    return (iter == data.end());
+bool Properties::setBool(const std::string& key, const bool value) {
+    auto iter = data->find(key);
+    if (value) (*data)[key] = "1";
+    else (*data)[key] = "0";
+    return (iter == data->end());
 }
 
 std::string Properties::get(const std::string& key, const std::string defaultValue) {
@@ -70,7 +95,7 @@ double Properties::getDouble(const std::string& key, const double defaultValue) 
 }
 
 const std::map<std::string, std::string>& Properties::getAllProperties() {
-    return data;
+    return *data;
 }
 }  // namespace util
 }  // namespace fds
