@@ -464,7 +464,7 @@ class FdsNodeConfig(FdsConfig):
                 log.info("Cleanup 0x* in: %s" % '/dev/shm')
                 self.nd_agent.exec_wait('rm -f /dev/shm/0x*')
 
-            status = self.nd_agent_exec_wait('ls ' + influxdb_data_dir )
+            status = self.nd_agent.exec_wait('ls ' + influxdb_data_dir )
             if status == 0:
                 log.info("Cleanup influx database in: %s" % influxdb_data_dir)
                 self.nd_clean_influxdb(test_harness)
