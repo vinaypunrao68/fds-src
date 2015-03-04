@@ -59,7 +59,7 @@ pid_t PlatformManager::startAM() {
     args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
     args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
     args.push_back(std::string("--fds.am.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
-    args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", nodeInfo.uuid));
+    args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", getNodeUUID(fpi::FDSP_STOR_HVISOR)));
     
     pid = fds_spawn_service("AMAgent", rootDir, args, true);
     if (pid > 0) {
@@ -78,7 +78,7 @@ pid_t PlatformManager::startDM() {
     args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
     args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
     args.push_back(std::string("--fds.dm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
-    args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", nodeInfo.uuid));
+    args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", getNodeUUID(fpi::FDSP_DATA_MGR)));
     
     pid = fds_spawn_service("DataMgr", rootDir, args, true);
 
@@ -99,7 +99,7 @@ pid_t PlatformManager::startSM() {
     args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
     args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
     args.push_back(std::string("--fds.sm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
-    args.push_back(util::strformat("--fds.sm.svc.uuid=%lld", nodeInfo.uuid));
+    args.push_back(util::strformat("--fds.sm.svc.uuid=%lld", getNodeUUID(fpi::FDSP_STOR_MGR)));
     pid = fds_spawn_service("StorMgr", rootDir, args, true);
     if (pid > 0) {
         LOGNOTIFY << "Spawn SM as daemon";
@@ -177,6 +177,12 @@ bool PlatformManager::sendNodeCapabilityToOM() {
     // do the send
 
     return true;
+}
+
+fds_int64_t PlatformManager::getNodeUUID(fpi::FDSP_MgrIdType svcType) {
+    ResourceUUID uuid;
+    uuid.uuid_set_type(nodeInfo.uuid, svcType);
+    return uuid.uuid_get_val();    
 }
 
 int PlatformManager::run() {

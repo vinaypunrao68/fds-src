@@ -45,6 +45,8 @@ class PlatformManager : public Module {
   protected:
     bool sendNodeCapabilityToOM();
 
+    fds_int64_t getNodeUUID(fpi::FDSP_MgrIdType svcType);
+
   private:
     FdsConfigAccessor    *conf;
     fpi::FDSP_AnnounceDiskCapability diskCapability;
