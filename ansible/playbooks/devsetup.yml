@@ -13,6 +13,9 @@
     - name: add redis-server ppa
       apt_repository: repo=ppa:chris-lea/redis-server state=present
 
+    - name: add artifactory repo key
+      apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
+
     - name: add fds repo
       apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main" state=present
 
