@@ -3,10 +3,11 @@
  */
 
 #include <fds_magic.h>
-#include "platform/platform.h"
+//#include "platform/platform.h"
 #include "disk_label.h"
 #include "disk_label_mgr.h"
-
+#include <fds_module_provider.h>
+#include <net/SvcMgr.h>
 namespace fds
 {
     // ------------------------------------------------------------------------------------
@@ -52,7 +53,10 @@ namespace fds
         hdr->dl_quorum_seq    = 0;
 
         fds_verify(dl_owner != NULL);
-        Platform::plf_get_my_node_uuid()->uuid_set_to_raw(hdr->dl_node_uuid);
+        // Platform::plf_get_my_node_uuid()->uuid_set_to_raw(hdr->dl_node_uuid);
+        // Note: I really did not want to do this - prem
+        *(reinterpret_cast<fds_uint64_t *>(hdr->dl_node_uuid)) = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
+
         dl_owner->rs_get_uuid().uuid_set_to_raw(hdr->dl_disk_uuid);
     }
 

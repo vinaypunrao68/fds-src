@@ -10,7 +10,8 @@
 #include <kvstore/platformdb.h>
 #include <fdsp/pm_data_types.h>
 #include <fds_typedefs.h>
-
+#include <disk_plat_module.h>
+#include <util/properties.h>
 namespace fds {
 namespace pm {
 
@@ -31,6 +32,15 @@ class PlatformManager : public Module {
 
     void determineDiskCapability();
     void activateServices(const fpi::FDSP_ActivateNodeTypePtr &msg);
+    const fpi::NodeInfo& getNodeInfo() {
+        return nodeInfo;
+    }
+
+    util::Properties& getProperties() {
+        return props;
+    }
+
+    void loadProperties();
 
   protected:
     bool sendNodeCapabilityToOM();
@@ -38,9 +48,11 @@ class PlatformManager : public Module {
   private:
     FdsConfigAccessor    *conf;
     fpi::FDSP_AnnounceDiskCapability diskCapability;
+    
     kvstore::PlatformDB *db;
     fpi::NodeInfo nodeInfo;
     std::string rootDir;
+    util::Properties props;
 };
 }  // namespace pm
 }  // namespace fds
