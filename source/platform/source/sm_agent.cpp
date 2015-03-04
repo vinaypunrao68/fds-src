@@ -17,8 +17,10 @@ namespace fds
     SmAgent::SmAgent(const NodeUuid &uuid) : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL)
     {
         node_svc_type = fpi::FDSP_STOR_MGR;
+#if 0
         sm_ep_svc     = Platform::platf_singleton()->plat_new_sm_svc(this, 0, 0);
         NetMgr::ep_mgr_singleton()->ep_register(sm_ep_svc, false);
+#endif
     }
 
     SmAgent::~SmAgent()
@@ -31,7 +33,7 @@ namespace fds
     //
     EpEvtPlugin::pointer SmAgent::agent_ep_plugin()
     {
-        return sm_ep_svc->ep_evt_plugin();
+        return nullptr;
     }
 
     // agent_ep_svc
@@ -39,7 +41,7 @@ namespace fds
     //
     SmSvcEp::pointer SmAgent::agent_ep_svc()
     {
-        return sm_ep_svc;
+        return nullptr;
     }
 
     // agent_bind_ep
@@ -47,8 +49,10 @@ namespace fds
     //
     void SmAgent::agent_bind_ep()
     {
+#if 0
         EpSvcImpl::pointer    ep = NetPlatform::nplat_singleton()->nplat_my_ep();
         NodeAgent::agent_bind_ep(ep, sm_ep_svc);
+#endif
     }
 
     // sm_handshake
@@ -56,6 +60,7 @@ namespace fds
     //
     /* virtual */ void SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net)
     {
+#if 0
         std::string                                    ip = get_ip_str();
         fds_uint32_t                                   base = node_base_port();
         Platform                                      *plat = Platform::platf_singleton();
@@ -70,11 +75,12 @@ namespace fds
 
         FDS_PLOG(g_fdslog) << "Handshake with SM: " << ip
         << ", port " << plat->plf_get_my_data_port(base) << ", sess id " << sm_sess_id;
+#endif
     }
 
     NodeAgentDpClientPtr SmAgent::get_sm_client()
     {
-        return sm_reqt;
+        return nullptr;
     }
 
     std::string SmAgent::get_sm_sess_id()
@@ -93,7 +99,9 @@ namespace fds
     void SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
                                       NodeAgent::pointer agent)
     {
+#if 0
         SmAgent::pointer    sm = agt_cast_ptr<SmAgent>(agent);
         sm->sm_handshake(net);
+#endif
     }
 }  // namespace fds

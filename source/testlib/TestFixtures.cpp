@@ -135,12 +135,15 @@ void SingleNodeTest::SetUpTestCase()
     unsigned int seed = time(NULL);
     oss << rand_r(&seed);
     volName_ = volName_ + oss.str();
+    // TODO(Rao): This code needs to be ported based on service map
+#if 0
     /* Create a volume */
     auto omCfg = MODULEPROVIDER()->get_plf_manager()->plf_om_master()->get_om_config_svc();
     apis::VolumeSettings vs;
     ASSERT_NO_THROW(omCfg->createVolume("TestDomain", volName_,
                                         SvcMsgFactory::defaultS3VolSettings(), 0));
     ASSERT_NO_THROW(volId_ = omCfg->getVolumeId(volName_));
+#endif
     if (volId_ == 0) {
         volId_ = 1;
     }

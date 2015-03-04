@@ -21,6 +21,8 @@
 #include <net/fdssocket.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 
+#define DEPRECATED_CODEPATH  "deprecated codepath"
+
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
     class TSocket;

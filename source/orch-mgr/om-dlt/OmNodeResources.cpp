@@ -1003,6 +1003,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     node_msg->has_am_service = activate_am;
     node_msg->has_om_service = false;
 
+    // TODO(Rao): Fix me
     NET_SVC_RPC_CALL(nd_eph, nd_svc_rpc, notifyNodeActive, node_msg);
     return err;
 }

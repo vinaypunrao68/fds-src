@@ -45,15 +45,6 @@ namespace fds
             virtual void node_agent_up();
             virtual void node_agent_down();
 
-            /**
-             * Return the RPC handler for services bound to the control port.
-             */
-            virtual boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
-            node_ctrl_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
-
-            virtual boost::shared_ptr<EPSvcRequest> node_om_request();
-            virtual boost::shared_ptr<EPSvcRequest> node_msg_request();
-
             virtual boost::shared_ptr<fpi::PlatNetSvcClient>
             node_svc_rpc(boost::intrusive_ptr<EpSvcHandle> *eph, int maj = 0, int min = 0);
 

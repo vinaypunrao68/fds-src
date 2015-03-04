@@ -8,6 +8,8 @@
 #include "platform/domain_container.h"
 #include "node_svc_iter.h"
 
+#define DEPRECATED_CODEPATH  "deprecated codepath"
+
 namespace fds
 {
     // --------------------------------------------------------------------------------------
@@ -92,6 +94,8 @@ namespace fds
                                            int ro, int rw,
                                            fds_uint32_t mask)
     {
+        fds_panic(DEPRECATED_CODEPATH);
+
         bool                       known_node;
         const node_data_t         *node;
         NodeAgent::pointer         tmp;

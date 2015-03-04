@@ -38,9 +38,13 @@ int  PlatformManager::mod_init(SysParams const *const param) {
     
     if (nodeInfo.uuid <= 0) {
         NodeUuid    uuid(fds_get_uuid64(get_uuid()));
+        
         nodeInfo.uuid = uuid.uuid_get_val();
+        nodeInfo.uuid = getNodeUUID(fpi::FDSP_PLATFORM);
         LOGNOTIFY << "generated a new uuid for this node : " << nodeInfo.uuid;
         db->setNodeInfo(nodeInfo);
+    } else {
+        LOGNOTIFY << "Using stored uuid for this node : " << nodeInfo.uuid;
     }
 
     determineDiskCapability();

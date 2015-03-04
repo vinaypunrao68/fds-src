@@ -23,8 +23,10 @@ namespace fds
     OmAgent::OmAgent(const NodeUuid &uuid) : NodeAgent(uuid), om_sess(NULL), om_reqt(NULL)
     {
         node_svc_type = fpi::FDSP_ORCH_MGR;
+#if 0
         om_ep_svc     = Platform::platf_singleton()->plat_new_om_svc(this, 0, 0);
         NetMgr::ep_mgr_singleton()->ep_register(om_ep_svc, false);
+#endif
     }
 
     // agent_ep_plugin
@@ -33,7 +35,7 @@ namespace fds
     EpEvtPlugin::pointer
     OmAgent::agent_ep_plugin()
     {
-        return om_ep_svc->ep_evt_plugin();
+        return nullptr;
     }
 
     // agent_ep_svc
@@ -41,7 +43,7 @@ namespace fds
     //
     OmSvcEp::pointer OmAgent::agent_ep_svc()
     {
-        return om_ep_svc;
+        return nullptr;
     }
 
     // agent_bind_ep
@@ -49,8 +51,10 @@ namespace fds
     //
     void OmAgent::agent_bind_ep()
     {
+#if 0
         EpSvcImpl::pointer    ep = NetPlatform::nplat_singleton()->nplat_my_ep();
         NodeAgent::agent_bind_ep(ep, om_ep_svc);
+#endif
     }
 
     // init_msg_hdr
@@ -102,6 +106,8 @@ namespace fds
     /* virtual */ void OmAgent::om_handshake(boost::shared_ptr<netSessionTbl> net,
                                              std::string om_ip, fds_uint32_t om_port)
     {
+        fds_panic(DEPRECATED_CODEPATH);
+#if 0
         boost::shared_ptr<fpi::FDSP_OMControlPathRespIf>    resp;
 
         om_sess =
@@ -109,6 +115,7 @@ namespace fds
                                                              1 /* just 1 channel for now */, resp);
         om_reqt    = om_sess->getClient();
         om_sess_id = om_sess->getSessionId();
+#endif
     }
 
     // get_om_config_svc
@@ -118,6 +125,7 @@ namespace fds
     // Now it returns thrift client directly
     boost::shared_ptr<apis::ConfigurationServiceClient> OmAgent::get_om_config_svc()
     {
+#if 0
         using namespace apache::thrift;  // NOLINT
         using namespace apache::thrift::protocol; // NOLINT
         using namespace apache::thrift::transport; // NOLINT
@@ -133,5 +141,7 @@ namespace fds
             transport->open();
         }
         return om_cfg_svc;
+#endif
+    return nullptr;
     }
 }  // namespace fds

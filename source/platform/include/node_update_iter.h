@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "platform/node_agent_iter.h"
-
+#define DEPRECATED_CODEPATH  "deprecated codepath"
 namespace fds
 {
     class NodeUpdateIter : public NodeAgentIter
@@ -18,6 +18,8 @@ namespace fds
 
             bool rs_iter_fn(Resource::pointer curr)
             {
+                fds_panic(DEPRECATED_CODEPATH);
+
                 DomainAgent::pointer             agent;
                 EpSvcHandle::pointer             eph;
                 std::vector<fpi::NodeInfoMsg>    ret;
@@ -39,6 +41,8 @@ namespace fds
             static void node_reg_update(NodeUpdateIter::pointer itr,
                                         bo::shared_ptr<fpi::NodeInfoMsg> &info)
             {
+                fds_panic(DEPRECATED_CODEPATH);
+
                 itr->nd_reg_msg = info;
                 itr->foreach_pm();
             }

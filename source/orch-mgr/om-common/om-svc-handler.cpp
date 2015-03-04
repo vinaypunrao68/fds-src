@@ -224,7 +224,7 @@ void OmSvcHandler::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     LOGDEBUG << "Register service request. Svcinfo: " << fds::logString(*svcInfo);
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     Error err = domain->om_register_service(svcInfo);
-    if (err) {
+    if (!err.ok()) {
         LOGERROR << logString(*svcInfo) << err;
         throw fpi::OmRegisterException();
     }

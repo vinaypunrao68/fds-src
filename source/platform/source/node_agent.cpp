@@ -63,7 +63,6 @@ namespace fds
     //
     void NodeAgent::agent_bind_ep(EpSvcImpl::pointer ep, EpSvc::pointer svc)
     {
-        ep->ep_bind_service(svc);
     }
 
     // agent_publish_ep
@@ -71,6 +70,7 @@ namespace fds
     //
     void NodeAgent::agent_publish_ep()
     {
+#if 0
         int             port;
         NodeUuid        uuid;
         std::string     ip;
@@ -82,6 +82,7 @@ namespace fds
         << ", obj " << this << ", svc type " << node_svc_type
         << ", idx " << node_ro_idx << ", rw idx " << node_rw_idx
         << ", ip " << ip << ":" << std::dec << port;
+#endif
     }
 
 // DJN
@@ -91,6 +92,7 @@ namespace fds
     //
     void NodeAgent::node_agent_up()
     {
+#if 0
         if (nd_eph == NULL)
         {
             auto    rpc = node_svc_rpc(&nd_eph);
@@ -100,6 +102,7 @@ namespace fds
         {
             auto    rpc = node_ctrl_rpc(&nd_ctrl_eph);
         }
+#endif
     }
 
     // node_agent_down
@@ -109,41 +112,10 @@ namespace fds
     void
     NodeAgent::node_agent_down()
     {
+#if 0
         nd_eph      = NULL;
         nd_ctrl_eph = NULL;
-    }
-
-    // node_ctrl_rpc
-    // -------------
-    //
-    boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgent::node_ctrl_rpc(
-        EpSvcHandle::pointer *handle)
-    {
-        NetMgr                 *net;
-        fpi::SvcUuid            peer;
-        EpSvcHandle::pointer    eph;
-
-        if (nd_ctrl_eph != NULL)
-        {
-            goto out;
-        }
-
-        peer.svc_uuid = rs_uuid.uuid_get_val();
-        net = NetMgr::ep_mgr_singleton();
-        eph = net->svc_get_handle<fpi::FDSP_ControlPathReqClient>(peer, 0, NET_SVC_CTRL);
-
-        /* TODO(Vy): wire up the common event plugin to handle error. */
-        if (eph != NULL)
-        {
-            nd_ctrl_eph = eph;
-            out:
-            *handle     = nd_ctrl_eph;
-            nd_ctrl_rpc = nd_ctrl_eph->svc_rpc<fpi::FDSP_ControlPathReqClient>();
-            fds_verify(nd_ctrl_rpc != NULL);
-            return nd_ctrl_rpc;
-        }
-        *handle = NULL;
-        return NULL;
+#endif
     }
 
     // agent_rpc
@@ -153,6 +125,8 @@ namespace fds
                                                                      int maj,
                                                                      int min)
     {
+        fds_panic(DEPRECATED_CODEPATH);
+
         NetMgr                 *net;
         fpi::SvcUuid            peer;
         EpSvcHandle::pointer    eph;
@@ -177,29 +151,6 @@ namespace fds
         }
         *handle = NULL;
         return NULL;
-    }
-
-
-    // node_om_request
-    // ---------------
-    //
-    boost::shared_ptr<EPSvcRequest> NodeAgent::node_om_request()
-    {
-        fpi::SvcUuid    om_uuid;
-
-        gl_OmUuid.uuid_assign(&om_uuid);
-        return gSvcRequestPool->newEPSvcRequest(om_uuid);
-    }
-
-    // node_msg_request
-    // ----------------
-    //
-    boost::shared_ptr<EPSvcRequest> NodeAgent::node_msg_request()
-    {
-        fpi::SvcUuid    uuid;
-
-        rs_uuid.uuid_assign(&uuid);
-        return gSvcRequestPool->newEPSvcRequest(uuid);
     }
 
     // Debug operator
