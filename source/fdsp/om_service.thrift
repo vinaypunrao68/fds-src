@@ -7,6 +7,7 @@ include "FDSP.thrift"
 include "fds_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol.om
 
 struct CtrlCreateBucket {
      1: FDSP.FDSP_CreateVolType       cv;
