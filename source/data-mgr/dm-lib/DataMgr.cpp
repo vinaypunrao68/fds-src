@@ -14,37 +14,6 @@
 
 namespace fds {
 
-Error
-DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
-                            const FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
-                            const std::string& session_uuid) {
-    Error err(ERR_OK);
-    OMgrClient* om_client = dataMgr->omClient;
-    LOGNORMAL << "Received volume catalog action request " << catalog_action;
-    if (catalog_action == fds_catalog_push_meta) {
-        if (dataMgr->feature.isCatSyncEnabled()) {
-            err = dataMgr->catSyncMgr->startCatalogSync(
-                push_meta->metaVol, om_client, session_uuid);
-        } else {
-            LOGWARN << "catalog sync feature - NOT enabled";
-        }
-    } else if (catalog_action == fds_catalog_dmt_commit) {
-        fds_panic("We moved to new service layer, must not be called!");
-        // this will ignore this msg if catalog sync is not in progress
-        if (dataMgr->feature.isCatSyncEnabled()) {
-            err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid, NULL);
-        } else {
-            LOGWARN << "catalog sync feature - NOT enabled";
-        }
-    } else if (catalog_action == fds_catalog_dmt_close) {
-        // will finish forwarding when all queued updates are processed
-        err = dataMgr->notifyDMTClose();
-    } else {
-        fds_assert(!"Unknown catalog command");
-    }
-    return err;
-}
-
 /**
  * Receiver DM processing of volume sync state.
  * @param[in] fdw_complete false if rsync is completed = start processing
@@ -1090,12 +1059,6 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
     return result;
 }
 
-DataMgr::ReqHandler::ReqHandler() {
-}
-
-DataMgr::ReqHandler::~ReqHandler() {
-}
-
 /**
  * Checks the current DMT to determine if this DM primary
  * or not for a given volume.
@@ -1109,43 +1072,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
         return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
     }
     return false;
-}
-
-void
-DataMgr::ReqHandler::StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
-                                 boost::shared_ptr<std::string> &volumeName,
-                                 boost::shared_ptr<std::string> &blobName,
-                                 FDS_ProtocolInterface::TxDescriptorPtr &txDesc) {
-    GLOGDEBUG << "Received start blob transction request for volume "
-              << *volumeName << " and blob " << *blobName;
-    fds_panic("must not get here");
-}
-
-void
-DataMgr::ReqHandler::StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
-                              boost::shared_ptr<std::string> &volumeName,
-                              boost::shared_ptr<std::string> &blobName) {
-    GLOGDEBUG << "Received stat blob requested for volume "
-              << *volumeName << " and blob " << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
-                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                              FDS_ProtocolInterface::
-                                              FDSP_UpdateCatalogTypePtr
-                                              &update_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
-                                             FDSP_MsgHdrTypePtr &msg_hdr,
-                                             FDS_ProtocolInterface::
-                                             FDSP_QueryCatalogTypePtr
-                                             &query_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
 }
 
 /**
@@ -1300,46 +1226,6 @@ DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
     DBG(GLOGDEBUG << "Expunge cb called");
     DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
     dltMgr->decDLTRefcnt(dltVersion);
-}
-
-void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
-                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                              FDS_ProtocolInterface::
-                                              FDSP_DeleteCatalogTypePtr
-                                              &delete_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& msgHeader,
-                                          boost::shared_ptr<std::string>& volumeName,
-                                          boost::shared_ptr<std::string>& blobName,
-                                          boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
-    GLOGDEBUG << " Set metadata for volume:" << *volumeName
-              << " blob:" << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& msgHeader,
-                                          boost::shared_ptr<std::string>& volumeName,
-                                          boost::shared_ptr<std::string>& blobName) {
-    GLOGDEBUG << " volume:" << *volumeName
-              << " blob:" << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
-                                            boost::shared_ptr<std::string>& volumeName) {
-    Error err(ERR_OK);
-    GLOGDEBUG << " volume:" << *volumeName << " txnid:" << header->req_cookie;
-
-    dmCatReq* request = new dmCatReq(header->glob_volume_id,
-                                     "",
-                                     header->session_uuid,
-                                     blob_version_invalid,
-                                     FDS_GET_VOLUME_METADATA);
-    err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
-    fds_verify(err == ERR_OK);
 }
 
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)

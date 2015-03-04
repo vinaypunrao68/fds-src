@@ -9,6 +9,7 @@ include "snapshot.thrift"
 include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol.dm
 
 /**
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
@@ -86,6 +87,26 @@ struct CreateVolumeCloneMsg {
 
 struct CreateVolumeCloneRespMsg {
      1:i64 cloneId
+}
+
+/* --------------------- CtrlMigrateMeta -------------------------------------*/
+
+typedef list<i64> vol_List_Type
+/* meta data  structure list of Volumes and  destination nodes */
+struct FDSP_metaData
+{
+    /* Object Metadata */
+    1: vol_List_Type  volList;
+    2: common.SvcUuid  node_uuid,
+}
+
+typedef list<FDSP_metaData> FDSP_metaDataList
+
+/* DM meta data migration request sent to source DM */
+struct CtrlDMMigrateMeta
+{
+     /* meta data */
+     2: FDSP_metaDataList          metaVol;
 }
 
 /* ---------------------  CtrlNotifyDMTCloseTypeId  ---------------------------- */

@@ -22,7 +22,7 @@ namespace fds
 
     NodeAgent::NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid), nd_eph(NULL),
                                                  nd_ctrl_eph(NULL), nd_svc_rpc(NULL),
-                                                 nd_ctrl_rpc(NULL), pm_wrk_item(NULL)
+                                                 pm_wrk_item(NULL)
     {
     }
 
@@ -95,11 +95,6 @@ namespace fds
         {
             auto    rpc = node_svc_rpc(&nd_eph);
         }
-
-        if (nd_ctrl_eph == NULL)
-        {
-            auto    rpc = node_ctrl_rpc(&nd_ctrl_eph);
-        }
     }
 
     // node_agent_down
@@ -111,39 +106,6 @@ namespace fds
     {
         nd_eph      = NULL;
         nd_ctrl_eph = NULL;
-    }
-
-    // node_ctrl_rpc
-    // -------------
-    //
-    boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgent::node_ctrl_rpc(
-        EpSvcHandle::pointer *handle)
-    {
-        NetMgr                 *net;
-        fpi::SvcUuid            peer;
-        EpSvcHandle::pointer    eph;
-
-        if (nd_ctrl_eph != NULL)
-        {
-            goto out;
-        }
-
-        peer.svc_uuid = rs_uuid.uuid_get_val();
-        net = NetMgr::ep_mgr_singleton();
-        eph = net->svc_get_handle<fpi::FDSP_ControlPathReqClient>(peer, 0, NET_SVC_CTRL);
-
-        /* TODO(Vy): wire up the common event plugin to handle error. */
-        if (eph != NULL)
-        {
-            nd_ctrl_eph = eph;
-            out:
-            *handle     = nd_ctrl_eph;
-            nd_ctrl_rpc = nd_ctrl_eph->svc_rpc<fpi::FDSP_ControlPathReqClient>();
-            fds_verify(nd_ctrl_rpc != NULL);
-            return nd_ctrl_rpc;
-        }
-        *handle = NULL;
-        return NULL;
     }
 
     // agent_rpc

@@ -23,7 +23,7 @@ build do
 
     mkdir "#{install_dir}/lib/python2.7/dist-packages/fdslib"
     copy "#{fds_src_dir}/source/platform/python/disk_type.py", "#{install_dir}/lib/python2.7/dist-packages"
-    copy "#{fds_src_dir}/source/test/fdslib/*.py", "#{install_dir}/lib/python2.7/dist-packages/fdslib"
+    sync "#{fds_src_dir}/source/test/fdslib", "#{install_dir}/lib/python2.7/dist-packages/fdslib", exclude: "*.pyc"
 
     mkdir "#{install_dir}/sbin"
     copy "#{fds_src_dir}/source/tools/redis.sh", "#{install_dir}/sbin"

@@ -12,7 +12,6 @@
 #include <utility>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_DataPathReq.h"
 #include "fds_types.h"
 #include "ObjectId.h"
 #include "util/Log.h"
@@ -51,33 +50,16 @@
 #define FDS_MAX_WAITING_CONNS  10
 
 using namespace FDS_ProtocolInterface;  // NOLINT
-namespace FDS_ProtocolInterface {
-    class FDSP_DataPathReqProcessor;
-    class FDSP_DataPathReqIf;
-    class FDSP_DataPathRespClient;
-}
-typedef netServerSessionEx<FDSP_DataPathReqProcessor,
-                FDSP_DataPathReqIf,
-                FDSP_DataPathRespClient> netDataPathServerSession;
 
 namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
-
-using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
-using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
-
 
 /* File names for storing DLT and UUID.  Mainly used by smchk to
  * determine proper token ownership.
  */
 const std::string DLTFileName = "/currentDLT";
 const std::string UUIDFileName = "/uuidDLT";
-
-/*
- * Forward declarations
- */
-class ObjectStorMgrI;
 
 class ObjectStorMgr : public Module, public SmIoReqHandler {
     public:
@@ -196,10 +178,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      inline fds_uint32_t getSysTaskPri() {
          return FdsSysTaskPri;
      }
-
-
-    protected:
-     void setup_migration_svc(const std::string &obj_dir);
 
   public:
     SmQosCtrl  *qosCtrl;
@@ -355,65 +333,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          ret << " ObjectStorMgr";
          return ret.str();
      }
-     /*
-      * Declare the FDSP interface class as a friend so it can access
-      * the internal request tracking members.
-      * TODO: Make this a nested class instead. No reason to make it
-      * a separate class.
-      */
-     friend ObjectStorMgrI;
+
      friend class SmLoadProc;
      friend class SMSvcHandler;
-};
-
-class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
-    public:
-     ObjectStorMgrI();
-     ~ObjectStorMgrI();
-     void GetObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                    boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
-
-     void PutObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                    boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
-
-     void DeleteObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                       boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
-
-     void OffsetWriteObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                            boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req);
-
-     void RedirReadObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                          boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req);
-
-     void GetObjectMetadata(boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req);
-
-     void GetObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void PutObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void DeleteObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void OffsetWriteObject(const FDSP_MsgHdrType&, const FDSP_OffsetWriteObjType&) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void RedirReadObject(const FDSP_MsgHdrType&, const FDSP_RedirReadObjType&) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void GetObjectMetadata(const FDSP_GetObjMetadataReq& metadata_req) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-
-     /* user defined methods */
-     void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-                                 const FDSP_MsgHdrType& fdsp_msg) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-
-     void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-                                 boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
 };
 
 }  // namespace fds

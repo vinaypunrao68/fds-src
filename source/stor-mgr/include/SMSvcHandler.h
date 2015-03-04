@@ -156,6 +156,14 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     */
     void NotifyDMTUpdate(boost::shared_ptr <fpi::AsyncHdr> &hdr,
             boost::shared_ptr <fpi::CtrlNotifyDMTUpdate> &dmt);
+
+    /**
+     * Handlers for smcheck
+     */
+    void NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                       boost::shared_ptr<fpi::CtrlNotifySMCheck>& msg);
+    void querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                            boost::shared_ptr<fpi::CtrlNotifySMCheckStatus>& msg);
 };
 
 }  // namespace fds

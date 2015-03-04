@@ -28,7 +28,6 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
       ctrl_port_num(0),
       test_mode(false),
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-      cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
       cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
       snapshotMgr(this), deleteScheduler(this)
 {

@@ -11,8 +11,6 @@ user_thrift      := \
 	fds_service.thrift \
 	snapshot.thrift \
 	pm_service.thrift \
-	pm_data.thrift \
-	am_service.thrift \
 	dm_service.thrift \
 	om_service.thrift \
 	sm_service.thrift \

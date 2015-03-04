@@ -8,6 +8,7 @@ include "FDSP.thrift"
 include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol.sm
 
 /**
  * SM Service.  Only put sync rpc calls in here.  Async RPC calls use
@@ -57,9 +58,6 @@ enum ObjectMetaDataReconcileFlags {
     OBJ_METADATA_OVERWRITE    = 2
 }
 
-struct FDSP_ScavengerType {
-  1: FDSP_ScavengerCmd  cmd
-}
 
 /* ----------------------  CtrlStartMigration --------------------------- */
 struct FDSP_DLT_Data_Type {
@@ -197,9 +195,6 @@ struct CtrlNotifyMigrationStatus {
    1: FDSP.FDSP_MigrationStatusType   status;
 }
 
-struct CtrlNotifyScavenger {
-     1: FDSP_ScavengerType   scavenger;
-}
 
 struct CtrlNotifySMStartMigration {
    1: list<SMTokenMigrationGroup> migrations;
@@ -256,6 +251,16 @@ struct CtrlObjectRebalanceFilterSet
     6: list<CtrlObjectMetaDataSync> objectsToFilter
 }
 
+/* ----------------------- Scavenger --------------------------------------------- */
+
+struct FDSP_ScavengerType {
+  1: FDSP_ScavengerCmd  cmd
+}
+
+struct CtrlNotifyScavenger {
+     1: FDSP_ScavengerType   scavenger;
+}
+
 struct CtrlQueryScavengerPolicy {
 }
 
@@ -307,6 +312,35 @@ struct CtrlSetScrubberStatus {
 
 struct CtrlSetScrubberStatusResp {
 }
+
+/* ---------------------  SMCheck --------------------------------- */
+/* command to enable/disable, start/stop smcheck */
+enum SMCheckCmd {
+    SMCHECK_DISABLE     = 0,
+    SMCHECK_ENABLE      = 1,    
+    SMCHECK_START       = 2,
+    SMCHECK_STOP        = 3
+}
+
+/* bitmap flag of curent SMCheck status */
+enum SMCheckStatusType {
+    SMCHECK_STATUS_DISABLED  = 0x00,
+    SMCHECK_STATUS_ENABLED   = 0x01,
+    SMCHECK_STATUS_STARTED   = 0x10,
+    SMCHECK_STATUS_STOPPED   = 0x20,
+}
+
+struct CtrlNotifySMCheck {
+    1: SMCheckCmd SmCheckCmd;
+}
+
+struct CtrlNotifySMCheckStatus {
+}
+
+struct CtrlNotifySMCheckStatusResp {
+    1: SMCheckStatusType SmCheckStatus;
+}
+
 
 /* ---------------------  CtrlNotifySMAbortMigrationTypeId  ---------------------------- */
 struct CtrlNotifySMAbortMigration {

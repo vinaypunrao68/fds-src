@@ -133,7 +133,7 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
                               SmIoSnapshotObjectDB* snapReq) {
     Error err(ERR_OK);
     std::string snapDir;
-
+    leveldb::CopyEnv *env = nullptr;
     /**
      * Snapshots will be stored in
      * /fds/user-repo/sm-snapshots/<token_id><dlt_vers><snapshot# of SM token>
@@ -146,8 +146,8 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
                snapReq->snapNum;
 
     LOGDEBUG << "snapshot location " << snapDir << "snapNum" << snapReq->snapNum;
-    err = metaDb_->snapshot(smTokId, snapDir);
-    notifFn(err, snapReq, snapDir);
+    err = metaDb_->snapshot(smTokId, snapDir, &env);
+    notifFn(err, snapReq, snapDir, env);
 }
 
 }  // namespace fds

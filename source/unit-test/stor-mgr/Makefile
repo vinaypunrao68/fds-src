@@ -5,8 +5,7 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-qos-lib \
-    fds-am-engine \
-    smchk
+    fds-am-engine 
 
 user_cpp          := \
     object_store_unit_test.cpp \

@@ -9,6 +9,7 @@ include "dm_service.thrift"
 include "sm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol.am
 
 /**
  * AM Service.  Only put sync rpc calls in here.  Async RPC calls use

@@ -26,6 +26,7 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTClose, NotifyDMTClose);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDMMigrateMeta, StartDMMetaMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyDMAbortMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownMODMsg, shutdownDM);
 }
@@ -284,6 +285,39 @@ DMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr
 }
 
 void
+DMSvcHandler::StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                                   boost::shared_ptr<fpi::CtrlDMMigrateMeta>   &migrMsg)
+{
+    Error err(ERR_OK);
+    LOGNOTIFY << "Will start meta migration";
+
+    // see if DM sync feature is enabled
+    if (dataMgr->feature.isCatSyncEnabled()) {
+        err = dataMgr->catSyncMgr->startCatalogSync(migrMsg->metaVol,
+                                                         std::bind(
+                                                             &DMSvcHandler::StartDMMetaMigrationCb,
+                                                             this, hdr,
+                                                             std::placeholders::_1));
+    } else {
+        LOGWARN << "catalog sync feature NOT enabled -- not going to migrate volume meta";
+        // ok we just respond...
+        StartDMMetaMigrationCb(hdr, err);
+        return;
+    }
+    if (!err.ok()) {
+        StartDMMetaMigrationCb(hdr, err);
+    }
+}
+
+void DMSvcHandler::StartDMMetaMigrationCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                          const Error &err)
+{
+    LOGDEBUG << "Sending async DM meta migration ack " << err;
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+}
+
+void
 DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &dmt)
 {
@@ -299,8 +333,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     // see if DM sync feature is enabled
     if (dataMgr->feature.isCatSyncEnabled()) {
-        err = dataMgr->catSyncMgr->startCatalogSyncDelta("",
-                                                         std::bind(
+        err = dataMgr->catSyncMgr->startCatalogSyncDelta(std::bind(
                                                              &DMSvcHandler::NotifyDMTUpdateCb,
                                                              this, hdr,
                                                              std::placeholders::_1));
@@ -336,7 +369,8 @@ DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     dataMgr->sendDmtCloseCb = std::bind(&DMSvcHandler::NotifyDMTCloseCb, this,
             hdr, dmtClose, std::placeholders::_1);
-    err = dataMgr->volcat_evt_handler(fds_catalog_dmt_close, FDSP_PushMetaPtr(), "0");
+    // will finish forwarding when all queued updates are processed
+    err = dataMgr->notifyDMTClose();
 
     if (!err.ok()) {
         LOGERROR << "DMT Close, volume meta may not be synced properly";

@@ -66,7 +66,8 @@ class ObjectDB {
                    ObjectBuf& obj_buf);
     fds::Error Delete(const ObjectID& obj_id);
 
-    fds::Error PersistentSnap(const std::string& fileName);
+    fds::Error PersistentSnap(const std::string& fileName,
+                              leveldb::CopyEnv **env);
 
     void PrintHistoAll() {
       std::cout << "Microseconds per op:" << std::endl

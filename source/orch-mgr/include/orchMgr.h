@@ -15,7 +15,6 @@
 #include <fds_process.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_OMControlPathReq.h>
-#include <fdsp/FDSP_ControlPathResp.h>
 #include <fdsp/sm_service_types.h>
 #include <fds_typedefs.h>
 #include <util/Log.h>
@@ -40,7 +39,6 @@ namespace FDS_ProtocolInterface {
     class FDSP_OMControlPathReqIf;
     class FDSP_OMControlPathRespClient;
     class FDSP_OMControlPathReqIf;
-    class FDSP_ControlPathRespIf;
     class FDSP_ConfigPathReqProcessor;
     class FDSP_ConfigPathReqIf;
     class FDSP_ConfigPathRespClient;
@@ -68,7 +66,6 @@ class OrchMgr: public SvcProcess {
     boost::shared_ptr<netSessionTbl> omcp_session_tbl;
     netOMControlPathServerSession *omc_server_session;
     boost::shared_ptr<fpi::FDSP_OMControlPathReqIf> omcp_req_handler;
-    boost::shared_ptr<fpi::FDSP_ControlPathRespIf> cp_resp_handler;
     std::string my_node_name;
 
     /* net session tbl for OM config path server */
@@ -304,36 +301,6 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
         void migrationDone(
                 boost::shared_ptr<fpi::AsyncHdr>& hdr,
                 boost::shared_ptr<fpi::CtrlNotifyMigrationStatus>& status);
-
-  private:
-        OrchMgr* orchMgr;
-};
-
-/* control response handler*/
-class FDSP_ControlPathRespHandler : virtual public fpi::FDSP_ControlPathRespIf {
-  public:
-        explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
-
-        void NotifyDMTCloseResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
-        void NotifyDMTCloseResp(
-            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
-
-        void PushMetaDMTResp(
-            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp);
-        void PushMetaDMTResp(
-            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp);
-
-        void NotifyDMTUpdateResp(
-            const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
-        void NotifyDMTUpdateResp(
-            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
 
   private:
         OrchMgr* orchMgr;

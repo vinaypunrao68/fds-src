@@ -10,9 +10,8 @@ import time
 import logging
 import os
 import os.path
-import glob
-import shutil
 import FdsSetup as inst
+import socket
 
 ###
 # Base config class, which is key/value dictionary.
@@ -55,10 +54,28 @@ class FdsNodeConfig(FdsConfig):
             log.error("Missing ip keyword in the node section %s." % self.nd_conf_dict['node-name'])
             sys.exit(1)
         else:
-            if (self.nd_conf_dict['ip'] == 'localhost') or (self.nd_conf_dict['ip'] == '127.0.0.1'):
+            ipad = socket.gethostbyname(self.nd_conf_dict['ip'])
+            if ipad.count('.') == 4:
+                hostName = socket.gethostbyaddr(ipad)[0]
+            else:
+                hostName = self.nd_conf_dict['ip']
+
+            if (hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1'):
                 self.nd_local = True
             else:
+                # With a remote installation we will assume a package install using Ansible.
                 self.nd_local = False
+
+                # In this case, the deployment scripts always sets "/fds" as fds_root
+                # regardless of test configuration.
+                self.nd_conf_dict['fds_root'] = '/fds'
+
+                # Additionally, the deployment scripts always sets the node's base port as 7000
+                # regardless of test configuration.
+                self.nd_conf_dict['fds_port'] = '7000'
+
+                # Additionally, we currently always need to boot Redis for a non-local node.
+                self.nd_conf_dict['redis'] = 'true'
 
     ###
     # Establish ssh connection with the remote node.  After this call, the obj
@@ -89,30 +106,57 @@ class FdsNodeConfig(FdsConfig):
 
         root = self.nd_conf_dict['fds_root']
 
+        # Create the "node agent", the object used to execute shell commands on the node.
+        if env.env_test_harness:
+            if self.nd_local:
+                self.nd_agent = inst.FdsLocalEnv(root, verbose=self.nd_verbose, install=env.env_install,
+                                                 test_harness=env.env_test_harness)
+            else:
+                self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
+
+            # Set the default user ID from the Environment.
+            self.nd_agent.env_user = env.env_user
+            self.nd_agent.env_password = env.env_password
+            self.nd_agent.env_sudo_password = env.env_sudo_password
+
+            # Pick up anything configured for the node.
+            if 'user_name' in self.nd_conf_dict:
+                self.nd_agent.env_user = self.nd_conf_dict['user_name']
+
+            if 'password' in self.nd_conf_dict:
+                self.nd_agent.env_password = self.nd_conf_dict['password']
+
+            if 'sudo_password' in self.nd_conf_dict:
+                self.nd_agent.env_sudo_password = self.nd_conf_dict['sudo_password']
+        else:
+            self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
+
+            self.nd_agent.env_user = env.env_user
+            self.nd_agent.env_password = env.env_password
+
         # At this time, only Test Harness usage will treat localhost
         # connectivity locally. This is to satisfy Jenkins/Docker
         # usages. Otherwise, all hosts, localhost or otherwise, are
         # treated remotely with SSH connectivity.
         if self.nd_local and env.env_test_harness:
-            self.nd_agent = inst.FdsLocalEnv(root, verbose=self.nd_verbose, install=env.env_install,
-                                             test_harness=env.env_test_harness)
-            self.nd_agent.env_user     = env.env_user
-            self.nd_agent.env_password = env.env_password
-            self.nd_agent.env_sudo_password = env.env_sudo_password
             if not quiet:
-                log.info("Making local connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
-            self.nd_agent.local_connect()
+                log.info("Making local connection to %s/%s as user %s." %
+                         (self.nd_host, self.nd_conf_dict['node-name'], self.nd_agent.env_user))
+
+            self.nd_agent.local_connect(user=self.nd_agent.env_user, passwd=self.nd_agent.env_password,
+                                        sudo_passwd=self.nd_agent.env_sudo_password)
         else:
-            self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
-            self.nd_agent.env_user     = env.env_user
-            self.nd_agent.env_password = env.env_password
             if not quiet:
                 if env.env_test_harness:
-                    log.info("Making ssh connection to %s as %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+                    log.info("Making remote ssh connection to %s/%s as user %s." %
+                             (self.nd_host, self.nd_conf_dict['node-name'], self.nd_agent.env_user))
                 else:
                     print("Making ssh connection to %s as %s." % (self.nd_host, self.nd_conf_dict['node-name']))
 
-            self.nd_agent.ssh_connect(self.nd_host)
+            if env.env_test_harness:
+                self.nd_agent.ssh_connect(self.nd_host, user=self.nd_agent.env_user, passwd=self.nd_agent.env_password)
+            else:
+                self.nd_agent.ssh_connect(self.nd_host)
 
     ###
     # Install the tar ball package at local location to the remote node.
@@ -165,12 +209,12 @@ class FdsNodeConfig(FdsConfig):
 
             print "\nStart OM in", self.nd_host_name()
 
+            self.nd_start_influxdb();
+
             if test_harness:
-                cur_dir = os.getcwd()
-                os.chdir(bin_dir)
                 status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
-                                                 (fds_dir, log_dir if self.nd_agent.env_install else "."))
-                os.chdir(cur_dir)
+                                                 (fds_dir, log_dir),
+                                                 fds_bin=True)
             else:
                 status = self.nd_agent.ssh_exec_fds(
                     "orchMgr --fds-root=%s > %s/om.out" % (fds_dir, log_dir))
@@ -180,6 +224,46 @@ class FdsNodeConfig(FdsConfig):
             log.warn("Attempting to start OM on node %s which is not configured to host OM." % self.nd_host_name())
             status = -1
 
+        return status
+
+    def nd_start_influxdb(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+        log.info("Starting InfluxDB")
+        print "\nStart influxdb on", self.nd_host_name()
+
+        ## check if influx is running on the node.  If not, start it
+        pidstat = self.nd_agent.exec_wait('pgrep -f influxdb', output=False)
+        if pidstat == 1:
+            status = self.nd_agent.exec_wait('service influxdb start')
+        else:
+            print "\nInfluxDB is already running."
+            status = 0
+        return status
+
+    def nd_stop_influxdb(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+        log.info("Stopping InfluxDB")
+        status = self.nd_agent.exec_wait('service influxdb stop')
+        return status
+
+    def nd_status_influxdb(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+        log.info("Checking InfluxDB")
+        status = self.nd_agent.exec_wait('service influxdb status')
+        return status
+
+    def nd_clean_influxdb(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+
+        fds_dir = self.nd_conf_dict['fds_root']
+        var_dir = fds_dir + '/var'
+
+        ## todo: read from influx config file or change if we put under /fds/var/db etc
+        influxdb_data_dir = "/opt/influxdb/shared/data/db"
+
+        log.info("Cleaning InfluxDB")
+        status = self.nd_agent.exec_wait('service influxdb stop')
+        self.nd_agent.exec_wait('rm -rf '  + influxdb_data_dir)
         return status
 
     ###
@@ -214,12 +298,10 @@ class FdsNodeConfig(FdsConfig):
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
         if test_harness:
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
             status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.%s.out 2>&1 &) \"' %
-                                            (fds_dir, log_dir if self.nd_agent.env_install else ".",
-                                             port))
-            os.chdir(cur_dir)
+                                            #(bin_dir, fds_dir, log_dir if self.nd_agent.env_install else ".",
+                                            (fds_dir, log_dir, port),
+                                             fds_bin=True)
         else:
             self.nd_agent.exec_wait('bash -c \"(rm -rf /dev/shm/0x*)\"')
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
@@ -233,7 +315,7 @@ class FdsNodeConfig(FdsConfig):
     ###
     # Capture the node's assigned name and UUID.
     #
-    def nd_populate_metadata(self, _bin_dir=None):
+    def nd_populate_metadata(self, om_node):
         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
 
         if 'fds_port' in self.nd_conf_dict:
@@ -241,38 +323,41 @@ class FdsNodeConfig(FdsConfig):
         else:
             port = 7000  # PM default.
 
-        fds_dir = self.nd_conf_dict['fds_root']
-
-        if _bin_dir is None:
-            bin_dir = fds_dir + '/bin'
-        else:
-            bin_dir = _bin_dir
+        fds_dir = om_node.nd_conf_dict['fds_root']
 
         # From the --list-services output we can determine node name
         # and node UUID.
-        cur_dir = os.getcwd()
-        os.chdir(bin_dir)
-        status, stdout = self.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root=%s --list-services) \"' % (fds_dir),
-                                                 return_stdin=True)
-        os.chdir(cur_dir)
+        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root=%s --list-services) \"' % (fds_dir),
+                                                 return_stdin=True,
+                                                 fds_bin=True)
 
         if status == 0:
             for line in stdout.split('\n'):
                 if line.count("Node UUID") > 0:
-                    uuid = line.split()[2]
+                    assigned_uuid = line.split()[2]
                 if line.count("Name") > 0:
                     assigned_name = line.split()[1]
+                if line.count("IPv4") > 0:
+                    ipad = line.split()[1]
+                    hostName = socket.gethostbyaddr(ipad)[0]
+                    ourIP = (ipad == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
                 if line.count("Control") > 0:
-                    if int(line.split()[2]) - 1 == int(port):
+                    if ourIP and (int(line.split()[2]) - 1 == int(port)):
                         self.nd_assigned_name = assigned_name
-                        self.nd_uuid = uuid
+                        self.nd_uuid = assigned_uuid
                         break
 
-            log.debug("Node %s has assigned name %s and UUID 0x%s." %
-                      (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
+            if (self.nd_assigned_name is None) or (self.nd_uuid is None):
+                log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
+                log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
+                log.error("Results from service list:\n%s." % stdout)
+                status = -1
+            else:
+                log.debug("Node %s has assigned name %s and UUID 0x%s." %
+                          (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
         else:
             log.error("status = %s" % status)
-            log.error(stdout)
+            log.error("Results from service list:\n%s." % stdout)
 
         return status
 
@@ -321,6 +406,9 @@ class FdsNodeConfig(FdsConfig):
         dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
 
+        ## note: needs to change if we move influx data under /fds/var/db
+        influxdb_data_dir = '/opt/influxdb/shared/data/db'
+
         if test_harness:
             log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
 
@@ -331,65 +419,56 @@ class FdsNodeConfig(FdsConfig):
             dev_dir = fds_dir + '/dev'
             var_dir = fds_dir + '/var'
 
-            cur_dir = os.getcwd()
-
-            if os.path.exists(bin_dir):
+            status = self.nd_agent.exec_wait('ls ' + bin_dir)
+            if status == 0:
                 log.info("Cleanup cores in: %s" % bin_dir)
-                os.chdir(bin_dir)
-                if os.path.exists("core"):
-                    os.remove("core")
+                self.nd_agent.exec_wait('rm -f ' + bin_dir + '/core')
+                self.nd_agent.exec_wait('rm -f ' + bin_dir + '/*.core')
 
-                files = glob.glob("*.core")
-                for filename in files:
-                    os.remove(filename)
-
-            if os.path.exists(var_dir):
+            status = self.nd_agent.exec_wait('ls ' + var_dir)
+            if status == 0:
                 log.info("Cleanup logs and stats in: %s" % var_dir)
-                os.chdir(var_dir)
-                if os.path.exists("logs"):
-                    shutil.rmtree("logs")
-                if os.path.exists("stats"):
-                    shutil.rmtree("stats")
+                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/logs')
+                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/stats')
 
-            if os.path.exists('/corefiles'):
+            status = self.nd_agent.exec_wait('ls /corefiles')
+            if status == 0:
                 log.info("Cleanup cores in: %s" % '/corefiles')
-                os.chdir('/corefiles')
-                files = glob.glob("*.core")
-                for filename in files:
-                    os.remove(filename)
+                self.nd_agent.exec_wait('rm -f /corefiles/*.core')
 
-            if os.path.exists(var_dir + '/core'):
+            status = self.nd_agent.exec_wait('ls ' + var_dir + '/core')
+            if status == 0:
                 log.info("Cleanup cores in: %s" % var_dir + '/core')
-                os.chdir(var_dir + '/core')
-                files = glob.glob("*.core")
-                for filename in files:
-                    os.remove(filename)
+                self.nd_agent.exec_wait('rm -f ' + var_dir + '/core/*.core')
 
-            if os.path.exists(tools_dir):
+            status = self.nd_agent.exec_wait('ls ' + tools_dir)
+            if status == 0:
                 log.info("Running ./fds clean -i in %s" % tools_dir)
                 os.chdir(tools_dir)
-                self.nd_agent.exec_wait('./fds clean -i')
+                self.nd_agent.exec_wait('%s/fds clean -i' % tools_dir)
 
-            if os.path.exists(dev_dir):
+            status = self.nd_agent.exec_wait('ls ' + dev_dir)
+            if status == 0:
                 log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
-                os.chdir(dev_dir)
-                shutil.rmtree("hdd-*")
-                shutil.rmtree("ssd-*")
+                self.nd_agent.exec_wait('rm -f ' + dev_dir + '/hdd-*')
+                self.nd_agent.exec_wait('rm -f ' + dev_dir + '/ssd-*')
 
-            if os.path.exists(fds_dir):
+            status = self.nd_agent.exec_wait('ls ' + fds_dir)
+            if status == 0:
                 log.info("Cleanup sys-repo and user-repo in: %s" % fds_dir)
-                os.chdir(fds_dir)
-                shutil.rmtree("sys-repo")
-                shutil.rmtree("user-repo")
+                self.nd_agent.exec_wait('rm -rf ' + fds_dir + '/sys-repo')
+                self.nd_agent.exec_wait('rm -rf ' + fds_dir + '/user-repo')
 
-            if os.path.exists('/dev/shm'):
+            status = self.nd_agent.exec_wait('ls /dev/shm')
+            if status == 0:
                 log.info("Cleanup 0x* in: %s" % '/dev/shm')
-                os.chdir('/dev/shm')
-                files = glob.glob("0x*")
-                for filename in files:
-                    os.remove(filename)
+                self.nd_agent.exec_wait('rm -f /dev/shm/0x*')
 
-            os.chdir(cur_dir)
+            status = self.nd_agent.exec_wait('ls ' + influxdb_data_dir )
+            if status == 0:
+                log.info("Cleanup influx database in: %s" % influxdb_data_dir)
+                self.nd_clean_influxdb()
+
             status = 0
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
@@ -401,6 +480,8 @@ class FdsNodeConfig(FdsConfig):
                 '(cd %s && rm -rf hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
                 '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
                 '(cd /dev/shm && rm -f 0x*)')
+            self.nd_clean_influxdb()
+
 
         if status == -1:
             # ssh_exec() returns -1 when there is output to syserr and
@@ -680,6 +761,13 @@ class FdsDatagenConfig(FdsConfig):
         self.nd_conf_dict['dup_blocks'] = re.split(',', blocks)
 
 ###
+# Handle install section
+#
+class FdsPkgInstallConfig(FdsConfig):
+    def __init__(self, name, items, verbose):
+        super(FdsPkgInstallConfig, self).__init__(items, verbose)
+
+###
 # Handle fds bring up config parsing
 #
 class FdsConfigFile(object):
@@ -695,6 +783,7 @@ class FdsConfigFile(object):
         self.cfg_scenarios = []
         self.cfg_io_blocks = []
         self.cfg_datagen   = []
+        self.cfg_install   = []
         self.cfg_cli       = None
         self.cfg_om        = None
         self.cfg_parser    = ConfigParser.ConfigParser()
@@ -755,6 +844,8 @@ class FdsConfigFile(object):
                 self.cfg_io_blocks.append(FdsIOBlockConfig(section, items, verbose))
             elif re.match('datagen', section) != None:
                 self.cfg_datagen.append(FdsDatagenConfig(section, items, verbose))
+            elif re.match('install', section) != None:
+                self.cfg_install.append(FdsPkgInstallConfig(section, items, verbose))
             else:
                 print "Unknown section", section
 
@@ -833,6 +924,7 @@ class FdsConfigRun(object):
         # Fixup user/passwd in runtime env from config file.
         users = self.rt_obj.cfg_user
         if users is not None:
+            # Should only be one of these guys.
             usr = users[0]
             self.rt_env.env_user     = usr.get_config_val('user_name')
             self.rt_env.env_password = usr.get_config_val('password')
