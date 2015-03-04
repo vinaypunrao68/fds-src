@@ -57,7 +57,7 @@ def test_s3():
     print bucket
     print "Sleeping 30 sec"
     time.sleep(30)
-    testfile = "test_sample_10M"
+    testfile = "test_2M"
     print 'Uploading %s to Amazon S3 bucket %s' % \
        (testfile, bucket.name)
     k = Key(bucket)
