@@ -125,25 +125,20 @@ def queue_up_scenario(suite, scenario, log_dir=None):
     elif re.match('\[node.+\]', script) is not None:
         # Support for random node bringup/shutdown
         if "node*" in script:
-            print "FOUND * IN SCRIPT"
             # The * will signify random
             if "nodes" in scenario.nd_conf_dict:
-                print "FOUND NODES !!!!"
                 nds = scenario.nd_conf_dict['nodes'].split(',')
                 # Add the [ ] around each node name so it comes in the expected format
                 nds = map(lambda x: '[' + x + ']', nds)
-                print "NDS = {}".format(nds)
             else:
                 nds = [x for x in scenario.cfg_sect_nodes]
                 nds = map(lambda x: x.nd_conf_dict['node-name'], nds)
-                print "NO NODES LIST FOUND USING {}".format(nds)
 
             # Make random selection
             # Make sure selection size can't be larger than the number of nodes we've got to pick from
             max_size = len(nds) if len(nds) < 4 else 4
             nds = random.sample(nds, random.randint(1, max_size))
             # Track what we picked so we can verify later
-            print "SUBSET = {}".format(nds)
 
         else:
             nds = [script]
