@@ -173,8 +173,9 @@ NbdOperations::read(fds_uint32_t length,
         // (un-aligned), then we will read the whole first object from AM
         // and then return requested part for it to NBD connector
         if ((seqId == 0) && (iOff != 0)) {
-             LOGNORMAL << "Un-aligned read, starts at offset " << offset
-                       << " iOff " << iOff << " length " << length;
+             LOGDEBUG << "Un-aligned read, starts at offset " << offset
+                      << " iOff "   << iOff
+                      << " length " << length;
              // we cannot read from AM the part of the object not from start
              iLength = maxObjectSizeInBytes;
         }
@@ -259,7 +260,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
         // other requests to that offset behind it. When the operation finishes
         // it pull the next op off the queue and enqueue it to QoS
         if (iLength != maxObjectSizeInBytes) {
-            LOGNORMAL << "Will do read-modify-write for object size " << maxObjectSizeInBytes;
+            LOGDEBUG << "Will do read-modify-write for object size " << maxObjectSizeInBytes;
             // keep the data for the update to the first and last object in the response
             // so that we can apply the update to the object on read response
             resp->keepBufferForWrite(seqId, objectOff, objBuf);
