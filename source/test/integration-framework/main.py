@@ -44,6 +44,7 @@ class Operation(object):
         self.multicluster = None
         self.args = args
         self.om_ip_address = None
+        self.inventory_file = None
         self.current_dir = os.path.dirname(os.path.realpath(__file__))
         self.log_dir = os.path.join(self.current_dir, config.log_dir)
         self.logger.info("Checking if the log directory exists...")
@@ -60,12 +61,12 @@ class Operation(object):
 
         if self.args.inventory is not None:
             # gets the op_ip_address from the inventory file
-            self.om_ip_address = \
-            config_parser.get_om_ipaddress_from_inventory(self.args.inventory)
+            self.inventory_file = self.args.inventory
         else:
-            if self.args.test == 'multi':
-                self.om_ip_address = \
-                config_parser.get_om_ipaddress_from_inventory(config.DEFAULT_INVENTORY_FILE)
+            self.inventory_file = config.DEFAULT_INVENTORY_FILE
+            
+        self.om_ip_address = config_parser.get_om_ipaddress_from_inventory(
+                                                            self.inventory_file)
 
         # always check if the ip address is a valid one
         if not utils.is_valid_ip(self.om_ip_address):
@@ -126,7 +127,7 @@ class Operation(object):
             else:
                 # make the integration-framework-cluster version the default one
                 self.multicluster = multinode.Multinode(type=self.args.type,
-                                              inventory=self.args.inventory)
+                                              inventory=self.inventory_file)
         self.logger.info("Sleeping for 60 seconds before starting tests")
         time.sleep(60)
 
@@ -147,10 +148,12 @@ class Operation(object):
     Collect all the test sets listed in .json config file
     '''
     def collect_tests(self):
+        
         for ts in self.test_sets_list:
             current_ts = test_set.TestSet(name=ts,
                                         test_cases=self.test_sets_list[ts],
-                                        om_ip_address=self.om_ip_address)
+                                        om_ip_address=self.om_ip_address,
+                                        inventory_file=self.inventory_file)
 
             #create the test set directory
             testset_root = os.path.join(self.current_dir, config.test_sets)
