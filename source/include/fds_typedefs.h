@@ -13,8 +13,8 @@
 #include <vector>
 #include <unordered_set>
 #include <fds_types.h>
-// #include <fds_resource.h>
 #include <fdsp/FDSP_types.h>
+#include <fdsp/dm_service_types.h>
 
 namespace fpi = FDS_ProtocolInterface;
 

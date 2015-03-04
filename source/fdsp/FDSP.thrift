@@ -207,12 +207,6 @@ struct FDSP_BlobObjectInfo {
 
 typedef list<FDSP_BlobObjectInfo> FDSP_BlobObjectList
 
-struct FDSP_MetaDataPair {
- 1: string key,
- 2: string value,
-}
-
-typedef list <FDSP_MetaDataPair> FDSP_MetaDataList
 
 struct FDSP_VolumeMetaData {
   1: i64 blobCount;
@@ -225,34 +219,6 @@ struct FDSP_VolumeMetaData {
 struct TxDescriptor {
        1: required i64 txId
        /* TODO(Andrew): Maybe add an op type (update/query)? */
-}
-
-struct FDSP_UpdateCatalogType {
-  1: string blob_name, /* User visible name of the blob */
-  2: i64 blob_version, /* Version of the blob. Only used in response! */
-  3: TxDescriptor txDesc, /* Transaction ID...can supersede other tx fields */
-  4: i64 blob_size, /* Size of blob. Only use in  response! */
-  5: i32 blob_mime_type, /* Encoding type of blob contents. */
-  6: FDSP_BlobDigestType digest, /* Not sure...? */
-  7: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
-  8: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
-  9: i32 dm_transaction_id,   /* Transaction id */
-  10: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
-  11: i32 dmt_version,
-}
-
-struct FDSP_QueryCatalogType {
-
-  1: string   blob_name,           /* User visible name of the blob*/
-  2: i64 blob_version,             /* Version of the blob to query */
-  3: i64 blob_size,
-  4: i32 blob_mime_type,
-  5: FDSP_BlobDigestType digest,
-  6: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
-  7: FDSP_MetaDataList meta_list,  /* sequence of arbitrary key/value pairs */
-  8: i32  dm_transaction_id,   /* Transaction id */
-  9: i32  dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
- 10: i32  dmt_version,
 }
 
 struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId */
@@ -660,14 +626,6 @@ struct FDSP_MigrateObjectData
     /* Object data */
     2: FDSP_ObjectData            data
 }
-
-/* Collection of FDSP_MigrateObjectMetadata*/
-/* DEPRECATED */
-typedef list<FDSP_MigrateObjectMetadata> FDSP_MigrateObjectMetadataList
-
-/* Collection of FDSP_MigrateObjectData */
-/* DEPRECATED */
-typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
 
 struct FDSP_GetObjMetadataReq {
  1: FDSP_MsgHdrType		header

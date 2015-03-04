@@ -18,6 +18,67 @@ namespace java com.formationds.protocol.dm
 service DMSvc extends pm_service.PlatNetSvc {
 }
 
+/* -------------------- DM Variable Types -------------------- */
+
+/**
+ * A metadata key-value pair. The key and value have no explicit size
+ * restriction.
+ */
+struct FDSP_MetaDataPair {
+ 1: string key,
+ 2: string value,
+}
+
+/**
+ * A list of metadata key-value pairs. The order of the list
+ * is arbitrary.
+ * // TODO(Andrew): Is a set better since there's no order and
+ * keys should be unique?
+ */
+typedef list <FDSP_MetaDataPair> FDSP_MetaDataList
+
+/* -------------------- Operations on Blobs -------------------- */
+
+/**
+ * Commits a currently active transaction.
+ */
+struct CommitBlobTxMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   4: i64 			txId;
+   5: i64                       dmt_version,
+}
+/**
+ * Response contains the logical size of the blob and its
+ * metadata after the the transaction is committed.
+ * If the transaction did not exist, ERR_DM_INVALID_TX_ID is
+ * returned.
+ * If the commit failed because the transaction contained invalid
+ * updates, ERR_I_HAVE_NO_CLUE (?) is returned.
+ */
+struct CommitBlobTxRspMsg {
+   1: i64                       byteCount;  /* Blob size */
+   2: FDSP_MetaDataList    meta_list;  /* sequence of arbitrary key/value pairs */
+}
+
+/**
+ * Aborts a currently active transaction.
+ */
+struct AbortBlobTxMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   5: i64			txId;
+}
+/**
+ * Abort Blob traction response message
+ */
+struct AbortBlobTxRspMsg {
+}
+
+/* -------------------- Operations for Statistics --------------------*/
+
 /**
  * time slot containing volume stats
  */
@@ -40,33 +101,6 @@ struct VolStatList {
 struct StatStreamMsg {
     1: i64                    start_timestamp;
     2: list<VolStatList>      volstats;
-}
-
-/* Abort Blob  Transaction  request message */
-struct AbortBlobTxMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   5: i64			txId;
-}
-
-/* Abort Blob traction response message */
-struct AbortBlobTxRspMsg {
-}
-
-/* Commit Blob  Transaction  request message */
-struct CommitBlobTxMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   4: i64 			txId;
-   5: i64                       dmt_version,
-}
-
-/* Commit Blob traction response message */
-struct CommitBlobTxRspMsg {
-   1: i64                       byteCount;  /* Blob size */
-   2: FDSP.FDSP_MetaDataList    meta_list;  /* sequence of arbitrary key/value pairs */
 }
 
 /* snapshot message From OM => DM */
@@ -149,7 +183,7 @@ struct ForwardCatalogMsg {
    2: string 			blob_name; 	/* User visible name of the blob */
    3: i64                       blob_version; 	/* Version of the blob */
    4: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-   5: FDSP.FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
+   5: FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
 }
 
 /* Forward catalog update response message */
@@ -161,7 +195,7 @@ struct GetBlobMetaDataMsg {
   2: string                    blob_name;
   3: i64                       blob_version;
   4: i64                       byteCount;
-  5: FDSP.FDSP_MetaDataList    metaDataList;
+  5: FDSP_MetaDataList         metaDataList;
 }
 
 struct GetBlobMetaDataRspMsg {
@@ -219,7 +253,7 @@ struct QueryCatalogMsg {
    4: i64               end_offset;     /* End offset into the blob */
    5: i64 		blob_version;   /* Version of the blob to query */
    6: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
-   7: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
+   7: FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
    8: i64                       byteCount;  /* Blob size */
 }
 
@@ -241,7 +275,7 @@ struct SetBlobMetaDataMsg {
    1: i64    			volume_id;
    2: string 			blob_name;
    3: i64 			blob_version;
-   4: FDSP.FDSP_MetaDataList    metaDataList; 
+   4: FDSP_MetaDataList         metaDataList;
    5: i64                   	txId;
 }
 
@@ -306,13 +340,13 @@ struct UpdateCatalogOnceMsg {
    5: i64                       dmt_version;
    6: i64                   	txId;
    7: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-   8: FDSP.FDSP_MetaDataList 	meta_list;	/* sequence of arbitrary key/value pairs */
+   8: FDSP_MetaDataList 	meta_list;	/* sequence of arbitrary key/value pairs */
 }
 
 /* Update catalog once response message */
 struct UpdateCatalogOnceRspMsg {
    1: i64                       byteCount;  /* Blob size */
-   2: FDSP.FDSP_MetaDataList    meta_list;  /* sequence of arbitrary key/value pairs */
+   2: FDSP_MetaDataList         meta_list;  /* sequence of arbitrary key/value pairs */
 }
 
 /* Volume sync state msg sent from source to destination DM */
