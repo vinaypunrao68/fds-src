@@ -11,7 +11,6 @@ import unittest
 import config
 import config_parser
 import s3
-import testsets.testcases.fdslib.TestUtils as TestUtils
 import utils
 
 class FDSTestCase(unittest.TestCase):

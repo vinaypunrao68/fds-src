@@ -22,7 +22,6 @@ from subprocess import list2cmdline
 import config
 import config_parser
 import samples
-import testsets.testcases.fdslib.TestUtils as TestUtils 
 
 
 random.seed(time.time())
