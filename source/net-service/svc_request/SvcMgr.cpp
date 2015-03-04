@@ -444,25 +444,24 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
-    GLOGDEBUG << "Svchandle incoming update: " << fds::logString(newInfo);
-
     fds_scoped_lock lock(lock_);
     if (svcInfo_.incarnationNo < newInfo.incarnationNo) {
         /* Update to new incaration information.  Invalidate the old rpc client */
         svcInfo_ = newInfo;
         svcClient_.reset();
-        GLOGDEBUG << "Operation: update to new incarnation";
+        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
+            << " Operation: update to new incarnation. After update " << logString();
     } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
                newInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
         /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
         svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE; 
         svcClient_.reset();
-        GLOGDEBUG << "Operation: set current incarnation as down";
+        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
+            << " Operation: set current incarnation as down.  After update" << logString();
     } else {
-        GLOGDEBUG << "Operation: not applied";
+        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
+            << " Operation: not applied.  After update" << logString();
     }
-
-    GLOGDEBUG << "After update: " << logString();
 }
 
 void SvcHandle::getSvcInfo(fpi::SvcInfo &info) const
