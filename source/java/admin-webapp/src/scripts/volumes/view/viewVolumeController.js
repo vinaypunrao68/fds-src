@@ -44,8 +44,10 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     var capacityIntervalId = -1;
     var performanceIntervalId = -1;
+    var firebreakIntervalId = -1;
     var capacityQuery = {};
     var performanceQuery = {};
+    var firebreakQuery = {};
     
     $scope.timeRanges = [
         { displayName: '30 Days', value: 1000*60*60*24*30, labels: [translate( 'common.l_30_days' ), translate( 'common.l_15_days' ), translate( 'common.l_today' )] },
@@ -200,7 +202,19 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.l_avg_ssd_gets' );
     };
     
-    var buildQueries = function(){
+    $scope.firebreakReturned = function( data ){
+        
+        $scope.firebreakModel = [];
+                                                                 
+        // transform the raw data into the firebreaktimeline format
+        for ( var i = 0; data.series.length > 0 && i < data.series[0].datapoints.length; i++ ){
+            $scope.firebreakModel.push( data.series[0].datapoints[i] );
+        }
+        
+        $scope.lastTwentyFour = { start: ((new Date()).getTime()/1000) - (24*60*60), end: ((new Date()).getTime()/1000 ) };
+    };
+    
+    var pollCapacity = function(){
         
         var now = new Date();
         
@@ -209,27 +223,41 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
         
-        performanceQuery = StatQueryFilter.create( [$scope.thisVolume],
-            [StatQueryFilter.PUTS, StatQueryFilter.GETS, StatQueryFilter.SSD_GETS],
-            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
-            Math.round( now.getTime() / 1000 ) );
-    };
-    
-    var pollCapacity = function(){
         $stats_service.getCapacitySummary( capacityQuery, $scope.capacityReturned );
     };
     
     var pollPerformance = function(){
+
+        var now = new Date();
+        
+        performanceQuery = StatQueryFilter.create( [$scope.thisVolume],
+            [StatQueryFilter.PUTS, StatQueryFilter.GETS, StatQueryFilter.SSD_GETS],
+            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );
+        
         $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned );
     };
     
+    var pollFirebreak = function(){
+        
+        var now = new Date();
+        
+        firebreakQuery = StatQueryFilter.create( [$scope.thisVolume],
+            [ StatQueryFilter.SHORT_TERM_CAPACITY_SIGMA,
+             StatQueryFilter.LONG_TERM_CAPACITY_SIGMA,
+             StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
+             StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
+            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );        
+        
+        $stats_service.getFirebreakSummary( firebreakQuery, $scope.firebreakReturned );
+    };
+    
     $scope.$watch( 'capacityTimeChoice', function(){
-        buildQueries();
         pollCapacity();
     });
     
     $scope.$watch( 'performanceTimeChoice', function(){
-        buildQueries();
         pollPerformance();
     });
     
@@ -411,12 +439,12 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             initSnapshotDescriptions();
         });
 
-        buildQueries();
-
         capacityIntervalId = $interval( pollCapacity, 60000 );
         performanceIntervalId = $interval( pollPerformance, 60000 );
+        firebreakIntervalId = $interval( pollFirebreak, 600000 );
         pollCapacity();
         pollPerformance();        
+        pollFirebreak();
     };
     
     // when we get shown, get all the snapshots and policies.  THen do the chugging
@@ -429,6 +457,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         else {
             $interval.cancel( capacityIntervalId );
             $interval.cancel( performanceIntervalId );
+            $interval.cancel( firebreakIntervalId );
             $scope.$broadcast( 'fds::cancel_editing' );
         }
     });

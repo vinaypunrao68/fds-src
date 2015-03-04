@@ -15,12 +15,18 @@ var StatQueryFilter = {
         
         var val = { 
             seriesType: seriesTypes,
-            contextList: contextList,
             range: {
                 start: startTime,
                 end: endTime
             }
         };
+        
+        if ( angular.isDefined( contextList ) && 
+            contextList.length > 0 &&
+            angular.isDefined( contextList[0].id ) ){
+            
+            val.contexts = contextList;
+        }
         
         if ( angular.isDefined( datapoints ) ){
             val.points = datapoints;

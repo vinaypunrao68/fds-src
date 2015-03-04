@@ -51,6 +51,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.firebreakReturned = function( data ){
         $scope.firebreakStats = data;
+        
         $scope.firebreakItems = [{ number: data.calculated[0].count, description: $filter( 'translate' )( 'status.desc_firebreak' )}];
     };
     
@@ -210,10 +211,6 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
 
     $scope.transformFirebreakTime = function( value ){
         
-        if ( value === 0 ){
-            return 0;
-        }
-        
         var nowSeconds = (new Date()).getTime() / 1000;
         
         var val = nowSeconds - value;
@@ -234,10 +231,12 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
              StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
              StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
              Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
-             Math.round( (new Date()).getTime() / 1000 ),
-             1
+             Math.round( (new Date()).getTime() / 1000 )
         );
     
+        filter.useSizeForValue = true;
+        filter.mostRecentResults = 1;
+        
         return filter;
     };
     

@@ -1,6 +1,6 @@
 <div class="status-timeline" style="position: relative;">
     <div class="flex" style="position: relative;">
-        <div class="event {{iconClass}}" ng-repeat="e in data" ng-style="{ left: ((e.x - dateRange.start)/bucketTime)*22 }"></div>
+        <div class="event {{iconClass}}" ng-repeat="event in data" ng-style="{ left: event.pos }" ng-show="event.pos"></div>
         <div ng-repeat="box in boxes" class="color-box" ng-style="{ 'background-color': box.color}"></div>
     </div>
     <div style="position: relative;" ng-style="{ width: 22*divisions}">

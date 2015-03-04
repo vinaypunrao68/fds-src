@@ -9,7 +9,7 @@ import com.formationds.commons.model.abs.Calculated;
 /**
  * @author ptinius
  */
-public class FirebreaksLast24Hours
+public class FirebreakCount
     extends Calculated {
     private static final long serialVersionUID = 4263131689905575027L;
 
@@ -22,7 +22,7 @@ public class FirebreaksLast24Hours
     /**
      * default constructor
      */
-    public FirebreaksLast24Hours( ) {
+    public FirebreakCount( ) {
     }
 
     /**

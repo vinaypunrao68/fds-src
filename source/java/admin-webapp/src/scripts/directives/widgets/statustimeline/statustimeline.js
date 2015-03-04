@@ -9,23 +9,55 @@ angular.module( 'display-widgets' ).directive( 'statusTimeline', function(){
         // data: [{ x: time, y: obj }
         // dateRange: { start: , end: }
         // lastEvent:  # in seconds
-        scope: { data: '=ngModel', dateRange: '=', divisions: '@', domain: '=', range: '=', lastEvent: '=?', iconClass: '@', rightLabel: '@', leftLabel: '@', middleLabel: '@' },
+        scope: { data: '=ngModel', dateRange: '=', divisions: '@', domain: '=', range: '=', iconClass: '@', rightLabel: '@', leftLabel: '@', middleLabel: '@' },
         controller: function( $scope ){
             
             $scope.bucketTime = 0;
             $scope.boxes = [];
+            $scope.outOfRangeEvents = [];
+            
+            $scope.calculateEventPosition = function( event ){
+                
+                if ( !angular.isDefined( event ) ){
+                    return 0;
+                }
+                
+                var bucket = Math.floor( ( event.x - $scope.dateRange.start ) / $scope.bucketTime );
+                var px = bucket * 22;
+                
+                return px;
+            };
             
             var fixColors = function(){
                 
-                var colorFx = d3.scale.linear()
-                    .domain( $scope.domain )
-                    .range( $scope.range )
-                    .clamp( true );
+                var colorFx = function( value ){
+                    var index = 0;
+                    
+                    for ( var i = 0; i < $scope.domain.length-1; i++ ){
+                        
+                        var dVal = $scope.domain[i+1];
+                        
+                        if ( value > dVal ){
+                            break;
+                        }
+                        
+                        index++;
+                    }
+                    
+                    return $scope.range[index];
+                };
                 
                 var lastFb = 0;
                 
-                if ( angular.isDefined( $scope.lastEvent ) ){
-                    lastFb = $scope.lastEvent;
+                // this means something happened before the displayed time that may effect our starting point.
+                if ( $scope.outOfRangeEvents.length > 0 ){
+                    
+                    for( var j = 0; j < $scope.outOfRangeEvents.length; j++ ){
+                        
+                        if ( $scope.outOfRangeEvents[j].x > lastFb ){
+                            lastFb = $scope.outOfRangeEvents[j].x;
+                        }
+                    }
                 }
                 
                 for ( var i = 0; i < $scope.boxes.length; i++ ){
@@ -57,13 +89,28 @@ angular.module( 'display-widgets' ).directive( 'statusTimeline', function(){
                 }
                 
                 for ( var i = 0; i < $scope.data.length; i++ ){
-                    var bucket = ($scope.data[i].x - $scope.dateRange.start)/$scope.bucketTime;
+                    var bucket = Math.floor( ($scope.data[i].x - $scope.dateRange.start)/$scope.bucketTime );
+                    
+                    if ( !angular.isDefined( bucket ) || !angular.isDefined( $scope.boxes[bucket] ) ){
+                        $scope.outOfRangeEvents.push( $scope.data[i] );
+                        continue;
+                    }
                     
                     $scope.boxes[bucket].y.push( $scope.data[i].y );
+                    $scope.data[i].pos = $scope.calculateEventPosition( $scope.data[i] );
                 }
                 
                 fixColors();
             };
+            
+            $scope.$watch( 'data', function( newVal, oldVal ){
+              
+                if ( newVal === oldVal ){
+                    return;
+                }
+                
+                init();
+            });
             
             $scope.$on( 'fds::refresh-status-timeline', init );
             
