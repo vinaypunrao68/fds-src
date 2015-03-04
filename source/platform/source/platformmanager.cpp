@@ -27,7 +27,7 @@ int  PlatformManager::mod_init(SysParams const *const param) {
                                  conf->get<int>("redis_port", 6379),1);
 
     if (!db->isConnected()) {
-        LOGCRITICAL << "unable to talk to redis @ "
+        LOGCRITICAL << "unable to talk to platformdb @ "
                     << "[" << conf->get<std::string>("redis_host","localhost")
                     << ":" << conf->get<int>("redis_port", 6379)
                     << "]";
@@ -56,9 +56,9 @@ pid_t PlatformManager::startAM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port")));
-    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip"));
-    args.push_back(std::string("--fds.am.om_ip=") + conf->get<std::string>("om_ip"));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
+    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
+    args.push_back(std::string("--fds.am.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
     args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", nodeInfo.uuid));
     
     pid = fds_spawn_service("AMAgent", rootDir, args, true);
@@ -75,9 +75,9 @@ pid_t PlatformManager::startDM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port")));
-    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip"));
-    args.push_back(std::string("--fds.dm.om_ip=") + conf->get<std::string>("om_ip"));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
+    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
+    args.push_back(std::string("--fds.dm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
     args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", nodeInfo.uuid));
     
     pid = fds_spawn_service("DataMgr", rootDir, args, true);
@@ -96,9 +96,9 @@ pid_t PlatformManager::startSM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port")));
-    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip"));
-    args.push_back(std::string("--fds.sm.om_ip=") + conf->get<std::string>("om_ip"));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
+    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
+    args.push_back(std::string("--fds.sm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
     args.push_back(util::strformat("--fds.sm.svc.uuid=%lld", nodeInfo.uuid));
     pid = fds_spawn_service("StorMgr", rootDir, args, true);
     if (pid > 0) {
@@ -134,6 +134,23 @@ void PlatformManager::activateServices(const fpi::FDSP_ActivateNodeTypePtr &msg)
     db->setNodeInfo(nodeInfo);
 }
 
+void PlatformManager::loadProperties() {
+    props.setInt("uuid", nodeInfo.uuid);
+    props.setInt("disk_iops_max", diskCapability.disk_iops_max);
+    props.setInt("disk_iops_min", diskCapability.disk_iops_min);
+    props.setDouble("disk_capacity", diskCapability.disk_capacity);
+    props.setInt("disk_latency_max", diskCapability.disk_latency_max);
+    props.setInt("disk_latency_min", diskCapability.disk_latency_min);
+    props.setInt("ssd_iops_max", diskCapability.ssd_iops_max);
+    props.setInt("ssd_iops_min", diskCapability.ssd_iops_min);
+    props.setDouble("ssd_capacity", diskCapability.ssd_capacity);
+    props.setInt("ssd_latency_max", diskCapability.ssd_latency_max);
+    props.setInt("ssd_latency_min", diskCapability.ssd_latency_min);
+    props.setInt("disk_type", diskCapability.disk_type);
+}
+
+
+
 void PlatformManager::determineDiskCapability() {
     diskCapability.disk_iops_max    = 10000;
     diskCapability.disk_iops_min    = 4000;
@@ -153,9 +170,9 @@ bool PlatformManager::sendNodeCapabilityToOM() {
     fpi::FDSP_RegisterNodeTypePtr    pkt(new fpi::FDSP_RegisterNodeType);
     pkt->disk_info = diskCapability;
 
-    if (conf->get<bool>("testing.manual_nodecap")) {
-        pkt->disk_info.disk_iops_min = conf->get<int>("testing.disk_iops_min");
-        pkt->disk_info.disk_iops_max = conf->get<int>("testing.disk_iops_max");
+    if (conf->get<bool>("testing.manual_nodecap",false)) {
+        pkt->disk_info.disk_iops_min = conf->get<int>("testing.disk_iops_min", 6000);
+        pkt->disk_info.disk_iops_max = conf->get<int>("testing.disk_iops_max", 100000);
     }
     // do the send
 
