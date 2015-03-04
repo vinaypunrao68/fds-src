@@ -4,7 +4,7 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 
     service.getFirebreakSummary = function( filter, callback ){
         
-        return $http_fds.put( '/api/stats/volumes', filter, 
+        return $http_fds.put( '/api/stats/volumes/firebreak', filter, 
             function( response ){
                 if ( angular.isFunction( callback ) ){
                     callback( response );

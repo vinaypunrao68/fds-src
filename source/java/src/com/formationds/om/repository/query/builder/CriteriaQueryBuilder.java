@@ -5,6 +5,7 @@
 package com.formationds.om.repository.query.builder;
 
 import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.om.repository.query.OrderBy;
 import com.formationds.om.repository.query.QueryCriteria;
@@ -200,20 +201,24 @@ public class CriteriaQueryBuilder<T> {
      * @return Returns {@link MetricCriteriaQueryBuilder}
      */
     @SuppressWarnings( "unchecked" )
-    public <CQ extends CriteriaQueryBuilder> CQ withContexts( final List<Context> contexts ) {
+    public <CQ extends CriteriaQueryBuilder> CQ withContexts( final List<Volume> contexts ) {
 
-        if( contexts != null && !contexts.isEmpty() ) {
-
-            final List<String> in = new ArrayList<>();
-            for( final Context c : contexts ) {
-
-                in.add( c.getContext() );
-
-            }
-
-            final Expression<String> expression = from.get( getContextName() );
-            andPredicates.add(expression.in(in.toArray(new String[in.size()])));
-        }
+    	//TODO:  No idea why this doesn't work, but it's not working at all even though
+    	// the query string appears correct.  Since this is being removed in favor of InfluxDB
+    	// I'm just going to post-process to remove everything that doesn't match the context list.
+    	
+//        if( contexts != null && !contexts.isEmpty() ) {
+//
+//            final List<String> in = new ArrayList<>();
+//            for( final Context c : contexts ) {
+//
+//                in.add( c.getContext() );
+//
+//            }
+//
+//            final Expression<String> expression = from.get( getContextName() );
+//            andPredicates.add(expression.in(in.toArray(new String[in.size()])));
+//        }
 
         return (CQ)this;
     }
@@ -318,7 +323,9 @@ public class CriteriaQueryBuilder<T> {
         	criteriaQuery = cq.orderBy( getOrderPrecedence() );
         }
         
-        return em.createQuery( criteriaQuery );
+        TypedQuery<T> tQuery = em.createQuery( criteriaQuery );
+        
+        return tQuery;
     }
 
     @SuppressWarnings( "unchecked" )
