@@ -12,6 +12,7 @@
 #include <fdsp/OMSvc.h>
 #include <net/fdssocket.h>
 #include <fdsp/fds_service_types.h>
+#include <fdsp/Streaming.h>
 #include <fdsp_utils.h>
 #include <fds_module_provider.h>
 #include <net/SvcRequestPool.h>
@@ -25,7 +26,7 @@ std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
 }
 
 template<class T>
-boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
+boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
                                            const bool &blockOnConnect)
 {
     auto sock = bo::make_shared<net::Socket>(ip, port);
@@ -44,11 +45,15 @@ boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
 }
 template
 boost::shared_ptr<fpi::PlatNetSvcClient> allocRpcClient<fpi::PlatNetSvcClient>(
-    const std::string ip, const int &port,
+    const std::string &ip, const int &port,
     const bool &blockOnConnect);
 template
 boost::shared_ptr<fpi::OMSvcClient> allocRpcClient<fpi::OMSvcClient>(
-    const std::string ip, const int &port,
+    const std::string &ip, const int &port,
+    const bool &blockOnConnect);
+template
+boost::shared_ptr<fpi::StreamingClient> allocRpcClient<fpi::StreamingClient>(
+    const std::string &ip, const int &port,
     const bool &blockOnConnect);
 
 SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,

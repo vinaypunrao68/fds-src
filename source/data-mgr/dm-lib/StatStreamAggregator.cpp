@@ -811,8 +811,15 @@ void StatStreamTimerTask::runTimerTask() {
     }
 
     if (!logLocal) {
-        EpInvokeRpc(fpi::StreamingClient, publishMetaStream,
-                reg_->dest, 0, 2, reg_->id, dataPoints);
+        fpi::SvcInfo info;
+        if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(reg_->dest, info)) {
+            GLOGERROR << "Failed to get svc info for uuid: '" << std::hex
+                    << reg_->dest.svc_uuid << std::dec << "'";
+        } else {
+            // XXX: hard-coded to bind to java endpoint in AM
+            EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8999,
+                    reg_->id, dataPoints);
+        }
     }
 }
 }  // namespace fds

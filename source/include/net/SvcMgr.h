@@ -12,11 +12,31 @@
 #include <net/PlatNetSvcHandler.h>
 #include <boost/shared_ptr.hpp>
 
-#define NET_SVC_RPC_CALL(eph, rpc, rpc_fn, ...)                                        \
+#define NET_SVC_RPC_CALL(eph, rpc, rpc_fn, ...)                                         \
             fds_panic("not supported...use svcmgr api");
 
-#define EpInvokeRpc(SendIfT, func, svc_id, maj, min, ...)                       \
-            fds_panic("not supported...use svcmgr api");
+#define EpInvokeRpc(SendIfT, func, ip, port, ...)                                       \
+    do {                                                                                \
+        /* XXX: Reconnecting with each call. This needs to be changed with              \
+         * Stat Streaming refactoring. Considering current frequency is                 \
+         * 2 to 5 minutes, making connection every time is temp solution                \
+         */                                                                             \
+        auto eph = allocRpcClient<SendIfT>(ip, port, true);                             \
+        if (!eph) {                                                                     \
+            GLOGERROR << "Failed to get the end point handle for ip: " << ip            \
+                    << ", port: " << port;                                              \
+            break;                                                                      \
+        }                                                                               \
+        try {                                                                           \
+            GLOGDEBUG << "[Svc] sending RPC, ip: " << ip << ", port: " << port;         \
+            eph->func(__VA_ARGS__);                                                     \
+        } catch (std::exception & e) {                                                  \
+            GLOGWARN << "[Svc] RPC error " << e.what();                                 \
+        } catch (...) {                                                                 \
+            GLOGWARN << "[Svc] Unknown RPC error ";                                     \
+            fds_assert(!"Unknown exception");                                           \
+        }                                                                               \
+    } while (0);                                                                        \
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -66,7 +86,7 @@ using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
 using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
 
 template<class T>
-extern boost::shared_ptr<T> allocRpcClient(const std::string ip, const int &port,
+extern boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
                                            const bool &blockOnConnect);
 
 /**
