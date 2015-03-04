@@ -23,6 +23,21 @@
     
     }
     
+    .items-parent {
+        @include align-items( flex-end );
+    }
+    
+    .icon-parent {
+
+        width: 40px;
+        margin-top: 10px;
+        
+        .icon-style {
+            font-size: 27px;
+            margin-bottom: 2px;
+        }
+    }
+    
     .main-number {
         font-size: 34px;
         color: black;
@@ -40,6 +55,6 @@
         padding-left: 4px;
         overflow: scroll;
         line-height: 1.1;
-        height: 32px;
+        padding-bottom: 2px;
     }
 }

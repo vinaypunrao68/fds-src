@@ -8,7 +8,6 @@
 #include <util/timeutils.h>
 #include <fds_assert.h>
 #include <fds_typedefs.h>
-#include <lib/OMgrClient.h>
 #include <CatalogSync.h>
 #include <DataMgr.h>
 #include <VolumeMeta.h>
@@ -20,11 +19,9 @@ namespace fds {
 /****** CatalogSync implementation ******/
 
 CatalogSync::CatalogSync(const NodeUuid& uuid,
-                         OMgrClient* omclient,
                          DmIoReqHandler* dm_req_hdlr)
         : node_uuid(uuid),
           state(CSSTATE_READY),
-          om_client(omclient),
           dm_req_handler(dm_req_hdlr) {
     state = ATOMIC_VAR_INIT(CSSTATE_READY);
     vols_done = ATOMIC_VAR_INIT(0);
@@ -149,7 +146,7 @@ void CatalogSync::snapDoneCb(fds_volid_t volid,
 
         // notify catsync mgr that we are done
         fds_verify(done_evt_handler);
-        done_evt_handler(CATSYNC_INITIAL_SYNC_DONE, volid, om_client, error);
+        done_evt_handler(CATSYNC_INITIAL_SYNC_DONE, volid, error);
     }
 }
 
@@ -183,7 +180,7 @@ void CatalogSync::deltaDoneCb(fds_volid_t volid,
         std::atomic_exchange(&state, CSSTATE_FORWARD_ONLY);
         // notify catsync mgr that we are done
         fds_verify(done_evt_handler);
-        done_evt_handler(CATSYNC_DELTA_SYNC_DONE, volid, om_client, error);
+        done_evt_handler(CATSYNC_DELTA_SYNC_DONE, volid, error);
     }
 }
 
@@ -286,6 +283,7 @@ CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
           dm_req_handler(dm_req_hdlr),
           cat_sync_lock("Catalog Sync lock"),
           omDmtUpdateCb(NULL),
+          omPushMetaCb(NULL),
           dmtclose_ts(util::getTimeStampNanos()) {
 }
 
@@ -310,8 +308,7 @@ void CatalogSyncMgr::mod_shutdown() {
  */
 Error
 CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList& metaVolList,
-                                 OMgrClient* omclient,
-                                 const std::string& context) {
+                                 OmDMTMsgCbType cb) {
     Error err(ERR_OK);
 
     fds_mutex::scoped_lock l(cat_sync_lock);
@@ -323,16 +320,16 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
     }
     fds_verify(cat_sync_map.size() == 0);
 
-    // remember context to return with callback
+    // remember the callback
+    omPushMetaCb = cb;
     sync_in_progress = true;
-    cat_sync_context = context;
 
     for (auto metavol : metaVolList) {
-        NodeUuid uuid(metavol.node_uuid.uuid);
+        NodeUuid uuid(metavol.node_uuid);
 
         // create CatalogSync object to handle syncing vols to node 'uuid'
         fds_verify(cat_sync_map.count(uuid) == 0);
-        CatalogSyncPtr catsync(new CatalogSync(uuid, omclient, dm_req_handler));
+        CatalogSyncPtr catsync(new CatalogSync(uuid, dm_req_handler));
         cat_sync_map[uuid] = catsync;
 
         // Get a set of volume ids that this node will need to push to node 'uuid'
@@ -350,16 +347,14 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
                            std::bind(&CatalogSyncMgr::syncDoneCb, this,
                                      std::placeholders::_1,
                                      std::placeholders::_2,
-                                     std::placeholders::_3,
-                                     std::placeholders::_4));
+                                     std::placeholders::_3));
     }
 
     return err;
 }
 
 Error
-CatalogSyncMgr::startCatalogSyncDelta(const std::string& context,
-                                      OmDMTMsgCbType cb) {
+CatalogSyncMgr::startCatalogSyncDelta(OmDMTMsgCbType cb) {
     Error err(ERR_OK);
 
     fds_mutex::scoped_lock l(cat_sync_lock);
@@ -380,8 +375,6 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context,
             fds_panic("Cannot start delta sync if initial sync is not done!!!");
         }
     }
-    // update context to return with callback
-    cat_sync_context = context;
     // start delta sync on all our CatalogSync objects
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
          cit != cat_sync_map.cend();
@@ -505,7 +498,6 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
  */
 void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
                                 fds_volid_t volid,
-                                OMgrClient* omclient,
                                 const Error& error) {
     fds_bool_t send_ack = false;
     {  // check if all cat sync jobs are finished
@@ -536,13 +528,12 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
 
     if ((event == CATSYNC_INITIAL_SYNC_DONE) && send_ack) {
         LOGMIGRATE << "PushMeta finished for all volumes";
-        omclient->sendDMTPushMetaAck(error, cat_sync_context);
+        omPushMetaCb(error);
+        omPushMetaCb = NULL;
     } else if ((event == CATSYNC_DELTA_SYNC_DONE) && send_ack) {
         LOGMIGRATE << "Delta sync finished for all volumes, sending commit ack";
         omDmtUpdateCb(error);
         omDmtUpdateCb = NULL;
-        // we moved to new service layer...
-        // omclient->sendDMTCommitAck(error, cat_sync_context);
     }
 }
 

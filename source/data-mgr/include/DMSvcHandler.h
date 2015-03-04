@@ -11,6 +11,10 @@
 // b/c dmCatReq is subclass in DataMgr and can't be forward declared
 #include <DataMgr.h>
 
+namespace FDS_ProtocolInterface {
+struct CtrlNotifyDLTUpdate;
+}
+
 namespace fds {
 
 class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
@@ -126,6 +130,19 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt);
+
+    void
+    NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                      boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
+                      const Error                                 &err);
+
+    virtual void
+    StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                         boost::shared_ptr<fpi::CtrlDMMigrateMeta>   &migrMsg);
+
+    void
+    StartDMMetaMigrationCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                           const Error &err);
 };
 
 }  // namespace fds

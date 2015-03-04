@@ -6,35 +6,62 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/qos/qos.html',
         scope: { qos: '=ngModel', saveOnly: '@' },
-        controller: function( $scope ){
-
-            $scope.editing = false;
+        controller: function( $scope, $filter ){
             
-            if ( !angular.isDefined( $scope.saveOnly ) ){
-                $scope.saveOnly = false;
-            }
+            $scope.custom = { priority: 5, limit: 0, sla: 0 };
             
-            if ( !angular.isDefined( $scope.qos.capacity ) ){
-                $scope.qos.capacity = 0;
-            }
+            $scope.presets = [
+                {
+                    label: $filter( 'translate' )( 'volumes.qos.l_least_important' ),
+                    value: { priority: 10, limit: 0, sla: 0 }
+                },
+                {
+                    label: $filter( 'translate' )( 'volumes.qos.l_standard' ),
+                    value: { priority: 7, limit: 0, sla: 0 }                    
+                },
+                {
+                    label: $filter( 'translate' )( 'volumes.qos.l_most_important' ),
+                    value: { priority: 1, limit: 0, sla: 0 }                    
+                },
+                {
+                    label: $filter( 'translate' )( 'common.l_custom' ),
+                    value: $scope.custom                    
+                }
+            ];
             
-            if ( !angular.isDefined( $scope.qos.priority ) ){
-                $scope.qos.priority = 10;
-            }
-            
-            if ( !angular.isDefined( $scope.qos.limit ) ){
-                $scope.qos.limit = 0;
-            }            
+            $scope.qosPreset = $scope.presets[0];
+            $scope.qos = {};
+            $scope.editing = false;           
             
             $scope.limitChoices = [100,200,300,400,500,750,1000,2000,3000,0];
-            $scope.copyCapacity = 0;
-            $scope.copyLimit = 0;
-            $scope.copyPriority = 10;
-            
+
             var init = function(){
-                $scope.copyCapacity = $scope.qos.capacity;
-                $scope.copyLimit = $scope.qos.limit;
-                $scope.copyPriority = $scope.qos.priority;
+
+                if ( !angular.isDefined( $scope.qos ) || !angular.isDefined( $scope.qos.sla ) ){
+                    $scope.qos = $scope.presets[1].value;
+                }
+                
+                if ( $scope.qos.priority === $scope.presets[0].value.priority &&
+                    $scope.qos.sla === $scope.presets[0].value.sla &&
+                    $scope.qos.limit === $scope.presets[0].value.limit ){
+                    
+                    $scope.qosPreset = $scope.presets[0];
+                }
+                else if ( $scope.qos.priority === $scope.presets[1].value.priority &&
+                    $scope.qos.sla === $scope.presets[1].value.sla &&
+                    $scope.qos.limit === $scope.presets[1].value.limit ){
+                    
+                    $scope.qosPreset = $scope.presets[1];
+                }
+                else if ( $scope.qos.priority === $scope.presets[2].value.priority &&
+                    $scope.qos.sla === $scope.presets[2].value.sla &&
+                    $scope.qos.limit === $scope.presets[2].value.limit ){
+                    
+                    $scope.qosPreset = $scope.presets[2];
+                }                
+                else {
+                    $scope.qosPreset = $scope.presets[3];
+                }
             };
             
             $scope.limitSliderLabel = function( value ){
@@ -46,26 +73,20 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                 return value;
             };
 
-            $scope.doneEditing = function(){
-                $scope.qos.limit = $scope.copyLimit;
-                $scope.qos.priority = $scope.copyPriority;
-                $scope.qos.capacity = $scope.copyCapacity;
-                
-                $scope.$emit( 'fds::qos_changed' );
-                $scope.$emit( 'change' );
-                $scope.editing = false;
-            };
-            
-            $scope.cancel = function(){
-                init();
-                $scope.editing = false;
-            };
-            
-            $scope.$on( 'fds::cancel_editing', $scope.cancel );
-
             $scope.$on( 'fds::page_shown', function(){
-                init();
+                
                 $scope.$broadcast( 'fds::fui-slider-refresh' );
+            });
+            
+            $scope.$on( 'fds::qos-reinit', init );
+            
+            $scope.$watch( 'qosPreset', function( newVal, oldVal ){
+                
+                if ( newVal === oldVal || !angular.isDefined( newVal ) ){
+                    return;
+                }
+
+                $scope.qos = newVal.value;
             });
          
             init();

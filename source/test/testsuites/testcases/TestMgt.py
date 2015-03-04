@@ -155,12 +155,9 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
             # Start this node according to the specified action.
-
             for script in nds:
-                print "LOOKING FOR {}".format(script)
                 found = False
                 for node in scenario.cfg_sect_nodes:
-                    print "CMP {} vs {}".format(script, node.nd_conf_dict['node-name'])
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
 
@@ -169,7 +166,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
                         if (action.count("install") > 0):
                             # First, build out the installation directory and start Redis.
-                            suite.addTest(TestFDSEnvMgt.TestFDSCreateInstDir(node=node))
+                            suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
 
                             # Boot Redis on the machine if requested.
                             if 'redis' in node.nd_conf_dict:
@@ -189,6 +186,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                                 suite.addTest(TestWait(delay=10, reason="to let OM initialize"))
 
                         if (action.count("activate") > 0):
+                            suite.addTest(TestWait(delay=10, reason="to let node initialize before activation"))
+
                             # Now activate the node's configured services.
                             suite.addTest(TestFDSSysMgt.TestNodeActivate(node=node))
                             suite.addTest(TestWait(delay=10, reason="to let the node activate"))
@@ -203,6 +202,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                     log.error("Node not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
+
         elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
             # Shutdown the node according to the specified action.
             for script in nds:
@@ -302,7 +302,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             # Start this service according to the specified action.
             if (action.count("install") > 0):
                 # First, build out the installation directory and start Redis.
-                suite.addTest(TestFDSEnvMgt.TestFDSCreateInstDir(node=node))
+                suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
                 # Boot Redis on the machine if requested.
                 if 'redis' in node.nd_conf_dict:
                     if node.nd_conf_dict['redis'] == 'true':

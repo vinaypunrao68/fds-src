@@ -75,43 +75,6 @@ namespace fds
     }
 
     void
-    PlatRpcReqt::NotifyDMTUpdate(const FDSP_MsgHdrType &msg_hdr,
-                                 const FDSP_DMT_Type   &dmt_info)
-    {
-    }
-
-    void
-    PlatRpcReqt::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
-                                 fpi::FDSP_DMT_TypePtr   &dmt)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::NotifyDMTClose(const FDSP_MsgHdrType &msg_hdr,
-                                const FDSP_DmtCloseType &dmt)
-    {
-    }
-    void
-    PlatRpcReqt::NotifyDMTClose(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                                fpi::FDSP_DmtCloseTypePtr &dmt_close)
-    {
-        fds_verify(0);
-    }
-
-    void
-    PlatRpcReqt::PushMetaDMTReq(const FDSP_MsgHdrType &msg_hdr,
-                                const FDSP_PushMeta &push_meta_resp)
-    {
-    }
-    void
-    PlatRpcReqt::PushMetaDMTReq(fpi::FDSP_MsgHdrTypePtr &msg_hdr,
-                                fpi::FDSP_PushMetaPtr &push_meta_resp)
-    {
-        fds_verify(0);
-    }
-
-    void
     PlatRpcReqt::SetThrottleLevel(const FDSP_MsgHdrType      &msg_hdr,
                                   const FDSP_ThrottleMsgType &throttle_msg)
     {
@@ -193,83 +156,6 @@ namespace fds
     {
     }
     PlatDataPathResp::~PlatDataPathResp()
-    {
-    }
-
-    void
-    PlatDataPathResp::GetObjectResp(const FDSP_MsgHdrType& fdsp_msg,
-                                    const FDSP_GetObjType& get_obj_req)
-    {
-    }
-
-    void
-    PlatDataPathResp::GetObjectResp(
-        boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
-        boost::shared_ptr<FDSP_GetObjType>& get_obj_req)
-    {
-    }
-
-    void
-    PlatDataPathResp::PutObjectResp(const FDSP_MsgHdrType& fdsp_msg,
-                                    const FDSP_PutObjType& put_obj_req)
-    {
-    }
-
-    void
-    PlatDataPathResp::PutObjectResp(
-        boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  /// NOLINT
-        boost::shared_ptr<FDSP_PutObjType>& put_obj_req)
-    {
-    }
-
-    void
-    PlatDataPathResp::DeleteObjectResp(const FDSP_MsgHdrType& fdsp_msg,
-                                       const FDSP_DeleteObjType& del_obj_req)
-    {
-    }
-
-    void
-    PlatDataPathResp::DeleteObjectResp(
-        boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
-        boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req)
-    {
-    }
-
-    void
-    PlatDataPathResp::OffsetWriteObjectResp(const FDSP_MsgHdrType& fdsp_msg,
-                                            const FDSP_OffsetWriteObjType& req)
-    {
-    }
-
-    void
-    PlatDataPathResp::OffsetWriteObjectResp(
-        boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
-        boost::shared_ptr<FDSP_OffsetWriteObjType>& req)
-    {
-    }
-
-    void
-    PlatDataPathResp::RedirReadObjectResp(const FDSP_MsgHdrType& fdsp_msg,
-                                          const FDSP_RedirReadObjType& req)
-    {
-    }
-
-    void
-    PlatDataPathResp::RedirReadObjectResp(
-        boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
-        boost::shared_ptr<FDSP_RedirReadObjType>& req)
-    {
-    }
-
-    void
-    PlatDataPathResp::GetObjectMetadataResp(
-        const FDSP_GetObjMetadataResp& metadata_resp)
-    {
-    }
-
-    void
-    PlatDataPathResp::GetObjectMetadataResp(
-        boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp)  // NOLINT
     {
     }
 

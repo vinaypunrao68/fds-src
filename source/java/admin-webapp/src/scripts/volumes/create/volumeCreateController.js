@@ -1,39 +1,11 @@
 angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$rootScope', '$volume_api', '$snapshot_service', '$modal_data_service', '$http_fds', '$filter', function( $scope, $rootScope, $volume_api, $snapshot_service, $modal_data_service, $http_fds, $filter ){
 
-    $scope.qos = {
-        capacity: 0,
-        limit: 0,
-        priority: 10
-    };
-    
     $scope.snapshotPolicies = [];
     $scope.dataConnector = {};
     $scope.volumeName = '';
     $scope.mediaPolicy = 0;
     
-    // default timeline policies
-    $scope.timelinePolicies = {
-        continuous: 24*60*60,
-        policies: [
-            // daily
-            {
-                retention: 7*24*60*60,
-                recurrenceRule: {FREQ: 'DAILY'}
-            },
-            {
-                retention: 14*24*60*60,
-                recurrenceRule: {FREQ: 'WEEKLY'}
-            },
-            {
-                retention: 60*24*60*60,
-                recurrenceRule: {FREQ: 'MONTHLY'}
-            },
-            {
-                retention: 366*24*60*60,
-                recurrenceRule: {FREQ: 'YEARLY'}
-            }
-        ]
-    };
+    $scope.timelinePolicies = {};
     
     var creationCallback = function( volume, newVolume ){
 
@@ -137,9 +109,9 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.$broadcast( 'fds::refresh' );
         
         var volume = {};
-        volume.sla = $scope.qos.capacity;
-        volume.limit = $scope.qos.limit;
-        volume.priority = $scope.qos.priority;
+        volume.sla = $scope.newQos.sla;
+        volume.limit = $scope.newQos.limit;
+        volume.priority = $scope.newQos.priority;
         volume.snapshotPolicies = $scope.snapshotPolicies;
         volume.timelinePolicies = $scope.timelinePolicies.policies;
         volume.commit_log_retention = $scope.timelinePolicies.continuous;
@@ -176,8 +148,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     var syncWithClone = function( volume ){
         
-        $scope.qos = {
-            capacity: volume.sla,
+        $scope.newQos = {
+            sla: volume.sla,
             limit: volume.limit,
             priority: volume.priority
         };
@@ -214,10 +186,10 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.$watch( 'volumeVars.creating', function( newVal ){
         if ( newVal === true ){
             
-            $scope.qos = {
-                capacity: 0,
+            $scope.newQos = {
+                sla: 0,
                 limit: 0,
-                priority: 10
+                priority: 7
             };
             
             $scope.volumeName = '';
@@ -234,19 +206,22 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
                         recurrenceRule: {FREQ: 'DAILY'}
                     },
                     {
-                        retention: 14*24*60*60,
+                        retention: 30*24*60*60,
                         recurrenceRule: {FREQ: 'WEEKLY'}
                     },
                     {
-                        retention: 60*24*60*60,
+                        retention: 180*24*60*60,
                         recurrenceRule: {FREQ: 'MONTHLY'}
                     },
                     {
-                        retention: 366*24*60*60,
+                        retention: 5*366*24*60*60,
                         recurrenceRule: {FREQ: 'YEARLY'}
                     }
                 ]
-            };
+            };;
+            
+            $scope.$broadcast('fds::fui-slider-refresh' );
+            $scope.$broadcast( 'fds::qos-reinit' );
         }
     });
 

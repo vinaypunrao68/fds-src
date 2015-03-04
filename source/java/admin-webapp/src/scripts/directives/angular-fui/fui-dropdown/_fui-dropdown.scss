@@ -4,6 +4,10 @@
     }
 }
 
+.dropdown-toggle {
+    border-style: solid;
+}
+
 .open .dropdown-toggle.btn-primary {
     background-color: $button_primary;
 }
@@ -13,7 +17,7 @@
 }
 
 .dropdown-gray-border {
-    border: 1px solid $text_very_light_color !important;
+    border-color: $text_very_light_color !important;
 
     .btn:hover, .btn:focus {
         border-color: $button_primary_hover;

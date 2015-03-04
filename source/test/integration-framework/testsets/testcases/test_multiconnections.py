@@ -24,6 +24,7 @@ from boto.s3.bucket import Bucket
 from filechunkio import FileChunkIO
 
 import s3
+import samples
 import testsets.testcase as testcase
 import utils
 
@@ -41,22 +42,17 @@ class TestMultiConnections(testcase.FDSTestCase):
         self.hash_table = {}
         self.sample_files = []
         self.s3_connections = []
-        
-        f_sample = "sample_file_%s"
-        if not os.path.exists(config.SAMPLE_DIR):
-            os.makedirs(config.SAMPLE_DIR)
-        if not os.path.exists(config.DOWNLOAD_DIR):
-            os.makedirs(config.DOWNLOAD_DIR)
+    
+        utils.create_dir(config.TEST_DIR)
+        utils.create_dir(config.DOWNLOAD_DIR)
             
         # for this test, we will create 5 sample files, 2MB each
-        for i in xrange(0, 5):
-            current = f_sample % i
-            if utils.create_file_sample(current, 2):
+        for current in samples.sample_mb_files[:3]:
+            path = os.path.join(config.TEST_DIR, current)
+            if os.path.exists(path):
                 self.sample_files.append(current)
-                path = os.path.join(config.SAMPLE_DIR, current)
                 encode = utils.hash_file_content(path)
                 self.hash_table[current] = encode
-        
     
     def create_multiple_connections(self, ip):
         # creates 20 s3 connections for each AM node
@@ -80,12 +76,7 @@ class TestMultiConnections(testcase.FDSTestCase):
             self.create_multiple_connections(ip)
             self.concurrently_volumes()
         self.log.info("Removing the sample files created.")
-        if os.path.exists(config.SAMPLE_DIR):
-            self.log.info("Removing %s" % config.SAMPLE_DIR)
-            shutil.rmtree(config.SAMPLE_DIR)
-        if os.path.exists(config.DOWNLOAD_DIR):
-            self.log.info("Removing %s" % config.DOWNLOAD_DIR)
-            shutil.rmtree(config.DOWNLOAD_DIR)
+        utils.remove_dir(config.DOWNLOAD_DIR)
         self.reportTestCaseResult(self.test_passed)
     
     def concurrently_volumes(self):
@@ -124,6 +115,7 @@ class TestMultiConnections(testcase.FDSTestCase):
                 # We won't be waiting for it to complete, short circuit it.
                 self.test_passed = False
                 self.reportTestCaseResult(self.test_passed)
+            self.log.info("Bucket %s created" % bucket.name)
             self.buckets.append(bucket)
             self.store_file_to_volume(bucket)
             
@@ -136,11 +128,15 @@ class TestMultiConnections(testcase.FDSTestCase):
                 self.log.info("Hashing for file %s" % k)
                 path = os.path.join(config.DOWNLOAD_DIR, k)
                 hashcode = utils.hash_file_content(path)
-                if v != hashcode:
-                    self.log.warning("%s != %s" % (v, hashcode))
+                if hashcode == None:
+                    continue
+                elif v != hashcode:
+                    self.log.exception("%s != %s" % (v, hashcode))
                     self.test_passed = False
                     self.reportTestCaseResult(self.test_passed)
-            self.test_passed = True
+                    break
+                else:
+                    self.test_passed = True
             
         return s3conn
 
@@ -168,7 +164,7 @@ class TestMultiConnections(testcase.FDSTestCase):
         k = Key(bucket)
         #path = os.path.join(config.SAMPLE_DIR, sample)
         for sample in self.sample_files:
-            path = os.path.join(config.SAMPLE_DIR, sample)
+            path = os.path.join(config.TEST_DIR, sample)
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,

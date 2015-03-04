@@ -1,5 +1,4 @@
 from  svchelper import *
-from fdslib.pyfdsp.apis import ttypes
 import restendpoint
 
 class UserContext(Context):

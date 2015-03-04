@@ -130,7 +130,6 @@ StorHvCtrl::StorHvCtrl(int argc,
 	om_client->initialize();
 
 	qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-	om_client->startAcceptingControlMessages();
 
 	StatsCollector::singleton()->registerOmClient(om_client);
 	fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");

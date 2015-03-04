@@ -31,6 +31,13 @@ FDS_DEFAULT_KEYS_COUNT        = 10
 FDS_DEFAULT_FILE_PATH         = "/tmp/foobar"
 TEST_DEBUG                    = 1
 
+SSH_USER                      = 'root'
+SSH_PASSWORD                  = 'passwd'
+STOP_ALL_CLUSTER              = "./fds-tool.py -f %s -d"
+START_ALL_CLUSTER             = "./fds-tool.py -f %s -u"
+FDS_SBIN                      = "/fds/sbin"
+FORMATION_CONFIG              = "deploy_formation.conf"
+
 params = {
     'log_level' : 20,
     'stop_on_fail' : True,
@@ -53,7 +60,9 @@ NUMBER_USERS = 30
 MAX_NUM_VOLUMES = 1023
 SAMPLE_FILE = "test.txt"
 SAMPLE_DIR = "./samples/"
+TEST_DIR = "./test_files/"
 BACKUP_DIR = "./backup/"
+REPOSITORY_URL = "http://coke.formationds.com/jenkins_tests/samples.tar.gz"
 DOWNLOAD_DIR = "./downloads/"
 ROOT = "/root/"
 ANSIBLE_ROOT = "../../../ansible/"

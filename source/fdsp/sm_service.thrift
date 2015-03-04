@@ -297,10 +297,6 @@ struct CtrlQueryScrubberStatusResp {
    1: FDSP_ScavengerStatusType	scrubber_status;
 }
 
-struct CtrlStartMigration {
-   1: FDSP_DLT_Data_Type   dlt_data;
-}
-
 /* ------------------------  CtrlQueryScrubberStatusTypeId  ------------------------- */
 struct CtrlQueryScrubberStatus {
 }

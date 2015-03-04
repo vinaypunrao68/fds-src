@@ -20,7 +20,7 @@ def suiteConstruction(self):
     suite = unittest.TestSuite()
 
     # Build the necessary FDS installation infrastructure assuming a development environment.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+    suite.addTest(testcases.TestFDSEnvMgt.TestFDSInstall())
     suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
 
     # Bring up each component of the node separately, waiting until

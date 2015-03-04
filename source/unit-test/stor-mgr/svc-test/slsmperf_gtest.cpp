@@ -15,7 +15,8 @@
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
 #include <testlib/Datasets.h>
-#include <fdsp/ConfigurationService.h>
+#include "fdsp/ConfigurationService.h"
+#include "fdsp/sm_service_types.h"
 #include <thrift/concurrency/Monitor.h>
 
 #include <gmock/gmock.h>

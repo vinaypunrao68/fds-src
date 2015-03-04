@@ -504,6 +504,8 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 
                 $scope.spinnerValue = parseInt( value ); 
             });
+            
+            $scope.$on( 'fds::waterfall-slider-refresh', init );
 
             $scope.$on( '$destroy', function(){
                 $document.off( 'mousemove', null, $scope.sliderMoved );

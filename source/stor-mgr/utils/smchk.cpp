@@ -1,13 +1,18 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <iostream>
+#include <fstream>
+#include <unistd.h>
 #include <fds_assert.h>
 #include <fds_process.h>
-#include <sm_ut_utils.h>
+#include <dlt.h>
+#include <ObjectId.h>
 #include <object-store/SmDiskMap.h>
 #include <object-store/ObjectMetaDb.h>
 #include <object-store/ObjectMetadataStore.h>
 #include <object-store/ObjectStore.h>
+#include <StorMgr.h>
 #include <vector>
 #include <string>
 #include <boost/program_options.hpp>
@@ -15,17 +20,50 @@
 #include "smchk.h"
 
 namespace fds {
-SMChk::SMChk(int sm_count, SmDiskMap::ptr smDiskMap,
-        ObjectDataStore::ptr smObjStore, ObjectMetadataDb::ptr smMdDb):
-        sm_count(sm_count),
-        smDiskMap(smDiskMap),
-        smObjStore(smObjStore),
-        smMdDb(smMdDb) {
-    fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
-    DLT* dlt = new DLT(8, cols, 1, true);
-    SmUtUtils::populateDlt(dlt, sm_count);
-    GLOGDEBUG << "Using DLT: " << *dlt;
-    Error err = smDiskMap->handleNewDlt(dlt);
+
+SMChk::SMChk(SmDiskMap::ptr smDiskMap,
+             ObjectDataStore::ptr smObjStore,
+             ObjectMetadataDb::ptr smMdDb,
+             bool verboseMsg = false)
+    : smDiskMap(smDiskMap),
+      smObjStore(smObjStore),
+      smMdDb(smMdDb),
+      verbose(verboseMsg)
+{
+
+    std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
+    if (access(uuidPath.c_str(), F_OK) == -1) {
+       std::cout << "uuid file (" << uuidPath << ") doesn't exists.  "
+                 << "Cannot properly map DLT tokens.  Exiting..." 
+                 << std::endl;
+       exit(0);
+    }
+
+    uint64_t tmpUuid;
+    std::ifstream uuidFile(uuidPath);
+    uuidFile >> tmpUuid;
+    smUuid.uuid_set_val(tmpUuid);
+
+    if (verbose) {
+        std::cout << "Uuid=" << smUuid << std::endl;
+    }
+
+    // Load current DLT from the file.
+    curDLT = new DLT(0, 0, 0, false);
+    std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
+    if (access(dltPath.c_str(), F_OK) == -1) {
+       std::cout << "DLT file (" << dltPath << ") doesn't exists.  "
+                 << "Cannot properly map DLT tokens.  Exiting..." 
+                 << std::endl;
+       exit(0);
+    }
+    curDLT->loadFromFile(dltPath);
+    curDLT->generateNodeTokenMap();
+    if (verbose) {
+        std::cout << "DLT Table:" << std::endl << *curDLT << std::endl;
+    }
+
+    Error err = smDiskMap->handleNewDlt(curDLT, smUuid);
     fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
     // Open the data store
@@ -35,14 +73,18 @@ SMChk::SMChk(int sm_count, SmDiskMap::ptr smDiskMap,
     // Meta db
     smMdDb->openMetadataDb(smDiskMap);
 
-    // we don't need dlt anymore
-    delete dlt;
 }
 
 SMChk::SMChk(ObjectDataStore::ptr smObjStore, ObjectMetadataDb::ptr smMdDb)
-        : smDiskMap(nullptr), sm_count(0),
-        smObjStore(smObjStore),
-        smMdDb(smMdDb) {}
+        : smDiskMap(nullptr),
+          sm_count(0),
+          smObjStore(smObjStore),
+          smMdDb(smMdDb)
+{
+    // TODO(Sean):
+    // Do online smcheck.
+    curDLT = NULL;
+}
 
 SmTokenSet SMChk::getSmTokens() {
     return smDiskMap->getSmTokens();
@@ -167,9 +209,33 @@ bool SMChk::consistency_check(ObjectID obj_id) {
     return true;
 }
 
-bool SMChk::full_consistency_check() {
-    int error_count = 0;
+bool SMChk::checkObjectOwnership(const ObjectID& objId)
+{
+    bool found = false;
+
+    DltTokenGroupPtr nodes = curDLT->getNodes(objId);
+    for (uint i = 0; i < nodes->getLength(); ++i) {
+        if (nodes->get(i) == smUuid) {
+            found = true;
+            break;
+        }
+    }
+
+    return found;
+}
+
+bool SMChk::full_consistency_check(bool checkOwnership, bool checkOnlyActive) {
+    int corruptionCount = 0;
+    int ownershipMismatch = 0;
     int objs_count = 0;
+
+    if (verbose) {
+        std::cout << "Full Consistency Check with options: "
+                  << " checkOwnership=" << checkOwnership
+                  << " checkOnlyActive=" << checkOnlyActive
+                  << std::endl;
+    }
+
     MetadataIterator md_it(this);
     for (md_it.start(); !md_it.end(); md_it.next()) {
         const ObjectID id(md_it.key());
@@ -187,27 +253,53 @@ bool SMChk::full_consistency_check() {
         GLOGDEBUG << "Hasher found: " << hashId
                     << " and objId was: " << id << "\n";
 
+        // Only report active object metadata
+        if (checkOnlyActive && (omd->getRefCnt() == 0)) {
+            continue;
+        }
+
         // Compare hash to objID
         if (hashId != id) {
             GLOGNORMAL << "An error was found with " << id << "\n";
             GLOGNORMAL << id << " corrupt!\n" << *omd;
-            error_count++;
+            ++corruptionCount;
         }
+
+        if (checkOwnership) {
+            bool tokenOwned = checkObjectOwnership(id);
+            if (!tokenOwned) {
+                ++ownershipMismatch;
+            }
+        }
+
         // Increment the number of objects we've checked
-        objs_count++;
+        ++objs_count;
         // omd will auto delete when it goes out of scope
     }
 
-    GLOGNORMAL << objs_count << " objects checked, " << error_count << " errors were found.\n";
+    GLOGNORMAL << "Total Objects=" << objs_count
+               << ", Corrupted Objects=" << corruptionCount
+               << ", Token Ownership Mismatch=" << ownershipMismatch;
 
     // For convenience, tests will look at stdout.
-    std::cout << objs_count << " objects checked, " << error_count << " errors were found." << std::endl;
+    std::cout << "Total Objects=" << objs_count
+              << ", Corrupted Objects=" << corruptionCount
+              << ", Token Ownership Mismatch=" << ownershipMismatch
+              << std::endl;
 
-    if (error_count > 0) {
-        GLOGNORMAL << "WARNING: " << error_count << " errors were found. "
-                << objs_count << " objects were checked. \n";
+    if (corruptionCount > 0) {
+        GLOGERROR << "ERROR: "
+                  << "Total Objects=" << objs_count
+                  << ", Corruption=" << corruptionCount;
         return false;
     }
+
+    if (ownershipMismatch > 0) {
+        GLOGERROR << "Total Objects=" << objs_count
+                  << ", Token Ownership Mismatch=" << ownershipMismatch;
+        return false;
+    }
+
     GLOGNORMAL << "SUCCESS! " << objs_count << " objects checked; no errors found.\n";
     return true;
 }
