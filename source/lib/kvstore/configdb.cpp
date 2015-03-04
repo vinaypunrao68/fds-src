@@ -22,6 +22,10 @@ namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
 
+#define FDSP_SERIALIZE(type , varname) \
+    boost::shared_ptr<std::string> varname; \
+    fds::serializeFdspMsg(type, varname);
+
 ConfigDB::ConfigDB(const std::string& host,
                    uint port,
                    uint poolsize) : KVStore(host, port, poolsize) {
@@ -543,16 +547,16 @@ bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
 }
 
 // nodes
-bool ConfigDB::addNode(const node_data_t *node) {
+bool ConfigDB::addNode(const NodeInfoType& node) {
     TRACKMOD();
     // add the volume to the volume list for the domain
     int domainId = 0;  // TODO(prem)
     try {
         bool ret;
 
-        ret = r.sadd(format("%d:cluster:nodes", domainId), node->nd_node_uuid);
-        ret = r.set(format("node:%ld", node->nd_node_uuid),
-                    std::string(reinterpret_cast<const char *>(node), sizeof(node_data_t)));
+        FDSP_SERIALIZE(node, serialized);
+        ret = r.sadd(format("%d:cluster:nodes", domainId), node.node_uuid.uuid);
+        ret = r.set(format("node:%ld", node.node_uuid.uuid), *serialized);
 
         return ret;
     } catch(const RedisException& e) {
@@ -562,7 +566,7 @@ bool ConfigDB::addNode(const node_data_t *node) {
     return false;
 }
 
-bool ConfigDB::updateNode(const node_data_t *node) {
+bool ConfigDB::updateNode(const NodeInfoType& node) {
     try {
         return addNode(node);
     } catch(const RedisException& e) {
@@ -591,14 +595,13 @@ bool ConfigDB::removeNode(const NodeUuid& uuid) {
     return false;
 }
 
-bool ConfigDB::getNode(const NodeUuid& uuid, node_data_t *node) {
+bool ConfigDB::getNode(const NodeUuid& uuid, NodeInfoType& node) {
     try {
         Reply reply = r.get(format("node:%ld", uuid.uuid_get_val()));
         if (reply.isOk()) {
-            *node = *(reinterpret_cast<const node_data_t *>(reply.getString().c_str()));
+            fds::deserializeFdspMsg(reply.getString(), node);
             return true;
         }
-        return false;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
@@ -640,7 +643,7 @@ bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int loc
     return false;
 }
 
-bool ConfigDB::getAllNodes(std::vector<node_data_t>& nodes, int localDomain) {
+bool ConfigDB::getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain) {
     std::vector<long long> nodeIds; //NOLINT
 
     try {
@@ -651,10 +654,10 @@ bool ConfigDB::getAllNodes(std::vector<node_data_t>& nodes, int localDomain) {
             LOGWARN << "no nodes found for domain [" << localDomain << "]";
             return false;
         }
-
+        
+        NodeInfoType node;
         for (uint i = 0; i < nodeIds.size(); i++) {
-            node_data_t node;
-            getNode(nodeIds[i], &node);
+            getNode(nodeIds[i], node);
             nodes.push_back(node);
         }
         return true;
@@ -666,8 +669,10 @@ bool ConfigDB::getAllNodes(std::vector<node_data_t>& nodes, int localDomain) {
 
 std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
     try {
-        Reply reply = r.sendCommand("hget node:%ld name", uuid);
-        return reply.getString();
+        NodeInfoType node;
+        if (getNode(uuid, node)) {
+            return node.node_name;
+        }
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }

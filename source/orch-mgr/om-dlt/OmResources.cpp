@@ -1032,7 +1032,6 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
     
 }
 
-
 // om_reg_node_info
 // ----------------
 //
@@ -1091,6 +1090,11 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // Vy: we could get duplicate if the agent already reigstered by platform lib.
         // fds_verify(err.ok());
 
+        // add the node info to configdb
+        
+        if (!configDB->addNode(*msg)) {
+            LOGERROR << "unable to store node into configdb : " << msg->node_uuid.uuid;
+        }
         om_locDomain->om_bcast_new_node(newNode, msg);
 
         // Let this new node know about exisiting node list.
