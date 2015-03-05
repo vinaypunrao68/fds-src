@@ -219,6 +219,57 @@ TEST_F(PersistSnapTest, additionsScatteredAreFound) {
     delete dbFromSecondSnap;
 }
 
+TEST_F(PersistSnapTest, updatesReported) {
+    using namespace fds; //NOLINT
+    std::string obj;
+    ObjectBuf buf;
+    ObjMetaData omd;
+    ObjectID oid;
+    omd.incRefCnt();
+
+    obj = "test_10";
+    oid =  ObjIdGen::genObjectId(obj.c_str(), obj.size());
+    omd.serializeTo(buf);
+    odb->Put(oid, buf);
+
+    obj = "test_20";
+    oid =  ObjIdGen::genObjectId(obj.c_str(), obj.size());
+    omd.serializeTo(buf);
+    odb->Put(oid, buf);
+
+    obj = "test_30";
+    oid =  ObjIdGen::genObjectId(obj.c_str(), obj.size());
+    omd.serializeTo(buf);
+    odb->Put(oid, buf);
+
+    metadata::metadata_diff_type diff;
+    leveldb::DB* dbFromFirstSnap;
+    leveldb::DB* dbFromSecondSnap;
+    leveldb::Options options;
+
+    odb->PersistentSnap(odb_snap_path + "/2", &cenv);
+    leveldb::Status status = leveldb::DB::Open(options, odb_snap_path + "/1", &dbFromFirstSnap);
+    if (!status.ok()) {
+        GLOGNOTIFY <<"Could not open leveldb instance from snapshot. Error is " << status.ToString();
+    }
+
+    status = leveldb::DB::Open(options, odb_snap_path + "/2", &dbFromSecondSnap);
+    if (!status.ok()) {
+        GLOGNOTIFY <<"Could not open leveldb instance from snapshot. Error is " << status.ToString();
+    }
+
+    fds::metadata::diff(dbFromFirstSnap,
+                        dbFromSecondSnap,
+                        diff);
+    ASSERT_EQ(diff.size(), 3);
+    for (auto& p: diff) {
+        ASSERT_TRUE(static_cast<bool>(p.first));
+        ASSERT_TRUE(static_cast<bool>(p.second));
+    } 
+    delete dbFromFirstSnap;
+    delete dbFromSecondSnap;
+}
+
 int main(int argc, char *argv[])
 {
     using namespace boost::filesystem; // NOLINT
