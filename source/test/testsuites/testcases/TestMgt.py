@@ -278,9 +278,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                           (scenario.nd_conf_dict['scenario-name']))
                 raise Exception
         else:
-            log.error("fds_node option not found for scenario '%s'" %
-                      (scenario.nd_conf_dict['scenario-name']))
-            raise Exception
+            # Perform action for given service on all nodes in the domain.
+            node = None
 
         # Validate the service in question
         if "service" in scenario.nd_conf_dict:
@@ -298,18 +297,29 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         if (action.count("boot") > 0):
             if service == "pm":
                 suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
-                suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
             elif service == "dm":
                 suite.addTest(TestFDSServiceMgt.TestDMBringUp(node=node))
-                suite.addTest(TestFDSServiceMgt.TestDMWait(node=node))
             elif service == "sm":
                 suite.addTest(TestFDSServiceMgt.TestSMBringUp(node=node))
-                suite.addTest(TestFDSServiceMgt.TestSMWait(node=node))
             elif service == "om":
                 suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
-                suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
             elif service == "am":
                 suite.addTest(TestFDSServiceMgt.TestAMBringUp(node=node))
+
+        if (action.count("verifyup") > 0):
+            if service == "pm":
+                if node is None:
+                    # When checking all PM's in the domain, we have to call out the
+                    # PM for the OM's node specifically.
+                    suite.addTest((TestFDSServiceMgt.TestPMForOMWait(node=node)))
+                suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
+            elif service == "dm":
+                suite.addTest(TestFDSServiceMgt.TestDMWait(node=node))
+            elif service == "sm":
+                suite.addTest(TestFDSServiceMgt.TestSMWait(node=node))
+            elif service == "om":
+                suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
+            elif service == "am":
                 suite.addTest(TestFDSServiceMgt.TestAMWait(node=node))
 
         if (action.count("activate") > 0):
@@ -355,6 +365,22 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
             elif service == "am":
                 suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+
+        if (action.count("verifydown") > 0):
+            if service == "pm":
+                if node is None:
+                    # When checking all PM's in the domain, we have to call out the
+                    # PM for the OM's node specifically.
+                    suite.addTest((TestFDSServiceMgt.TestPMForOMVerifyDown(node=node)))
+                suite.addTest(TestFDSServiceMgt.TestPMVerifyDown(node=node))
+            elif service == "dm":
+                suite.addTest(TestFDSServiceMgt.TestDMVerifyDown(node=node))
+            elif service == "sm":
+                suite.addTest(TestFDSServiceMgt.TestSMVerifyDown(node=node))
+            elif service == "om":
+                suite.addTest(TestFDSServiceMgt.TestOMVerifyDown(node=node))
+            elif service == "am":
+                suite.addTest(TestFDSServiceMgt.TestAMVerifyDown(node=node))
 
         # Give the service action some time to complete if requested.
         if 'delay_wait' in scenario.nd_conf_dict:
