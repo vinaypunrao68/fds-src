@@ -15,34 +15,34 @@ namespace java com.formationds.protocol.om
    ------------------------------------------------------------*/
 
 /**
- *
+ * Create Volume
  */
 struct CtrlCreateBucket {
-  /**  */
+  /** Volume Specification */
   1: common.FDSP_CreateVolType  cv;
 }
 
 /**
- *
+ * Delete Volume
  */
 struct CtrlDeleteBucket {
-  /**  */
+  /** Volume Specification */
   1:  common.FDSP_DeleteVolType dv;
 }
 
 /**
- *
+ * Modify Volume
  */
 struct CtrlModifyBucket {
-  /**  */
+  /** Volume Specification */
   1:  common.FDSP_ModifyVolType mv;
 }
 
 /**
- *
+ * Test for Volume
  */
 struct CtrlTestBucket {
-  /**  */
+  /** Volume Specification */
   1: om_types.FDSP_TestBucket   tbmsg;
 }
 
@@ -51,7 +51,7 @@ struct CtrlTestBucket {
    ------------------------------------------------------------*/
 
 /**
- *
+ * Abort any Replication
  */
 struct CtrlTokenMigrationAbort {
 }
@@ -64,10 +64,10 @@ struct CtrlTokenMigrationAbort {
  *
  */
 struct CtrlSvcEvent {
-  /**  */
-  1: required common.SvcUuid    evt_src_svc_uuid; // The svc uuid that this event targets
-  /**  */
-  2: required i32               evt_code;         // The error itself
-  /**  */
-  3: fds_service.FDSPMsgTypeId  evt_msg_type_id;  // The msg that trigged this event (if any)
+  /** Uuid of service which caused error */
+  1: required common.SvcUuid    evt_src_svc_uuid;
+  /** Error Code */
+  2: required i32               evt_code;
+  /** Message causing the Error */
+  3: fds_service.FDSPMsgTypeId  evt_msg_type_id;
 }
