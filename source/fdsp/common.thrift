@@ -84,3 +84,23 @@ struct SvcVer {
 struct FDS_ObjectIdType {
   1: string  digest
 }
+
+/**
+ *    A throttle level of X.Y (e.g, 5.6) means we should
+ *    1. throttle all traffic for priorities greater than X (priorities 6,7,8,9
+ *       for a 5.6 throttle level) to their guaranteed min rate,
+ *    2. allow all traffic for priorities less than X (priorities 0,1,2,3,4 for
+ *       a 5.6 throttle level) to go up till their max rate limit,
+ *    3. traffic for priority X to a rate = min_rate + Y/10 * (max_rate - min_rate).
+ *       (A volume that has a min rate of 300 IOPS and max rate of 600 IOPS will
+ *       be allowed to pump at 480 IOPS when throttle level is 5.6).
+ *
+ *    A throttle level of 0 indicates all volumes should be limited at their min_iops rating.
+ *    A negative throttle level of -X means all volumes should be throttled at (10-X)/10 of their min iops.
+ */
+struct FDSP_ThrottleMsgType {
+  /** Domain Identifier. */
+  1: i32    domain_id, /* Domain this throttle message is meant for */
+  /** Throttle level. */
+  2: double throttle_level, /* a real number between -10 and 10 */
+}

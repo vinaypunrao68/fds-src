@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-include "fds_service.thrift"
 include "common.thrift"
 include "dm_types.thrift"
 include "snapshot.thrift"

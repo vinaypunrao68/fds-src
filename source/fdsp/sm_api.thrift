@@ -5,7 +5,6 @@
 include "sm_types.thrift"
 
 include "common.thrift"
-include "fds_service.thrift"
 include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface

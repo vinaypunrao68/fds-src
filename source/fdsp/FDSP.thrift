@@ -426,30 +426,6 @@ struct FDSP_RegisterNodeType {
   13: i32         metasync_port, /*  Port for meta sync port service */
 }
 
-struct FDSP_ThrottleMsgType {
-  1: i32 	         domain_id, /* Domain this throttle message is meant for */
-  2: double	         throttle_level, /* a real number between -10 and 10 */
-  /*
-     A throttle level of X.Y (e.g, 5.6) means we should
-     1. throttle all traffic for priorities greater than X (priorities 6,7,8,9 for a 5.6 throttle level) to their guaranteed min rate,
-     2. allow all traffic for priorities less than X (priorities 0,1,2,3,4 for a 5.6 throttle level) to go up till their max rate limit,
-     3. throttle traffic for priority X to a rate = min_rate + Y/10 * (max_rate - min_rate).
-        (A volume that has a min rate of 300 IOPS and max rate of 600 IOPS will be allowed to pump at 480 IOPS when throttle level is 5.6).
-
-     A throttle level of 0 indicates all volumes should be limited at their min_iops rating.
-     A negative throttle level of -X means all volumes should be throttled at (10-X)/10 of their min iops.
-  */
-}
-
-/*
- * Message from OM to AM/SM/DM to help configure QoS control
- * For now using for OM setting total rate in AM based on current set of SMs
- * and their performance capabilities
- */
-struct FDSP_QoSControlMsgType {
-  1: i64   total_rate,   /* total rate in FDS ops/second */
-}
-
 struct FDSP_BucketStatType {
   1: string             vol_name,
   2: double             performance,  /* average iops */
@@ -634,7 +610,7 @@ service FDSP_ConfigPathReq {
   i32 AssociateRespCallback(1:i64 ident), // Associate Response callback ICE-object with DM/SM
   i32 CreateDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType crt_dom_req),
   i32 DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
-  i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
+  i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_ThrottleMsgType throttle_msg),
   FDSP_VolumeDescType GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req) throws (1:FDSP_VolumeNotFound not_found),
   i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),

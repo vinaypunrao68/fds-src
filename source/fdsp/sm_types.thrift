@@ -7,7 +7,9 @@ include "common.thrift"
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.sm
 
-/* -------------------- SM Enumerations -------------------- */
+/* ------------------------------------------------------------
+   StorMgr Enumerations
+   ------------------------------------------------------------*/
 
 /**
  * Scavenger Commands
@@ -73,7 +75,9 @@ enum SMCheckStatusType {
   SMCHECK_STATUS_STOPPED    = 0x20;
 }
 
-/* -------------------- SM Types -------------------- */
+/* ------------------------------------------------------------
+   StorMgr Types
+   ------------------------------------------------------------*/
 
 /**
  * Object volume association
@@ -156,8 +160,9 @@ struct FDSP_MigrationStatusType {
   2: i32 context;
 }
 
-/* ----------------------- Scavenger --------------------------------------------- */
-
+/**
+ * Scavenger Command
+ */
 struct FDSP_ScavengerType {
   /** Command to scavenger. */
   1: FDSP_ScavengerCmd  cmd;
