@@ -84,9 +84,9 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
 {
     std::stringstream ss;
-    ss << "Svc handle svc_uuid: " << info.svc_id.svc_uuid.svc_uuid << " ip: " << info.ip
-        << " port: " << info.svc_port << " incarnation: " << info.incarnationNo
-        << " status: " << info.svc_status;
+    ss << "Svc handle svc_uuid: " << std::hex << info.svc_id.svc_uuid.svc_uuid
+        << std::dec << " ip: " << info.ip << " port: " << info.svc_port
+        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
     return ss.str();
 }
 

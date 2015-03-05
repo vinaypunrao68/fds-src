@@ -984,7 +984,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
 
     /* Do the registration */
-    NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->node_uuid.uuid));
+    NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
     err = om_reg_node_info(node_uuid, reg_node_req);
 
     if (err.ok()) {
@@ -1042,7 +1042,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
 
-    LOGNORMAL << "OM recv reg node uuid " << std::hex
+    LOGNORMAL << "OM recv reg node for platform uuid " << std::hex
         << msg->node_uuid.uuid << ", svc uuid " << msg->service_uuid.uuid
         << std::dec << ", type " << msg->node_type << ", ip "
         << netSession::ipAddr2String(msg->ip_lo_addr) << ", ctrl port "
@@ -1054,7 +1054,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // registered with OM and node must be in active state
         if (!pmNodes->check_new_service((msg->node_uuid).uuid, msg->node_type)) {
             LOGERROR << "Error: cannot register service " << msg->node_name
-                    << " on node with uuid " << std::hex << (msg->node_uuid).uuid
+                    << " on platform with uuid " << std::hex << (msg->node_uuid).uuid
                     << std::dec << "; Check if Platform daemon is running";
             return Error(ERR_NODE_NOT_ACTIVE);
         }
