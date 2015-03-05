@@ -790,6 +790,7 @@ void OM_NodeDomainMod::local_domain_event(ShutdownEvt const &evt) {
 Error
 OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
 {
+    TRACEFUNC;
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
@@ -868,6 +869,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
 Error
 OM_NodeDomainMod::om_load_volumes()
 {
+    TRACEFUNC;
     Error err(ERR_OK);
 
     // load volumes for this domain
@@ -918,6 +920,7 @@ OM_NodeDomainMod::om_load_volumes()
 fds_bool_t
 OM_NodeDomainMod::om_rm_sm_configDB(const NodeUuid& uuid)
 {
+    TRACEFUNC;
     fds_bool_t found = false;
     NodeUuid plat_uuid;
 
@@ -962,6 +965,7 @@ OM_NodeDomainMod::om_rm_sm_configDB(const NodeUuid& uuid)
 Error
 OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
+    TRACEFUNC;
     Error err;
     /* TODO(OM team): This registration should be handled in synchronized manner (single thread
      * handling is better) to avoid race conditions.
@@ -995,7 +999,8 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 
 void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
                           fpi::FDSP_RegisterNodeTypePtr& reg_node_req)
-{       
+{
+    TRACEFUNC;
        
 //    FDS_ProtocolInterface::FDSP_AnnounceDiskCapability& capacity;
 //    capacity = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
@@ -1030,6 +1035,7 @@ Error
 OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                                    const FdspNodeRegPtr msg)
 {
+    TRACEFUNC;
     NodeAgent::pointer      newNode;
     OM_PmContainer::pointer pmNodes;
 
@@ -1158,6 +1164,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
                                   fds_bool_t remove_dm,
                                   fds_bool_t remove_am)
 {
+    TRACEFUNC;
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
@@ -1270,6 +1277,7 @@ OM_NodeDomainMod::om_shutdown_domain()
 int
 OM_NodeDomainMod::om_create_domain(const FdspCrtDomPtr &crt_domain)
 {
+    TRACEFUNC;
     return 0;
 }
 
@@ -1338,6 +1346,7 @@ void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
                                   fpi::FDSP_MgrIdType svcType) {
+    TRACEFUNC;
     OM_Module *om = OM_Module::om_singleton();
     // notify DLT state machine if this is SM
     if (svcType == fpi::FDSP_STOR_MGR) {

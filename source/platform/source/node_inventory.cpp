@@ -11,7 +11,7 @@
 #include <NetSession.h>
 #include "platform/node_data.h"
 #include "platform/node_shm_ctrl.h"
-
+#include <util/Log.h>
 namespace fds
 {
     std::ostream& operator<< (std::ostream &os, const NodeServices& node)
@@ -29,6 +29,7 @@ namespace fds
     // --------------------------------------------------------------------------------------
     const ShmObjRO *NodeInventory::node_shm_ctrl() const
     {
+        TRACEFUNC;
         if (node_svc_type == fpi::FDSP_STOR_HVISOR)
         {
             return NodeShmCtrl::shm_am_inventory();
@@ -42,6 +43,7 @@ namespace fds
     //
     void NodeInventory::node_get_shm_rec(node_data_t *ndata) const
     {
+        TRACEFUNC;
         int               idx;
         NodeUuid          nd_uuid;
         fds_uint64_t      uuid;
@@ -75,6 +77,7 @@ namespace fds
     //
     void NodeInventory::node_info_frm_shm(node_data_t *out) const
     {
+        TRACEFUNC;
         int               idx;
         NodeUuid          uuid;
         fds_uint64_t      uid;
@@ -121,6 +124,7 @@ namespace fds
     //
     std::string NodeInventory::get_ip_str() const
     {
+        TRACEFUNC;
         node_data_t    ndata;
 
         node_get_shm_rec(&ndata);
@@ -129,6 +133,7 @@ namespace fds
 
     fds_uint32_t NodeInventory::node_base_port() const
     {
+        TRACEFUNC;
         node_data_t    ndata;
 
         node_get_shm_rec(&ndata);
@@ -140,6 +145,7 @@ namespace fds
     //
     std::string NodeInventory::get_node_root() const
     {
+        TRACEFUNC;
         return node_root;
     }
 
@@ -148,6 +154,7 @@ namespace fds
     //
     const node_stor_cap_t * NodeInventory::node_capability() const
     {
+        TRACEFUNC;
         const ShmObjRO      *shm;
         const node_data_t   *ndata;
 
@@ -176,6 +183,7 @@ namespace fds
     //
     void NodeInventory::node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeType id)
     {
+        TRACEFUNC;
         const node_data_t   *info;
 
         fds_assert(ro != -1);
@@ -204,6 +212,7 @@ namespace fds
     /* static */ void NodeInventory::node_info_msg_to_shm(const fpi::NodeInfoMsg *msg,
                                                           node_data_t *rec)
     {
+        TRACEFUNC;
         const fpi::UuidBindMsg   *msg_bind;
 
         msg_bind             = &msg->node_loc;
@@ -228,6 +237,7 @@ namespace fds
     /* static */ void NodeInventory::node_info_msg_frm_shm(bool am, int ro_idx,
                                                            fpi::NodeInfoMsg *msg)
     {
+        TRACEFUNC;
         fpi::UuidBindMsg    *msg_bind;
         const ShmObjRO      *shm;
         const node_data_t   *rec;
@@ -260,6 +270,7 @@ namespace fds
     //
     void NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
     {
+        TRACEFUNC;
         fpi::UuidBindMsg     *msg_bind;
         Platform::ptr         plat = Platform::platf_const_singleton();
         EpSvcImpl::pointer    psvc = NetPlatform::nplat_singleton()->nplat_my_ep();
@@ -281,6 +292,7 @@ namespace fds
     // Format the NodeInfoMsg with data about OM node.
     void NodeInventory::init_om_info_msg(fpi::NodeInfoMsg *msg)
     {
+        TRACEFUNC;
         fpi::UuidBindMsg   *msg_bind;
         Platform::ptr       plat = Platform::platf_const_singleton();
 
@@ -303,6 +315,7 @@ namespace fds
     // Format the NodeInfoMsg with data about OM Platform Services.
     void NodeInventory::init_om_pm_info_msg(fpi::NodeInfoMsg *msg)
     {
+        TRACEFUNC;
         fpi::UuidBindMsg   *msg_bind;
         Platform::ptr       plat = Platform::platf_const_singleton();
 
@@ -325,6 +338,7 @@ namespace fds
     // Format the NodeInfoMsg with data from this node agent obj.
     void NodeInventory::init_node_info_msg(fpi::NodeInfoMsg *msg) const
     {
+        TRACEFUNC;
         node_info_msg_frm_shm(node_svc_type == fpi::FDSP_STOR_HVISOR ? true : false, node_ro_idx,
                               msg);
     }
@@ -336,6 +350,7 @@ namespace fds
     /* static */ void NodeInventory::node_stor_cap_to_shm(const fpi::StorCapMsg *msg,
                                                           node_stor_cap_t *stor)
     {
+        TRACEFUNC;
         stor->disk_capacity    = msg->disk_capacity;
         stor->disk_iops_max    = msg->disk_iops_max;
         stor->disk_iops_min    = msg->disk_iops_min;
@@ -355,6 +370,7 @@ namespace fds
     /* static */ void NodeInventory::node_stor_cap_frm_shm(fpi::StorCapMsg *msg,
                                                            const node_stor_cap_t *stor)
     {
+        TRACEFUNC;
         msg->disk_capacity    = stor->disk_capacity;
         msg->disk_iops_max    = stor->disk_iops_max;
         msg->disk_iops_min    = stor->disk_iops_min;
@@ -372,6 +388,7 @@ namespace fds
     //
     void NodeInventory::init_stor_cap_msg(fpi::StorCapMsg *msg) const
     {
+        TRACEFUNC;
         const ShmObjRO      *shm;
         const node_data_t   *rec;
 
@@ -403,6 +420,7 @@ namespace fds
     //
     void NodeInventory::svc_info_frm_shm(fpi::SvcInfo *svc) const
     {
+        TRACEFUNC;
         node_data_t    ninfo;
 
         node_info_frm_shm(&ninfo);
@@ -420,6 +438,7 @@ namespace fds
     //
     void NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     {
+        TRACEFUNC;
         std::string    ip;
 
         nd_gbyte_cap = msg->disk_info.ssd_capacity;
@@ -435,11 +454,13 @@ namespace fds
     //
     void NodeInventory::set_node_state(FdspNodeState state)
     {
+        TRACEFUNC;
         nd_my_node_state = state;
     }
 
     void NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
     {
+        TRACEFUNC;
         // TODO(Vy): do this in platform side.
         nd_my_dlt_version = dlt_version;
     }
@@ -449,6 +470,7 @@ namespace fds
     //
     void NodeInventory::node_update_inventory(const FdspNodeRegPtr msg)
     {
+        TRACEFUNC;
     }
 
     // init_msg_hdr
@@ -456,6 +478,7 @@ namespace fds
     //
     void NodeInventory::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
     {
+        TRACEFUNC;
         Platform::ptr    plat = Platform::platf_const_singleton();
 
         msgHdr->minor_ver = 0;
@@ -488,6 +511,7 @@ namespace fds
     //
     void NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const
     {
+        TRACEFUNC;
         Platform       *plat = Platform::platf_singleton();
         fds_uint32_t    base = node_base_port();
 
@@ -511,6 +535,7 @@ namespace fds
     //
     void NodeInventory::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
     {
+        TRACEFUNC;
         Platform::ptr    plat = Platform::platf_const_singleton();
         pkt->node_type     = plat->plf_get_node_type();
         pkt->node_name     = *plat->plf_get_my_name();

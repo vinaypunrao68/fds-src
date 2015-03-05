@@ -13,6 +13,31 @@
 #include <fds_globals.h>
 namespace fds {
 
+std::string cleanNameFromPrettyFunc(const std::string& prettyFunction, bool fClassOnly) {
+    size_t colons = prettyFunction.find("::");
+    if (colons == std::string::npos)
+        return "::";
+    colons = prettyFunction.find("(");
+    if (fClassOnly) {
+        // move before the fn.
+        colons = prettyFunction.rfind("::", colons);
+    }
+    size_t begin = prettyFunction.substr(0,colons).rfind(" ") + 1;
+    size_t end = colons - begin;
+
+    return prettyFunction.substr(begin,end);
+}
+
+__TRACER__::__TRACER__(const std::string& _prettyName, const std::string& _filename, int _lineno) 
+        : prettyName(cleanNameFromPrettyFunc(_prettyName)),filename(_filename),lineno(_lineno) {
+    GLOGDEBUG << "enter : " << prettyName << ":" << filename << ":" << lineno;
+}
+
+__TRACER__::~__TRACER__() {
+    GLOGDEBUG << "exit  : " << prettyName << ":" << filename << ":" << lineno;
+}
+
+
 /*
  * Rotate log when reachs N bytes
  */
