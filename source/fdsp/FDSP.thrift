@@ -278,11 +278,6 @@ struct FDSP_DMT_Type {
       3: bool dmt_type,
 }
 
-struct FDSP_MigrationStatusType {
-  1: i64 DLT_version,
-  2: i32 context
-}
-
 struct FDSP_DmtCloseType {
   1: i64 DMT_version
 }

@@ -3,7 +3,6 @@
  */
 
 #include "fdsp/dm_service_types.h"
-#include "fdsp/sm_service_types.h"
 #include "platform_ep_handler.h"
 #include "node_shm_rw_ctrl.h"
 #include "node_platform.h"

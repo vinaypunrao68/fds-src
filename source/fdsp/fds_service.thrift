@@ -235,6 +235,16 @@ struct EmptyMsg {
  * Common Control Path Messages
  * --------------------------------------------------------------------------------
  */
+struct FDSP_DLT_Data_Type {
+   1: bool dlt_type,
+   2: binary dlt_data,
+}
+
+/* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
+struct CtrlNotifyDLTUpdate {
+   1: FDSP_DLT_Data_Type   dlt_data;
+   2: i64                       dlt_version;
+}
 
 /* ----------------------  CtrlNotifyVolAddTypeId  ----------------------------- */
 struct CtrlNotifyVolAdd {
