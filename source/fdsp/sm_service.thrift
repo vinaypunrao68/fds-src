@@ -4,7 +4,6 @@
 
 include "common.thrift"
 include "fds_service.thrift"
-include "FDSP.thrift"
 include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
@@ -84,11 +83,11 @@ struct SMTokenMigrationGroup {
 struct CtrlObjectMetaDataPropagate
 {
   /** Object ID */
-  1: common.FDS_ObjectIdType          objectID
+  1: common.FDS_ObjectIdType        objectID
   /** Reconcile action */
   2: ObjectMetaDataReconcileFlags   objectReconcileFlag
   /** User data */
-  3: FDSP.FDSP_ObjectData           objectData
+  3: string                         objectData
   /** Volume information */
   4: list<MetaDataVolumeAssoc>      objectVolumeAssoc
   /** Object refcnt */
@@ -184,7 +183,7 @@ struct CtrlNotifySMStartMigration {
  */
 struct CtrlGetSecondRebalanceDeltaSet {
   /** unique id of executor on the destination SM */
-  1: i64 executorID
+  1: i64    executorID
 }
 
 /**
@@ -215,15 +214,15 @@ struct CtrlObjectRebalanceDeltaSet {
  */
 struct CtrlObjectRebalanceFilterSet {
   /** Target DLT version for rebalance */
-  1: i64 targetDltVersion
+  1: i64    targetDltVersion
   /** DLT token to be rebalance */
-  2: FDSP.FDSP_Token              tokenId
+  2: i32    tokenId
   /** Unique id of executor on the destination SM */
-  3: i64 executorID
+  3: i64    executorID
   /** Sequence number of the delta set */
-  4: i64 seqNum
+  4: i64    seqNum
   /** True if this is the last message */
-  5: bool lastFilterSet
+  5: bool   lastFilterSet
   /** Set of objects to be sync'ed */
   6: list<CtrlObjectMetaDataSync> objectsToFilter
 }

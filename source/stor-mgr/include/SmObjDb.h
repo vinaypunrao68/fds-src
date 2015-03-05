@@ -115,9 +115,6 @@ class SmObjDb : public HasLogger {
      Error deleteObjectLocation(const ObjectID& objId);
 #endif
 
-     Error putSyncEntry(const ObjectID& objId,
-                        const FDSP_MigrateObjectMetadata& data,
-                        bool &dataExists);
      Error resolveEntry(const ObjectID& objId);
      void  iterRetrieveObjects(const fds_token_id &token,
                                const size_t &max_size,

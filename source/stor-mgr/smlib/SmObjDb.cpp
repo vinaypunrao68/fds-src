@@ -254,45 +254,6 @@ inline bool SmObjDb::isTokenInSyncMode_(const fds_token_id& tokId)
 }
 
 /**
- * Use this interface for putting sync metadata
- * @param objId
- * @param data
- * @param dataExists
- * @return
- */
-fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
-        const FDSP_MigrateObjectMetadata& data,
-        bool &dataExists)
-{
-    fds_assert(static_cast<int32_t>(getTokenId_(objId)) == data.token_id);
-
-    ObjMetaData md;
-    Error err = get(objId, md);
-
-    if (err != ERR_OK && err != ERR_NOT_FOUND) {
-        LOGERROR << "Error while applying sync entry.  objId: " << objId;
-        return err;
-    }
-    if (err == ERR_NOT_FOUND) {
-        /* Entry doesn't exist.  Set sync mask on empty metada */
-        md.setSyncMask();
-        err = ERR_OK;
-    }
-    md.applySyncData(data);
-    dataExists = md.dataPhysicallyExists();
-
-    LOGDEBUG << md.logString();
-
-    err = put(OpCtx(OpCtx::SYNC), objId, md);
-    /******************* Test code ***************/
-    DBG(ObjMetaData temp_md);
-    DBG(get(objId, temp_md));
-    fds_assert(md == temp_md);
-    /*********************************************/
-    return err;
-}
-
-/**
  * Resolves sync metadata with metadata accumulated after syncpoint by
  * merging them both.
  * @param objId

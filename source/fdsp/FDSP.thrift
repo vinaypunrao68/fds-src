@@ -579,17 +579,6 @@ struct FDSP_MigrateObjectMetadata
     6: FDSP_ObjectVolumeAssociationList associations
 }
 
-/* Complete data (metadata included) for migration object */
-/* DEPRECATED */
-struct FDSP_MigrateObjectData
-{
-    /* Object Metadata */
-    1: FDSP_MigrateObjectMetadata meta_data
-
-    /* Object data */
-    2: FDSP_ObjectData            data
-}
-
 struct FDSP_GetObjMetadataReq {
  1: FDSP_MsgHdrType		header
  2: common.FDS_ObjectIdType 	obj_id
