@@ -26,6 +26,7 @@ class PlatformMain : public SvcProcess {
         init(argc, argv, "platform.conf", "fds.pm.", "pm.log",
              nullptr, handler, processor);
 
+        gl_DiskPlatMod.mod_startup();
         util::Properties& props = platform->getProperties();
         props.setData(&svcInfo_.props);
     }
@@ -33,8 +34,8 @@ class PlatformMain : public SvcProcess {
     virtual void setupSvcInfo_() {
         platform->mod_init(nullptr);
         gl_DiskPlatMod.mod_init(nullptr);
-
         SvcProcess::setupSvcInfo_();
+        
         const fpi::NodeInfo& nodeInfo = platform->getNodeInfo();
         svcInfo_.svc_id.svc_uuid.svc_uuid = nodeInfo.uuid;
         platform->loadProperties();
