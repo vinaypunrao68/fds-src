@@ -8,7 +8,7 @@ include "common.thrift"
 include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.protocol.dm
+namespace java com.formationds.protocol.sm
 
 /* ------------------------------------------------------------
    Operations on Objects
