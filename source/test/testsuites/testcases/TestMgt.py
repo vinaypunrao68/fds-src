@@ -14,6 +14,7 @@ import time
 import logging
 import re
 import string
+import random
 
 import xmlrunner
 
@@ -122,6 +123,25 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             raise Exception
 
     elif re.match('\[node.+\]', script) is not None:
+        # Support for random node bringup/shutdown
+        if "node*" in script:
+            # The * will signify random
+            if "nodes" in scenario.nd_conf_dict:
+                nds = scenario.nd_conf_dict['nodes'].split(',')
+                # Add the [ ] around each node name so it comes in the expected format
+                nds = map(lambda x: '[' + x + ']', nds)
+            else:
+                nds = [x for x in scenario.cfg_sect_nodes]
+                nds = map(lambda x: x.nd_conf_dict['node-name'], nds)
+
+            # Make random selection
+            # Make sure selection size can't be larger than the number of nodes we've got to pick from
+            max_size = len(nds) if len(nds) < 4 else 4
+            nds = random.sample(nds, random.randint(1, max_size))
+            # Track what we picked so we can verify later
+
+        else:
+            nds = [script]
         # What action should be taken against the node? If not stated, assume "install-boot".
         if "action" in scenario.nd_conf_dict:
             action = scenario.nd_conf_dict['action']
@@ -130,98 +150,112 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0):
             # Start this node according to the specified action.
-            found = False
-            for node in scenario.cfg_sect_nodes:
-                if '[' + node.nd_conf_dict['node-name'] + ']' == script:
-                    found = True
+            for script in nds:
+                found = False
+                for node in scenario.cfg_sect_nodes:
+                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
+                        found = True
 
-                    if (action.count("install") > 0):
-                        # First, build out the installation directory and start Redis.
-                        suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
+                        # Mark it as 'selected' so we know which random nodes are up
+                        node.selected = True
 
-                        # Boot Redis on the machine if requested.
-                        if 'redis' in node.nd_conf_dict:
-                            if node.nd_conf_dict['redis'] == 'true':
-                                suite.addTest(TestFDSEnvMgt.TestRestartRedisClean(node=node))
+                        if (action.count("install") > 0):
+                            # First, build out the installation directory and start Redis.
+                            suite.addTest(TestFDSEnvMgt.TestFDSInstall(node=node))
 
-                    if (action.count("boot") > 0):
-                        # Now bring up PM.
-                        suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
-                        suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
+                            # Boot Redis on the machine if requested.
+                            if 'redis' in node.nd_conf_dict:
+                                if node.nd_conf_dict['redis'] == 'true':
+                                    suite.addTest(TestFDSEnvMgt.TestRestartRedisClean(node=node))
 
-                        # If the node also supports an OM, start the OM
-                        # as well.
-                        if node.nd_run_om():
-                            suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
-                            suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
-                            suite.addTest(TestWait(delay=10, reason="to let OM initialize"))
+                        if (action.count("boot") > 0):
+                            # Now bring up PM.
+                            suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
 
-                    if (action.count("activate") > 0):
-                        suite.addTest(TestWait(delay=10, reason="to let node initialize before activation"))
+                            # If the node also supports an OM, start the OM
+                            # as well.
+                            if node.nd_run_om():
+                                suite.addTest(TestFDSServiceMgt.TestOMBringUp(node=node))
+                                suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
+                                suite.addTest(TestWait(delay=10, reason="to let OM initialize"))
 
-                        # Now activate the node's configured services.
-                        suite.addTest(TestFDSSysMgt.TestNodeActivate(node=node))
-                        suite.addTest(TestWait(delay=10, reason="to let the node activate"))
+                        if (action.count("activate") > 0):
+                            suite.addTest(TestWait(delay=10, reason="to let node initialize before activation"))
 
-                    break
+                            # Now activate the node's configured services.
+                            suite.addTest(TestFDSSysMgt.TestNodeActivate(node=node))
+                            suite.addTest(TestWait(delay=10, reason="to let the node activate"))
 
-            if found:
-                # Give the node some time to initialize if requested.
-                if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay, reason="to allow node " + script + " to initialize"))
-            else:
-                log.error("Node not found for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
-                raise Exception
+                        break
+
+                if found:
+                    # Give the node some time to initialize if requested.
+                    if 'delay_wait' in scenario.nd_conf_dict:
+                        suite.addTest(TestWait(delay=delay, reason="to allow node " + script + " to initialize"))
+                else:
+                    log.error("Node not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
+
         elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
             # Shutdown the node according to the specified action.
-            found = False
-            for node in scenario.cfg_sect_nodes:
-                if '[' + node.nd_conf_dict['node-name'] + ']' == script:
-                    found = True
-                    if (action.count("remove") > 0):
-                        suite.addTest(TestFDSSysMgt.TestNodeRemoveServices(node=node))
+            for script in nds:
+                found = False
+                for node in scenario.cfg_sect_nodes:
+                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
+                        found = True
+                        # Prevent scenario where we try to take down/verify a node that was never online
+                        if not hasattr(node, 'selected') or node.selected is False:
+                            log.info("Selected node {} was never started. Ignoring "
+                                     "command to remove/kill/uninstall".format(node.nd_conf_dict['node-name']))
+                            continue
 
-                    if (action.count("kill") > 0):
-                        suite.addTest(TestFDSSysMgt.TestNodeKill(node=node))
+                        if (action.count("remove") > 0):
+                            suite.addTest(TestFDSSysMgt.TestNodeRemoveServices(node=node))
 
-                    if (action.count("uninst") > 0):
-                        suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
+                        if (action.count("kill") > 0):
+                            suite.addTest(TestFDSSysMgt.TestNodeKill(node=node))
 
-                        # Shutdown Redis on the machine if we started it.
-                        if 'redis' in node.nd_conf_dict:
-                            if node.nd_conf_dict['redis'] == 'true':
-                                suite.addTest(TestFDSEnvMgt.TestShutdownRedis(node=node))
+                        if (action.count("uninst") > 0):
+                            suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
 
-                    break
+                            # Shutdown Redis on the machine if we started it.
+                            if 'redis' in node.nd_conf_dict:
+                                if node.nd_conf_dict['redis'] == 'true':
+                                    suite.addTest(TestFDSEnvMgt.TestShutdownRedis(node=node))
 
-            if found:
-                # Give the domain some time to reinitialize if requested.
-                if 'delay_wait' in scenario.nd_conf_dict:
-                    suite.addTest(TestWait(delay=delay, reason="to allow domain " + script + " to reinitialize"))
-            else:
-                log.error("Node not found for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
-                raise Exception
+                        break
+
+                if found:
+                    # Give the domain some time to reinitialize if requested.
+                    if 'delay_wait' in scenario.nd_conf_dict:
+                        suite.addTest(TestWait(delay=delay,
+                                                                 reason="to allow domain " + script + " to reinitialize"))
+                else:
+                    log.error("Node not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
 
         # Not sure this one has any usefulness.
         elif action == "cleaninst":
             # Selectively clean up the installation area built during bootup.
-            found = False
-            for node in scenario.cfg_sect_nodes:
-                if '[' + node.nd_conf_dict['node-name'] + ']' == script:
-                    found = True
-                    suite.addTest(TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
-                    break
+            for script in nds:
+                found = False
+                for node in scenario.cfg_sect_nodes:
+                    if '[' + node.nd_conf_dict['node-name'] + ']' == script:
+                        found = True
+                        suite.addTest(TestFDSEnvMgt.TestFDSSelectiveInstDirClean(node=node))
+                        break
 
-            if not found:
-                log.error("Node not found for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
+                if not found:
+                    log.error("Node not found for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
+            else:
+                log.error("Unrecognized node action '%s' for scenario %s" %
+                          (action, scenario.nd_conf_dict['scenario-name']))
                 raise Exception
-        else:
-            log.error("Unrecognized node action '%s' for scenario %s" %
-                      (action, scenario.nd_conf_dict['scenario-name']))
-            raise Exception
 
     elif re.match('\[service\]', script) is not None:
         # What action should be taken against the service? If not stated, assume "boot".
@@ -380,7 +414,13 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             # Check that the specified node(s) is(are) up. If no node
             # specified, check that all defined are up.
             if "fds_nodes" in scenario.nd_conf_dict:
-                fdsNodeNames = scenario.nd_conf_dict['fds_nodes'].split(",")
+                if scenario.nd_conf_dict['fds_nodes'] == '*':
+                    print "{}".format(dir(scenario.cfg_sect_nodes[0]))
+                    fdsNodeNames = [x for x in scenario.cfg_sect_nodes
+                                    if hasattr(x, 'selected') and x.selected is True]
+                else:
+                    fdsNodeNames = scenario.nd_conf_dict['fds_nodes'].split(",")
+
                 fdsNodes = []
                 for node in scenario.cfg_sect_nodes:
                     if node.nd_conf_dict['node-name'] in fdsNodeNames:

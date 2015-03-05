@@ -30,13 +30,14 @@ class TestSet(object):
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
 
-    def __init__(self, name, test_cases=[], om_ip_address=None):
+    def __init__(self, name, test_cases, om_ip_address, inventory_file, **kwargs):
         self.name = name
         self.graph = {}
         self.lookup_table = {}
         self.execution_order = []
         self._tests = []
         self.suite = unittest.TestSuite()
+        self.inventory_file = inventory_file
         # create all the test cases that belong to this test set.
         for tc in test_cases:
             name = tc['name']
@@ -66,14 +67,16 @@ class TestSet(object):
         if 'parameters' in test_cases:
             params = test_cases['parameters']
         else:
-            params = None
+            params = {}
         if 'config' in test_cases:
             cnf = test_cases['config']
         else:
             cnf = None
+        params['inventory_file'] = self.inventory_file
         instance = my_class(parameters=params, 
                             config_file=cnf,
-                            om_ip_address=om_ip_address)
+                            om_ip_address=om_ip_address,
+                            )
 
         self.log.info("Adding test case: %s" % test_cases['name'])
         self.log.info("Adding file name: %s" % test_cases['file'])

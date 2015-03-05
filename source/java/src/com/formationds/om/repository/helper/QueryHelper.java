@@ -5,14 +5,17 @@
 package com.formationds.om.repository.helper;
 
 import com.formationds.commons.calculation.Calculation;
-import com.formationds.commons.model.*;
+import com.formationds.commons.model.Datapoint;
+import com.formationds.commons.model.Events;
+import com.formationds.commons.model.Series;
+import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.capacity.*;
-import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
 import com.formationds.commons.model.calculated.performance.AverageIOPs;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.calculated.performance.PercentageConsumed;
@@ -39,10 +42,16 @@ import org.slf4j.LoggerFactory;
 import javax.persistence.EntityManager;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
+import java.util.stream.Stream;
 
 /**
  * @author ptinius
@@ -105,7 +114,7 @@ public class QueryHelper {
             final List<Series> series = new ArrayList<>();
             final List<Calculated> calculatedList = new ArrayList<>();
 
-            EntityManager em = repo.newEntityManager();
+            EntityManager em = getRepo().newEntityManager();
             try {
             	
             	query.setContexts( validateContextList( query, authorizer, token ) );
@@ -113,17 +122,13 @@ public class QueryHelper {
 	            final List<VolumeDatapoint> queryResults =
 	                new MetricCriteriaQueryBuilder( em ).searchFor( query )
 	                                                               .resultsList();
+	            
+	            filterOutDataByContext( query.getContexts(), queryResults );
+	            
 	            final Map<String, List<VolumeDatapoint>> originated =
 	                byVolumeNameTimestamp( queryResults );
 	
-	            if( isFirebreakQuery( query.getSeriesType() ) ) {
-	
-	                series.addAll( new FirebreakHelper().processFirebreak( queryResults ) );
-	                final FirebreaksLast24Hours firebreak = new FirebreaksLast24Hours();
-	                firebreak.setCount( last24Hours( series ) );
-	                calculatedList.add( firebreak );
-	
-	            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
+	            if( isPerformanceQuery( query.getSeriesType() ) ) {
 	
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,
@@ -297,27 +302,6 @@ public class QueryHelper {
 
         return true;
     }
-
-    /**
-     * @param metrics the [@link List} of {@link Metrics}
-     *
-     * @return Returns {@code true} if all {@link Metrics} within the
-     *         {@link List} are of firebreak type. Otherwise {@code false}
-     */
-    protected boolean isFirebreakQuery( final List<Metrics> metrics ) {
-    	
-    	if ( metrics.size() != Metrics.FIREBREAK.size() ){
-    		return false;
-    	}
-    	
-        for( final Metrics m : metrics ) {
-            if( !Metrics.FIREBREAK.contains( m ) ) {
-                return false;
-            }
-        }
-
-        return true;
-    }
     
     /**
      * determine if the {@link List} of {@link Metrics} matches the performance breakdown definition
@@ -396,9 +380,9 @@ public class QueryHelper {
      * @param query
      * @param token
      */
-    protected List<Context> validateContextList( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token ){
+    protected List<Volume> validateContextList( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token ){
     	
-    	List<Context> contexts = query.getContexts();
+    	List<Volume> contexts = query.getContexts();
     	
     	com.formationds.util.thrift.ConfigurationApi api = SingletonConfigAPI.instance().api();
     	
@@ -450,6 +434,39 @@ public class QueryHelper {
     	}
     	
     	return contexts;
+    }
+    
+    /**
+     * The sole purpose for this method is to work around the JDO query not behaving as desired.
+     * The $1.volumeName IN ('names'...) is not filtering the query so we do it manually here.
+     * 
+     * @param contexts
+     * @param points
+     */
+    protected void filterOutDataByContext( List<Volume> contexts, List<VolumeDatapoint> points ){
+    	
+    	// the JDO query is not working so manually remove all values for contexts not invluded.
+        points.removeIf( vdp -> {
+        	
+        	long matches = contexts.stream().filter( c -> {
+        		
+        		if ( c.getName().equals( vdp.getVolumeName() ) ){
+        			return true;
+        		}
+        		
+        		return false;
+        	}).count();
+        	
+        	if ( matches > 0 ){
+        		return false;
+        	}
+        	
+        	return true;
+        });
+    }
+    
+    protected MetricsRepository getRepo(){
+    	return this.repo;
     }
     
     /**

@@ -342,13 +342,14 @@ DataPlacement::undoTargetDltCommit() {
         }
 
         // forget about target DLT
+        fds_uint64_t targetDltVersion = newDlt->getVersion();
         delete newDlt;
         newDlt = NULL;
 
         // also forget target DLT in persistent store
         if (!configDB->setDltType(0, "next")) {
-            LOGWARN << "unable to store dlt type to config db "
-                    << "[" << commitedDlt->getVersion() << "]";
+            LOGWARN << "Failed to unset target DLT in config db "
+                    << "[" << targetDltVersion << "]";
         }
     }
     placementMutex->unlock();

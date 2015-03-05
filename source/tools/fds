@@ -447,8 +447,8 @@ function clean() {
 
                 # influxdb
                 # TODO: how to clean influx data?
-
-                cleanlogs
+				rm -rf /${node}/var/logs
+                #cleanlogs
             ) 2>/dev/null
         fi
     done

@@ -52,17 +52,37 @@ function clean_up_environment
 
 function build_fds
 {
+    start_time=$(date +%s)
     message "RUNNING DEVSETUP"
     make devsetup
+    end_time=$(date +%s)
 
-		if [ ${BUILD_TYPE} == 'release' ] ; then
-      message "BUILDING FORMATION PLATFORM - BUILD_TYPE: release"
-			jenkins_scripts/build_fds.py -r
-		else
-      message "BUILDING FORMATION PLATFORM - BUILD_TYPE: debug"
-			jenkins_scripts/build_fds.py
-		fi
+    performance_report ANSIBLE $(( ${end_time} - ${start_time} ))
 
+    start_time=$(date +%s)
+    if [[ ${BUILD_TYPE} == 'release' ]] ; then
+        message "BUILDING FORMATION PLATFORM - BUILD_TYPE: release"
+        jenkins_scripts/build_fds.py -r
+    else
+        message "BUILDING FORMATION PLATFORM - BUILD_TYPE: debug"
+        jenkins_scripts/build_fds.py
+    fi
+    end_time=$(date +%s)
+
+    performance_report BUILD_FDS $(( ${end_time} - ${start_time} ))
+}
+
+function performance_report
+{
+   unit=$1
+   seconds=$2
+
+   if [[ ${seconds} -lt 60 ]]
+   then
+      message "${unit} TIME = ${seconds} seconds"
+   else
+      message "${unit} TIME = ${seconds} seconds or $(( ${seconds} / 60 )) minute(s) $(( ${seconds} % 60 )) seconds"
+   fi
 }
 
 function cache_report

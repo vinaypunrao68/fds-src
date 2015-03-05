@@ -115,7 +115,7 @@ class TestTrafficGen(TestCase.FDSTestCase):
 
         res = re.search(r'failures: (\d+)', output)
 
-        print output
+        self.log.info(output)
 
         if res is not None:
             if res.group(1) != '0':

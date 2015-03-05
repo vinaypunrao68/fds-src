@@ -11,16 +11,26 @@ var StatQueryFilter = {
     GETS: 'GETS',
     SSD_GETS: 'SSD_GETS',
     
-    create: function( contextList, seriesTypes, startTime, endTime ){
+    create: function( contextList, seriesTypes, startTime, endTime, datapoints ){
         
         var val = { 
             seriesType: seriesTypes,
-            contextList: contextList,
             range: {
                 start: startTime,
                 end: endTime
             }
         };
+        
+        if ( angular.isDefined( contextList ) && 
+            contextList.length > 0 &&
+            angular.isDefined( contextList[0].id ) ){
+            
+            val.contexts = contextList;
+        }
+        
+        if ( angular.isDefined( datapoints ) ){
+            val.points = datapoints;
+        }
         
         return val;
     }

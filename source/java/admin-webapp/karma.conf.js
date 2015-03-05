@@ -22,12 +22,13 @@ module.exports = function(config) {
       distDir + '/libs/angular-translate.js',
       distDir + '/libs/angular/angular.js',
       distDir + '/libs/angular-ui-router/release/angular-ui-router.js',
+      distDir + '/libs/d3/d3.min.js',
       distDir + '/templates.js',
       'node_modules/angular-mocks/angular-mocks.js',
       'src/scripts/main.js',
       'src/scripts/module-manifest.js',
-      'src/**/!(main|module-manifest).js',
-      'test/karma/**/*.js'
+      'src/**/!(main|module-manifest|demo-script|cheats).js',
+      'test/karma/**/statustimeline*.js'
     ],
 
     plugins: [

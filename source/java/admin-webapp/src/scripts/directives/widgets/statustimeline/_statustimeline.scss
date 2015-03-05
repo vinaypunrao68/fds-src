@@ -1,0 +1,35 @@
+.status-timeline{
+    
+    .color-box {
+        width: 20px;
+        height: 20px;
+        margin-right: 2px;
+        border-right: 2px solid transparent;
+    }
+    
+    .event {
+        width: 20px;
+        height: 20px;
+        position: absolute;
+        color: rgba( 0, 0, 0, 0.6 );
+        font-size: 20px;
+    }
+    
+    .time-label {
+        
+        color: $text_very_light_color;
+        position: absolute;
+        
+        &.right {
+            right: 0;
+        }
+        
+        &.left {
+            left: 0;
+        }
+        
+        &.middle {
+            left: 50%;
+        }
+    }
+}
