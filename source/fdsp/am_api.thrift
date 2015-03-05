@@ -14,12 +14,20 @@ namespace java com.formationds.protocol.am
    Operations on QoS
    ------------------------------------------------------------*/
 
+/**
+ * Set domain throttling level.
+ */
 struct CtrlNotifyThrottle {
-     1: common.FDSP_ThrottleMsgType      throttle;
+  /** Domain throttle specification */
+  1: common.FDSP_ThrottleMsgType        throttle;
 }
 
+/**
+ * QoS Rate Control
+ */
 struct CtrlNotifyQoSControl {
-     1: am_types.FDSP_QoSControlMsgType    qosctrl;
+  /** QoS rate specification. */
+  1: am_types.FDSP_QoSControlMsgType    qosctrl;
 }
 
 /* ------------------------------------------------------------
