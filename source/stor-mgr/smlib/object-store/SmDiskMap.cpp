@@ -3,12 +3,12 @@
  */
 #include <string>
 #include <fds_process.h>
+#include <net/SvcMgr.h>
 #include <object-store/SmDiskMap.h>
 #include <sys/statvfs.h>
 #include <utility>
 
 #include "platform/platform_consts.h"
-#include "platform/platform.h"
 
 namespace fds {
 
@@ -131,10 +131,8 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt)
 {
     // get list of DLT tokens that this SM is responsible for
     // according to the DLT
-    NodeUuid mySvcUuid;
-    if (!test_mode) {
-        mySvcUuid = *(Platform::plf_get_my_svc_uuid());
-    } else {
+    NodeUuid mySvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid;
+    if (test_mode) {
         mySvcUuid = 1;
     }
 
