@@ -10,6 +10,7 @@
 #include <fds_volume.h>
 #include "platform/node_agent.h"
 #include <fdsp/snapshot_types.h>
+#include "fdsp/om_api_types.h"
 namespace fds {
 
 class OmDiscoveryMod;
