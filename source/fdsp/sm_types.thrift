@@ -5,7 +5,7 @@
 include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.protocol.sm
+namespace java com.formationds.protocol.sm.types
 
 /* ------------------------------------------------------------
    StorMgr Enumerations
