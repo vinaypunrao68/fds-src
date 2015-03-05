@@ -162,5 +162,5 @@ struct FDSP_DeleteVolType {
 struct FDSP_ModifyVolType {
   1: string 		 vol_name,  /* Name of the volume */
   2: i64		 vol_uuid,
-  3: FDSP_VolumeDescType	 vol_desc,  /* New updated volume descriptor */
+  3: FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
 }

@@ -5,7 +5,7 @@ package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_VolumeDescType;
+import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.apis.ConfigurationService;
 
 import java.util.ArrayList;
