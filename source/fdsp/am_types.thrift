@@ -3,7 +3,7 @@
  */
 
 namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.protocol
+namespace java com.formationds.protocol.am.types
 
 /**
  * Message from OM to AM/SM/DM to help configure QoS control
