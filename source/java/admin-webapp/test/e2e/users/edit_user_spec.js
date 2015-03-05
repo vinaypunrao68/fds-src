@@ -75,5 +75,7 @@ describe( 'Edit user', function(){
         userRow.element( by.css( '.tenant-name' )).getText().then( function( txt ){
             expect( txt ).toBe( 'duke' );
         });
+        
+        logout();
     });
 });
