@@ -44,7 +44,7 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
                 S3UserMetadataUtility.extractUserMetadata(md).forEach((key, value) -> ctx.addResponseHeader(key, value));
 
                 OutputStream outputStream = ctx.getOutputStream();
-                return xdiAsync.getBlobToStream(blobInfo, outputStream);
+                return xdiAsync.writeBlobToStream(blobInfo, outputStream);
             });
         } catch (Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);

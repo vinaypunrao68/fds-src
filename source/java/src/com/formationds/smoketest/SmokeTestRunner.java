@@ -1,18 +1,17 @@
 package com.formationds.smoketest;
 
-import com.google.common.collect.Lists;
 import org.apache.log4j.PropertyConfigurator;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
-import java.lang.reflect.Method;
 
-import java.util.Properties;
-import java.util.List;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Properties;
 /**
  * Copyright (c) 2014 Formation Data Systems.
  * All rights reserved.
@@ -25,7 +24,8 @@ public class SmokeTestRunner {
     public SmokeTestRunner() {
         addClass(S3SmokeTest.class);
         addClass(HdfsSmokeTest.class);
-        addClass(AmTest.class);
+        addClass(SyncAmTest.class);
+        addClass(AsyncAmTest.class);
     }
 
     void addClass(final Class klass) {
