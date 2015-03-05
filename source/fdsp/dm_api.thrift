@@ -430,11 +430,3 @@ struct VolSyncStateRspMsg {
  */
 service DMSvc extends pm_service.PlatNetSvc {
 }
-
-/**
- * Some service layer test thingy.
- */
-service TestDMSvc {
-    i32 associate(1: string myip, 2: i32 port);
-    oneway void updateCatalog(1: fds_service.AsyncHdr asyncHdr, 2: UpdateCatalogOnceMsg payload);
-}

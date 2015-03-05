@@ -18,7 +18,8 @@ user_thrift      := \
 	om_service.thrift \
 	am_service.thrift \
 	configuration_service.thrift \
-	xdi.thrift
+	xdi.thrift \
+	svc_test.thrift
 
 user_thrift_loc  := $(topdir)/include/fdsp
 user_thrift_flag := --gen cpp:pure_enums --allow-64bit-consts

@@ -18,6 +18,7 @@
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <fdsp/am_service_types.h>
+#include <fdsp/sm_api_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
 

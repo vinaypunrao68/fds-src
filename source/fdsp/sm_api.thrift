@@ -329,13 +329,3 @@ struct CtrlObjectRebalanceFilterSet {
  */
 service SMSvc extends pm_service.PlatNetSvc {
 }
-
-/**
- * Some service layer test thingy.
- */
-service TestSMSvc {
-  /**   */
-    i32 associate(1: string myip, 2: i32 port);
-  /**   */
-    oneway void putObject(1: fds_service.AsyncHdr asyncHdr, 2: PutObjectMsg payload);
-}
