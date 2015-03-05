@@ -57,10 +57,8 @@ pid_t fds_spawn(char *const argv[], int daemonize) {
             res_pid = waitpid(child_pid, NULL, 0);
             // TODO(bao): check for 0 and -1
             fds_assert(res_pid == child_pid);
-            return (0);
-        } else {
-            return (child_pid);
         }
+        return child_pid;
     }
     
     /* Child process, close all file descriptors. */
