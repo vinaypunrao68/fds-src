@@ -86,11 +86,9 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
             $timeout( function(){
                 
                 $element.find( '.slide-window-stack-parent' ).css( 'position', 'inherit' );
-                console.log( 'setting to inherit' );
                 
                 $timeout( function(){
                     $element.find( '.slide-window-stack-parent' ).css( 'position', 'relative' );
-                    console.log( 'setting to relative' );
                 } );
                 
             } );
