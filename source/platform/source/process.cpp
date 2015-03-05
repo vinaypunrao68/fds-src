@@ -87,6 +87,13 @@ pid_t fds_spawn(char *const argv[], int daemonize) {
     }
     
     /* actual child process */
+    int j = 0;
+    printf("\n");
+    for (j = 0; argv[j]!= NULL; j++) {
+        printf("%s ", argv[j]);
+    }
+    printf("\n");
+
     execvp(argv[0], argv);
     printf("Fatal error, can't spawn %s\n", argv[0]);
     abort();
