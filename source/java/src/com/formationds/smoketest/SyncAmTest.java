@@ -166,12 +166,4 @@ public class SyncAmTest extends BaseAmTest {
         assertEquals(bd.getMetadata().get("second"), "secondValue");
         // assertEquals(bytes.length, bd.getByteCount());
     }
-
-
-    @Test
-    public void testAsyncGetNonExistentBlob() throws Exception {
-        String blobName = UUID.randomUUID().toString();
-        assertFdsError(ErrorCode.MISSING_RESOURCE,
-                () -> asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get());
-    }
 }
