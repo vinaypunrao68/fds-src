@@ -116,10 +116,6 @@ class SmObjDb : public HasLogger {
 #endif
 
      Error resolveEntry(const ObjectID& objId);
-     void  iterRetrieveObjects(const fds_token_id &token,
-                               const size_t &max_size,
-                               FDSP_MigrateObjectList &obj_list,
-                               SMTokenItr &itr);
 
      bool dataPhysicallyExists(const ObjectID& obj_id);
 
