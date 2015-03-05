@@ -133,7 +133,7 @@ struct ReloadVolumeRspMsg {
 struct StartBlobTxMsg {
   1: i64    			volume_id;
   2: string 			blob_name;
-  /** TODO(Anderw): The blob version isn't used, should be removed. */
+  /** TODO(Andrew): The blob version isn't used, should be removed. */
   3: i64 			blob_version;
   /** TODO(Andrew): The blob_mode should become a Thrift defined enum. */
   4: i32 			blob_mode;
@@ -180,7 +180,7 @@ struct CommitBlobTxRspMsg {
 struct AbortBlobTxMsg {
    1: i64    			volume_id;
    2: string 			blob_name;
-  /** TODO(Anderw): The blob version isn't used, should be removed. */
+  /** TODO(Andrew): The blob version isn't used, should be removed. */
    3: i64 			blob_version;
    5: i64			txId;
 }
@@ -201,7 +201,7 @@ struct AbortBlobTxRspMsg {
 struct UpdateCatalogMsg {
   1: i64    			volume_id;
   2: string 			blob_name;
-  /** TODO(Anderw): The blob version isn't used, should be removed. */
+  /** TODO(Andrew): The blob version isn't used, should be removed. */
   3: i64                       blob_version;
   4: i64                   	txId;
   /** List of object ids of the objects that this blob is being mapped to */
@@ -222,7 +222,7 @@ struct UpdateCatalogRspMsg {
 struct UpdateCatalogOnceMsg {
    1: i64    			volume_id;
    2: string 			blob_name;
-  /** TODO(Anderw): The blob version isn't used, should be removed. */
+  /** TODO(Andrew): The blob version isn't used, should be removed. */
    3: i64                       blob_version;
    4: i32 			blob_mode;
    5: i64                       dmt_version;
@@ -254,7 +254,7 @@ struct UpdateCatalogOnceRspMsg {
 struct SetBlobMetaDataMsg {
   1: i64    			volume_id;
   2: string 			blob_name;
-  /** TODO(Anderw): The blob version isn't used, should be removed. */
+  /** TODO(Andrew): The blob version isn't used, should be removed. */
   3: i64 			blob_version;
   4: dm_types.FDSP_MetaDataList         metaDataList;
   5: i64                   	txId;
@@ -284,31 +284,49 @@ struct DeleteBlobMsg {
 struct DeleteBlobRspMsg {
 }
 
+/**
+ * Gets all metadata associated with a specific blob. The metadata
+ * includes fields that DM maintains (e.g., blob size) and key-value
+ * metadata that is opaque to DM.
+ */
 struct GetBlobMetaDataMsg {
   1: i64                       volume_id;
   2: string                    blob_name;
+  /** TODO(Andrew): The blob version isn't used, should be removed. */
   3: i64                       blob_version;
+  /** TODO(Andrew): This should move to the response */
   4: i64                       byteCount;
+  /** TODO(Andrew): This should move to the response */
   5: dm_types.FDSP_MetaDataList         metaDataList;
 }
 struct GetBlobMetaDataRspMsg {
 }
 
 /**
- * Query catalog request message
+ * Retrieves offset and metadata information for a specific
+ * range within a blob. A start and end offset is specified.
+ * The start offset is required however if the end offset is not
+ * specified it is assumed to mean the end of the blob.
+ * By default, the blob's size and full metadata list are always
+ * returned.
  */
 struct QueryCatalogMsg {
-   1: i64    			volume_id;
-   2: string   			blob_name;		/* User visible name of the blob*/
-   3: i64               start_offset;   /* Starting offset into the blob */
-   4: i64               end_offset;     /* End offset into the blob */
-   5: i64 		blob_version;   /* Version of the blob to query */
-   6: dm_types.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
-   7: dm_types.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
-   8: i64                       byteCount;  /* Blob size */
+   1: i64    			   volume_id;
+   2: string   			   blob_name;
+   3: i64                          start_offset;
+   /** The end_offset is optional. TODO(Andrew): Mark it optional? */
+   4: i64                          end_offset;
+   /** TODO(Andrew): The blob version isn't used, should be removed. */
+   5: i64 		           blob_version;
+   /** TODO(Andrew): Move this to the response. */
+   6: dm_types.FDSP_BlobObjectList obj_list;
+   /** TODO(Andrew): Move this to the response. Do we actually need to return it at all? */
+   7: dm_types.FDSP_MetaDataList   meta_list;
+   /** TODO(Andrew): Move this to the response. Do we actually need to return it at all? */
+   8: i64                          byteCount;
 }
 /**
- * Query catalog request message
+ * TODO(Andrew): Move fields from request to response.
  */
 struct QueryCatalogRspMsg {
 }
@@ -317,7 +335,10 @@ struct QueryCatalogRspMsg {
    Operations for Statistics
    ------------------------------------------------------------*/
 
-/* Registration for streaming stats */
+/**
+ * Registers a new listener for a statistics stream (i think?).
+ * TODO(Andrew): Check that we actually use this.
+ */
 struct StatStreamRegistrationMsg {
    1:i32 id,
    2:string url,
@@ -327,31 +348,36 @@ struct StatStreamRegistrationMsg {
    6:i32 sample_freq_seconds,
    7:i32 duration_seconds,
 }
-
 struct StatStreamRegistrationRspMsg {
 }
 
+/**
+ * Registers a new listener for a statistics stream (i think?).
+ * TODO(Andrew): Check that we actually use this.
+ */
 struct StatStreamDeregistrationMsg {
     1: i32 id;
 }
-
 struct StatStreamDeregistrationRspMsg {
 }
 
 /**
- * time slot containing volume stats
+ * Time slot containing volume stats
  */
 struct VolStatSlot {
-    1: i64    rel_seconds;    // timestamp in seconds relative to start_timestamp
-    2: binary slot_data;      // represents time slot of stats
+    /** Timestamp in seconds relative to start_timestamp */
+    1: i64    rel_seconds;
+    /** Represents time slot of stats */
+    2: binary slot_data;
 }
 
 /**
  * Volume's time-series of stats
  */
 struct VolStatList {
-    1: i64                  volume_id;  // volume id
-    2: list<VolStatSlot>    statlist;   // list of time slots
+    1: i64                  volume_id;
+    /** List of time slots */
+    2: list<VolStatSlot>    statlist;
 }
 
 /**
@@ -362,9 +388,11 @@ struct StatStreamMsg {
     2: list<VolStatList>      volstats;
 }
 
+/**
+ * TODO(Andrew): Find out if this is still used.
+ */
 struct GetDmStatsMsg {
   1: i64                       volume_id;
-  // response
   2: i64                       commitlog_size;
   3: i64                       extent0_size;
   4: i64                       extent_size;
@@ -377,32 +405,59 @@ struct GetDmStatsRespMsg {
    Operations for Replication
    ------------------------------------------------------------*/
 
-/* DM meta data migration request sent to source DM */
+/**
+ * Starts a volume replica migration between two DMs.
+ * TODO(Andrew): This needs a response structure.
+ */
 struct CtrlDMMigrateMeta
 {
      /* meta data */
      2: dm_types.FDSP_metaDataList          metaVol;
 }
 
+/**
+ * Notifies DM that a specific DMT version has been closed.
+ * TODO(Andrew): This needs a response structure.
+ */
 struct CtrlNotifyDMTClose {
      1: dm_types.FDSP_DmtCloseType    dmt_close;
 }
 
+/**
+ * Notifies DM that about a new, but not yet active DMT.
+ * TODO(Andrew): This needs a response structure.
+ */
 struct CtrlNotifyDMTUpdate {
      1: dm_types.FDSP_DMT_Type        dmt_data;
      2: i32                  dmt_version;
 }
 
+/**
+ * Aborts a currently active replica migration. The
+ * migration is addressed by DMT version and all migrations
+ * on behalf of that migration are aborted.
+ * TODO(Andrew): This needs a response structure.
+ */
 struct CtrlNotifyDMAbortMigration {
      1: i64  DMT_version;
 }
 
+/**
+ * Notifies DM of a catalog update at a replica that it
+ * is currently migrating data to it.
+ * TODO(Andrew): The ID of the migration that this forward
+ * is on behalf of should be included.
+ * TODO(Andrew): We likely need some sort of ordering info
+ * so that forwarded messages don't come out of order to
+ * the receiving node.
+ */
 struct ForwardCatalogMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name; 	/* User visible name of the blob */
-   3: i64                       blob_version; 	/* Version of the blob */
-   4: dm_types.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-   5: dm_types.FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
+  1: i64    			  volume_id;
+  2: string 			  blob_name;
+  /** TODO(Andrew): The blob version isn't used, should be removed. */
+  3: i64                          blob_version;
+  4: dm_types.FDSP_BlobObjectList obj_list;
+  5: dm_types.FDSP_MetaDataList   meta_list;
 }
 /**
  * Forward catalog update response message
@@ -410,7 +465,10 @@ struct ForwardCatalogMsg {
 struct ForwardCatalogRspMsg {
 }
 
-/* Volume sync state msg sent from source to destination DM */
+/**
+ * Volume sync state msg sent from source to destination DM
+ * TODO(Andrew): Is this still used?
+ */
 struct VolSyncStateMsg
 {
     1: i64        volume_id;
