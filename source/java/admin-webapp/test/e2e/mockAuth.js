@@ -34,8 +34,7 @@ mockAuth = function() {
         };
 
         service.login = function( username, password ){
-
-            if ( username === 'admin' && password === adminPassword ){
+            if ( username == 'admin' && password == adminPassword ){
                 service.isAuthenticated = true;
                 service.error = undefined;
                 user = admin;

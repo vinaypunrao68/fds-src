@@ -138,5 +138,7 @@ describe( 'Testing the system screen', function(){
         expect( listPage.getAttribute( 'style' ) ).toContain( '0%' );
         
         checkNodeCount( false, 1 );
+        
+        logout();
     });
 });

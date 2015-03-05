@@ -1366,12 +1366,16 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
         return ERR_NOT_FOUND;
     }
 
-    // if this is timeout and not DM, we should not stop migration,
-    // node is probably down... In current implementation, we will stop
+    // if this is Service Layer error and not DM, we should not stop migration,
+    // node is probably down... If this is AM, and it is still up, IO through that
+    // AM will start getting DMT mismatch errors; We will need to solve this better
+    // when implementing error handling
+    // In current implementation, we will stop
     // migration if DM is down, because this could be DM that is source
     // for migration.
     if (respError.ok() ||
-        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_DATA_MGR))) {
+        ((respError == ERR_SVC_REQUEST_TIMEOUT ||
+          respError == ERR_SVC_REQUEST_INVOCATION) && (node_type != fpi::FDSP_DATA_MGR))) {
         dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
     } else {
         dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
