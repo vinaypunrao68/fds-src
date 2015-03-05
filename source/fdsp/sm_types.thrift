@@ -27,18 +27,18 @@ enum FDSP_ScavengerCmd {
  * Scavenger Status States
  */
 enum FDSP_ScavengerStatusType {
-   SCAV_ACTIVE       = 1;
-   SCAV_INACTIVE     = 2;
-   SCAV_DISABLED     = 3;
-   SCAV_STOPPING     = 4;
+  SCAV_ACTIVE   = 1;
+  SCAV_INACTIVE = 2;
+  SCAV_DISABLED = 3;
+  SCAV_STOPPING = 4;
 }
 
 /**
  * Scrubber Status States
  */
 enum FDSP_ScrubberStatusType {
-   FDSP_SCRUB_ENABLE    = 1;
-   FDSP_SCRUB_DISABLE   = 2;
+  FDSP_SCRUB_ENABLE     = 1;
+  FDSP_SCRUB_DISABLE    = 2;
 }
 
 /**
@@ -53,7 +53,27 @@ enum ObjectMetaDataReconcileFlags {
   OBJ_METADATA_OVERWRITE    = 2;
 }
 
-/* -------------------- SM Variable Types -------------------- */
+/**
+ * Command to enable/disable, start/stop smcheck
+ */
+enum SMCheckCmd {
+  SMCHECK_DISABLE   = 0;
+  SMCHECK_ENABLE    = 1;
+  SMCHECK_START     = 2;
+  SMCHECK_STOP      = 3;
+}
+
+/**
+ * Bitmap flag of curent SMCheck status
+ */
+enum SMCheckStatusType {
+  SMCHECK_STATUS_DISABLED   = 0x00;
+  SMCHECK_STATUS_ENABLED    = 0x01;
+  SMCHECK_STATUS_STARTED    = 0x10;
+  SMCHECK_STATUS_STOPPED    = 0x20;
+}
+
+/* -------------------- SM Types -------------------- */
 
 /**
  * Object volume association
@@ -69,9 +89,9 @@ struct MetaDataVolumeAssoc {
  * 
  */
 struct SMTokenMigrationGroup {
-  /**  */
+  /** Token source */
   1: common.SvcUuid source;
-  /**  */
+  /** Tokens */
   2: list<i32>      tokens;
 }
 
@@ -139,23 +159,6 @@ struct FDSP_MigrationStatusType {
 /* ----------------------- Scavenger --------------------------------------------- */
 
 struct FDSP_ScavengerType {
-  /**   */
+  /** Command to scavenger. */
   1: FDSP_ScavengerCmd  cmd;
-}
-
-/* ---------------------  SMCheck --------------------------------- */
-/* command to enable/disable, start/stop smcheck */
-enum SMCheckCmd {
-  SMCHECK_DISABLE     = 0;
-  SMCHECK_ENABLE      = 1;    
-  SMCHECK_START       = 2;
-  SMCHECK_STOP        = 3;
-}
-
-/* bitmap flag of curent SMCheck status */
-enum SMCheckStatusType {
-    SMCHECK_STATUS_DISABLED  = 0x00;
-    SMCHECK_STATUS_ENABLED   = 0x01;
-    SMCHECK_STATUS_STARTED   = 0x10;
-    SMCHECK_STATUS_STOPPED   = 0x20;
 }
