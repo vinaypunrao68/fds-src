@@ -84,7 +84,7 @@ struct SMTokenMigrationGroup {
 struct CtrlObjectMetaDataPropagate
 {
   /** Object ID */
-  1: FDSP.FDS_ObjectIdType          objectID
+  1: common.FDS_ObjectIdType          objectID
   /** Reconcile action */
   2: ObjectMetaDataReconcileFlags   objectReconcileFlag
   /** User data */
@@ -114,7 +114,7 @@ struct CtrlObjectMetaDataPropagate
 struct CtrlObjectMetaDataSync 
 {
   /** Object ID */
-  1: FDSP.FDS_ObjectIdType      objectID
+  1: common.FDS_ObjectIdType      objectID
   /* RefCount of the object */
   2: i64                        objRefCnt
   /* volume information */
@@ -233,7 +233,7 @@ struct CtrlObjectRebalanceFilterSet {
 /* Copy objects from source volume to destination */
 struct AddObjectRefMsg {
   /**   */
- 1: list<FDSP.FDS_ObjectIdType> objIds,
+ 1: list<common.FDS_ObjectIdType> objIds,
   /**   */
  2: i64 srcVolId,
   /**   */
@@ -248,7 +248,7 @@ struct  DeleteObjectMsg {
   /**   */
  1: i64 volId,
   /**   */
- 2: FDSP.FDS_ObjectIdType objId, 
+ 2: common.FDS_ObjectIdType objId, 
 }
 
 /* Delete object response message */
@@ -364,9 +364,9 @@ struct CtrlNotifySMCheckStatusResp {
 /* Get object request message */
 struct GetObjectMsg {
   /**   */
-   1: required i64    			volume_id;
+  1: required i64    			volume_id;
   /**   */
-   2: required FDSP.FDS_ObjectIdType 	data_obj_id;
+  2: required common.FDS_ObjectIdType 	data_obj_id;
 }
 
 /* Get object response message */
@@ -382,7 +382,7 @@ struct PutObjectMsg {
   /**   */
    1: i64    			volume_id;
   /**   */
-   2: FDSP.FDS_ObjectIdType 	data_obj_id;
+   2: common.FDS_ObjectIdType 	data_obj_id;
   /**   */
    3: i32                      	data_obj_len;
   /**   */

@@ -8,11 +8,6 @@ namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace * FDS_ProtocolInterface
 
-struct FDS_ObjectIdType {
-  1: string  digest,
-  2: byte    conflict_id
-}
-
 enum fds_dmgr_txn_state {
   FDS_DMGR_TXN_STATUS_INVALID,
   FDS_DMGR_TXN_STATUS_OPEN,
@@ -143,7 +138,7 @@ enum FDSP_AppWorkload {
 }
 
 struct FDSP_PutObjType {
- 1: FDS_ObjectIdType data_obj_id,
+ 1: common.FDS_ObjectIdType data_obj_id,
  2: i32              data_obj_len,
  3: i32              volume_offset, /* Offset inside the volume where the object resides */
  4: i32              dlt_version,
@@ -152,7 +147,7 @@ struct FDSP_PutObjType {
 }
 
 struct FDSP_GetObjType {
- 1: FDS_ObjectIdType data_obj_id,
+ 1: common.FDS_ObjectIdType data_obj_id,
  2: i32              data_obj_len,
  3: i32              dlt_version,
  4: binary           data_obj,
@@ -160,34 +155,34 @@ struct FDSP_GetObjType {
 }
 
 struct  FDSP_DeleteObjType { /* This is a SH-->SM msg to delete the objectId */
- 1: FDS_ObjectIdType data_obj_id,
+ 1: common.FDS_ObjectIdType data_obj_id,
  2: i32              dlt_version,
  3: i32              data_obj_len,
  4: binary           dlt_data,
 }
 
 struct FDSP_OffsetWriteObjType {
-  1: FDS_ObjectIdType   data_obj_id_old,
+  1: common.FDS_ObjectIdType   data_obj_id_old,
   2: i32      data_obj_len,
-  3: FDS_ObjectIdType   data_obj_id_new,
+  3: common.FDS_ObjectIdType   data_obj_id_new,
   4: i32      dlt_version,
   5: binary  data_obj,
   6: binary  dlt_data
 }
 
 struct FDSP_RedirReadObjType {
-  1: FDS_ObjectIdType   data_obj_id_old,
+  1: common.FDS_ObjectIdType   data_obj_id_old,
   2: i32      data_obj_len,
   3: i32      data_obj_suboffset, /* Offset within the object where the actual data is modified */
   4: i32      data_obj_sublen,
-  5: FDS_ObjectIdType   data_obj_id_new,
+  5: common.FDS_ObjectIdType   data_obj_id_new,
   6: i32      dlt_version,
   7: binary   data_obj,
   8: binary   dlt_data
 }
 
 struct FDSP_VerifyObjType {
-  1: FDS_ObjectIdType   data_obj_id,
+  1: common.FDS_ObjectIdType   data_obj_id,
   2: i32      data_obj_len,
   3: binary  data_obj
 }
@@ -270,16 +265,6 @@ typedef list<Node_List_Type> Node_Table_Type
 struct FDSP_DLT_Type {
       1: i32 DLT_version,
       2: Node_Table_Type DLT,
-}
-
-struct FDSP_DMT_Type {
-      1: i64 dmt_version,       /* DMT version */
-      2: binary dmt_data        /* DMT table + meta in binary format */
-      3: bool dmt_type,
-}
-
-struct FDSP_DmtCloseType {
-  1: i64 DMT_version
 }
 
 struct FDSP_DLT_Resp_Type {
@@ -569,7 +554,7 @@ struct FDSP_MigMsgHdrType
 /* Object id data pair */
 struct FDSP_ObjectIdDataPair
 {
-	1: FDS_ObjectIdType  obj_id
+	1: common.FDS_ObjectIdType  obj_id
 	
 	2: FDSP_ObjectData   data
 }
@@ -587,7 +572,7 @@ typedef list<FDSP_ObjectVolumeAssociation> FDSP_ObjectVolumeAssociationList
 struct FDSP_MigrateObjectMetadata
 {
     1: FDSP_Token              token_id
-    2: FDS_ObjectIdType        object_id
+    2: common.FDS_ObjectIdType        object_id
     3: i32                     obj_len
     4: i64                     born_ts
     5: i64                     modification_ts
@@ -607,7 +592,7 @@ struct FDSP_MigrateObjectData
 
 struct FDSP_GetObjMetadataReq {
  1: FDSP_MsgHdrType		header
- 2: FDS_ObjectIdType 	obj_id
+ 2: common.FDS_ObjectIdType 	obj_id
 }
 
 struct FDSP_GetObjMetadataResp {
