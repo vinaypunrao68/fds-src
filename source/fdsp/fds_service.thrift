@@ -58,6 +58,7 @@ enum  FDSPMsgTypeId {
     GetSvcMapRespMsgTypeId             = 1017,
     GetSvcStatusMsgTypeId              = 1018,
     GetSvcStatusRespMsgTypeId          = 1019,
+    ActivateServicesMsgTypeId              = 1020,
 
     /* Volume messages; common for AM, DM, SM. */
     CtrlNotifyVolAddTypeId             = 2020,
@@ -246,6 +247,11 @@ struct GetSvcStatusMsg {
 /* Response message for service status */
 struct GetSvcStatusRespMsg {
     1: ServiceStatus status;
+}
+
+/* Message to activate services on a node */
+struct ActivateServicesMsg {
+    1: FDSP.FDSP_ActivateNodeType info;
 }
 
 /*

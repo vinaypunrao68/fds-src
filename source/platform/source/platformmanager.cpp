@@ -9,7 +9,8 @@
 #include <iostream>  // NOLINT
 
 #include <fds_uuid.h>
-#include <net/net-service.h>
+#include <fdsp/fds_service_types.h>
+// #include <net/net-service.h>
 #include <fds_process.h>
 #include <platform/process.h>
 #include <util/stringutils.h>
@@ -116,21 +117,23 @@ pid_t PlatformManager::startSM() {
 // plf_start_node_services
 // -----------------------
 //
-void PlatformManager::activateServices(const fpi::FDSP_ActivateNodeTypePtr &msg) {
+void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activateMsg)
+{
     pid_t                pid;
     bool                 auto_start;
+    auto &info = activateMsg->info;
 
-    if (msg->has_sm_service) {
+    if (info.has_sm_service) {
         nodeInfo.fHasAm = true;
         startSM();
     }
 
-    if (msg->has_dm_service) {
+    if (info.has_dm_service) {
         nodeInfo.fHasDm = true;
         startDM();
     }
     
-    if (msg->has_am_service) {
+    if (info.has_am_service) {
         nodeInfo.fHasAm = true;
         startAM();
     }

@@ -977,24 +977,20 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
     }
 
-    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_ActivateNodeTypePtr node_msg(new fpi::FDSP_ActivateNodeType());
+    fpi::ActivateServicesMsgPtr activateMsg = boost::make_shared<fpi::ActivateServicesMsg>();
+    fpi::FDSP_ActivateNodeType& activateInfo = activateMsg->info;
 
-    init_msg_hdr(m_hdr);
-    m_hdr->msg_code        = fpi::FDSP_MSG_NOTIFY_NODE_ACTIVE;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
+    (activateInfo.node_uuid).uuid = get_uuid().uuid_get_val();
+    activateInfo.node_name = get_node_name();
+    activateInfo.has_sm_service = activate_sm;
+    activateInfo.has_dm_service = activate_dm;
+    activateInfo.has_am_service = activate_am;
+    activateInfo.has_om_service = false;
 
-    (node_msg->node_uuid).uuid = get_uuid().uuid_get_val();
-    node_msg->node_name = get_node_name();
-    node_msg->has_sm_service = activate_sm;
-    node_msg->has_dm_service = activate_dm;
-    node_msg->has_am_service = activate_am;
-    node_msg->has_om_service = false;
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::ActivateServicesMsg), activateMsg);
+    req->invoke();
 
-    // TODO(Rao): Fix me
-    NET_SVC_RPC_CALL(nd_eph, nd_svc_rpc, notifyNodeActive, node_msg);
     return err;
 }
 

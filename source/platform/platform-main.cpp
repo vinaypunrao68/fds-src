@@ -21,8 +21,10 @@ class PlatformMain : public SvcProcess {
 
         closeAllFDs();
 
-        init<fds::pm::SvcHandler, fpi::PlatNetSvcProcessor>(argc, argv, "platform.conf",
-                                                            "fds.pm.", "pm.log", nullptr);
+        auto handler = boost::make_shared<fds::pm::SvcHandler>(this, platform);
+        auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
+        init(argc, argv, "platform.conf", "fds.pm.", "pm.log",
+             nullptr, handler, processor);
 
         util::Properties& props = platform->getProperties();
         props.setData(&svcInfo_.props);

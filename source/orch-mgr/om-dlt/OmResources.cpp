@@ -974,25 +974,14 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 
     fromTo(svcInfo, reg_node_req);
 
-    /* Following code is just to make sure the svc_uuid passed in mathces the 
-     * type encoding semantics.  The last six bits are supposed to include
-     * the service type
-     */
-    NodeUuid new_node_uuid;
-    new_node_uuid.uuid_set_type(reg_node_req->node_uuid.uuid, 
-                                reg_node_req->node_type);
-    fds_assert(static_cast<fds_uint64_t>(reg_node_req->node_uuid.uuid) ==
-               new_node_uuid.uuid_get_val());
-
-    // TODO(Rao): Check with Paul why this is needed
-
     /* Update the service layer service map upfront so that any subsequent communitcation
      * with that service will work.
      */
     MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
 
     /* Do the registration */
-    err = om_reg_node_info(new_node_uuid, reg_node_req);
+    NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->node_uuid.uuid));
+    err = om_reg_node_info(node_uuid, reg_node_req);
 
     if (err.ok()) {
         om_locDomain->om_bcast_svcmap();
@@ -1023,13 +1012,15 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
     reg_node_req->ip_lo_addr = fds::net::ipString2Addr(svcInfo->ip);  
     reg_node_req->node_name = svcInfo->name;   
     reg_node_req->node_type = svcInfo->svc_type;
-    
    
-    FDS_ProtocolInterface::FDSP_Uuid uuid;
-    reg_node_req->node_uuid =
-        reg_node_req->service_uuid =
-        fds::assign(uuid, svcInfo->svc_id);
+    fds::assign(reg_node_req->service_uuid, svcInfo->svc_id);
     
+    NodeUuid node_uuid;
+    node_uuid.uuid_set_type(reg_node_req->service_uuid.uuid, fpi::FDSP_PLATFORM);
+    reg_node_req->node_uuid.uuid  = static_cast<int64_t>(node_uuid.uuid_get_val());
+
+    fds_assert(reg_node_req->node_type != fpi::FDSP_PLATFORM ||
+               reg_node_req->service_uuid == reg_node_req->node_uuid);
 }
 
 // om_reg_node_info

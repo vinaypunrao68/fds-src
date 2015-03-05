@@ -31,7 +31,7 @@ class PlatformManager : public Module {
     pid_t startDM();
 
     void determineDiskCapability();
-    void activateServices(const fpi::FDSP_ActivateNodeTypePtr &msg);
+    void activateServices(const fpi::ActivateServicesMsgPtr &activateMsg);
     const fpi::NodeInfo& getNodeInfo() {
         return nodeInfo;
     }

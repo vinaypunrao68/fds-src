@@ -5,9 +5,16 @@
 #include <net/PlatNetSvcHandler.h>
 namespace fds {
 namespace pm {
+
+class PlatformManager;
+
 class SvcHandler : public PlatNetSvcHandler {
   public:
-    explicit SvcHandler(CommonModuleProviderIf *provider);
+    SvcHandler(CommonModuleProviderIf *provider, PlatformManager *platform);
+    void activateServices(boost::shared_ptr <fpi::AsyncHdr> &hdr,
+            boost::shared_ptr <fpi::ActivateServicesMsg> &activateMsg);
+  protected:
+    PlatformManager *platform;
 };
 }  // namespace pm
 }  // namespace fds
