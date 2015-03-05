@@ -64,9 +64,9 @@ struct GetObjectMsg {
  */
 struct GetObjectResp {
   /** Length of returned object. */
-  1: i32              		data_obj_len;
+  1: i32    data_obj_len;
   /** Object data. */
-  2: binary           		data_obj;
+  2: binary data_obj;
 }
 
 /**
@@ -77,9 +77,9 @@ struct PutObjectMsg {
    1: i64    			volume_id;
   /** Object identifier. */
    2: common.FDS_ObjectIdType 	data_obj_id;
-  /** Object length.  */
+  /** Object length. */
    3: i32                      	data_obj_len;
-  /** Object data.  */
+  /** Object data. */
    4: binary                   	data_obj;
 }
 
@@ -94,25 +94,25 @@ struct PutObjectRspMsg {
    ------------------------------------------------------------*/
 
 /**
- *
+ * Instruct the checker to perform a command.
  */
 struct CtrlNotifySMCheck {
-  /**   */
-    1: sm_types.SMCheckCmd SmCheckCmd;
+  /** Checker command. */
+  1: sm_types.SMCheckCmd    SmCheckCmd;
 }
 
 /**
- *
+ * Request the checker's status.
  */
 struct CtrlNotifySMCheckStatus {
 }
 
 /**
- *
+ * Checker status response.
  */
 struct CtrlNotifySMCheckStatusResp {
-  /**   */
-    1: sm_types.SMCheckStatusType SmCheckStatus;
+  /** Status of the checker. */
+  1: sm_types.SMCheckStatusType SmCheckStatus;
 }
 
 /* ------------------------------------------------------------
@@ -120,108 +120,109 @@ struct CtrlNotifySMCheckStatusResp {
    ------------------------------------------------------------*/
 
 /**
- *
+ * Instruct the Scavenger (GC) to perform a command.
  */
 struct CtrlNotifyScavenger {
-  /**   */
-  1: sm_types.FDSP_ScavengerType   scavenger;
+  /** Scavenger command. */
+  1: sm_types.FDSP_ScavengerType    scavenger;
 }
 
 /**
- *
+ * Request the scavenger's GC policy.
  */
 struct CtrlQueryScavengerPolicy {
 }
 
 /**
- *
+ * Scavenger policy request response. If the used space is below level 1,
+ * no compaction will take place. Above level 2 will always trigger compaction,
+ * and anything between relies on the reclaimable threshold to cause GC.
  */
 struct CtrlQueryScavengerPolicyResp {
-  /**   */
-   1: i32                     dsk_threshold1;
-  /**   */
-   2: i32                     dsk_threshold2;
-  /**   */
-   3: i32                     token_reclaim_threshold;
-  /**   */
-   4: i32                     tokens_per_dsk;
+  /** Compaction level 1 */
+  1: i32    dsk_threshold1;
+  /** Compaction level 2 */
+  2: i32    dsk_threshold2;
+  /** Threshold for reclaimable space to trigger GC. */
+  3: i32    token_reclaim_threshold;
+  /** Maximum tokens per disk. */
+  4: i32    tokens_per_dsk;
 }
 
-/* ---------------------  CtrlScavengerProgressTypeId  --------------------------- */
 /**
- *
+ * Request the current scavenger progress.
  */
 struct CtrlQueryScavengerProgress {
 }
 
 /**
- *
+ * Scavenger progress response.
  */
 struct CtrlQueryScavengerProgressResp {
-  /**   */
-   1: i32					  progress_pct;
+  /** Compaction completion percentage. */
+  1: i32    progress_pct;
 }	   
 
 /**
- *
+ * Request the current scavenger status.
  */
 struct CtrlQueryScavengerStatus {
 }
 
 /**
- *
+ * Scavenger status response.
  */
 struct CtrlQueryScavengerStatusResp {
-   1: sm_types.FDSP_ScavengerStatusType 	status;
+  /** Current scavenger state.  */
+  1: sm_types.FDSP_ScavengerStatusType  status;
 }
 
-/* ---------------------  CtrlScavengerPolicyTypeId  --------------------------- */
 /**
- *
+ * Configure policy request. If the used space is below level 1, no compaction
+ * will take place. Above level 2 will always trigger compaction, and anything
+ * between relies on the reclaimable threshold to cause GC.
  */
 struct CtrlSetScavengerPolicy {
-  /**   */
-   1: i32					  dsk_threshold1;
-  /**   */
-   2: i32					  dsk_threshold2;
-  /**   */
-   3: i32					  token_reclaim_threshold;
-  /**   */
-   4: i32					  tokens_per_dsk;
+  /** Compaction level 1 */
+  1: i32    dsk_threshold1;
+  /** Compaction level 2 */
+  2: i32    dsk_threshold2;
+  /** Threshold for reclaimable space to trigger GC. */
+  3: i32    token_reclaim_threshold;
+  /** Maximum tokens per disk. */
+  4: i32    tokens_per_dsk;
 }
 
 /**
- *
+ * Policy configuration response.
  */
 struct CtrlSetScavengerPolicyResp {
 }
 
-/* ------------------------  CtrlQueryScrubberStatusRespTypeId  ---------------------- */
 /**
- *
- */
-struct CtrlQueryScrubberStatusResp {
-  /**   */
-   1: sm_types.FDSP_ScavengerStatusType	scrubber_status;
-}
-
-/* ------------------------  CtrlQueryScrubberStatusTypeId  ------------------------- */
-/**
- *
+ * The scrubber status. FIXME: Should be part of the scavenger status.
  */
 struct CtrlQueryScrubberStatus {
 }
 
 /**
- *
+ * Scrubber status response. FIXME: Should be part of the scavenger status.
  */
-struct CtrlSetScrubberStatus {
-  /**   */
-   1: sm_types.FDSP_ScrubberStatusType		scrubber_status;
+struct CtrlQueryScrubberStatusResp {
+  /** Current scrubber state. */
+  1: sm_types.FDSP_ScavengerStatusType  scrubber_status;
 }
 
 /**
- *
+ * Set scrubber status. FIXME: Should be part of the scavenger policy.
+ */
+struct CtrlSetScrubberStatus {
+  /** New state for scrubber. */
+  1: sm_types.FDSP_ScrubberStatusType   scrubber_status;
+}
+
+/**
+ * Scrubber configuration response. FIXME: Should be part of the scavenger policy.
  */
 struct CtrlSetScrubberStatusResp {
 }
@@ -274,7 +275,7 @@ struct CtrlNotifySMStartMigration {
  */
 struct CtrlGetSecondRebalanceDeltaSet {
   /** unique id of executor on the destination SM */
-  1: i64    executorID
+  1: i64    executorID;
 }
 
 /**
@@ -288,13 +289,13 @@ struct CtrlGetSecondRebalanceDeltaSetRsp {
  */
 struct CtrlObjectRebalanceDeltaSet {
   /** Unique id of executor on the destination SM */
-  1: i64    executorID
+  1: i64    executorID;
   /** Sequence number of the delta set. */
-  2: i64    seqNum
+  2: i64    seqNum;
   /** boolean state to indicate that the whether this set is the last one or not. */
-  3: bool   lastDeltaSet
+  3: bool   lastDeltaSet;
   /** set of objects, which consists of data + metadata, to be applied  at the destination SM. */
-  4: list<sm_types.CtrlObjectMetaDataPropagate>   objectToPropagate
+  4: list<sm_types.CtrlObjectMetaDataPropagate>   objectToPropagate;
 }
 
 /**
@@ -305,17 +306,17 @@ struct CtrlObjectRebalanceDeltaSet {
  */
 struct CtrlObjectRebalanceFilterSet {
   /** Target DLT version for rebalance */
-  1: i64    targetDltVersion
+  1: i64    targetDltVersion;
   /** DLT token to be rebalance */
-  2: i32    tokenId
+  2: i32    tokenId;
   /** Unique id of executor on the destination SM */
-  3: i64    executorID
+  3: i64    executorID;
   /** Sequence number of the delta set */
-  4: i64    seqNum
+  4: i64    seqNum;
   /** True if this is the last message */
-  5: bool   lastFilterSet
+  5: bool   lastFilterSet;
   /** Set of objects to be sync'ed */
-  6: list<sm_types.CtrlObjectMetaDataSync>    objectsToFilter
+  6: list<sm_types.CtrlObjectMetaDataSync>    objectsToFilter;
 }
 
 /* ------------------------------------------------------------
