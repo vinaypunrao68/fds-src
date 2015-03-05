@@ -577,25 +577,20 @@ void FDSP_ConfigPathReqHandler::ListServices(
 
 static void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
                           NodeAgent::pointer ptr) {
-    Platform     *plat;
-    node_data_t   ndata;
-    fds_uint32_t  base;
 
-    base = ptr->node_base_port();
-    plat = Platform::platf_singleton();
+    fpi::FDSP_RegisterNodeType nodeData;
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
-    ptr->node_info_frm_shm(&ndata);
-    NodeUuid uuid = ndata.nd_node_uuid;
     fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
-    nodeInfo.node_uuid = ndata.nd_node_uuid;
-    nodeInfo.service_uuid = ndata.nd_service_uuid;
+    nodeInfo.node_uuid = nodeData.node_uuid.uuid;
+    nodeInfo.service_uuid = nodeData.service_uuid.uuid;
     nodeInfo.node_name = ptr->get_node_name();
-    nodeInfo.node_type = ndata.nd_svc_type;
+    nodeInfo.node_type = nodeData.node_type;
     nodeInfo.node_state = ptr->node_state();
     nodeInfo.ip_lo_addr = netSession::ipString2Addr(ptr->get_ip_str());
-    nodeInfo.control_port = plat->plf_get_my_ctrl_port(base);
-    nodeInfo.data_port = plat->plf_get_my_data_port(base);
-    nodeInfo.migration_port = plat->plf_get_my_migration_port(base);
+    nodeInfo.control_port = nodeData.control_port;
+    nodeInfo.data_port = nodeData.data_port;
+    nodeInfo.migration_port = nodeData.migration_port;
     vec.push_back(nodeInfo);
 }
 

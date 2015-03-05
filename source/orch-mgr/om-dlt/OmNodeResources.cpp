@@ -975,16 +975,6 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         // for node activate + update config DB with node info
         // but for now assume always success and set active state here
         set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
-        kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-        node_data_t node_data;
-        if (!configDB->getNode(get_uuid(), &node_data)) {
-            // for now store only if the node was not known to DB
-            node_info_frm_shm(&node_data);
-            configDB->addNode(&node_data);
-            LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
-                      << std::hex << get_uuid().uuid_get_val() << std::dec
-                      << " in configDB";
-        }
     }
 
     fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
@@ -1094,13 +1084,13 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
 {
     // check if this is a known Node
     bool        known;
-    node_data_t node;
+    fpi::FDSP_RegisterNodeType nodeInfo;
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
-    if (configDB->getNode(uuid, &node)) {
+    if (configDB->getNode(uuid, nodeInfo)) {
         // this is a known node
         known = true;
-        msg->node_name = node.nd_assign_name;
+        msg->node_name = nodeInfo.node_name;
     } else {
         // we are ignoring name that platform sends us
         known = false;
