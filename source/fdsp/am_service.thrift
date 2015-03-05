@@ -6,7 +6,7 @@ include "FDSP.thrift"
 include "fds_service.thrift"
 include "pm_service.thrift"
 include "dm_api.thrift"
-include "sm_service.thrift"
+include "sm_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.am
@@ -29,6 +29,6 @@ struct CtrlNotifyQoSControl {
 
 service TestAMSvc {
     i32 associate(1: string myip, 2: i32 port);
-    oneway void putObjectRsp(1: fds_service.AsyncHdr asyncHdr, 2: sm_service.PutObjectRspMsg payload);
+    oneway void putObjectRsp(1: fds_service.AsyncHdr asyncHdr, 2: sm_api.PutObjectRspMsg payload);
     oneway void updateCatalogRsp(1: fds_service.AsyncHdr asyncHdr, 2: dm_api.UpdateCatalogOnceRspMsg payload);
 }

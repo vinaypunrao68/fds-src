@@ -5,6 +5,7 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <set>
 #include <string>
 #include <net/net-service-tmpl.hpp>
 #include <fiu-control.h>
@@ -16,7 +17,7 @@
 #include <net/net-service.h>
 #include <fdsp/fds_service_types.h>
 #include <net/SvcRequestPool.h>
-#include <set>
+#include "fdsp/sm_api_types.h"
 
 namespace fds {
 
