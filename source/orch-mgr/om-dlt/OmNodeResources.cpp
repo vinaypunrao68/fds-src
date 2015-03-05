@@ -1049,32 +1049,6 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
         return err;
     }
 
-    try {
-        Platform *plat = Platform::platf_singleton();
-        int ctrl_port = plat->plf_get_my_ctrl_port(agent->node_base_port());
-        NodeAgentCpSessionPtr session(
-                ac_cpSessTbl->startSession<netControlPathClientSession>(
-                    agent->get_ip_str(),
-                    ctrl_port,
-                    ac_id,      // TODO(Andrew): should be just a node
-                    1,                 // just 1 channel for now...
-                    ctrlRspHndlr));
-
-        fds_verify(agent != NULL);
-        fds_verify(session != NULL);
-        agent->setCpSession(session, fpi::FDSP_DATA_MGR);
-
-        LOGNOTIFY << "Agent uuid " << std::hex << agent->get_uuid().uuid_get_val()
-            << std::dec << " connects ip " << agent->get_ip_str()
-            << ", port " << ctrl_port;
-    } catch(const att::TTransportException& e) {
-        rs_free_resource(agent);
-        LOGERROR << "error during network call : " << e.what();
-        return ERR_NETWORK_TRANSPORT;
-    }
-    // Only make it known to the container when we have the endpoint.
-    // XXX(Vy): it's possible that we can lost the endpoint during the activate call.
-    //
     agent_activate(agent);
     return err;
 }
