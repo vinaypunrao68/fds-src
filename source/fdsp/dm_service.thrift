@@ -70,9 +70,23 @@ struct FDSP_metaData
 
 /**
  * Describes a set of migration events between one or more DMs.
- * TODO(Andrew): Should be a list since migrations should be unique.
+ * TODO(Andrew): Should be a set since migrations should be unique.
  */
 typedef list<FDSP_metaData> FDSP_metaDataList
+
+struct FDSP_BlobObjectInfo {
+ 1: i64 offset,
+ 2: FDSP.FDS_ObjectIdType data_obj_id,
+ 3: i64 size
+ 4: bool blob_end;
+}
+
+/**
+ * List of blob offsets and their corresponding object IDs.
+ * TODO(Andrew): Should be a set since blob offsets should
+ * be unique.
+ */
+typedef list<FDSP_BlobObjectInfo> FDSP_BlobObjectList
 
 /* -------------------- Operations on Volumes --------------------*/
 
@@ -106,7 +120,7 @@ struct GetBucketRspMsg {
  */
 struct GetVolumeMetaDataMsg {
   1: i64                        volume_id;
-  2: FDSP.FDSP_VolumeMetaData   volume_meta_data;
+  2: FDSP_VolumeMetaData        volume_meta_data;
 }
 struct GetVolumeMetaDataRspMsg {
 }
@@ -231,7 +245,7 @@ struct UpdateCatalogMsg {
    2: string 			blob_name; 	/* User visible name of the blob */
    3: i64                       blob_version; 	/* Version of the blob */
    4: i64                   	txId;
-   5: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+   5: FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
 }
 /**
  * Update catalog response message
@@ -249,7 +263,7 @@ struct UpdateCatalogOnceMsg {
    4: i32 			blob_mode;
    5: i64                       dmt_version;
    6: i64                   	txId;
-   7: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+   7: FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
    8: FDSP_MetaDataList 	meta_list;	/* sequence of arbitrary key/value pairs */
 }
 /**
@@ -302,7 +316,7 @@ struct QueryCatalogMsg {
    3: i64               start_offset;   /* Starting offset into the blob */
    4: i64               end_offset;     /* End offset into the blob */
    5: i64 		blob_version;   /* Version of the blob to query */
-   6: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
+   6: FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
    7: FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
    8: i64                       byteCount;  /* Blob size */
 }
@@ -396,7 +410,7 @@ struct ForwardCatalogMsg {
    1: i64    			volume_id;
    2: string 			blob_name; 	/* User visible name of the blob */
    3: i64                       blob_version; 	/* Version of the blob */
-   4: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+   4: FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
    5: FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
 }
 /**

@@ -198,23 +198,6 @@ struct FDSP_BlobDigestType {
   1: binary  digest
 }
 
-struct FDSP_BlobObjectInfo {
- 1: i64 offset,
- 2: FDS_ObjectIdType data_obj_id,
- 3: i64 size
- 4: bool blob_end;
-}
-
-typedef list<FDSP_BlobObjectInfo> FDSP_BlobObjectList
-
-
-struct FDSP_VolumeMetaData {
-  1: i64 blobCount;
-  2: i64 size; // in bytes
-  3: i64 objectCount;
-//  3: FDSP_MetaDataList metaData;
-}
-
 /* Can be consolidated when apis and fdsp merge or whatever */
 struct TxDescriptor {
        1: required i64 txId
