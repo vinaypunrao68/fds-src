@@ -90,7 +90,7 @@ struct PutObjectRspMsg {
 }
 
 /* ------------------------------------------------------------
-   Operations on the Checker
+   Operations for Data Verification
    ------------------------------------------------------------*/
 
 /**
@@ -229,7 +229,7 @@ struct CtrlSetScrubberStatusResp {
 
 
 /* ------------------------------------------------------------
-   Operations on Migrations
+   Operations for Replication
    ------------------------------------------------------------*/
 
 /**
