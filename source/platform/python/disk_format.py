@@ -24,6 +24,7 @@ DEFAULT_FDS_ROOT = '/fds/'
 DEFAULT_SHORT_PATH_AND_HINTS = 'dev/disk-config.conf'
 FSTAB_PATH_AND_FILENAME = "/etc/fstab"
 
+# Thes semi-arbitrary looking numbers are documented in the google doc titled:  "DM and SM Partition Size"
 DM_INDEX_BYTES_PER_OBJECT = 32
 SM_INDEX_BYTES_PER_OBJECT = 603
 
