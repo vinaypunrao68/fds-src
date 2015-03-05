@@ -5,7 +5,7 @@
 #include <string>
 #include <fdsp_utils.h>
 #include <fdsp/am_service_types.h>
-#include <fdsp/dm_service_types.h>
+#include <fdsp/dm_api_types.h>
 #include <fdsp/sm_service_types.h>
 #include <fds_resource.h>
 

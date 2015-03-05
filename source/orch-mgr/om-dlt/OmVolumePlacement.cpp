@@ -7,7 +7,7 @@
 #include <set>
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
-#include "fdsp/dm_service_types.h"
+#include "fdsp/dm_api_types.h"
 
 namespace fds {
 

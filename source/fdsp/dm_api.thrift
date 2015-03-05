@@ -3,92 +3,17 @@
  */
 
 include "fds_service.thrift"
-include "FDSP.thrift"
 include "common.thrift"
+include "dm_types.thrift"
 include "snapshot.thrift"
 include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.dm
 
-/* -------------------- DM Variable Types -------------------- */
-
-/**
- * Metadata information for a volume.
- */
-struct FDSP_VolumeMetaData {
-  /** The number of blobs in the volume */
-  1: i64 blobCount;
-  /** The total logical capacity consumed by all blobs the volume */
-  2: i64 size;
-  /**
-   * The total number of objects in all blobs in the volume.
-   * TODO(Andrew): Do we need this field? Seems kinda useless...
-   */
-  3: i64 objectCount;
-}
-
-/**
- * A metadata key-value pair. The key and value have no explicit size
- * restriction.
- */
-struct FDSP_MetaDataPair {
- 1: string key,
- 2: string value,
-}
-
-/**
- * A list of metadata key-value pairs. The order of the list
- * is arbitrary.
- * TODO(Andrew): Is a set better since there's no order and
- * keys should be unique?
- */
-typedef list <FDSP_MetaDataPair> FDSP_MetaDataList
-
-/**
- * A list of blob descriptors. The list may be ordered if
- * requested.
- */
-typedef list<common.BlobDescriptor> BlobDescriptorListType
-
-/**
- * A list of volume IDs.
- * TODO(Andrew): This should probably be in the common
- * definition and should have a better name.
- */
-typedef list<i64> vol_List_Type
-
-/**
- * Describes a group of volume IDs involved in
- * a replica migration to a specific DM.
- */
-struct FDSP_metaData
-{
-    1: vol_List_Type  volList;
-    2: common.SvcUuid  node_uuid;
-}
-
-/**
- * Describes a set of migration events between one or more DMs.
- * TODO(Andrew): Should be a set since migrations should be unique.
- */
-typedef list<FDSP_metaData> FDSP_metaDataList
-
-struct FDSP_BlobObjectInfo {
- 1: i64 offset,
- 2: FDSP.FDS_ObjectIdType data_obj_id,
- 3: i64 size
- 4: bool blob_end;
-}
-
-/**
- * List of blob offsets and their corresponding object IDs.
- * TODO(Andrew): Should be a set since blob offsets should
- * be unique.
- */
-typedef list<FDSP_BlobObjectInfo> FDSP_BlobObjectList
-
-/* -------------------- Operations on Volumes --------------------*/
+/* ------------------------------------------------------------
+   Operations on Volumes
+   ------------------------------------------------------------*/
 
 /**
  * Lists specific contents of a volume. A specific offset into
@@ -101,7 +26,7 @@ typedef list<FDSP_BlobObjectInfo> FDSP_BlobObjectList
  */
 struct GetBucketMsg {
   1: required i64              volume_id;
-  2: i64                       startPos = 0;  
+  2: i64                       startPos = 0;
   3: i64                       count = 10000;
   4: string                    pattern = "";
   5: common.BlobListOrder      orderBy = 0;
@@ -112,16 +37,21 @@ struct GetBucketMsg {
  * list may be ordered depending on the query.
  */
 struct GetBucketRspMsg {
-  1: required BlobDescriptorListType     blob_descr_list;
+  1: required dm_types.BlobDescriptorListType     blob_descr_list;
 }
 
 /**
- * Returns a
+ * Gets the metadata for a specific volume.
+ * TODO(Andrew): Move the volume metadata to the
+ * response structure.
  */
 struct GetVolumeMetaDataMsg {
   1: i64                        volume_id;
-  2: FDSP_VolumeMetaData        volume_meta_data;
+  2: dm_types.FDSP_VolumeMetaData        volume_meta_data;
 }
+/**
+ * Returns a volume metadata descriptor for the volume.
+ */
 struct GetVolumeMetaDataRspMsg {
 }
 
@@ -143,9 +73,18 @@ struct CreateSnapshotRespMsg {
     1:i64 snapshotId
 }
 
+/**
+ * Deletes a specific snapshot.
+ * TODO(Andrew): Is there actually a distinction between
+ * the snapshot ID and the volume ID?
+ */
 struct DeleteSnapshotMsg {
     1:i64 snapshotId
 }
+/**
+ * Return ERR_OK
+ * TODO(Andrew): Why does this return anything?
+ */
 struct DeleteSnapshotRespMsg {
     1:i64 snapshotId
 }
@@ -155,6 +94,7 @@ struct DeleteSnapshotRespMsg {
  * new, read/write-able volume that contains identical contents
  * to the volume it is cloned from. Once cloned updates to
  * the original and clone volume are unrelated.
+ * TODO(Andrew): Why is the cloneId in the request?
  */
 struct CreateVolumeCloneMsg {
      1:i64 volumeId,
@@ -172,27 +112,40 @@ struct CreateVolumeCloneRespMsg {
      1:i64 cloneId
 }
 
+/**
+ * Reloads (i.e., opens) a volume catalog after a clone
+ * catalog migration has happened.
+ * TODO(Andrew): This isn't used. So it shouldn't exist.
+ */
 struct ReloadVolumeMsg {
     1:i64 volId
 }
 struct ReloadVolumeRspMsg {
 }
 
-/* -------------------- Operations on Blobs -------------------- */
+/* ------------------------------------------------------------
+   Operations on Blobs
+   ------------------------------------------------------------*/
 
 /**
- * Start Blob  Transaction  request message
+ * Starts a new transaction for a blob. The transaction ID is given
+ * by the caller and used by the DM.
  */
 struct StartBlobTxMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   4: i32 			blob_mode;
-   5: i64 			txId;
-   6: i64                       dmt_version;
+  1: i64    			volume_id;
+  2: string 			blob_name;
+  /** TODO(Anderw): The blob version isn't used, should be removed. */
+  3: i64 			blob_version;
+  /** TODO(Andrew): The blob_mode should become a Thrift defined enum. */
+  4: i32 			blob_mode;
+  5: i64 			txId;
+  /** TODO(Andrew): Shouldn't need the DMT version? */
+  6: i64                       dmt_version;
 }
 /**
- * start Blob traction response message
+ * If the transaction was unable to start because the given
+ * transcation ID already existed, ERR_DM_TX_EXISTS will be
+ * returned.
  */
 struct StartBlobTxRspMsg {
 }
@@ -201,11 +154,11 @@ struct StartBlobTxRspMsg {
  * Commits a currently active transaction.
  */
 struct CommitBlobTxMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   4: i64 			txId;
-   5: i64                       dmt_version,
+  1: i64    			volume_id;
+  2: string 			blob_name;
+  3: i64 			blob_version;
+  4: i64			txId;
+  5: i64                        dmt_version,
 }
 /**
  * Response contains the logical size of the blob and its
@@ -219,7 +172,7 @@ struct CommitBlobTxRspMsg {
    /** Blob size */
    1: i64                  byteCount;
    /** Sequence of arbitrary key/value pairs */
-   2: FDSP_MetaDataList    meta_list;
+   2: dm_types.FDSP_MetaDataList    meta_list;
 }
 
 /**
@@ -228,73 +181,108 @@ struct CommitBlobTxRspMsg {
 struct AbortBlobTxMsg {
    1: i64    			volume_id;
    2: string 			blob_name;
+  /** TODO(Anderw): The blob version isn't used, should be removed. */
    3: i64 			blob_version;
    5: i64			txId;
 }
 /**
- * Abort Blob traction response message
+ * If the transaction did not exist, ERR_DM_INVALID_TX_ID is
+ * returned.
  */
 struct AbortBlobTxRspMsg {
 }
 
 /**
- * Update catalog request message
+ * Updates an existing transaction with a new blob update. The update
+ * is not applied until the transcation is committed. 
+ * Updates within a transaction are ordered so this update may overwrite
+ * a previous update to the same offset in the same transaction context
+ * when committed.
  */
 struct UpdateCatalogMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name; 	/* User visible name of the blob */
-   3: i64                       blob_version; 	/* Version of the blob */
-   4: i64                   	txId;
-   5: FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+  1: i64    			volume_id;
+  2: string 			blob_name;
+  /** TODO(Anderw): The blob version isn't used, should be removed. */
+  3: i64                       blob_version;
+  4: i64                   	txId;
+  /** List of object ids of the objects that this blob is being mapped to */
+  5: dm_types.FDSP_BlobObjectList 	obj_list;
 }
 /**
- * Update catalog response message
+ * If the transaction did not exist, ERR_DM_INVALID_TX_ID is
+ * returned.
  */
 struct UpdateCatalogRspMsg {
 }
 
 /**
- * Update catalog once request message
+ * Updates a blob in one atomic operation. No existing transaction context
+ * is needed.
+ * The object and/or metadata list may be empty.
  */
 struct UpdateCatalogOnceMsg {
    1: i64    			volume_id;
-   2: string 			blob_name; 	/* User visible name of the blob */
-   3: i64                       blob_version; 	/* Version of the blob */
+   2: string 			blob_name;
+  /** TODO(Anderw): The blob version isn't used, should be removed. */
+   3: i64                       blob_version;
    4: i32 			blob_mode;
    5: i64                       dmt_version;
    6: i64                   	txId;
-   7: FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-   8: FDSP_MetaDataList 	meta_list;	/* sequence of arbitrary key/value pairs */
+   /** List of object ids of the objects that this blob is being mapped to */
+   7: dm_types.FDSP_BlobObjectList 	obj_list;
+   8: dm_types.FDSP_MetaDataList 	meta_list;
 }
 /**
- * Update catalog once response message
+ * Response contains the logical size of the blob and its
+ * metadata after the the transaction is committed.
  */
 struct UpdateCatalogOnceRspMsg {
-   1: i64                       byteCount;  /* Blob size */
-   2: FDSP_MetaDataList         meta_list;  /* sequence of arbitrary key/value pairs */
+   /** Blob size */
+   1: i64                        byteCount;
+   /** Sequence of arbitrary key/value pairs */
+   2: dm_types.FDSP_MetaDataList meta_list;
 }
 
+/**
+ * Updates an existing transaction with a new blob update. The
+ * is not applied until the transcation is committed.
+ * Metadata keys are unique so this update may overwrite a
+ * previously written value for the same key.
+ * Updates within a transaction are ordered so this update may overwrite
+ * a previous update to the same key in the same transaction context
+ * when committed.
+ */
+struct SetBlobMetaDataMsg {
+  1: i64    			volume_id;
+  2: string 			blob_name;
+  /** TODO(Anderw): The blob version isn't used, should be removed. */
+  3: i64 			blob_version;
+  4: dm_types.FDSP_MetaDataList         metaDataList;
+  5: i64                   	txId;
+}
+/**
+ * If the transaction did not exist, ERR_DM_INVALID_TX_ID is
+ * returned.
+ */
+struct SetBlobMetaDataRspMsg {
+}
+
+/**
+ * Updates an existing transaction with a request to delete a blob.
+ * When committed, the entire blob and all of its metadata are deleted.
+ * The delete may be lazy so there may be options to restore the blob later.
+ */
 struct DeleteBlobMsg {
   1: i64                       txId;
   2: i64                       volume_id;
   3: string                    blob_name;
   4: i64                       blob_version;
 }
-struct DeleteBlobRspMsg {
-}
-
 /**
- * get the list of blobs in volume Transaction  request message
+ * If the transaction did not exist, ERR_DM_INVALID_TX_ID is
+ * returned.
  */
-struct SetBlobMetaDataMsg {
-   1: i64    			volume_id;
-   2: string 			blob_name;
-   3: i64 			blob_version;
-   4: FDSP_MetaDataList         metaDataList;
-   5: i64                   	txId;
-}
-/* Set blob metadata request message */
-struct SetBlobMetaDataRspMsg {
+struct DeleteBlobRspMsg {
 }
 
 struct GetBlobMetaDataMsg {
@@ -302,7 +290,7 @@ struct GetBlobMetaDataMsg {
   2: string                    blob_name;
   3: i64                       blob_version;
   4: i64                       byteCount;
-  5: FDSP_MetaDataList         metaDataList;
+  5: dm_types.FDSP_MetaDataList         metaDataList;
 }
 struct GetBlobMetaDataRspMsg {
 }
@@ -316,8 +304,8 @@ struct QueryCatalogMsg {
    3: i64               start_offset;   /* Starting offset into the blob */
    4: i64               end_offset;     /* End offset into the blob */
    5: i64 		blob_version;   /* Version of the blob to query */
-   6: FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
-   7: FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
+   6: dm_types.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
+   7: dm_types.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
    8: i64                       byteCount;  /* Blob size */
 }
 /**
@@ -326,7 +314,9 @@ struct QueryCatalogMsg {
 struct QueryCatalogRspMsg {
 }
 
-/* -------------------- Operations for Statistics --------------------*/
+/* ------------------------------------------------------------
+   Operations for Statistics
+   ------------------------------------------------------------*/
 
 /* Registration for streaming stats */
 struct StatStreamRegistrationMsg {
@@ -384,22 +374,24 @@ struct GetDmStatsMsg {
 struct GetDmStatsRespMsg {
 }
 
-/* -------------------- Operations for Replication --------------------*/
+/* ------------------------------------------------------------
+   Operations for Replication
+   ------------------------------------------------------------*/
 
 /* DM meta data migration request sent to source DM */
 struct CtrlDMMigrateMeta
 {
      /* meta data */
-     2: FDSP_metaDataList          metaVol;
+     2: dm_types.FDSP_metaDataList          metaVol;
 }
 
 struct CtrlNotifyDMTClose {
-     1: FDSP.FDSP_DmtCloseType    dmt_close;
+     1: dm_types.FDSP_DmtCloseType    dmt_close;
 }
 
 struct CtrlNotifyDMTUpdate {
-     1: FDSP.FDSP_DMT_Type        dmt_data;
-     2: i32                       dmt_version;
+     1: dm_types.FDSP_DMT_Type        dmt_data;
+     2: i32                  dmt_version;
 }
 
 struct CtrlNotifyDMAbortMigration {
@@ -410,8 +402,8 @@ struct ForwardCatalogMsg {
    1: i64    			volume_id;
    2: string 			blob_name; 	/* User visible name of the blob */
    3: i64                       blob_version; 	/* Version of the blob */
-   4: FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-   5: FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
+   4: dm_types.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+   5: dm_types.FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
 }
 /**
  * Forward catalog update response message
@@ -428,7 +420,9 @@ struct VolSyncStateMsg
 struct VolSyncStateRspMsg {
 }
 
-/* -------------------- Other specified services -------------------- */
+/* ------------------------------------------------------------
+   Other specified services
+   ------------------------------------------------------------*/
 
 /**
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use

@@ -76,3 +76,11 @@ struct SvcVer {
     1: required i16           ver_major,
     2: required i16           ver_minor,
 }
+
+/**
+ * Describes an object id.
+ * TODO(Andrew): Should this just be a typedef?
+ */
+struct FDS_ObjectIdType {
+  1: string  digest
+}
