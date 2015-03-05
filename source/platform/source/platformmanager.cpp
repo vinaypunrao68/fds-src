@@ -142,18 +142,18 @@ void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activa
 }
 
 void PlatformManager::loadProperties() {
-    props.setInt("uuid", nodeInfo.uuid);
-    props.setInt("disk_iops_max", diskCapability.disk_iops_max);
-    props.setInt("disk_iops_min", diskCapability.disk_iops_min);
-    props.setDouble("disk_capacity", diskCapability.disk_capacity);
-    props.setInt("disk_latency_max", diskCapability.disk_latency_max);
-    props.setInt("disk_latency_min", diskCapability.disk_latency_min);
-    props.setInt("ssd_iops_max", diskCapability.ssd_iops_max);
-    props.setInt("ssd_iops_min", diskCapability.ssd_iops_min);
-    props.setDouble("ssd_capacity", diskCapability.ssd_capacity);
-    props.setInt("ssd_latency_max", diskCapability.ssd_latency_max);
-    props.setInt("ssd_latency_min", diskCapability.ssd_latency_min);
-    props.setInt("disk_type", diskCapability.disk_type);
+    props.setInt("uuid"             , nodeInfo.uuid);
+    props.setInt("disk.iops.max"    , diskCapability.disk_iops_max);
+    props.setInt("disk.iops.min"    , diskCapability.disk_iops_min);
+    props.setDouble("disk.capacity" , diskCapability.disk_capacity);
+    props.setInt("disk.latency.max" , diskCapability.disk_latency_max);
+    props.setInt("disk.latency.min" , diskCapability.disk_latency_min);
+    props.setInt("ssd.iops.max"     , diskCapability.ssd_iops_max);
+    props.setInt("ssd.iops.min"     , diskCapability.ssd_iops_min);
+    props.setDouble("ssd.capacity"  , diskCapability.ssd_capacity);
+    props.setInt("ssd.latency.max"  , diskCapability.ssd_latency_max);
+    props.setInt("ssd.latency.min"  , diskCapability.ssd_latency_min);
+    props.setInt("disk.type"        , diskCapability.disk_type);
 }
 
 
