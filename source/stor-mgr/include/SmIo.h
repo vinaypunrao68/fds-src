@@ -24,8 +24,6 @@
 
 using FDS_ProtocolInterface::FDSP_DeleteObjTypePtr;
 using FDS_ProtocolInterface::FDSP_GetObjTypePtr;
-using FDS_ProtocolInterface::FDSP_MigrateObjectList;
-using FDS_ProtocolInterface::FDSP_MigrateObjectMetadata;
 using FDS_ProtocolInterface::FDSP_ObjectIdDataPair;
 using FDS_ProtocolInterface::FDSP_PutObjTypePtr;
 

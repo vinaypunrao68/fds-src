@@ -314,9 +314,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();
 
-     Error putTokenObjects(const fds_token_id &token,
-                           FDSP_MigrateObjectList &obj_list);
-
      const std::string getStorPrefix() {
          return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");
      }
