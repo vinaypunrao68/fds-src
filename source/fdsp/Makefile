@@ -9,6 +9,7 @@ user_thrift      := \
 	common.thrift \
         am_types.thrift \
         dm_types.thrift \
+	om_types.thrift \
 	sm_types.thrift \
 	fds_stream.thrift \
 	fds_service.thrift \
@@ -16,8 +17,8 @@ user_thrift      := \
 	pm_service.thrift \
 	am_api.thrift \
 	dm_api.thrift \
+	om_api.thrift \
 	sm_api.thrift \
-	om_service.thrift \
 	configuration_service.thrift \
 	xdi.thrift \
 	svc_test.thrift

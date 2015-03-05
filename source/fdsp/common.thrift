@@ -104,3 +104,63 @@ struct FDSP_ThrottleMsgType {
   /** Throttle level. */
   2: double throttle_level, /* a real number between -10 and 10 */
 }
+
+enum FDSP_MediaPolicy {
+  FDSP_MEDIA_POLICY_UNSET,                /* only used by cli or other client on modify to not change existing policy */
+  FDSP_MEDIA_POLICY_HDD,                  /* always on hdd */
+  FDSP_MEDIA_POLICY_SSD,                  /* always on ssd */
+  FDSP_MEDIA_POLICY_HYBRID,               /* either hdd or ssd, but prefer ssd */
+  FDSP_MEDIA_POLICY_HYBRID_PREFCAP        /* either on hdd or ssd, but prefer hdd */
+}
+
+enum FDSP_VolType {
+  FDSP_VOL_S3_TYPE,
+  FDSP_VOL_BLKDEV_TYPE
+}
+
+struct FDSP_VolumeDescType {
+  1: required string            vol_name,  /* Name of the volume */
+  2: i32                        tennantId,  // Tennant id that owns the volume
+  3: i32                        localDomainId,  // Local domain id that owns vol
+  4: required i64               volUUID,
+
+  // Basic operational properties
+  5: required FDSP_VolType      volType,
+  6: i32                        maxObjSizeInBytes,
+  7: required double            capacity,
+
+  // Other policies
+  8: i32                        volPolicyId,
+  9: i32                        placementPolicy,  // Can change placement policy
+
+  // volume policy details
+  10: double                    iops_min, /* minimum (guaranteed) iops */
+  11: double                    iops_max, /* maximum iops */
+  12: i32                       rel_prio, /* relative priority */
+  13: required FDSP_MediaPolicy mediaPolicy   /* media policy */
+
+  14: bool                      fSnapshot,
+  15: ResourceState      state,
+  16: i64                       contCommitlogRetention,
+  17: i64                       srcVolumeId,
+  18: i64                       timelineTime,
+  19: i64                       createTime,
+  20: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
+}
+
+struct FDSP_CreateVolType {
+  1: string                  vol_name,
+  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+}
+
+struct FDSP_DeleteVolType {
+  1: string 		 vol_name,  /* Name of the volume */
+  // i64    		 vol_uuid,
+  2: i32			 domain_id,
+}
+
+struct FDSP_ModifyVolType {
+  1: string 		 vol_name,  /* Name of the volume */
+  2: i64		 vol_uuid,
+  3: FDSP_VolumeDescType	 vol_desc,  /* New updated volume descriptor */
+}
