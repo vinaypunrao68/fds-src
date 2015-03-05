@@ -117,7 +117,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       omConfigPort,
 			       node_name,
 			       GetLog(),
-			       rpcSessionTbl,
+			       nullptr,
 			       nullptr,
 			       instanceId);
     if (standalone) {

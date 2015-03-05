@@ -895,7 +895,6 @@ void DataMgr::mod_startup()
                                   nullptr);
         omClient->setNoNetwork(false);
         omClient->initialize();
-        omClient->registerCatalogEventHandler(volcat_evt_handler);
     }
 
     setup_metasync_service();
