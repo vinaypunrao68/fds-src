@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_UTIL_PROCESS_H_
-#define SOURCE_UTIL_PROCESS_H_
+#ifndef SOURCE_INCLUDE_UTIL_PROCESS_H_
+#define SOURCE_INCLUDE_UTIL_PROCESS_H_
 
 #include <util/Log.h>
 namespace fds {
@@ -14,4 +14,4 @@ void printBackTrace();
 } // namespace util
 } // namespace fds
 
-#endif // SOURCE_UTIL_PROCESS_H_
+#endif // SOURCE_INCLUDE_UTIL_PROCESS_H_
