@@ -207,18 +207,26 @@ public class CriteriaQueryBuilder<T> {
     	// the query string appears correct.  Since this is being removed in favor of InfluxDB
     	// I'm just going to post-process to remove everything that doesn't match the context list.
     	
-//        if( contexts != null && !contexts.isEmpty() ) {
-//
+        if( contexts != null && !contexts.isEmpty() ) {
+
 //            final List<String> in = new ArrayList<>();
-//            for( final Context c : contexts ) {
-//
+            
+            List<Predicate> possibleNames = new ArrayList<Predicate>();
+            
+            for( final Volume c : contexts ) {
+
 //                in.add( c.getContext() );
-//
-//            }
-//
+
+            	possibleNames.add( cb.equal(from.get( getContextName() ), c.getName() ) );
+            }
+            
+            Predicate ordContexts = cb.and( possibleNames.toArray( new Predicate[possibleNames.size()]) );
+
 //            final Expression<String> expression = from.get( getContextName() );
+            
 //            andPredicates.add(expression.in(in.toArray(new String[in.size()])));
-//        }
+            andPredicates.add( ordContexts );
+        }
 
         return (CQ)this;
     }
