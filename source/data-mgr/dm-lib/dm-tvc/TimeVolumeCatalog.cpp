@@ -19,7 +19,7 @@ extern "C" {
 #include <dm-vol-cat/DmPersistVolDB.h>
 #include <fds_process.h>
 #include <ObjectLogger.h>
-#include "fdsp/sm_service_types.h"
+#include "fdsp/sm_api_types.h"
 #include <leveldb/copy_env.h>
 #include <leveldb/cat_journal.h>
 

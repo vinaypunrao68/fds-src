@@ -3,7 +3,7 @@
  */
 
 namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.protocol
+namespace java com.formationds.protocol.dm.types
 
 include "common.thrift"
 

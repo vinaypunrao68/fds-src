@@ -6,7 +6,7 @@
 #define SOURCE_STOR_MGR_INCLUDE_SMCTRL_H_
 
 #include <fdsp/FDSP_types.h>
-#include <fdsp/sm_service_types.h>
+#include <fdsp/sm_api_types.h>
 
 namespace fds {
 

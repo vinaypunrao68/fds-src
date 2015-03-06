@@ -3,7 +3,7 @@ package com.formationds.om.webkit.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_VolumeDescType;
+import com.formationds.protocol.FDSP_VolumeDescType;
 
 public class HalfFakeVolume {
     private FDSP_VolumeDescType volInfo;

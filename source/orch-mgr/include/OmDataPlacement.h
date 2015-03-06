@@ -552,9 +552,10 @@ namespace fds {
         * in rebalance method.
         */
         void startMigrationResp(NodeUuid uuid,
-                EPSvcRequest* svcReq,
-                const Error& error,
-                boost::shared_ptr<std::string> payload);
+                                fds_uint64_t dltVersion,
+                                EPSvcRequest* svcReq,
+                                const Error& error,
+                                boost::shared_ptr<std::string> payload);
     };
 }  // namespace fds
 

@@ -11,7 +11,7 @@
 #include <MigrationClient.h>
 #include <fds_process.h>
 #include <MigrationTools.h>
-#include "fdsp/om_service_types.h"
+#include "fdsp/om_api_types.h"
 
 #include <object-store/SmDiskMap.h>
 
@@ -777,7 +777,7 @@ MigrationClient::handleMigrationError(const Error& error) {
                    << " reporting to OM to abort token migration";
         fpi::CtrlTokenMigrationAbortPtr msg(new fpi::CtrlTokenMigrationAbort());
         auto req = gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlSvcEvent), msg);
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTokenMigrationAbort), msg);
         req->invoke();
     }
 }

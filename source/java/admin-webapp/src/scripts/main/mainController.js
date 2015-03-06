@@ -83,7 +83,16 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
         $state.transitionTo( item.link, item.data );
     };
 
-    $scope.login = function(){
+    $scope.login = function( event ){
+        
+        // this will stop it from processing anything where username and password don't exist.
+        // in Safari hitting 'enter' on the password field triggers two login attempts
+        // so this helps block the second one.
+        if ( !angular.isDefined( $scope.username ) || !angular.isDefined( $scope.password ) 
+           || ( $scope.username == '' && $scope.password == '' ) ){
+            return;
+        }
+
         $authentication.login( $scope.username, $scope.password );
     };
 
@@ -174,6 +183,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
     });
 
     $scope.$watch( function(){ return $authentication.error; }, function( val ) {
+        
         $scope.error = val;
     });
     

@@ -12,7 +12,7 @@
 #include <fds_types.h>
 #include <fds_typedefs.h>
 #include <fdsp/fds_service_types.h>
-#include <fdsp/snapshot_types.h>
+#include <fdsp/common_types.h>
 #include <net/SvcRequestPool.h>
 
 namespace FDS_ProtocolInterface {

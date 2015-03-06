@@ -5,6 +5,7 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <set>
 #include <string>
 #include <net/net-service-tmpl.hpp>
 #include <fiu-control.h>
@@ -16,7 +17,7 @@
 #include <net/net-service.h>
 #include <fdsp/fds_service_types.h>
 #include <net/SvcRequestPool.h>
-#include <set>
+#include "fdsp/sm_api_types.h"
 
 namespace fds {
 
@@ -229,8 +230,9 @@ DataPlacement::beginRebalance() {
 
         om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMStartMigration), msg);
         om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,
-                std::placeholders::_1, std::placeholders::_2,
-                std::placeholders::_3));
+                                       newDlt->getVersion(),
+                                       std::placeholders::_1, std::placeholders::_2,
+                                       std::placeholders::_3));
         // really long timeout for migration = 10 hours
         om_req->setTimeoutMs(10*60*60*1000);
         om_req->invoke();
@@ -249,29 +251,23 @@ DataPlacement::beginRebalance() {
 * Response handler for startMigration message.
 */
 void DataPlacement::startMigrationResp(NodeUuid uuid,
-        EPSvcRequest* svcReq,
-        const Error& error,
-        boost::shared_ptr<std::string> payload) {
+                                       fds_uint64_t dltVersion,
+                                       EPSvcRequest* svcReq,
+                                       const Error& error,
+                                       boost::shared_ptr<std::string> payload) {
     Error err(ERR_OK);
     try {
         LOGNOTIFY << "Received migration done notification from node "
-                  << std::hex << uuid << std::dec << " " << error;
+                  << std::hex << uuid << std::dec
+                  << " for target DLT version " << dltVersion << " " << error;
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-
-        fpi::CtrlNotifyMigrationStatusPtr status =
-                net::ep_deserialize<fpi::CtrlNotifyMigrationStatus>(
-                const_cast<Error&>(error), payload);
-        err = domain->om_recv_migration_done(uuid,
-                                             status->status.DLT_version,
-                                             error);
+        err = domain->om_recv_migration_done(uuid, dltVersion, error);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
                     << "processing migration done request";
     }
-
-    LOGDEBUG << "Sent om_recv_migration_done msg";
 }
 
 /**

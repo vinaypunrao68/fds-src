@@ -25,18 +25,20 @@
 -->
 
                 <div class="form-actions">
-                    <button id="login.submit" class="btn btn-primary" ng-click="login()" translate>
+                    <button id="login.submit" class="btn btn-primary" ng-click="login( $event )" translate>
                         login.submit
                     </button>
                 </div>
 
-                <div class="alert alert-info" ng-show="error">
+                <div class="alert alert-info" ng-show="error && error != ''">
                     {{ error }}
                 </div>
 
+<!--
                 <div class="lost-password" translate>
                     login.lost_your_password
                 </div>
+-->
 
             </form>
         </div>
