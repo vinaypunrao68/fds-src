@@ -220,7 +220,7 @@ public class CriteriaQueryBuilder<T> {
             	possibleNames.add( cb.equal(from.get( getContextName() ), c.getName() ) );
             }
             
-            Predicate ordContexts = cb.and( possibleNames.toArray( new Predicate[possibleNames.size()]) );
+            Predicate ordContexts = cb.or( possibleNames.toArray( new Predicate[possibleNames.size()]) );
 
 //            final Expression<String> expression = from.get( getContextName() );
             

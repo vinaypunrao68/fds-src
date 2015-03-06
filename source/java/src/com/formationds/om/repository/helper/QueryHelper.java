@@ -51,12 +51,10 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
-import java.util.stream.Stream;
 
 /**
  * @author ptinius
  */
-@SuppressWarnings( "UnusedDeclaration" )
 public class QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
@@ -122,8 +120,6 @@ public class QueryHelper {
 	            final List<VolumeDatapoint> queryResults =
 	                new MetricCriteriaQueryBuilder( em ).searchFor( query )
 	                                                               .resultsList();
-	            
-	            filterOutDataByContext( query.getContexts(), queryResults );
 	            
 	            final Map<String, List<VolumeDatapoint>> originated =
 	                byVolumeNameTimestamp( queryResults );
@@ -434,35 +430,6 @@ public class QueryHelper {
     	}
     	
     	return contexts;
-    }
-    
-    /**
-     * The sole purpose for this method is to work around the JDO query not behaving as desired.
-     * The $1.volumeName IN ('names'...) is not filtering the query so we do it manually here.
-     * 
-     * @param contexts
-     * @param points
-     */
-    protected void filterOutDataByContext( List<Volume> contexts, List<VolumeDatapoint> points ){
-    	
-    	// the JDO query is not working so manually remove all values for contexts not invluded.
-        points.removeIf( vdp -> {
-        	
-        	long matches = contexts.stream().filter( c -> {
-        		
-        		if ( c.getName().equals( vdp.getVolumeName() ) ){
-        			return true;
-        		}
-        		
-        		return false;
-        	}).count();
-        	
-        	if ( matches > 0 ){
-        		return false;
-        	}
-        	
-        	return true;
-        });
     }
     
     protected MetricsRepository getRepo(){
