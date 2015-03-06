@@ -7,13 +7,14 @@ user_rtime_env   := user
 user_thrift      := \
 	FDSP.thrift \
 	common.thrift \
+	svc_types.thrift \
         am_types.thrift \
         dm_types.thrift \
 	om_types.thrift \
 	sm_types.thrift \
 	config_types.thrift \
 	fds_stream.thrift \
-	fds_service.thrift \
+	svc_api.thrift \
 	pm_service.thrift \
 	am_api.thrift \
 	dm_api.thrift \

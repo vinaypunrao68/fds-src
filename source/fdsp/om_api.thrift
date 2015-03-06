@@ -5,7 +5,7 @@
 include "om_types.thrift"
 
 include "common.thrift"
-include "fds_service.thrift"
+include "svc_types.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om
@@ -69,5 +69,5 @@ struct CtrlSvcEvent {
   /** Error Code */
   2: required i32               evt_code;
   /** Message causing the Error */
-  3: fds_service.FDSPMsgTypeId  evt_msg_type_id;
+  3: svc_types.FDSPMsgTypeId  evt_msg_type_id;
 }

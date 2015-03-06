@@ -8,8 +8,8 @@ import time
 import logging
 
 from FDS_ProtocolInterface.ttypes import *
-from fds_service.ttypes import *
-from fds_service.constants import *
+from svc_api.ttypes import *
+from svc_api.constants import *
 from sm_api import SMSvc
 from dm_api import DMSvc
 from pm_service import PlatNetSvc

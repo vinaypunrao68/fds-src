@@ -14,7 +14,7 @@
 #include <fds_resource.h>
 #include <fds_error.h>
 #include <shared/fds-constants.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <fdsp/BaseAsyncSvc.h>
 #include <fds_typedefs.h>
 #include <util/hash-util.h>
