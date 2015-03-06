@@ -526,7 +526,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     }
 
     std::string node_root = svcmgr->getSvcProperty<std::string>(
-        svcMgr->mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM), "fds_root");
+        svcmgr->mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM), "fds_root");
     std::string dst_ip = dmSvcInfo.ip;
 
     const std::string dst_node = node_root + "user-repo/vol-stats/" +
