@@ -12,8 +12,8 @@ from fds_service.ttypes import *
 from fds_service.constants import *
 from sm_api import SMSvc
 from dm_api import DMSvc
+from config_api import ConfigurationService
 from pm_service import PlatNetSvc
-from configuration_service import ConfigurationService
 
 from thrift import Thrift
 from thrift.transport import TSocket

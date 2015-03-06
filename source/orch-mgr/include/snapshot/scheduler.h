@@ -7,7 +7,7 @@
 #include <thrift/concurrency/Monitor.h>
 #include <snapshot/schedulertask.h>
 #include <fdsp/common_types.h>
-#include <fdsp/configuration_service_types.h>
+#include <fdsp/config_types_types.h>
 #include <fds_types.h>
 #include <util/Log.h>
 #include <map>
