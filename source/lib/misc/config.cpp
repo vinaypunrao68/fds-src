@@ -36,6 +36,22 @@ Setting& add(libconfig::Config& config, const std::string& key, Setting::Type ty
     return s->add(tokens[pos], type);
 }
 
+void remove(libconfig::Config& config, const std::string& key) {
+    if (!config.exists(key)) return;
+    size_t pos = key.rfind('.');
+    std::string keyname;
+    Setting* s;
+    if (pos == std::string::npos){
+        s = &(config.getRoot());
+        keyname=key;
+    } else {
+        s = &(config.lookup(key.substr(0, pos)));
+        keyname=key.substr(pos+1);
+    }
+    s->remove(keyname);
+}
+
+
 FdsConfig::FdsConfig() {
 }
 
@@ -73,30 +89,7 @@ void FdsConfig::init(const std::string &default_config_file, int argc, char* arg
             s = o.value[0];
             continue;
         }
-        Setting &s = config_.lookup(o.string_key);
-        std::string temp;
-        switch (s.getType()) {
-            case Setting::TypeInt64:
-                s = boost::lexical_cast<long long>(o.value[0]);
-                break;
-            case Setting::TypeFloat:
-                s = boost::lexical_cast<double>(o.value[0]);
-                break;
-            case Setting::TypeInt:
-                s = boost::lexical_cast<int>(o.value[0]);
-                break;
-
-            case Setting::TypeString:
-                s = o.value[0];
-                break;
-
-            case Setting::TypeBoolean:
-                s = boost::iequals(o.value[0], "true");
-                break;
-            default:
-                throw fds::Exception("Unsupported type specified for key: " + o.string_key);
-        }
-        std::cout << o.string_key << " Overridden to " << o.value[0] << std::endl;
+        set(o.string_key, o.value[0]);
     }
 }
 
@@ -221,7 +214,14 @@ void FdsConfig::set(const std::string &key, const std::string& value) {
                 s = std::stoll(value, NULL);
                 break;
             case Setting::TypeInt:
-                s = std::stoi(value, NULL);
+                try {
+                    s = std::stoi(value, NULL);
+                } catch(std::out_of_range& e) {
+                    std::cout << "int cast failed.. trying int64 : " << key <<std::endl;
+                    remove(config_, key);
+                    Setting& s1 = add(config_, key, Setting::TypeInt64);
+                    s1 = std::stoll(value, NULL);
+                }
                 break;
             case Setting::TypeString:
                 s = value;
