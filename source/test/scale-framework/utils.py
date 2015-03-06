@@ -2,6 +2,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
+import concurrent.futures
 import fcntl
 import logging
 import hashlib
@@ -29,6 +30,18 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
+
+def do_work(function, params):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        results = {executor.submit(function, param): param for param in params}
+        for result in concurrent.futures.as_completed(results):
+            current = results[result]
+            try:
+                data = result.result()
+            except Exception as exc:
+                log.info('%r generated an exception: %s' % (current, exc))
+            else:
+                log.info('%r ---- %s' % (current, data))
 
 def hostname_to_ip(hostname):
     return socket.gethostbyname(hostname)

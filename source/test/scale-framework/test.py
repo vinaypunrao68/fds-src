@@ -44,6 +44,13 @@ def test_hash_file_content():
     path = "./downloads/test_sample_1M"
     print utils.hash_file_content(path)
 
+def test_concurrency():
+    numbers = [1,2,3,4,5]
+    utils.do_work(calculate_sqrt, numbers)
+    
+def calculate_sqrt(x):
+    return x*x
+    
 def test_s3():
     s3conn = s3.S3Connection(
             config.FDS_DEFAULT_ADMIN_USER,
@@ -72,4 +79,4 @@ def test_s3():
     key.get_file(fp)
 
 if __name__ == "__main__":
-    test_s3()
+    test_concurrency()
