@@ -31,7 +31,8 @@ user_cpp          :=                   \
     MigrationClient.cpp                \
     MigrationUtility.cpp               \
     MigrationTools.cpp				   \
-	SMCheck.cpp 
+	SMCheck.cpp                        \
+	SMCheckCtrl.cpp
 
 user_ar_libs      := fds-smlib
 fds-smlib         := $(user_cpp)
