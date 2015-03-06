@@ -3,7 +3,6 @@
  */
 
 include "common.thrift"
-include "fds_stream.thrift"
 
 namespace cpp fds.apis
 namespace java com.formationds.apis
@@ -66,6 +65,15 @@ struct SnapshotPolicy {
     7: i64 timelineTime,
 }
 
+struct StreamingRegistrationMsg {
+   1:i32 id,
+   2:string url,
+   6:string http_method,
+   3:list<string> volume_names,
+   4:i32 sample_freq_seconds,
+   5:i32 duration_seconds,
+}
+
 service ConfigurationService {
         // // Added for multi-tenancy
     i64 createTenant(1:string identifier)
@@ -121,7 +129,7 @@ service ConfigurationService {
         4:i32 sample_freq_seconds,
         5:i32 duration_seconds),
 
-    list<fds_stream.StreamingRegistrationMsg> getStreamRegistrations(1:i32 ignore),
+    list<StreamingRegistrationMsg> getStreamRegistrations(1:i32 ignore),
     void deregisterStream(1:i32 registration_id),
 
     i64 createSnapshotPolicy(1:SnapshotPolicy policy)

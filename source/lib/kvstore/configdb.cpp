@@ -801,7 +801,7 @@ int32_t ConfigDB::getNewStreamRegistrationId() {
     return -1;
 }
 
-bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
+bool ConfigDB::addStreamRegistration(apis::StreamingRegistrationMsg& streamReg) {
     TRACKMOD();
     try {
         boost::shared_ptr<std::string> serialized;
@@ -823,7 +823,7 @@ bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
     return false;
 }
 
-bool ConfigDB::getStreamRegistration(int regId, fpi::StreamingRegistrationMsg& streamReg) {
+bool ConfigDB::getStreamRegistration(int regId, apis::StreamingRegistrationMsg& streamReg) {
     try {
         Reply reply = r.sendCommand("get streamreg:%d", regId);
         if (reply.isNil()) return false;
@@ -856,7 +856,7 @@ bool ConfigDB::removeStreamRegistration(int regId) {
     return false;
 }
 
-bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>& vecReg) {
+bool ConfigDB::getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg>& vecReg) {
     try {
         std::vector<long long> regIds; //NOLINT
 
@@ -868,7 +868,7 @@ bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>
             return false;
         }
 
-        fpi::StreamingRegistrationMsg regMsg;
+        apis::StreamingRegistrationMsg regMsg;
         for (uint i = 0; i < regIds.size(); i++) {
             if (getStreamRegistration(regIds[i], regMsg)) {
                 vecReg.push_back(regMsg);

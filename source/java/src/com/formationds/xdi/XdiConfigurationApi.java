@@ -6,7 +6,6 @@ package com.formationds.xdi;
 
 import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
-import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;

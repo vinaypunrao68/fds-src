@@ -24,15 +24,6 @@ struct volumeDataPoints {
    3: list<DataPointPair>    meta_list;
 }
 
-struct StreamingRegistrationMsg {
-   1:i32 id,
-   2:string url,
-   6:string http_method,
-   3:list<string> volume_names,
-   4:i32 sample_freq_seconds,
-   5:i32 duration_seconds,
-}
-
 // AM/XDI serves this
 service Streaming {
    void publishMetaStream(1:i32 registration_id, 2:list<volumeDataPoints> data_points)

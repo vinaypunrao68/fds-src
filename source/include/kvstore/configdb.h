@@ -90,10 +90,10 @@ struct ConfigDB : KVStore {
 
     // stat streaming registrations
     int32_t getNewStreamRegistrationId();
-    bool addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg);
+    bool addStreamRegistration(apis::StreamingRegistrationMsg& streamReg);
     bool removeStreamRegistration(int regId);
-    bool getStreamRegistration(int regId, fpi::StreamingRegistrationMsg& streamReg);
-    bool getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>& vecReg);
+    bool getStreamRegistration(int regId, apis::StreamingRegistrationMsg& streamReg);
+    bool getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg>& vecReg);
 
     // tenant stuff
     int64_t createTenant(const std::string& identifier);

@@ -149,7 +149,7 @@ class OM_NodeAgent : public NodeAgent
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
-    void om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& reg,
+    void om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                     const NodeUuid& stream_dest_uuid);
 
   protected:

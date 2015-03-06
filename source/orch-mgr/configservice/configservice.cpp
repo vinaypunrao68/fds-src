@@ -75,7 +75,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
     int32_t registerStream(const std::string& url, const std::string& http_method, const std::vector<std::string> & volume_names, const int32_t sample_freq_seconds, const int32_t duration_seconds) { return 0;} //NOLINT
-    void getStreamRegistrations(std::vector<StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
+    void getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
     void deregisterStream(const int32_t registration_id) {}
     int64_t createSnapshotPolicy(const  fds::apis::SnapshotPolicy& policy) {return 0;} //NOLINT
     void listSnapshotPolicies(std::vector< fds::apis::SnapshotPolicy> & _return, const int64_t unused) {} //NOLINT
@@ -262,7 +262,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                            boost::shared_ptr<int32_t>& sample_freq_seconds,
                            boost::shared_ptr<int32_t>& duration_seconds) {
         int32_t regId = configDB->getNewStreamRegistrationId();
-        fpi::StreamingRegistrationMsg regMsg;
+        apis::StreamingRegistrationMsg regMsg;
         regMsg.id = regId;
         regMsg.url = *url;
         regMsg.http_method = *http_method;
@@ -286,7 +286,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         return 0;
     }
 
-    void getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg> & _return,
+    void getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg> & _return,
                                 boost::shared_ptr<int32_t>& ignore) { //NOLINT
         configDB->getStreamRegistrations(_return);
     }
