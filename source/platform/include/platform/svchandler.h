@@ -1,7 +1,6 @@
 
 #ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_SVCHANDLER_H_
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_SVCHANDLER_H_
-#include <fdsp/fds_service_types.h>
 #include <net/PlatNetSvcHandler.h>
 namespace fds {
 namespace pm {

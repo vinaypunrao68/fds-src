@@ -10,7 +10,7 @@
 #include <fdsp/DMSvc.h>
 #include <fdsp/AMSvc.h>
 #include <fdsp/Streaming.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 // #include <net/SvcMgr.h>
 
 

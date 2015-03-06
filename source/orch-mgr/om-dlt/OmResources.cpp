@@ -1373,15 +1373,15 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
         return ERR_NOT_FOUND;
     }
 
-    // for now we shouldn't move to new dlt version until
-    // we are done with current cluster update, so
-    // expect to see migration done resp for current dlt version
-    fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
-    fds_verify(cur_dlt_ver == dlt_version);
-
     if (migrError.ok()) {
         // Set node's state to 'node_up'
         agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+        // for now we shouldn't move to new dlt version until
+        // we are done with current cluster update, so
+        // expect to see migration done resp for current dlt version
+        fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
+        fds_verify(cur_dlt_ver == dlt_version);
 
         // update node's dlt version so we don't send this dlt again
         agent->set_node_dlt_version(dlt_version);

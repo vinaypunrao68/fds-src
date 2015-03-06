@@ -6,7 +6,7 @@ import copy
 sys.path.append('../../test')
 sys.path.append('../fdslib/pyfdsp')
 
-from fds_service import ttypes
+from svc_api import ttypes
 from thrift import TSerialization
 from thrift.protocol import TJSONProtocol
 

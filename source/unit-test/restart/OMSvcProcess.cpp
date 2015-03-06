@@ -2,7 +2,6 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 #include <fds_process.h>
-#include <fdsp/fds_service_types.h>
 #include <net/SvcProcess.h>
 #include <fdsp/PlatNetSvc.h>
 #include <fdsp/OMSvc.h>

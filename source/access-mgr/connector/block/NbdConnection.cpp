@@ -19,7 +19,7 @@ extern "C" {
 #include "connector/block/NbdConnection.h"
 #include "OmConfigService.h"
 #include "fds_process.h"
-#include "fdsp/configuration_service_types.h"
+#include "fdsp/config_types_types.h"
 
 
 /// These constants come from the Nbd Protocol

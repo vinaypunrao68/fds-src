@@ -11,7 +11,7 @@
 #include <snapshot/deleteschedulertask.h>
 
 #include <util/Log.h>
-#include <fdsp/snapshot_types.h>
+#include <fdsp/common_types.h>
 #include <fds_types.h>
 namespace fds {
 class OrchMgr;

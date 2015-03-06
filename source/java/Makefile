@@ -6,11 +6,11 @@ user_build_dir    :=
 user_thrift       := \
 	$(topdir)/fdsp/FDSP.thrift \
 	$(topdir)/fdsp/fds_stream.thrift \
-	$(topdir)/fdsp/snapshot.thrift \
+	$(topdir)/fdsp/common.thrift \
 	$(topdir)/fdsp/xdi.thrift \
-	$(topdir)/fdsp/configuration_service.thrift \
-	$(topdir)/fdsp/fds_service.thrift \
-	$(topdir)/fdsp/om_service.thrift \
+	$(topdir)/fdsp/svc_api.thrift \
+	$(topdir)/fdsp/config_api.thrift \
+	$(topdir)/fdsp/om_api.thrift \
 	$(topdir)/fdsp/pm_service.thrift
 
 user_thrift_flag  := -r --gen java

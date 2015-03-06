@@ -10,7 +10,7 @@
 
 #include <fds_timer.h>
 #include <fds_typedefs.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <fds_error.h>
 #include <fds_dmt.h>
 #include <dlt.h>

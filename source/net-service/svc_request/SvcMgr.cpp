@@ -11,7 +11,6 @@
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/OMSvc.h>
 #include <net/fdssocket.h>
-#include <fdsp/fds_service_types.h>
 #include <fdsp/Streaming.h>
 #include <fdsp_utils.h>
 #include <fds_module_provider.h>
