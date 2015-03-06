@@ -65,6 +65,7 @@ void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header);
 
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header);
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info);
+std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info);
 
 std::string quoteString(std::string const& text,
                         std::string const& delimiter = "\"",

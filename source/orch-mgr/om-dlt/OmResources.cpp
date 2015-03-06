@@ -971,6 +971,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
      * handling is better) to avoid race conditions.
      */
 
+    LOGNOTIFY << "Registering service: " << fds::logDetailedString(*svcInfo);
 
     /* Convert new registration request to existing registration request */
     fpi::FDSP_RegisterNodeTypePtr reg_node_req;
@@ -1028,21 +1029,21 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
                reg_node_req->service_uuid == reg_node_req->node_uuid);
 
     if (reg_node_req->node_type == fpi::FDSP_PLATFORM) {
-        fpi::FDSP_AnnounceDiskCapability diskInfo = reg_node_req->disk_info;
+        fpi::FDSP_AnnounceDiskCapability& diskInfo = reg_node_req->disk_info;
 
         util::Properties props(&svcInfo->props);
-        diskInfo.disk_iops_max = props.getInt("disk.iops.max");
-        diskInfo.disk_iops_min = props.getInt("disk.iops.min");
-        diskInfo.disk_capacity = props.getDouble("disk.capacity");
+        diskInfo.disk_iops_max = props.getInt("disk_iops_max");
+        diskInfo.disk_iops_min = props.getInt("disk_iops_min");
+        diskInfo.disk_capacity = props.getDouble("disk_capacity");
 
-        diskInfo.disk_latency_max = props.getInt("disk.latency.max");
-        diskInfo.disk_latency_min = props.getInt("disk.latency.min");
-        diskInfo.ssd_iops_max = props.getInt("ssd.iops.max");
-        diskInfo.ssd_iops_min = props.getInt("ssd.iops.min");
-        diskInfo.ssd_capacity = props.getDouble("ssd.capacity");
-        diskInfo.ssd_latency_max = props.getInt("ssd.latency.max");
-        diskInfo.ssd_latency_min = props.getInt("ssd.latency.min");
-        diskInfo.disk_type = props.getInt("disk.type");
+        diskInfo.disk_latency_max = props.getInt("disk_latency_max");
+        diskInfo.disk_latency_min = props.getInt("disk_latency_min");
+        diskInfo.ssd_iops_max = props.getInt("ssd_iops_max");
+        diskInfo.ssd_iops_min = props.getInt("ssd_iops_min");
+        diskInfo.ssd_capacity = props.getDouble("ssd_capacity");
+        diskInfo.ssd_latency_max = props.getInt("ssd_latency_max");
+        diskInfo.ssd_latency_min = props.getInt("ssd_latency_min");
+        diskInfo.disk_type = props.getInt("disk_type");
     }
 }
 

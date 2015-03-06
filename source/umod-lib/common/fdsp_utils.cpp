@@ -89,6 +89,17 @@ std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
     return ss.str();
 }
 
+std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
+{
+    std::stringstream ss;
+    ss << fds::logString(info) << "\n";
+    auto &props = info.props;
+    for (auto &kv : props) {
+        ss << kv.first << " : " << kv.second << std::endl;
+    }
+    return ss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj)
 {
     std::ostringstream oss;

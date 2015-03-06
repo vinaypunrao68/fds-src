@@ -348,7 +348,7 @@ void EPSvcRequest::invokeWork_()
 void EPSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    DBG(GLOGDEBUG << logString());
+    DBG(GLOGDEBUG << fds::logString(*header));
 
     if (isComplete()) {
         /* Request is already complete.  At this point we don't do anything on
@@ -807,7 +807,7 @@ void QuorumSvcRequest::invokeWork_()
 void QuorumSvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
                                           boost::shared_ptr<std::string>& payload)
 {
-    DBG(GLOGDEBUG << logString());
+    DBG(GLOGDEBUG << fds::logString(*header));
 
     fpi::SvcUuid errdEpId;
 

@@ -82,7 +82,7 @@ void SvcProcess::proc_pre_startup()
 
 void SvcProcess::registerSvcProcess()
 {
-    LOGNOTIFY << "register service process ( parent )";
+    LOGNOTIFY << "register service process ( parent )" << fds::logDetailedString(svcInfo_);
     std::vector<fpi::SvcInfo> svcMap;
 
     do {
