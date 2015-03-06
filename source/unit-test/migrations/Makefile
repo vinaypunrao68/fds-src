@@ -10,7 +10,7 @@ user_incl_dir     := \
 	$(topdir)/stor-mgr/include \
 	$(topdir)/stor-mgr/migrations \
 	$(topdir)/lib \
-	/usr/include/cryptopp
+	/opt/fds-deps/embedded/include/cryptopp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
