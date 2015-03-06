@@ -9,7 +9,7 @@
 #include <OmResources.h>
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/BaseAsyncSvcHandler.h>
 #include <net/PlatNetSvcHandler.h>
 #include "platform/node_data.h"

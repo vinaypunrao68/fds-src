@@ -4,7 +4,7 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 #define SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/SMSvc.h>
 

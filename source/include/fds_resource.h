@@ -14,7 +14,7 @@
 #include <cpplist.h>
 #include <shared/fds_types.h>
 #include <concurrency/Mutex.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <fdsp/common_types.h>
 #include <fds_typedefs.h>
 

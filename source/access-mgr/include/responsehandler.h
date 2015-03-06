@@ -8,7 +8,7 @@
 #include <native/types.h>
 #include <string>
 #include <fdsp/xdi_types.h>
-#include <fdsp/configuration_service_types.h>
+#include <fdsp/config_types_types.h>
 #include <vector>
 
 namespace fds {

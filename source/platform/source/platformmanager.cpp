@@ -9,7 +9,7 @@
 #include <iostream>  // NOLINT
 
 #include <fds_uuid.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 // #include <net/net-service.h>
 #include <fds_process.h>
 #include <platform/process.h>

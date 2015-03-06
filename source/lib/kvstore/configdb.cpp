@@ -806,7 +806,7 @@ int32_t ConfigDB::getNewStreamRegistrationId() {
     return -1;
 }
 
-bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
+bool ConfigDB::addStreamRegistration(apis::StreamingRegistrationMsg& streamReg) {
     TRACKMOD();
     try {
         boost::shared_ptr<std::string> serialized;
@@ -828,7 +828,7 @@ bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
     return false;
 }
 
-bool ConfigDB::getStreamRegistration(int regId, fpi::StreamingRegistrationMsg& streamReg) {
+bool ConfigDB::getStreamRegistration(int regId, apis::StreamingRegistrationMsg& streamReg) {
     try {
         Reply reply = r.sendCommand("get streamreg:%d", regId);
         if (reply.isNil()) return false;
@@ -861,7 +861,7 @@ bool ConfigDB::removeStreamRegistration(int regId) {
     return false;
 }
 
-bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>& vecReg) {
+bool ConfigDB::getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg>& vecReg) {
     try {
         std::vector<long long> regIds; //NOLINT
 
@@ -873,7 +873,7 @@ bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>
             return false;
         }
 
-        fpi::StreamingRegistrationMsg regMsg;
+        apis::StreamingRegistrationMsg regMsg;
         for (uint i = 0; i < regIds.size(); i++) {
             if (getStreamRegistration(regIds[i], regMsg)) {
                 vecReg.push_back(regMsg);
@@ -1145,14 +1145,14 @@ bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const 
     return true;
 }
 
-bool ConfigDB::createSnapshotPolicy(fpi::SnapshotPolicy& policy) {
+bool ConfigDB::createSnapshotPolicy(fds::apis::SnapshotPolicy& policy) {
     TRACKMOD();
     try {
         std::string idLower = lower(policy.policyName);
         bool fNew = true;
         // check if this is a modification
         if (policy.id > 0) {
-            fpi::SnapshotPolicy oldpolicy;
+            fds::apis::SnapshotPolicy oldpolicy;
             if (getSnapshotPolicy(policy.id, oldpolicy)) {
                 fNew = false;
                 LOGWARN << "modifying an existing policy:" << policy.id;
@@ -1182,7 +1182,8 @@ bool ConfigDB::createSnapshotPolicy(fpi::SnapshotPolicy& policy) {
     }
 }
 
-bool ConfigDB::getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy) {
+bool ConfigDB::getSnapshotPolicy(int64_t policyid,
+                                 fds::apis::SnapshotPolicy& policy) {
     try {
         Reply reply = r.hget("snapshot.policies", policyid);
         if (reply.isNil()) {
@@ -1197,12 +1198,12 @@ bool ConfigDB::getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy) 
     return true;
 }
 
-bool ConfigDB::listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy) {
+bool ConfigDB::listSnapshotPolicies(std::vector<fds::apis::SnapshotPolicy> & vecPolicy) {
     try {
         Reply reply = r.sendCommand("hvals snapshot.policies");
         StringList strings;
         reply.toVector(strings);
-        fpi::SnapshotPolicy policy;
+        fds::apis::SnapshotPolicy policy;
 
         for (const auto& value : strings) {
             fds::deserializeFdspMsg(value, policy);
@@ -1218,7 +1219,7 @@ bool ConfigDB::listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy
 bool ConfigDB::deleteSnapshotPolicy(const int64_t policyId) {
     try {
         // get the policy
-        fpi::SnapshotPolicy policy;
+        fds::apis::SnapshotPolicy policy;
 
         getSnapshotPolicy(policyId, policy);
         std::string nameLower = lower(policy.policyName);
@@ -1255,7 +1256,7 @@ bool ConfigDB::attachSnapshotPolicy(const int64_t volumeId, const int64_t policy
     return true;
 }
 
-bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & vecPolicies,
+bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & vecPolicies,
                                              const int64_t volumeId) {
     try {
         Reply reply = r.sendCommand("smembers volume:%ld:snapshot.policies", volumeId); //NOLINT
@@ -1274,7 +1275,7 @@ bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & 
         reply = r.sendCommand(policylist.c_str());
         strings.clear();
         reply.toVector(strings);
-        fpi::SnapshotPolicy policy;
+        fds::apis::SnapshotPolicy policy;
 
         for (const auto& value : strings) {
             fds::deserializeFdspMsg(value, policy);

@@ -13,7 +13,7 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fds_types.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <persistent-layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
 #include <util/fiu_util.h>

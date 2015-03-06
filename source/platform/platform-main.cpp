@@ -7,7 +7,7 @@
 #include <iostream>  // NOLINT
 #include <fds_process.h>
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/SvcProcess.h>
 #include <platform/platformmanager.h>
 #include <platform/svchandler.h>
