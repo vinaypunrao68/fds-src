@@ -82,21 +82,21 @@ struct User {
  * Volume configuration parameters.
  */
 struct VolumeSettings {
-  1: i32            maxObjectSizeInBytes;
-  2: VolumeType     volumeType;
-  3: i64            blockDeviceSizeInBytes;
-  4: i64            contCommitlogRetention;
-  5: MediaPolicy    mediaPolicy;
+  1: required i32               maxObjectSizeInBytes;
+  2: required VolumeType        volumeType;
+  3: required i64               blockDeviceSizeInBytes;
+  4: required i64               contCommitlogRetention;
+  5: MediaPolicy                mediaPolicy;
 }
 
 /**
  * Volume attributes and status
  */
 struct VolumeDescriptor {
-  1: string                 name;
-  2: i64                    dateCreated;
-  3: VolumeSettings         policy;
-  4: i64                    tenantId;
-  5: i64                    volId;
+  1: required string            name;
+  2: required i64               dateCreated;
+  3: required VolumeSettings    policy;
+  4: required i64               tenantId;
+  5: i64                        volId;
   6: common.ResourceState   state;
 }
