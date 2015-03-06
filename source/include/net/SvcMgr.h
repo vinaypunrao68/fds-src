@@ -197,7 +197,7 @@ struct SvcMgr : HasModuleProvider, Module {
         fpi::SvcInfo svcInfo;
         bool found = getSvcInfo(svcUuid, svcInfo);
         if (!found) {
-            GLOGWARN << "Unknown svcuuid: " << svcUUid;
+            GLOGWARN << "Unknown svcuuid: " << svcUuid.svc_uuid;
             /* In this case we can lookup from OM, for now throw an exception */
             throw SvcKeyException("unknown service");
         }
