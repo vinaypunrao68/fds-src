@@ -12,19 +12,18 @@
 #include <functional>
 #include <boost/shared_ptr.hpp>
 
-#include <fdsp/sm_service_types.h>
+#include <fdsp/sm_api_types.h>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <leveldb/db.h>
+#include <leveldb/copy_env.h>
 #include <persistent-layer/dm_io.h>
 #include <SmTypes.h>
 #include <ObjMeta.h>
 
 using FDS_ProtocolInterface::FDSP_DeleteObjTypePtr;
 using FDS_ProtocolInterface::FDSP_GetObjTypePtr;
-using FDS_ProtocolInterface::FDSP_MigrateObjectList;
-using FDS_ProtocolInterface::FDSP_MigrateObjectMetadata;
 using FDS_ProtocolInterface::FDSP_ObjectIdDataPair;
 using FDS_ProtocolInterface::FDSP_PutObjTypePtr;
 
@@ -371,7 +370,8 @@ class SmIoSnapshotObjectDB : public SmIoReq {
                                 leveldb::DB* db)> CbType;
     typedef std::function<void (const Error&,
                                 SmIoSnapshotObjectDB*,
-                                std::string &snapDir)> CbTypePersist;
+                                std::string &snapDir,
+                                leveldb::CopyEnv *env)> CbTypePersist;
  public:
     SmIoSnapshotObjectDB() {
         token_id = 0;

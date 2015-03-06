@@ -10,7 +10,9 @@ import time
 all_nodes_process_list = ['am.Main', 'bare_am', 'platformd', 'DataMgr', 'StorMgr']
 
 # List of processes expected to be running on AM/OM nodes.
-process_list = ['om.Main'] + all_nodes_process_list
+# TODO: add influxdb and redis to process list once influxdb packaging is completed.
+#process_list = ['om.Main' ] + all_nodes_process_list + ['influxdb', 'redis']
+process_list = [ 'om.Main' ] + all_nodes_process_list
 
 # Display setting for status command
 process_status_field_list = 'euser,pid,pcpu,pmem,nlwp,stat,bsdstart,bsdtime'
@@ -105,7 +107,7 @@ class basic_cluster:
         '''
         for node in self.nodes:
             if verbose:
-                print "Shuttding down FDS daemons on %s" % (node.nd_agent.get_host_name())
+                print "Shutting down FDS daemons on %s" % (node.nd_agent.get_host_name())
 
             node.nd_agent.ssh_exec (cmd='pkill -9 -f com.formationds.am.Main', return_stdin = True, wait_compl = True)
             node.nd_agent.ssh_exec (cmd='pkill -9 bare_am', return_stdin = True, wait_compl = True)

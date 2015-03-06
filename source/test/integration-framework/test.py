@@ -1,11 +1,15 @@
 #!/usr/bin/python
 # coding: utf8
-from boto.s3.connection import S3Connection
+from filechunkio import FileChunkIO
+from boto.s3.key import Key
 import config
 import config_parser
 import utils
+import select
 import s3
+import ssh
 import sys
+import time
 
 def percent_cb(complete, total):
     sys.stdout.write('=')
@@ -14,6 +18,20 @@ def percent_cb(complete, total):
 def test_download_file():
     fname = utils.download_file(config.REPOSITORY_URL)
     utils.untar_file(fname)
+
+def test_ssh_connection():
+    local_ssh = ssh.SSHConn('10.2.10.200', config.SSH_USER,
+                            config.SSH_PASSWORD)
+    #cmd = "%s && %s" % (config.FDS_SBIN, config.START_ALL_CLUSTER)
+    #local_ssh.channel.exec_command(cmd)
+    #print local_ssh.channel.recv(1024)
+    cluster = config.STOP_ALL_CLUSTER % config.FORMATION_CONFIG
+    print cluster
+    cmd = "cd %s && %s" % (config.FDS_SBIN, cluster)
+    print cmd
+    #cmd = "cd /fds/sbin && /fds-tool.py -f deploy_formation.conf -u"
+    local_ssh.channel.exec_command(cmd)
+    print local_ssh.channel.recv(1024)
 
 def test_hostname_to_ip():
     print utils.hostname_to_ip('fre-lxcnode-01')
@@ -27,19 +45,19 @@ def test_hash_file_content():
     print utils.hash_file_content(path)
 
 def test_s3():
-    s3conn = S3Connection(
+    s3conn = s3.S3Connection(
             config.FDS_DEFAULT_ADMIN_USER,
             None,
-            '10.2.10.200',
+            '10.1.16.111',
             config.FDS_S3_PORT,
-            '10.2.10.200'
+            '10.1.16.111'
         )
     s3conn.s3_connect()
     bucket = s3conn.conn.create_bucket('phil-bucket05-test')
     print bucket
     print "Sleeping 30 sec"
     time.sleep(30)
-    testfile = "sample_file"
+    testfile = "test_2M"
     print 'Uploading %s to Amazon S3 bucket %s' % \
        (testfile, bucket.name)
     k = Key(bucket)
@@ -54,4 +72,4 @@ def test_s3():
     key.get_file(fp)
 
 if __name__ == "__main__":
-    test_hash_file_content()
+    test_s3()

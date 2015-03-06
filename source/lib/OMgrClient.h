@@ -7,7 +7,6 @@
 #include <fds_volume.h>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
 #include <util/Log.h>
 
@@ -31,7 +30,6 @@ namespace FDS_ProtocolInterface {
 class FDSP_OMControlPathReqClient;
 class FDSP_OMControlPathRespProcessor;
 class FDSP_OMControlPathRespIf;
-class FDSP_ControlPathRespClient;
 struct FDSP_DltCloseType;
 using FDSP_DltCloseTypePtr = boost::shared_ptr<FDSP_DltCloseType>;
 }  // namespace FDS_ProtocolInterface
@@ -41,9 +39,6 @@ template <class A, class B, class C> class netServerSessionEx;
 typedef netClientSessionEx<FDSP_OMControlPathReqClient,
                            FDSP_OMControlPathRespProcessor,
                            FDSP_OMControlPathRespIf> netOMControlPathClientSession;
-typedef netServerSessionEx<FDSP_ControlPathReqProcessor,
-                           FDSP_ControlPathReqIf,
-                           FDSP_ControlPathRespClient> netControlPathServerSession;
 
 namespace fds {
 
@@ -79,9 +74,6 @@ typedef void (*node_event_handler_t)(int node_id,
                                      FDSP_MgrIdType node_type);
 typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
                                            const FDSP_BucketStatsRespTypePtr& buck_stats);
-typedef Error (*catalog_event_handler_t)(fds_catalog_action_t cat_action,
-                                         const FDSP_PushMetaPtr& push_meta,
-                                         const std::string& session_uuid);
 
 class OMgrClient {
   protected:
@@ -110,8 +102,6 @@ class OMgrClient {
     migration_event_handler_t migrate_evt_hdlr;
     dltclose_event_handler_t dltclose_evt_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
-    catalog_event_handler_t catalog_evt_hdlr;
-
 
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -139,7 +129,6 @@ class OMgrClient {
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
     int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
-    void registerCatalogEventHandler(catalog_event_handler_t evt_hdlr);
 
     // This logging is public for external plugins.  Avoid making this object
     // too big and all methods uses its data as global variables with big lock.
@@ -148,7 +137,6 @@ class OMgrClient {
 
     // int subscribeToOmEvents(unsigned int om_ip_addr,
     // int tennant_id, int domain_id, int omc_port_num= 0);
-    int startAcceptingControlMessages();
     int registerNodeWithOM(Platform *plat);
     int sendMigrationStatusToOM(const Error& err);
 
@@ -189,46 +177,8 @@ class OMgrClient {
 
     int recvMigrationEvent(bool dlt_type);
     Error updateDlt(bool dlt_type, std::string& dlt_data);
-    Error recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
-    Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
-    Error sendDMTPushMetaAck(const Error& op_err, const std::string& session_uuid);
-    Error sendDMTCommitAck(const Error& op_err, const std::string& session_uuid);
 
-    void recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
-    int sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
-                            const std::string& session_uuid);
-};
-
-class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
-  private:
-    OMgrClient *om_client;
-
-  public:
-    explicit OMgrClientRPCI(OMgrClient *om_c);
-
-    void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
-                        const FDSP_PushMeta& push_meta_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
-                        FDSP_PushMetaPtr& push_meta_req);
-
-    void NotifyDMTClose(const FDSP_MsgHdrType& fdsp_msg,
-                        const FDSP_DmtCloseType& dmt_close) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
-                        FDSP_DmtCloseTypePtr& dmt_close);
-
-    void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,
-                         const FDSP_DMT_Type& dmt_info) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
-                         FDSP_DMT_TypePtr& dmt_info);
 };
 
 }  // namespace fds

@@ -11,7 +11,6 @@ import unittest
 import config
 import config_parser
 import s3
-import testsets.testcases.fdslib.TestUtils as TestUtils
 import utils
 
 class FDSTestCase(unittest.TestCase):
@@ -26,8 +25,8 @@ class FDSTestCase(unittest.TestCase):
                               config.FDS_DEFAULT_FILE_PATH,
                               config.TEST_DEBUG)
 
-    def __init__(self, parameters=None, config_file=None, test_failure=False,
-                 om_ip_address=None, **kwargs):
+    def __init__(self, parameters=None, config_file=None, test_failure=None,
+                 om_ip_address=None):
         """
         When run by a qaautotest module test runner,
         this method provides the test fixture allocation.
@@ -44,7 +43,11 @@ class FDSTestCase(unittest.TestCase):
         self.test_failure = test_failure
         self.config = {}
         self.om_ip_address = om_ip_address
-        self.args = kwargs
+        self.inventory_file = None
+
+        if 'inventory_file' in parameters:
+             self.inventory_file = parameters['inventory_file']
+
         # self.is_authenticated = False
         #Get the user token
         auth_token = str(utils.get_user_token(config.FDS_DEFAULT_ADMIN_USER,
@@ -70,8 +73,9 @@ class FDSTestCase(unittest.TestCase):
             #                                       False, False,
             #                                       False, "passwd")
             self.parameters = {}
-            self.parameters['s3'] = self.s3conn
-            self.parameters['s3'].conn = self.s3conn.get_s3_connection()
+        
+        self.parameters['s3'] = self.s3conn
+        self.parameters['s3'].conn = self.s3conn.get_s3_connection()
         if config_file:
             self.config_file = config_parser.parse(config_file,
                                                    config.CONFIG_DIR)

@@ -16,7 +16,8 @@
 #include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
-#include <fdsp/am_service_types.h>
+#include <fdsp/am_api_types.h>
+#include <fdsp/sm_api_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
@@ -41,21 +42,6 @@ OM_NodeAgent::node_calc_stor_weight()
 {
     TRACEFUNC;
     return 0;
-}
-
-// setCpSession
-// ------------
-//
-void
-OM_NodeAgent::setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId)
-{
-    TRACEFUNC;
-    ndCpSession = session;
-    ndSessionId = ndCpSession->getSessionId();
-    ndCpClient  = ndCpSession->getClient();
-    ndMyServId  = myId;
-
-    LOGNORMAL << "Established connection with new node";
 }
 
 // om_send_myinfo
@@ -485,44 +471,6 @@ OM_NodeAgent::om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* re
     domain->om_recv_dmt_commit_resp(node_type, node_uuid, msg->dmt_version, respError);
 }
 
-#if 0
-Error
-OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
-    Error err(ERR_OK);
-    fds_verify(curDmt->getVersion() != DMT_VER_INVALID);
-
-    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
-    this->init_msg_hdr(m_hdr);
-    m_hdr->msg_code        = fpi::FDSP_MSG_DMT_UPDATE;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
-
-    fpi::FDSP_DMT_TypePtr dmt_msg(new fpi::FDSP_DMT_Type());
-    dmt_msg->dmt_version = curDmt->getVersion();
-    err = curDmt->getSerialized(dmt_msg->dmt_data);
-    if (!err.ok()) {
-        LOGERROR << "Failed to fill in dmt_data, not sending DMT";
-
-        return err;
-    }
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDMTUpdate, m_hdr, dmt_msg);
-    } else {
-        try {
-            ndCpClient->NotifyDMTUpdate(m_hdr, dmt_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return Error(ERR_NETWORK_TRANSPORT);
-        }
-    }
-    LOGNORMAL << "OM: Send dmt info (version " << curDmt->getVersion()
-              << ") to " << get_node_name() << " uuid 0x"
-              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
-
-    return err;
-}
-#endif
 //
 // Currently sends scavenger start message
 // TODO(xxx) extend to other scavenger commands (pass cmd type)
@@ -631,66 +579,37 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& re
     asyncStreamRegReq->invoke();
 }
 
-#if 0
 Error
-OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
-    Error err(ERR_OK);
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_DltCloseTypePtr d_msg(new fpi::FDSP_DltCloseType());
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code = fpi::FDSP_MSG_DLT_CLOSE;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
-
-    d_msg->DLT_version = cur_dlt_version;
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDLTClose, m_hdr, d_msg);
-    } else {
-        try {
-            ndCpClient->NotifyDLTClose(m_hdr, d_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return Error(ERR_NETWORK_TRANSPORT);
-        }
-    }
-    LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version
-              << ") to " << get_node_name() << " uuid 0x"
-              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
-
-    return err;
-}
-#endif
-
-
-Error
-OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
+OM_NodeAgent::om_send_pushmeta(fpi::CtrlDMMigrateMetaPtr& meta_msg)
 {
     Error err(ERR_OK);
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    this->init_msg_hdr(m_hdr);
 
-    m_hdr->msg_code = fpi::FDSP_MSG_PUSH_META;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
+    auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlDMMigrateMeta), meta_msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_pushmeta_resp, this,
+            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    om_req->setTimeoutMs(60000);
+    om_req->invoke();
 
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, PushMetaDMTReq, m_hdr, meta_msg);
-    } else {
-        try {
-            ndCpClient->PushMetaDMTReq(m_hdr, meta_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return Error(ERR_NETWORK_TRANSPORT);
-        }
-    }
-    LOGNORMAL << "OM: send Push_Meta to " << get_node_name() << " uuid 0x"
+    LOGNORMAL << "OM: send CtrlDMMigrateMeta to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
-
     return err;
 }
+
+void
+OM_NodeAgent::om_pushmeta_resp(EPSvcRequest* req,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "OM received response for CtrlDmMigrateMeta from node "
+             << std::hex << req->getPeerEpId().svc_uuid << std::dec
+             << " " << error;
+
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
+    domain->om_recv_push_meta_resp(node_uuid, error);
+}
+
 
     //   PAUL to  enable this code
 
@@ -731,38 +650,6 @@ OM_NodeAgent::om_send_dmt_close_resp(fpi::CtrlNotifyDMTClosePtr msg,
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     domain->om_recv_dmt_close_resp(node_uuid, msg->dmt_close.DMT_version, error);
 }
-
-#if 0
-Error
-OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
-    Error err(ERR_OK);
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_DmtCloseTypePtr d_msg(new fpi::FDSP_DmtCloseType());
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code = fpi::FDSP_MSG_DMT_CLOSE;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
-
-    d_msg->DMT_version = dmt_version;
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDMTClose, m_hdr, d_msg);
-    } else {
-        try {
-            ndCpClient->NotifyDMTClose(m_hdr, d_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return Error(ERR_NETWORK_TRANSPORT);
-        }
-    }
-    LOGNORMAL << "OM: send DMT close (version " << dmt_version
-              << ") to " << get_node_name() << " uuid 0x"
-              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
-
-    return err;
-}
-#endif
 
 Error
 OM_NodeAgent::om_send_shutdown() {
@@ -1031,7 +918,6 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
 OM_AgentContainer::OM_AgentContainer(FdspNodeType id) : AgentContainer(id)
 {
     TRACEFUNC;
-    ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
 }
 
 // agent_register

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include <fds_error.h>
-#include "fdsp/dm_service_types.h"
+#include "fdsp/dm_api_types.h"
 
 namespace fds {
 

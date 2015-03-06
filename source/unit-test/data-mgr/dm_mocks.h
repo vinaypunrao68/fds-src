@@ -5,6 +5,7 @@
 #define SOURCE_UNIT_TEST_DATA_MGR_DM_MOCKS_H_
 #include <unistd.h>
 #include <DataMgr.h>
+#include <NetSession.h>
 #include <net/net-service.h>
 #include <util/fds_stat.h>
 #include <iostream>

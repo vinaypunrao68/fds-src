@@ -22,7 +22,7 @@ namespace fds
 
     NodeAgent::NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid), nd_eph(NULL),
                                                  nd_ctrl_eph(NULL), nd_svc_rpc(NULL),
-                                                 nd_ctrl_rpc(NULL), pm_wrk_item(NULL)
+                                                 pm_wrk_item(NULL)
     {
     }
 
@@ -92,17 +92,6 @@ namespace fds
     //
     void NodeAgent::node_agent_up()
     {
-#if 0
-        if (nd_eph == NULL)
-        {
-            auto    rpc = node_svc_rpc(&nd_eph);
-        }
-
-        if (nd_ctrl_eph == NULL)
-        {
-            auto    rpc = node_ctrl_rpc(&nd_ctrl_eph);
-        }
-#endif
     }
 
     // node_agent_down
@@ -112,10 +101,6 @@ namespace fds
     void
     NodeAgent::node_agent_down()
     {
-#if 0
-        nd_eph      = NULL;
-        nd_ctrl_eph = NULL;
-#endif
     }
 
     // agent_rpc

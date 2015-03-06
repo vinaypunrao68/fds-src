@@ -17,7 +17,7 @@ extern "C" {
 #include <vector>
 
 #include "leveldb/db.h"
-#include "fdsp/sm_service_types.h"
+#include "fdsp/sm_types_types.h"
 #include "fdsp/FDSP_types.h"
 #include "fds_volume.h"
 #include "fds_types.h"

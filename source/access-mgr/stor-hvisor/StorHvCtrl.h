@@ -70,7 +70,6 @@ public:
 
     // Data Members
     StorHvDataPlacement*    dataPlacementTbl;
-    b_sp<netSessionTbl>     rpcSessionTbl; // RPC calls Switch Table
     fds::StorHvVolumeTable* vol_table;  
     fds::StorHvQosCtrl*     qos_ctrl; // Qos Controller object
     fds::OMgrClient*        om_client;

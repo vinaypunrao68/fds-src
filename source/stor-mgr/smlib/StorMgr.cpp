@@ -13,7 +13,6 @@
 #include <PerfTrace.h>
 #include <ObjMeta.h>
 #include <StorMgr.h>
-#include <NetSession.h>
 #include <fds_timestamp.h>
 #include <net/net_utils.h>
 #include <net/SvcRequestPool.h>
@@ -31,67 +30,6 @@ fds_bool_t  stor_mgr_stopping = false;
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
 
 ObjectStorMgr *objStorMgr;
-
-/*
- * SM's FDSP interface member functions
- */
-ObjectStorMgrI::ObjectStorMgrI()
-{
-}
-
-ObjectStorMgrI::~ObjectStorMgrI()
-{
-}
-
-void
-ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
-                          FDSP_PutObjTypePtr& putObj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
-                          FDSP_GetObjTypePtr& getObj)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
-                             FDSP_DeleteObjTypePtr& delObj)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::OffsetWriteObject(FDSP_MsgHdrTypePtr& msg_hdr,
-                                  FDSP_OffsetWriteObjTypePtr& offset_write_obj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr,
-                                FDSP_RedirReadObjTypePtr& redir_read_obj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void ObjectStorMgrI::GetObjectMetadata(
-        boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
 
 /**
  * Storage manager member functions
@@ -195,9 +133,6 @@ void ObjectStorMgr::mod_startup()
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
-        /*
-         * Register this node with OM.
-         */
         std::string omIP;
         fds_uint32_t omPort = 0;
         MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
@@ -360,9 +295,6 @@ void ObjectStorMgr::mod_enable_service()
 void ObjectStorMgr::mod_shutdown()
 {
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
-        return;  // no migration or netsession
-    }
 }
 
 int ObjectStorMgr::run()
@@ -1044,7 +976,7 @@ ObjectStorMgr::storeCurrentDLT()
     // against DLT
     NodeUuid myUuid = getUuid();
     std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
-    ofstream uuidFile(uuidPath);
+    std::ofstream uuidFile(uuidPath);
     uuidFile <<  myUuid.uuid_get_val();
 }
 

@@ -9,7 +9,6 @@
 #include <fdsp/SMSvc.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/AMSvc.h>
-#include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/Streaming.h>
 #include <fdsp/fds_service_types.h>
 // #include <net/SvcMgr.h>
@@ -611,9 +610,6 @@ NetMgr::alloc_rpc_client(const fpi::SvcUuid   &peer,
         case fpi::FDSP_ORCH_MGR:
             return bo::make_shared<fpi::PlatNetSvcClient>(protocol);
         case fpi::FDSP_PLATFORM:
-            if (min == 1) {
-                return bo::make_shared<fpi::FDSP_ControlPathReqClient>(protocol);
-            }
             return bo::make_shared<fpi::PlatNetSvcClient>(protocol);
         default:
             fds_verify(!"Invalid type");

@@ -132,7 +132,7 @@ function activate() {
     if [[ -n $actapps ]]; then
         # Bao: wait for platformd before activate
         sleep 5
-        
+
         logwarn "asking OM to accept all discovered nodes..."
         (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e "$actapps" > cli.out) 2>/dev/null
         loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
@@ -153,6 +153,16 @@ function startApp() {
     case "$appname" in
         om|pm|all|redis)
             ${TOOLSDIR}/redis.sh start 1 $REDIS_ARG
+            ;;
+    esac
+
+    # start influxdb if needed
+    case "$appname" in
+        om|all|influx*)
+            pid=$(pgrep -f influxdb)
+            if [ $? == 1 ]; then
+                sudo service influxdb start
+            fi
             ;;
     esac
 
@@ -189,6 +199,15 @@ function stopApp() {
     if [[ $appname == "redis" ]] ; then
         ${TOOLSDIR}/redis.sh stop 1 $REDIS_ARG
     fi
+
+    case "$appname" in 
+        om|all|influx*)
+            pid=$(pgrep -f influxdb)
+            if [ $? == 0 ]; then
+                sudo service influxdb stop
+            fi
+            ;;
+    esac
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
@@ -240,6 +259,12 @@ function statusApp() {
     if [[ $appname == "all" ]] || [[ $appname == "redis" ]] ; then
         ${TOOLSDIR}/redis.sh status 1 $REDIS_ARG
     fi
+
+    case "$appname" in 
+        om|all|influx*)
+            sudo service influxdb status
+            ;;
+    esac
 }
 
 function getAppPid() {
@@ -419,7 +444,11 @@ function clean() {
                 rm -rf /${node}/var/stats/*
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
-                cleanlogs
+
+                # influxdb
+                # TODO: how to clean influx data?
+				rm -rf /${node}/var/logs
+                #cleanlogs
             ) 2>/dev/null
         fi
     done

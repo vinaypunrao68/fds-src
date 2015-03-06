@@ -128,7 +128,8 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
 
 Error
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
-                           std::string &snapDir) {
+                           std::string &snapDir,
+                           leveldb::CopyEnv **env) {
     osm::ObjectDB *odb = nullptr;
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
@@ -139,7 +140,7 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
     if (odb == nullptr) {
         return ERR_NOT_FOUND;
     } else {
-        return odb->PersistentSnap(snapDir);
+        return odb->PersistentSnap(snapDir, env);
     }
 }
 

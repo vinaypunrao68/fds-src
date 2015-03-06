@@ -141,12 +141,9 @@ describe( 'Testing volume creation permutations', function(){
 
         expect( mainEl.getAttribute( 'style' ) ).not.toContain( '-100%' );
 
-        element.all( by.repeater( 'volume in volumes' )).then( function( results ){
-            expect( results.length ).toBe( 1 );
-        });
+        var testRow = element( by.cssContainingText( '.volume-row', 'Test Volume' ));
 
-
-        element.all( by.css( '.volume-row .name' ) ).then( function( nameCols ){
+        testRow.all( by.css( '.name' ) ).then( function( nameCols ){
 
             nameCols.forEach( function( td ){
                 td.getText().then( function( txt ){
@@ -156,7 +153,7 @@ describe( 'Testing volume creation permutations', function(){
         });
 
         // check that the default priority was correct
-        element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){
+        testRow.all( by.css( '.priority' ) ).then( function( priorityCols ){
             priorityCols.forEach( function( td ){
                 td.getText().then( function( txt ){
                     expect( txt ).toBe( '7' );

@@ -86,6 +86,9 @@ enum  FDSPMsgTypeId {
     CtrlSetScrubberStatusRespTypeId	   = 2053,
     CtrlNotifyMigrationFinishedTypeId  = 2054,
     CtrlNotifyMigrationStatusTypeId	   = 2055,
+    CtrlNotifySMCheckTypeId            = 2056,
+    CtrlNotifySMCheckStatusTypeId      = 2057,
+    CtrlNotifySMCheckStatusRespTypeId  = 2058
 
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
@@ -101,7 +104,7 @@ enum  FDSPMsgTypeId {
     CtrlNotifyDMTCloseTypeId           = 2081,
     CtrlNotifyDMTUpdateTypeId          = 2082,
     CtrlNotifyDMAbortMigrationTypeId   = 2083,
-
+    CtrlDMMigrateMetaTypeId            = 2084,
 
     /* OM-> AM messages. */
     CtrlNotifyThrottleTypeId           = 2101,
@@ -466,6 +469,16 @@ struct EmptyMsg {
  * Common Control Path Messages
  * --------------------------------------------------------------------------------
  */
+struct FDSP_DLT_Data_Type {
+   1: bool dlt_type,
+   2: binary dlt_data,
+}
+
+/* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
+struct CtrlNotifyDLTUpdate {
+   1: FDSP_DLT_Data_Type   dlt_data;
+   2: i64                       dlt_version;
+}
 
 /* ----------------------  CtrlNotifyVolAddTypeId  ----------------------------- */
 struct CtrlNotifyVolAdd {

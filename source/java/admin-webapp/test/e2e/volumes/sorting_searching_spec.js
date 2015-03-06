@@ -124,7 +124,6 @@ describe( 'Testing the timeline settings', function(){
         
         searchBox.clear();
         
-        deleteVolume( 0 );
-        deleteVolume( 0 );
+        logout();
     });
 });

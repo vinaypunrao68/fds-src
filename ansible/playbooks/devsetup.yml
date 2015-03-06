@@ -2,6 +2,8 @@
 -   name: install needed packages for devsetup
     hosts: localhost
     sudo: yes
+    vars:
+        - influxdb_version: 0.8.8
 
     tasks:
 
@@ -11,8 +13,14 @@
     - name: add redis-server ppa
       apt_repository: repo=ppa:chris-lea/redis-server state=present
 
+    - name: add artifactory repo key
+      apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
+
     - name: add fds repo
       apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main" state=present
+
+    - name: add fds nightly repo
+      apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly" state=present
 
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
@@ -40,6 +48,7 @@
         - binutils-dev
         - cmake
         - cpanminus
+        - fds-deps
         - git
         - linux-generic
         - linux-headers-generic
@@ -153,3 +162,21 @@
         owner=root
         mode=0777
         state=directory
+
+    - name: get InfluxDB package
+      get_url: url=https://s3.amazonaws.com/influxdb/influxdb_{{ influxdb_version }}_amd64.deb
+           dest=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+           validate_certs=no
+           sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
+
+    -   name: create influxdb user and group
+        group: name=influxdb
+
+    -   user: name=influxdb
+           createhome=no
+           group=influxdb
+
+    -   name: install InfluxDB
+        apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+        register: install
+

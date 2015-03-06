@@ -5,6 +5,7 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <set>
 #include <string>
 #include <fdsp_utils.h>
 #include <fiu-control.h>
@@ -16,7 +17,7 @@
 #include <net/net-service.h>
 #include <fdsp/fds_service_types.h>
 #include <net/SvcRequestPool.h>
-#include <set>
+#include "fdsp/sm_api_types.h"
 
 namespace fds {
 
@@ -342,13 +343,14 @@ DataPlacement::undoTargetDltCommit() {
         }
 
         // forget about target DLT
+        fds_uint64_t targetDltVersion = newDlt->getVersion();
         delete newDlt;
         newDlt = NULL;
 
         // also forget target DLT in persistent store
         if (!configDB->setDltType(0, "next")) {
-            LOGWARN << "unable to store dlt type to config db "
-                    << "[" << commitedDlt->getVersion() << "]";
+            LOGWARN << "Failed to unset target DLT in config db "
+                    << "[" << targetDltVersion << "]";
         }
     }
     placementMutex->unlock();
