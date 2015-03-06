@@ -998,6 +998,14 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         // for node activate + update config DB with node info
         // but for now assume always success and set active state here
         set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+        kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+        if (!configDB->nodeExists(get_uuid())) {
+            // for now store only if the node was not known to DB
+            configDB->addNode(*getNodeInfo());
+            LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
+                << std::hex << get_uuid().uuid_get_val() << std::dec
+                << " in configDB";
+        }
     }
 
     fpi::ActivateServicesMsgPtr activateMsg = boost::make_shared<fpi::ActivateServicesMsg>();
@@ -1108,9 +1116,17 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
         }
     }
     Error err = OM_AgentContainer::agent_register(uuid, msg, out, activate);
-    if ((err == ERR_OK) && (known == true)) {
-        fds_verify(out != NULL);
-        OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
+    if (!err.ok()) {
+        return err;
+    }
+
+    fds_verify(out != NULL);
+    OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
+
+    /* Cache the node information */
+    agent->setNodeInfo(msg);
+
+    if ((known == true)) {
 
         // start services that were running on that node
         NodeServices services;
@@ -1372,27 +1388,23 @@ om_send_qos_info(fds_uint64_t total_rate, NodeAgent::pointer node)
 // ------------------
 //
 void
-OM_NodeContainer::om_update_capacity(NodeAgent::pointer node,
+OM_NodeContainer::om_update_capacity(OM_PmAgent::pointer pm_agent,
                                      fds_bool_t b_add)
 {
     TRACEFUNC;
-    OM_SmAgent::pointer agent = OM_SmAgent::agt_cast_ptr(node);
     fds_uint64_t old_max_iopc = om_admin_ctrl->getMaxIOPC();
+    if (b_add) {
+        om_admin_ctrl->addDiskCapacity(pm_agent->getDiskCapabilities());
+    } else {
+        om_admin_ctrl->removeDiskCapacity(pm_agent->getDiskCapabilities());
+    }
 
-    if (agent->node_get_svc_type() != fpi::FDSP_STOR_HVISOR) {
-        if (b_add) {
-            om_admin_ctrl->addDiskCapacity(node->node_capability());
-        } else {
-            om_admin_ctrl->removeDiskCapacity(node->node_capability());
-        }
-
-        // if perf capability changed, notify AMs to modify QoS
-        // control params accordingly
-        fds_uint64_t new_max_iopc = om_admin_ctrl->getMaxIOPC();
-        if ((new_max_iopc != 0) &&
-            (new_max_iopc != old_max_iopc)) {
-            dc_am_nodes->agent_foreach<fds_uint64_t>(new_max_iopc, om_send_qos_info);
-        }
+    // if perf capability changed, notify AMs to modify QoS
+    // control params accordingly
+    fds_uint64_t new_max_iopc = om_admin_ctrl->getMaxIOPC();
+    if ((new_max_iopc != 0) &&
+        (new_max_iopc != old_max_iopc)) {
+        dc_am_nodes->agent_foreach<fds_uint64_t>(new_max_iopc, om_send_qos_info);
     }
 }
 

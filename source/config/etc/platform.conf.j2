@@ -54,7 +54,7 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
-    om_port = 9999
+    om_port = 10004
     om_uuid = 1028L
     }
 
@@ -129,7 +129,7 @@ fds: {
 	    /* service uuid */
 	    uuid = 1026L
 	    /* service port */
-	    port = 12000
+	    port = 10002
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -222,7 +222,7 @@ fds: {
 	    /* service uuid */
 	    uuid = 1025L
 	    /* service port */
-	    port = 12000
+	    port = 10001
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -364,7 +364,7 @@ fds: {
 	    /* service uuid */
 	    uuid = 1027L
 	    /* service port */
-	    port = 13000
+	    port = 10003
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -475,7 +475,7 @@ fds: {
 	    /* service uuid */
 	    uuid = 1028L
 	    /* service port */
-	    port = 9999
+	    port = 10004
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}

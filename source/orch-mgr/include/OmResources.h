@@ -233,6 +233,18 @@ class OM_PmAgent : public OM_NodeAgent
     inline OM_AmAgent::pointer get_am_service() {
         return activeAmAgent;
     }
+    inline void setNodeInfo(boost::shared_ptr<kvstore::NodeInfoType> nodeInfo) {
+        this->nodeInfo = nodeInfo;
+    }
+    inline boost::shared_ptr<kvstore::NodeInfoType> getNodeInfo() {
+        return nodeInfo;
+    }
+    inline fpi::FDSP_AnnounceDiskCapability* getDiskCapabilities() {
+        /* NOTE: We could get this info from configdb..for now returning from
+         * the cached nodinfo
+         */
+        return &(nodeInfo->disk_info);
+    }
 
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
@@ -240,6 +252,8 @@ class OM_PmAgent : public OM_NodeAgent
     OM_SmAgent::pointer     activeSmAgent;  // pointer to active SM service or NULL
     OM_DmAgent::pointer     activeDmAgent;  // pointer to active DM service or NULL
     OM_AmAgent::pointer     activeAmAgent;  // pointer to active AM service or NULL
+    /* Cached node information.  On activation this information is stored into config db */
+    boost::shared_ptr<kvstore::NodeInfoType> nodeInfo;
 };
 
 // -------------------------------------------------------------------------------------
@@ -519,7 +533,7 @@ class OM_NodeContainer : public DomainContainer
   private:
     friend class OM_NodeDomainMod;
 
-    virtual void om_update_capacity(NodeAgent::pointer node, fds_bool_t b_add);
+    virtual void om_update_capacity(OM_PmAgent::pointer pm_agent, fds_bool_t b_add);
     virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
     virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
 

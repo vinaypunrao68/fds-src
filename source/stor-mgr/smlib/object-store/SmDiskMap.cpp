@@ -6,9 +6,7 @@
 #include <object-store/SmDiskMap.h>
 #include <sys/statvfs.h>
 #include <utility>
-
-#include "platform/platform_consts.h"
-#include "platform/platform.h"
+#include <net/SvcMgr.h>
 
 namespace fds {
 
@@ -133,7 +131,7 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt)
     // according to the DLT
     NodeUuid mySvcUuid;
     if (!test_mode) {
-        mySvcUuid = *(Platform::plf_get_my_svc_uuid());
+        mySvcUuid = NodeUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
     } else {
         mySvcUuid = 1;
     }

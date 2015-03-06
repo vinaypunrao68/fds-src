@@ -1026,6 +1026,24 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
 
     fds_assert(reg_node_req->node_type != fpi::FDSP_PLATFORM ||
                reg_node_req->service_uuid == reg_node_req->node_uuid);
+
+    if (reg_node_req->node_type == fpi::FDSP_PLATFORM) {
+        fpi::FDSP_AnnounceDiskCapability diskInfo = reg_node_req->disk_info;
+
+        util::Properties props(&svcInfo->props);
+        diskInfo.disk_iops_max = props.getInt("disk.iops.max");
+        diskInfo.disk_iops_min = props.getInt("disk.iops.min");
+        diskInfo.disk_capacity = props.getDouble("disk.capacity");
+
+        diskInfo.disk_latency_max = props.getInt("disk.latency.max");
+        diskInfo.disk_latency_min = props.getInt("disk.latency.min");
+        diskInfo.ssd_iops_max = props.getInt("ssd.iops.max");
+        diskInfo.ssd_iops_min = props.getInt("ssd.iops.min");
+        diskInfo.ssd_capacity = props.getDouble("ssd.capacity");
+        diskInfo.ssd_latency_max = props.getInt("ssd.latency.max");
+        diskInfo.ssd_latency_min = props.getInt("ssd.latency.min");
+        diskInfo.disk_type = props.getInt("disk.type");
+    }
 }
 
 // om_reg_node_info
@@ -1087,11 +1105,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // Vy: we could get duplicate if the agent already reigstered by platform lib.
         // fds_verify(err.ok());
 
-        // add the node info to configdb
-        
-        if (!configDB->addNode(*msg)) {
-            LOGERROR << "unable to store node into configdb : " << msg->node_uuid.uuid;
-        }
         om_locDomain->om_bcast_new_node(newNode, msg);
 
         // Let this new node know about exisiting node list.
@@ -1100,7 +1113,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         if (msg->node_type == fpi::FDSP_STOR_MGR) {
             // Activate and account node capacity only when SM registers with OM.
             //
-            NodeAgent::pointer pm = pmNodes->agent_info(NodeUuid(msg->node_uuid.uuid));
+            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->\
+                                               agent_info(NodeUuid(msg->node_uuid.uuid)));
             if (pm != NULL) {
                 om_locDomain->om_update_capacity(pm, true);
             } else {
@@ -1180,7 +1194,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             OM_SmAgent::pointer smAgent = om_sm_agent(uuid);
 
             // remove this SM's capacity from total capacity
-            NodeAgent::pointer pm = pmNodes->agent_info(node_uuid);
+            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(node_uuid));
             if (pm != NULL) {
                 om_locDomain->om_update_capacity(pm, false);
             } else {
