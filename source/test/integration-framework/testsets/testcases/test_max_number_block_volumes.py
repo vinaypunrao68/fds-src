@@ -16,14 +16,33 @@ import ssh
 import testsets.testcase as testcase
 
 
-class Test100GBVolume(testcase.FDSTestCase):
-    
+class TestMaxNumberBlockVolumes(testcase.FDSTestCase):
+    '''
+    Test the creation of the maximum number of volumes via concurrency,
+    in order to test show well the system supports multithreading.
+    '''
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
-        super(Test100GBVolume, self).__init__(parameters=parameters,
-                                               config_file=config_file,
-                                               om_ip_address=om_ip_address)
+        super(TestMaxNumberBlockVolumes, self).__init__(parameters=parameters,
+                                                    config_file=config_file,
+                                                    om_ip_address=om_ip_address)
         
     def runTest(self):
+        '''
+        Use the utils do_work multithreaded utility
+        '''
+        mylist = list(xrange(config.MAX_NUM_VOLUMES))
+        utils.do_work(self.create_volumes, mylist)
+    
+    def create_volumes(self, index):
+        '''
+        Responsible to create a block volume, via the API call, and name it
+        based on the index given.
+        
+        Attributes:
+        -----------
+        index: integer
+            the index of the volume being created
+        '''
         test_passed = False
         r = None
         port = config.FDS_REST_PORT
@@ -44,10 +63,9 @@ class Test100GBVolume(testcase.FDSTestCase):
             if 's3' not in self.parameters:
                 raise ValueError, "S3 connection not present in the parameters"
                 test_passed = False
-    
-            #Get number of volumes currently?
-            volume_name = "test-block-100GB"
-            #prep data
+                        
+            volume_name = "test-block-%s" % index
+            # Create a 1GB block volume
             data = {"sla":0,"limit":0,"priority":10,"snapshotPolicies":[],
                     "timelinePolicies":[{"retention":604800,
                     "recurrenceRule":{"FREQ":"DAILY"}},{"retention":1209600,
@@ -56,10 +74,9 @@ class Test100GBVolume(testcase.FDSTestCase):
                     "recurrenceRule":{"FREQ":"YEARLY"}}],"commit_log_retention":86400,
                     "data_connector":{"type":"BLOCK","api":"Basic, Cinder",
                     "options":{"max_size":"100","unit":["GB","TB","PB"]},
-                    "attributes":{"size":100,"unit":"GB"}},"name":volume_name}
+                    "attributes":{"size":1,"unit":"GB"}},"name":volume_name}
 
             json_data = json.dumps(data)
-
             #create volume
             r = requests.post(url, data=json_data, headers=header)
             if r is None:
@@ -72,38 +89,7 @@ class Test100GBVolume(testcase.FDSTestCase):
     
                 #Check return code
                 self.assertTrue(200 == r.status_code)
-                
-                local_ssh = ssh.SSHConn(config.NDBADM_CLIENT, config.SSH_USER,
-                                        config.SSH_PASSWORD)
-                
-                cmds = (
-                    #'umount /fdsmount',
-                    #'rm -rf /fdsmount',
-                    #'rm -rf sample_file',
-                    'mkdir /fdsmount',
-                    #'./nbdadm.py detach %s' % (volume_name),
-                    './nbdadm.py attach %s %s' % (self.om_ip_address, volume_name),
-                    'mkfs.ext4 /dev/nbd15',
-                    'mount /dev/nbd15  /fdsmount',
-                    'fallocate -l 10G sample_file',
-                    'mv sample_file /fdsmount',
-                )
-                
-                for cmd in cmds:
-                    (stdin, stdout, stderr) = local_ssh.client.exec_command(cmd)
-                    self.log.info(stdout.readlines())
-    
-                local_ssh.client.close()
-                    #Write to the volume
-    
-                    #Read from volume
-    
-                #Get Volumes
-                #r = requests.get(url, headers=header)
-                #self.log.info("response = %s", r.json())
-                #self.log.info("Status = %s", r.status_code)
-                #Yay?
-                test_passed = True
+            test_passed = True
 
 
         except Exception, e:

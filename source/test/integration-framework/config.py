@@ -33,11 +33,13 @@ TEST_DEBUG                    = 1
 
 SSH_USER                      = 'root'
 SSH_PASSWORD                  = 'passwd'
-STOP_ALL_CLUSTER              = "./fds-tool.py -f %s -d"
+STOP_ALL_CLUSTER              = "./fds-tool.py -f %s -d -c"
 START_ALL_CLUSTER             = "./fds-tool.py -f %s -u"
 FDS_SBIN                      = "/fds/sbin"
 FORMATION_CONFIG              = "deploy_formation.conf"
 
+NDBADM_CLIENT                 = "10.1.16.101"
+FDS_MOUNT                     = "/fdsmount"
 params = {
     'log_level' : 20,
     'stop_on_fail' : True,
