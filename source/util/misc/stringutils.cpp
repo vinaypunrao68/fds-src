@@ -9,7 +9,7 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
-
+#include <sstream>
 namespace fds {
 namespace util {
 
@@ -45,6 +45,36 @@ char* cstr(const std::string& str) {
     std::copy(str.begin(), str.end(), newstr);
     newstr[str.size()] = '\0';
     return newstr;
+}
+
+void tokenize(const std::string& data, std::vector<std::string>& tokens, char delim) {
+    std::istringstream f(data);
+    std::string s;
+    while (getline(f, s, delim)) {
+        tokens.push_back(s);
+    }
+}
+
+std::string join(const std::vector<std::string>& tokens, char delim) {
+    std::ostringstream oss;
+    for(size_t i = 0; i< tokens.size() ; i++) {
+        oss << tokens[i];
+        if (i < (tokens.size() - 1)) {
+            oss << delim;
+        }
+    }
+    return oss.str();
+}
+
+bool boolean(const std::string& s) {
+    const char* p =s.c_str();
+    return ( 
+        (0 == strcasecmp(p, "enable")) ||
+        (0 == strcasecmp(p, "true")) ||
+        (0 == strcasecmp(p, "yes")) ||
+        (0 == strcasecmp(p, "set")) ||
+        (0 == strcasecmp(p, "on")) ||
+        (0 == strcasecmp(p, "1")));
 }
 
 }  // namespace util
