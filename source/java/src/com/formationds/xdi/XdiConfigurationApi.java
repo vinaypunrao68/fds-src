@@ -325,7 +325,7 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId)
+    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId)
             throws ApiException, org.apache.thrift.TException {
         return config.listSnapshots(volumeId);
     }

@@ -6,7 +6,7 @@ user_build_dir    :=
 user_thrift       := \
 	$(topdir)/fdsp/FDSP.thrift \
 	$(topdir)/fdsp/fds_stream.thrift \
-	$(topdir)/fdsp/snapshot.thrift \
+	$(topdir)/fdsp/common.thrift \
 	$(topdir)/fdsp/xdi.thrift \
 	$(topdir)/fdsp/configuration_service.thrift \
 	$(topdir)/fdsp/fds_service.thrift \

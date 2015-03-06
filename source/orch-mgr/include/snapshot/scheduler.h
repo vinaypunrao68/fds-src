@@ -6,7 +6,8 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include <thrift/concurrency/Monitor.h>
 #include <snapshot/schedulertask.h>
-#include <fdsp/snapshot_types.h>
+#include <fdsp/common_types.h>
+#include <fdsp/configuration_service_types.h>
 #include <fds_types.h>
 #include <util/Log.h>
 #include <map>
@@ -22,7 +23,7 @@ class Scheduler : public HasLogger {
     explicit Scheduler(OrchMgr* om, TaskProcessor* processor);
     ~Scheduler();
     // will also update / modify
-    bool addPolicy(const fpi::SnapshotPolicy& policy);
+    bool addPolicy(const fds::apis::SnapshotPolicy& policy);
     bool removePolicy(uint64_t policyId);
     void dump();
     void shutdown();
