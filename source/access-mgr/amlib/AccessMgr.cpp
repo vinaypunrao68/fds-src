@@ -76,11 +76,10 @@ AccessMgr::mod_shutdown() {
 }
 
 void
-AccessMgr::mod_lockstep_start_service() {
+AccessMgr::mod_enable_service() {
+    LOGNOTIFY << "Enabling services ";
     storHvisor->StartOmClient();
     storHvisor->qos_ctrl->runScheduler();
-
-    this->mod_lockstep_done();
 }
 
 void
