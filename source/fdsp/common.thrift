@@ -164,3 +164,18 @@ struct FDSP_ModifyVolType {
   2: i64		 vol_uuid,
   3: FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
 }
+
+/**
+ * Descriptor for a snapshot. Describes it name and
+ * policy information.
+ */
+struct Snapshot {
+    1:i64 snapshotId,
+    2:string snapshotName,
+    3:i64 volumeId,
+    4:i64 snapshotPolicyId,
+    5:i64 creationTimestamp,
+    6:i64 retentionTimeSeconds,
+    7:ResourceState state,
+    8:i64 timelineTime,
+}

@@ -4,7 +4,6 @@
 
 include "common.thrift"
 include "fds_stream.thrift"
-include "snapshot.thrift"
 
 namespace cpp fds.apis
 namespace java com.formationds.apis
@@ -50,6 +49,21 @@ struct VolumeDescriptor {
    4: required i64 tenantId,
    5: i64 volId,
    6: common.ResourceState state,
+}
+
+/**
+ * Snapshot and clone from CLI => OM structures 
+ */
+struct SnapshotPolicy {
+    1: i64 id;
+    /** Name of the policy, should be unique */
+    2: string policyName,
+    /** Recurrence rule as per iCal format */
+    3: string recurrenceRule,
+    /** Retention time in seconds */
+    4: i64 retentionTimeSeconds,
+    5: common.ResourceState state,
+    7: i64 timelineTime,
 }
 
 service ConfigurationService {
@@ -110,10 +124,10 @@ service ConfigurationService {
     list<fds_stream.StreamingRegistrationMsg> getStreamRegistrations(1:i32 ignore),
     void deregisterStream(1:i32 registration_id),
 
-    i64 createSnapshotPolicy(1:snapshot.SnapshotPolicy policy)
+    i64 createSnapshotPolicy(1:SnapshotPolicy policy)
         throws (1: common.ApiException e),
 
-    list<snapshot.SnapshotPolicy> listSnapshotPolicies(1:i64 unused)
+    list<SnapshotPolicy> listSnapshotPolicies(1:i64 unused)
         throws (1: common.ApiException e),
 
     void deleteSnapshotPolicy(1:i64 id)
@@ -122,7 +136,7 @@ service ConfigurationService {
     void attachSnapshotPolicy(1:i64 volumeId, 2:i64 policyId)
         throws (1: common.ApiException e),
 
-    list<snapshot.SnapshotPolicy> listSnapshotPoliciesForVolume(1:i64 volumeId)
+    list<SnapshotPolicy> listSnapshotPoliciesForVolume(1:i64 volumeId)
         throws (1: common.ApiException e),
 
     void detachSnapshotPolicy(1:i64 volumeId, 2:i64 policyId)
@@ -134,7 +148,7 @@ service ConfigurationService {
     void createSnapshot(1:i64 volumeId, 2:string snapshotName, 3:i64 retentionTime, 4:i64 timelineTime)
         throws (1: common.ApiException e),
 
-    list<snapshot.Snapshot> listSnapshots(1:i64 volumeId)
+    list<common.Snapshot> listSnapshots(1:i64 volumeId)
         throws (1: common.ApiException e),
 
     void restoreClone(1:i64 volumeId, 2:i64 snapshotId)

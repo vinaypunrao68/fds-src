@@ -476,7 +476,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
-    public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId)
+    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId)
         throws ApiException, org.apache.thrift.TException {
         return getConfig().listSnapshots(volumeId);
     }
