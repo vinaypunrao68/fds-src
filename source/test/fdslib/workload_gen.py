@@ -5,7 +5,7 @@ try:
     import time
     sys.path.append(os.getcwd()+'/test/fdslib/pyfdsp')
 
-    from fds_service import ttypes
+    from svc_api import ttypes
     from thrift import TSerialization
 #from thrift.protocol import TJSONProtocol
 except Exception as e:

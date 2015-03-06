@@ -2,7 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-include "fds_service.thrift"
+include "svc_types.thrift"
 include "dm_api.thrift"
 include "sm_api.thrift"
 
@@ -18,8 +18,8 @@ namespace java com.formationds.protocol.am
  */
 service TestAMSvc {
     i32 associate(1: string myip, 2: i32 port);
-    oneway void putObjectRsp(1: fds_service.AsyncHdr asyncHdr, 2: sm_api.PutObjectRspMsg payload);
-    oneway void updateCatalogRsp(1: fds_service.AsyncHdr asyncHdr, 2: dm_api.UpdateCatalogOnceRspMsg payload);
+    oneway void putObjectRsp(1: svc_types.AsyncHdr asyncHdr, 2: sm_api.PutObjectRspMsg payload);
+    oneway void updateCatalogRsp(1: svc_types.AsyncHdr asyncHdr, 2: dm_api.UpdateCatalogOnceRspMsg payload);
 }
 
 /**
@@ -27,7 +27,7 @@ service TestAMSvc {
  */
 service TestDMSvc {
     i32 associate(1: string myip, 2: i32 port);
-    oneway void updateCatalog(1: fds_service.AsyncHdr asyncHdr, 2: dm_api.UpdateCatalogOnceMsg payload);
+    oneway void updateCatalog(1: svc_types.AsyncHdr asyncHdr, 2: dm_api.UpdateCatalogOnceMsg payload);
 }
 
 /**
@@ -37,5 +37,5 @@ service TestSMSvc {
   /**   */
     i32 associate(1: string myip, 2: i32 port);
   /**   */
-    oneway void putObject(1: fds_service.AsyncHdr asyncHdr, 2: sm_api.PutObjectMsg payload);
+    oneway void putObject(1: svc_types.AsyncHdr asyncHdr, 2: sm_api.PutObjectMsg payload);
 }

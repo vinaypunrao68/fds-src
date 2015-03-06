@@ -19,7 +19,6 @@
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
-#include <fdsp/fds_service_types.h>
 
 namespace fds {
 

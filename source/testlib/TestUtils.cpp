@@ -3,7 +3,7 @@
  */
 #include <string>
 #include <platform/platform.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/net-service-tmpl.hpp>
 #include <TestUtils.h>
