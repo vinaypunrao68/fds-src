@@ -22,9 +22,6 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 
-#include "platform/node_data.h"
-#include "platform/platform.h"
-
 namespace fds {
 
 // ---------------------------------------------------------------------------------
@@ -188,12 +185,9 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     req->onResponseCb(cb);
     req->invoke();
     if (desc != NULL) {
-        Platform *plat = Platform::platf_singleton();
-        int ctrl_port = plat->plf_get_my_ctrl_port(node_base_port());
         LOGNORMAL << log << desc->volUUID << " " << desc->name
                   << " to node " << get_node_name() << std::hex
-                  << ", uuid " << get_uuid().uuid_get_val() << std::dec
-                  << ", port " << ctrl_port;
+                  << ", uuid " << get_uuid().uuid_get_val() << std::dec;
     } else {
         
         /*
