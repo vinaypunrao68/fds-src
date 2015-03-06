@@ -36,42 +36,19 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
     virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return, const int64_t nullarg) override {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
-    virtual void setServiceProperty(const  fpi::SvcUuid& svcUuid,
-                                    const std::string& key,
-                                    const std::string& value) override {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    virtual void getServicePropery(std::string& _return,
-                           const  fpi::SvcUuid& svcUuid,
-                           const std::string& key) override {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    virtual void setServiceProperties(const fpi::SvcUuid& svcUuid,
-                              const std::map<std::string, std::string> & props) override {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void getServiceProperties(std::map<std::string, std::string> & _return,
-                              const  fpi::SvcUuid& svcUuid) override {
+    void getSvcInfo(fpi::SvcInfo &_return,
+                    const  fpi::SvcUuid& svcUuid) override {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
     /**
      * RPC overrides from fpi::OMSvcIf
      */
-    virtual void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
+    virtual void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo) override;
     virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
-                           boost::shared_ptr<int64_t>& nullarg);
-    virtual void setServiceProperty(boost::shared_ptr< fpi::SvcUuid>& svcUuid,
-                            boost::shared_ptr<std::string>& key,
-                            boost::shared_ptr<std::string>& value) override;
-    virtual void getServicePropery(std::string& _return,
-                           boost::shared_ptr< fpi::SvcUuid>& svcUuid,
-                           boost::shared_ptr<std::string>& key) override;
-    virtual void setServiceProperties(boost::shared_ptr< fpi::SvcUuid>& svcUuid,
-                    boost::shared_ptr<std::map<std::string, std::string> >& props) override;
-    virtual void getServiceProperties(std::map<std::string, std::string> & _return,
-                                      boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;
-
+                           boost::shared_ptr<int64_t>& nullarg) override;
+    virtual void getSvcInfo(fpi::SvcInfo & _return,
+                            boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;
 
     /**
      * Async message handlers

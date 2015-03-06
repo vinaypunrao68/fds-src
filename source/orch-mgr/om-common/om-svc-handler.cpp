@@ -237,26 +237,14 @@ void OmSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
     MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
 }
 
-void OmSvcHandler::setServiceProperty(boost::shared_ptr< fpi::SvcUuid>& svcUuid,
-                                      boost::shared_ptr<std::string>& key,
-                                      boost::shared_ptr<std::string>& value)
+void OmSvcHandler::getSvcInfo(fpi::SvcInfo &_return,
+                              boost::shared_ptr< fpi::SvcUuid>& svcUuid)
 {
-}
-
-void OmSvcHandler::getServicePropery(std::string& _return,
-                                     boost::shared_ptr< fpi::SvcUuid>& svcUuid,
-                                     boost::shared_ptr<std::string>& key)
-{
-}
-
-void OmSvcHandler::setServiceProperties(boost::shared_ptr< fpi::SvcUuid>& svcUuid,
-                            boost::shared_ptr<std::map<std::string, std::string> >& props)
-{
-}
-
-void OmSvcHandler::getServiceProperties(std::map<std::string, std::string> & _return,
-                                        boost::shared_ptr< fpi::SvcUuid>& svcUuid)
-{
+    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(*svcUuid, _return);
+    if (!ret) {
+        LOGWARN << "Failed to lookup svcuuid: " << svcUuid->svc_uuid;
+        throw fpi::SvcLookupException();
+    }
 }
 
 void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
