@@ -123,7 +123,6 @@ StorHvCtrl::StorHvCtrl(int argc,
     if (standalone) {
 	om_client->setNoNetwork(true);
     } else {
-	om_client->initialize();
 
 	qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
 

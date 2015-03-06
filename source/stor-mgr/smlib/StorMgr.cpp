@@ -111,10 +111,23 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    /*
-     * Will setup OM comm during run()
-     */
     omClient = NULL;
+    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    if (testStandalone == false) {
+        std::string omIP;
+        fds_uint32_t omPort = 0;
+        MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
+        LOGNOTIFY << "om ip: " << omIP
+                  << " port: " << omPort;
+        omClient = new OMgrClient(FDSP_STOR_MGR,
+                                  omIP,
+                                  omPort,
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
+                                  GetLog(),
+                                  nullptr,
+                                  nullptr);
+    }
+
 
     return 0;
 }
@@ -130,21 +143,6 @@ void ObjectStorMgr::mod_startup()
 
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
-
-    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
-    if (testStandalone == false) {
-        std::string omIP;
-        fds_uint32_t omPort = 0;
-        MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
-        LOGNOTIFY << "om ip: " << omIP
-                  << " port: " << omPort;
-        omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  omIP,
-                                  omPort,
-                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog(),
-                                  nullptr, MODULEPROVIDER()->get_plf_manager());
-    }
 
     /*
      * Create local volume table. Create after omClient
@@ -185,13 +183,6 @@ void ObjectStorMgr::mod_startup()
     // we should also have enough QoS threads to serve outstanding IO
     if (qosThrds <= qosOutNum) {
         qosThrds = qosOutNum + 1;   // one is used for dispatcher
-    }
-
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        /*
-         * Register/boostrap from OM
-         */
-        omClient->initialize();
     }
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");

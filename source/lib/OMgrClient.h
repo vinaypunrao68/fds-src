@@ -121,7 +121,6 @@ class OMgrClient {
         this->fNoNetwork = fNoNetwork;
     }
     ~OMgrClient();
-    int initialize();
 
     NodeUuid getUuid() const;
     FDSP_MgrIdType getNodeType() const;
@@ -135,9 +134,6 @@ class OMgrClient {
     //
     fds_log        *omc_log;
 
-    // int subscribeToOmEvents(unsigned int om_ip_addr,
-    // int tennant_id, int domain_id, int omc_port_num= 0);
-    int registerNodeWithOM(Platform *plat);
     int sendMigrationStatusToOM(const Error& err);
 
     int getNodeInfo(fds_uint64_t node_id,

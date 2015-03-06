@@ -824,6 +824,23 @@ int DataMgr::mod_init(SysParams const *const param)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
+    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
+    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
+    if (!standalone) {
+        LOGDEBUG << " Initialising the OM client ";
+        /*
+         * Setup communication with OM.
+         */
+        omClient = new OMgrClient(FDSP_DATA_MGR,
+                                  omIpStr,
+                                  omConfigPort,
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
+                                  GetLog(),
+                                  nullptr,
+                                  nullptr);
+        omClient->setNoNetwork(false);
+    }
+
     return 0;
 }
 
@@ -871,31 +888,12 @@ void DataMgr::mod_startup()
 
     runMode = NORMAL_MODE;
 
-    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
-
-    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
     }
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
-
-    if (!standalone) {
-        LOGDEBUG << " Initialising the OM client ";
-        /*
-         * Setup communication with OM.
-         */
-        omClient = new OMgrClient(FDSP_DATA_MGR,
-                                  omIpStr,
-                                  omConfigPort,
-                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog(),
-                                  nullptr,
-                                  nullptr);
-        omClient->setNoNetwork(false);
-        omClient->initialize();
-    }
 
     setup_metasync_service();
 

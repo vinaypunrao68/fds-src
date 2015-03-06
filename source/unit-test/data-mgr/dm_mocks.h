@@ -116,7 +116,6 @@ struct DMTester :  FdsProcess {
                                                nullptr,
                                                nullptr);
 
-        dataMgr->omClient->initialize();
         dataMgr->initHandlers();
         dataMgr->mod_enable_service();
     }

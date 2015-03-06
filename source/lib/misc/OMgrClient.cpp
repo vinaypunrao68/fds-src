@@ -61,10 +61,6 @@ OMgrClient::~OMgrClient()
     delete clustMap;
 }
 
-int OMgrClient::initialize() {
-    return fds::ERR_OK;
-}
-
 int OMgrClient::registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr) {
     this->migrate_evt_hdlr = migrate_event_hdlr;
     return 0;
@@ -103,70 +99,6 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
     msg_hdr->err_code = ERR_OK;
     msg_hdr->result = FDSP_ERR_OK;
-}
-
-// Use this to register the local node with OM as a client.
-// Should be called after calling starting subscription endpoint and control path endpoint.
-int OMgrClient::registerNodeWithOM(Platform *plat)
-{
-    // TODO(Rao): Remove this function
-    fds_panic("Deprecated");
-#if 0
-    if (fNoNetwork) return 0;
-    try {
-        omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(
-            omIpStr, omConfigPort, FDSP_ORCH_MGR, 1, /* number of channels */
-            boost::shared_ptr<FDSP_OMControlPathRespIf>());
-        /* TODO:  pass in response path server pointer */
-        // Just return if the om ptr is NULL because
-        // FDS-net doesn't throw the exception we're
-        // trying to catch. We should probably return
-        // an error and let the caller decide what to do.
-        // fds_verify(omclient_prx_session_ != nullptr);
-        if (omclient_prx_session_ == NULL) {
-            LOGCRITICAL << "OMClient unable to register node with OrchMgr. "
-                    "Please check if OrchMgr is up and restart.";
-            return 0;
-        }
-        om_client_prx = omclient_prx_session_->getClient();  // NOLINT
-
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-
-        FDSP_RegisterNodeTypePtr reg_node_msg(new FDSP_RegisterNodeType);
-        reg_node_msg->node_type    = plat->plf_get_node_type();
-        reg_node_msg->node_name    = *plat->plf_get_my_name();
-        reg_node_msg->ip_hi_addr   = 0;
-        reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
-        reg_node_msg->control_port = plat->plf_get_my_ctrl_port();
-        reg_node_msg->data_port    = plat->plf_get_my_data_port();
-        reg_node_msg->node_root    = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
-
-        // TODO(Andrew): Move to SM specific
-        reg_node_msg->migration_port = plat->plf_get_my_migration_port();
-        reg_node_msg->metasync_port  = plat->plf_get_my_metasync_port();
-
-        // TODO(Vy): simple service uuid from node uuid.
-        reg_node_msg->node_uuid.uuid    = plat->plf_get_my_node_uuid()->uuid_get_val();
-        reg_node_msg->service_uuid.uuid = plat->plf_get_my_svc_uuid()->uuid_get_val();
-        myUuid.uuid_set_val(plat->plf_get_my_svc_uuid()->uuid_get_val());
-
-        LOGNOTIFY << "OMClient registering local node "
-                  << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
-                  << " control port:" << reg_node_msg->control_port
-                  << " data port:" << reg_node_msg->data_port
-                  << " with Orchaestration Manager at "
-                  << omIpStr << ":" << omConfigPort;
-
-        om_client_prx->RegisterNode(msg_hdr, reg_node_msg);
-        LOGDEBUG << "OMClient completed node registration with OM";
-    }
-    catch(...) {
-        LOGCRITICAL << "OMClient unable to register node with OrchMgr. "
-                "Please check if OrchMgr is up and restart.";
-    }
-#endif
-    return (0);
 }
 
 int OMgrClient::testBucket(const std::string& bucket_name,
