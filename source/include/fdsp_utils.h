@@ -17,7 +17,6 @@
 #include <persistent-layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
 #include <util/fiu_util.h>
-#include <fdsp/configuration_service_types.h>
 
 /**
  * Maps FDSPMsg type to FDSPMsgTypeId enum
