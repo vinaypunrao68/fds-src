@@ -142,6 +142,7 @@ void PlatformManager::activateServices(const fpi::ActivateServicesMsgPtr &activa
 }
 
 void PlatformManager::loadProperties() {
+    props.set("fds_root"            , rootDir);
     props.setInt("uuid"             , nodeInfo.uuid);
     props.setInt("disk.iops.max"    , diskCapability.disk_iops_max);
     props.setInt("disk.iops.min"    , diskCapability.disk_iops_min);

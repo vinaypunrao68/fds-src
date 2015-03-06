@@ -55,7 +55,9 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     snapDir += "/";
     snapDir += getVolIdStr() + "_vcat.ldb";
 
-    std::string nodeRoot = svcmgr->getSvcProperty<std::string>(dmSvcUuid, "fds_root");
+    std::string nodeRoot = svcmgr->getSvcProperty<std::string>(
+        SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
+        "fds_root");
     const std::string destDir = nodeRoot + "user-repo/dm-names/" + getVolIdStr() + "/";
     const std::string rsyncCmd = "sshpass -p " + rsyncPasswd + " rsync -r " + snapDir +
             " " + rsyncUser + "@" + destIP + ":" + destDir;

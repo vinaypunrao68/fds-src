@@ -939,7 +939,8 @@ void DataMgr::mod_enable_service() {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     fds_uint32_t diskIOPsMin = feature.isTestMode() ? 60*1000 :
-            svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getSelfSvcUuid(), "disk_iops_min");
+            svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
+                                                 "disk_iops_min");
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more

@@ -279,7 +279,7 @@ void ObjectStorMgr::mod_enable_service()
         // cache and SSDs)
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
         totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
-                svcmgr->getSelfSvcUuid(), "disk_iops_min");
+                svcMgr->getMappedSelfPlatformUuid(), "disk_iops_min");
     }
 
     /*

@@ -82,6 +82,16 @@ struct SvcUuidHash {
     std::size_t operator()(const fpi::SvcUuid& svcId) const;
 };
 
+struct SvcKeyException : std::exception {
+    SvcKeyException(const std::string &desc)
+    {
+        desc_ = desc;
+    }
+    const char* what() const noexcept {return desc_.c_str();}
+ private:
+    std::string desc_;
+};
+
 using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
 using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
 
@@ -179,17 +189,40 @@ struct SvcMgr : HasModuleProvider, Module {
     void postSvcSendError(fpi::AsyncHdrPtr &header);
 
     /**
-    * @brief  Returns property for service with svcUuid.
+    * @brief  Returns property for service with svcUuid
+    * @throws when service or key are not found
     */
     template<class T>
     T getSvcProperty(const fpi::SvcUuid &svcUuid, const std::string& key) {
-        // TODO(Rao): Replace hard coded values with appropraite apis when exposed.
-        if (key == "fds_root") {
-            return boost::lexical_cast<T>("/fds");
-        } else if (key == "disk_iops_min") {
-            return boost::lexical_cast<T>("6000");
+        fpi::SvcInfo svcInfo;
+        bool found = getSvcInfo(svcUuid, svcInfo);
+        if (!found) {
+            GLOGWARN << "Unknown svcuuid: " << svcUUid;
+            /* In this case we can lookup from OM, for now throw an exception */
+            throw SvcKeyException("unknown service");
         }
-        fds_panic("Unknown property");
+        auto itr = svcInfo.props.find(key);
+        if (itr == svcInfo.props.end()) {
+            GLOGWARN << "Unknown key: " << key;
+            throw SvcKeyException(key + " not found");
+        }
+        return boost::lexical_cast<T>(itr->second);
+    }
+
+    /**
+    * @brief Returns svc property for key.  If key not found returns default value
+    * @param svcUuid
+    * @param key
+    * @param defaultVal
+    */
+    template<class T>
+    T getSvcProperty(const fpi::SvcUuid &svcUuid,
+                     const std::string& key, const T &defaultVal) {
+        try {
+            return getSvcProperty<T>(svcUuid, key);
+        } catch (std::exception &e) {
+            return defaultVal;
+        }
     }
 
     /**
