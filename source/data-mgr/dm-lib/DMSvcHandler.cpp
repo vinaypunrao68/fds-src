@@ -5,7 +5,7 @@
 #include <fdsp_utils.h>
 #include <DMSvcHandler.h>
 #include <StatStreamAggregator.h>
-#include "fdsp/sm_service_types.h"
+#include "fdsp/sm_api_types.h"
 
 namespace fds {
 DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider)

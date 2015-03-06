@@ -15,7 +15,7 @@
 #include <fds_process.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_OMControlPathReq.h>
-#include <fdsp/sm_service_types.h>
+#include <fdsp/sm_types_types.h>
 #include <fds_typedefs.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
@@ -35,13 +35,14 @@
 namespace fpi = FDS_ProtocolInterface;
 
 namespace FDS_ProtocolInterface {
-    class FDSP_OMControlPathReqProcessor;
-    class FDSP_OMControlPathReqIf;
-    class FDSP_OMControlPathRespClient;
-    class FDSP_OMControlPathReqIf;
-    class FDSP_ConfigPathReqProcessor;
-    class FDSP_ConfigPathReqIf;
-    class FDSP_ConfigPathRespClient;
+    struct CtrlNotifyMigrationStatus;
+    struct FDSP_OMControlPathReqProcessor;
+    struct FDSP_OMControlPathReqIf;
+    struct FDSP_OMControlPathRespClient;
+    struct FDSP_OMControlPathReqIf;
+    struct FDSP_ConfigPathReqProcessor;
+    struct FDSP_ConfigPathReqIf;
+    struct FDSP_ConfigPathRespClient;
 }
 
 class netSessionTbl;

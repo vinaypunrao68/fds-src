@@ -9,7 +9,7 @@
 #include <fds_timestamp.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
-#include "fdsp/sm_service_types.h"
+#include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
 
 namespace fds {

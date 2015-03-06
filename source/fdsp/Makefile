@@ -7,17 +7,21 @@ user_rtime_env   := user
 user_thrift      := \
 	FDSP.thrift \
 	common.thrift \
+    am_types.thrift \
+    dm_types.thrift \
+	sm_types.thrift \
 	fds_stream.thrift \
 	fds_service.thrift \
 	snapshot.thrift \
 	pm_service.thrift \
 	pm_data.thrift \
-	dm_service.thrift \
+	am_api.thrift \
+	dm_api.thrift \
+	sm_api.thrift \
 	om_service.thrift \
-	sm_service.thrift \
-	am_service.thrift \
 	configuration_service.thrift \
-	xdi.thrift
+	xdi.thrift \
+	svc_test.thrift
 
 user_thrift_loc  := $(topdir)/include/fdsp
 user_thrift_flag := --gen cpp:pure_enums --allow-64bit-consts
