@@ -107,6 +107,14 @@ int32_t SvcMgr::mapToSvcPort(const int32_t &platformPort, const fpi::FDSP_MgrIdT
     return platformPort + offset;
 }
 
+fpi::SvcUuid SvcMgr::mapToSvcUuid(const fpi::SvcUuid &in,
+                                  const fpi::FDSP_MgrIdType& svcType)
+{
+    ResourceUUID resIn(in);
+    resIn.uuid_set_type(in.svc_uuid, svcType);
+    return resIn.toSvcUuid();
+}
+
 SvcMgr::~SvcMgr()
 {
     svcServer_->stop();
@@ -288,6 +296,17 @@ fpi::SvcInfo SvcMgr::getSelfSvcInfo() const {
 
 std::string SvcMgr::getSelfSvcName() const {
     return svcInfo_.name;
+}
+
+fpi::SvcUuid SvcMgr::getMappedSelfPlatformUuid() const
+{
+    return mapToSvcUuid(getSelfSvcUuid(), fpi::FDSP_PLATFORM);
+}
+
+int SvcMgr::getMappedSelfPlatformPort() const
+{
+    int dist = svcInfo_.svc_type - fpi::FDSP_PLATFORM;
+    return svcInfo_.svc_port - dist;
 }
 
 bool SvcMgr::getSvcInfo(const fpi::SvcUuid &svcUuid, fpi::SvcInfo& info) const {

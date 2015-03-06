@@ -206,8 +206,17 @@ struct SvcMgr : HasModuleProvider, Module {
     std::string getSelfSvcName() const;
 
     /**
+    * @brief Convenience function for returning mapped platform uuid
+    */
+    fpi::SvcUuid getMappedSelfPlatformUuid() const;
+
+    /**
+    * @brief Convenience function for returning mapped platform port
+    */
+    int getMappedSelfPlatformPort() const;
+
+    /**
     * @brief 
-    *
     */
     bool getSvcInfo(const fpi::SvcUuid &svcUuid, fpi::SvcInfo& info) const;
 
@@ -293,6 +302,17 @@ struct SvcMgr : HasModuleProvider, Module {
     * @return 
     */
     static int32_t mapToSvcPort(const int32_t &platformPort, const fpi::FDSP_MgrIdType& svcType);
+
+    /**
+    * @brief maps input (in) svc uuid to another svc uuid matching svcType
+    *
+    * @param in
+    * @param svcType
+    *
+    * @return 
+    */
+    static fpi::SvcUuid mapToSvcUuid(const fpi::SvcUuid &in,
+                                     const fpi::FDSP_MgrIdType& svcType);
 
  protected:
     /**
