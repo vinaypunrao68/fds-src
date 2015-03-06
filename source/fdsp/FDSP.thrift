@@ -99,19 +99,6 @@ enum FDSP_ErrType {
   /* DEPRECATED: Don't add anthing here.  We will use Error from fds_err.h */
 }
 
-enum FDSP_VolType {
-  FDSP_VOL_S3_TYPE,
-  FDSP_VOL_BLKDEV_TYPE
-}
-
-enum FDSP_MediaPolicy {
-  FDSP_MEDIA_POLICY_UNSET,                /* only used by cli or other client on modify to not change existing policy */
-  FDSP_MEDIA_POLICY_HDD,                  /* always on hdd */
-  FDSP_MEDIA_POLICY_SSD,                  /* always on ssd */
-  FDSP_MEDIA_POLICY_HYBRID,               /* either hdd or ssd, but prefer ssd */
-  FDSP_MEDIA_POLICY_HYBRID_PREFCAP        /* either on hdd or ssd, but prefer hdd */
-}
-
 enum FDSP_VolNotifyType {
   FDSP_NOTIFY_DEFAULT,
   FDSP_NOTIFY_ADD_VOL,
@@ -275,50 +262,11 @@ struct FDSP_DMT_Resp_Type {
   1: i64 DMT_version
 }
 
-struct FDSP_VolumeDescType {
-  1: required string            vol_name,  /* Name of the volume */
-  2: i32                        tennantId,  // Tennant id that owns the volume
-  3: i32                        localDomainId,  // Local domain id that owns vol
-  4: required i64               volUUID,
-
-  // Basic operational properties
-  5: required FDSP_VolType      volType,
-  6: i32                        maxObjSizeInBytes,
-  7: required double            capacity,
-
-  // Other policies
-  8: i32                        volPolicyId,
-  9: i32                        placementPolicy,  // Can change placement policy
-
-  // volume policy details
-  10: double                    iops_min, /* minimum (guaranteed) iops */
-  11: double                    iops_max, /* maximum iops */
-  12: i32                       rel_prio, /* relative priority */
-  13: required FDSP_MediaPolicy mediaPolicy   /* media policy */
-
-  14: bool                      fSnapshot,
-  15: common.ResourceState      state,
-  16: i64                       contCommitlogRetention,
-  17: i64                       srcVolumeId,
-  18: i64                       timelineTime,
-  19: i64                       createTime,
-  20: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
-}
-
-
 struct FDSP_CreateDomainType {
 
   1: string 		 domain_name,
   2: i32			 domain_id,
 
-}
-
-struct FDSP_TestBucket {
-  1: string                 bucket_name,
-  2: FDSP_VolumeDescType    vol_info, /* Bucket properties and attributes */
-  3: bool                   attach_vol_reqd, /* Should OMgr send out an attach volume if the bucket is accessible, etc */
-  4: string                 accessKeyId,
-  5: string                 secretAccessKey,
 }
 
 struct FDSP_PolicyInfoType {
@@ -327,18 +275,6 @@ struct FDSP_PolicyInfoType {
   3: double                 iops_min,    /* minimum (guaranteed) iops */
   4: double                 iops_max,    /* maximum iops */
   5: i32                    rel_prio,    /* relative priority */
-}
-
-struct FDSP_DeleteVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  // i64    		 vol_uuid,
-  2: i32			 domain_id,
-}
-
-struct FDSP_ModifyVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  2: i64		 vol_uuid,
-  3: FDSP_VolumeDescType	 vol_desc,  /* New updated volume descriptor */
 }
 
 struct FDSP_AttachVolCmdType {
@@ -377,7 +313,7 @@ enum FDSP_NotifyVolFlag {
 
 struct FDSP_AttachVolType {
   1: string 		 vol_name, /* Name of the volume */
-  2: FDSP_VolumeDescType	 vol_desc, /* Volume properties and attributes */
+  2: common.FDSP_VolumeDescType	 vol_desc, /* Volume properties and attributes */
 }
 
 struct FDSP_CreatePolicyType {
@@ -424,30 +360,6 @@ struct FDSP_RegisterNodeType {
   11: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
   12: string 	 node_root,      /* node root - string */
   13: i32         metasync_port, /*  Port for meta sync port service */
-}
-
-struct FDSP_ThrottleMsgType {
-  1: i32 	         domain_id, /* Domain this throttle message is meant for */
-  2: double	         throttle_level, /* a real number between -10 and 10 */
-  /*
-     A throttle level of X.Y (e.g, 5.6) means we should
-     1. throttle all traffic for priorities greater than X (priorities 6,7,8,9 for a 5.6 throttle level) to their guaranteed min rate,
-     2. allow all traffic for priorities less than X (priorities 0,1,2,3,4 for a 5.6 throttle level) to go up till their max rate limit,
-     3. throttle traffic for priority X to a rate = min_rate + Y/10 * (max_rate - min_rate).
-        (A volume that has a min rate of 300 IOPS and max rate of 600 IOPS will be allowed to pump at 480 IOPS when throttle level is 5.6).
-
-     A throttle level of 0 indicates all volumes should be limited at their min_iops rating.
-     A negative throttle level of -X means all volumes should be throttled at (10-X)/10 of their min iops.
-  */
-}
-
-/*
- * Message from OM to AM/SM/DM to help configure QoS control
- * For now using for OM setting total rate in AM based on current set of SMs
- * and their performance capabilities
- */
-struct FDSP_QoSControlMsgType {
-  1: i64   total_rate,   /* total rate in FDS ops/second */
 }
 
 struct FDSP_BucketStatType {
@@ -613,19 +525,14 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
-struct FDSP_CreateVolType {
-  1: string                  vol_name,
-  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
-}
-
 /*
  * From fdscli to OM (sync messages)
  */
 service FDSP_ConfigPathReq {
-  i32 CreateVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_vol_req),
-  i32 DeleteVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_vol_req),
-  i32 ModifyVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_vol_req),
-  i32 SnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType snap_vol_req),
+  i32 CreateVol(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_CreateVolType crt_vol_req),
+  i32 DeleteVol(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_DeleteVolType del_vol_req),
+  i32 ModifyVol(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_ModifyVolType mod_vol_req),
+  i32 SnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_CreateVolType snap_vol_req),
   i32 CreatePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreatePolicyType crt_pol_req),
   i32 DeletePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeletePolicyType del_pol_req),
   i32 ModifyPolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyPolicyType mod_pol_req),
@@ -634,13 +541,13 @@ service FDSP_ConfigPathReq {
   i32 AssociateRespCallback(1:i64 ident), // Associate Response callback ICE-object with DM/SM
   i32 CreateDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType crt_dom_req),
   i32 DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
-  i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
-  FDSP_VolumeDescType GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req) throws (1:FDSP_VolumeNotFound not_found),
+  i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_ThrottleMsgType throttle_msg),
+  common.FDSP_VolumeDescType GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req) throws (1:FDSP_VolumeNotFound not_found),
   i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
   list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),
-  list <FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg),
+  list <common.FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg),
   i32 ShutdownDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ShutdownDomainType dom_req)
 }
 

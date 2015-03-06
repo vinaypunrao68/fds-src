@@ -18,18 +18,22 @@
 #include "platform/agent_container.h"
 #include "platform/domain_container.h"
 
-#include "fdsp/sm_service_types.h"
+#include "fdsp/sm_types_types.h"
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
+    struct CtrlNotifySMAbortMigration;
     struct CtrlNotifyDMTClose;
+    struct CtrlNotifyDLTClose;
     struct CtrlNotifyDMTUpdate;
     struct CtrlDMMigrateMeta;
     using CtrlNotifyDMAbortMigrationPtr = boost::shared_ptr<CtrlNotifyDMAbortMigration>;
+    using CtrlNotifySMAbortMigrationPtr = boost::shared_ptr<CtrlNotifySMAbortMigration>;
     using CtrlNotifyDMTClosePtr = boost::shared_ptr<CtrlNotifyDMTClose>;
+    using CtrlNotifyDLTClosePtr = boost::shared_ptr<CtrlNotifyDLTClose>;
     using CtrlNotifyDMTUpdatePtr = boost::shared_ptr<CtrlNotifyDMTUpdate>;
     using CtrlDMMigrateMetaPtr = boost::shared_ptr<CtrlDMMigrateMeta>;
 }  // namespace FDS_ProtocolInterface
@@ -145,7 +149,7 @@ class OM_NodeAgent : public NodeAgent
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
-    void om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& reg,
+    void om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                     const NodeUuid& stream_dest_uuid);
 
   protected:

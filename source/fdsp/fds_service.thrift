@@ -248,25 +248,25 @@ struct CtrlNotifyDLTUpdate {
 
 /* ----------------------  CtrlNotifyVolAddTypeId  ----------------------------- */
 struct CtrlNotifyVolAdd {
-     1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
+     1: common.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
      3: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 
 /* ----------------------  CtrlNotifyVolRemoveTypeId  -------------------------- */
 struct CtrlNotifyVolRemove {
-     1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
+     1: common.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
      2: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 
 /* -----------------------  CtrlNotifyVolModTypeId  ---------------------------- */
 struct CtrlNotifyVolMod {
-     1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
+     1: common.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
      2: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 
 /* ----------------------  CtrlNotifySnapVolTypeId  ---------------------------- */
 struct CtrlNotifySnapVol {
-     1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
+     1: common.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
      3: FDSP.FDSP_NotifyVolFlag   vol_flag;
 }
 

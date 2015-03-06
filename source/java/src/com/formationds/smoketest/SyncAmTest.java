@@ -1,11 +1,13 @@
 package com.formationds.smoketest;
 
-import com.formationds.apis.ObjectOffset;
-import com.formationds.apis.TxDescriptor;
+import com.formationds.apis.*;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
+import com.formationds.xdi.XdiClientFactory;
+import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -166,4 +168,25 @@ public class SyncAmTest extends BaseAmTest {
         assertEquals(bd.getMetadata().get("second"), "secondValue");
         // assertEquals(bytes.length, bd.getByteCount());
     }
+
+    private static ConfigurationService.Iface configService;
+    private String volumeName;
+    private static final int OBJECT_SIZE = 1024 * 1024 * 2;
+    private static final int MY_AM_RESPONSE_PORT = 9881;
+    private static XdiClientFactory xdiCf;
+    private static XdiService.Iface amService;
+
+    @BeforeClass
+    public static void setUpOnce() throws Exception {
+        xdiCf = new XdiClientFactory(MY_AM_RESPONSE_PORT);
+        amService = xdiCf.remoteAmService("localhost", 9988);
+        configService = xdiCf.remoteOmService("localhost", 9090);
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        volumeName = UUID.randomUUID().toString();
+        configService.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
+    }
+
 }

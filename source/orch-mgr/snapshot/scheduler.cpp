@@ -21,7 +21,7 @@ Scheduler::~Scheduler() {
 }
 
 // will also update / modify
-bool Scheduler::addPolicy(const fpi::SnapshotPolicy& policy) {
+bool Scheduler::addPolicy(const fds::apis::SnapshotPolicy& policy) {
     LOGDEBUG << "about to add policy : " << policy.id;
     atc::Synchronized s(monitor);
     // check if the policy is already here

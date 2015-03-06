@@ -1294,15 +1294,15 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
         return ERR_NOT_FOUND;
     }
 
-    // for now we shouldn't move to new dlt version until
-    // we are done with current cluster update, so
-    // expect to see migration done resp for current dlt version
-    fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
-    fds_verify(cur_dlt_ver == dlt_version);
-
     if (migrError.ok()) {
         // Set node's state to 'node_up'
         agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+        // for now we shouldn't move to new dlt version until
+        // we are done with current cluster update, so
+        // expect to see migration done resp for current dlt version
+        fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
+        fds_verify(cur_dlt_ver == dlt_version);
 
         // update node's dlt version so we don't send this dlt again
         agent->set_node_dlt_version(dlt_version);
@@ -1366,12 +1366,16 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
         return ERR_NOT_FOUND;
     }
 
-    // if this is timeout and not DM, we should not stop migration,
-    // node is probably down... In current implementation, we will stop
+    // if this is Service Layer error and not DM, we should not stop migration,
+    // node is probably down... If this is AM, and it is still up, IO through that
+    // AM will start getting DMT mismatch errors; We will need to solve this better
+    // when implementing error handling
+    // In current implementation, we will stop
     // migration if DM is down, because this could be DM that is source
     // for migration.
     if (respError.ok() ||
-        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_DATA_MGR))) {
+        ((respError == ERR_SVC_REQUEST_TIMEOUT ||
+          respError == ERR_SVC_REQUEST_INVOCATION) && (node_type != fpi::FDSP_DATA_MGR))) {
         dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
     } else {
         dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));

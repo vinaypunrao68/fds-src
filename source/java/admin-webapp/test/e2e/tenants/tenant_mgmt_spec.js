@@ -4,9 +4,6 @@ describe( 'Tenant management', function(){
 
     browser.get( '#/' );
 
-    login();
-    goto( 'tenants' );
-
     var createPage = {};
     var createButton = {};
 
@@ -49,6 +46,8 @@ describe( 'Tenant management', function(){
                 expect( txt ).toBe( 'CoolTenant' );
             });
         });
+        
+        logout();
     });
 
 });

@@ -20,6 +20,8 @@ describe( 'Account username page', function(){
         usernameEl.getText().then( function( txt ){
             expect( txt ).toBe( 'admin' );
         });
+        
+        logout();
     });
 
 });
