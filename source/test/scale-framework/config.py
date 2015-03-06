@@ -2,7 +2,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
-test_list = "fast_integration_test.json"
+test_list = "fast_scale_test.json"
 log_dir = "test-reports"
 test_sets = "testsets"
 setup = "setup.cfg"
@@ -70,7 +70,7 @@ ROOT = "/root/"
 ANSIBLE_ROOT = "../../../ansible/"
 ANSIBLE_INVENTORY = "%s/inventory/" % ANSIBLE_ROOT
 EC2_TEMPLATE = "./templates/ec2"
-BAREMETAL_TEMPLATE = "./templates/integration-framework-cluster"
+BAREMETAL_TEMPLATE = "./templates/scale-framework-cluster"
 NDBADM = "../../../source/cinder/nbdadm.py"
 VAULT_PASS = ".vault_pass.txt"
 DESTROY_EC2 = "scripts/teardown_ec2_cluster.sh %s"
@@ -83,5 +83,5 @@ LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202",
 CONFIG_DIR = "./config/"
 SYSTEM_FRAMEWORK = "testsuites"
 SYSTEM_CMD = "../%s/DomainBootSuite.py -q ../%s/StaticMigration.ini -d dummy --verbose"
-DEFAULT_INVENTORY_FILE = "integration-framework-cluster"
+DEFAULT_INVENTORY_FILE = "scale-framework-cluster"
 CMD_CONFIG = ['./setup_module.py', '-q', './BuildSmokeTest.ini', '-d', 'dummy', '--verbose']
