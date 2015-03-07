@@ -854,8 +854,13 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     LOGNOTIFY << "Received new DLT commit version  "
               << dlt->dlt_data.dlt_type;
     err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
+    if (err.ok()) {
+        objStorMgr->handleDltUpdate();
+    } else if (err == ERR_DUPLICATE) {
+        LOGWARN << "Received duplicate DLT, ignoring";
+        err = ERR_OK;
+    }
     fds_assert(err.ok());
-    objStorMgr->handleDltUpdate();
 
     LOGNOTIFY << "Sending DLT commit response to OM";
     hdr->msg_code = err.GetErrno();

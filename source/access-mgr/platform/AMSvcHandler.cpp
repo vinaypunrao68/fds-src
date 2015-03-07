@@ -262,6 +262,9 @@ AMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
             // added DLT
             dltMgr->dump();
+        } else if (err == ERR_DUPLICATE) {
+            LOGWARN << "Received duplicate DLT version, ignoring";
+            err = ERR_OK;
         } else {
             LOGERROR << "Failed to update DLT! Check dlt_data was set " << err;
         }
