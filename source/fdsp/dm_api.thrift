@@ -4,8 +4,8 @@
 
 include "common.thrift"
 include "dm_types.thrift"
-include "snapshot.thrift"
-include "fds_service.thrift"
+
+include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.dm
@@ -61,7 +61,7 @@ struct GetVolumeMetaDataRspMsg {
  * add those structures to this message?
  */
 struct CreateSnapshotMsg {
-    1:snapshot.Snapshot snapshot
+    1:common.Snapshot snapshot
 }
 /**
  * Response contains the ID of the newly created snapshot.
@@ -485,5 +485,5 @@ struct VolSyncStateRspMsg {
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service DMSvc extends fds_service.PlatNetSvc {
+service DMSvc extends svc_api.PlatNetSvc {
 }

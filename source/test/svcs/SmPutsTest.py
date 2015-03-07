@@ -2,7 +2,7 @@ import time
 import sys
 sys.path.append('../fdslib/')
 sys.path.append('../fdslib/pyfdsp/')
-from fds_service.ttypes import *
+from svc_api.ttypes import *
 import PlatSvc
 import FdspUtils
 import process

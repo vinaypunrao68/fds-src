@@ -513,7 +513,7 @@ OM_NodeAgent::om_send_stream_reg_cmd(fds_int32_t regId,
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     if (bAll == true) {
         // send all known registrations
-        std::vector<fpi::StreamingRegistrationMsg> reg_vec;
+        std::vector<apis::StreamingRegistrationMsg> reg_vec;
         fds_bool_t bret = configDB->getStreamRegistrations(reg_vec);
         if (!bret) {
             LOGERROR << "Failed to get stream registrations from configDB";
@@ -525,7 +525,7 @@ OM_NodeAgent::om_send_stream_reg_cmd(fds_int32_t regId,
             om_send_one_stream_reg_cmd(reg_vec[i], am_uuid);
         }
     } else {
-        fpi::StreamingRegistrationMsg reg_msg;
+        apis::StreamingRegistrationMsg reg_msg;
         fds_bool_t bret = configDB->getStreamRegistration(regId, reg_msg);
         if (!bret) {
             LOGERROR << "Failed to get stream registration "
@@ -539,7 +539,7 @@ OM_NodeAgent::om_send_stream_reg_cmd(fds_int32_t regId,
 }
 
 void
-OM_NodeAgent::om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& reg,
+OM_NodeAgent::om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                          const NodeUuid& stream_dest_uuid) {
     fpi::StatStreamRegistrationMsgPtr reg_msg(new fpi::StatStreamRegistrationMsg());
     reg_msg->id = reg.id;

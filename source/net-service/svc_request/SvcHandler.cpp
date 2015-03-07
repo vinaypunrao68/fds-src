@@ -13,7 +13,7 @@
 
 #include <fiu-control.h>
 #include <fds_process.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_api_types.h>
 #include <net/SvcMgr.h>
 #include <net/SvcRequest.h>
 #include <net/PlatNetSvcHandler.h>

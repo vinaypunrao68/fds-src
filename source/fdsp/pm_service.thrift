@@ -3,9 +3,9 @@
  */
 
 include "FDSP.thrift"
-include "fds_service.thrift"
 include "common.thrift"
+include "svc_types.thrift"
+include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.pm
-
