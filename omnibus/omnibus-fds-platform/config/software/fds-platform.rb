@@ -1,7 +1,7 @@
 # These options are required for all software definitions
 name "fds-platform"
 
-fds_version = "0.7.0"
+fds_version = "0.7.2"
 build_type = ENV['BUILD_TYPE'] 
 git_sha = `git rev-parse HEAD`.chomp
 fds_src_dir = ENV['FDS_SRC_DIR']
