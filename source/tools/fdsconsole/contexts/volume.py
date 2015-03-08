@@ -2,7 +2,7 @@ from svchelper import *
 from common.ttypes import ApiException
 from common.ttypes import ResourceState
 from platformservice import *
-from configuration_service import *
+from config_api import *
 from restendpoint import *
 
 import md5
