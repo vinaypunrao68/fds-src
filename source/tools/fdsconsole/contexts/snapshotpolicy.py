@@ -1,6 +1,6 @@
 from svchelper import *
-import pyfdsp.snapshot
-import pyfdsp.snapshot.ttypes
+import pyfdsp.common
+import pyfdsp.common.ttypes
 
 class SnapshotPolicyContext(Context):
     def __init__(self, *args):
