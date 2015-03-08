@@ -3,17 +3,42 @@ from svc_api.ttypes import *
 import platformservice
 from platformservice import *
 import FdspUtils 
+import restendpoint
 
 class ServiceContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
+        self.__restApi = None
+
+    def restApi(self):
+        if self.__restApi == None:
+            self.__restApi = restendpoint.ServiceEndpoint(self.config.getRestApi())
+        return self.__restApi
 
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
+        'show the list of services in the system'
         try:
-            services = ServiceMap.list()
-            return tabulate(services, headers=['nodeid','service','ip','port', 'status'],
+            services = self.restApi().listNodes()
+            nodes = []
+            for node in sorted(services['nodes'], key=itemgetter('ipV4address')):
+                node_ip = node['ipV4address']
+                for svc_name, svc_instances in node['services'].items():
+                    for svc_attrs in svc_instances:
+                        service = {'port':      svc_attrs['port'],
+                                   'ip':        node_ip,
+                                   'service':   svc_name,
+                                   'status':    svc_attrs['status'],
+                                   'uuid':      svc_attrs['uuid']}
+                        nodes.append(service)
+            return tabulate(nodes,
+                            headers={
+                                'uuid':     'Service UUID',
+                                'service':  'Service Name',
+                                'ip':       'IP4 Address',
+                                'port':     'TCP Port',
+                                'status':   'Service Status'},
                             tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)

@@ -120,6 +120,48 @@ class RestEndpoint(object):
     def build_path(self):
         pass
 
+class ServiceEndpoint:
+
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/config/services'
+
+    def activateNode(self, node_uuid, service_map):
+        res = self.rest.post(self.rest_path, data=json.dumps(volume_info))
+        res = self.rest.parse_result(res)
+
+        if type(res) != dict or 'status' not in res:
+            return None
+        else:
+            if res['status'].lower() != 'ok':
+                return None
+            else:
+                return res['status']
+
+    def deactivateNode(self, node_uuid, service_map):
+        path = '{}/{}'.format(self.rest_path, str(node_uuid))
+        res = self.rest.put(path, data=json.dumps(service_map))
+        res = self.rest.parse_result(res)
+
+
+    def listNodes(self):
+        '''
+        Get a list of nodes in the system.
+        Params:
+           None
+        Returns:
+           List of nodes in the form:
+           {
+           }
+        '''
+
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            return res
+        else:
+            return None
+
 
 class TenantEndpoint():
     def __init__(self, rest):
@@ -487,6 +529,26 @@ class S3Endpoint():
                 print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
         except KeyboardInterrupt:
             print "request cancelled on interrupt"
+
+class TestServiceEndpoints(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        rest = RestEndpoint()
+        self.svcEp = ServiceEndpoint(rest)
+
+    def test_listVolume(self):
+        vols = self.svcEp.listNodes()
+        self.assertIsNotNone(vols)
+
+    def test_activateNode(self):
+        node_uuid = random.randint(0, 10000)
+        status = self.svcEp.activateNode(node_uuid, {})
+        self.assertEquals(status.lower(), 'ok')
+
+    def test_deactivateNode(self):
+        node_uuid = random.randint(0, 10000)
+        status = self.svcEp.deactivateNode(node_uuid)
+        self.assertEquals(status.lower(), 'ok')
 
 class TestS3Endpoint(unittest.TestCase):
     @classmethod
