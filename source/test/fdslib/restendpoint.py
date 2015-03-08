@@ -143,6 +143,23 @@ class ServiceEndpoint:
         res = self.rest.put(path, data=json.dumps(service_map))
         res = self.rest.parse_result(res)
 
+    def listServices(self):
+        nodes = self.listNodes()
+        if not nodes:
+            return []
+
+        services = []
+        for node in nodes:
+            node_ip = node['ipV4address']
+            for svc_name, svc_instances in node['services'].items():
+                for svc_attrs in svc_instances:
+                    service = {'port':      svc_attrs['port'],
+                               'ip':        node_ip,
+                               'service':   svc_name,
+                               'status':    svc_attrs['status'],
+                               'uuid':      svc_attrs['uuid']}
+                    services.append(service)
+        return services
 
     def listNodes(self):
         '''
@@ -158,9 +175,9 @@ class ServiceEndpoint:
         res = self.rest.get(self.rest_path)
         res = self.rest.parse_result(res)
         if res is not None:
-            return res
+            return res['nodes']
         else:
-            return None
+            return []
 
 
 class TenantEndpoint():

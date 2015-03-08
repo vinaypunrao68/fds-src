@@ -20,19 +20,8 @@ class ServiceContext(Context):
     def list(self):
         'show the list of services in the system'
         try:
-            services = self.restApi().listNodes()
-            nodes = []
-            for node in sorted(services['nodes'], key=itemgetter('ipV4address')):
-                node_ip = node['ipV4address']
-                for svc_name, svc_instances in node['services'].items():
-                    for svc_attrs in svc_instances:
-                        service = {'port':      svc_attrs['port'],
-                                   'ip':        node_ip,
-                                   'service':   svc_name,
-                                   'status':    svc_attrs['status'],
-                                   'uuid':      svc_attrs['uuid']}
-                        nodes.append(service)
-            return tabulate(nodes,
+            services = self.restApi().listServices()
+            return tabulate(services,
                             headers={
                                 'uuid':     'Service UUID',
                                 'service':  'Service Name',
