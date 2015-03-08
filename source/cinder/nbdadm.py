@@ -73,6 +73,7 @@ def nbd_connections():
                 consume_arg(args, '-block-size', True)
                 consume_arg(args, '-b', True)
                 consume_arg(args, '-timeout', True)
+                consume_arg(args, '-t', True)
                 consume_arg(args, 'nbd-client')
 
                 # this isn't an nbd invocation we care about
