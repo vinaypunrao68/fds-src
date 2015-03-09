@@ -16,8 +16,10 @@ function gen_api_docs
 function copy_to_webserver
 {
    message "UPDATING HOSTED API DOCUMENTS"
-   sshpass -p "passwd" scp -r gen-html/ root@coke.formationds.com:/var/www/apis/
+   sshpass -p "passwd" scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -r gen-html/ root@coke.formationds.com:/var/www/apis/
 }
 
 gen_api_docs
-copy_to_webserver
+
+# ensure we are on a Jenkins builder
+[[ ${#JENKINS_URL} -gt 0 ]] && copy_to_webserver
