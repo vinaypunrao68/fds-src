@@ -8,7 +8,6 @@ import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.abs.Calculated;
-import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
@@ -21,10 +20,8 @@ import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.FirebreakQueryCriteria;
-import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
@@ -42,7 +39,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.persistence.EntityManager;
 
@@ -53,8 +49,6 @@ public class FirebreakHelper extends QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( FirebreakHelper.class );
 
-    private static final String INDEX_OUT_BOUNDS =
-        "index is out-of-bounds %d, must between %d and %d.";
 
     // zero is not a value last occurred time
     public static final Double NEVER = 0.0;
@@ -97,8 +91,6 @@ public class FirebreakHelper extends QueryHelper {
     	
         final List<VolumeDatapoint> queryResults =
         	new MetricCriteriaQueryBuilder( em ).searchFor( query ).resultsList();
-        
-        filterOutDataByContext( query.getContexts(), queryResults );
         
         try
         {

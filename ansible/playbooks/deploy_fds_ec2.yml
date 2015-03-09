@@ -33,7 +33,7 @@
                 fds_purpose: testing
             key_name: fds-ie
             group_id: sg-43b9c126
-            instance_type: t2.micro
+            instance_type: t2.medium
             image: ami-0f114a3f
             volumes:
                 -   device_name: /dev/sda1

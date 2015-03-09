@@ -14,7 +14,9 @@
 #include <net/PlatNetSvcHandler.h>
 #include "platform/node_data.h"
 #include "platform/platform.h"
-
+#include <net/net_utils.h>
+#include <fds_module_provider.h>
+#include <net/SvcMgr.h>
 #undef LOGGERPTR
 #define LOGGERPTR orchMgr->GetLog()
 namespace fds {
@@ -587,7 +589,13 @@ static void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
     nodeInfo.node_name = ptr->get_node_name();
     nodeInfo.node_type = nodeData.node_type;
     nodeInfo.node_state = ptr->node_state();
-    nodeInfo.ip_lo_addr = netSession::ipString2Addr(ptr->get_ip_str());
+    fpi::SvcInfo svcInfo;
+    fpi::SvcUuid svcUuid;
+    svcUuid.svc_uuid = ptr->rs_get_uuid().uuid_get_val();
+    if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
+        GLOGWARN << "could not fing svcinfo for uuid:" << svcUuid.svc_uuid;
+    }
+    nodeInfo.ip_lo_addr =  net::ipString2Addr(svcInfo.ip);
     nodeInfo.control_port = nodeData.control_port;
     nodeInfo.data_port = nodeData.data_port;
     nodeInfo.migration_port = nodeData.migration_port;

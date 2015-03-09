@@ -356,17 +356,10 @@ function taillog() {
     local app=$1
     local logfiles
     case "${app}" in
-        om|am|dm|sm)
+        om|am|dm|sm|pm)
             ls -1 ${FDSROOT}/var/logs/${app}.log*.log
             for n in $(seq 0 20); do
                 logfiles="$logfiles ${FDSROOT}/var/logs/${app}.log_${n}.log"
-            done
-            tail -qF ${logfiles} 2>/dev/null
-            ;;
-        pm)
-            ls -1 ${FDSROOT}/var/logs/platform.log*.log
-            for n in $(seq 0 20); do
-                logfiles="$logfiles ${FDSROOT}/var/logs/platform.log_${n}.log"
             done
             tail -qF ${logfiles} 2>/dev/null
             ;;
@@ -442,6 +435,7 @@ function clean() {
                 rm -rf /${node}/user-repo/*
                 rm -rf /${node}/dev/*
                 rm -rf /${node}/var/stats/*
+                rm -rf /${node}/var/db/*
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
 

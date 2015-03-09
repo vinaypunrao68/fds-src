@@ -236,7 +236,7 @@ namespace fds
                 }
             }
         }
-        catch (FdsException e)
+        catch (fds::Exception e)
         {
             LOGDEBUG << e.what();
         }

@@ -52,8 +52,8 @@ struct SvcMgrModuleProvider : CommonModuleProviderIf {
         auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
         fpi::SvcInfo svcInfo;
         svcInfo.svc_id.svc_uuid.svc_uuid = 
-            static_cast<int64_t>(configHelper_.get<long long>("svc.uuid"));
-        svcInfo.ip = net::get_local_ip(configHelper_.get_abs<std::string>("fds.nic_if"));
+                static_cast<int64_t>(configHelper_.get<fds_uint64_t>("svc.uuid"));
+        svcInfo.ip = net::get_local_ip(configHelper_.get_abs<std::string>("fds.nic_if","lo"));
         svcInfo.svc_port = configHelper_.get<int>("svc.port");
         svcInfo.incarnationNo = util::getTimeStampSeconds();
         svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo));

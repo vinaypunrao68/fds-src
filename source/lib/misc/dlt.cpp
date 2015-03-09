@@ -638,6 +638,18 @@ Error DLTManager::add(const DLT& _newDlt,
     DLT& newDlt = *pNewDlt;
 
     SCOPEDWRITE(dltLock);
+    // check if we already have this DLT version in the list
+    fds_uint64_t newDltVersion = pNewDlt->getVersion();
+    for (std::vector<DLT*>::const_iterator iter = dltList.begin();
+         iter != dltList.end();
+         iter++) {
+        if (newDltVersion == (*iter)->version) {
+            LOGWARN << "DLT version " << newDltVersion
+                    << " already exists in DLT manager, not going to add";
+            return ERR_DUPLICATE;
+        }
+    }
+
     // check refcnt of the current DLT, if 0
     if (curPtr && (cb != nullptr)) {
         err = curPtr->addCbIfRefcnt(cb);

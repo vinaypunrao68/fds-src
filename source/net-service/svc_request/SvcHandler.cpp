@@ -218,7 +218,7 @@ setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
 
     try
     {
-        MODULEPROVIDER()->get_fds_config()->set(*id, *val);
+        MODULEPROVIDER()->get_fds_config()->set(*id, static_cast<fds_uint64_t>(*val));
     } catch(...)
     {
         // TODO(Rao): Only ignore SettingNotFound exception
