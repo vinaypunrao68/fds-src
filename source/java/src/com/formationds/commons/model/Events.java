@@ -4,20 +4,16 @@
 
 package com.formationds.commons.model;
 
-import com.formationds.commons.crud.SearchResults;
-import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.entity.Event;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 
 /**
  *
  */
-public class Events extends ModelBase implements SearchResults {
-
-    final List<? super Event> events = new LinkedList<>();
+public class Events extends ArrayList<Event> {
 
     /**
      *
@@ -28,7 +24,7 @@ public class Events extends ModelBase implements SearchResults {
      * @param events
      */
     public Events(List<? extends Event> events) {
-        this.addEvents(events);
+        super( events );
     }
 
     /**
@@ -36,31 +32,46 @@ public class Events extends ModelBase implements SearchResults {
      * @param events
      */
     public Events(Event... events) {
-        this.addEvents(events);
+        if (events != null)
+        {
+            super.addAll( Arrays.asList( events ) );
+        }
     }
 
     /**
      * Set the events.
      * @param events
      */
-    public Events setEvents(List<Event> events) { this.events.clear(); this.events.addAll(events); return this; }
+    public Events setEvents(List<? extends Event> events)
+    {
+        super.clear();
+        super.addAll(events);
+        return this;
+    }
 
     /**
      *
      * @return the set of events
      */
-    public List<? super Event> getEvents() { return this.events; };
+    public List<? super Event> getEvents() { return this; };
 
     /**
      * @param e
      * @return this
      */
-    public Events addEvents(Event... e) { return (e != null ? this.addEvents(Arrays.asList(e)) : this); }
+    public Events addEvents(Event... e)
+    {
+        return (e != null ? this.addEvents(Arrays.asList(e)) : this);
+    }
 
     /**
      *
      * @param events
      * @return this
      */
-    public Events addEvents(List<? extends Event> events) { this.events.addAll(events); return this; }
+    public Events addEvents(List<? extends Event> events)
+    {
+        super.addAll(events);
+        return this;
+    }
 }

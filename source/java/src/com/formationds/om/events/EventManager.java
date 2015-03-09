@@ -4,7 +4,7 @@
 
 package com.formationds.om.events;
 
-import com.formationds.commons.crud.JDORepository;
+import com.formationds.commons.crud.EntityPersistListener;
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventDescriptor;
 import com.formationds.commons.events.EventSeverity;
@@ -159,7 +159,7 @@ public enum EventManager {
         MetricsRepository mr = SingletonRepositoryManager.instance()
                                                          .getMetricsRepository();
 
-        JDORepository.EntityPersistListener<VolumeDatapoint> l =
+        EntityPersistListener<VolumeDatapoint> l =
                 new VolumeDatapointEntityPersistListener();
 
         mr.addEntityPersistListener(l);

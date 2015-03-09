@@ -25,13 +25,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /**
  *
  */
-public class EventRepository extends JDORepository<Event, Long, Events, QueryCriteria> {
+public class EventRepository extends JDORepository<Event, Long> {
 
     private static final String DBNAME = "var/db/events.odb";
 
@@ -71,30 +70,23 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
     }
 
     @Override
-    public Events query(QueryCriteria queryCriteria) {
+    public List<? extends Event> query(QueryCriteria queryCriteria) {
         EntityManager em = newEntityManager();
         try {
-            final List<Event> results;
             EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(em).searchFor(queryCriteria);
-            results = tq.resultsList();
-            
-            return new Events(results);
+            return tq.resultsList();
         } finally {
             em.close();
         }
     }
 
-    public Events queryTenantUsers(QueryCriteria queryCriteria, List<Long> tenantUsers) {
+    public List<? extends Event> queryTenantUsers(QueryCriteria queryCriteria, List<Long> tenantUsers) {
         EntityManager em = newEntityManager();
         try {
-            final List<? extends Event> results;
-
             UserEventCriteriaQueryBuilder tq =
             new UserEventCriteriaQueryBuilder(em).usersIn(tenantUsers)
                                                  .searchFor(queryCriteria);
-            results = tq.resultsList();
-
-            return new Events(results);
+            return tq.resultsList();
         } finally {
             em.close();
         }

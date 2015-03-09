@@ -6,7 +6,7 @@ package com.formationds.om.webkit.rest.events;
 
 import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
-import com.formationds.commons.model.Events;
+import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.EventRepository;
@@ -54,14 +54,14 @@ public class QueryEvents implements RequestHandler {
             User requestUser = findUser(uid);
 
             EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
-            Events events = null;
+            List<? extends Event> events = null;
             if (requestUser == null || requestUser.isIsFdsAdmin()) {
                 events = er.query(eventQuery);
             } else {
                 final List<Long> tenantUserIds = findTenantUserIds(uid);
                 events = er.queryTenantUsers(eventQuery, tenantUserIds);
             }
-            return new TextResource( events.toJSON() );
+            return new TextResource( ObjectModelHelper.toJSON( events ) );
         }
     }
 
