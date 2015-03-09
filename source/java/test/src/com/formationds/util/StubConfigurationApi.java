@@ -3,7 +3,6 @@ package com.formationds.util;
 import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ResourceState;
-import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
@@ -287,7 +286,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public List<Snapshot> listSnapshots(long volumeId) throws ApiException, TException {
+    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId) throws ApiException, TException {
         return null;
     }
 
