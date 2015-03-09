@@ -34,7 +34,8 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
         try:
 
             #Get the user token
-            userToken = str(utils.get_user_token("admin", "admin", self.om_ip_address, port, 0, 1))
+            userToken = str(utils.get_user_token("admin", "admin",
+                                                 self.om_ip_address, port, 0, 1))
             self.log.info("userToken = %s", userToken)
 
             #Setup for the request
@@ -44,7 +45,7 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
             self.log.info("header = %s", header)
 
             #Get the s3 connection from the testcase parameters
-            conn = self.parameters['s3'].get_s3_connection()
+            # conn = self.parameters['s3'].get_s3_connection()
 
             #Get number of volumes currently?
 
@@ -66,12 +67,15 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
 
                 #create volume
                 r = requests.post(url, data=json_data, headers=header)
-                self.log.info("request = %s", r.request)
-                self.log.info("response = %s", r.json())
-                self.log.info("status = %s", r.status_code)
-
-                #Check return code
-                self.assertTrue(200 == r.status_code)
+                if r is None:
+                    raise ValueError, "r is None"
+                else:
+                    self.log.info("request = %s", r.request)
+                    self.log.info("response = %s", r.json())
+                    self.log.info("status = %s", r.status_code)
+    
+                    #Check return code
+                    self.assertTrue(200 == r.status_code)
 
                 #Get the bucket via boto
                 #bucket = conn.lookup(bucket_name)
@@ -100,11 +104,11 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
             test_passed = True
 
 
-        except:
-            self.log.info("response = %s", r.json())
+        except Exception, e:
+            self.log.exception(e)
             test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
+        finally:
+            super(self.__class__, self).reportTestCaseResult(test_passed)
 
     '''
     Undo it.
