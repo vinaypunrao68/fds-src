@@ -12,6 +12,7 @@
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
 #include <OmDeploy.h>
+#include <OmDmtDeploy.h>
 #include <net/RpcFunc.h>
 #include <orchMgr.h>
 #include <NetSession.h>
