@@ -69,6 +69,9 @@ function build_fds
     fi
     end_time=$(date +%s)
 
+    # Generate API docs based on Thrift autogen files.
+    Build/linux-x86_64.*/bin/thrift --gen html -r source/doc_api.thrift
+
     performance_report BUILD_FDS $(( ${end_time} - ${start_time} ))
 }
 
