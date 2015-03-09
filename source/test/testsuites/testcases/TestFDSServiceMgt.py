@@ -15,7 +15,7 @@ import sys
 import time
 import logging
 import shlex
-import pdb
+import random
 
 
 def getSvcPIDforNode(svc, node, javaClass=None):
@@ -193,6 +193,145 @@ def findNodeFromInv(node_inventory, target):
         if node.nd_conf_dict['node-name'] == target:
             return node
 
+
+def generic_kill(node, service):
+    '''
+    Generic method to kill a specified service running on a specified node.
+    :param node: The node (object) to kill the service on
+    :param service: The service to kill
+    :return: An integer status code returned by the kill command
+    '''
+
+    svc_map = {
+        'sm': 'StorMgr',
+        'dm': 'DataMgr',
+        'om': 'com.formationds.om.Main',
+        'pm': 'platformd',
+        'am': 'com.formationds.am.Main'
+    }
+
+    log = logging.getLogger('TestFDSServiceMgt' + '.' + 'generic_kill')
+
+    if service not in svc_map.keys():
+        log.error("Could not find service {} in service map. "
+                  "Not sure what to kill, so aborting by returning -1!".format(service))
+        return -1
+
+    pid = getSvcPIDforNode(svc_map[service], node)
+
+    if pid != -1:
+        cmd = "kill -9 {}".format(pid)
+        status = node.nd_agent.exec_wait(cmd)
+
+    else:
+        status = 0
+        log.warning("DM not running on %s." % (n.nd_conf_dict['node-name']))
+
+    return status
+
+# This class contains the attributes and methods to test
+# randomly killing a service on a random node after a
+# random amount of time
+# RANDOM!
+class TestRndSvcKill(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, nodes=None,
+                 time_window=None, services=None):
+        '''
+        :param parameters: Gets populated with .ini config params when run by qaautotest
+        :param nodes: Nodes to randomly select from, separated by white space. If None all nodes considered.
+        :param time_window: Dash separated integer pair (e.g. 0-120) representing min/max in seconds to
+                            randomly select from. If None time will be now.
+        :param services: Services to randomly select from, separated by white space. If None all services considered.
+        '''
+
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RndSvcKill,
+                                             "Random service killer")
+
+        node_inv = self.parameters['fdscfg'].rt_obj.cfg_nodes
+        # Listify!
+        if nodes is not None:
+            nodes = nodes.split(' ')
+            # Also ensure that the nodes are proper objects
+            # Hooray for partial application :)
+            finder = lambda x: findNodeFromInv(node_inv, x)
+            # Use finder to find each of the node objects
+            self.passedNodes = map(finder, nodes)
+        else:
+            # If we weren't passed any nodes to pick from, pick from any of them
+            self.passedNodes = node_inv
+
+        if services is not None:
+            self.passedSvcs = services.split(' ')
+        else:
+            self.passedSvcs = ['am', 'pm', 'dm', 'dm', 'om']
+
+        if time_window is not None:
+            self.passedWindow = tuple(map(lambda x: int(x), time_window.split('-')))
+        else:
+            self.passedWindow = (0, 0)
+
+    def __pick_rnds(self):
+        '''
+        Picks random node/service pair and returns them.
+        :return: (node, service) pair
+        '''
+
+        return (random.choice(self.passedNodes),
+                random.choice(self.passedSvcs))
+
+    def test_RndSvcKill(self):
+        '''
+        Will randomly kill a service within the bounds of the parameters passed to the constructor.
+        This test assumes that if a node is up it's services are also up. If for some reason the node
+        or services are already down it will return False.
+        :return: True on successful kill, False otherwise
+        '''
+
+        # Pick our random node
+        selected_node = random.choice(self.passedNodes)
+        self.log.info("Selected {} as random node".format(selected_node.nd_conf_dict['node-name']))
+
+        # Now select a random service
+        selected_svc = random.choice(self.passedSvcs)
+        self.log.info("Selected {} as random svc to kill".format(selected_svc))
+
+        selected_time = random.choice(range(self.passedWindow[0], self.passedWindow[1]))
+        self.log.info("Selected {} as random time after which to kill {} on node {}.".format(selected_time,
+                                                                                             selected_svc,
+                                                                                             selected_node.nd_conf_dict['node-name']))
+
+        # Verify the service exists for the node, if not all bets are off, pick another random node/svc
+        while(selected_node.nd_services.count(selected_svc) == 0):
+            self.log.warn("Service {} not configured for node {}."
+                          "Selecting new random node/service".format(selected_svc,
+                                                                     selected_node.nd_conf_dict['node-name']))
+            selected_node = random.choice(self.passedNodes)
+            selected_svc = random.choice(self.passedSvcs)
+
+        # Add the node, service combo to params so we can track it
+        if 'svc_killed' in self.parameters:
+            self.parameters['svc_killed'].append((selected_node, selected_svc))
+        else:
+            self.parameters['svc_killed'] = [(selected_node, selected_svc)]
+
+        print "SELF.PARAMS.SVC_KILLED = {}".format(self.parameters.get('svc_killed', []))
+
+        # Try the kill
+        # sleep first for the random wait aspect
+        time.sleep(selected_time)
+        status = generic_kill(selected_node, selected_svc)
+
+        if status != 0:
+            self.log.error("{} kill on {} returned status {}.".format(selected_svc,
+                                                                      selected_node.nd_conf_dict['node-name'],
+                                                                      status))
+            return False
+
+        return True
+
+
 # This class contains the attributes and methods to test
 # bringing up a Data Manager (DM) service.
 class TestDMBringUp(TestCase.FDSTestCase):
@@ -285,6 +424,15 @@ class TestDMWait(TestCase.FDSTestCase):
             # If we were passed a node, check that one and exit.
             if self.passedNode is not None:
                 n = findNodeFromInv(nodes, self.passedNode)
+
+            # Make sure it wasn't the target of a random kill
+            if (n, "dm") in self.parameters.get('svc_killed', []):
+                self.log.warning("DM service for node {} previous"
+                                 "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
+                if self.passedNode is not None:
+                    break
+                else:
+                    continue
 
             # Make sure this node is configured for DM.
             if "dm" not in n.nd_services:
@@ -634,6 +782,16 @@ class TestSMWait(TestCase.FDSTestCase):
             # If we were passed a node, check that one and exit.
             if self.passedNode is not None:
                 n = findNodeFromInv(nodes, self.passedNode)
+
+            # Make sure it wasn't the target of a random kill
+            if (n, "sm") in self.parameters.get('svc_killed', []):
+                self.log.warning("SM service for node {} previous"
+                                 "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
+                if self.passedNode is not None:
+                    break
+                else:
+                    continue
+
 
             # Make sure this node is configured for SM.
             if "sm" not in n.nd_services:
@@ -985,6 +1143,16 @@ class TestPMWait(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = findNodeFromInv(nodes, self.passedNode)
             else:
+
+                # Make sure it wasn't the target of a random kill
+                if (n, "pm") in self.parameters.get('svc_killed', []):
+                    self.log.warning("PM service for node {} previously"
+                                     "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
+                    if self.passedNode is not None:
+                        break
+                    else:
+                        continue
+
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMWait()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
                     self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
@@ -1189,6 +1357,13 @@ class TestPMForOMWait(TestCase.FDSTestCase):
             om_node = fdscfg.rt_om_node
 
         if om_node is not None:
+
+            # Make sure it wasn't the target of a random kill
+            if (om_node, "pm") in self.parameters.get('svc_killed', []):
+                self.log.warning("PM service for node {} previous"
+                                 "killed by random svc kill test. PASSING test.".format(n.nd_conf_dict['node-name']))
+                return True
+
             self.log.info("Wait for PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
 
             if not modWait("platformd", om_node):
@@ -1369,6 +1544,13 @@ class TestOMWait(TestCase.FDSTestCase):
             om_node = fdscfg.rt_om_node
 
         if om_node is not None:
+
+            # Make sure it wasn't the target of a random kill
+            if (om_node, "om") in self.parameters.get('svc_killed', []):
+                self.log.warning("OM service for node {} previous"
+                                 "killed by random svc kill test. PASSING test!".format(n.nd_conf_dict['node-name']))
+                return True
+
             self.log.info("Wait for OM on %s." % om_node.nd_conf_dict['node-name'])
 
             return modWait("orchMgr", om_node)
@@ -1706,6 +1888,15 @@ class TestAMWait(TestCase.FDSTestCase):
                 self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
                 # But only check it if it should have an AM.
                 if self.passedNode.nd_conf_dict['node-name'] != n.nd_conf_dict['node-name']:
+                    continue
+
+            # Make sure it wasn't the target of a random kill
+            if (n, "am") in self.parameters.get('svc_killed', []):
+                self.log.warning("AM service for node {} previously"
+                                 "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
+                if self.passedNode is not None:
+                    break
+                else:
                     continue
 
             # Make sure this node is configured for AM.
