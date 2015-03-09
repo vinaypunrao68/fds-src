@@ -13,7 +13,7 @@ user_incl_dir     := \
     migrations \
     $(topdir)/lib \
     $(topdir)/persistent_layer/include \
-		/usr/include/cryptopp
+		/opt/fds-deps/embedded/include/cryptopp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

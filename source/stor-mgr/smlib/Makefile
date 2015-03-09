@@ -11,7 +11,7 @@ user_incl_dir     := \
 	$(topdir)/stor-mgr/migrations \
 	$(topdir)/lib \
 	$(topdir)/persistent-layer/include \
-	/usr/include/cryptopp
+	/opt/fds-deps/embedded/include/cryptopp
 
 user_cpp_flags    := -DOBJCACHE_ENABLE
 user_cpp          :=                   \
