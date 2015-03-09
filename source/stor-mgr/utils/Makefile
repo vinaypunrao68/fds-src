@@ -3,7 +3,7 @@ user_target       := exe
 user_std_libs     := true
 user_rtime_env    := user
 speedup           = -j $(threads)
-user_incl_dir     := $(topdir) ../include $(topdir)/unit-test/stor-mgr /opt/fds-deps/embedded/include/cryptopp
+user_incl_dir     := $(topdir) ../include /opt/fds-deps/embedded/include/cryptopp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
