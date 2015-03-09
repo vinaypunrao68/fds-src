@@ -65,7 +65,11 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     auto config = MODULEPROVIDER()->get_conf_helper();
     omIp_ = config.get_abs<std::string>("fds.common.om_ip_list");
     omPort_ = config.get_abs<int>("fds.common.om_port");
-    omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get<fds_uint64_t>("fds.common.om_uuid", 0));
+    omSvcUuid_.svc_uuid = static_cast<int64_t>(
+        config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
+
+    fds_assert(omSvcUuid_.svc_uuid != 0);
+    fds_assert(omPort_ != 0);
 
     svcRequestHandler_ = handler;
     svcInfo_ = svcInfo;
