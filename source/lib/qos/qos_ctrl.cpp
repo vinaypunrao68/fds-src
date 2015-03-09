@@ -33,7 +33,15 @@ fds_uint32_t FDS_QoSControl::waitForWorkers() {
 
 static void startDispatcher(FDS_QoSControl *qosctl) {
     if (qosctl && qosctl->dispatcher) {
-        qosctl->dispatcher->dispatchIOs();
+        try {
+            qosctl->dispatcher->dispatchIOs();
+        } catch (const std::exception &e) {
+            fds_assert(!"Exception in qos dispatcher");
+            GLOGERROR << "Qos dispatcher exited with exception." << e.what();
+        } catch (...) {
+            fds_assert(!"Exception in qos dispatcher");
+            GLOGERROR << "Qos dispatcher exited with unknown exception.";
+        }
     }
 }
 

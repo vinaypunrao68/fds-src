@@ -230,6 +230,7 @@ Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
                                         const std::string& secret_access_key) {
     Error err(ERR_OK);
     int om_err = 0;
+
     LOGNORMAL << "bucket: " << bucket_name;
 
     // send test bucket message to OM
