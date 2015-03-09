@@ -5,7 +5,7 @@
 
 #include <string>
 #include <unordered_map>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_api_types.h>
 #include <fdsp/BaseAsyncSvc.h>
 #include <fdsp_utils.h>
 #include <net/net-service.h>

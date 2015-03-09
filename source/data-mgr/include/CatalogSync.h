@@ -19,7 +19,7 @@
 #include <concurrency/Mutex.h>
 #include <DmIoReq.h>
 #include <DmBlobTypes.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <net/SvcRequest.h>
 #include <fdsp/DMSvc.h>

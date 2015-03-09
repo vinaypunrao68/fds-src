@@ -8,8 +8,8 @@ user_thrift       := \
 	$(topdir)/fdsp/fds_stream.thrift \
 	$(topdir)/fdsp/common.thrift \
 	$(topdir)/fdsp/xdi.thrift \
+	$(topdir)/fdsp/svc_api.thrift \
 	$(topdir)/fdsp/config_api.thrift \
-	$(topdir)/fdsp/fds_service.thrift \
 	$(topdir)/fdsp/om_api.thrift \
 	$(topdir)/fdsp/pm_service.thrift
 

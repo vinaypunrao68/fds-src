@@ -110,8 +110,24 @@ struct CtrlNotifySMCheckStatus {
  * Checker status response.
  */
 struct CtrlNotifySMCheckStatusResp {
-  /** Status of the checker. */
-  1: sm_types.SMCheckStatusType SmCheckStatus;
+  /** Current status of the online SM Check  */
+    1: sm_types.SMCheckStatusType SmCheckStatus;
+
+  /** Number of corrupt objects */
+    2: i64  SmCheckCorruption;
+
+  /** Number of SM token ownership mismatch */
+    3: i64  SmCheckOwnershipMismatch;
+
+  /** Number of active objects */
+    4: i64  SmCheckActiveObjects;
+
+  /** Total number of SM Tokens to examine */
+    5: i64  SmCheckTotalNumTokens;
+    
+  /** Total number of SM Tokens examined */
+    6: i64  SmCheckTotalNumTokensVerified;
+  
 }
 
 /* ------------------------------------------------------------

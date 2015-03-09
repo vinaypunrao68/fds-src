@@ -59,20 +59,16 @@ enum ObjectMetaDataReconcileFlags {
  * Command to enable/disable, start/stop smcheck
  */
 enum SMCheckCmd {
-  SMCHECK_DISABLE   = 0;
-  SMCHECK_ENABLE    = 1;
-  SMCHECK_START     = 2;
-  SMCHECK_STOP      = 3;
+    SMCHECK_START;
+    SMCHECK_STOP;
 }
 
 /**
  * Bitmap flag of curent SMCheck status
  */
 enum SMCheckStatusType {
-  SMCHECK_STATUS_DISABLED   = 0x00;
-  SMCHECK_STATUS_ENABLED    = 0x01;
-  SMCHECK_STATUS_STARTED    = 0x10;
-  SMCHECK_STATUS_STOPPED    = 0x20;
+    SMCHECK_STATUS_INACTIVE;
+    SMCHECK_STATUS_ACTIVE;
 }
 
 /* ------------------------------------------------------------
