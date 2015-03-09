@@ -210,6 +210,15 @@ class VolumeEndpoint:
                 }
             }
         }
+#new rest api
+#             'name' : volume_name,
+#             'priority' : int(priority),
+#             'sla': int(sla),
+#             'limit': int(limit),
+#             'data_connector': data_connector,
+#            'media_policy': 'HDD_ONLY',
+#            'commit_log_retention': 86400
+#        }
         res = self.rest.post(self.rest_path, data=json.dumps(volume_info))
         res = self.rest.parse_result(res)
 
@@ -254,7 +263,7 @@ class VolumeEndpoint:
         else:
             return None
 
-    def setVolumeQosParams(self, vol_id, min_iops, priority, max_iops):
+    def setVolumeParams(self, vol_id, min_iops, priority, max_iops, media_policy, commit_log_retention):
         '''
         Set the QOS parameters for a volume.
         Params:
@@ -262,6 +271,8 @@ class VolumeEndpoint:
            min_iops - int: minimum number of iops that must be sustained
            priority - int: priority of the volume
            max_iops - int: maximum number of iops that a volume may achieve
+           media_policy - string: media policy
+           commit_log_retention - int: commit log retention
         Returns:
            Dictionary of volume information including updated QOS params
            in the form:
@@ -277,16 +288,17 @@ class VolumeEndpoint:
            }
            or None on failure
         '''
-
-        params = {
-            'sla' : min_iops,
-            'priority': priority,
-            'limit': max_iops
+        request_body = {
+            "sla" : min_iops,
+            "mediaPolicy" : media_policy,
+            "priority" : priority,
+            "commit_log_retention" : commit_log_retention,
+            "limit" : max_iops,
         }
-        path = '{}/{}'.format(self.rest_path, str(vol_id))
-        res = self.rest.put(path, data=json.dumps(params))
-        res = self.rest.parse_result(res)
 
+        path = '{}/{}'.format(self.rest_path, str(vol_id))
+        res = self.rest.put(path, data=json.dumps(request_body))
+        res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
@@ -521,7 +533,7 @@ class TestVolumeEndpoints(unittest.TestCase):
         status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
         self.assertEquals(status.lower(), 'ok')
 
-    def test_setQosParameters(self):
+    def test_setVolumeParameters(self):
         vol_name = 'unit_test' + str(random.randint(0, 10000))
         status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
         self.assertEquals(status.lower(), 'ok')
@@ -532,7 +544,7 @@ class TestVolumeEndpoints(unittest.TestCase):
             if vol['name'] == vol_name:
                 vol_id = vol['id']
 
-        res = self.volEp.setVolumeQosParams(vol_id, 50, 1, 100)
+        res = self.volEp.setVolumeVolumeParams(vol_id, 50, 1, 100, 'HDD_ONLY', 86400)
         self.assertDictContainsSubset({'name': vol_name, 'id':vol_id}, res)
 
 class TestTenantEndpoints(unittest.TestCase):

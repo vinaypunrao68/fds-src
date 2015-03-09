@@ -5,7 +5,7 @@ user_build_dir    := handlers
 
 # TODO: remove this once we have correct placement of header API.
 #
-user_incl_dir     := $(topdir) ../include ../stor-hvisor /usr/include/cryptopp
+user_incl_dir     := $(topdir) ../include ../stor-hvisor /opt/fds-deps/embedded/include/cryptopp
 user_cpp_flags    :=
 user_cpp          := $(wildcard *.cpp)
 

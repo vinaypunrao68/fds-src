@@ -125,7 +125,7 @@ class Operation(object):
                                               instance_count=self.args.count,
                                               type=self.args.type)
             else:
-                # make the integration-framework-cluster version the default one
+                # make the scale-framework-cluster version the default one
                 self.multicluster = multinode.Multinode(type=self.args.type,
                                               inventory=self.inventory_file)
         self.logger.info("Sleeping for 60 seconds before starting tests")
@@ -185,7 +185,7 @@ class Operation(object):
         # and show those who passed, and those who failed
 
 '''
-Define the main method for the Integration Test Framework.
+Define the main method for the scale Test Framework.
 This method will be responsible for execute all the system tests in earnest
 
 Arguments:
@@ -219,7 +219,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Command line argument for'
-                                     ' the integration framework')
+                                     ' the scale framework')
     parser.add_argument('-b', '--build', action='store_true',
                         default='nightly',
                         help='Specify if the build is local or nightly')
@@ -244,7 +244,7 @@ if __name__ == '__main__':
                         help='Specify a name of the cluster, if AWS a tag ' \
                         'name must be given.')
     parser.add_argument('-f', '--config_file',
-                        default='fast_integration_test.json',
+                        default='fast_scale_test.json',
                         help='User can specify which config file will be ' \
                         'used. The config file has to be .json.')
     parser.add_argument('-p', '--ipaddress',

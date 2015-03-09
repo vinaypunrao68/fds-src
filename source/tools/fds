@@ -442,6 +442,7 @@ function clean() {
                 rm -rf /${node}/user-repo/*
                 rm -rf /${node}/dev/*
                 rm -rf /${node}/var/stats/*
+                rm -rf /${node}/var/db/*
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
 

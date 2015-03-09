@@ -14,6 +14,7 @@
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 #include <utility>
+#include <SMCheckCtrl.h>
 
 namespace fds {
 
@@ -38,6 +39,9 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// Tiering engine
     TierEngine::unique_ptr tierEngine;
+
+    /// SM Checker
+    SMCheckControl::unique_ptr SMCheckCtrl;
 
     /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer
@@ -193,6 +197,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
     Error tieringControlCmd(SmTieringCmd* tierCmd);
+
+    Error SmCheckControlCmd(SmCheckCmd *checkCmd);
+    void SmCheckUpdateDLT(const DLT *latestDLT);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

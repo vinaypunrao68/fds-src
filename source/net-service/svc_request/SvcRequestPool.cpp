@@ -87,7 +87,10 @@ SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
     // where there isn't a data placement table we're expecting the receiver
     // to ignore this field anyways.
     if (dltMgr) {
-        header.dlt_version = dltMgr->getDLT()->getVersion();
+        const DLT* curDlt = dltMgr->getDLT();
+        if (curDlt) {
+            header.dlt_version = curDlt->getVersion();
+        }
     }
     return header;
 }
