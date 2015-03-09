@@ -11,6 +11,7 @@ import sys
 import os
 import optparse
 import subprocess
+import math
 
 # TODO(donavan)
 #  Global todo list
@@ -23,6 +24,14 @@ DEFAULT_FDS_ROOT = '/fds/'
 DEFAULT_SHORT_PATH_AND_HINTS = 'dev/disk-config.conf'
 FSTAB_PATH_AND_FILENAME = "/etc/fstab"
 
+# Thes semi-arbitrary looking numbers are documented in the google doc titled:  "DM and SM Partition Size"
+DM_INDEX_BYTES_PER_OBJECT = 32
+SM_INDEX_BYTES_PER_OBJECT = 603
+
+OBJECT_SIZE = 16384
+
+HIGH_INDEX_MODE_VALUE = 0.25     # When to use the storage space on the index drives in capacity calculations
+
 ##### Some constants used when creating partitions
 PARTITION_START_MB = 2
                            # f   o   r   m   a   t   i   o   n       D   a   t   a       S   y   s   t   e   m   s             D   I   S   K
@@ -30,20 +39,17 @@ DISK_MARKER = bytearray ('\x46\x6f\x72\x6d\x61\x74\x69\x6f\x6e\x00\x44\x61\x74\x
 DISK_MARKER_LEN = len (DISK_MARKER)
 
 FDS_SUPERBLOCK_SIZE_IN_MB = 10
-FDS_INDEX_SIZE_IN_MB = 25000
 
 PARITION_TYPE = "xfs"
 
-DM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo"
-SM_INDEX_MOUNT_POINT = DM_INDEX_MOUNT_POINT + "/sm"
+DM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo/dm"
+SM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo/sm"
 
 BASE_SSD_MOUNT_POINT = DEFAULT_FDS_ROOT + "dev/ssd-"
 BASE_HDD_MOUNT_POINT = DEFAULT_FDS_ROOT + "dev/hdd-"
 
 MOUNT_OPTIONS = "noauto"           # mount defaults still apply
 WHITE_SPACE = "   "                # used to pad fstab lines
-
-VIRTUALIZED_FDS_INDEX_SIZE_IN_MB = 1000
 
 # Turn on debugging
 debug_on = False
@@ -53,7 +59,7 @@ header_output = False
 
 class extendedFstab (fstab.Fstab):
 
-    def __init__(self):
+    def __init__ (self):
         self.altered = False
 
     def remove_mount_point_by_uuid (self, uuid):
@@ -74,7 +80,7 @@ class extendedFstab (fstab.Fstab):
 
     def backup_if_altered (self, fstab_file):
         if self.altered:
-            shutil.copyfile (fstab_file, fstab_file + str(time.time()).rstrip('1234567890').rstrip('.'))
+            shutil.copyfile (fstab_file, fstab_file + '.' + str (time.time()).rstrip ('1234567890').rstrip ('.'))
             return True
         return False
 
@@ -96,8 +102,10 @@ class Disk:
     capacity = None
     disk_marker_id = None
     marker = None
+    sm_flag = False
+    dm_flag = False
 
-    def __init__ (self, path, os_disk, index_disk, disk_type, interface, capacity, virtual_environment):
+    def __init__ (self, path, os_disk, index_disk, disk_type, interface, capacity):
         self.path = path
         self.os_disk = os_disk
         self.index_disk = index_disk
@@ -114,65 +122,76 @@ class Disk:
             else:
                 self.disk_marker_id = Disk.HDD_SATA
         else:
-            assert not 'Invalid disk type encountered' + disk_type
-
-        self.virtualized = virtual_environment
+            system_exit ('Invalid disk type encountered:  ' + disk_type)
 
         self.load_disk_marker()
 
-    def get_path(self):
+    def get_path (self):
         return self.path
 
-    def get_type(self):
+    def get_type (self):
         return self.disk_type
 
-    def get_index(self):
+    def get_capacity (self):
+        return self.capacity
+
+    def get_index (self):
         return self.index_disk
 
-    def get_os_usage(self):
+    def get_os_usage (self):
         return self.os_disk
 
-    def dump(self):
-        dbg_print ("%s %s %s %s %s" % (self.path, self.os_disk, self.index_disk, self.disk_type, self.capacity))
+    def set_sm_flag (self):
+        self.sm_flag = True
 
-    def partition(self, reset):
+    def set_dm_flag (self):
+        self.dm_flag = True
+
+    def check_for_fds (self):
+        if self.os_disk:
+            return False
+        if DISK_MARKER == self.marker:
+            print ('Device (%s) is already FDS formatted.' % (self.path))
+            return True
+        return False
+
+    def partition (self, dm_size, sm_size):
         dbg_print ("Evaluating:  %s" % (self.path))
         if self.os_disk:
             return
-        if not reset and DISK_MARKER == self.marker:
-            system_exit ('Device (%s) is already FDS formatted.  Please use --reset to repartition and reformat.' % (self.path));
-        else:
-            dbg_print ("Ready to partition %s as a Formation device." % (self.path))
 
-            # Laydown a GPT disk header, this blows away any existing parition information
-            call_list = ['parted', '--script', self.path, 'mklabel', 'gpt']
+        dbg_print ("Ready to partition %s as a Formation device." % (self.path))
+
+        # Laydown a GPT disk header, this blows away any existing parition information
+        call_list = ['parted', '--script', self.path, 'mklabel', 'gpt']
+        call_subproc (call_list)
+
+        # Create the super block
+        dbg_print ("\tCreating FDS SuperBlock Partition")
+        part_start = PARTITION_START_MB
+        part_end = part_start + FDS_SUPERBLOCK_SIZE_IN_MB
+        call_list = ['parted', '--script', '--align', 'optimal', self.path, 'mkpart', 'formation_superblock', PARITION_TYPE, str (part_start) + 'MB', str (part_end) + 'MB', 'set', '1', 'hidden', 'on']
+        call_subproc (call_list)
+
+        # if this device is an index device, create partition 2
+        if self.index_disk:
+            dbg_print ("\tCreating FDS Index Partition")
+            part_start = part_end
+
+            if self.dm_flag:
+                part_end = part_start + dm_size
+            elif self.sm_flag:
+                part_end = part_start + sm_size
+            else:
+                system_exit ('Found an Index disk without a dm or sm flag set. ')
+
+            call_list = ['parted', '--script', '--align', 'optimal', self.path, 'mkpart', 'formation_index', PARITION_TYPE, str (part_start) + 'MB', str (part_end) + 'MB']
             call_subproc (call_list)
 
-            # Create the super block
-            dbg_print ("\tCreating FDS SuperBlock Partition")
-            part_start = PARTITION_START_MB
-            part_end = part_start + FDS_SUPERBLOCK_SIZE_IN_MB
-            call_list = ['parted', '--script', '--align', 'optimal', self.path, 'mkpart', 'formation_superblock', PARITION_TYPE, str(part_start) + 'MB', str(part_end) + 'MB', 'set', '1', 'hidden', 'on']
-            call_subproc (call_list)
-
-            # if this device is an index device, create partition 2
-            if self.index_disk:
-                dbg_print ("\tCreating FDS Index Partition")
-                part_start = part_end
-
-                if not self.virtualized:
-                    part_end = part_start + FDS_INDEX_SIZE_IN_MB
-                else:
-                    part_end = part_start + VIRTUALIZED_FDS_INDEX_SIZE_IN_MB
-
-                call_list = ['parted', '--script', '--align', 'optimal', self.path, 'mkpart', 'formation_index', PARITION_TYPE, str(part_start) + 'MB', str(part_end) + 'MB']
-                call_subproc (call_list)
-
-
-            dbg_print ("\tCreating FDS Data Partition")
-            # Create the Data partition
-            call_list = ['parted', '--script', '--align', 'optimal', self.path, 'mkpart', 'formation_data', str(part_end) + 'MB', '\"-1\"']
-            call_subproc (call_list)
+        # Create the Data partition
+        dbg_print ("\tCreating FDS Data Partition")
+        call_list = ['parted', '--script', '--align', 'optimal', self.path, 'mkpart', 'formation_data', str (part_end) + 'MB', '\"-1\"']
+        call_subproc (call_list)
 
 
     def load_disk_marker (self):
@@ -225,13 +244,16 @@ class Disk:
             call_subproc (call_list)
 
     # print all the parsed fields
-    def print_disk(self):
+    def print_disk (self):
         global header_output
 
         if not header_output:
             print '#path      os_use  index_use  type  interface  capacity (GB)'
             header_output = True
         print '%-11s%-8s%-11s%-12s%-6s%-s' % (self.path, self.os_disk, self.index_disk, self.disk_type, self.interface, self.capacity)
+
+    def dump (self):
+        dbg_print ("%s %s %s %s %s" % (self.path, self.os_disk, self.index_disk, self.disk_type, self.capacity))
 
 ## Free Functions ----------------------------------------------------------------
 
@@ -258,7 +280,7 @@ def get_uuid (device):
 
 def call_subproc (call_list):
     dbg_print_list (call_list)
-    res = subprocess.call(call_list, stdout = None, stderr = None)
+    res = subprocess.call (call_list, stdout = None, stderr = None)
 
     if res != 0:
         system_exit ('')
@@ -278,15 +300,18 @@ def reset_raid_components (raid_device, raid_partitions):
 
 def cleanup_raid_if_in_use (partition_list, fstab):
     # Check all existing raid arrays to see if any items in partition_list are in use as part of a raid array
-    for id in range (127):
-        md_test_dev = '/dev/md' + str(id)
+    dbg_print ("Checking for raid arrays")
+    for id in range (128):
+        md_test_dev = '/dev/md' + str (id)
         if os.path.exists (md_test_dev):
+            dbg_print ("    found raid arrays:  " + md_test_dev)
             call_list = ['mdadm', '--detail', md_test_dev]
             output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
             for line in output:
                 for part in partition_list:
                     if part in line:
                         # Should force use of a --reformat type CLI here.
+                        dbg_print ("    found raid component:  " + part)
                         mounts = find_mounts (md_test_dev)
                         for mount in mounts:
                             call_list = ['umount', '-f', mount]
@@ -304,7 +329,7 @@ def cleanup_mounted_file_systems (fstab, partition_list):
         for mount in mounts:
             call_list = ['umount', '-f', mount]
             call_subproc (call_list)
-        fstab.remove_mount_point_by_uuid (get_uuid (part)):
+        fstab.remove_mount_point_by_uuid (get_uuid (part))
 
 
 def create_data_manager_index_raid (partition_list):
@@ -315,7 +340,7 @@ def create_data_manager_index_raid (partition_list):
 
     #find next free /dev/mdX device
     for id in range (127):
-        md_test_dev = '/dev/md' + str(id)
+        md_test_dev = '/dev/md' + str (id)
         if os.path.exists (md_test_dev):
             continue
         md_dev = md_test_dev
@@ -335,7 +360,7 @@ def create_data_manager_index_raid (partition_list):
     # Assemble a raid array from partition 2 on each device
     call_list = ['mdadm', '--create', '--quiet', '--metadata=1.2', md_dev, '--level=0', '--raid-devices=2']
     for part in partition_list:
-        call_list.append(part);
+        call_list.append (part);
 
     call_subproc (call_list)
 
@@ -347,7 +372,7 @@ def create_data_manager_index_raid (partition_list):
 
 
 def find_disk_type (disk_list, part):
-    disk_path = part.rstrip('1234567890')
+    disk_path = part.rstrip ('1234567890')
     for disk in disk_list:
         if disk.get_path() == disk_path:
             return disk.get_type()
@@ -356,19 +381,19 @@ def find_disk_type (disk_list, part):
 
 ## Helper Functions --------------------------------------------------------------
 
-def dbg_print(msg):
+def dbg_print (msg):
     if debug_on:
         print 'Debug: ' + msg
 
-def dbg_print_list(list):
+def dbg_print_list (list):
     if debug_on:
         print 'Debug: ',
         print list
 
-def system_exit(msg):
-    if len(msg) > 0:
+def system_exit (msg):
+    if len (msg) > 0:
         print "Fatal Error:  " + msg
-    sys.exit(8)
+    sys.exit (8)
 
 ## -------------------------------------------------------------------------------
 
@@ -378,11 +403,11 @@ if __name__ == "__main__":
     parser.add_option ('-d', '--device', dest = 'device', help = 'Limit operation to listed device (e.g. /dev/sdf)')
     parser.add_option ('-f', '--fds-root', dest = 'fds_root', default=DEFAULT_FDS_ROOT, help = 'Path to fds-root')
     parser.add_option ('--format', dest = 'format', action= 'store_true', help = 'Format disks for use by FDS.  If previously formatted, use --reset.')
+    parser.add_option ('--fstab', dest = 'fstab', default = FSTAB_PATH_AND_FILENAME, help = 'Operate on supplied fstab file rather than ' + FSTAB_PATH_AND_FILENAME)
     parser.add_option ('-m', '--map', dest = 'hints_file', default=DEFAULT_SHORT_PATH_AND_HINTS, help = 'The disk config file generated by disk_id.py.  Default = ' + DEFAULT_FDS_ROOT + DEFAULT_SHORT_PATH_AND_HINTS )
     parser.add_option ('-r', '--reset', dest = 'reset', action = 'store_true', help = 'Reset all storage space, requires FDS to be stopped.')
     parser.add_option ('-p', '--print', dest = 'print_disk', action = 'store_true', help = 'Print disk information')
     parser.add_option ('-D', '--debug', dest = 'debug', action = 'store_true', help = 'Turn on debugging')
-    parser.add_option ('-v', '--virtual', dest = 'virtual', default = False, action = 'store_true', help = 'Run in virtualization mode -- reduces index file system to 1G')
 
     (options, args) = parser.parse_args()
 
@@ -396,7 +421,10 @@ if __name__ == "__main__":
     debug_on = options.debug
     print_disk = options.print_disk
 
-    config_file = options.fds_root + "/" + options.hints_file
+    if options.fds_root.endswith ('/'):
+        config_file = options.fds_root + options.hints_file
+    else:
+        config_file = options.fds_root + "/" + options.hints_file
 
     if DEFAULT_SHORT_PATH_AND_HINTS != options.hints_file:
         if DEFAULT_FDS_ROOT != options.fds_root:
@@ -420,7 +448,7 @@ if __name__ == "__main__":
         items = line.strip ('\r\n').split()
         if '#' == items[0][0]:                 # skip lines beginning with '#'
             continue
-        disk = Disk (items[0], distutils.util.strtobool(items[1]), distutils.util.strtobool(items[2]), items[3], items[4], items[5], options.virtual)
+        disk = Disk (items[0], distutils.util.strtobool (items[1]), distutils.util.strtobool (items[2]), items[3], items[4], items[5])
         disk_list.append (disk)
 
     for disk in disk_list:
@@ -443,9 +471,51 @@ if __name__ == "__main__":
         print "\nTo format or reformat disk(s), please use --format or --reset.  See --help for additional information"
         sys.exit (1)
 
+    # Make sure the disk is "new" to FDS or the --reset option must be used.
+    if options.format:
+        fds_detected = False
+        for disk in disk_list:
+            if disk.check_for_fds():
+                fds_detected = True;
+
+        if fds_detected:
+            system_exit ('Please use --reset to repartition and reformat all drives.')
+
+    #calculate the system capacity and index sizing
+    index_capacity = 0
+    total_capacity = 0
+
+    for disk in disk_list:
+        if disk.get_os_usage():
+            continue
+        disk_capacity = int (disk.get_capacity())
+        if disk.get_index():
+            index_capacity += disk_capacity
+        total_capacity += disk_capacity
+
+    if 1.0 * index_capacity / total_capacity > HIGH_INDEX_MODE_VALUE:            # force to floating point math
+        dbg_print ("Using high index to storage capacity mode")
+        usable_capacity = total_capacity
+    else:
+        usable_capacity = total_capacity - index_capacity
+
+    usable_capacity_bytes = usable_capacity * 1000 * 1000 * 1000
+
+    blob_count = usable_capacity_bytes / OBJECT_SIZE
+
+    dm_index_MB = int (math.ceil (1.0 * blob_count * DM_INDEX_BYTES_PER_OBJECT / 1024 / 1024))
+    sm_index_MB = int (math.ceil (1.0 * blob_count * SM_INDEX_BYTES_PER_OBJECT / 1024 / 1024))
+
+    dbg_print ("Index capacity = " + str (index_capacity))
+    dbg_print ("total_capacity= " + str (total_capacity))
+    dbg_print ("usable_capacity_bytes = " + str (usable_capacity_bytes))
+    dbg_print ("blob_count = " + str (blob_count))
+    dbg_print ("dm_index_MB = " + str (dm_index_MB))
+    dbg_print ("sm_index_MB = " + str (sm_index_MB))
+
     # Open and load the fstab
     new_fstab = extendedFstab()
-    new_fstab.read (FSTAB_PATH_AND_FILENAME)
+    new_fstab.read (options.fstab)
 
     # Partition lists
     sm_index_partition_list = []         # Storage manager index partitions
@@ -457,20 +527,22 @@ if __name__ == "__main__":
         if disk.get_os_usage():
             continue
         if disk.get_index():
-            if len (sm_index_partition_list) < 1:
-                sm_index_partition_list.append (disk.get_path() + '2')
-            else:
+            if len (dm_index_partition_list) < 1:
                 dm_index_partition_list.append (disk.get_path() + '2')
+                disk.set_dm_flag()
+            else:
+                sm_index_partition_list.append (disk.get_path() + '2')
+                disk.set_sm_flag()
             data_partition_list.append (disk.get_path() + '3')
         else:
             data_partition_list.append (disk.get_path() + '2')
 
     # Build a list of partitions that may need to be unmounted
-    umount_targets = data_partition_list + sm_index_partition_list
+    umount_targets = data_partition_list + dm_index_partition_list
 
     # clean up raid, if in use
-    if not cleanup_raid_if_in_use (dm_index_partition_list, new_fstab):
-        umount_targets += dm_index_partition_list
+    if not cleanup_raid_if_in_use (sm_index_partition_list, new_fstab):
+        umount_targets += sm_index_partition_list
 
     # clean up mounted file systems
     cleanup_mounted_file_systems (new_fstab, umount_targets)
@@ -479,22 +551,22 @@ if __name__ == "__main__":
     for disk in disk_list:
         if disk.get_os_usage():
             continue
-        disk.partition (options.reset)
+        disk.partition (options.reset, dm_index_MB, sm_index_MB / len (sm_index_partition_list))
         disk.format()
 
     dm_uuid = None
 
     # See if there are enough SSD present to create a raid array for Data manager index storage
-    if len (dm_index_partition_list) > 1:
-        dm_uuid = create_data_manager_index_raid (dm_index_partition_list)
+    if len (sm_index_partition_list) > 1:
+        sm_uuid = create_data_manager_index_raid (sm_index_partition_list)
     else:
-        dm_uuid = get_uuid (dm_index_partition_list[0])
+        sm_uuid = get_uuid (sm_index_partition_list[0])
 
     # Add mount points to the fstab for Formation file systems
-    new_fstab.add_mount_point ('UUID=' + dm_uuid + WHITE_SPACE + DM_INDEX_MOUNT_POINT + WHITE_SPACE + PARITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
-
-    sm_uuid = get_uuid (sm_index_partition_list[0])
     new_fstab.add_mount_point ('UUID=' + sm_uuid + WHITE_SPACE + SM_INDEX_MOUNT_POINT + WHITE_SPACE + PARITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
+
+    dm_uuid = get_uuid (dm_index_partition_list[0])
+    new_fstab.add_mount_point ('UUID=' + dm_uuid + WHITE_SPACE + DM_INDEX_MOUNT_POINT + WHITE_SPACE + PARITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
 
     hdd_count = 1
     ssd_count = 1
@@ -513,5 +585,5 @@ if __name__ == "__main__":
         new_fstab.add_mount_point ('UUID=' + part_uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
 
     # Replace the fstab
-    if new_fstab.backup_if_altered (FSTAB_PATH_AND_FILENAME):
-        new_fstab.write (FSTAB_PATH_AND_FILENAME)
+    if new_fstab.backup_if_altered (options.fstab):
+        new_fstab.write (options.fstab)

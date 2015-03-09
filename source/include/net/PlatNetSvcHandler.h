@@ -5,7 +5,7 @@
 
 #include <string>
 #include <map>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_api_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/BaseAsyncSvcHandler.h>
 

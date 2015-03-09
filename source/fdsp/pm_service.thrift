@@ -3,11 +3,12 @@
  */
 
 include "FDSP.thrift"
-include "fds_service.thrift"
 include "common.thrift"
+include "svc_types.thrift"
+include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.protocol
+namespace java com.formationds.protocol.pm
 
 /*
  * --------------------------------------------------------------------------------
@@ -100,7 +101,7 @@ struct NodeEvent {
 struct NodeFunctional {
     1: required common.DomainID          	nd_dom_id,
     2: required common.SvcUuid           	nd_uuid,
-    3: required fds_service.FDSPMsgTypeId	nd_op_code,
+    3: required svc_types.FDSPMsgTypeId	nd_op_code,
     4: list<NodeWorkItem>                	nd_work_item,
 }
 
@@ -108,7 +109,7 @@ struct NodeFunctional {
  * Node registration message format.
  */
 struct NodeInfoMsg {
-    1: required fds_service.UuidBindMsg node_loc,
+    1: required svc_api.UuidBindMsg node_loc,
     2: required common.DomainID		node_domain,
     3: StorCapMsg 			node_stor,
     4: required i32           		nd_base_port,
@@ -154,13 +155,13 @@ struct NodeUpgrade {
     1: required common.DomainID          	nd_dom_id,
     2: required common.SvcUuid           	nd_uuid,
     3: NodeVersion                       	nd_sw_ver,
-    4: required fds_service.FDSPMsgTypeId	nd_op_code,
+    4: required svc_types.FDSPMsgTypeId	nd_op_code,
     5: required string                   	nd_md5_chksum,
     6: string                            	nd_pkg_path,
 }
 
-service PlatNetSvc extends fds_service.BaseAsyncSvc {
-    oneway void allUuidBinding(1: fds_service.UuidBindMsg mine);
+service PlatNetSvc extends svc_api.BaseAsyncSvc {
+    oneway void allUuidBinding(1: svc_api.UuidBindMsg mine);
     oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info);
 
     list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast);

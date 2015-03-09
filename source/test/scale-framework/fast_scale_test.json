@@ -1,0 +1,20 @@
+{
+	"test_sets" : {
+		"multi_am_tests" : [
+			{
+				"name" : "TestMultiConnections",
+				"file" : "test_multiconnections.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestMaxNumberBlockVolumes",
+				"file" : "test_max_number_block_volumes.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}
+		]
+	}
+}

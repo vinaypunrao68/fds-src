@@ -4,7 +4,7 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/DMSvc.h>
 // TODO(Rao): Don't include DataMgr here.  The only reason we include now is
@@ -135,6 +135,14 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                       boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
                       const Error                                 &err);
+
+    virtual void
+    StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                         boost::shared_ptr<fpi::CtrlDMMigrateMeta>   &migrMsg);
+
+    void
+    StartDMMetaMigrationCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                           const Error &err);
 };
 
 }  // namespace fds

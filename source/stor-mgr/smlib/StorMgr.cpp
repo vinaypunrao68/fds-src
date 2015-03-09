@@ -13,7 +13,6 @@
 #include <PerfTrace.h>
 #include <ObjMeta.h>
 #include <StorMgr.h>
-#include <NetSession.h>
 #include <fds_timestamp.h>
 #include <net/net_utils.h>
 #include <net/net-service.h>
@@ -33,67 +32,6 @@ fds_bool_t  stor_mgr_stopping = false;
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
 
 ObjectStorMgr *objStorMgr;
-
-/*
- * SM's FDSP interface member functions
- */
-ObjectStorMgrI::ObjectStorMgrI()
-{
-}
-
-ObjectStorMgrI::~ObjectStorMgrI()
-{
-}
-
-void
-ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
-                          FDSP_PutObjTypePtr& putObj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
-                          FDSP_GetObjTypePtr& getObj)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
-                             FDSP_DeleteObjTypePtr& delObj)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::OffsetWriteObject(FDSP_MsgHdrTypePtr& msg_hdr,
-                                  FDSP_OffsetWriteObjTypePtr& offset_write_obj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr,
-                                FDSP_RedirReadObjTypePtr& redir_read_obj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void ObjectStorMgrI::GetObjectMetadata(
-        boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
 
 /**
  * Storage manager member functions
@@ -188,8 +126,6 @@ void ObjectStorMgr::mod_startup()
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
-    std::string     myIp;
-
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
@@ -199,10 +135,6 @@ void ObjectStorMgr::mod_startup()
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
-        /* Set up FDSP RPC endpoints */
-        nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-        myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-        setup_datapath_server(myIp);
 
         /*
          * Register this node with OM.
@@ -214,7 +146,7 @@ void ObjectStorMgr::mod_startup()
                                   modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),
                                   "localhost-sm",
                                   GetLog(),
-                                  nst_, modProvider_->get_plf_manager());
+                                  nullptr, modProvider_->get_plf_manager());
     }
 
     /*
@@ -263,7 +195,6 @@ void ObjectStorMgr::mod_startup()
          * Register/boostrap from OM
          */
         omClient->initialize();
-        omClient->startAcceptingControlMessages();
         omClient->registerNodeWithOM(modProvider_->get_plf_manager());
     }
 
@@ -371,41 +302,14 @@ void ObjectStorMgr::mod_enable_service()
 void ObjectStorMgr::mod_shutdown()
 {
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
-        return;  // no migration or netsession
-    }
-    nst_->endAllSessions();
-    nst_.reset();
-}
-
-void ObjectStorMgr::setup_datapath_server(const std::string &ip)
-{
-    ObjectStorMgrI *osmi = new ObjectStorMgrI();
-    datapath_handler_.reset(osmi);
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_SM";
-    // TODO(???): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(???): Figure out who cleans up datapath_session_
-    datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
-        myIpInt,
-        modProvider_->get_plf_manager()->plf_get_my_data_port(),
-        node_name,
-        FDSP_STOR_HVISOR,
-        datapath_handler_);
 }
 
 int ObjectStorMgr::run()
 {
-    nst_->listenServer(datapath_session_);
+    while (true) {
+        sleep(1);
+    }
     return 0;
-}
-
-DPRespClientPtr
-ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
-    return datapath_session_->getRespClient(session_uuid);
 }
 
 const TokenList&
@@ -748,41 +652,6 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     return err;
 }
 
-NodeAgentDpClientPtr
-ObjectStorMgr::getProxyClient(ObjectID& oid,
-                              const FDSP_MsgHdrTypePtr& msg) {
-    const DLT* dlt = getDLT();
-    NodeUuid uuid = 0;
-
-    // TODO(Andrew): Why is it const if we const_cast it?
-    FDSP_MsgHdrTypePtr& fdsp_msg = const_cast<FDSP_MsgHdrTypePtr&> (msg);
-    // get the first Node that is not ME!!
-    DltTokenGroupPtr nodes = dlt->getNodes(oid);
-    for (uint i = 0; i < nodes->getLength(); i++) {
-        if (nodes->get(i) != getUuid()) {
-            uuid = nodes->get(i);
-            break;
-        }
-    }
-
-    fds_verify(uuid != getUuid());
-
-    LOGDEBUG << "obj " << oid << " not located here "
-             << getUuid() << " proxy_count " << fdsp_msg->proxy_count;
-    LOGDEBUG << "proxying request to " << uuid;
-    fds_int32_t node_state = -1;
-
-    NodeAgent::pointer node = modProvider_->get_plf_manager()->plf_node_inventory()->
-            dc_get_sm_nodes()->agent_info(uuid);
-    SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
-    NodeAgentDpClientPtr smClient = sm->get_sm_client();
-
-    // Increment the proxy count so the receiver knows
-    // this is a proxied request
-    fdsp_msg->proxy_count++;
-    return smClient;
-}
-
 /**
  * @brief Enqueues a message into storage manager for processing
  *
@@ -1114,7 +983,7 @@ ObjectStorMgr::storeCurrentDLT()
     // against DLT
     NodeUuid myUuid = getUuid();
     std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
-    ofstream uuidFile(uuidPath);
+    std::ofstream uuidFile(uuidPath);
     uuidFile <<  myUuid.uuid_get_val();
 }
 

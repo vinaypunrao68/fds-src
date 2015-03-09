@@ -201,6 +201,8 @@ describe( 'Testing the timeline settings', function(){
         element.all( by.css( '.slide-window-stack-breadcrumb' )).get( 0 ).click();
         browser.sleep( 200 );
     
+        
+        logout();
 //        checkValues( 'diffStartTimes', ['2 days', '2 weeks', '120 days', '2 years', '3 years'] );        
     });
 });

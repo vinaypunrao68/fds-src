@@ -11,7 +11,7 @@
 #include <MigrationClient.h>
 #include <fds_process.h>
 #include <MigrationTools.h>
-#include "fdsp/om_service_types.h"
+#include "fdsp/om_api_types.h"
 
 #include <object-store/SmDiskMap.h>
 
@@ -147,14 +147,16 @@ MigrationClient::migClientSnapshotMetaData()
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
-                                                      std::placeholders::_3);
+                                                      std::placeholders::_3,
+                                                      std::placeholders::_4);
     } else {
         snapshotRequest.snapNum = "2";
         snapshotRequest.smio_persist_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotSecondPhaseCb,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
-                                                      std::placeholders::_3);
+                                                      std::placeholders::_3,
+                                                      std::placeholders::_4);
     }
 
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
@@ -232,7 +234,8 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
 void
 MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
-                                               std::string &snapDir)
+                                               std::string &snapDir,
+                                               leveldb::CopyEnv *env)
 {
     // on error, set error state (abort migration)
     if (!error.ok()) {
@@ -406,7 +409,8 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
 void
 MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                                                SmIoSnapshotObjectDB* snapRequest,
-                                               std::string &snapDir)
+                                               std::string &snapDir,
+                                               leveldb::CopyEnv *env)
 {
     // on error, set error state (abort migration)
     if (!error.ok()) {
@@ -574,13 +578,14 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     /* We no longer need these snapshots. 
      * Delete the snapshot directory and files.
      */
-    leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
-
-    status = env->DeleteDir(firstPhaseSnapshotDir);
-    status = env->DeleteDir(secondPhaseSnapshotDir);
+    if (env) {
+        status = env->DeleteDir(firstPhaseSnapshotDir);
+        status = env->DeleteDir(secondPhaseSnapshotDir);
+    }
 
     delete dbFromFirstSnap;
     delete dbFromSecondSnap;
+
     /* Set the migration client state to indicate the second delta set is sent. */
     setMigClientState(MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE);
 }
@@ -772,7 +777,7 @@ MigrationClient::handleMigrationError(const Error& error) {
                    << " reporting to OM to abort token migration";
         fpi::CtrlTokenMigrationAbortPtr msg(new fpi::CtrlTokenMigrationAbort());
         auto req = gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
-        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlSvcEvent), msg);
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTokenMigrationAbort), msg);
         req->invoke();
     }
 }

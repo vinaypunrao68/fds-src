@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "fds_process.h"
-#include "fdsp/dm_service_types.h"
-#include "fdsp/sm_service_types.h"
+#include "fdsp/dm_api_types.h"
+#include "fdsp/sm_api_types.h"
 
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>

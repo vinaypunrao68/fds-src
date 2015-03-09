@@ -3,10 +3,10 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
@@ -76,7 +76,7 @@ public class XdiAsync {
         });
     }
 
-    public CompletableFuture<Void> getBlobToStream(BlobInfo blob, OutputStream str) {
+    public CompletableFuture<Void> writeBlobToStream(BlobInfo blob, OutputStream str) {
         return getBlobToConsumer(blob, bytes -> {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             CompletableFuture.runAsync(() -> {
@@ -93,8 +93,6 @@ public class XdiAsync {
     }
 
     public CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor) {
-        //CompletableFuture<BlobDescriptor> blobDescriptorFuture = statBlob(domain, volume, blob);
-
         int objectSize = blobInfo.volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
 
         // TODO: do we need to worry about limiting reads?

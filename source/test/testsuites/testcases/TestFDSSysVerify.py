@@ -18,7 +18,7 @@ import fnmatch
 import time
 import re
 
-def fileSearch(searchFile, searchString, occurrences):
+def fileSearch(searchFile, searchString, occurrences, sftp=None):
     """
     Search the given file for the given search string
     verifying whether it occurs the specified number
@@ -27,20 +27,31 @@ def fileSearch(searchFile, searchString, occurrences):
     log = logging.getLogger('TestFDSSysVerify' + '.' + 'fileSearch')
 
     # Verify the file exists.
-    if not os.path.isfile(searchFile):
-        log.error("File %s is not found." % (searchFile))
-        return False
+    if sftp is None:
+        if not os.path.isfile(searchFile):
+            log.error("File %s is not found." % (searchFile))
+            return False
+    else:
+        lstatout=str(sftp.lstat(searchFile)).split()[0]
+        if 'd' in lstatout:
+            log.error("%s is a directory." % (searchFile))
+            return False
 
-    f = open(searchFile, "r")
-    searchLines = f.readlines()
-    f.close()
+    if sftp is None:
+        f = open(searchFile, "r")
+        searchLines = f.readlines()
+        f.close()
+    else:
+        f = sftp.file(searchFile, "r", -1)
+        data = f.read()
+        searchLines = data.split('\n')
 
     occur = 0
-    log.info("Searching for exactly %d occurrence(s) of string [%s]." % (occurrences, searchString))
+    log.debug("Searching for exactly %d occurrence(s) of string [%s]." % (occurrences, searchString))
     for line in searchLines:
         if searchString in line:
             occur = occur + 1
-            log.info("Found occurrence %d: %s." % (occur, line))
+            log.debug("Found occurrence %d: %s." % (occur, line))
 
     if occur == occurrences:
         return True, occur
@@ -569,11 +580,21 @@ class TestWaitForLog(TestCase.FDSTestCase):
         occurrencesFound = 0
         for i in range(1, maxLooks):
             occurrencesFound = 0
-            for log_file in os.listdir(fds_dir + "/var/logs"):
+            sftp = None
+            if self.passedNode.nd_local:
+                log_files = os.listdir(fds_dir + "/var/logs")
+            else:
+                sftp = self.passedNode.nd_agent.env_ssh_clnt.open_sftp()
+                log_files = sftp.listdir(fds_dir + "/var/logs")
+
+            for log_file in log_files:
                 if fnmatch.fnmatch(log_file, self.passedService + ".log_*.log"):
                     found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
-                                                    self.passedOccurrences)
+                                                    self.passedOccurrences, sftp)
                     occurrencesFound += occurrences
+
+            if sftp is not None:
+                sftp.close()
 
             if occurrencesFound == self.passedOccurrences:
                 # Saw what we were looking for.

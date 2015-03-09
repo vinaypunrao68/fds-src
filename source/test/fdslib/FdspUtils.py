@@ -13,7 +13,7 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
 from common.ttypes import *
-from fds_service.ttypes import *
+from svc_api.ttypes import *
 from pm_service.ttypes import *
 from pm_service.constants import *
 

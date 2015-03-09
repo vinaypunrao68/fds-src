@@ -33,7 +33,7 @@
                 fds_purpose: testing
             key_name: fds-ie
             group_id: sg-43b9c126
-            instance_type: t2.micro
+            instance_type: t2.medium
             image: ami-0f114a3f
             volumes:
                 -   device_name: /dev/sda1
@@ -63,7 +63,7 @@
  
     -   name: set variable build defined in inventory file (release or debug)
         set_fact:
-            build: "{{ fds_build if fds_build is defined else 'debug' }}"
+            build: "{% if fds_build is defined and fds_build == 'debug' %}dbg{% else %}rel{% endif %}"
         tags:
           - install-local
 
@@ -79,7 +79,7 @@
         copy: src={{ item }}
           dest=/home/deploy/deb_staging/{{ instance_name_tag }}/fds-platform.deb
         with_fileglob:
-          - '../../omnibus/omnibus-fds-platform/pkg/fds-platform_*{{ build }}*.deb'
+          - '../../omnibus/omnibus-fds-platform/pkg/fds-platform-*{{ build }}*.deb'
         tags:
           - install-local
 

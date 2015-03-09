@@ -12,11 +12,11 @@ mockStats = function(){
             var stats = [];
             var volumes = [];
             
-            if ( filter.contextList.length === 0 ){
+            if ( !angular.isDefined( filter.contexts ) || filter.contexts.length === 0 ){
                 volumes = JSON.parse( window.localStorage.getItem( 'volumes' ) );
             }
             else {
-                volumes = filter.contextList;
+                volumes = filter.contexts;
             }
             
             
@@ -109,11 +109,11 @@ mockStats = function(){
             
             var volumes = JSON.parse( window.localStorage.getItem( 'volumes' ) );
             
-            if ( filter.contextList.length > 0 ){
+            if ( angular.isDefined( filter.contexts ) && filter.contexts.length > 0 ){
                 volumes = [];
                 
-                for ( var i = 0; i < filter.contextList.length; i++ ){
-                    volumes.push( filter.contextList[i] );
+                for ( var i = 0; i < filter.contexts.length; i++ ){
+                    volumes.push( filter.contexts[i] );
                 }
             }
             
@@ -130,6 +130,13 @@ mockStats = function(){
                 
                 if ( point.y > 24*60*60 ){
                     fbCount++;
+                }
+                
+                if ( !angular.isDefined( filter.useSizeForValue )){
+                    
+                    var temp = point.y;
+                    point.y = point.x;
+                    point.x = temp;
                 }
                 
                 var series = {

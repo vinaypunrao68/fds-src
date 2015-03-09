@@ -4,7 +4,7 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 #define SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/SMSvc.h>
 
@@ -154,6 +154,14 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     */
     void NotifyDMTUpdate(boost::shared_ptr <fpi::AsyncHdr> &hdr,
             boost::shared_ptr <fpi::CtrlNotifyDMTUpdate> &dmt);
+
+    /**
+     * Handlers for smcheck
+     */
+    void NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                       boost::shared_ptr<fpi::CtrlNotifySMCheck>& msg);
+    void querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                            boost::shared_ptr<fpi::CtrlNotifySMCheckStatus>& msg);
 };
 
 }  // namespace fds

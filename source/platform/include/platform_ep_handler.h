@@ -10,11 +10,6 @@
 #include <net/PlatNetSvcHandler.h>
 #include "platform_net_svc.h"
 
-namespace FDS_ProtocolInterface {
-struct CtrlNotifyDLTUpdate;
-struct CtrlNotifyDMTUpdate;
-}
-
 namespace fds
 {
     /**

@@ -592,13 +592,10 @@ set(SOURCE_FILES
     source/access-mgr/amlib/handlers/responsehandler.cpp
     source/access-mgr/amlib/AccessMgr.cpp
     source/access-mgr/amlib/am-tx-mgr.cpp
-    source/access-mgr/amlib/AmAsyncResponseApi.cpp
-    source/access-mgr/amlib/AmAsyncService.cpp
     source/access-mgr/amlib/AmCache.cpp
     source/access-mgr/amlib/AmDataApi.cpp
     source/access-mgr/amlib/AmDispatcher.cpp
     source/access-mgr/amlib/AmProcessor.cpp
-    source/access-mgr/amlib/fdsn-server.cpp
     source/access-mgr/amlib/requests.cpp
     source/access-mgr/include/requests/AbortBlobTxReq.h
     source/access-mgr/include/requests/AttachVolBlobReq.h
@@ -618,14 +615,12 @@ set(SOURCE_FILES
     source/access-mgr/include/am-tx-mgr.h
     source/access-mgr/include/AmAsyncDataApi.h
     source/access-mgr/include/AmAsyncResponseApi.h
-    source/access-mgr/include/AmAsyncService.h
     source/access-mgr/include/AmCache.h
     source/access-mgr/include/AmDataApi.h
     source/access-mgr/include/AmDispatcher.h
     source/access-mgr/include/AmProcessor.h
     source/access-mgr/include/AmRequest.h
     source/access-mgr/include/AMSvcHandler.h
-    source/access-mgr/include/fdsn-server.h
     source/access-mgr/include/responsehandler.h
     source/access-mgr/include/StorHvVolumes.h
     source/access-mgr/platform/am-node-workflow.cpp

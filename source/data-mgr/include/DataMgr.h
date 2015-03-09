@@ -33,7 +33,6 @@
 
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
-#include <NetSession.h>
 #include <DmIoReq.h>
 #include <dmhandler.h>
 #include <CatalogSync.h>
@@ -61,11 +60,6 @@ extern DataMgr *dataMgr;
 
 struct DataMgr : Module, DmIoReqHandler {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
-
-    class ReqHandler;
-
-    typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
-    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
 
     OMgrClient     *omClient;
 
@@ -237,14 +231,6 @@ struct DataMgr : Module, DmIoReqHandler {
         }
     };
 
-    /*
-     * RPC handlers and comm endpoints.
-     */
-    ReqHandlerPtr  metadatapath_handler;
-    boost::shared_ptr<netSessionTbl> nstable;
-    netMetaDataPathServerSession *metadatapath_session;
-    // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
-
     fds_rwlock respMapMtx;
 
     FDS_VolumeQueue*  sysTaskQueue;
@@ -300,11 +286,6 @@ struct DataMgr : Module, DmIoReqHandler {
     Error notifyDMTClose();
     void finishForwarding(fds_volid_t volid);
 
-    static Error volcat_evt_handler(fds_catalog_action_t,
-                                    const fpi::FDSP_PushMetaPtr& push_meta,
-                                    const std::string& session_uuid);
-
-
     /**
      * A callback from stats collector to sample DM-specific stats
      */
@@ -318,7 +299,6 @@ struct DataMgr : Module, DmIoReqHandler {
                                fds_volid_t volume_id,
                                const std::vector<StatSlot>& slots);
 
-    void setup_metadatapath_server(const std::string &ip);
     void setup_metasync_service();
 
     explicit DataMgr(CommonModuleProviderIf *modProvider);
@@ -348,10 +328,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
-
-    inline RespHandlerPrx respHandleCli(const string& session_uuid) {
-        return metadatapath_session->getRespClient(session_uuid);
-    }
 
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void updateCatalog(dmCatReq *io);
@@ -383,89 +359,6 @@ struct DataMgr : Module, DmIoReqHandler {
     Error deleteSnapshot(const fds_uint64_t snapshotId);
 
     Error deleteVolumeContents(fds_volid_t volId);
-
-    /*
-     * Nested class that manages the server interface.
-     */
-    class ReqHandler : public FDS_ProtocolInterface::FDSP_MetaDataPathReqIf {
-      public:
-        ReqHandler();
-        ~ReqHandler();
-
-        void StartBlobTx(const FDSP_MsgHdrType& msg_hdr,
-                         const std::string &volumeName,
-                         const std::string &blobName,
-                         const TxDescriptor &txDesc) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-
-        void UpdateCatalogObject(const FDSP_MsgHdrType& fdsp_msg,
-                                 const FDSP_UpdateCatalogType& cat_obj_req) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-
-        void QueryCatalogObject(const FDSP_MsgHdrType& fdsp_msg,
-                                const FDSP_QueryCatalogType& cat_obj_req) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-
-        void DeleteCatalogObject(const FDSP_MsgHdrType& fdsp_msg,
-                                 const FDSP_DeleteCatalogType& cat_obj_req) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-
-        void StatBlob(const FDSP_MsgHdrType& msg_hdr,
-                      const std::string &volumeName,
-                      const std::string &blobName) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-
-        void SetBlobMetaData(const FDSP_MsgHdrType& header,
-                             const std::string& volumeName,
-                             const std::string& blobName, const
-                             FDSP_MetaDataList& metaDataList) {
-        }
-        void GetBlobMetaData(const FDSP_MsgHdrType& header,
-                             const std::string& volumeName,
-                             const std::string& blobName) {
-        }
-        void GetVolumeMetaData(const FDSP_MsgHdrType& header,
-                               const std::string& volumeName) {
-        }
-
-        /* =========
-         * The actual interfaces that get called
-         * =========
-         */
-        void StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                         boost::shared_ptr<std::string> &volumeName,
-                         boost::shared_ptr<std::string> &blobName,
-                         FDS_ProtocolInterface::TxDescriptorPtr& txDesc);
-        void UpdateCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
-                                 &msg_hdr,
-                                 FDS_ProtocolInterface::
-                                 FDSP_UpdateCatalogTypePtr& update_catalog);
-        void QueryCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
-                                &msg_hdr,
-                                FDS_ProtocolInterface::
-                                FDSP_QueryCatalogTypePtr& query_catalog);
-        void DeleteCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
-                                 &msg_hdr,
-                                 FDS_ProtocolInterface::
-                                 FDSP_DeleteCatalogTypePtr& query_catalog);
-        void StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                      boost::shared_ptr<std::string> &volumeName,
-                      boost::shared_ptr<std::string> &blobName);
-        void SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
-                             boost::shared_ptr<std::string>& volumeName,
-                             boost::shared_ptr<std::string>& blobName,
-                             boost::shared_ptr<FDSP_MetaDataList>& metaDataList);
-        void GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
-                             boost::shared_ptr<std::string>& volumeName,
-                             boost::shared_ptr<std::string>& blobName);
-        void GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
-                               boost::shared_ptr<std::string>& volumeName);
-    };
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
