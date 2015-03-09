@@ -151,6 +151,9 @@ namespace fds {
         inline fds_uint64_t getCommittedDMTVersion() const {
             return dmtMgr->getCommittedVersion();
         }
+        inline fds_uint64_t getTargetDMTVersion() const {
+            return dmtMgr->getTargetVersion();
+        }
 
         /**
          * Returns true if volume metadata for volumes in the same

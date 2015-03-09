@@ -320,7 +320,8 @@ Error DMTManager::commitDMT(fds_uint64_t version) {
         committed_version = version;
         target_version = DMT_VER_INVALID;
     } else {
-        err = ERR_INVALID_ARG;
+        committed_version = DMT_VER_INVALID;
+        target_version = DMT_VER_INVALID;
     }
     dmt_lock.write_unlock();
     return err;

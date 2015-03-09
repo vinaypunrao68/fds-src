@@ -63,8 +63,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
             LOGDEBUG << "DST_Idle. Evt: " << e.logString();
         }
     };
-    struct DST_Error : public msm::front::interrupt_state<DmtRecoveryEvt>
+    struct DST_Error
+            : public msm::front::interrupt_state<mpl::vector<DmtEndErrorEvt, DmtRecoveryEvt>>
     {
+        DST_Error() : abortMigrAcksToWait(0), commitDmtAcksToWait(0) {}
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -74,6 +77,9 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
         }
+
+        fds_uint32_t abortMigrAcksToWait;
+        fds_uint32_t commitDmtAcksToWait;
     };
     struct DST_AllOk : public msm::front::state<>
     {
@@ -236,7 +242,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
-    struct DACT_Recovery
+    struct DACT_Recovered
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -276,6 +282,22 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_EndError
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_ChkEndErr
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_RecoverDone
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+
     /**
      * Guard conditions.
      */
@@ -321,26 +343,27 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_BcastAM , DACT_Commit   ,   msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Waiting , DmtTimeoutEvt  , DST_Compute , DACT_Start    ,  msf::none   >,
-    msf::Row< DST_Waiting , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
+    msf::Row< DST_Waiting , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Compute , DmtVolAckEvt   , DST_Commit  , DACT_Compute  ,GRD_DmtCompute>,
-    msf::Row< DST_Compute , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
+    msf::Row< DST_Compute , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Commit  , DmtPushMetaAckEvt, DST_BcastAM, DACT_Commit   , GRD_Commit  >,
-    msf::Row< DST_Commit  , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
+    msf::Row< DST_Commit  , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_BcastAM , DmtCommitAckEvt, DST_Close   , DACT_BcastAM  , GRD_BcastAM  >,
-    msf::Row< DST_BcastAM , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
+    msf::Row< DST_BcastAM , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Close   , DmtCommitAckEvt, DST_Done    , DACT_Close    , GRD_Close    >,
-    msf::Row< DST_Close   , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
+    msf::Row< DST_Close   , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Done    , DmtCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_Done     >,
-    msf::Row< DST_Done    , DmtRecoveryEvt , DST_Idle    , DACT_Recovery , msf::none    >,
+    msf::Row< DST_Done    , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_AllOk   ,DmtErrorFoundEvt, DST_Error   , DACT_Error    , msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Error   , DmtRecoveryEvt , DST_AllOk   , DACT_Recovery , msf::none    >
+    msf::Row< DST_Error   , DmtEndErrorEvt , DST_AllOk   , DACT_EndError , msf::none    >,
+    msf::Row< DST_Error   , DmtRecoveryEvt , DST_Error   , DACT_ChkEndErr, msf::none    >
     // +------------------+----------------+-------------+---------------+--------------+
     >{};  // NOLINT
 
@@ -925,33 +948,134 @@ void
 DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "DACT_Error fired.";
-
-    /*
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
-
-    if(vp->hasNoTargetDmt()) {
+    if (vp->hasNoTargetDmt()) {
+        // if we did not even have target DMT computed, nothing to recover
+        // got back to all ok /IDLE state
         LOGNORMAL << "No target DMT computed/commited, nothing to recover";
-        fsm.process_event(DmtRecoveryEvt());
+        fsm.process_event(DmtEndErrorEvt());
     } else {
         OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
 
-        // Revert to previous DMT
+        // Revert to previously committed DMT locally in OM
         vp->undoTargetDmtCommit();
-        // Need to send abort migration msg
-        LOGNORMAL << "Already computed or commited target DMT, will send abort now";
+
+        // We already computed target DMT, so most likely sent start migration msg
+        // Send abort migration to DMs first, so that we can restart migration later
+        // (otherwise DMs will think they are still migrating)
+        LOGNORMAL << "Already computed or commited target DMT, will send abort msg "
+                  << " got target DMT version " << vp->getTargetDMTVersion();
+        fds_uint32_t abortCnt = dom_ctrl->om_bcast_dm_migration_abort(vp->getCommittedDMTVersion());
+        dst.abortMigrAcksToWait = 0;
+        if (abortCnt > 0) {
+            dst.abortMigrAcksToWait = abortCnt;
+        }
+
+        // we are going to wait for acks so that we do not go to idle/all ok state too soon
+        // but we are going to ignore acks with errors/ timeouts
+        // We will revert volume placement and persistent state right now without waiting
+        // for abort migration acks and send DMT commit for previously committed DMT to AMs
+
+        // send DMT commit to AMs and SMs if target was committed
+        fds_uint32_t commitCnt = 0;
+        if (!vp->hasNonCommitedTarget()) {
+            // has target DMT (see the first if) and it is commited
+            commitCnt = dom_ctrl->om_bcast_dmt(fpi::FDSP_STOR_HVISOR,
+                                               vp->getCommittedDMT());
+            commitCnt += dom_ctrl->om_bcast_dmt(fpi::FDSP_STOR_MGR,
+                                                vp->getCommittedDMT());
+            dst.commitDmtAcksToWait = 0;
+            if (commitCnt > 0) {
+                dst.commitDmtAcksToWait = commitCnt;
+            }
+            LOGNORMAL << "Sent DMT commit to " << commitCnt << " nodes, will wait for resp";
+        }
+
+        // see if we already recovered or need to wait for acks
+        if ((abortCnt < 1) && (commitCnt < 1)) {
+            // we already recovered
+            LOGNORMAL << "No services that need abort migration or previous DMT";
+            fsm.process_event(DmtEndErrorEvt());
+        }
     }
-    */
-    fsm.process_event(DmtRecoveryEvt());
 }
-// DACT_Recovery
-// -----------
+
+// DACT_EndError
+// --------------
+// End of error state
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
-DmtDplyFSM::DACT_Recovery::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DACT_Recovery fired.";
+    LOGDEBUG << "DACT_EndError";
+}
+
+// DACT_ChkEndErr
+// --------------
+// Start recover from error state
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    DmtRecoveryEvt recoverAckEvt = (DmtRecoveryEvt)evt;
+    FdspNodeType node_type = recoverAckEvt.svcUuid.uuid_get_type();
+    LOGDEBUG << "DACT_EndError ack for abort migration? " << recoverAckEvt.ackForAbort
+             << " node type " << node_type << " " << recoverAckEvt.ackError;
+
+    // if we got SL timeout for one of the nodes we were trying to add to DMT
+    // most likely that node is down.. for now mark as down
+    if (recoverAckEvt.ackForAbort &&
+        (node_type == fpi::FDSP_DATA_MGR) &&
+        (recoverAckEvt.ackError == ERR_SVC_REQUEST_TIMEOUT)) {
+        OM_Module *om = OM_Module::om_singleton();
+        ClusterMap* cm = om->om_clusmap_mod();
+        NodeUuidSet addedDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+        LOGNORMAL << "SM timeout in SL, node uuid " << std::hex
+                  << recoverAckEvt.svcUuid.uuid_get_val() << std::dec
+                  << " ; we had " << addedDms.size() << " added DMs";
+        for (NodeUuidSet::const_iterator cit = addedDms.cbegin();
+             cit != addedDms.cend();
+             ++cit) {
+            if (*cit == recoverAckEvt.svcUuid) {
+                LOGWARN << "Looks like DM that we tried to add to DMT is down, "
+                        << " setting it's state to down: node uuid " << std::hex
+                        << recoverAckEvt.svcUuid.uuid_get_val() << std::dec;
+                OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+                OM_SmAgent::pointer dm_agent = domain->om_dm_agent(recoverAckEvt.svcUuid);
+                dm_agent->set_node_state(fpi::FDS_Node_Down);
+                cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
+                break;
+            }
+        }
+    }
+
+    if (recoverAckEvt.ackForAbort) {
+        fds_verify(src.abortMigrAcksToWait > 0);
+        --src.abortMigrAcksToWait;
+    } else {
+        if (src.commitDmtAcksToWait > 0) {
+            --src.commitDmtAcksToWait;
+        }
+    }
+
+    if (src.commitDmtAcksToWait == 0 && src.abortMigrAcksToWait == 0) {
+        LOGNOTIFY << "Receivied all acks for abort migration and revert DMT";
+        fsm.process_event(DmtEndErrorEvt());
+    }
+}
+
+
+// DACT_Recovered
+// --------------
+// Finished recovering from error state
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DmtDplyFSM::DACT_Recovered::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "DACT_Recovered";
 }
 
 }  // namespace fds

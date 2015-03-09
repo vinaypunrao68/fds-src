@@ -1380,6 +1380,11 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
     } else {
         dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
     }
+
+    // in case dmt is in error mode, also send recover ack, since OM sends
+    // dmt commit for previously commited DMT as part of recovery
+    dmtMod->dlt_deploy_event(DmtRecoveryEvt(false, uuid, respError));
+
     return err;
 }
 

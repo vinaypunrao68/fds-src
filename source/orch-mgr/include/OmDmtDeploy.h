@@ -31,10 +31,17 @@ class DmtDeployEvt
 class DmtRecoveryEvt
 {
   public:
-    DmtRecoveryEvt() {}
+    DmtRecoveryEvt(fds_bool_t abortAck,
+                   const NodeUuid& uuid,
+                   const Error& err)
+            : ackForAbort(abortAck), svcUuid(uuid), ackError(err) {}
     std::string logString() const {
         return "DmtRecoveryEvt";
     }
+
+    fds_bool_t ackForAbort;  // otherwise dlt commit ack
+    NodeUuid svcUuid;
+    Error ackError;
 };
 
 class DmtLoadedDbEvt
@@ -118,6 +125,14 @@ struct DmtErrorFoundEvt
 
     NodeUuid svcUuid;  // service uuid where error happened
     Error error;
+};
+
+struct DmtEndErrorEvt
+{
+    DmtEndErrorEvt() {}
+    std::string logString() const {
+        return "DmtEndErrorEvt";
+    }
 };
 
 /**

@@ -135,6 +135,8 @@ namespace fds {
         /**
          * Set given version of DMT as committed
          * Will also unset Target DMT
+         * If version is DMT_VER_INVALID, unsets commited DMT, and subsequent
+         * calls to hasCommittedDMT() will return false.
          */
         Error commitDMT(fds_uint64_t version);
         /**

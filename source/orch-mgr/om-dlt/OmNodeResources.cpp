@@ -302,8 +302,7 @@ OM_NodeAgent::om_send_abort_dm_migration_resp(fpi::CtrlNotifyDMAbortMigrationPtr
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
-    // TODO(xxx): There is no DmtRecoverAckEvt currently so the next line is commented out
-    // dmtMod->dmt_deploy_event(DmtRecoverAckEvt());
+    dmtMod->dmt_deploy_event(DmtRecoveryEvt(true, node_uuid, error));
 }
 
 
@@ -1784,7 +1783,7 @@ OM_NodeContainer::om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version) {
     fds_uint32_t count = 0;
     count = dc_dm_nodes->agent_ret_foreach<fds_uint64_t>(cur_dmt_version,
             om_send_dm_migration_abort);
-    LOGDEBUG << "Sent DM migration abort to " << count << "nodes.";
+    LOGDEBUG << "Sent DM migration abort to " << count << " DMs.";
     return count;
 }
 
