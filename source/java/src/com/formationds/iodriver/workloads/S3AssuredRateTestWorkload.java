@@ -13,6 +13,7 @@ import java.util.stream.StreamSupport;
 import com.codepoetics.protonpack.StreamUtils;
 import com.google.common.collect.ImmutableMap;
 
+import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
@@ -159,6 +160,8 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      */
     private Stream<S3Operation> createBucketOperations(String bucketName)
     {
+        if (bucketName == null) throw new NullArgumentException("bucketName");
+
         // Creates the same object 100 times with random content. Same thing actual load will do,
         // 100 times should be enough to get the right stuff in cache so we're running at steady
         // state.
@@ -213,7 +216,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
     {
         int minAssuredIops = (_competingBuckets + 1) * VOLUME_HARD_MIN;
         int headroom = _systemThrottle - minAssuredIops;
-        int testAssured = VOLUME_HARD_MIN + headroom / 2;
+        int testAssured = VOLUME_HARD_MIN + headroom / 100;
 
         return createSetupBucket(_assuredBucketName, testAssured);
     }
@@ -227,6 +230,8 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      */
     private Stream<S3Operation> createSetupCompetingBucket(String bucketName)
     {
+        if (bucketName == null) throw new NullArgumentException("bucketName");
+
         return createSetupBucket(bucketName, VOLUME_HARD_MIN);
     }
 
@@ -238,10 +243,9 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      */
     private Stream<S3Operation> createSetupCompetingBuckets()
     {
-        Supplier<String> bucketNameSupplier = () -> UUID.randomUUID().toString();
-
-        return Stream.generate(bucketNameSupplier)
-                     .flatMap(bucketName -> createSetupCompetingBucket(bucketName));
+        return StreamSupport.stream(_bucketStates.keySet().spliterator(), false)
+                            .filter(bucketName -> !bucketName.equals(_assuredBucketName))
+                            .flatMap(bucketName -> createSetupCompetingBucket(bucketName));
     }
 
     /**
@@ -254,6 +258,8 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      */
     private Stream<S3Operation> createSetupBucket(String bucketName, int assured)
     {
+        if (bucketName == null) throw new NullArgumentException("bucketName");
+
         Supplier<VolumeQosSettings> qosGetter = () -> _bucketStates.get(bucketName).qosSettings;
         Consumer<VolumeQosSettings> qosSetter = qosSettings ->
         {

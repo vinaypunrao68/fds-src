@@ -225,12 +225,14 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
               << " BURST_FACTOR: " << BURST_FACTOR;
 
     /* check the resource availability, if not return Error  */
-    if (((total_vol_iops_min + pVolDesc->iops_min) <= (iopc_subcluster * LOAD_FACTOR)) &&
-        ((((total_vol_iops_min) +
-           ((total_vol_iops_max - total_vol_iops_min) * BURST_FACTOR))) + \
-         (pVolDesc->iops_min +
-          ((pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR)) <= \
-         max_iopc_subcluster)) {
+    auto projected_total_vol_iops_min = total_vol_iops_min + pVolDesc->iops_min;
+    auto avail_iops = iopc_subcluster * LOAD_FACTOR;
+    auto current_burst_iops = total_vol_iops_min
+            + (total_vol_iops_max - total_vol_iops_min) * BURST_FACTOR;
+    auto newvol_burst_iops = pVolDesc->iops_min
+            + (pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR;
+    if (projected_total_vol_iops_min <= avail_iops
+            && (current_burst_iops + newvol_burst_iops <= max_iopc_subcluster)) {
         total_vol_iops_min += pVolDesc->iops_min;
         total_vol_iops_max += pVolDesc->iops_max;
         total_vol_disk_cap_GB += vol_capacity_GB;
@@ -243,10 +245,13 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
         return Error(ERR_OK);
     } else  {
         LOGERROR << " Unable to create Volume,Running out of IOPS";
-        LOGERROR << "Available disk Capacity:"
-                 << avail_disk_capacity << "::Total min IOPS:"
-                 <<  total_vol_iops_min << ":: Total max IOPS:"
-                 << total_vol_iops_max;
+        LOGERROR << "Available disk Capacity:" << avail_disk_capacity
+                 << ":: Total min IOPS:" << total_vol_iops_min
+                 << ":: Total max IOPS:" << total_vol_iops_max
+                 << ":: Requested min IOPS:" << pVolDesc->iops_min
+                 << ":: Requested max IOPS:" << pVolDesc->iops_max
+                 << ":: System min IOPS:" << iopc_subcluster
+                 << ":: System max IOPS:" << max_iopc_subcluster;
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
     return err;
