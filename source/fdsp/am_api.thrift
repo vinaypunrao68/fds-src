@@ -5,7 +5,7 @@
 include "am_types.thrift"
 
 include "common.thrift"
-include "pm_api.thrift"
+include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.am
@@ -38,5 +38,5 @@ struct CtrlNotifyQoSControl {
  * AM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service AMSvc extends pm_api.PlatNetSvc {
+service AMSvc extends svc_api.PlatNetSvc {
 }

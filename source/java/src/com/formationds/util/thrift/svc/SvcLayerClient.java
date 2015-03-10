@@ -2,7 +2,7 @@
  * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.util.thrift.pm;
+package com.formationds.util.thrift.svc;
 
 import com.formationds.commons.model.AccessManagerService;
 import com.formationds.commons.model.DataManagerService;
@@ -14,10 +14,10 @@ import com.formationds.commons.model.StorageManagerService;
 import com.formationds.commons.model.type.NodeState;
 import com.formationds.commons.model.type.ServiceStatus;
 import com.formationds.commons.model.type.ServiceType;
-import com.formationds.protocol.pm.types.DomainNodes;
-import com.formationds.protocol.pm.types.NodeSvcInfo;
-import com.formationds.protocol.pm.PlatNetSvc;
-import com.formationds.protocol.pm.types.SvcInfo;
+import com.formationds.protocol.svc.types.DomainNodes;
+import com.formationds.protocol.svc.types.NodeSvcInfo;
+import com.formationds.protocol.svc.PlatNetSvc;
+import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.net.HostAndPort;
 import org.apache.thrift.TException;
@@ -33,11 +33,11 @@ import java.util.Optional;
 /**
  * @author ptinius
  */
-public class PMServiceClient
-    implements PMServiceClientIface {
+public class SvcLayerClient
+    implements SvcLayerClientIface {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( PMServiceClient.class );
+        LoggerFactory.getLogger( SvcLayerClient.class );
 
     private static final Integer DEF_PM_PORT = 7000;
 
@@ -45,13 +45,13 @@ public class PMServiceClient
 
     private final HostAndPort host;
 
-    public PMServiceClient( ) {
+    public SvcLayerClient( ) {
 
         this( HostAndPort.fromParts( "localhost", DEF_PM_PORT ) );
 
     }
 
-    public PMServiceClient( final HostAndPort host ) {
+    public SvcLayerClient( final HostAndPort host ) {
 
         this.host = host;
 
@@ -78,12 +78,12 @@ public class PMServiceClient
             return true;
         }
 
-        if( !( o instanceof PMServiceClient ) ) {
+        if( !( o instanceof SvcLayerClient ) ) {
 
             return false;
         }
 
-        final PMServiceClient that = ( PMServiceClient ) o;
+        final SvcLayerClient that = ( SvcLayerClient ) o;
 
         return host.equals( that.host ) &&
             !( netsvc != null
@@ -101,7 +101,7 @@ public class PMServiceClient
 
     @Override
     public Map<Domain, List<Node>> getDomainNodes( final DomainNodes domainNodes )
-        throws PMServiceException {
+        throws SvcLayerException {
 
         final Map<Domain, List<Node>> ret = new HashMap<>();
 
@@ -184,7 +184,7 @@ public class PMServiceClient
 
         } catch( TException e ) {
 
-            throw new PMServiceException( "Failed getting domain nodes (%s)",
+            throw new SvcLayerException( "Failed getting domain nodes (%s)",
                                           new Object[] { getHost().toString() } );
         }
 
