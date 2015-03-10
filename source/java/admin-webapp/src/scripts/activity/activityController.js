@@ -8,7 +8,7 @@ angular.module( 'activity-management' ).controller( 'activityController', ['$sco
     };
     
     $scope.activityCallback = function( response ){
-        $scope.activities = response.events;
+        $scope.activities = response;
     };
     
         

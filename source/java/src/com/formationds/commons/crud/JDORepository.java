@@ -15,9 +15,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 import java.io.Serializable;
-import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
@@ -26,10 +24,8 @@ import java.util.Properties;
  * @author ptinius
  */
 public abstract class JDORepository<T,
-                                    PrimaryKey extends Serializable,
-                                    QueryResults extends SearchResults,
-                                    QueryCriteria extends SearchCriteria>
-        implements CRUDRepository<T, PrimaryKey, QueryResults, QueryCriteria> {
+                                    PrimaryKey extends Serializable> extends AbstractRepository<T, PrimaryKey>
+    implements CRUDRepository<T, PrimaryKey> {
 
     private PersistenceManagerFactory factory;
     private PersistenceManager manager;
@@ -39,125 +35,8 @@ public abstract class JDORepository<T,
     // use non-static logger to tie it to the concrete subclass.
     protected final Logger logger;
 
-    /**
-     * Entity prePersist and postPersist listener callbacks.
-     * <p/>
-     * Each interface may throw a RuntimeException on error.
-     *
-     * @param <T>
-     */
-    // TODO: use standard JPA @PrePersist etc entity annotations?
-    public static interface EntityPersistListener<T> {
-
-        /**
-         * Notification that the entity is about to be saved.
-         * <p/>
-         * Implementations should avoid blocking operations.
-         *
-         * @param entity
-         *
-         * @throws RuntimeException if an error occurs.
-         */
-        default void prePersist(T entity) {}
-
-        /**
-         * Notification that the entities are about to be saved.
-         * <p/>
-         * Implementations should avoid blocking operations.
-         *
-         * @param entities
-         *
-         * @throws RuntimeException if an error occurs.
-         */
-        default void prePersist(List<T> entities) {
-            entities.forEach((e) -> prePersist(e));
-        }
-
-        /**
-         * Notification that the entity was just persisted.
-         *
-         * @param entity
-         *
-         * @throws RuntimeException if an error occurs.
-         */
-        default void postPersist(T entity) {}
-
-        /**
-         * Notification that the entity was just persisted.
-         *
-         * @param entities
-         *
-         * @throws RuntimeException if an error occurs.
-         */
-        default void postPersist(List<T> entities) {
-            entities.forEach((e) -> postPersist(e));
-        }
-    }
-
-    private final List<EntityPersistListener<T>> listeners = new ArrayList<>();
-
     protected JDORepository() {
         logger = LoggerFactory.getLogger(this.getClass());
-    }
-
-    /**
-     * Add a Entity persist listener for pre/post persistence callbacks
-     * @param l
-     */
-    public void addEntityPersistListener(EntityPersistListener<T> l) {
-        listeners.add(l);
-    }
-
-    /**
-     * Remove the entity persist listener.
-     * @param l
-     */
-    public void removeEntityPersistListener(EntityPersistListener<T> l) {
-        listeners.remove(l);
-    }
-
-    /**
-     * Fire the prePersist handler on any defined listeners
-     *
-     * @param entity
-     */
-    private void firePrePersist(T entity) {
-        for (EntityPersistListener<T> l : listeners) {
-            l.prePersist(entity);
-        }
-    }
-
-    /**
-     * Fire the prePersist handler on any defined listeners
-     *
-     * @param entities
-     */
-    private void firePrePersist(List<T> entities) {
-        for (EntityPersistListener<T> l : listeners) {
-            l.prePersist(entities);
-        }
-    }
-
-    /**
-     * Fire the postPersist listener on any defined listeners
-     *
-     * @param entity
-     */
-    private void firePostPersist(T entity) {
-        for (EntityPersistListener<T> l : listeners) {
-            l.postPersist(entity);
-        }
-    }
-
-    /**
-     * Fire the postPersist listener on any defined listeners
-     *
-     * @param entities
-     */
-    private void firePostPersist(List<T> entities) {
-        for (EntityPersistListener<T> l : listeners) {
-            l.postPersist(entities);
-        }
     }
 
     /**
@@ -215,34 +94,27 @@ public abstract class JDORepository<T,
      * @return Returns the saved entity
      */
     @Override
-    public T save( final T entity ) {
-
-        synchronized( this ) {
+    synchronized protected T doPersist( final T entity ) {
         try {
-            logger.trace("ENTITY_SAVE: {}", entity);
-
             if( !manager().currentTransaction().isActive() ) {
                 manager().currentTransaction().begin();
             }
-
-            firePrePersist(entity);
             manager().makePersistent( entity );
-            firePostPersist( entity );
 
             if( manager().currentTransaction().isActive() ) {
                 manager().currentTransaction().commit();
             }
 
-            logger.trace("Saved entity {}", entity);
             return entity;
-        } catch (RuntimeException re) {
-            logger.debug( "SAVE Failed", re );
-//            if (manager().currentTransaction().isActive() {
-//                logger.warn("SAVE Failed.  Rolling back transaction.");
-//                manager().currentTransaction().rollback();
-//        }
-            throw re;
         }
+        catch (RuntimeException re)
+        {
+            if (manager().currentTransaction().isActive() )
+            {
+                logger.warn("Rolling back failed transaction.");
+                manager().currentTransaction().rollback();
+            }
+            throw re;
         }
     }
 
@@ -255,89 +127,49 @@ public abstract class JDORepository<T,
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    public List<T> save(Collection<T> entities) {
+    @Override
+    synchronized protected List<T> doPersist(Collection<T> entities) {
         List<T> persisted = new ArrayList<>( );
-        synchronized( this ) {
-            try {
-                logger.trace( "Saving {} entities",
-                              entities != null ? entities.size() : 0 );
-                if( entities != null ) {
-                    entities.forEach( ( e ) -> logger.trace( "ENTITY_SAVE: {}",
-                                                             e ) );
+        try {
+            if( entities != null ) {
 
-                    if( !manager().currentTransaction()
-                                  .isActive() ) {
-                        manager().currentTransaction()
-                                 .begin();
-                    }
-
-                    firePrePersist(
-                        ( entities instanceof List<?> ? ( List<T> ) entities : new ArrayList<T>(
-                            entities ) ) );
-                    persisted.addAll( manager().makePersistentAll(
-                        entities ) );
-                    firePostPersist( persisted );
-
-                    if( manager().currentTransaction()
-                                 .isActive() ) {
-                        manager().currentTransaction()
-                                 .commit();
-                    }
-
-                    logger.trace( "Saved {} entities.", entities.size() );
-                    return persisted;
+                if( !manager().currentTransaction().isActive() ) {
+                    manager().currentTransaction().begin();
                 }
-            } catch( RuntimeException re ) {
+                persisted.addAll( manager().makePersistentAll( entities ) );
 
-
-                logger.debug( "SAVE Failed", re );
-//            if (manager().currentTransaction().isActive()) {
-//                  logger.warn("SAVE Failed.  Rolling back transaction.");
-//                manager().currentTransaction().rollback();
-//        }
-                throw re;
+                if( manager().currentTransaction().isActive() ){
+                    manager().currentTransaction().commit();
+                }
             }
+        } catch( RuntimeException re ) {
+            if (manager().currentTransaction().isActive()) {
+                logger.warn("SAVE Failed.  Rolling back transaction.");
+                manager().currentTransaction().rollback();
+            }
+            throw re;
         }
 
         return persisted;
     }
 
-    /**
-     * Persist the specified events in a transaction.
-     *
-     * @param entities
-     *
-     * @return the persisted events.
-     *
-     * @throws RuntimeException if the save for any entity fails
-     */
-    public List<T> save(T... entities) {
-        return (entities != null ? save(Arrays.asList(entities)) : new ArrayList<>(0));
-    }
-
     @Override
-    public void delete(T entity) {
-        synchronized( this ) {
-            try {
-                logger.trace( "Deleting entity {}", entity );
+    synchronized protected void doDelete(T entity) {
+        try {
+            manager().currentTransaction()
+                     .begin();
+            manager().deletePersistent( entity );
+            manager().currentTransaction()
+                     .commit();
+        } catch( RuntimeException re ) {
+            if( manager().currentTransaction()
+                         .isActive() ) {
+                logger.warn( "DELETE Failed.  Rolling back transaction." );
                 manager().currentTransaction()
-                         .begin();
-                manager().deletePersistent( entity );
-                manager().currentTransaction()
-                         .commit();
-                logger.trace( "Deleted entity {}", entity );
-            } catch( RuntimeException re ) {
-                logger.debug( "DELETE Failed", re );
-
-                if( manager().currentTransaction()
-                             .isActive() ) {
-                    logger.warn( "DELETE Failed.  Rolling back transaction." );
-                    manager().currentTransaction()
-                             .rollback();
-                }
-
-                throw re;
+                         .rollback();
             }
+
+            throw re;
         }
     }
 
@@ -426,13 +258,4 @@ public abstract class JDORepository<T,
     this.entityManagerFactory   = entity;
   }
 
-  /**
-   * @return the class
-   */
-  @SuppressWarnings("unchecked")
-  @Override
-  public Class getEntityClass() {
-    return ( Class<T> ) ( ( ParameterizedType ) getClass()
-      .getGenericSuperclass() ).getActualTypeArguments()[ 0 ];
-  }
 }

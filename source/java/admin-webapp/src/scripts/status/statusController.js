@@ -46,7 +46,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     };
     
     $scope.activitiesReturned = function( list ){
-        $scope.activities = list.events;
+        $scope.activities = list;
     };
     
     $scope.firebreakReturned = function( data ){
