@@ -441,7 +441,6 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             # specified, check that all defined are up.
             if "fds_nodes" in scenario.nd_conf_dict:
                 if scenario.nd_conf_dict['fds_nodes'] == '*':
-                    print "{}".format(dir(scenario.cfg_sect_nodes[0]))
                     fdsNodeNames = [x for x in scenario.cfg_sect_nodes
                                     if hasattr(x, 'selected') and x.selected is True]
                 else:
