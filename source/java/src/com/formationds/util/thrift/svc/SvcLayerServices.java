@@ -2,7 +2,7 @@
  * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.util.thrift.pm;
+package com.formationds.util.thrift.svc;
 
 import com.google.common.net.HostAndPort;
 import org.slf4j.Logger;
@@ -17,15 +17,15 @@ import java.util.Optional;
 /**
  * @author ptinius
  */
-public class PlatformManagerServices {
+public class SvcLayerServices {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( PlatformManagerServices.class );
+        LoggerFactory.getLogger( SvcLayerServices.class );
 
-    private static final Map<Long, List<PMServiceClient>> SERVICES = 
+    private static final Map<Long, List<SvcLayerClient>> SERVICES =
         new HashMap<>();
 
-    private static Optional<List<PMServiceClient>> by( Long domainId ) {
+    private static Optional<List<SvcLayerClient>> by( Long domainId ) {
         // simpler debugging.
         if( SERVICES.containsKey( domainId ) ) {
             return Optional.of( SERVICES.get( domainId ) );
@@ -34,12 +34,12 @@ public class PlatformManagerServices {
         }
     }
 
-    private static Optional<PMServiceClient> by( final Long domainId,
+    private static Optional<SvcLayerClient> by( final Long domainId,
                                                  final HostAndPort host ) {
 
         if( SERVICES.containsKey( domainId ) ) {
 
-            for( final PMServiceClient client : SERVICES.get( domainId ) ) {
+            for( final SvcLayerClient client : SERVICES.get( domainId ) ) {
 
                 if( client.getHost().equals( host ) ) {
 
@@ -68,13 +68,13 @@ public class PlatformManagerServices {
             
             logger.debug( "Adding platform client {} to service cache.", host );
             SERVICES.put( domainId, new ArrayList<>() );
-            SERVICES.get( domainId ).add( new PMServiceClient( host ) );
+            SERVICES.get( domainId ).add( new SvcLayerClient( host ) );
 
         }
 
     }
 
-    public static Optional<List<PMServiceClient>> get( final Long domainId ) {
+    public static Optional<List<SvcLayerClient>> get( final Long domainId ) {
 
         return by( domainId );
     }

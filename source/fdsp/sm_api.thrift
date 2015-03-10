@@ -5,7 +5,7 @@
 include "sm_types.thrift"
 
 include "common.thrift"
-include "pm_service.thrift"
+include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.sm
@@ -342,5 +342,5 @@ struct CtrlObjectRebalanceFilterSet {
  * SM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service SMSvc extends pm_service.PlatNetSvc {
+service SMSvc extends svc_api.PlatNetSvc {
 }
