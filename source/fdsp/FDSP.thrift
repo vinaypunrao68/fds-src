@@ -262,49 +262,6 @@ struct FDSP_DMT_Resp_Type {
   1: i64 DMT_version
 }
 
-struct FDSP_DmtCloseType {
-  1: i64 DMT_version
-}
-
-struct FDSP_DLT_Resp_Type {
-  1: i64 DLT_version
-}
-
-struct FDSP_DMT_Resp_Type {
-  1: i64 DMT_version
-}
-
-struct FDSP_VolumeDescType {
-  1: required string            vol_name,  /* Name of the volume */
-  2: i32                        tennantId,  // Tennant id that owns the volume
-  3: i32                        localDomainId,  // Local domain id that owns vol
-  4: required i64               volUUID,
-
-  // Basic operational properties
-  5: required FDSP_VolType      volType,
-  6: i32                        maxObjSizeInBytes,
-  7: required double            capacity,
-
-  // Other policies
-  8: i32                        volPolicyId,
-  9: i32                        placementPolicy,  // Can change placement policy
-
-  // volume policy details
-  10: double                    iops_min, /* minimum (guaranteed) iops */
-  11: double                    iops_max, /* maximum iops */
-  12: i32                       rel_prio, /* relative priority */
-  13: required FDSP_MediaPolicy mediaPolicy   /* media policy */
-
-  14: bool                      fSnapshot,
-  15: common.ResourceState      state,
-  16: i64                       contCommitlogRetention,
-  17: i64                       srcVolumeId,
-  18: i64                       timelineTime,
-  19: i64                       createTime,
-  20: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
-}
-
-
 struct FDSP_CreateDomainType {
 
   1: string 		 domain_name,
