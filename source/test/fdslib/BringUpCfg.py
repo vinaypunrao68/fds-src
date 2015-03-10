@@ -191,6 +191,7 @@ class FdsNodeConfig(FdsConfig):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
 
         if self.nd_run_om():
+            om_ip_arg = ' --fds.common.om_ip_list=%s' % self.nd_conf_dict['ip']
             if self.nd_agent is None:
                 print "You need to call nd_connect_agent() first"
                 sys.exit(0)
@@ -212,12 +213,12 @@ class FdsNodeConfig(FdsConfig):
             self.nd_start_influxdb();
 
             if test_harness:
-                status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
-                                                 (fds_dir, log_dir),
+                status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s %s > %s/om.out 2>&1 &) \"' %
+                                                 (fds_dir, om_ip_arg, log_dir),
                                                  fds_bin=True)
             else:
                 status = self.nd_agent.ssh_exec_fds(
-                    "orchMgr --fds-root=%s > %s/om.out" % (fds_dir, log_dir))
+                    "orchMgr --fds-root=%s %s > %s/om.out" % (fds_dir, om_ip_arg, log_dir))
 
             time.sleep(2)
         else:
@@ -279,7 +280,7 @@ class FdsNodeConfig(FdsConfig):
             port = 7000  # PM default.
 
         if om_ip is not None:
-            port_arg = port_arg + (' --fds.pm.om_ip=%s' % om_ip)
+            port_arg = port_arg + (' --fds.common.om_ip_list=%s' % om_ip)
 
         fds_dir = self.nd_conf_dict['fds_root']
 
