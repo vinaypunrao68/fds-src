@@ -15,8 +15,8 @@ namespace java com.formationds.apis
  * Volume Media Policy
  */
 enum MediaPolicy {
-  SSD_ONLY    = 0;
-  HDD_ONLY    = 1;
+  SSD_ONLY = 0;
+  HDD_ONLY = 1;
   HYBRID_ONLY = 3;
 }
 
@@ -24,8 +24,8 @@ enum MediaPolicy {
  * Volume Storage Type
  */
 enum VolumeType {
-  OBJECT  = 0;
-  BLOCK   = 1;
+  OBJECT = 0;
+  BLOCK = 1;
 }
 
 /* ------------------------------------------------------------
@@ -36,34 +36,45 @@ enum VolumeType {
  * Snapshot and clone from CLI => OM structures 
  */
 struct SnapshotPolicy {
-  1: i64                    id;
-  /** Name of the policy, should be unique */
-  2: string                 policyName;
-  /** Recurrence rule as per iCal format */
-  3: string                 recurrenceRule;
-  /** Retention time in seconds */
-  4: i64                    retentionTimeSeconds;
-  5: common.ResourceState   state;
-  6: i64                    timelineTime;
+  /** snapshot uuid */
+  1: i64 id;
+  /** a string representing the name of the policy, should be unique */
+  2: string policyName;
+  /** a string representing the recurrence rule as per RFC 2445 iCalender */
+  3: string recurrenceRule;
+  /** the retention time in seconds */
+  4: i64 retentionTimeSeconds;
+  /** the snapshot state */
+  5: common.ResourceState state;
+  /** the timeline time in seconds */
+  6: i64  timelineTime;
 }
 
 /**
  * Statistic stream parameters.
  */
 struct StreamingRegistrationMsg {
-  1: i32            id;
-  2: string         url;
-  3: list<string>   volume_names;
-  4: i32            sample_freq_seconds;
-  5: i32            duration_seconds;
-  6: string         http_method;
+  /** the stream registeration uuid */
+  1: i32 id;
+  /** a string representing the URL specifing the ingest end point */
+  2: string url;
+  /** a list of strings representing the volume names */
+  3: list<string> volume_names;
+  /** the frequency of the sampling data, in minutes */
+  4: i32 sample_freq_seconds;
+  /** the duration at which simple data will be sent */
+  5: i32 duration_seconds;
+  /** a string representing HTTP method of the ingest end point */
+  6: string http_method;
 }
 
 /**
  * Tenant descriptor.
  */
 struct Tenant {
-  1: i64    id;
+  /** the tenant uuid */
+  1: i64 id;
+  /** a string representing the identifier of the tenant, i.e. tenant name */
   2: string identifier;
 }
 
@@ -71,32 +82,48 @@ struct Tenant {
  * A user of the system.
  */
 struct User {
-  1: i64    id;
+  /** the user uuid */
+  1: i64 id;
+  /** a string reprenseting the user identifier of the user, i.e. user name */
   2: string identifier;
+  /** a string representing the users password hash */
   3: string passwordHash;
+  /** */
   4: string secret;
-  5: bool   isFdsAdmin;
+  /** */
+  5: bool isFdsAdmin;
 }
 
 /**
  * Volume configuration parameters.
  */
 struct VolumeSettings {
-  1: required i32               maxObjectSizeInBytes;
-  2: required VolumeType        volumeType;
-  3: required i64               blockDeviceSizeInBytes;
-  4: required i64               contCommitlogRetention;
-  5: MediaPolicy                mediaPolicy;
+  /** the maximum object size in bytes */
+  1: required i32 maxObjectSizeInBytes;
+  /** the volume type */
+  2: required VolumeType volumeType;
+  /** the block device size in bytes */
+  3: required i64 blockDeviceSizeInBytes;
+  /** the continue commit log retention, in seconds */
+  4: required i64 contCommitlogRetention;
+  /** the media policy type */
+  5: MediaPolicy mediaPolicy;
 }
 
 /**
  * Volume attributes and status
  */
 struct VolumeDescriptor {
-  1: required string            name;
-  2: required i64               dateCreated;
-  3: required VolumeSettings    policy;
-  4: required i64               tenantId;
-  5: i64                        volId;
+  /** the string representing the volume name, MUST be unique */
+  1: required string name;
+  /** the date created, in epoach seconds */
+  2: required i64 dateCreated;
+  /** the VolumeSettings representing the configuration parameters */
+  3: required VolumeSettings policy;
+  /** the administrating tenant id */
+  4: required i64 tenantId;
+  /** the volume uuid */
+  5: i64 volId;
+  /** the ResourceState representing the current state of the volume */
   6: common.ResourceState   state;
 }
