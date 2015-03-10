@@ -61,7 +61,14 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         }
         // update an existing one
         else {
-            return $http_fds.put( '/api/config/volumes/' + volume.id, volume, getVolumes );
+            return $http_fds.put( '/api/config/volumes/' + volume.id, volume, function( volume ){
+                
+                if ( angular.isFunction( callback ) ){
+                    callback( volume );
+                }
+                
+                getVolumes();
+            });
         }
     };
     

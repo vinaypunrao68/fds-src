@@ -13,8 +13,7 @@
 #include <fds_volume.h>
 #include <dlt.h>
 #include <fds_dmt.h>
-#include <fdsp/fds_stream_types.h>
-#include <apis/apis_types.h>
+#include <fdsp/config_types_types.h>
 #include <exception>
 namespace fds {
 struct node_data;
@@ -91,10 +90,10 @@ struct ConfigDB : KVStore {
 
     // stat streaming registrations
     int32_t getNewStreamRegistrationId();
-    bool addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg);
+    bool addStreamRegistration(apis::StreamingRegistrationMsg& streamReg);
     bool removeStreamRegistration(int regId);
-    bool getStreamRegistration(int regId, fpi::StreamingRegistrationMsg& streamReg);
-    bool getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>& vecReg);
+    bool getStreamRegistration(int regId, apis::StreamingRegistrationMsg& streamReg);
+    bool getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg>& vecReg);
 
     // tenant stuff
     int64_t createTenant(const std::string& identifier);
@@ -108,12 +107,12 @@ struct ConfigDB : KVStore {
     bool updateUser(int64_t  userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isFdsAdmin); //NOLINT
 
     // snapshot
-    bool createSnapshotPolicy(fpi::SnapshotPolicy& policy); //NOLINT
-    bool getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy);
-    bool listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & _return); //NOLINT
+    bool createSnapshotPolicy(fds::apis::SnapshotPolicy& policy); //NOLINT
+    bool getSnapshotPolicy(int64_t policyid, fds::apis::SnapshotPolicy& policy);
+    bool listSnapshotPolicies(std::vector<fds::apis::SnapshotPolicy> & _return); //NOLINT
     bool deleteSnapshotPolicy(const int64_t id); //NOLINT
     bool attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId); //NOLINT
-    bool listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & _return, const int64_t volumeId); //NOLINT
+    bool listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & _return, const int64_t volumeId); //NOLINT
     bool detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId); //NOLINT
     bool listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId); //NOLINT
 

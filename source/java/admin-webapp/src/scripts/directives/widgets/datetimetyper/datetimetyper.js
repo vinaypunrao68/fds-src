@@ -6,7 +6,7 @@ angular.module( 'form-directives' ).directive( 'dateTimeTyper', function(){
         transclude: true,
         templateUrl: 'scripts/directives/widgets/datetimetyper/datetimetyper.html',
         scope: { date: '=ngModel', mode: '@' },
-        controller: function( $scope, $element, $timeout ){
+        controller: function( $scope, $element ){
             
             $scope.editing = false;
             $scope.pos = 0;
@@ -344,12 +344,6 @@ angular.module( 'form-directives' ).directive( 'dateTimeTyper', function(){
                 }
             };
             
-//            var init = function(){
-//                setText();
-//            };
-//            
-//            $timeout( init, 50 );
-//            
             $scope.$watch( 'date', setText );
             
         },

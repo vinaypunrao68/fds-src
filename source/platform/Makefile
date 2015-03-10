@@ -10,7 +10,7 @@ user_incl_dir    := include ../net-service/include
 user_fds_ar_libs :=                  \
                     platform_core    \
                     fds-net-svc      \
-                    fds-xdi
+                    fds-fdsp
 
 user_non_fds_libs :=           \
                      udev      \

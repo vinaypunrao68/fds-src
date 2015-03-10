@@ -1,9 +1,11 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+extern "C" {
 #include <sys/types.h>
 #include <sys/inotify.h>
 #include <dirent.h>
+}
 
 #include <string>
 #include <vector>
@@ -17,6 +19,7 @@
 #include <dm-vol-cat/DmPersistVolDB.h>
 #include <fds_process.h>
 #include <ObjectLogger.h>
+#include "fdsp/sm_api_types.h"
 #include <leveldb/copy_env.h>
 #include <leveldb/cat_journal.h>
 

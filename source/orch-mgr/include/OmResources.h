@@ -18,19 +18,25 @@
 #include "platform/agent_container.h"
 #include "platform/domain_container.h"
 
-#include <fdsp/FDSP_ControlPathResp.h>
+#include "fdsp/sm_types_types.h"
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
 
 namespace FDS_ProtocolInterface {
-    class FDSP_ControlPathReqClient;
-    class FDSP_ControlPathRespProcessor;
-    class FDSP_ControlPathRespIf;
-}
-typedef netClientSessionEx<fpi::FDSP_ControlPathReqClient,
-                fpi::FDSP_ControlPathRespProcessor,
-                fpi::FDSP_ControlPathRespIf> netControlPathClientSession;
+    struct CtrlNotifyDMAbortMigration;
+    struct CtrlNotifySMAbortMigration;
+    struct CtrlNotifyDMTClose;
+    struct CtrlNotifyDLTClose;
+    struct CtrlNotifyDMTUpdate;
+    struct CtrlDMMigrateMeta;
+    using CtrlNotifyDMAbortMigrationPtr = boost::shared_ptr<CtrlNotifyDMAbortMigration>;
+    using CtrlNotifySMAbortMigrationPtr = boost::shared_ptr<CtrlNotifySMAbortMigration>;
+    using CtrlNotifyDMTClosePtr = boost::shared_ptr<CtrlNotifyDMTClose>;
+    using CtrlNotifyDLTClosePtr = boost::shared_ptr<CtrlNotifyDLTClose>;
+    using CtrlNotifyDMTUpdatePtr = boost::shared_ptr<CtrlNotifyDMTUpdate>;
+    using CtrlDMMigrateMetaPtr = boost::shared_ptr<CtrlDMMigrateMeta>;
+}  // namespace FDS_ProtocolInterface
 
 namespace fds {
 
@@ -40,8 +46,6 @@ class OM_NodeDomainMod;
 class OM_ControlRespHandler;
 struct NodeDomainFSM;
 
-typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
-typedef netControlPathClientSession *                     NodeAgentCpSessionPtr;
 typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
 
 /**
@@ -67,20 +71,12 @@ class OM_NodeAgent : public NodeAgent
     inline fpi::FDSP_MgrIdType om_agent_type() const {
         return ndMyServId;
     }
-    void setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId);
 
     /**
      * Returns uuid of the node running this service
      */
     inline NodeUuid get_parent_uuid() const {
         return parentUuid;
-    }
-    inline NodeAgentCpReqClientPtr getCpClient() const {
-        return ndCpClient;
-    }
-    inline NodeAgentCpReqClientPtr getCpClient(std::string *id) const {
-        *id = ndSessionId;
-        return ndCpClient;
     }
 
     /**
@@ -142,7 +138,10 @@ class OM_NodeAgent : public NodeAgent
 
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
-    virtual Error om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg);
+    virtual Error om_send_pushmeta(fpi::CtrlDMMigrateMetaPtr& meta_msg);
+    void om_pushmeta_resp(EPSvcRequest* req,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload);
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
                                          fds_bool_t bAll);
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
@@ -150,14 +149,12 @@ class OM_NodeAgent : public NodeAgent
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
-    void om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& reg,
+    void om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                     const NodeUuid& stream_dest_uuid);
 
   protected:
-    NodeAgentCpSessionPtr   ndCpSession;
     std::string             ndSessionId;
     fpi::FDSP_MgrIdType     ndMyServId;
-    NodeAgentCpReqClientPtr ndCpClient;
     NodeUuid                parentUuid;  // Uuid of the node running the service
 
     virtual int node_calc_stor_weight();
@@ -259,8 +256,6 @@ class OM_AgentContainer : public AgentContainer
                               const NodeUuidSet& filter_nodes);
 
   protected:
-    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
-
     NodeList                                 node_up_pend;
     NodeList                                 node_down_pend;
 
@@ -802,73 +797,6 @@ class OM_NodeDomainMod : public Module
     FSM_NodeDomain                  *domain_fsm;
     // to protect access to msm process_event
     fds_mutex                       fsm_lock;
-};
-
-/**
- * control response handler
- */
-class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
-  public:
-    OM_ControlRespHandler();
-
-    void AttachVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
-    void AttachVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_AttachVolTypePtr& atc_vol_resp);
-
-    void DetachVolResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_AttachVolType& dtc_vol_resp);
-    void DetachVolResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_AttachVolTypePtr& dtc_vol_resp);
-
-    void NotifyNodeAddResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeAddResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-    void NotifyNodeRmvResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeRmvResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-    void NotifyNodeActiveResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_Node_Info_Type& node_info_resp);
-    void NotifyNodeActiveResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_Node_Info_TypePtr& node_info_resp);
-
-    void NotifyDMTUpdateResp(
-        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
-    void NotifyDMTUpdateResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
-
-    void NotifyDMTCloseResp(
-        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const ::FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
-    void NotifyDMTCloseResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
-
-    void PushMetaDMTResp(
-        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const ::FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp);
-    void PushMetaDMTResp(
-        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp);
-
-  private:
-        // TODO(Andrew): Add ptr back to resource manager.
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;

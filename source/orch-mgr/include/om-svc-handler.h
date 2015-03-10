@@ -5,7 +5,7 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OM_SVC_HANDLER_H_
 
 #include <OmResources.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/om_api_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <OmEventTracker.h>
 

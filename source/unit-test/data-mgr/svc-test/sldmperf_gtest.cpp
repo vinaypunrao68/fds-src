@@ -9,7 +9,6 @@
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
-#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <fiu-control.h>
 #include <testlib/DataGen.hpp>
@@ -17,7 +16,8 @@
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
 #include <testlib/Datasets.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
+#include <fdsp/dm_api_types.h>
 #include <thrift/concurrency/Monitor.h>
 
 #include <gmock/gmock.h>

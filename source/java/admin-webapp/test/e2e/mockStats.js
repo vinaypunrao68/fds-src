@@ -12,11 +12,11 @@ mockStats = function(){
             var stats = [];
             var volumes = [];
             
-            if ( filter.contextList.length === 0 ){
+            if ( !angular.isDefined( filter.contexts ) || filter.contexts.length === 0 ){
                 volumes = JSON.parse( window.localStorage.getItem( 'volumes' ) );
             }
             else {
-                volumes = filter.contextList;
+                volumes = filter.contexts;
             }
             
             
@@ -109,11 +109,11 @@ mockStats = function(){
             
             var volumes = JSON.parse( window.localStorage.getItem( 'volumes' ) );
             
-            if ( filter.contextList.length > 0 ){
+            if ( angular.isDefined( filter.contexts ) && filter.contexts.length > 0 ){
                 volumes = [];
                 
-                for ( var i = 0; i < filter.contextList.length; i++ ){
-                    volumes.push( filter.contextList[i] );
+                for ( var i = 0; i < filter.contexts.length; i++ ){
+                    volumes.push( filter.contexts[i] );
                 }
             }
             
@@ -130,6 +130,13 @@ mockStats = function(){
                 
                 if ( point.y > 24*60*60 ){
                     fbCount++;
+                }
+                
+                if ( !angular.isDefined( filter.useSizeForValue )){
+                    
+                    var temp = point.y;
+                    point.y = point.x;
+                    point.x = temp;
                 }
                 
                 var series = {
@@ -175,9 +182,16 @@ mockStats = function(){
                             datapoints: [],
                             type: 'SSD_GETS'
                         }],
-                calculated: [{
-                    average: 0    
-                }]
+                calculated: [
+                    {
+                        average: 0    
+                    },
+                    {
+                        percentage: 0
+                    },
+                    {
+                        percentage: 0
+                    }]
             };
             
             var stats = getStatsToUse( filter );
@@ -193,6 +207,8 @@ mockStats = function(){
             
             // now go through the buckets to populate the data form
             var tSum = 0;
+            var ssdSum = 0;
+            var hddSum = 0;
             
             for ( var k = 0; k < keyList.length; k++ ){
                 var bStat = buckets[ keyList[k] ];
@@ -200,10 +216,15 @@ mockStats = function(){
                 rz.series[1].datapoints.push( { x: bStat.time, y: bStat.GETS } );
                 rz.series[2].datapoints.push( { x: bStat.time, y: bStat.SSD_GETS } );
                 
+                ssdSum += bStat.SSD_GETS;
+                hddSum += bStat.GETS;
+                
                 tSum += bStat.PUTS + bStat.GETS + bStat.SSD_GETS;
             }
             
             rz.calculated[0].average = ( tSum / keyList.length ).toFixed( 2 );
+            rz.calculated[1].percentage = (( ssdSum / (ssdSum+hddSum) ) * 100 ).toFixed( 0 );
+            rz.calculated[2].percentage = (( hddSum / (ssdSum+hddSum) ) * 100 ).toFixed( 0 );
             
             rz = fixTheZeros( filter, rz );
             
@@ -249,11 +270,17 @@ mockStats = function(){
             var stats = getStatsToUse( filter );
             var nodes = window.localStorage.getItem( 'nodes' );
             
-            if ( !angular.isDefined( stats ) || stats.length === 0 || stats[0] === null || nodes === null ){
+            if ( !angular.isDefined( stats ) || stats.length === 0 || stats[0] === null ){
                 return rz;
             }
             
-            nodes = JSON.parse( nodes );
+            if ( nodes === null ){
+                nodes = ['node'];
+            }
+            else {
+                nodes = JSON.parse( nodes );
+            }
+            
             var bucketObj = bucketByTime( stats, time );
             
             // put the data into the result

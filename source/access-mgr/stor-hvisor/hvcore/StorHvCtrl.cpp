@@ -3,7 +3,6 @@
  */
 #include <fds_config.hpp>
 #include <fds_process.h>
-#include "NetSession.h"
 #include <dlt.h>
 #include <ObjectId.h>
 #include <net/net-service.h>
@@ -13,7 +12,6 @@
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
 #include <am-platform.h>
-#include <fdsp_utils.h>
 
 #include "requests/requests.h"
 
@@ -93,8 +91,6 @@ StorHvCtrl::StorHvCtrl(int argc,
     struct ifaddrs *ifa          = NULL;
     void   *tmpAddrPtr           = NULL;
 
-    rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
-
     LOGNOTIFY << "StorHvCtrl - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
 
     /*  Create the QOS Controller object */
@@ -122,7 +118,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       omConfigPort,
 			       node_name,
 			       GetLog(),
-			       rpcSessionTbl,
+			       nullptr,
 			       &gl_AmPlatform,
 			       instanceId);
     if (toggleStandAlone) {
@@ -131,7 +127,6 @@ StorHvCtrl::StorHvCtrl(int argc,
 	om_client->initialize();
 
 	qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-	om_client->startAcceptingControlMessages();
 
 	StatsCollector::singleton()->registerOmClient(om_client);
 	fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");

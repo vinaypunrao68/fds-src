@@ -15,7 +15,6 @@
 #include <fds_module.h>
 #include "fds_error.h"
 #include "fds_types.h"
-#include <fdsp/fds_service_types.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmDiskMap.h>
 #include <object-store/TokenCompactor.h>

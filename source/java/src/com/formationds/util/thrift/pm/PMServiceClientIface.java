@@ -6,7 +6,7 @@ package com.formationds.util.thrift.pm;
 
 import com.formationds.commons.model.Domain;
 import com.formationds.commons.model.Node;
-import com.formationds.protocol.DomainNodes;
+import com.formationds.protocol.pm.DomainNodes;
 
 import java.util.List;
 import java.util.Map;

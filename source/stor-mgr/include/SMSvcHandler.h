@@ -4,9 +4,13 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 #define SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/SMSvc.h>
+
+namespace FDS_ProtocolInterface {
+struct CtrlNotifyDMTUpdate;
+}
 
 namespace fds {
 
@@ -122,9 +126,6 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void shutdownSM(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::ShutdownMODMsg> &shutdownMsg);
 
-    void StartMigration(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::CtrlStartMigration> &startMigration);
-
     /**
     * Handler for the new SM token migration messages
     * This is a message handler that receives a new DLT message from OM
@@ -153,6 +154,14 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     */
     void NotifyDMTUpdate(boost::shared_ptr <fpi::AsyncHdr> &hdr,
             boost::shared_ptr <fpi::CtrlNotifyDMTUpdate> &dmt);
+
+    /**
+     * Handlers for smcheck
+     */
+    void NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                       boost::shared_ptr<fpi::CtrlNotifySMCheck>& msg);
+    void querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                            boost::shared_ptr<fpi::CtrlNotifySMCheckStatus>& msg);
 };
 
 }  // namespace fds

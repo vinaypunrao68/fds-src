@@ -4,8 +4,8 @@ package com.formationds.am;
  */
 
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.StreamingRegistrationMsg;
 import com.formationds.streaming.Streaming;
-import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.streaming.volumeDataPoints;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.methods.HttpPost;

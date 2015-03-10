@@ -7,7 +7,8 @@
 #include <concurrency/taskstatus.h>
 #include <native/types.h>
 #include <string>
-#include <apis/apis_types.h>
+#include <fdsp/xdi_types.h>
+#include <fdsp/config_types_types.h>
 #include <vector>
 
 namespace fds {

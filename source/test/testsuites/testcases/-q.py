@@ -5,8 +5,8 @@
 # See TestCase.FDSTestCase.setUp()
 #
 # Before fixing this problem, here's what we saw trying to run the test case
-# "TestFDSEnvMgt.TestFDSCreateInstDir" using the PyUnit harness:
-# greg@purple:~/fds-src/source/test/testcases$ python -m unittest TestFDSEnvMgt.TestFDSCreateInstDir -q ~/fds-src/source/test/testsuites/BuildSmokeTest.ini
+# "TestFDSEnvMgt.TestFDSInstall" using the PyUnit harness:
+# greg@purple:~/fds-src/source/test/testcases$ python -m unittest TestFDSEnvMgt.TestFDSInstall -q ~/fds-src/source/test/testsuites/BuildSmokeTest.ini
 # Traceback (most recent call last):
 #   File "/usr/lib/python2.7/runpy.py", line 162, in _run_module_as_main
 #     "__main__", fname, loader, pkg_name)
@@ -27,7 +27,7 @@
 # ImportError: No module named -q
 #
 # Doing an inspection of variable "names" two frames back in the stack we find:
-# ['TestFDSEnvMgt.TestFDSCreateInstDir', '-q', '/home/greg/fds-src/source/test/testsuites/BuildSmokeTest.ini']
+# ['TestFDSEnvMgt.TestFDSInstall', '-q', '/home/greg/fds-src/source/test/testsuites/BuildSmokeTest.ini']
 #
 # So it seems that what we need to do is remove both the '-q' option and its argument,
 # the qaautotest.ini file, from variable "names" located two frames back in the stack.

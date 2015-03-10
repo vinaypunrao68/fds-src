@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <fds_module.h>
-#include <apis/AmService.h>
+#include <fdsp/XdiService.h>
 
 namespace fds {
 
@@ -16,7 +16,7 @@ namespace fds {
  * AM's data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to.
  */
-class AmDataApi : public apis::AmServiceIf {
+class AmDataApi : public apis::XdiServiceIf {
   private:
     /// Uturn test all AM service APIs
     fds_bool_t testUturnAll;

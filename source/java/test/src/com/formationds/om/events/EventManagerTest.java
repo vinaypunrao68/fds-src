@@ -6,7 +6,7 @@ package com.formationds.om.events;
 
 import static org.mockito.Mockito.*;
 
-import com.formationds.apis.AmService;
+import com.formationds.apis.XdiService;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.events.FirebreakType;
@@ -48,7 +48,7 @@ public class EventManagerTest {
 
     static final Configuration mockedConfiguration = mock(Configuration.class);
     static final ConfigurationApi mockedConfig = mock(ConfigurationApi.class);
-    static final AmService.Iface  mockedAMService = mock(AmService.Iface.class);
+    static final XdiService.Iface  mockedAMService = mock(XdiService.Iface.class);
     static final MetricsRepository
         metricsRepoMock = mock(MetricsRepository.class);
 

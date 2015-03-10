@@ -14,7 +14,7 @@
 #include <fds_error.h>
 #include <fds_typedefs.h>
 #include <concurrency/RwLock.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/dm_api_types.h>
 #include <StatTypes.h>
 
 namespace fds {

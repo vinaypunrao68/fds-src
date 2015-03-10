@@ -4,7 +4,9 @@
 #include <string>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
+#include <fdsp/dm_api_types.h>
+#include <fdsp/sm_api_types.h>
 #include <DataGen.hpp>
 #include <boost/make_shared.hpp>
 #include <SvcMsgFactory.h>
@@ -163,16 +165,6 @@ SvcMsgFactory::newAbortBlobTxMsg(const uint64_t& volId, const std::string blobNa
     abortBlbTx->blob_name = blobName;
     abortBlbTx->blob_version = blob_version_invalid;
     return abortBlbTx;
-}
-
-fpi::DeleteCatalogObjectMsgPtr
-SvcMsgFactory::newDeleteCatalogObjectMsg(const uint64_t& volId, const std::string blobName)
-{
-    fpi::DeleteCatalogObjectMsgPtr  deleteBlbTx(new fpi::DeleteCatalogObjectMsg);
-    deleteBlbTx->volume_id = volId;
-    deleteBlbTx->blob_name = blobName;
-    deleteBlbTx->blob_version = blob_version_invalid;
-    return deleteBlbTx;
 }
 
 fpi::SetBlobMetaDataMsgPtr

@@ -35,15 +35,20 @@ log = None
 _parameters = None
 
 
-def expectedFailure(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            raise _ExpectedFailure(sys.exc_info())
-    wrapper.__expected_failure__ = True
-    return wrapper
+def expectedFailure(problem=None):
+    def expectedFailure_decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if problem is not None:
+                log.info("Expected failure due to %s." % problem)
+
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                raise _ExpectedFailure(sys.exc_info())
+        wrapper.__expected_failure__ = True
+        return wrapper
+    return expectedFailure_decorator
 
 
 def setUpModule():
@@ -103,7 +108,6 @@ def setUpModule():
             log.info("Run as root (--run-as-root or .ini config 'run_as_root'): %s." % _parameters["run_as_root"])
             log.info("Verbose logging (-v|--verbose or .ini config 'verbose'): %s." % _parameters["verbose"])
             log.info("'Dry run' test (-r|--dryrun or .ini config 'dryrun'): %s." % _parameters["dryrun"])
-            log.info("Install from release package (-i|--install or .ini config 'install'): %s." % _parameters["install"])
             log.info("FDS config file (.ini config 'fds_config_file'): %s." % _parameters["fds_config_file"])
 
 

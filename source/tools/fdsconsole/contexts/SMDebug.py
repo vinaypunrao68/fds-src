@@ -1,6 +1,5 @@
 from  svchelper import *
-from fdslib.pyfdsp.apis import ttypes
-from fds_service.ttypes import *
+from svc_api.ttypes import *
 import platformservice
 from platformservice import *
 import FdspUtils 

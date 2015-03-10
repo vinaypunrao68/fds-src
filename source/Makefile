@@ -7,7 +7,6 @@ topdir         := .
 #
 user_build_dir :=                       \
     fdsp                                \
-    apis                                \
     include                             \
     osdep                               \
     net-service                         \
@@ -23,7 +22,6 @@ user_build_dir :=                       \
     stor-mgr                            \
     tools                               \
     testlib                             \
-    checker                             \
     unit-test                           \
     java
 

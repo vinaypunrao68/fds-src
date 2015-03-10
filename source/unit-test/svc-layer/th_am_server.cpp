@@ -16,7 +16,6 @@
 // #include <thrift/server/TThreadPoolServer.h>
 // #include <thrift/server/TThreadedServer.h>
 #include <thrift/server/TNonblockingServer.h>
-#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>

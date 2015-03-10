@@ -1,9 +1,9 @@
 from svchelper import *
-import  fdslib.pyfdsp.apis as apis
-from apis import ttypes
-from apis.ttypes import ApiException
+from common.ttypes import ApiException
 from common.ttypes import ResourceState
 from platformservice import *
+from restendpoint import *
+from pyfdsp.config_types import *
 
 import md5
 import os
@@ -12,6 +12,10 @@ import FdspUtils
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
+
+        # Rest endpoint
+        rest = RestEndpoint()
+        self.volEp = VolumeEndpoint(rest)
 
     def s3Api(self):
         return self.config.getS3Api()
@@ -81,32 +85,64 @@ class VolumeContext(Context):
                vol_type='object', blk_dev_size=21474836480, tenant_id=1, commit_log_retention=86400 ):
                # media_policy='hdd'):
         
-        if vol_type == 'object':
-            vol_type = ttypes.VolumeType.OBJECT
-        elif vol_type == 'block':
-            vol_type = ttypes.VolumeType.BLOCK
-            max_obj_size = 4096
-        elif vol_type not in (ttypes.VolumeType.OBJECT, ttypes.VolumeType.BLOCK):
-            vol_type = ttypes.VolumeType.OBJECT
-
-        vol_set = ttypes.VolumeSettings(max_obj_size, vol_type, blk_dev_size, commit_log_retention)
-
-        # if media_policy == 'hdd':
+       # if media_policy == 'hdd':
         #    media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD
         # elif media_policy == 'ssd':
         #    media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD
         # else:
         #    media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD
 
+        if vol_type == 'object':
+            vol_type = ttypes.VolumeType.OBJECT
+        elif vol_type == 'block':
+            vol_type = ttypes.VolumeType.BLOCK
+            max_obj_size = 4096
+        elif vol_type not in (ttypes.VolumeType.OBJECT, ttypes.VolumeType.BLOCK):
+            vol_type = ttypes.VolumeSettings.VolumeType.OBJECT
+
+        vol_set = ttypes.VolumeSettings(max_obj_size, vol_type, blk_dev_size, commit_log_retention)
+
         try:
             ServiceMap.omConfig().createVolume(domain, vol_name, vol_set, tenant_id)
             return
         except ApiException, e:
-            print e
+            log.exception(e)
         except Exception, e:
             log.exception(e)
 
         return 'create volume failed: {}'.format(vol_name)
+
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('vol-name', help='-volume name')
+    @arg('--minimum', help='-qos minimum guarantee', type=int)
+    @arg('--maximum', help='-qos maximum', type=int)
+    @arg('--priority', help='-qos priority', type=int)
+    def modify(self, vol_name, domain='abc', max_obj_size=2097152, tenant_id=1,
+               minimum=0, maximum=0, priority=10):
+        try:
+            vols = self.volEp.listVolumes()
+            vol_id = None
+            mediaPolicy = None
+            commit_log_retention = None
+            for vol in vols:
+                if vol['name'] == vol_name:
+                    vol_id = vol['id']
+                    mediaPolicy = vol['mediaPolicy']
+                    commit_log_retention= vol['commit_log_retention']
+            assert not vol_id is None
+            assert not mediaPolicy is None
+            assert not commit_log_retention is None
+            res = self.volEp.setVolumeParams(vol_id, minimum, priority, maximum, mediaPolicy, commit_log_retention)
+            return
+        except ApiException, e:
+            log.exception(e)
+        except Exception, e:
+            log.exception(e)
+
+        return 'modify volume failed: {}'.format(vol_name)
+
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd

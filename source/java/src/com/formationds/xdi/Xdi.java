@@ -5,8 +5,10 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
@@ -23,11 +25,11 @@ import java.util.*;
 public class Xdi {
     public static final String LAST_MODIFIED = "Last-Modified";
 
-    private final AmService.Iface am;
+    private final XdiService.Iface am;
     private ConfigurationApi config;
     private XdiAuthorizer authorizer;
 
-    public Xdi(AmService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
+    public Xdi(XdiService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
         this.am = am;
         this.config = config;
         this.authorizer = new XdiAuthorizer(authenticator, authorizer, asyncAm, config);
@@ -150,7 +152,6 @@ public class Xdi {
         TxDescriptor tx = am.startBlobTx(domain, volume, blob, 0);
         am.updateMetadata(domain, volume, blob, tx, metadataMap);
         am.commitBlobTx(domain, volume, blob, tx);
-
     }
 
     public AuthenticationToken authenticate(String login, String password) throws LoginException {

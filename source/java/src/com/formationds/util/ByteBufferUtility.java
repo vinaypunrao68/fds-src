@@ -7,8 +7,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.Random;
 
 public class ByteBufferUtility {
+    public static ByteBuffer randomBytes(int length) {
+        byte[] bytes = new byte[length];
+        Random random = new Random();
+        random.nextBytes(bytes);
+        return ByteBuffer.wrap(bytes);
+    }
+
     public static int readIntoByteBuffer(ByteBuffer buffer, InputStream inputStream) throws IOException {
         if(buffer.remaining() == 0)
             return 0;

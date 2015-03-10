@@ -22,7 +22,7 @@ class Manager : public HasLogger {
     explicit Manager(OrchMgr* om);
     void init();
     bool loadFromConfigDB();
-    bool addPolicy(fpi::SnapshotPolicy& policy);
+    bool addPolicy(fds::apis::SnapshotPolicy& policy);
     bool removePolicy(int64_t id);
     OmSnapshotSvcHandler svcHandler;
 

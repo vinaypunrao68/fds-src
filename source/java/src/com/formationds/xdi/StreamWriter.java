@@ -4,7 +4,7 @@ package com.formationds.xdi;
  */
 
 import com.formationds.util.blob.Mode;
-import com.formationds.apis.AmService;
+import com.formationds.apis.XdiService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import org.apache.commons.codec.binary.Hex;
@@ -17,11 +17,11 @@ import java.util.Map;
 
 public class StreamWriter {
     private int objectSize;
-    private AmService.Iface am;
+    private XdiService.Iface am;
 
     private static ThreadLocal<byte[]> localBytes = new ThreadLocal<>();
 
-    public StreamWriter(int objectSize, AmService.Iface am) {
+    public StreamWriter(int objectSize, XdiService.Iface am) {
         this.objectSize = objectSize;
         this.am = am;
     }

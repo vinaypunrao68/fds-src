@@ -13,7 +13,7 @@
 #include <util/timeutils.h>
 #include <dm-platform.h>
 #include <DataMgr.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <string>
 #include <vector>
 #include <concurrency/taskstatus.h>

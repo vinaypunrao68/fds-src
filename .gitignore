@@ -86,6 +86,7 @@ source/stor_hvisor/.tmp_versions/*
 source/stor_hvisor/?odule*
 source/test/.idea
 source/test/formation.conf
+source/test/integration-framework/downloads
 source/test/integration-framework/test-reports
 source/tools/cli.log
 source/tools/install/.pkg.cache

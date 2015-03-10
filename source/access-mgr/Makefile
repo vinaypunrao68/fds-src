@@ -13,7 +13,7 @@ user_build_dir    := \
 user_incl_dir     := \
 	stor-hvisor \
 	include \
-	/usr/include/cryptopp
+	/opt/fds-deps/embedded/include/cryptopp
 
 user_fds_ar_libs  :=  \
     fds-qos-lib \
@@ -27,7 +27,6 @@ user_fds_ar_libs  :=  \
     fds-lib \
     fds-util \
     fds-fdsp \
-    fds-xdi \
     fds-hash \
     fds-thread \
     fds-osdep

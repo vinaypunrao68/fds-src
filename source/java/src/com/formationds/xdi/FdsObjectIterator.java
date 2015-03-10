@@ -3,7 +3,7 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.AmService;
+import com.formationds.apis.XdiService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.VolumeDescriptor;
@@ -13,10 +13,10 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 
 public class FdsObjectIterator {
-    private AmService.Iface am;
+    private XdiService.Iface am;
     private ConfigurationService.Iface config;
 
-    public FdsObjectIterator(AmService.Iface am, ConfigurationService.Iface config) {
+    public FdsObjectIterator(XdiService.Iface am, ConfigurationService.Iface config) {
         this.am = am;
         this.config = config;
     }

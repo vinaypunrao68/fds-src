@@ -181,7 +181,7 @@ public class SystemHealthStatus implements RequestHandler {
         status.setCategory(SystemHealth.CATEGORY.FIREBREAK);
 
         // convert descriptors into volume objects
-        List<Context> volumes = convertVolDescriptors(volDescs);
+        List<Volume> volumes = convertVolDescriptors(volDescs);
 
         // query that stats to get raw capacity data
         MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
@@ -264,7 +264,7 @@ public class SystemHealthStatus implements RequestHandler {
         status.setCategory(SystemHealth.CATEGORY.CAPACITY);
 
         // convert descriptors into volume objects
-        List<Context> volumes = convertVolDescriptors(volDescs);
+        List<Volume> volumes = convertVolDescriptors(volDescs);
 
         // query that stats to get raw capacity data
         MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
@@ -397,9 +397,9 @@ public class SystemHealthStatus implements RequestHandler {
      * @param volDescs
      * @return
      */
-    private List<Context> convertVolDescriptors(List<VolumeDescriptor> volDescs) {
+    private List<Volume> convertVolDescriptors(List<VolumeDescriptor> volDescs) {
 
-        List<Context> volumes = volDescs.stream().map((vd) -> {
+        List<Volume> volumes = volDescs.stream().map((vd) -> {
             VolumeBuilder vBuilder = new VolumeBuilder();
 
             Volume volume = vBuilder.withId(Long.toString(vd.getVolId()))

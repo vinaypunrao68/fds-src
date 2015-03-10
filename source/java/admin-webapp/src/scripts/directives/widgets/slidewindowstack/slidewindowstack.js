@@ -6,7 +6,7 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
         replace: true,
         scope: { globalVars: '=?'},
         templateUrl: 'scripts/directives/widgets/slidewindowstack/slidewindowstack.html',
-        controller: function( $scope, $element, $interval ){
+        controller: function( $scope, $element, $interval, $timeout ){
             
             $scope.slides = [];
             $scope.currentStack = [];
@@ -82,6 +82,16 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
                 
                 setIndex();
             };
+            
+            $timeout( function(){
+                
+                $element.find( '.slide-window-stack-parent' ).css( 'position', 'inherit' );
+                
+                $timeout( function(){
+                    $element.find( '.slide-window-stack-parent' ).css( 'position', 'relative' );
+                } );
+                
+            } );
         }
     };
 });

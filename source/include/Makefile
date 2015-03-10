@@ -4,7 +4,6 @@ speedup        = -j $(threads)
 user_rtime_env := user
 user_build_dir := \
     fdsp \
-    apis \
     net \
     blob \
     nginx-driver \

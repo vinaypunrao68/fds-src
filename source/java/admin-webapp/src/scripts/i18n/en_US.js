@@ -14,6 +14,7 @@ var en_US = {
         l_back: 'Back',
         l_cancel: 'Cancel',
         l_confirm: 'Confirm',
+        l_custom: 'Custom',
         l_done: 'Done',
         l_edit: 'Edit',
         l_error: 'Error',
@@ -56,6 +57,7 @@ var en_US = {
         l_weeks_ago: 'weeks ago',
         l_years_ago: 'years ago',
         l_seconds_ago: 'seconds ago',
+        l_24_hours_ago: '24 hours ago',
         
         l_minute_ago: 'minute ago',
         l_hour_ago: 'hour ago',
@@ -104,7 +106,7 @@ var en_US = {
         l_health: 'System Health',
         
         l_gets: 'GET requests',
-        l_ssd_gets: 'GET request from SSD',
+        l_ssd_gets: 'GET request from flash',
         l_puts: 'PUT requests',
         
         th_type: 'Type',
@@ -121,6 +123,8 @@ var en_US = {
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
         desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.',
         desc_time_to_full: 'until capacity is full',
+        desc_ssd_percent: 'Reads from flash',
+        desc_hdd_percent: 'Reads from disk',
         
         l_services_good: 'All expected services are running properly',
         l_services_not_good: 'Some services are not running as expected',
@@ -167,6 +171,8 @@ var en_US = {
         desc_snapshot_created: 'Snapshot successfully created.',
         desc_confirm_snapshot: 'Are you sure you would like to create a snapshot for this volume?',
         desc_volume_deleted: 'Volume deleted successfully.',
+        l_blank: 'Blank',
+        l_clone: 'Clone',
         l_clone_existing: 'Clone from an existing volume',
         l_volume_to_clone_from: 'Volume to Clone from:',
         l_continuous: 'Continuous',
@@ -177,39 +183,25 @@ var en_US = {
         l_delete_volume: 'Delete this volume.',
         l_edit_settings: 'Edit Settings',
         l_edit_volume: 'Edit Volume',
-        l_highest: 'Highest',
-        l_l_highest: '(highest)',
-        l_iops: 'IOPs',
-        l_iops_guarantee: 'IOPs Capacity Guarantee',
-        l_iops_limit: 'IOPs Limit',
-        l_lowest: 'Lowest',
-        l_l_lowest: '(lowest)',
-        l_max_iops: 'Max number of IOPs',
-        l_number_of_iops: 'Number of IOPs',
-        l_priority: 'Priority',
         l_point_timeline: 'Point from timeline:',
         l_qos: 'Performance',
+        l_save_volume: 'Save Volume',
         l_select_to_clone: 'Select a Volume to Clone',
         l_settings: 'Settings',
+        l_size_limit: 'Capacity Limit',
         l_snapshots: 'Snapshots',
         l_snapshot_policy: 'Snapshot Policy',
         l_snapshot_policies: 'Snapshot Policies',
         l_starting_point: 'Starting Point',
-        l_timeline: 'Timeline',
+        l_timeline: 'Timeline Coverage',
+        l_timeline_settings: 'Timeline Settings',
         l_tiering: 'Tiering',
         l_volume_name: 'Volume Name',
-        f_iops_guarantee: 'IOPs Capacity Guarantee:',
-        f_iops_limit: 'IOPs Limit:',
-        f_policy: 'Policy:',
         f_priority: 'Priority:',
         th_capacity: 'Capacity',
         th_capacity_limit: 'Capacity Limit',
         th_expiration: 'Expiration',
-        th_iops_guarantee: 'IOPs Capacity Guarantee',
-        th_iops_limit: 'IOPs Limit',
-        th_performance: 'Performance',
         th_priority: 'Priority',
-
         th_used_limit: 'Used/Limit',
         
         tt_volume_name: 'Volume name',
@@ -227,11 +219,38 @@ var en_US = {
             l_performance_settings: 'Performance Settings',
             l_volume_details: 'Volume Details',
             l_avg_puts: 'Avg. # of PUTS',
-            l_avg_gets: 'Avg. # of GETS',
-            l_avg_ssd_gets: 'Avg. # of GETS from SSD'
+            l_avg_gets: 'Avg. # of GETS from disk',
+            l_avg_ssd_gets: 'Avg. # of GETS from flash'
+        },
+        
+        qos: {
+            l_highest: 'Highest',
+            l_l_highest: '(highest)',
+            l_iops: 'IOPs',
+            l_iops_guarantee: 'IOPs Capacity Guarantee',
+            l_iops_limit: 'IOPs Limit',
+            l_lowest: 'Lowest',
+            l_l_lowest: '(lowest)',
+            l_max_iops: 'Max number of IOPs',
+            l_number_of_iops: 'Number of IOPs',
+            l_overall_setting: 'Overall Setting',
+            l_priority: 'Priority',
+            l_least_important: 'Least Important',
+            l_standard: 'Standard',
+            l_most_important: 'Most Important',
+            l_unlimited: 'Unlimited',
+            
+            f_iops_guarantee: 'IOPs Capacity Guarantee:',
+            f_iops_limit: 'IOPs Limit:',
+            f_policy: 'Policy:',
+            
+            th_iops_guarantee: 'IOPs Capacity Guarantee',
+            th_iops_limit: 'IOPs Limit',
+            th_performance: 'Performance'
         },
         
         tiering: {
+            l_tiering_policy: 'Tiering Policy',
             l_ssd_only: 'Flash Only',
             l_disk_only: 'Disk Only',
             l_ssd_preferred: 'Flash Preferred',
@@ -240,6 +259,11 @@ var en_US = {
         },
         
         snapshot: {
+            
+            l_sparse: 'Sparse Coverage',
+            l_standard: 'Standard',
+            l_dense: 'Dense Coverage',
+            
             l_time_of_retained_snapshots: 'Time of Retained Snapshots',
             l_no_snapshots: 'There are no snapshots for this volume.',
             l_retention_summary: 'Keep for',
@@ -255,7 +279,7 @@ var en_US = {
             l_last_day_of_the_month: 'Last day of the month',
             
             l_january: 'January',
-            l_february: 'Febraury',
+            l_february: 'February',
             l_march: 'March',
             l_april: 'April',
             l_may: 'May',
@@ -266,6 +290,12 @@ var en_US = {
             l_october: 'October',
             l_november: 'November',
             l_december: 'December',
+            
+            l_monday: 'Monday',
+            l_tuesday: 'Tuesday',
+            l_wednesday: 'Wednesday',
+            l_thursday: 'Thursday',
+            l_friday: 'Friday',
             
             l_on_monday: 'on Mondays',
             l_on_tuesday: 'on Tuesdays',
@@ -303,6 +333,11 @@ var en_US = {
             l_on_27: 'on the 27th day of the month',
             l_on_28: 'on the 28th day of the month',
             l_on_l: 'on the last day of the month',
+            
+            l_kept: 'Kept',
+            desc_at: 'at {{ time }}',
+            desc_for: 'for {{ time }}',
+            desc_plural_days: '{{ day }}s'
         }
     },
     system: {

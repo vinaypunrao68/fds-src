@@ -12,11 +12,11 @@
 
 .slide-window-stack-slide {
     @include transition( linear, 200ms );
+    position: absolute;
     width: 100%;
     height: 100%;
     padding-left: 4px;
     padding-right: 24px;
-    position: absolute;
     top: 0px;
     left: 0px;
     right: 0px;

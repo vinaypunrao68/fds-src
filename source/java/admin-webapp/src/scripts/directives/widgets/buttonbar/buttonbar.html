@@ -1,4 +1,4 @@
 <div class="button-bar">
     <div ng-show="disabled === true" class="veil"></div>
-    <div ng-repeat="button in buttons" class="button" ng-class="{'left-end': $first, 'right-end': $last, selected: selected === button, hover : hover === true && disabled === false }" ng-click="selectButton( button )" ng-mouseenter="hover = true" ng-mouseleave="hover = false">{{ button.label }}</div>
+    <div ng-repeat="button in buttons" class="button button-bar-button" ng-class="{'left-end': $first, 'right-end': $last, selected: selected === button, hover : hover === true && disabled === false }" ng-click="selectButton( button )" ng-mouseenter="hover = true" ng-mouseleave="hover = false">{{ button.label }}</div>
 </div>

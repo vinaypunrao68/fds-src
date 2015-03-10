@@ -19,7 +19,7 @@ user_fds_ar_libs  := \
     fds-dsk-io \
     fds-dsk-mgnt \
     fds-hash \
-    fds-xdi \
+    fds-fdsp \
     fds-smlib     \
     fds-hash      \
     fds-migrations \

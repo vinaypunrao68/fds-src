@@ -15,7 +15,7 @@
 
 #include "fds_types.h"
 #include "concurrency/RwLock.h"
-#include "apis/apis_types.h"
+#include "fdsp/xdi_types.h"
 #include "concurrency/Mutex.h"
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"

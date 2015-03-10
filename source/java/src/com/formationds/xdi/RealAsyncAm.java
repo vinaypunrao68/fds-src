@@ -21,15 +21,15 @@ import java.util.concurrent.TimeUnit;
 public class RealAsyncAm implements AsyncAm {
     private static final Logger LOG = Logger.getLogger(RealAsyncAm.class);
     private final AsyncAmResponseListener responseListener;
-    private AsyncAmServiceRequest.Iface oneWayAm;
+    private AsyncXdiServiceRequest.Iface oneWayAm;
     private int port;
     private AsyncRequestStatistics statistics;
 
-    public RealAsyncAm(AsyncAmServiceRequest.Iface oneWayAm, int port) throws Exception {
+    public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int port) throws Exception {
         this(oneWayAm, port, 2, TimeUnit.SECONDS);
     }
 
-    public RealAsyncAm(AsyncAmServiceRequest.Iface oneWayAm, int port, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
+    public RealAsyncAm(AsyncXdiServiceRequest.Iface oneWayAm, int port, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
         this.oneWayAm = oneWayAm;
         this.port = port;
         statistics = new AsyncRequestStatistics();
@@ -44,7 +44,7 @@ public class RealAsyncAm implements AsyncAm {
     public void start(boolean connectedMode) throws Exception {
         try {
             if (connectedMode) {
-                AsyncAmServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncAmServiceResponse.Processor<>(responseListener);
+                AsyncXdiServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncXdiServiceResponse.Processor<>(responseListener);
 
                 TNonblockingServer server = new TNonblockingServer(
                         new TNonblockingServer.Args(new TNonblockingServerSocket(port))

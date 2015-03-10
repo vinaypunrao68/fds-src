@@ -12,8 +12,10 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-from fds_service.ttypes import *
-from fds_service.constants import *
+from common.ttypes import *
+from svc_api.ttypes import *
+from pm_service.ttypes import *
+from pm_service.constants import *
 
 from FdsException import *
 
