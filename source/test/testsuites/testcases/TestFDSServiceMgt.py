@@ -422,9 +422,9 @@ class TestDMRemove(TestCase.FDSTestCase):
             self.log.info("Remove DM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e dm > '
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s --node-uuid %s -e dm > '
                                                 '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, node.nd_assigned_name, log_dir),
+                                                (fds_dir, node.nd_assigned_name, node.nd_uuid, log_dir),
                                                 fds_bin=True)
 
             if status != 0:
@@ -772,9 +772,9 @@ class TestSMRemove(TestCase.FDSTestCase):
             self.log.info("Remove SM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e sm > '
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s --node-uuid %s -e sm > '
                                                 '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, node.nd_assigned_name, log_dir),
+                                                (fds_dir, node.nd_assigned_name, node.nd_uuid, log_dir),
                                                 fds_bin=True)
 
             if status != 0:
@@ -1659,9 +1659,9 @@ class TestAMRemove(TestCase.FDSTestCase):
             self.log.info("Remove AM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e am > '
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s --node-uuid %s -e am > '
                                                 '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, node.nd_assigned_name, log_dir),
+                                                (fds_dir, node.nd_assigned_name, node.nd_uuid, log_dir),
                                                 fds_bin=True)
 
             if status != 0:
