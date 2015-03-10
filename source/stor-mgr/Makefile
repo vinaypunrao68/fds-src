@@ -12,8 +12,7 @@ user_incl_dir     := \
     include \
     migrations \
     $(topdir)/lib \
-    $(topdir)/persistent_layer/include \
-		/opt/fds-deps/embedded/include/cryptopp
+    $(topdir)/persistent_layer/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
@@ -36,7 +35,6 @@ user_non_fds_libs := \
     boost_timer \
     leveldb \
     ssl \
-    cryptopp \
     crypto \
     tcmalloc \
     leveldb

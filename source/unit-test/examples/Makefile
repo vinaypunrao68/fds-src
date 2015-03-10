@@ -49,7 +49,6 @@ user_non_fds_libs :=  \
     pcre \
     crypto \
     z \
-    cryptopp \
     leveldb \
     gmock \
     profiler \

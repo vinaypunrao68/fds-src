@@ -12,6 +12,7 @@ import requests
 import json
 import sys
 
+import fds_engine
 import ssh
 import testsets.testcase as testcase
 
@@ -25,11 +26,15 @@ class TestMaxNumberBlockVolumes(testcase.FDSTestCase):
         super(TestMaxNumberBlockVolumes, self).__init__(parameters=parameters,
                                                     config_file=config_file,
                                                     om_ip_address=om_ip_address)
+        self.engine = fds_engine.FdsEngine(parameters['inventory_file'])
         
     def runTest(self):
         '''
         Use the utils do_work multithreaded utility
         '''
+        # make sure cluster is cleaned and restart before
+        self.engine.stop_all_nodes_processes()
+        self.engine.start_all_nodes_processes()
         mylist = list(xrange(config.MAX_NUM_VOLUMES))
         utils.do_work(self.create_volumes, mylist)
     

@@ -6,7 +6,7 @@ include "FDSP.thrift"
 include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.protocol
+namespace java com.formationds.protocol.svc.types
 
 /* ------------------------------------------------------------
    List of all FDSP message types that passed between fds services.  Typically all these
@@ -259,12 +259,12 @@ struct ActivateServicesMsg {
  * Bind service to Uuid.
  */
 struct UuidBindMsg {
-  1: required common.SvcID          svc_id;
-  2: required string                svc_addr;
-  3: required i32                   svc_port;
-  4: required common.SvcID          svc_node;
-  5: required string                svc_auto_name;
-  6: required FDSP.FDSP_MgrIdType   svc_type;
+    1: required common.SvcID          svc_id;
+    2: required string                svc_addr;
+    3: required i32                   svc_port;
+    4: required common.SvcID          svc_node;
+    5: required string                svc_auto_name;
+    6: required FDSP.FDSP_MgrIdType   svc_type;
 }
 
 /**
@@ -335,7 +335,7 @@ struct NodeEvent {
 struct NodeFunctional {
     1: required common.DomainID                 nd_dom_id,
     2: required common.SvcUuid                  nd_uuid,
-    3: required FDSPMsgTypeId   nd_op_code,
+    3: required FDSPMsgTypeId                   nd_op_code,
     4: list<NodeWorkItem>                       nd_work_item,
 }
 

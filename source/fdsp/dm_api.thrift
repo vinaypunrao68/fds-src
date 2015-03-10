@@ -4,7 +4,6 @@
 
 include "common.thrift"
 include "dm_types.thrift"
-
 include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface

@@ -11,8 +11,7 @@ user_build_dir    := \
 
 user_incl_dir     := \
 	stor-hvisor \
-	include \
-	/opt/fds-deps/embedded/include/cryptopp
+	include
 
 user_fds_ar_libs  :=  \
     fds-qos-lib \
@@ -48,7 +47,7 @@ user_non_fds_libs :=  \
     thrift \
     jansson \
     config++ \
-    cryptopp \
+    crypto \
     hiredis \
     event \
 	rt \

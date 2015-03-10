@@ -328,4 +328,5 @@ void PlatNetSvcHandler::updateSvcMap(fpi::AsyncHdrPtr &header,
 {
     MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcMapMsg->updates);
 }
+
 }  // namespace fds

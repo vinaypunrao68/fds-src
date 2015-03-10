@@ -8,8 +8,8 @@ user_thrift      := \
 	FDSP.thrift \
 	common.thrift \
 	svc_types.thrift \
-        am_types.thrift \
-        dm_types.thrift \
+	am_types.thrift \
+	dm_types.thrift \
 	om_types.thrift \
 	sm_types.thrift \
 	config_types.thrift \

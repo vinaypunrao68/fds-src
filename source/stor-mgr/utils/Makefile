@@ -3,7 +3,7 @@ user_target       := exe
 user_std_libs     := true
 user_rtime_env    := user
 speedup           = -j $(threads)
-user_incl_dir     := $(topdir) ../include /opt/fds-deps/embedded/include/cryptopp
+user_incl_dir     := $(topdir) ../include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
@@ -19,7 +19,7 @@ user_non_fds_libs := \
     boost_timer \
     leveldb \
     ssl \
-    cryptopp \
+    crypto \
     leveldb
 
 user_bin_exe      := smchk

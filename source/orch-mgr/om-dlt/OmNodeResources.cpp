@@ -16,6 +16,7 @@
 #include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
+#include <OmDmtDeploy.h>
 #include <fdsp/am_api_types.h>
 #include <fdsp/sm_api_types.h>
 #include <fdsp/PlatNetSvc.h>
@@ -307,8 +308,7 @@ OM_NodeAgent::om_send_abort_dm_migration_resp(fpi::CtrlNotifyDMAbortMigrationPtr
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
-    // TODO(xxx): There is no DmtRecoverAckEvt currently so the next line is commented out
-    // dmtMod->dmt_deploy_event(DmtRecoverAckEvt());
+    dmtMod->dmt_deploy_event(DmtRecoveryEvt(true, node_uuid, error));
 }
 
 
@@ -421,6 +421,12 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
 
     fds_verify(curDmt->getVersion() != DMT_VER_INVALID);
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send DMT to node we know is down... "
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
+
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
     auto dmt_msg = &msg->dmt_data;
@@ -610,6 +616,11 @@ OM_NodeAgent::om_pushmeta_resp(EPSvcRequest* req,
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {
     Error err(ERR_OK);
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send DMT close to service we know is down... "
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMTClosePtr msg(new fpi::CtrlNotifyDMTClose());
@@ -1821,7 +1832,7 @@ OM_NodeContainer::om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version) {
     fds_uint32_t count = 0;
     count = dc_dm_nodes->agent_ret_foreach<fds_uint64_t>(cur_dmt_version,
             om_send_dm_migration_abort);
-    LOGDEBUG << "Sent DM migration abort to " << count << "nodes.";
+    LOGDEBUG << "Sent DM migration abort to " << count << " DMs.";
     return count;
 }
 

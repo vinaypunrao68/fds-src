@@ -14,8 +14,8 @@ from thrift.server import TServer
 from common.ttypes import SvcID;
 from common.ttypes import SvcUuid;
 from FDS_ProtocolInterface.ttypes import *
-from svc_types.ttypes import SvcInfo;
-from svc_types.ttypes import ServiceStatus;
+from svc_types.ttypes import *
+from svc_types.constants import *
 
 from SvcHandle import *
 import FdspUtils
