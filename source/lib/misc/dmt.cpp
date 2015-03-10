@@ -320,16 +320,22 @@ Error DMTManager::commitDMT(fds_uint64_t version) {
         committed_version = version;
         target_version = DMT_VER_INVALID;
     } else {
-        err = ERR_INVALID_ARG;
+        committed_version = DMT_VER_INVALID;
+        target_version = DMT_VER_INVALID;
     }
     dmt_lock.write_unlock();
     return err;
 }
 
-Error DMTManager::unsetTarget() {
+Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
     Error err(ERR_OK);
     dmt_lock.write_lock();
     if (target_version != DMT_VER_INVALID) {
+        fds_verify(dmt_map.count(target_version) > 0);
+        if (rmTarget) {
+            // remove target DMT from the map 
+            dmt_map.erase(target_version);
+        }
         target_version = DMT_VER_INVALID;
     } else {
         err = ERR_NOT_FOUND;
