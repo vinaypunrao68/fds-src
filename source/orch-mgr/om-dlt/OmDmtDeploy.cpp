@@ -965,8 +965,8 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // We already computed target DMT, so most likely sent start migration msg
         // Send abort migration to DMs first, so that we can restart migration later
         // (otherwise DMs will think they are still migrating)
-        LOGNORMAL << "Already computed or commited target DMT, will send abort msg "
-                  << " got target DMT version " << vp->getTargetDMTVersion();
+        LOGWARN << "Already computed or commited target DMT, will send abort msg "
+                << " got target DMT version " << vp->getTargetDMTVersion();
         fds_uint32_t abortCnt = dom_ctrl->om_bcast_dm_migration_abort(vp->getCommittedDMTVersion());
         dst.abortMigrAcksToWait = 0;
         if (abortCnt > 0) {
