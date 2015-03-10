@@ -49,9 +49,9 @@ import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
 
 import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.Snapshot;
 import com.formationds.commons.Fds;
 import com.formationds.commons.util.Uris;
+import com.formationds.protocol.Snapshot;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
