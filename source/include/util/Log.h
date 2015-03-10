@@ -75,7 +75,7 @@
 #define GLOGERROR    GLEVELCHECK(error)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::error)        _ATLINE_
 #define GLOGCRITICAL GLEVELCHECK(critical)     FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::critical)     _ATLINE_
 
-#define FUNCTRACING
+// #define FUNCTRACING
 
 #ifdef FUNCTRACING
 #define TRACEFUNC fds::__TRACER__ __tt__(__PRETTY_FUNCTION__, __FILE__, __LINE__);
