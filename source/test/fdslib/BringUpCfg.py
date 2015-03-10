@@ -341,13 +341,13 @@ class FdsNodeConfig(FdsConfig):
                     ipad = line.split()[1]
                     hostName = socket.gethostbyaddr(ipad)[0]
                     ourIP = (ipad == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
-                if line.count("Control") > 0:
-                    if ourIP and (int(line.split()[2]) - 1 == int(port)):
+                if line.count("Data") > 0:
+                    if ourIP and (int(line.split()[2]) == int(port)):
                         self.nd_assigned_name = assigned_name
                         self.nd_uuid = assigned_uuid
                         break
 
-            if (self.nd_assigned_name is None) or (self.nd_uuid is None):
+            if (self.nd_uuid is None):
                 log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
                 log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
                 log.error("Results from service list:\n%s." % stdout)
