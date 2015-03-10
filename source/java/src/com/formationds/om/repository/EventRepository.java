@@ -5,7 +5,6 @@ package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.events.FirebreakType;
-import com.formationds.commons.model.Events;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.DateRangeBuilder;
 import com.formationds.commons.model.entity.Event;

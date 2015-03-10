@@ -16,8 +16,7 @@ import java.util.List;
  * @param <T>  the entity type managed by this repository
  * @param <PK> the type of the primary key identifier for an entity stored in the repository
  */
-abstract public class AbstractRepository<T, PK extends Serializable> implements CRUDRepository<T, PK>
-{
+abstract public class AbstractRepository<T, PK extends Serializable> implements CRUDRepository<T, PK> {
     private final List<EntityPersistListener<T>> listeners = new ArrayList<>();
 
     // use non-static logger to tie it to the concrete subclass.
@@ -26,8 +25,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
     /**
      *
      */
-    protected AbstractRepository()
-    {
+    protected AbstractRepository() {
         logger = LoggerFactory.getLogger( this.getClass() );
     }
 
@@ -36,8 +34,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param l the listener
      */
-    public void addEntityPersistListener( EntityPersistListener<T> l )
-    {
+    public void addEntityPersistListener( EntityPersistListener<T> l ) {
         listeners.add( l );
     }
 
@@ -46,8 +43,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param l the listener to remove
      */
-    public void removeEntityPersistListener( EntityPersistListener<T> l )
-    {
+    public void removeEntityPersistListener( EntityPersistListener<T> l ) {
         listeners.remove( l );
     }
 
@@ -56,10 +52,8 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param entity the entity that is about to be saved
      */
-    protected void firePrePersist( T entity )
-    {
-        for ( EntityPersistListener<T> l : listeners )
-        {
+    protected void firePrePersist( T entity ) {
+        for ( EntityPersistListener<T> l : listeners ) {
             l.prePersist( entity );
         }
     }
@@ -69,10 +63,8 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param entities the list of entities about to be persisted
      */
-    protected void firePrePersist( Collection<T> entities )
-    {
-        for ( EntityPersistListener<T> l : listeners )
-        {
+    protected void firePrePersist( Collection<T> entities ) {
+        for ( EntityPersistListener<T> l : listeners ) {
             l.prePersist( entities );
         }
     }
@@ -82,10 +74,8 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param entity the entity that was just persisted
      */
-    protected void firePostPersist( T entity )
-    {
-        for ( EntityPersistListener<T> l : listeners )
-        {
+    protected void firePostPersist( T entity ) {
+        for ( EntityPersistListener<T> l : listeners ) {
             l.postPersist( entity );
         }
     }
@@ -95,10 +85,8 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param entities the list of entities
      */
-    protected void firePostPersist( Collection<T> entities )
-    {
-        for ( EntityPersistListener<T> l : listeners )
-        {
+    protected void firePostPersist( Collection<T> entities ) {
+        for ( EntityPersistListener<T> l : listeners ) {
             l.postPersist( entities );
         }
     }
@@ -108,8 +96,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      */
     @SuppressWarnings("unchecked")
     @Override
-    public Class<T> getEntityClass()
-    {
+    public Class<T> getEntityClass() {
         return (Class<T>) ((ParameterizedType) getClass().getGenericSuperclass())
                               .getActualTypeArguments()[0];
     }
@@ -123,10 +110,8 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      * @return the persisted entity with any generated data updated in the entity.
      */
     @Override
-    synchronized public T save( T entity )
-    {
-        try
-        {
+    synchronized public T save( T entity ) {
+        try {
             logger.trace( "ENTITY_SAVE: {}", entity );
 
             firePrePersist( entity );
@@ -136,9 +121,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
             firePostPersist( entity );
 
             return entity;
-        }
-        catch ( RuntimeException re )
-        {
+        } catch ( RuntimeException re ) {
             logger.warn( "SAVE Failed", re );
             throw re;
         }
@@ -153,15 +136,12 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    synchronized public List<T> save( Collection<T> entities )
-    {
+    synchronized public List<T> save( Collection<T> entities ) {
         List<T> persisted = new ArrayList<>();
-        try
-        {
+        try {
             logger.trace( "Saving {} entities",
                           entities != null ? entities.size() : 0 );
-            if ( entities != null )
-            {
+            if ( entities != null ) {
                 entities.forEach( ( e ) -> logger.trace( "ENTITY_SAVE: {}",
                                                          e ) );
 
@@ -171,9 +151,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
 
                 firePostPersist( persisted );
             }
-        }
-        catch ( RuntimeException re )
-        {
+        } catch ( RuntimeException re ) {
             logger.debug( "SAVE Failed", re );
             throw re;
         }
@@ -185,17 +163,12 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      * @param entity the entity to delete
      */
     @Override
-    synchronized public void delete( T entity )
-    {
-        try
-        {
+    synchronized public void delete( T entity ) {
+        try {
             logger.trace( "Deleting entity {}", entity );
 
             doDelete( entity );
-
-        }
-        catch( RuntimeException re )
-        {
+        } catch ( RuntimeException re ) {
             logger.debug( "DELETE Failed", re );
             throw re;
         }

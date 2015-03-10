@@ -13,6 +13,7 @@ import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticatedRequestContext;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -20,6 +21,7 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -61,7 +63,7 @@ public class QueryEvents implements RequestHandler {
                 final List<Long> tenantUserIds = findTenantUserIds(uid);
                 events = er.queryTenantUsers(eventQuery, tenantUserIds);
             }
-            return new TextResource( ObjectModelHelper.toJSON( events ) );
+            return new JsonResource( new JSONObject( ObjectModelHelper.toJSON( events ) ) );
         }
     }
 
