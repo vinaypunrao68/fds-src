@@ -351,8 +351,8 @@ VolumePlacement::undoTargetDmtCommit() {
             prevDmtVersion = DMT_VER_INVALID;
         }
 
-        // forget about target DMT
-        dmtMgr->unsetTarget();
+        // forget about target DMT and remove it from DMT manager
+        dmtMgr->unsetTarget(true);
 
         // also forget target DMT in persistent store
         if (!configDB->setDmtType(0, "target")) {
@@ -402,7 +402,7 @@ VolumePlacement::persistCommitedTargetDmt() {
     LOGDEBUG << *dmtMgr;
 
     // unset target DMT in DMT Mgr
-    Error err = dmtMgr->unsetTarget();
+    Error err = dmtMgr->unsetTarget(false);
     if (!err.ok()) {
         LOGERROR << "Failed to unset DMT target " << err;
     }

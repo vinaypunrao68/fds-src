@@ -143,7 +143,7 @@ namespace fds {
          * Sets target DMT version as invalid
          * @return ERR_NOT_FOUND if target version does not exist
          */
-        Error unsetTarget();
+        Error unsetTarget(fds_bool_t rmTarget);
         inline fds_uint64_t getCommittedVersion() const {
             return committed_version;
         }
