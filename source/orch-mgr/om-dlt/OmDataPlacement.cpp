@@ -565,8 +565,8 @@ Error DataPlacement::checkDltValid(const DLT* dlt,
 
     // we should not have more rows than nodes
     if (col_depth > sm_services.size()) {
-        LOGWARN << "DLT has more rows (" << col_depth
-                << ") than nodes (" << sm_services.size() << ")";
+        LOGERROR << "DLT has more rows (" << col_depth
+                 << ") than nodes (" << sm_services.size() << ")";
         return Error(ERR_INVALID_DLT);
     }
 
@@ -580,8 +580,8 @@ Error DataPlacement::checkDltValid(const DLT* dlt,
             if ((cur_uuid.uuid_get_val() == 0) ||
                 (sm_services.count(cur_uuid) == 0)) {
                 // unexpected uuid in this DLT cell
-                LOGWARN << "DLT contains unexpected uuid " << std::hex
-                        << cur_uuid.uuid_get_val() << std::dec;
+                LOGERROR << "DLT contains unexpected uuid " << std::hex
+                         << cur_uuid.uuid_get_val() << std::dec;
                 return Error(ERR_INVALID_DLT);
             }
             col_set.insert(cur_uuid);
@@ -589,7 +589,7 @@ Error DataPlacement::checkDltValid(const DLT* dlt,
 
         // make sure that column contains all unique uuids
         if (col_set.size() < col_depth) {
-            LOGWARN << "Found non-unique uuids in DLT column " << i;
+            LOGERROR << "Found non-unique uuids in DLT column " << i;
             return Error(ERR_INVALID_DLT);
         }
     }

@@ -242,6 +242,9 @@ class OM_PmAgent : public OM_NodeAgent
     OM_AmAgent::pointer     activeAmAgent;  // pointer to active AM service or NULL
     /* Cached node information.  On activation this information is stored into config db */
     boost::shared_ptr<kvstore::NodeInfoType> nodeInfo;
+
+  private:
+    fds_mutex               dbNodeInfoLock;
 };
 
 // -------------------------------------------------------------------------------------

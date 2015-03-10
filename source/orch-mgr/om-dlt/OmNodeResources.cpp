@@ -689,7 +689,7 @@ OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 // ---------------------------------------------------------------------------------
 OM_PmAgent::~OM_PmAgent() {}
 OM_PmAgent::OM_PmAgent(const NodeUuid &uuid)
-    : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM) {}
+        : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM), dbNodeInfoLock("Config DB Node Info lock") {}
 
 void
 OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
@@ -739,12 +739,20 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
     // we cannot register more than one service of the same type
     // with the same node (platform)
     if (service_exists(svc_type)) {
+        LOGWARN << "Cannot register more than one service of the same type "
+                << svc_type;
         return Error(ERR_DUPLICATE);
     }
 
     // update configDB with which services this platform has
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
+
+    // Here we are reading the node info from DB, modifying a service info
+    // within the node info, and storing it. Have to do it under the lock
+    // since multiple threads can be modifying same node info (e.g. adding
+    // different services to it).
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
     if (configDB && !configDB->getNodeServices(get_uuid(), services)) {
         // just in case reset services to 0
         services.reset();
@@ -788,6 +796,12 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
     // update configDB -- remove the service
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
+
+    // Here we are reading the node info from DB, modifying a service info
+    // within the node info, and storing it. Have to do it under the lock
+    // since multiple threads can be modifying same node info (e.g. removing
+    // different services to it).
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
     fds_bool_t found_services = configDB ?
             configDB->getNodeServices(get_uuid(), services) : false;
 
@@ -814,6 +828,9 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
 
     if (found_services) {
         configDB->setNodeServices(get_uuid(), services);
+    } else {
+        LOGWARN << "Node info " << std::hex << get_uuid().uuid_get_val() << std::dec
+                << " not found to persist removal of service from this node";
     }
 
     return svc_uuid;
@@ -891,6 +908,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         // but for now assume always success and set active state here
         set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
         kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+        fds_mutex::scoped_lock l(dbNodeInfoLock);
         if (!configDB->nodeExists(get_uuid())) {
             // for now store only if the node was not known to DB
             configDB->addNode(*getNodeInfo());
