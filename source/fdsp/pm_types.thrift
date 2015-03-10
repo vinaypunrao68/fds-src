@@ -1,14 +1,15 @@
 /*
- * Copyright 2013-2015 Formation Data Systems, Inc.
+ * Copyright 2014-2015 by Formation Data Systems, Inc.
  */
 
+namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol.pm.types
+
 include "FDSP.thrift"
+
 include "common.thrift"
 include "svc_types.thrift"
 include "svc_api.thrift"
-
-namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.protocol.pm
 
 /*
  * --------------------------------------------------------------------------------
@@ -26,11 +27,11 @@ enum ServiceStatus {
  * Service map info
  */
 struct SvcInfo {
-    1: required common.SvcID             svc_id,
-    2: required i32                      svc_port,
-    3: required FDSP.FDSP_MgrIdType      svc_type,
-    4: required ServiceStatus            svc_status,
-    5: required string                   svc_auto_name,
+    1: required common.SvcID            svc_id,
+    2: required i32                     svc_port,
+    3: required FDSP.FDSP_MgrIdType 	svc_type
+    4: required ServiceStatus           svc_status,
+    5: required string                  svc_auto_name,
 }
 
 /**
@@ -158,25 +159,4 @@ struct NodeUpgrade {
     4: required svc_types.FDSPMsgTypeId	nd_op_code,
     5: required string                   	nd_md5_chksum,
     6: string                            	nd_pkg_path,
-}
-
-service PlatNetSvc extends svc_api.BaseAsyncSvc {
-    oneway void allUuidBinding(1: svc_api.UuidBindMsg mine);
-    oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info);
-
-    list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast);
-    DomainNodes getDomainNodes(1: DomainNodes dom);
-    NodeEvent   getSvcEvent(1: NodeEvent input);
-
-    ServiceStatus getStatus(1: i32 nullarg);
-    map<string, i64> getCounters(1: string id);
-    void resetCounters(1: string id);
-    void setConfigVal(1:string id, 2:i64 value);
-    void setFlag(1:string id, 2:i64 value);
-    i64 getFlag(1:string id);
-    map<string, i64> getFlags(1: i32 nullarg);
-    /* For setting fault injection.
-     * @param cmdline format based on libfiu
-     */
-    bool setFault(1: string cmdline);
 }
