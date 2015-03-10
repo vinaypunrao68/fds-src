@@ -55,9 +55,9 @@ TEST_DIR=/regress/test-$RANDOM
 
 # run tests
 if [ "$TEST_NODE" = "local" ] ; then
-    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $CLUSTER -x
+    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -D $WORKSPACE --fds-nodes $CLUSTER -x
 else
-    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_NODE -D $WORKSPACE --fds-nodes $CLUSTER -x
+    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -t $TEST_NODE -D $WORKSPACE --fds-nodes $CLUSTER -x
 fi
 
 # stats processing
