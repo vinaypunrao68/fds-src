@@ -205,7 +205,7 @@ def generic_kill(node, service):
     svc_map = {
         'sm': 'StorMgr',
         'dm': 'DataMgr',
-        'om': 'java'
+        'om': 'java', 
         'pm': 'platformd',
         'am': 'java'
     }
