@@ -9,8 +9,8 @@
 #include <boost/msm/back/state_machine.hpp>
 #include <fds_volume.h>
 #include "platform/node_agent.h"
-#include <fdsp/snapshot_types.h>
 #include "fdsp/om_api_types.h"
+#include <fdsp/common_types.h>
 namespace fds {
 
 class OmDiscoveryMod;

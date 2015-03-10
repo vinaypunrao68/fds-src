@@ -15,7 +15,7 @@
 #include <fds_process.h>
 #include <OmDataPlacement.h>
 #include <net/net-service.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/SvcRequestPool.h>
 #include "fdsp/sm_api_types.h"
 

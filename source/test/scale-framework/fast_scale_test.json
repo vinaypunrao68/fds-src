@@ -1,0 +1,27 @@
+{
+	"test_sets" : {
+		"multi_am_tests" : [
+			{
+				"name" : "TestMultiConnections",
+				"file" : "test_multiconnections.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateThreehundredObjectVolumes",
+				"file" : "Test300VolsObj.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateThreehundredBlockVolumes",
+				"file" : "test300VolsBlock.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}
+		]
+	}
+}

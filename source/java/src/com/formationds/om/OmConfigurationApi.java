@@ -5,12 +5,12 @@ package com.formationds.om;
 
 import com.formationds.protocol.ApiException;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.StreamingRegistrationMsg;
 import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.commons.events.*;
 import com.formationds.om.events.EventManager;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.util.thrift.ConfigServiceClientFactory;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.HashMultimap;
@@ -476,7 +476,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
-    public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId)
+    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId)
         throws ApiException, org.apache.thrift.TException {
         return getConfig().listSnapshots(volumeId);
     }

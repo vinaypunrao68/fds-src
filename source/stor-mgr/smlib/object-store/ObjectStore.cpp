@@ -34,7 +34,10 @@ ObjectStore::ObjectStore(const std::string &modName,
               "SM Object Metadata Storage Module")),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
-                                    volTbl, diskMap, data_store)) {
+                                    volTbl, diskMap, data_store)),
+          SMCheckCtrl(new SMCheckControl("SM Checker",
+                                         diskMap, data_store))
+{
 }
 
 ObjectStore::~ObjectStore() {
@@ -822,6 +825,36 @@ ObjectStore::tieringControlCmd(SmTieringCmd* tierCmd) {
             break;
         default:
             fds_panic("Unknown tiering command");
+    }
+    return err;
+}
+
+void
+ObjectStore::SmCheckUpdateDLT(const DLT *latestDLT)
+{
+    SMCheckCtrl->updateSMCheckDLT(latestDLT);
+}
+Error
+ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
+{
+    Error err(ERR_OK);
+
+    LOGDEBUG << "Executing SM Check command " << checkCmd->command;
+    switch (checkCmd->command) {
+        case SmCheckCmd::SMCHECK_START:
+            err = SMCheckCtrl->startSMCheck();
+            break;
+        case SmCheckCmd::SMCHECK_STOP:
+            err = SMCheckCtrl->stopSMCheck();
+            break;
+        case SmCheckCmd::SMCHECK_STATUS:
+            {
+                SmCheckStatusCmd *statusCmd = static_cast<SmCheckStatusCmd *>(checkCmd);
+                err = SMCheckCtrl->getStatus(statusCmd->checkStatus);
+            }
+            break;
+        default:
+            fds_panic("Unknown SM Check command");
     }
     return err;
 }

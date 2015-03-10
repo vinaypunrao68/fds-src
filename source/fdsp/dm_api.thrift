@@ -4,7 +4,6 @@
 
 include "common.thrift"
 include "dm_types.thrift"
-include "snapshot.thrift"
 include "pm_service.thrift"
 
 namespace cpp FDS_ProtocolInterface
@@ -61,7 +60,7 @@ struct GetVolumeMetaDataRspMsg {
  * add those structures to this message?
  */
 struct CreateSnapshotMsg {
-    1:snapshot.Snapshot snapshot
+    1:common.Snapshot snapshot
 }
 /**
  * Response contains the ID of the newly created snapshot.

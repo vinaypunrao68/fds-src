@@ -854,8 +854,13 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     LOGNOTIFY << "Received new DLT commit version  "
               << dlt->dlt_data.dlt_type;
     err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
+    if (err.ok()) {
+        objStorMgr->handleDltUpdate();
+    } else if (err == ERR_DUPLICATE) {
+        LOGWARN << "Received duplicate DLT, ignoring";
+        err = ERR_OK;
+    }
     fds_assert(err.ok());
-    objStorMgr->handleDltUpdate();
 
     LOGNOTIFY << "Sending DLT commit response to OM";
     hdr->msg_code = err.GetErrno();
@@ -889,6 +894,16 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 
+    // Update the DLT information for the SM checker when migration
+    // is complete.
+    // Strangely, compilation has some issues when trying to acquire the latest
+    // DLT in the SMCheckOnline class.  So, decided to update the DLT
+    // here.
+    // TODO(Sean):  This is a bit of a hack.  Access to DLT from SMCheck is
+    //              causing compilation issues, so make couple layers of
+    //              indirect call to update the
+    objStorMgr->objectStore->SmCheckUpdateDLT(objStorMgr->getDLT());
+
     // notify token migration manager
     err = objStorMgr->migrationMgr->handleDltClose();
 
@@ -918,12 +933,28 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                             boost::shared_ptr<fpi::CtrlNotifySMCheck>& msg)
 {
     Error err(ERR_OK);
+
+    LOGDEBUG << "Received SMCheck cmd=" << msg->SmCheckCmd;
+
+    SmCheckActionCmd actionCmd(msg->SmCheckCmd);
+    err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
 }
+
 void
 SMSvcHandler::querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                  boost::shared_ptr<fpi::CtrlNotifySMCheckStatus>& msg)
 {
     Error err(ERR_OK);
+
+    LOGDEBUG << "Received SMCheck status query";
+
+    fpi::CtrlNotifySMCheckStatusRespPtr resp(new fpi::CtrlNotifySMCheckStatusResp());
+    SmCheckStatusCmd statusCmd(resp);
+    err = objStorMgr->objectStore->SmCheckControlCmd(&statusCmd);
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheckStatusResp), *resp);
 }
 
 

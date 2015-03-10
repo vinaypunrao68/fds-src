@@ -18,7 +18,7 @@ void Manager::init() {
 }
 
 bool Manager::loadFromConfigDB() {
-    std::vector<fpi::SnapshotPolicy> vecSnapshotPolicies;
+    std::vector<fds::apis::SnapshotPolicy> vecSnapshotPolicies;
     om->getConfigDB()->listSnapshotPolicies(vecSnapshotPolicies);
     LOGNORMAL << "loaded [" << vecSnapshotPolicies.size() << "] policies";
     for (auto policy : vecSnapshotPolicies) {
@@ -45,7 +45,7 @@ bool Manager::loadFromConfigDB() {
     return true;
 }
 
-bool Manager::addPolicy(fpi::SnapshotPolicy& policy) {
+bool Manager::addPolicy(fds::apis::SnapshotPolicy& policy) {
     return snapScheduler->addPolicy(policy);
 }
 
