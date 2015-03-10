@@ -1027,13 +1027,13 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     // if we got SL timeout for one of the nodes we were trying to add to DMT
     // most likely that node is down.. for now mark as down
-    if (recoverAckEvt.ackForAbort &&
-        (node_type == fpi::FDSP_DATA_MGR) &&
-        (recoverAckEvt.ackError == ERR_SVC_REQUEST_TIMEOUT)) {
+    if ((node_type == fpi::FDSP_DATA_MGR) &&
+        ((recoverAckEvt.ackError == ERR_SVC_REQUEST_TIMEOUT) ||
+         (recoverAckEvt.ackError == ERR_SVC_REQUEST_INVOCATION))) {
         OM_Module *om = OM_Module::om_singleton();
         ClusterMap* cm = om->om_clusmap_mod();
         NodeUuidSet addedDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
-        LOGNORMAL << "SM timeout in SL, node uuid " << std::hex
+        LOGNORMAL << "DM timeout in SL, node uuid " << std::hex
                   << recoverAckEvt.svcUuid.uuid_get_val() << std::dec
                   << " ; we had " << addedDms.size() << " added DMs";
         for (NodeUuidSet::const_iterator cit = addedDms.cbegin();

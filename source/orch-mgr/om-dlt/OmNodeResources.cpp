@@ -413,6 +413,12 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
 
     fds_verify(curDmt->getVersion() != DMT_VER_INVALID);
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send DMT to node we know is down... "
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
+
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
     auto dmt_msg = &msg->dmt_data;
@@ -601,6 +607,11 @@ OM_NodeAgent::om_pushmeta_resp(EPSvcRequest* req,
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {
     Error err(ERR_OK);
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send DMT close to service we know is down... "
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMTClosePtr msg(new fpi::CtrlNotifyDMTClose());
