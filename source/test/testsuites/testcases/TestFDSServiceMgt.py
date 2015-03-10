@@ -205,10 +205,19 @@ def generic_kill(node, service):
     svc_map = {
         'sm': 'StorMgr',
         'dm': 'DataMgr',
-        'om': 'com.formationds.om.Main',
+        'om': 'java'
         'pm': 'platformd',
+        'am': 'java'
+    }
+
+    java_classes = {
+        'om': 'com.formationds.om.Main',
         'am': 'com.formationds.am.Main'
     }
+
+    java_class = None
+    if service == 'om' or service == 'am':
+        java_class = java_classes[service]
 
     log = logging.getLogger('TestFDSServiceMgt' + '.' + 'generic_kill')
 
@@ -217,7 +226,7 @@ def generic_kill(node, service):
                   "Not sure what to kill, so aborting by returning -1!".format(service))
         return -1
 
-    pid = getSvcPIDforNode(svc_map[service], node)
+    pid = getSvcPIDforNode(svc_map[service], node, java_class)
 
     if pid != -1:
         cmd = "kill -9 {}".format(pid)
@@ -225,7 +234,7 @@ def generic_kill(node, service):
 
     else:
         status = 0
-        log.warning("DM not running on %s." % (n.nd_conf_dict['node-name']))
+        log.warning("{} not running on {}.".format(service, node.nd_conf_dict['node-name']))
 
     return status
 
