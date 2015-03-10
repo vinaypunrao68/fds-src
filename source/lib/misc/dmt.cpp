@@ -331,6 +331,9 @@ Error DMTManager::unsetTarget() {
     Error err(ERR_OK);
     dmt_lock.write_lock();
     if (target_version != DMT_VER_INVALID) {
+        // remove target DMT from the map
+        fds_verify(dmt_map.count(target_version) > 0);
+        dmt_map.erase(target_version);
         target_version = DMT_VER_INVALID;
     } else {
         err = ERR_NOT_FOUND;

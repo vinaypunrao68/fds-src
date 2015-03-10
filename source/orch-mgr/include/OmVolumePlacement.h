@@ -229,6 +229,14 @@ namespace fds {
         fds_uint64_t prevDmtVersion;
 
         /**
+         * DMT version we will assign to the first DMT we compute
+         * if there are no DMTs persisted. It is not always 1, because
+         * we may compute/commit and then revert DMT; we don't want next
+         * DMT to have the same version
+         */
+        fds_uint64_t startDmtVersion;
+
+        /**
          * Current algorithm used to compute new DMT
          */
         VolPlacementAlgorithm *placeAlgo;
