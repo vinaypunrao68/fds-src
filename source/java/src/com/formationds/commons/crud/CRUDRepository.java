@@ -15,8 +15,7 @@ import java.util.List;
 /**
  * @author ptinius
  */
-public interface CRUDRepository<T, PrimaryKey extends Serializable>
-{
+public interface CRUDRepository<T, PrimaryKey extends Serializable> {
 
     /**
      * @return the class
@@ -66,8 +65,7 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable>
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    default List<T> save(final T... entities )
-    {
+    default List<T> save(final T... entities )     {
         return (entities != null ? save( Arrays.asList( entities )) : new ArrayList<>(0));
     }
 
@@ -84,16 +82,13 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable>
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    default List<T> save(final Collection<T> entities)
-    {
+    default List<T> save(final Collection<T> entities) {
         List<T> persisted = new ArrayList<>( );
-        if (entities == null)
-        {
+        if (entities == null) {
             return persisted;
         }
 
-        for (T e : entities)
-        {
+        for (T e : entities) {
             persisted.add( save( e ) );
         }
         return persisted;
@@ -117,10 +112,8 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable>
     /**
      * @param entities the entities to delete
      */
-    default void delete(final T... entities )
-    {
-        if (entities != null )
-        {
+    default void delete(final T... entities ) {
+        if (entities != null ) {
             delete( Arrays.asList( entities ) );
         }
     }
@@ -132,12 +125,9 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable>
      *
      * @throws RuntimeException if the delete for any entity fails
      */
-    default void delete(final Collection<T> entities)
-    {
-        if (entities != null)
-        {
-            for ( T e : entities )
-            {
+    default void delete(final Collection<T> entities) {
+        if (entities != null) {
+            for ( T e : entities ) {
                 delete( e );
             }
         }
