@@ -122,10 +122,18 @@ void SvcProcess::setupConfigDb_()
 void SvcProcess::setupSvcInfo_()
 {
     auto config = get_conf_helper();
-    svcInfo_.svc_id.svc_uuid.svc_uuid = config.get<fds_uint64_t>("svc.uuid");
+
+    fpi::SvcUuid platformUuid;
+    platformUuid.svc_uuid = static_cast<int64_t>(config.get_abs<fds_uint64_t>(
+            "fds.pm.platform_uuid"));
+    auto platformPort = config.get_abs<int>("fds.pm.platform_port");
+    auto svcType = SvcMgr::mapToSvcType(config.get<std::string>("id"));
+
+    svcInfo_.svc_type = svcType;
+    svcInfo_.svc_id.svc_uuid = SvcMgr::mapToSvcUuid(platformUuid,
+                                                    svcType);
     svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
-    svcInfo_.svc_port = config.get<int>("svc.port");
-    svcInfo_.svc_type = SvcMgr::mapToSvcType(config.get<std::string>("id"));
+    svcInfo_.svc_port = SvcMgr::mapToSvcPort(platformPort, svcType);
     svcInfo_.svc_status = fpi::SVC_STATUS_ACTIVE;
 
     // TODO(Rao): set up correct incarnation no
@@ -135,7 +143,7 @@ void SvcProcess::setupSvcInfo_()
     fds_assert(svcInfo_.svc_id.svc_uuid.svc_uuid != 0);
     fds_assert(svcInfo_.svc_port != 0);
 
-    LOGNOTIFY << "Service info: " << fds::logString(svcInfo_);
+    LOGNOTIFY << "Service info(from base): " << fds::logString(svcInfo_);
 }
 
 void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,

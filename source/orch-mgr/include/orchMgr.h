@@ -96,6 +96,9 @@ class OrchMgr: public SvcProcess {
     kvstore::ConfigDB      *configDB;
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
+  protected:
+    virtual void setupSvcInfo_() override;
+
   public:
     OrchMgr(int argc, char *argv[], OM_Module *omModule);
     ~OrchMgr();

@@ -54,8 +54,8 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
-    om_port = 10004
-    om_uuid = 1028
+	om_port = 7004
+	om_uuid = 1028
     }
 
     pm: {
@@ -68,10 +68,14 @@ fds: {
         /* Log severity */
         log_severity = "{{ pm_log_severity }}"
 
-        /* Control path port */
+        /* Platform uuid.  From this base uuid other service runnig on this node detrive their uuids */
+	platform_uuid = 1024
+        /* Platform port.  This is the node base port.  All services running on this node derive */
+	/* their port based on this port */
         platform_port = 7000
 
         /* Orchestration manager info */
+	/* TODO(Rao): Deprecate om_ip, om_port, om_platform_port.  We don't need them anymore */
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
@@ -108,10 +112,6 @@ fds: {
         }
         /* Service layer stanza */
         svc: {
-	    /* service uuid */
-	    uuid = 1024
-	    /* service port */
-	    port = 10000
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -126,10 +126,6 @@ fds: {
 
     dm: {
         svc: {
-	    /* service uuid */
-	    uuid = 1026
-	    /* service port */
-	    port = 10002
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -156,6 +152,7 @@ fds: {
         /* process id */
         id      = "dm"
         no_om   = false;
+	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -219,10 +216,6 @@ fds: {
 
     sm: {
         svc: {
-	    /* service uuid */
-	    uuid = 1025
-	    /* service port */
-	    port = 10001
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -238,6 +231,7 @@ fds: {
         /* process id */
         id      = "sm"
         prefix  = ""
+	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -322,7 +316,7 @@ fds: {
         /* Migration related info */
         migration: {
             /* IP of the migration server */
-            /* DEPRECATED */
+	    /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
             ip = "{{ om_ip }}"
 
             /* Number of threads for doing migration work */
@@ -361,10 +355,6 @@ fds: {
 
     am: {
         svc: {
-	    /* service uuid */
-	    uuid = 1027
-	    /* service port */
-	    port = 10003
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -382,6 +372,7 @@ fds: {
 
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"
+	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
 
@@ -472,10 +463,6 @@ fds: {
     {
         /* Service layer stanza */
         svc: {
-	    /* service uuid */
-	    uuid = 1028
-	    /* service port */
-	    port = 10004
             lftp: {
                 /* Enable lockfree threadpool optimizations or not */
                 enable = {{ svc_plat_lftp_enable }}
@@ -496,6 +483,7 @@ fds: {
         log_severity = "{{ om_log_severity }}"
         logfile="om"
         config_port=8903
+	/* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
         control_port=8904
         ip_address = "{{ om_ip }}"
         enable_graphite = {{ metrics_enabled }}
@@ -532,6 +520,7 @@ fds: {
         control_port = 6991
 
         /* Orchestration manager ip */
+	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip = "{{ om_ip }}"
 
         /* Orchestration manager port */

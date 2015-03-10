@@ -181,6 +181,19 @@ void OrchMgr::proc_pre_service()
     local_domain->om_load_state(config_db_up ? configDB : NULL);
 }
 
+void OrchMgr::setupSvcInfo_()
+{
+    SvcProcess::setupSvcInfo_();
+
+    auto config = MODULEPROVIDER()->get_conf_helper();
+    svcInfo_.ip = config.get_abs<std::string>("fds.common.om_ip_list");
+    svcInfo_.svc_port = config.get_abs<int>("fds.common.om_port");
+    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(
+        config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
+
+    LOGNOTIFY << "Service info(After overriding): " << fds::logString(svcInfo_);
+}
+
 void OrchMgr::registerSvcProcess()
 {
     LOGNOTIFY << "register service process";

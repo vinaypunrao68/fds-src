@@ -61,11 +61,9 @@ pid_t PlatformManager::startAM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
-    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
-    args.push_back(std::string("--fds.am.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
+    args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
     args.push_back(util::strformat("--fds.am.instanceId=%ld", 0));
-    args.push_back(util::strformat("--fds.am.svc.uuid=%lld", getNodeUUID(fpi::FDSP_STOR_HVISOR)));
     
     pid = fds_spawn_service("AMAgent", rootDir, args, true);
     if (pid > 0) {
@@ -81,10 +79,8 @@ pid_t PlatformManager::startDM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
-    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
-    args.push_back(std::string("--fds.dm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
-    args.push_back(util::strformat("--fds.dm.svc.uuid=%lld", getNodeUUID(fpi::FDSP_DATA_MGR)));
+    args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
     
     pid = fds_spawn_service("DataMgr", rootDir, args, true);
 
@@ -102,10 +98,9 @@ pid_t PlatformManager::startSM() {
     std::vector<std::string>    args;
     pid_t                pid;
 
-    args.push_back(util::strformat("--fds.pm.platform_port=%d",conf->get<int>("platform_port", 7000)));
-    args.push_back(std::string("--fds.pm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
-    args.push_back(std::string("--fds.sm.om_ip=") + conf->get<std::string>("om_ip", "localhost"));
-    args.push_back(util::strformat("--fds.sm.svc.uuid=%lld", getNodeUUID(fpi::FDSP_STOR_MGR)));
+    args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
+    args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
+
     pid = fds_spawn_service("StorMgr", rootDir, args, true);
     if (pid > 0) {
         LOGNOTIFY << "Spawn SM as daemon";
