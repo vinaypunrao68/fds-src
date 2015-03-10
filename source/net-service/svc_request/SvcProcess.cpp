@@ -1,6 +1,7 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
+#include <boost/algorithm/string.hpp>
 #include <fds_process.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/PlatNetSvcHandler.h>
@@ -54,6 +55,12 @@ void SvcProcess::init(int argc, char *argv[],
 {
     /* Set up process related services such as logger, timer, etc. */
     FdsProcess::init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
+
+    /* Extract service name pm/sm/dm/am etc */
+    std::vector<std::string> strs;
+    boost::split(strs, base_path, boost::is_any_of("."));
+    fds_verify(strs.size() >= 2);
+    svcName_ = strs[1];
 
     /* Setup Config db for persistence */
     setupConfigDb_();
@@ -127,7 +134,7 @@ void SvcProcess::setupSvcInfo_()
     platformUuid.svc_uuid = static_cast<int64_t>(config.get_abs<fds_uint64_t>(
             "fds.pm.platform_uuid"));
     auto platformPort = config.get_abs<int>("fds.pm.platform_port");
-    auto svcType = SvcMgr::mapToSvcType(config.get<std::string>("id"));
+    auto svcType = SvcMgr::mapToSvcType(svcName_);
 
     svcInfo_.svc_type = svcType;
     svcInfo_.svc_id.svc_uuid = SvcMgr::mapToSvcUuid(platformUuid,
@@ -138,7 +145,7 @@ void SvcProcess::setupSvcInfo_()
 
     // TODO(Rao): set up correct incarnation no
     svcInfo_.incarnationNo = util::getTimeStampSeconds();
-    svcInfo_.name = config.get<std::string>("id");
+    svcInfo_.name = svcName_;
 
     fds_assert(svcInfo_.svc_id.svc_uuid.svc_uuid != 0);
     fds_assert(svcInfo_.svc_port != 0);

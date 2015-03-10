@@ -120,6 +120,7 @@ struct SvcProcess : FdsProcess {
     /* TODO(Rao): Include persistence as well */
     boost::shared_ptr<SvcMgr> svcMgr_;
     fpi::SvcInfo              svcInfo_;
+    std::string               svcName_;
 };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_SVCPROCESS_H_
