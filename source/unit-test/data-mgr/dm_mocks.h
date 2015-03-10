@@ -78,22 +78,26 @@ static fds::Module *dmVec[] = {
     NULL
 };
 
-struct DMTester :  FdsProcess {
+struct DMTester :  SvcProcess {
     std::vector<boost::shared_ptr<VolumeDesc> > volumes;
     std::string TESTBLOB;
     fds_volid_t TESTVOLID;
     uint64_t txnId = 0;
 
     DMTester(int argc, char *argv[])
-            : FdsProcess(argc,
+            : SvcProcess(argc,
                          argv,
                          "platform.conf",
                          "fds.dm.",
                          "dm.log",
-                         dmVec) {
+                         nullptr) {
     }
 
     virtual ~DMTester() {}
+
+    virtual void registerSvcProcess() override
+    {
+    }
 
     void initDM() {
         std::cout << "initing dm" << std::endl;
