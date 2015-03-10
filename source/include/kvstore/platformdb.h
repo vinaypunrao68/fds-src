@@ -11,7 +11,8 @@ namespace fds {
 namespace kvstore {
 
 struct PlatformDB : KVStore {
-    PlatformDB(const std::string& host = "localhost",
+    PlatformDB(const std::string& keyBase = "",
+               const std::string& host = "localhost",
                uint port = 6379,
                uint poolsize = 10);
     virtual ~PlatformDB();
@@ -20,6 +21,14 @@ struct PlatformDB : KVStore {
     bool getNodeInfo(fpi::NodeInfo& nodeInfo);
     bool setNodeDiskCapability(const fpi::FDSP_AnnounceDiskCapability& diskCapability); // NOLINT
     bool getNodeDiskCapability(fpi::FDSP_AnnounceDiskCapability& diskCapability); // NOLINT
+
+
+ protected:
+    redis::Reply getInternal(const std::string &key);
+    void setInternal(const std::string &key, const std::string &value);
+    std::string computeKey(const std::string &k);
+
+    std::string keyBase;
 };
 }  // namespace kvstore
 }  // namespace fds
