@@ -294,6 +294,13 @@ DMSvcHandler::StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &
     Error err(ERR_OK);
     LOGNOTIFY << "Will start meta migration";
 
+    // TODO(Anna) DM migration needs to be re-written, returning success right away
+    // without doing actual migration so DMT state machine can move forward
+    // IMPLEMENT DM MIGRATION
+    LOGWARN << "DM migration not implemented, not migrating meta!";
+    StartDMMetaMigrationCb(hdr, err);
+    return;
+
     // see if DM sync feature is enabled
     if (dataMgr->feature.isCatSyncEnabled()) {
         err = dataMgr->catSyncMgr->startCatalogSync(migrMsg->metaVol,
