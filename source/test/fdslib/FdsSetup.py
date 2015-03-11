@@ -3,6 +3,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 #
 import os, errno, sys, pwd
+sys.path.append("/opt/fds-deps/embedded/lib/python2.7/site-packages")
 import logging
 import subprocess
 import shlex
@@ -47,7 +48,7 @@ class FdsEnv(object):
         self.env_host      = None
         self.env_user      = 'root'
         self.env_password  = 'passwd'
-        self.env_sudo_password = None
+        self.env_sudo_password = 'dummy'
         self.env_test_harness = _test_harness
         self.env_fdsDict   = {
             'debug-base': 'Build/linux-x86_64.debug/',
@@ -59,8 +60,9 @@ class FdsEnv(object):
 
         self.env_ldLibPath = ("export LD_LIBRARY_PATH=" +
                               self.get_fds_root() + 'lib:'
-                              '/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64; '
-                              'export PATH=$PATH:' + self.get_fds_root() + 'bin; ')
+                              '/usr/local/lib:/opt/fds-deps/embedded/jre/lib/amd64:'
+                              '/opt/fds-deps/embedded/lib; '
+                              'export PATH=/opt/fds-deps/embedded/jre/bin:/opt/fds-deps/embedded/bin:$PATH:' + self.get_fds_root() + 'bin; ')
 
         # Try to determine an FDS source directory if specified as empty.
         if self.env_fdsSrc == "":
@@ -99,7 +101,7 @@ class FdsEnv(object):
     #
     def get_log_dir(self):
         if self.env_install:
-            return self.env_fdsRoot + '/var/logs'
+            return self.env_fdsRoot + 'var/logs'
         else:
             return self.get_bin_dir(debug=False)
 
@@ -214,10 +216,10 @@ class FdsLocalEnv(FdsEnv):
         # We need to modify the command to use the credentials that have been configured.
         # This usage of 'sudo' will get the password from stdin (rather than the terminal device)
         # and ignore any cached credentials.
-        if fds_bin:
-            cmd_exec = ("sudo -S -k -u %s " % self.env_user +
-                        self.env_ldLibPath + 'cd ' + self.get_fds_root() +
-                        'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
+        if fds_bin and self.env_install:
+            cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() + 'bin; '
+                        'ulimit -c unlimited; ulimit -n 12800; ' +
+                        'sudo -S -k -u %s ' % self.env_user + cmd)
         else:
             cmd_exec = "sudo -S -k -u %s " % self.env_user + cmd
 
@@ -235,8 +237,15 @@ class FdsLocalEnv(FdsEnv):
         # Split the command into a list of strings as prefered by subprocess.Popen()
         call_args = shlex.split(cmd_exec)
 
+        # For FDS binaries in a development environment, we need to switch to that directory for execution.
+        cur_dir = os.getcwd()
+        if fds_bin and not self.env_install:
+            os.chdir(self.get_bin_dir(debug=True))
+
         p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+        # Probably p.communicate() is forcing a wait for the process to complete
+        # regardless of wait_compl's setting.
         if cmd_input is not None:
             # Watch for a sudo password of "dummy". In that case we'll assume that the environment
             # will not request a password for sudo and so execute the command without providing it
@@ -250,8 +259,14 @@ class FdsLocalEnv(FdsEnv):
 
         if wait_compl:
             p.wait()
+        else:
+            log.info("Not waiting.")
 
         status = p.returncode
+
+        # For FDS binaries in a development environment, we need to switch back to our original directory.
+        if fds_bin and not self.env_install:
+            os.chdir(cur_dir)
 
         if stderr is not None:
             for line in stderr.splitlines():
@@ -263,6 +278,10 @@ class FdsLocalEnv(FdsEnv):
                         continue
                     else:
                         prompt, colon, line = line.partition(":")
+                if 'log4j:WARN' in line:
+                    continue
+                if 'Content is not allowed in prolog.' in line:
+                    continue
                 log.warn("[%s Error] %s" % (self.env_host, line))
                 if status == 0:
                     status = -1
@@ -291,8 +310,8 @@ class FdsLocalEnv(FdsEnv):
     # Execute command and wait for result. We'll also log
     # output in this case.
     #
-    def exec_wait(self, cmd, return_stdin=False, cmd_input=None):
-        return self.local_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True, fds_bin=False, output=True):
+        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=output, return_stdin=return_stdin,
                                cmd_input=cmd_input)
 
     def local_close(self):
@@ -373,12 +392,17 @@ class FdsRmtEnv(FdsEnv):
                  wait_compl = False,
                  fds_bin = False,
                  output = False,
-                 return_stdin = False):
+                 return_stdin = False,
+                 cmd_input = None):
         log = logging.getLogger(self.__class__.__name__ + '.' + "ssh_exec")
 
         if fds_bin:
-            cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
-                        'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
+            if self.env_test_harness:
+                cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
+                            'bin; ulimit -c unlimited; ulimit -n 12800; ' + cmd)
+            else:
+                cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
+                            'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
         else:
             cmd_exec = cmd
 
@@ -397,6 +421,12 @@ class FdsRmtEnv(FdsEnv):
                 return 0
 
         stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
+        if cmd_input is not None:
+            # TODO(Greg): Seems not to be working. Execution behaves as if input still wanted.
+            log.debug("cmd_input: %s" % cmd_input)
+            stdin.write(cmd_input)
+            stdin.flush()
+
         channel = stdout.channel
         status  = 0 if wait_compl == False else channel.recv_exit_status()
 
@@ -439,8 +469,9 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
-    def exec_wait(self, cmd, return_stdin = False):
-        return self.ssh_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin)
+    def exec_wait(self, cmd, return_stdin = False, cmd_input=None, wait_compl=True, fds_bin=False, output=True):
+        return self.ssh_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=output, return_stdin=return_stdin,
+                             cmd_input=cmd_input)
 
     def ssh_close(self):
         self.env_ssh_clnt.close()

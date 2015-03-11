@@ -1,7 +1,17 @@
 ---
+-   name: check for python install
+    raw: python --version
+    register: python_installed
+    ignore_errors: yes
+
+-   name: install python
+    raw: apt-get -y install python
+    when: python_installed|failed
+
 -   name: set the root password
     action: user name=root
         password=$1$M7e8qbJh$0nDQnqfGh5Ce80bbYKp5U/
+    when: no_password_change is not defined
     tags:
         - setup
 

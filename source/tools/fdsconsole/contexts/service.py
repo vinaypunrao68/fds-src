@@ -1,31 +1,72 @@
 from  svchelper import *
-from fdslib.pyfdsp.apis import ttypes
-from fds_service.ttypes import *
+from svc_api.ttypes import *
 import platformservice
 from platformservice import *
 import FdspUtils 
+import restendpoint
 
 class ServiceContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
+        self.__restApi = None
+
+    def restApi(self):
+        if self.__restApi == None:
+            self.__restApi = restendpoint.ServiceEndpoint(self.config.getRestApi())
+        return self.__restApi
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('nodeid', help= "node id",  type=long)
+    @arg('svcname', help= "service name",  choices=['sm','dm','am'])
+    def addService(self, nodeid, svcname):
+        'activate services on a node'
+        try:
+            return self.restApi().toggleServices(nodeid, {svcname: True})
+        except Exception, e:
+            log.exception(e)
+            return 'unable to remove node'
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('nodeid', help= "node id",  type=long)
+    @arg('svcname', help= "service name",  choices=['sm','dm','am'])
+    def removeService(self, nodeid, svcname):
+        'deactivate services on a node'
+        try:
+            return self.restApi().toggleServices(nodeid, {svcname: False})
+        except Exception, e:
+            log.exception(e)
+            return 'unable to remove node'
 
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
+        'show the list of services in the system'
         try:
+            """
             services = ServiceMap.list()
-            return tabulate(services, headers=['nodeid','service','ip','port'], tablefmt=self.config.getTableFormat())
+            return tabulate(services, headers=['service id','service', 'incarnation no', 'ip','port', 'status'],
+            """
+            services = self.restApi().listServices()
+            return tabulate(services,
+                            headers={
+                                'uuid':     'Node UUID',
+                                'service':  'Service Name',
+                                'ip':       'IP4 Address',
+                                'port':     'TCP Port',
+                                'status':   'Service Status'},
+                            tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
-            return 'unable to get volume list'
+            return 'unable to get service list'
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', help= "node id",  type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
-    def listcounter(self, nodeid, svcname):
+    @arg('svcid', help= "Service Uuid",  type=long)
+    def listcounter(self, svcid):
         try:
-            cntrs = ServiceMap.client(nodeid, svcname).getCounters('*')
+            cntrs = ServiceMap.client(svcid).getCounters('*')
             data = [(v,k) for k,v in cntrs.iteritems()]
             data.sort(key=itemgetter(1))
             return tabulate(data,headers=['value', 'counter'], tablefmt=self.config.getTableFormat())
@@ -36,42 +77,39 @@ class ServiceContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', help= "node id",  type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
-    def listflag(self, nodeid, svcname, name=None):
+    @arg('svcid', help= "Service Uuid",  type=long)
+    def listflag(self, svcid, name=None):
         try:
             if name is None:
-                flags = ServiceMap.client(nodeid, svcname).getFlags(None)
+                flags = ServiceMap.client(svcid).getFlags(None)
                 data = [(v,k) for k,v in flags.iteritems()]
                 data.sort(key=itemgetter(1))
                 return tabulate(data, headers=['value', 'flag'], tablefmt=self.config.getTableFormat())
             else:
-                return ServiceMap.client(nodeid, svcname).getFlag(name)
+                return ServiceMap.client(svcid).getFlag(name)
         except Exception, e:
             log.exception(e)
             return 'unable to get volume list'
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
+    @arg('svcid', type=long)
     @arg('flag', type=str)
     @arg('value', type=long)
-    def setflag(self, nodeid, svcname, flag, value):
+    def setflag(self, svcid, flag, value):
         try:
-            ServiceMap.client(nodeid, svcname).setFlag(flag, value)
+            ServiceMap.client(svcid).setFlag(flag, value)
             return 'Ok'
         except Exception, e:
             log.exception(e)
             return 'Unable to set flag: {}'.format(flag)
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
+    @arg('svcid', type=long)
     @arg('cmd', type=str)
-    def setfault(self, nodeid, svcname, cmd):
+    def setfault(self, svcid, cmd):
         try:
-            success = ServiceMap.client(nodeid, svcname).setFault(cmd)
+            success = ServiceMap.client(svcid).setFault(cmd)
             if success:
                 return 'Ok'
             else:
@@ -85,10 +123,9 @@ class ServiceContext(Context):
     @arg('volname', help='-volume name')
     def listblobstat(self, volname):
         try:
-            
             #process.setup_logger()
-	    # import pdb; pdb.set_trace()
-            dmClient = self.config.platform;
+            #import pdb; pdb.set_trace()
+            dmClient = self.config.getPlatform();
 
             dmUuids = dmClient.svcMap.svcUuids('dm')
             volId = dmClient.svcMap.omConfig().getVolumeId(volname)
@@ -98,28 +135,13 @@ class ServiceContext(Context):
             dmClient.sendAsyncSvcReq(dmUuids[0], getblobmeta, cb)
 
             if not cb.wait():
-		print 'async volume meta request failed'
+                print 'async volume meta request failed'
 
-    	    data = []
-	    data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
-	    data += [("size",cb.payload.volume_meta_data.size)]
-	    data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
-	    print tabulate(data, tablefmt=self.config.getTableFormat())
-
-
-            getblobmsg = FdspUtils.newGetBucketMsg(volId, 0, 0);
-            listcb = WaitedCallback();
-            dmClient.sendAsyncSvcReq(dmUuids[0], getblobmsg, listcb)
-
-            if not listcb.wait():
-		print 'async listblob request failed'
-
-	    #import pdb; pdb.set_trace()
-            blobs = listcb.payload.blob_info_list;
-            blobs.sort(key=attrgetter('blob_name'))
-            return tabulate([(x.blob_name, x.blob_size, x.mime_type) for x in blobs],headers=
-                 ['blobname', 'blobsize', 'blobtype'], tablefmt=self.config.getTableFormat())
-
+            data = []
+            data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
+            data += [("size",cb.payload.volume_meta_data.size)]
+            data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
+            return tabulate(data, tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return 'unable to get volume meta list'
@@ -132,7 +154,7 @@ class ServiceContext(Context):
             
             #process.setup_logger()
 	    # import pdb; pdb.set_trace()
-            dmClient = self.config.platform;
+            dmClient = self.config.getPlatform();
             volId = dmClient.svcMap.omConfig().getVolumeId(volname)
 
             dmUuids = dmClient.svcMap.svcUuids('dm')
@@ -154,37 +176,3 @@ class ServiceContext(Context):
             print e
             log.exception(e)
             return 'unable to get dm stats '
-
-    #--------------------------------------------------------------------------------------
-    @clicmd
-    @arg('volname', help='-volume name')
-    @arg('pattern', help='-blob name pattern for search')
-    @arg('maxkeys', help= "-max number for results", nargs='?' , type=long, default=1000)
-    @arg('startpos', help= "-starting  position of the blob list", nargs='?' , type=long, default=0)
-    def listblobsbypattern(self, volname, pattern, maxkeys, startpos):
-        try:
-            
-            #process.setup_logger()
-	    # import pdb; pdb.set_trace()
-            dmClient = self.config.platform;
-
-            dmUuids = dmClient.svcMap.svcUuids('dm')
-            volId = dmClient.svcMap.omConfig().getVolumeId(volname)
-
-            getbloblist = FdspUtils.newListBlobsByPatternMsg(volId, startpos, maxkeys, pattern);
-            cb = WaitedCallback();
-            dmClient.sendAsyncSvcReq(dmUuids[0], getbloblist, cb)
-
-            if not cb.wait():
-		print 'async listblob request failed'
-
-	    #import pdb; pdb.set_trace()
-            blobs = cb.payload.blobDescriptors;
-            blobs.sort(key=attrgetter('name'))
-            return tabulate([(x.name, x.byteCount) for x in blobs],headers=
-                 ['name', 'size'], tablefmt=self.config.getTableFormat())
-
-        except Exception, e:
-            log.exception(e)
-            return 'unable to get blob list based on pattern '
-

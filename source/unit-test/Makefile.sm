@@ -15,15 +15,12 @@ user_fds_so_libs  +=
 user_fds_ar_libs  +=  \
     fds-test \
     fds-smlib \
-    fds-migrations \
     fds-am-engine \
     fds-odb \
-    fds-sm-plat \
-    fds-vpolicy \
     fds-dsk-mgnt \
     fds-dsk-io \
     fds-hash \
-    fds-xdi
+    fds-fdsp
 
 user_non_fds_libs +=  \
     jansson \
@@ -33,7 +30,6 @@ user_non_fds_libs +=  \
 	pcre \
 	crypto \
 	z \
-	cryptopp \
     ssl \
     boost_timer \
     gmock \

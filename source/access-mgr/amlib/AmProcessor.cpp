@@ -39,6 +39,23 @@ AmProcessor::AmProcessor(const std::string &modName,
 }
 
 void
+AmProcessor::respond(AmRequest *amReq, const Error& error) {
+    qosCtrl->markIODone(amReq);
+    amReq->cb->call(error);
+
+    /*
+     * If we're shutting down and there are no
+     * more outstanding requests, tell the QoS
+     * Dispatcher that we're shutting down.
+     */
+    if (am->isShuttingDown() &&
+            (qosCtrl->htb_dispatcher->num_outstanding_ios == 0))
+    {
+        am->stop();
+    }
+}
+
+void
 AmProcessor::getVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.getVolMeta",
               respond_and_delete(amReq, ERR_OK); \
@@ -198,48 +215,42 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
 
     if (error.ok()) {
+        auto tx_desc = blobReq->tx_desc;
         // Add the Tx to the manager if this an updateOnce
         if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
             fds_verify(txMgr->addTx(amReq->io_vol_id,
-                                    *(blobReq->tx_desc),
+                                    *tx_desc,
                                     blobReq->dmt_version,
                                     amReq->getBlobName()) == ERR_OK);
             // Stage the transaction metadata changes
-            fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc),
-                                                   blobReq->metadata) == ERR_OK);
+            fds_verify(txMgr->updateStagedBlobDesc(*tx_desc, blobReq->final_meta_data));
         }
-        // Update the tx manager with this update
-        fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc),
-                                               amReq->data_len) == ERR_OK);
+
         // Update the transaction manager with the stage offset update
-        fds_verify(txMgr->updateStagedBlobOffset(*(blobReq->tx_desc),
-                                                 amReq->getBlobName(),
-                                                 amReq->blob_offset,
-                                                 amReq->obj_id) == ERR_OK);
+        if (ERR_OK != txMgr->updateStagedBlobOffset(*tx_desc,
+                                                    amReq->getBlobName(),
+                                                    amReq->blob_offset,
+                                                    amReq->obj_id)) {
+            // An abort or commit already caused the tx
+            // to be cleaned up. Short-circuit
+            LOGNOTIFY << "Response no longer has active transaction: " << tx_desc->getValue();
+            delete amReq;
+            return;
+        }
+
         // Update the transaction manager with the staged object data
         if (amReq->data_len > 0) {
-            fds_verify(txMgr->updateStagedBlobObject(*(blobReq->tx_desc),
+            fds_verify(txMgr->updateStagedBlobObject(*tx_desc,
                                                      amReq->obj_id,
-                                                     blobReq->dataPtr,
-                                                     amReq->data_len)
+                                                     blobReq->dataPtr)
                    == ERR_OK);
         }
 
         if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
-            // Push the commited update to the cache and remove from manager
-            // We push here because the ONCE messages don't have an explicit
-            // commit and here is where we know we've actually committed
-            // to SM and DM.
-            // TODO(Andrew): Inserting the entire tx transaction currently
-            // assumes that the tx descriptor has all of the contents needed
-            // for a blob descriptor (e.g., size, version, etc..). Today this
-            // is true for S3/Swift and doesn't get used anyways for block (so
-            // the actual cached descriptor for block will not be correct).
             AmTxDescriptor::ptr txDescriptor;
-            fds_verify(txMgr->getTxDescriptor(*(blobReq->tx_desc),
-                                              txDescriptor) == ERR_OK);
-            fds_verify(amCache->putTxDescriptor(txDescriptor) == ERR_OK);
-            fds_verify(txMgr->removeTx(*(blobReq->tx_desc)) == ERR_OK);
+            fds_verify(txMgr->getTxDescriptor(*tx_desc, txDescriptor) == ERR_OK);
+            fds_verify(amCache->putTxDescriptor(txDescriptor, blobReq->final_blob_size) == ERR_OK);
+            fds_verify(txMgr->removeTx(*tx_desc) == ERR_OK);
         }
     }
 
@@ -273,7 +284,6 @@ AmProcessor::getBlob(AmRequest *amReq) {
     // If we need to return metadata, check the cache
     Error err = ERR_OK;
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
-    fds_bool_t foundBlobDesc = false;
     if (blobReq->get_metadata) {
         BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(volId,
                                                                         amReq->getBlobName(),
@@ -281,14 +291,11 @@ AmProcessor::getBlob(AmRequest *amReq) {
         if (ERR_OK == err) {
             LOGTRACE << "Found cached blob descriptor for " << std::hex
                      << volId << std::dec << " blob " << amReq->getBlobName();
-            foundBlobDesc = true;
+            blobReq->metadata_cached = true;
             auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
             // Fill in the data here
             cb->blobDesc = cachedBlobDesc;
         }
-    } else {
-        // If we don't need to return metadata just continue like we found it
-        foundBlobDesc = true;
     }
 
     // Check cache for object ID
@@ -297,7 +304,8 @@ AmProcessor::getBlob(AmRequest *amReq) {
                                                           amReq->blob_offset,
                                                           err);
     // ObjectID was found in the cache
-    if ((ERR_OK == err) && (true == foundBlobDesc)) {
+    if ((ERR_OK == err) && (blobReq->metadata_cached == blobReq->get_metadata)) {
+        blobReq->oid_cached = true;
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
         // fds_verify(*objectId != NullObjectID);
@@ -336,9 +344,6 @@ void
 AmProcessor::setBlobMetadata(AmRequest *amReq) {
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
 
-    // Stage the transaction metadata changes
-    fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->getMetaDataListPtr()))
-
     fds_verify(txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version)));
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
 
@@ -374,12 +379,11 @@ AmProcessor::statBlob(AmRequest *amReq) {
 
 void
 AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
-    respond(amReq, error);
-
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
-    fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->tx_desc)));
+    if (ERR_OK != txMgr->removeTx(*(blobReq->tx_desc)))
+        LOGWARN << "Transaction unknown";
 
-    delete amReq;
+    respond_and_delete(amReq, error);
 }
 
 void
@@ -400,6 +404,20 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
         amCache->putObject(amReq->io_vol_id,
                            amReq->obj_id,
                            cb->returnBuffer);
+        auto blobReq = static_cast<GetBlobReq*>(amReq);
+        if (!blobReq->oid_cached) {
+            amCache->putOffset(amReq->io_vol_id,
+                               BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
+                               boost::make_shared<ObjectID>(amReq->obj_id));
+        }
+
+        if (!blobReq->metadata_cached && blobReq->get_metadata) {
+            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            if (cb->blobDesc)
+                amCache->putBlobDescriptor(amReq->io_vol_id,
+                                           amReq->getBlobName(),
+                                           cb->blobDesc);
+        }
     }
 
     delete amReq;
@@ -410,18 +428,6 @@ AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
     if (error == ERR_OK) {
         amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
         amDispatcher->dispatchGetObject(amReq);
-
-        amCache->putOffset(amReq->io_vol_id,
-                           BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
-                           boost::make_shared<ObjectID>(amReq->obj_id));
-
-        if (static_cast<GetBlobReq*>(amReq)->get_metadata) {
-            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
-            if (cb->blobDesc)
-                amCache->putBlobDescriptor(amReq->io_vol_id,
-                                           amReq->getBlobName(),
-                                           cb->blobDesc);
-        }
     } else {
         respond_and_delete(amReq, error);
     }
@@ -455,11 +461,14 @@ AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
     // for a blob descriptor (e.g., size, version, etc..). Today this
     // is true for S3/Swift and doesn't get used anyways for block (so
     // the actual cached descriptor for block will not be correct).
-    AmTxDescriptor::ptr txDesc;
-    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(amReq);
-    fds_verify(txMgr->getTxDescriptor(*(blobReq->tx_desc), txDesc) == ERR_OK);
-    fds_verify(amCache->putTxDescriptor(txDesc) == ERR_OK);
-    fds_verify(txMgr->removeTx(*(blobReq->tx_desc)) == ERR_OK);
+    if (ERR_OK == error) {
+        AmTxDescriptor::ptr txDesc;
+        CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(amReq);
+        fds_verify(txMgr->getTxDescriptor(*(blobReq->tx_desc), txDesc) == ERR_OK);
+        fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data));
+        fds_verify(amCache->putTxDescriptor(txDesc, blobReq->final_blob_size) == ERR_OK);
+        fds_verify(txMgr->removeTx(*(blobReq->tx_desc)) == ERR_OK);
+    }
 
     respond_and_delete(amReq, error);
 }

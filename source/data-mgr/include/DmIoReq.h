@@ -17,13 +17,31 @@
 #include <fdsp/FDSP_types.h>
 #include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/dm_api_types.h>
 #include <fdsp/fds_stream_types.h>
 
 #define FdsDmSysTaskId      0x8fffffff
 #define FdsDmSysTaskPrio    5
 
 namespace fds {
+
+// Some logging routines have external linkage
+// ======
+extern std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
+extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
+// ======
 
     /*
      * TODO: Make more generic name than catalog request
@@ -162,6 +180,7 @@ class DmIoMetaRecvd: public dmCatReq {
 class DmIoCommitBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoCommitBlobTx *blobTx)> CbType;
+    fpi::CommitBlobTxRspMsg rspMsg;
 
   public:
     DmIoCommitBlobTx(const fds_volid_t  &_volId,
@@ -212,14 +231,8 @@ class DmIoCommitBlobTx: public dmCatReq {
 class DmIoUpdateCatOnce;
 class DmIoCommitBlobOnce : public  DmIoCommitBlobTx {
   public:
-    DmIoCommitBlobOnce(const fds_volid_t  &_volId,
-                       const std::string &_blobName,
-                       const blob_version_t &_blob_version,
-                       fds_uint64_t _dmt_version)
-            : DmIoCommitBlobTx(_volId, _blobName, _blob_version, _dmt_version) {
-    }
-
-    DmIoUpdateCatOnce *parent;
+   using DmIoCommitBlobTx::DmIoCommitBlobTx;
+   DmIoUpdateCatOnce *parent;
 };
 
 /**
@@ -633,8 +646,11 @@ struct DmIoGetSysStats : dmCatReq {
 
 struct DmIoGetBucket : dmCatReq {
     boost::shared_ptr<fpi::GetBucketMsg> message;
+    boost::shared_ptr<fpi::GetBucketRspMsg> response;
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)
-            : message(message) , dmCatReq(message->volume_id, "", "", 0, FDS_LIST_BLOB) {}
+            : message(message),
+              response(new fpi::GetBucketRspMsg()),
+              dmCatReq(message->volume_id, "", "", 0, FDS_LIST_BLOB) {}
 };
 
 struct DmIoDeleteBlob: dmCatReq {
@@ -646,19 +662,6 @@ struct DmIoDeleteBlob: dmCatReq {
                                           message->blob_version,
                                           FDS_DELETE_BLOB) {
     }
-};
-
-struct DmIoListBlobsByPattern : dmCatReq {
-    boost::shared_ptr<fpi::ListBlobsByPatternMsg> message;
-    boost::shared_ptr<fpi::ListBlobsByPatternRspMsg> response;
-    explicit DmIoListBlobsByPattern(boost::shared_ptr<fpi::ListBlobsByPatternMsg> message)
-            : message(message),
-              response(new fpi::ListBlobsByPatternRspMsg()),
-              dmCatReq(message->volume_id,
-                       "",
-                       "",
-                       0,
-                       FDS_DM_LIST_BLOBS_BY_PATTERN) {}
 };
 
 }  // namespace fds

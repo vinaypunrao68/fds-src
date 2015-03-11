@@ -5,6 +5,7 @@
 package com.formationds.om.repository.query.builder;
 
 import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.repository.query.MetricQueryCriteria;
@@ -24,7 +25,9 @@ public class MetricQueryCriteriaBuilder {
     private DateRange range;           // date range ; starting and ending
     private Integer points;            // number of points to provide in results
     private Long firstPoint;           // first point, i.e. row number
-    private List<Context> contexts;    // the context
+    
+    //TODO: Hack - see QueryCriteria
+    private List<Volume> contexts;    // the context
 
     /**
      * default constructor
@@ -111,7 +114,7 @@ public class MetricQueryCriteriaBuilder {
      *
      * @return Returns the {@link com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder}
      */
-    public MetricQueryCriteriaBuilder withContexts( List<Context> contexts ) {
+    public MetricQueryCriteriaBuilder withContexts( List<Volume> contexts ) {
         this.contexts = contexts;
         return this;
     }

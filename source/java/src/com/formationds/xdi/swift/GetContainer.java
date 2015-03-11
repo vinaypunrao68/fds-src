@@ -3,9 +3,10 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ApiException;
-import com.formationds.apis.BlobDescriptor;
-import com.formationds.apis.ErrorCode;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.web.Dom4jResource;
@@ -46,7 +47,7 @@ public class GetContainer  implements SwiftRequestHandler {
         ResponseFormat format = obtainFormat(request);
         List<BlobDescriptor> descriptors = null;
         try {
-            descriptors = xdi.volumeContents(token, accountName, containerName, limit, 0);
+            descriptors = xdi.volumeContents(token, accountName, containerName, limit, 0, "", BlobListOrder.UNSPECIFIED, false);
         } catch (TException e) {
             throw new ApiException("Not found", ErrorCode.MISSING_RESOURCE);
         }

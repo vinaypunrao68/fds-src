@@ -7,6 +7,8 @@
 #include "platform/node_data.h"
 #include "platform/domain_container.h"
 #include "node_svc_iter.h"
+#include <util/Log.h>
+#define DEPRECATED_CODEPATH  "deprecated codepath"
 
 namespace fds
 {
@@ -39,6 +41,7 @@ namespace fds
     //
     AgentContainer::pointer DomainContainer::dc_container_frm_msg(FdspNodeType node_type)
     {
+        TRACEFUNC;
         AgentContainer::pointer    nodes;
 
         switch (node_type)
@@ -73,6 +76,7 @@ namespace fds
     Error DomainContainer::dc_register_node(const NodeUuid       &uuid, const FdspNodeRegPtr msg,
                                             NodeAgent::pointer   *agent)
     {
+        TRACEFUNC;
         AgentContainer::pointer    nodes;
 
         LOGDEBUG << "Domain register uuid " << std::hex << uuid.uuid_get_val() << ", svc uuid " <<
@@ -92,6 +96,9 @@ namespace fds
                                            int ro, int rw,
                                            fds_uint32_t mask)
     {
+        TRACEFUNC;
+        fds_panic(DEPRECATED_CODEPATH);
+
         bool                       known_node;
         const node_data_t         *node;
         NodeAgent::pointer         tmp;
@@ -143,6 +150,7 @@ namespace fds
     //
     Error DomainContainer::dc_unregister_node(const NodeUuid &uuid, const std::string &name)
     {
+        TRACEFUNC;
         AgentContainer::pointer    nodes;
         NodeAgent::pointer         agent;
         FdspNodeType               svc[] =
@@ -171,6 +179,7 @@ namespace fds
     //
     Error DomainContainer::dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type)
     {
+        TRACEFUNC;
         AgentContainer::pointer    nodes;
         NodeAgent::pointer         agent;
 
@@ -194,6 +203,7 @@ namespace fds
     //
     NodeAgent::pointer DomainContainer::dc_find_node_agent(const NodeUuid &uuid)
     {
+        TRACEFUNC;
         AgentContainer::pointer    nodes;
         NodeAgent::pointer         agent;
         fpi::FDSP_MgrIdType        type;
@@ -215,6 +225,7 @@ namespace fds
     //
     void DomainContainer::dc_node_svc_info(fpi::DomainNodes &ret)
     {
+        TRACEFUNC;
         NodeSvcIter    iter(ret);
         dc_foreach_pm(&iter);
     }

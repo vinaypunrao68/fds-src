@@ -1,6 +1,6 @@
 package com.formationds.om.repository.helper;
 
-import com.formationds.apis.AmService;
+import com.formationds.apis.XdiService;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.entity.VolumeDatapoint;
@@ -29,7 +29,7 @@ public class FirebreakHelperTest {
 
 	static final ConfigurationApi mockedConfigApi = mock(ConfigurationApi.class);
     static final Configuration    mockedConfig    = mock(Configuration.class);
-    static final AmService.Iface  mockedAMService = mock(AmService.Iface.class);
+    static final XdiService.Iface  mockedAMService = mock(XdiService.Iface.class);
 
     @BeforeClass
     static public void setUpClass() throws Exception {

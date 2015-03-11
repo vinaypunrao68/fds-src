@@ -22,14 +22,17 @@ log = logging.getLogger('pkgcreate')
 log.setLevel(logging.INFO)
 
 class PkgException(Exception):
-    pass
+    def __init__(self, value):
+        self.value = value
+        log.error(value)
+        sys.exit(1)
 
 class Helper:
     @staticmethod
     def checkField(fields,supportedFields,message=''):
         if type(fields) != types.ListType:
             fields = [ fields ]
-        
+
         log.debug('fields: %s',fields)
         log.debug('supported: %s',supportedFields)
         for origfield in fields:
@@ -52,9 +55,9 @@ class Helper:
             end = value.find('`',st+1)
             if end>st:
                 out=Helper.getCmdOutput(value[st+1:end])
-                value=value[:st] + ' ' + ' '.join(out) + ' ' + value[end+1:]                
+                value=value[:st] + ' ' + ' '.join(out) + ' ' + value[end+1:]
         return value
-    
+
     @staticmethod
     def getCmdOutput(cmd,shell=True):
         log.debug(cmd)
@@ -95,11 +98,11 @@ class FileItem:
 
     def __repr__(self):
         return '[conf=%s;dir=%s;dest=%s;src=%s]' % (self.conf,self.dir,self.dest,self.src)
-        
+
     def load(self,tokens):
         supportedKeys = [ 'perms' , 'conf' , 'owner' ,'dest', 'src', 'dest-is-dir' , 'tree-base']
         Helper.checkField(tokens.keys(),supportedKeys,'processing file')
-        
+
         self.perms   = tokens.get('perms'      , None)
         self.conf    = tokens.get('conf'       , False)
         self.owner   = tokens.get('owner'      , 'root:root')
@@ -116,11 +119,11 @@ class FileItem:
             if tokens.get('dest-is-dir') != None and not self.dir:
                 raise PkgException("no src specified , but dir is set to false")
             else:
-                # this is a directory 
+                # this is a directory
                 self.dir = True
                 return
 
-        if self.treebase :            
+        if self.treebase :
             if not os.path.exists(self.treebase):
                 raise PkgException ('unable to locate tree-base : %s' % (self.treebase))
             if not os.path.isdir(self.treebase):
@@ -128,9 +131,9 @@ class FileItem:
             if tokens.get('dest-is-dir',None) == False:
                 raise PkgException ('dest-is-dir cannot be False when using tree-base')
             self.dir = True
-            
+
         self.src=[]
-        
+
         if type(tokens['src']) == types.StringType :
             tokens['src'] = [ tokens['src'] ]
 
@@ -146,7 +149,7 @@ class FileItem:
 
         if not self.dir and len(self.src)>1 :
             raise PkgException("More than 1 file in src but dest not specified as dir");
-        
+
         if not self.dest.startswith('/'):
             log.debug(self)
             raise PkgException("all file destinations should start with / [%s]", self.dest)
@@ -156,7 +159,7 @@ class FileItem:
     def getDestFileList(self):
         if self.src == None or len (self.src) == 0:
             return []
-        
+
         if not self.dir:
             return [ self.dest ]
 
@@ -186,7 +189,7 @@ class Service:
         return '[name=%s;@boot=%s;@install=%s;control=%s]' % (self.name,self.autostart,self.installstart,self.control)
 
     def load(self,tokens) :
-        
+
         supportedKeys = [ 'start-on-boot', 'start-on-install', 'name', 'control' ]
         Helper.checkField(tokens.keys(),supportedKeys,'processing file')
 
@@ -255,7 +258,7 @@ class SymLink:
         Helper.checkField(tokens.keys(),['link','target'], 'processing symlink')
         self.target = tokens.get('target',None)
         self.link = tokens.get('link',None)
-        
+
         if not self.target :
             raise PkgException("[target] needs to be specified for symlink")
 
@@ -270,10 +273,10 @@ class SymLink:
 
         if len(self.link) == 0 or not self.link.startswith('/'):
             raise PkgException("invalid link specified : [%s]" %(self.link))
-        
+
 class PkgCreate:
     def __init__(self):
-        self.META_PACKAGE     = 'package' 
+        self.META_PACKAGE     = 'package'
         self.META_MAINTAINER  = 'maintainer'
         self.META_VERSION     = 'version'
         self.META_DESCRIPTION = 'description'
@@ -287,12 +290,12 @@ class PkgCreate:
         self.META_PREINSTALL  = 'preinstall'
         self.META_POSTREMOVE  = 'postremove'
         self.META_PREREMOVE   = 'preremove'
-        
+
         self.installcontrol = dict()
-        self.installcontrol[self.META_POSTINSTALL] = 'postinst' 
-        self.installcontrol[self.META_PREINSTALL]  = 'preinst' 
-        self.installcontrol[self.META_POSTREMOVE]  = 'postrm' 
-        self.installcontrol[self.META_PREREMOVE]   = 'prerm' 
+        self.installcontrol[self.META_POSTINSTALL] = 'postinst'
+        self.installcontrol[self.META_PREINSTALL]  = 'preinst'
+        self.installcontrol[self.META_POSTREMOVE]  = 'postrm'
+        self.installcontrol[self.META_PREREMOVE]   = 'prerm'
 
         self.verbose = False
         self.keepTemp = False
@@ -304,7 +307,7 @@ class PkgCreate:
     def clear(self) :
         self.metadata = dict()
         self.files         = []
-        self.services      = [] 
+        self.services      = []
         self.cronjobs      = []
         self.symlinks      = []
         self.installscript = ''
@@ -314,7 +317,7 @@ class PkgCreate:
         self.pkgdir=None
         self.willWriteInstallScripts = False
         self.hasSoLibs = False
-        
+
     def process(self,filename):
         log.info("processing : %s", filename)
         try:
@@ -330,7 +333,7 @@ class PkgCreate:
             if self.verbose:
                 traceback.print_exc()
             return False
-        
+
         log.debug("metadata = %s", self.metadata)
         log.debug("files = %s", self.files)
         try :
@@ -373,7 +376,7 @@ class PkgCreate:
         key = self.META_INSTALL
         if key in doc:
             self.installscript = doc[key]
-            
+
 
         key = 'services'
         if key in doc:
@@ -405,6 +408,9 @@ class PkgCreate:
                 symlink = SymLink(item)
                 self.symlinks.append(symlink)
 
+    def get_git_head(self):
+        log.info("Getting git sha")
+        return Helper.getCmdOutput("git rev-parse HEAD")[0][:7]
 
     def verify(self):
         # check for meta data
@@ -427,17 +433,13 @@ class PkgCreate:
             if None == p.match(self.metadata[self.META_VERSION]):
                 log.error( "invalid version [%s] : [^[0-9][a-z0-9-\.]+$] " % (self.metadata[self.META_VERSION]))
                 return False
-            
-            # check if this is a release/test package
-            if not self.releasePackage:
-                try: 
-                    # This conditional is only here to ensure that the BUILD_NUMBER being used in the version string is
-                    #  associated with a Jenkins server, and not some value set by another dev script or something
-                    if os.environ['JENKINS_URL']:
-                        self.metadata[self.META_VERSION] = '%s-%d' % (self.metadata[self.META_VERSION], int(os.environ['BUILD_NUMBER'])) 
-                except:
-                    # Looks like this isn't a Jenkins slave, so fall back to old behavior
-                    self.metadata[self.META_VERSION] = '%s.T%d' % (self.metadata[self.META_VERSION], time.time()) 
+
+            print("BUILD_NUMBER: %s" % os.environ.get('BUILD_NUMBER'))
+            if os.environ.get('BUILD_NUMBER'):
+                self.metadata[self.META_VERSION] = '%s-%d' % (self.metadata[self.META_VERSION], int(os.environ.get('BUILD_NUMBER')))
+            else:
+                log.info("No build number found using git sha substring")
+                self.metadata[self.META_VERSION] = '%s-%s' % (self.metadata[self.META_VERSION], self.get_git_head())
 
             log.debug('version set to [%s]' % ( self.metadata[self.META_VERSION]) )
 
@@ -493,7 +495,7 @@ class PkgCreate:
 
         # check all the files
         log.debug('checking all the files')
-        
+
         for item in self.files:
             treebase = os.path.abspath(item.treebase) if item.treebase else None
             if not item.dir:
@@ -545,14 +547,14 @@ class PkgCreate:
 
     def writeControlFiles(self,debianDir):
         log.debug("writing control file :[%s]" , debianDir + '/control')
-        with open(debianDir + '/control','w') as f: 
+        with open(debianDir + '/control','w') as f:
             f.write('Package: %s\n' % (self.metadata[self.META_PACKAGE]))
             f.write('Version: %s\n' % (self.metadata[self.META_VERSION]))
             f.write('Maintainer: %s\n' % (self.metadata[self.META_MAINTAINER]))
             f.write('Description: %s\n' %(self.metadata[self.META_DESCRIPTION]))
             output = Helper.getCmdOutput('dpkg --print-architecture')
             f.write('Architecture: %s\n' % (output[0]))
-            
+
             if len(self.metadata[self.META_DEPENDS]) > 0 :
                 f.write('Depends: ')
                 maxlen=len(self.metadata[self.META_DEPENDS])
@@ -583,9 +585,9 @@ class PkgCreate:
         fConfNeeded = False
         for item in self.files:
             if item.conf:
-                fConfNeeded = True 
+                fConfNeeded = True
                 break
-        
+
         # https://www.debian.org/doc/manuals/maint-guide/dother.en.html#conffiles
         if not fConfNeeded:
             log.debug("no conf files specified")
@@ -598,7 +600,7 @@ class PkgCreate:
                             f.write('%s\n' % (destfile))
 
         self.writeInstallScripts(debianDir)
-    
+
     # check to see if this pkg needs install scripts
     def needsInstallScripts(self):
         log.debug('install script : [%s]',self.installscript)
@@ -622,7 +624,7 @@ class PkgCreate:
         allservices=[]
         autoservices=[]
         startoninstall=[]
-        
+
         for service in self.services:
             allservices.append(service.name)
             if service.autostart:
@@ -648,9 +650,9 @@ class PkgCreate:
             source /usr/include/pkghelper/install-base.sh
             BASEFILE=$(basename $0)
          ''' % (' '.join(allservices), ' '.join(autoservices), ' '.join(startoninstall), ' '.join(symlinks), self.hasSoLibs)
-                
+
         templatescript = re.sub(r'\n +','\n',templatescript.strip())
-        
+
         # Now write these files...
         for installtype,installname in self.installcontrol.items():
             installfile= '%s/%s' %(debianDir,installname)
@@ -662,10 +664,10 @@ class PkgCreate:
                     f.write("# begin -- package specific install.control\n")
                     f.write(open(self.installscript).read())
                     f.write("\n# end -- package specific install.control\n")
-                
+
                 f.write("processInstallScript ${BASEFILE##*.} $@\n")
             #-- end of writing install file
-                
+
             os.chmod(installfile, 0555)
 
         return True
@@ -828,7 +830,7 @@ if __name__ == '__main__':
     if 0 != os.geteuid() and pkg.chown:
         log.error("need root privs to do chown/or create release pkgs")
         sys.exit(1)
-    
+
     if args.clean:
         pkg.cleanDir()
         sys.exit(0)
@@ -844,4 +846,8 @@ if __name__ == '__main__':
 
     for pkgfile in args.pkgfiles:
         pkg.clear()
-        pkg.process(pkgfile)
+        try:
+            pkg.process(pkgfile)
+        except:
+            log.error("Package process failed, exiting")
+            sys.exit(1)

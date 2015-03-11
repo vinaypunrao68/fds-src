@@ -15,7 +15,12 @@ import com.formationds.om.webkit.rest.*;
 import com.formationds.om.webkit.rest.events.IngestEvents;
 import com.formationds.om.webkit.rest.events.QueryEvents;
 import com.formationds.om.webkit.rest.metrics.IngestVolumeStats;
+import com.formationds.om.webkit.rest.metrics.QueryFirebreak;
 import com.formationds.om.webkit.rest.metrics.QueryMetrics;
+import com.formationds.om.webkit.rest.metrics.SystemHealthStatus;
+import com.formationds.om.webkit.rest.platform.ActivateNode;
+import com.formationds.om.webkit.rest.platform.DeactivateNode;
+import com.formationds.om.webkit.rest.platform.ListNodes;
 import com.formationds.om.webkit.rest.snapshot.AttachSnapshotPolicyIdToVolumeId;
 import com.formationds.om.webkit.rest.snapshot.CloneSnapshot;
 import com.formationds.om.webkit.rest.snapshot.CreateSnapshot;
@@ -45,7 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.servlet.http.HttpServletResponse;
-import java.util.function.BiFunction;
+
 import java.util.function.Function;
 
 /**
@@ -105,13 +110,6 @@ public class WebKitImpl {
         authenticate( HttpMethod.GET, "/api/auth/currentUser",
                       ( t ) -> new CurrentUser( authorizer,
                                                 t ) );
-
-        fdsAdminOnly( HttpMethod.GET, "/api/config/services",
-                      ( t ) -> new ListServices( legacyConfig ),
-                      authorizer );
-        fdsAdminOnly( HttpMethod.POST, "/api/config/services/:node_uuid",
-                      ( t ) -> new ActivatePlatform( legacyConfig ),
-                      authorizer );
 
         fdsAdminOnly( HttpMethod.GET, "/api/config/globaldomain",
                       ( t ) -> new ShowGlobalDomain(), authorizer );
@@ -196,6 +194,16 @@ public class WebKitImpl {
          */
         events();
 
+        /*
+         * provide platform RESTful API endpoints
+         */
+        platform();
+
+        /*
+         * Provide Local Domain RESTful API endpoints
+         */
+        localDomain();
+
         webApp.start(
             new HttpConfiguration( httpPort ),
             new HttpsConfiguration( httpsPort,
@@ -243,6 +251,45 @@ public class WebKitImpl {
         webApp.route( method, route, ( ) -> eh );
     }
 
+    private void platform( ) {
+
+        final FDSP_ConfigPathReq.Iface legacyConfig =
+            SingletonLegacyConfig.instance().api();
+
+        logger.trace( "registering platform endpoints" );
+        fdsAdminOnly( HttpMethod.GET, "/api/config/services",
+                      ( t ) -> new ListNodes( legacyConfig ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.POST, "/api/config/services/:node_uuid",
+                      ( t ) -> new ActivateNode( legacyConfig ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.PUT, "/api/config/services/:node_uuid",
+                      ( t ) -> new DeactivateNode( legacyConfig ),
+                      authorizer );
+        logger.trace( "registered platform endpoints" );
+
+    }
+
+    private void localDomain( ) {
+
+        final FDSP_ConfigPathReq.Iface legacyConfig =
+            SingletonLegacyConfig.instance().api();
+        final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
+
+        logger.trace( "Registering Local Domain endpoints." );
+        
+        fdsAdminOnly( HttpMethod.POST,
+                      "/local_domains/:local_domain",
+                      ( t ) -> new CreateLocalDomain( authorizer,
+                                                      legacyConfig,
+                                                      configAPI,
+                                                      t ),
+                      authorizer );
+
+        logger.trace( "Registered Local Domain endpoints" );
+
+    }
+
     private void metrics( ) {
         if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
             return;
@@ -257,6 +304,9 @@ public class WebKitImpl {
     private void metricsGets( ) {
         authenticate( HttpMethod.PUT, "/api/stats/volumes",
                       ( t ) -> new QueryMetrics( authorizer, t ) );
+        
+        authenticate( HttpMethod.PUT, "/api/stats/volumes/firebreak",
+        			( t ) -> new QueryFirebreak( authorizer, t ) );
         
         authenticate( HttpMethod.GET,  "/api/systemhealth",
         		( t ) -> new SystemHealthStatus(

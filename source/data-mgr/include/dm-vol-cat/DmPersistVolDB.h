@@ -12,7 +12,7 @@
 
 #include <lib/Catalog.h>
 
-#include <dm-vol-cat/DmPersistVolDir.h>
+#include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace fds {
 
@@ -43,7 +43,7 @@ class BlobObjKeyComparator : public leveldb::Comparator {
     void FindShortSuccessor(std::string*) const {}
 };
 
-class DmPersistVolDB : public HasLogger, public DmPersistVolDir {
+class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
   public:
     // types
     typedef boost::shared_ptr<DmPersistVolDB> ptr;
@@ -57,7 +57,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolDir {
     DmPersistVolDB(fds_volid_t volId, fds_uint32_t objSize,
                    fds_bool_t snapshot, fds_bool_t readOnly,
                    fds_volid_t srcVolId = invalid_vol_id)
-            : DmPersistVolDir(volId, objSize, snapshot, readOnly, fpi::FDSP_VOL_S3_TYPE,
+            : DmPersistVolCat(volId, objSize, snapshot, readOnly, fpi::FDSP_VOL_S3_TYPE,
             srcVolId), catalog_(0), configHelper_(g_fdsprocess->get_conf_helper()) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         timelineDir_ = root->dir_timeline_dm() + getVolIdStr() + "/";

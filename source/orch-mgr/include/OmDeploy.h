@@ -28,6 +28,15 @@ class DltComputeEvt
     }
 };
 
+class DltTimeoutEvt
+{
+  public:
+    DltTimeoutEvt() {}
+    std::string logString() const {
+        return "DltTimeoutEvt";
+    }
+};
+
 class DltLoadedDbEvt
 {
   public:
@@ -40,14 +49,13 @@ class DltLoadedDbEvt
 class DltRebalOkEvt
 {
   public:
-    DltRebalOkEvt(ClusterMap *cm, DataPlacement *d)
-        : ode_clusmap(cm), ode_dp(d) {}
+    explicit DltRebalOkEvt(NodeUuid smUuid)
+            : smAcked(smUuid) {}
     std::string logString() const {
         return "DltRebalOkEvt";
     }
 
-    ClusterMap            *ode_clusmap;
-    DataPlacement         *ode_dp;
+    NodeUuid               smAcked;
 };
 
 class DltCommitOkEvt
@@ -74,6 +82,53 @@ class DltCloseOkEvt
     }
 };
 
+struct DltErrorFoundEvt
+{
+    DltErrorFoundEvt(const NodeUuid& svc_uuid,
+                     const Error& err)
+            : svcUuid(svc_uuid), error(err) {
+    }
+
+    std::string logString() const {
+        return "DltErrorFoundEvt";
+    }
+
+    NodeUuid svcUuid;  // service uuid where error happened
+    Error error;
+};
+
+struct DltEndErrorEvt
+{
+    DltEndErrorEvt() {}
+    std::string logString() const {
+        return "DltEndErrorEvt";
+    }
+};
+
+struct DltAbortMigrationAckEvt
+{
+    DltAbortMigrationAckEvt() {}
+    std::string logString() const {
+        return "DltAbortMigrationAckEvt";
+    }
+};
+
+struct DltRecoverAckEvt
+{
+    DltRecoverAckEvt(fds_bool_t abortAck,
+                     const NodeUuid& uuid,
+                     const Error& err)
+    : ackForAbort(abortAck), svcUuid(uuid), ackError(err) {}
+
+    std::string logString() const {
+        return "DltRecoverAckEvt";
+    }
+
+    fds_bool_t ackForAbort;  // otherwise dlt commit ack
+    NodeUuid svcUuid;
+    Error ackError;
+};
+
 /**
  * Main vector to initialize the DLT module.
  */
@@ -96,6 +151,9 @@ class OM_DLTMod : public Module
     void dlt_deploy_event(DltCommitOkEvt const &evt);
     void dlt_deploy_event(DltCloseOkEvt const &evt);
     void dlt_deploy_event(DltLoadedDbEvt const &evt);
+    void dlt_deploy_event(DltTimeoutEvt const &evt);
+    void dlt_deploy_event(DltErrorFoundEvt const &evt);
+    void dlt_deploy_event(DltRecoverAckEvt const &evt);
 
     /**
      * Module methods

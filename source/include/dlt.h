@@ -21,6 +21,7 @@
 #include <util/Log.h>
 #include <util/timeutils.h>
 #include <fds_placement_table.h>
+#include <concurrency/RwLock.h>
 
 namespace fds {
 #define DLT_VER_INVALID 0  /**< Defines 0 as invalid DLT version */
@@ -30,6 +31,10 @@ namespace fds {
     typedef boost::shared_ptr<std::vector<DltTokenGroupPtr>> DistributionList;
     typedef std::vector<fds_token_id> TokenList;
     typedef std::map<NodeUuid, std::vector<fds_token_id>> NodeTokenMap;
+    /**
+     * Callback for DLT update response
+     */
+    typedef std::function<void (const Error&)> OmDltUpdateRespCbType;
 
     /**
      * Maintains the relation between a token and the responible nodes.
@@ -103,12 +108,32 @@ namespace fds {
         fds_uint32_t getWidth() const;  /**< Gets num bits used */
         fds_uint32_t getNumBitsForToken() const;  /**< Gets num bits used */
         fds_uint32_t getNumTokens() const;  /** Gets total num of tokens */
+        fds_bool_t isClosed() const;
+
+        void setClosed();
+        /**
+         * Increments refcount and returns current refcount
+         */
+        fds_uint64_t incRefcnt();
+        /**
+         * Decrements refcount and returns current refcount
+         */
+        fds_uint64_t decRefcnt();
+        fds_uint64_t getRefcnt();
+        /**
+         * @return ERR_DLT_IO_PENDING if refcount > 0 and cb was stored;
+         * otherwise ERR_OK
+         */
+        Error addCbIfRefcnt(OmDltUpdateRespCbType cb);
 
         void getTokenObjectRange(const fds_token_id &token,
                 ObjectID &begin, ObjectID &end) const;
 
         uint32_t virtual write(serialize::Serializer*  s) const;
         uint32_t virtual read(serialize::Deserializer* d);
+
+        bool loadFromFile(std::string filename);
+        bool storeToFile(std::string filename);
 
         uint32_t getEstimatedSize() const;
 
@@ -145,9 +170,15 @@ namespace fds {
 
         fds_uint64_t version;    /**< OM DLT version */
         util::TimeStamp    timestamp;  /**< Time OM created DLT */
+        fds_bool_t   closed;     /**< true if DLT is closed, not only commited */
         fds_uint32_t numBitsForToken;      /**< numTokens = 2^numBitsForToken */
         fds_uint32_t numTokens;  /**< Expanded version of width */
         fds_uint32_t depth;      /**< Depth of each token group */
+
+        // refcount DLT accesses
+        std::atomic<fds_uint64_t> refcnt;
+        // if callback is set, will be called when refcnt becomes 0
+        OmDltUpdateRespCbType omDltUpdateCb;
     };
 
     /**
@@ -194,17 +225,42 @@ namespace fds {
     struct DLTManager :  HasLogger, serialize::Serializable {
         explicit DLTManager(fds_uint8_t maxDlts = 2);
 
-        bool add(const DLT& dlt);
+        /**
+         * If cb is provided and returned error = ERR_OK, then provided
+         * callback will be called when refcnt becomes 0
+         * @return If cb is provided: ERR_DLT_IO_PENDING if DLT was added successfully,
+         * but previous DLT has refcount > 0; otherwise ERR_OK if DLT was added successfully
+         */
+        Error add(const DLT& dlt,
+                  OmDltUpdateRespCbType cb = nullptr);
         bool add(const DLTDiff& dltDiff);
-        Error addSerializedDLT(std::string& serializedData, bool fFull = true);  // NOLINT
+        /**
+         * Adds DLT to the list and makes this DLT "committed" (current)
+         * @return ERR_DLT_IO_PENDING if DLT was added successfully, but
+         * previous DLT has refcount > 0; ERR_OK if DLT was added successfully
+         * and previous DLT refcount == 0
+         */
+        Error addSerializedDLT(std::string& serializedData,
+                               OmDltUpdateRespCbType cb,
+                               bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version
         const DLT* getDLT(fds_uint64_t version = 0) const;
+        /**
+         * Returns the current DLT and increments refcount for DLT accesses
+         */
+        const DLT* getAndLockCurrentDLT();
+        /**
+         * Decrements refcount for given DLT version
+         * @return ERR_INVALID_ARG if version is 0
+         */
+        Error decDLTRefcnt(fds_uint64_t version);
 
-        std::vector<fds_uint64_t> getDltVersions() const;
+        std::vector<fds_uint64_t> getDltVersions();
 
         // Make the specific version as the current
-        void setCurrent(fds_uint64_t version);
+        Error setCurrent(fds_uint64_t version);
+        Error setCurrentDltClosed();
 
         // get all the Nodes for a token/objid
         // NOTE:: from the current dlt!!!
@@ -227,8 +283,9 @@ namespace fds {
         void dump() const;
 
   private:
-        const DLT* curPtr = NULL;
+        DLT* curPtr = NULL;
         std::vector<DLT*> dltList;
+        fds_rwlock mutable dltLock;  /**< lock protecting curPtr and dltList */
         void checkSize();
         fds_uint8_t maxDlts;
     };

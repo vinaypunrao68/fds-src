@@ -97,11 +97,11 @@ def bringup_cluster(env, verbose, debug):
 def exit_test(env, shutdown, returncode):
     if returncode == 0:
         print "Test Passed, cleaning up..."
+        if shutdown:
+            env.cleanup()
     else:
-        print "Test Failed, cleaning up..."
+        print "Test Failed, Skipping clean up..."
 
-    if shutdown:
-        env.cleanup()
     sys.exit(returncode)
 
 #########################################################################################

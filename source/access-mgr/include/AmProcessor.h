@@ -140,8 +140,7 @@ class AmProcessor : public Module, public boost::noncopyable {
     void respond_and_delete(AmRequest *amReq, const Error& error)
     { respond(amReq, error); delete amReq; }
 
-    void respond(AmRequest *amReq, const Error& error)
-    { qosCtrl->markIODone(amReq); amReq->cb->call(error); }
+    void respond(AmRequest *amReq, const Error& error);
 
   private:
     /// Raw pointer to QoS controller

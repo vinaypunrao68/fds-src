@@ -1,6 +1,6 @@
 <div class="health-tile">
     <div class="flex item" ng-repeat="status in data.status">
         <span class="health-indicator {{ iconClasses[status.state] }}" ng-style="{ color: colors[status.state] }"></span>
-        <span class="health-text"translate>status.{{ status.message }}</span>
+        <span class="health-text">{{ status.message }}</span>
     </div>
 </div>  

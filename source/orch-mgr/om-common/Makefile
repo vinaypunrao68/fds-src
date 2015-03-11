@@ -5,6 +5,7 @@ user_build_dir    :=
 user_incl_dir     := ../include
 user_hh           := $(wildcard *.h)
 user_cpp          := \
+    om-svc-handler.cpp \
     om-service.cpp
 
 user_ar_libs      := fds-om-common

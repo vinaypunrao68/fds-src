@@ -26,11 +26,11 @@ namespace fds
     {
         DiskPlatModule   *disk;
 
-        std::cout << "Platform agent fill in storage cap msg" << std::endl;
+        LOGNORMAL << "Platform agent fill in storage cap msg" << std::endl;
         disk = DiskPlatModule::dsk_plat_singleton();
         // if we are in perf test mode, over-write some node capabilities
         // from config
-        FdsConfigAccessor    conf(g_fdsprocess->get_fds_config(), "fds.plat.testing.");
+        FdsConfigAccessor    conf(g_fdsprocess->get_fds_config(), "fds.pm.testing.");
         NodeAgent::init_stor_cap_msg(msg);
 
         if (conf.get<bool>("manual_nodecap"))

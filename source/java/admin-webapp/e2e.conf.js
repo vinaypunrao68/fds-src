@@ -57,7 +57,9 @@ exports.config = {
   ],
 
   // Patterns to exclude.
-  exclude: [],
+  exclude: [
+    'test/e2e/volumes/timeline_spec.js'
+  ],
 
   // Alternatively, suites may be used. When run without a command line parameter,
   // all suites will run. If run with --suite=smoke, only the patterns matched
@@ -70,8 +72,9 @@ exports.config = {
     tenants: ['test/e2e/tenants/tenant_mgmt_spec.js'],
     snapshots: ['test/e2e/volumes/snapshot_spec.js'],
     users: ['test/e2e/users/*'],
-    timeline: ['test/e2e/volumes/timeline_spec.js'],
-    scale: ['test/e2e/volumes/sorting_searching_spec.js']
+//    timeline: ['test/e2e/volumes/timeline_spec.js'],
+    scale: ['test/e2e/volumes/sorting_searching_spec.js'],
+    nodes: ['test/e2e/system/node_status_spec.js']
 
   },
 

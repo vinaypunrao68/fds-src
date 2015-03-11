@@ -28,6 +28,22 @@ class DmtDeployEvt
     }
 };
 
+class DmtRecoveryEvt
+{
+  public:
+    DmtRecoveryEvt(fds_bool_t abortAck,
+                   const NodeUuid& uuid,
+                   const Error& err)
+            : ackForAbort(abortAck), svcUuid(uuid), ackError(err) {}
+    std::string logString() const {
+        return "DmtRecoveryEvt";
+    }
+
+    fds_bool_t ackForAbort;  // otherwise dlt commit ack
+    NodeUuid svcUuid;
+    Error ackError;
+};
+
 class DmtLoadedDbEvt
 {
   public:
@@ -87,6 +103,38 @@ class DmtVolAckEvt
 
     NodeUuid dm_uuid;
 };
+class DmtTimeoutEvt
+{
+  public:
+    DmtTimeoutEvt() {}
+    std::string logString() const {
+      return "DmtTimeoutEvt";
+    }
+};
+
+struct DmtErrorFoundEvt
+{
+    DmtErrorFoundEvt(const NodeUuid& svc_uuid,
+                     const Error& err)
+            : svcUuid(svc_uuid), error(err) {
+    }
+
+    std::string logString() const {
+        return "DmtErrorFoundEvt";
+    }
+
+    NodeUuid svcUuid;  // service uuid where error happened
+    Error error;
+};
+
+struct DmtEndErrorEvt
+{
+    DmtEndErrorEvt() {}
+    std::string logString() const {
+        return "DmtEndErrorEvt";
+    }
+};
+
 /**
  * Main vector to initialize the DMT module.
  */
@@ -110,6 +158,9 @@ class OM_DMTMod : public Module
     void dmt_deploy_event(DmtCloseOkEvt const &evt);
     void dmt_deploy_event(DmtVolAckEvt const &evt);
     void dmt_deploy_event(DmtLoadedDbEvt const &evt);
+    void dmt_deploy_event(DmtTimeoutEvt const &evt);
+    void dmt_deploy_event(DmtErrorFoundEvt const &evt);
+    void dmt_deploy_event(DmtRecoveryEvt const &evt);
 
     /**
      * Module methods

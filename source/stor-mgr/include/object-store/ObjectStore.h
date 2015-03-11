@@ -14,6 +14,7 @@
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 #include <utility>
+#include <SMCheckCtrl.h>
 
 namespace fds {
 
@@ -38,6 +39,9 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// Tiering engine
     TierEngine::unique_ptr tierEngine;
+
+    /// SM Checker
+    SMCheckControl::unique_ptr SMCheckCtrl;
 
     /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer
@@ -99,6 +103,10 @@ class ObjectStore : public Module, public boost::noncopyable {
                                                    const ObjectID &objId,
                                                    diskio::DataTier& usedTier,
                                                    Error& err);
+    boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
+                                                   const ObjectID &objId,
+                                                   ObjMetaData::const_ptr objMetaData,
+                                                   Error& err);
 
     /**
      * Deletes a specific object. The object is marked as deleted,
@@ -119,6 +127,13 @@ class ObjectStore : public Module, public boost::noncopyable {
                            fds_bool_t relocateFlag);
 
     /**
+     * @brief Updates the object location from flash to disk
+     * NOTE: This implementation is valid for beta-2 time.  As tiering evolves this code
+     * needs to be re-visited.
+     */
+    Error updateLocationFromFlashToDisk(const ObjectID& objId,
+                                        ObjMetaData::const_ptr objMeta);
+    /**
      * Copies associated volumes from source to destination volume
      */
     Error copyAssociation(fds_volid_t srcVolId,
@@ -128,18 +143,50 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * If given object still valid (refcount > 0), copies the object
      * to new file from the file that is being garbage collected
+     * @param objOwned false if object is not owned by this SM anymore
+     * and can be garbage collected even if refcnt > 0
      */
     Error copyObjectToNewLocation(const ObjectID& objId,
                                   diskio::DataTier tier,
-                                  fds_bool_t verifyData);
+                                  fds_bool_t verifyData,
+                                  fds_bool_t objOwned);
 
+
+    /**
+     * Apply Object metadata/data from source SM
+     * Object metadata and data may already exist, so may only
+     * need to apply newest metadata. The metadata is overwritten with
+     * the fields in the msg; the assumption here is that there is no
+     * active IO on this SM for this object while the SM applying data
+     * and metadata. This assumption is verified by TokenMigrationMgr
+     * and MigrationExecutor.
+     * @param objId object ID for which to apply data and metadata
+     * @param msg thrift message from source SM containing data and
+     *        metadata to apply
+     * @return success or error
+     */
+    Error applyObjectMetadataData(const ObjectID& objId,
+                                  const fpi::CtrlObjectMetaDataPropagate& msg);
+
+    /**
+     * Read data from given object metadata.
+     */
 
     /**
      * Make a snapshot of metadata of given SM token and
      * calls notifFn method
      */
     void snapshotMetadata(fds_token_id smTokId,
-                          SmIoSnapshotObjectDB::CbType notifFn);
+                          SmIoSnapshotObjectDB::CbType notifFn,
+                          SmIoSnapshotObjectDB* snapReq);
+
+    /**
+     * Make a persistent snapshot of metadata of given SM token and
+     * calls notifFn method
+     */
+    void snapshotMetadata(fds_token_id smTokId,
+                          SmIoSnapshotObjectDB::CbTypePersist notifFn,
+                          SmIoSnapshotObjectDB* snapReq);
 
 
     /**
@@ -149,6 +196,10 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
+    Error tieringControlCmd(SmTieringCmd* tierCmd);
+
+    Error SmCheckControlCmd(SmCheckCmd *checkCmd);
+    void SmCheckUpdateDLT(const DLT *latestDLT);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

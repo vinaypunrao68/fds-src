@@ -254,7 +254,6 @@ void FdsCounters::toMap(std::map<std::string, int64_t>& m) const  // NOLINT
 void FdsCounters::reset()  // NOLINT
 {
     for (auto c : exp_counters_) {
-	std::cout << "counter: " << c->id() << std::endl;    
 	c->reset();
     }
 }

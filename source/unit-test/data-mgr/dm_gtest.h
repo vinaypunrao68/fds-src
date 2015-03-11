@@ -16,7 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
+#include <boost/program_options.hpp>
 using ::testing::AtLeast;
 using ::testing::Return;
 namespace po = boost::program_options;

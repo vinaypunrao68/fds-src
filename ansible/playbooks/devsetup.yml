@@ -2,6 +2,8 @@
 -   name: install needed packages for devsetup
     hosts: localhost
     sudo: yes
+    vars:
+        - influxdb_version: 0.8.8
 
     tasks:
 
@@ -11,8 +13,14 @@
     - name: add redis-server ppa
       apt_repository: repo=ppa:chris-lea/redis-server state=present
 
+    - name: add artifactory repo key
+      apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
+
     - name: add fds repo
-      apt_repository: repo='deb http://coke.formationds.com:8000 fds test' state=present
+      apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main" state=present
+
+    - name: add fds nightly repo
+      apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly" state=present
 
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
@@ -36,10 +44,16 @@
     - name: install os packages
       apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
       with_items:
+        - automake
+        - binutils-dev
+        - cmake
+        - cpanminus
+        - fds-deps
         - git
         - linux-generic
         - linux-headers-generic
         - linux-image-generic
+        - libcurl4-openssl-dev
         - python3-distupgrade
         - ubuntu-release-upgrader-core
         - gdb
@@ -54,7 +68,6 @@
         - python2.7
         - python-dev
         - python-pip
-        - python-boto
         - libpcre3-dev
         - libpcre3
         - libssl-dev
@@ -62,6 +75,7 @@
         - libevent-dev
         - libev-dev
         - libfiu-dev
+        - libtool
         - fiu-utils
         - bison
         - flex
@@ -85,20 +99,15 @@
         - oracle-java8-installer
         - npm
         - nodejs-legacy
-        - ruby
+        - ruby1.9.1-full
         - ruby-sass
         - python-concurrent.futures
         - python-paramiko
         - python-redis
         - python-requests
-        - python-boto
         - python-argh
+        - python-boto
         - python-thrift
-        - fds-pkghelper
-        - fds-pkg
-        - fds-pkgtools=0.3.2
-        - fds-systemdir
-        - fds-coredump
         - libcryptopp-dev
         - lintian
         - libhiredis0.10
@@ -121,8 +130,54 @@
         - docker-py
         - psutil
 
+    - name: install perl modules
+      cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
+      with_items:
+        - JSON
+
+    - name: install ruby gems
+      gem: name={{ item }} state=present user_install=no
+      with_items:
+        - bundler
+
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
 
     - name: update_java_alternatives
       alternatives: name=java path=/usr/lib/jvm/java-8-oracle/jre/bin/java
+
+    - name: create omnibus install directory for fds-platform
+      file: path=/fds
+        owner=root
+        mode=0777
+        state=directory
+
+    - name: create omnibus install directory for fds-deps
+      file: path=/opt/fds-deps
+        owner=root
+        mode=0777
+        state=directory
+
+    - name: create omnibus install directory for fds-deploy
+      file: path=/opt/fds-deploy
+        owner=root
+        mode=0777
+        state=directory
+
+    - name: get InfluxDB package
+      get_url: url=https://s3.amazonaws.com/influxdb/influxdb_{{ influxdb_version }}_amd64.deb
+           dest=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+           validate_certs=no
+           sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
+
+    -   name: create influxdb user and group
+        group: name=influxdb
+
+    -   user: name=influxdb
+           createhome=no
+           group=influxdb
+
+    -   name: install InfluxDB
+        apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+        register: install
+

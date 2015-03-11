@@ -85,15 +85,19 @@ class RestEndpoint(object):
             return None
 
     def get(self, path):
+        #print("GET {}".format(path))
         return requests.get(path, headers=self.headers, verify=False)
 
     def post(self, path, data=None):
+        #print("POST {}".format(path))
         return requests.post(path, headers=self.headers, data=data,  verify=False)
 
     def put(self, path, data=None):
+        #print("PUT {}".format(path))
         return requests.put(path, headers=self.headers, data=data,  verify=False)
 
     def delete(self, path):
+        #print("DELETE {}".format(path))
         return requests.delete(path, headers=self.headers,  verify=False)
 
     def parse_result(self, result):
@@ -119,6 +123,51 @@ class RestEndpoint(object):
     # TODO(brian): add rest URL builder
     def build_path(self):
         pass
+
+class ServiceEndpoint:
+
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/config/services'
+
+    def toggleServices(self, node_uuid, service_map):
+        path = '{}/{}'.format(self.rest_path, str(node_uuid))
+        res = self.rest.post(path, data=json.dumps(service_map))
+        res = self.rest.parse_result(res)
+
+    def listServices(self):
+        nodes = self.listNodes()
+        if not nodes:
+            return []
+
+        services = []
+        for node in nodes:
+            node_ip = node['ipV4address']
+            for svc_name, svc_instances in node['services'].items():
+                for svc_attrs in svc_instances:
+                    service = {'port':      svc_attrs['port'],
+                               'ip':        node_ip,
+                               'service':   svc_name,
+                               'status':    svc_attrs['status'],
+                               'uuid':      svc_attrs['uuid']}
+                    services.append(service)
+        return services
+
+    def listNodes(self):
+        '''
+        Get a list of nodes in the system.
+        Params:
+           None
+        Returns:
+           List of nodes
+        '''
+
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            return res['nodes']
+        else:
+            return []
 
 
 class TenantEndpoint():
@@ -195,11 +244,12 @@ class VolumeEndpoint:
         self.rest = rest
         self.rest_path = self.rest.base_path + '/api/config/volumes'
 
-    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit):
+    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
 
         volume_info = {
             'name' : volume_name,
             'priority' : int(priority),
+            'max_object_size': int(max_object_size),
             'sla': int(sla),
             'limit': int(limit),
             'data_connector': {
@@ -210,6 +260,15 @@ class VolumeEndpoint:
                 }
             }
         }
+#new rest api
+#             'name' : volume_name,
+#             'priority' : int(priority),
+#             'sla': int(sla),
+#             'limit': int(limit),
+#             'data_connector': data_connector,
+#            'media_policy': 'HDD_ONLY',
+#            'commit_log_retention': 86400
+#        }
         res = self.rest.post(self.rest_path, data=json.dumps(volume_info))
         res = self.rest.parse_result(res)
 
@@ -254,7 +313,7 @@ class VolumeEndpoint:
         else:
             return None
 
-    def setVolumeQosParams(self, vol_id, min_iops, priority, max_iops):
+    def setVolumeParams(self, vol_id, min_iops, priority, max_iops, media_policy, commit_log_retention):
         '''
         Set the QOS parameters for a volume.
         Params:
@@ -262,6 +321,8 @@ class VolumeEndpoint:
            min_iops - int: minimum number of iops that must be sustained
            priority - int: priority of the volume
            max_iops - int: maximum number of iops that a volume may achieve
+           media_policy - string: media policy
+           commit_log_retention - int: commit log retention
         Returns:
            Dictionary of volume information including updated QOS params
            in the form:
@@ -277,16 +338,17 @@ class VolumeEndpoint:
            }
            or None on failure
         '''
-
-        params = {
-            'sla' : min_iops,
-            'priority': priority,
-            'limit': max_iops
+        request_body = {
+            "sla" : min_iops,
+            "mediaPolicy" : media_policy,
+            "priority" : priority,
+            "commit_log_retention" : commit_log_retention,
+            "limit" : max_iops,
         }
-        path = '{}/{}'.format(self.rest_path, str(vol_id))
-        res = self.rest.put(path, data=json.dumps(params))
-        res = self.rest.parse_result(res)
 
+        path = '{}/{}'.format(self.rest_path, str(vol_id))
+        res = self.rest.put(path, data=json.dumps(request_body))
+        res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
@@ -476,6 +538,208 @@ class S3Endpoint():
         except KeyboardInterrupt:
             print "request cancelled on interrupt"
 
+
+class DomainEndpoint():
+
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/local_domains'
+
+    def createDomain(self, domain_name):
+
+        '''
+        Create a new local domain in the system.
+        Params:
+           domain_name - str: name of the new local domain
+        Returns:
+           the integer id of the new local domain, None on failure
+        '''
+        path = '{}/{}'.format(self.rest_path, domain_name)
+
+        res = self.rest.post(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if ('domainId' in res) and (res['domainId'] > 0):
+                return res['domainId']
+            else:
+                return None
+        else:
+            return None
+
+    def listDomains(self):
+        '''
+        List all local domains in the global domain.
+        Params:
+           None
+        Returns:
+           List of domains and their IDs, None on failure
+        '''
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            return res
+        else:
+            return None
+
+    def listServices(self, domain_name):
+        '''
+        List all services that reside within the local domain.
+        Params:
+           domain_name - str: Name of the local domain whose services are to be listed
+        Returns:
+           List of services that reside within the specified local domain, None on failure
+        '''
+        path = '{}/{}/services'.format(self.rest_path, domain_name)
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            return res
+        else:
+            return None
+
+    def updateDomain(self, old_domain_name, new_domain_name):
+        '''
+        Change the domain_name of a particular local domain.
+        Params:
+           old_domain_name - str: Name of the local domain whose name is to be changed
+           new_domain_name - str: New name of the local domain
+        Returns:
+           True success, False otherwise
+        '''
+        path = '{}/{}?action=rename&new_domain_name={}'.format(self.rest_path, old_domain_name, new_domain_name)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def activateDomain(self, domain_name, sm=False, dm=False, am=False):
+        '''
+        Activate the named services on all the nodes in the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain whose node services are to be activated
+           sm, dm, am - bool: True if the service is to be activated on each node in the local domain.
+        Returns:
+           True success, False otherwise
+        '''
+
+        if not sm and not dm and not am:
+            return True
+
+        path = '{}/{}?action=activate&sm={}&dm={}&am={}'.format(self.rest_path, domain_name, sm, dm, am)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def setThrottle(self, domain_name, throttle_level):
+        '''
+        Set the throttle level on the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain whose throttle level is to be set
+           throttle_level - float: ?
+        Returns:
+           True success, False otherwise
+        '''
+        path = '{}/{}/throttle?throttle_level={}'.format(self.rest_path, domain_name, throttle_level)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def setScavenger(self, domain_name, scavenger_action):
+        '''
+        Set the Scavenger action on the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain whose Scavenger action is to be set
+           scavenger_action - str: "enable", "disable", "start", "stop"
+        Returns:
+           True success, False otherwise
+        '''
+        path = '{}/{}/scavenger?action={}'.format(self.rest_path, domain_name, scavenger_action)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def shutdownDomain(self, domain_name):
+        '''
+        Shutdown the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain to be shutdown
+        Returns:
+           True success, False otherwise
+        '''
+        path = '{}/{}?action=shutdown'.format(self.rest_path, domain_name)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def deleteDomain(self, domain_name):
+        '''
+        Delete the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain to be deleted
+        Returns:
+           True success, False otherwise
+        '''
+        path = '{}/{}'.format(self.rest_path, domain_name)
+        res = self.rest.delete(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+            
+class TestServiceEndpoints(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        rest = RestEndpoint()
+        self.svcEp = ServiceEndpoint(rest)
+
+    def test_listVolume(self):
+        vols = self.svcEp.listNodes()
+        self.assertIsNotNone(vols)
+
+    def test_activateNode(self):
+        node_uuid = random.randint(0, 10000)
+        status = self.svcEp.activateNode(node_uuid, {})
+        self.assertEquals(status.lower(), 'ok')
+
+    def test_deactivateNode(self):
+        node_uuid = random.randint(0, 10000)
+        status = self.svcEp.deactivateNode(node_uuid)
+        self.assertEquals(status.lower(), 'ok')
+
 class TestS3Endpoint(unittest.TestCase):
     @classmethod
     def setUpClass(self):
@@ -521,7 +785,7 @@ class TestVolumeEndpoints(unittest.TestCase):
         status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
         self.assertEquals(status.lower(), 'ok')
 
-    def test_setQosParameters(self):
+    def test_setVolumeParameters(self):
         vol_name = 'unit_test' + str(random.randint(0, 10000))
         status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
         self.assertEquals(status.lower(), 'ok')
@@ -532,7 +796,7 @@ class TestVolumeEndpoints(unittest.TestCase):
             if vol['name'] == vol_name:
                 vol_id = vol['id']
 
-        res = self.volEp.setVolumeQosParams(vol_id, 50, 1, 100)
+        res = self.volEp.setVolumeVolumeParams(vol_id, 50, 1, 100, 'HDD_ONLY', 86400)
         self.assertDictContainsSubset({'name': vol_name, 'id':vol_id}, res)
 
 class TestTenantEndpoints(unittest.TestCase):

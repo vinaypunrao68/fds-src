@@ -3,7 +3,10 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.util.ChunkingInputStream;
 import org.apache.thrift.TException;
 import org.junit.Test;
@@ -48,7 +51,7 @@ public class StreamWriterTest {
         assertArrayEquals(controlDigest, result);
     }
 
-    private class StubAm implements AmService.Iface {
+    private class StubAm implements XdiService.Iface {
         boolean isCommitted = false;
         List<byte[]> objectsWritten = new ArrayList<>();
 
@@ -58,7 +61,7 @@ public class StreamWriterTest {
         }
 
         @Override
-        public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws ApiException, TException {
+        public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
             return null;
         }
 

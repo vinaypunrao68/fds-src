@@ -266,7 +266,7 @@ ModuleVector::mod_mk_sysparams()
     sys_params.fds_root += '/';
 
     if (vm.count("help")) {
-        std::cout << desc << std::endl;
+        GLOGDEBUG << desc;
         // TODO(...): Fix this some day, using the -h causes a core dump
         return;
     }
@@ -579,8 +579,8 @@ FdsRootDir::fds_mkdir(char const *const path)
             *p = '\0';
             if (mkdir(tmp, S_IRWXU) != 0) {
                 if (errno == EACCES) {
-                    std::cout << "Don't have permission to create " << path << std::endl;
-                    exit(1);
+                    GLOGERROR << "Don't have permission to create " << path;
+                    fds_panic("Don't have permission to create path %s\n", path);
                 }
                 fds_verify(errno == EEXIST);
             }

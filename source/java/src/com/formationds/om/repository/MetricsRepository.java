@@ -6,6 +6,7 @@ package com.formationds.om.repository;
 
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.crud.JDORepository;
+import com.formationds.commons.crud.EntityPersistListener;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -31,8 +32,7 @@ import java.util.Optional;
  * @author ptinius
  */
 @SuppressWarnings( "UnusedDeclaration" )
-public class MetricsRepository
-  extends JDORepository<VolumeDatapoint, Long, VolumeDatapointList, QueryCriteria> {
+public class MetricsRepository extends JDORepository<VolumeDatapoint, Long> {
 
   private static final String DBNAME = "var/db/metrics.odb";
   private static final String VOLUME_NAME = "volumeName";
@@ -66,17 +66,6 @@ public class MetricsRepository
               for (VolumeDatapoint dp : dps) {
                   long volid = config.getVolumeId(dp.getVolumeName());
                   dp.setVolumeId(String.valueOf(volid));
-
-// Note: commented out on master where this code was refactored from.
-//                  if (timestamp <= 0L)
-//                      timestamp = dp.getTimestamp();
-//
-//                  /*
-//                   * syncing all the times to the first record. This will allow for us
-//                   * to query for a time range and guarantee that all datapoints will
-//                   * be aligned
-//                   */
-//                  dp.setTimestamp(timestamp);
               }
           } catch (TException t) {
               throw new IllegalStateException("prePersist failed processing volume data points.", t);

@@ -232,18 +232,12 @@ typedef enum {
     FDS_SM_GET_OBJECT,
     FDS_SM_PUT_OBJECT,
     FDS_SM_DELETE_OBJECT,
-    FDS_SM_READ_TOKEN_OBJECTS,
-    FDS_SM_WRITE_TOKEN_OBJECTS,
     FDS_SM_SNAPSHOT_TOKEN,
-    FDS_SM_SYNC_APPLY_METADATA,
-    FDS_SM_SYNC_RESOLVE_SYNC_ENTRY,
-    FDS_SM_APPLY_OBJECTDATA,
-    FDS_SM_READ_OBJECTDATA,
-    FDS_SM_READ_OBJECTMETADATA,
     FDS_SM_COMPACT_OBJECTS,
     FDS_SM_ADD_OBJECT_REF,
     FDS_SM_TIER_WRITEBACK_OBJECTS,
     FDS_SM_TIER_PROMOTE_OBJECTS,
+    FDS_SM_READ_DELTA_SET,
     FDS_SM_APPLY_DELTA_SET,
     FDS_DM_SNAP_VOLCAT,
     FDS_DM_SNAPDELTA_VOLCAT,
@@ -316,5 +310,16 @@ namespace fds {
     using StringList  = std::vector<std::string>;
     using ConstString = const std::string&;
 }  // namespace fds
+
+/**
+ * Enforce use of the some system call.
+ * We don't define everything, but a few to ensure that some system calls are not
+ * called by fds process.
+ */
+
+/* _exit() bypasses atexit handler and others systems.
+ * for this reason, enforce that we use exit.
+ */
+#define _exit    _use_exit_instead_of__exit__
 
 #endif  // SOURCE_INCLUDE_FDS_TYPES_H_

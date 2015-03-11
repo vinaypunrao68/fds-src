@@ -181,7 +181,7 @@ namespace fds
     //
     void PlatformdNetSvc::nplat_refresh_shm()
     {
-        std::cout << "Platform daemon refresh shm" << std::endl;
+        LOGNORMAL << "Platform daemon refresh shm";
     }
 
     bo::shared_ptr<PlatNetSvcHandler> PlatformdNetSvc::getPlatNetSvcHandler()

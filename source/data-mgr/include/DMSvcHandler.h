@@ -4,26 +4,25 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/DMSvc.h>
 // TODO(Rao): Don't include DataMgr here.  The only reason we include now is
 // b/c dmCatReq is subclass in DataMgr and can't be forward declared
 #include <DataMgr.h>
 
+namespace FDS_ProtocolInterface {
+struct CtrlNotifyDLTUpdate;
+}
+
 namespace fds {
 
 class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
  public:
-    DMSvcHandler();
+    explicit DMSvcHandler(CommonModuleProviderIf *provider);
 
     void startBlobTx(const fpi::AsyncHdr& asyncHdr,
                        const fpi::StartBlobTxMsg& startBlob) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void deleteCatalogObject(const fpi::AsyncHdr& asyncHdr,
-                             const fpi::DeleteCatalogObjectMsg& delcatMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
@@ -75,11 +74,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     void volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                       boost::shared_ptr<fpi::VolSyncStateMsg>& syncMsg);
 
-    void deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg);
-    void deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         const Error &e, DmIoDeleteCat *req);
-
     void registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg);
 
@@ -118,14 +112,37 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                     boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg);
 
-#if 0
     virtual void
-    NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                    boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg, const Error err);
-#endif
+    shutdownDM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                    boost::shared_ptr<fpi::ShutdownMODMsg>& shutdownMsg);
+
+    virtual void
+    NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+            boost::shared_ptr<fpi::CtrlNotifyDMTClose>& dmtClose,
+            Error &err);
+
+    virtual void
+    NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+            boost::shared_ptr<fpi::CtrlNotifyDMAbortMigration>& abortMsg);
+    virtual void
+    NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                      const Error &err);
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt);
+
+    void
+    NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                      boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
+                      const Error                                 &err);
+
+    virtual void
+    StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                         boost::shared_ptr<fpi::CtrlDMMigrateMeta>   &migrMsg);
+
+    void
+    StartDMMetaMigrationCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                           const Error &err);
 };
 
 }  // namespace fds

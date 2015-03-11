@@ -19,6 +19,8 @@
 #include <fds_process.h>
 #include <persistent-layer/tokFileMgr.h>
 
+#include "platform/platform_consts.h"
+
 using namespace fds;  // NOLINT
 namespace diskio {
 
@@ -250,7 +252,7 @@ DataIOModule::mod_init(fds::SysParams const *const param)
 {
     Module::mod_init(param);
 
-    std::cout << "DataIOModule init..." << std::endl;
+    LOGDEBUG << "DataIOModule init...";
     sgt_dataIO = new DataIO;
 
     // TODO(Vy): need to support hotplug here, allocate extra spaces.  Also fix this
@@ -287,7 +289,7 @@ void
 DataIOModule::mod_startup()
 {
     Module::mod_startup();
-    std::cout << "DataIOModule startup..." << std::endl;
+    LOGDEBUG << "DataIOModule startup..." << std::endl;
 }
 
 // \mod_shutdown
@@ -328,7 +330,7 @@ DataDiscoveryModule::disk_open_map()
     std::string   path, dev;
 
     const fds::FdsRootDir *dir = fds::g_fdsprocess->proc_fdsroot();
-    std::ifstream map(dir->dir_dev() + std::string("/disk-map"), std::ifstream::in);
+    std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
 
     fds_verify(map.fail() == false);
     while (!map.eof()) {

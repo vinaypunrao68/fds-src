@@ -57,6 +57,9 @@ public class Dispatcher extends HttpServlet {
         RequestHandler requestHandler;
         Map<String, String> routeAttributes = new HashMap<>();
 
+        if (LOG.isTraceEnabled()) {
+            LOG.trace( "Request URI: [" + request.getMethod() + " " + request.getRequestURI() + "]" );
+        }
         if (isStaticAsset(request) && webDir != null) {
             requestHandler = new StaticFileHandler(webDir);
         } else {

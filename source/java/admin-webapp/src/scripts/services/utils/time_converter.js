@@ -25,7 +25,17 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
     var weeksAgo = $filter( 'translate' )( 'common.l_weeks_ago' );
     var yesterday = $filter( 'translate' )( 'common.l_yesterday' );
     
-    service.convertToTime = function( ms ){
+    var pluralize = function( value, plural, singular ){
+
+        if ( value === 1 ){
+            return singular;
+        }
+        else {
+            return plural;
+        }
+    };
+    
+    service.convertToTime = function( ms, fixed ){
         
         var value = 0;
         var unit = service.MILLIS;
@@ -51,26 +61,24 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
             value = Math.round( ms / service.MS_PER_DAY );
             unit = service.DAYS;
         }
-        else if ( ms < service.MS_PER_YEAR ){
+        else if ( ms < service.MS_PER_4_WEEKS ){
             value = Math.round( ms / service.MS_PER_WEEK );
             unit = service.WEEKS;
+        }
+        else if ( ms < service.MS_PER_YEAR ){
+            value = 30*Math.round( ms / service.MS_PER_4_WEEKS );
+            unit = service.DAYS;
         }
         else {
             value = Math.round( ms / service.MS_PER_YEAR );
             unit = service.YEARS;
         }
         
-        str += value.toFixed( 2 ) + ' ';
+        if ( !angular.isNumber( fixed ) ){
+            fixed = 2;
+        }
         
-        var pluralize = function( value, plural, singular ){
-            
-            if ( value === 1 ){
-                return singular;
-            }
-            else {
-                return plural;
-            }
-        };
+        str += value.toFixed( fixed ) + ' ';
         
         switch( unit ){
             case service.MILLIS:
@@ -102,14 +110,20 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
     service.convertToTimePastLabel = function( ms ){
         var timePast = (new Date()).getTime() - ms;
         
+        var value = 0;
+        var unit = service.MILLIS;
+        
         if ( timePast < service.MS_PER_MINUTE ){
-            return Math.round( timePast / service.MS_PER_SECOND ) + ' ' + secondsAgo;
+            value = Math.round( timePast / service.MS_PER_SECOND );
+            unit = service.SECONDS;
         }
         else if ( timePast < service.MS_PER_HOUR ){
-            return Math.round( timePast / service.MS_PER_MINUTE ) + ' ' + minutesAgo;
+            value = Math.round( timePast / service.MS_PER_MINUTE );
+            unit = service.MINUTES;
         }
         else if ( timePast < service.MS_PER_DAY ){
-            return Math.round( timePast / service.MS_PER_HOUR ) + ' ' + hoursAgo;
+            value = Math.round( timePast / service.MS_PER_HOUR );
+            unit = service.HOURS;
         }
         else if ( timePast < service.MS_PER_WEEK ){
             
@@ -119,15 +133,42 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
                 return yesterday;
             }
             else {
-                return Math.round( timePast / service.MS_PER_DAY ) + ' ' + daysAgo;
+                value = Math.round( timePast / service.MS_PER_DAY );
+                unit = service.DAYS;
             }
         }
         else if ( timePast < service.MS_PER_4_WEEKS ){
-            return Math.round( timePast / service.MS_PER_WEEK ) + ' ' + weeksAgo;
+            value = Math.round( timePast / service.MS_PER_WEEK );
+            unit = service.WEEKS;
         }
         else {
             return (new Date( ms )).toLocaleDateString();
         }
+        
+        var str = value + ' ';
+        
+        switch( unit ){
+            case service.SECONDS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_seconds_ago' ), $filter( 'translate' )( 'common.l_second_ago' ) );
+                break;
+            case service.MINUTES:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_minutes_ago' ), $filter( 'translate' )( 'common.l_minute_ago' ) );
+                break;
+            case service.HOURS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_hours_ago' ), $filter( 'translate' )( 'common.l_hour_ago' ) );
+                break;
+            case service.DAYS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_days_ago' ), $filter( 'translate' )( 'common.l_day_ago' ) );
+                break;                
+            case service.WEEKS:
+                str += pluralize( value, $filter( 'translate' )( 'common.l_weeks_ago' ), $filter( 'translate' )( 'common.l_week_ago' ) );
+                break;                
+            default:
+                str += $filter( 'translate' )( 'common.l_now' );
+                break;                                
+        }
+        
+        return str;
     };
     
     return service;

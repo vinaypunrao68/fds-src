@@ -5,18 +5,18 @@
 #include <vector>
 #include <string>
 #include <orchMgr.h>
-#include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
 #include <OmResources.h>
 #include <net/SvcRequest.h>
-#include <fdsp_utils.h>
 #include <fiu-local.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/BaseAsyncSvcHandler.h>
 #include <net/PlatNetSvcHandler.h>
 #include "platform/node_data.h"
 #include "platform/platform.h"
-
+#include <net/net_utils.h>
+#include <fds_module_provider.h>
+#include <net/SvcMgr.h>
 #undef LOGGERPTR
 #define LOGGERPTR orchMgr->GetLog()
 namespace fds {
@@ -332,6 +332,7 @@ int32_t FDSP_ConfigPathReqHandler::RemoveServices(
     Error err(ERR_OK);
     try {
         LOGNORMAL << "Received remove services for node" << rm_svc_req->node_name
+		  << " UUID " << std::hex << rm_svc_req->node_uuid.uuid << std::dec
                   << " remove am ? " << rm_svc_req->remove_am
                   << " remove sm ? " << rm_svc_req->remove_sm
                   << " remove dm ? " << rm_svc_req->remove_dm;
@@ -390,6 +391,31 @@ int32_t FDSP_ConfigPathReqHandler::DeleteDomain(
     return err;
 }
 
+int32_t FDSP_ConfigPathReqHandler::ShutdownDomain(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_ShutdownDomainType& shut_dom_req) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t FDSP_ConfigPathReqHandler::ShutdownDomain(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_ShutdownDomainTypePtr& shut_dom_req) {
+
+    Error err(ERR_OK);
+    try {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        err = domain->om_shutdown_domain();
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing shutdown domain";
+        return -1;
+    }
+
+    return err.GetErrno();
+}
+
 int32_t FDSP_ConfigPathReqHandler::SetThrottleLevel(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ThrottleMsgType& throttle_msg) {
@@ -438,71 +464,13 @@ void FDSP_ConfigPathReqHandler::GetVolInfo(
         vol->vol_fmt_desc_pkt(&_return);
         LOGNOTIFY << "Volume " << vol_info_req->vol_name
                   << " -- min iops " << _return.iops_min << ",max iops "
-                  << _return.iops_max << ", prio " << _return.rel_prio;
+                  << _return.iops_max << ", prio " << _return.rel_prio
+                  << " media policy " << _return.mediaPolicy;
     } else {
         LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
         FDS_ProtocolInterface::FDSP_VolumeNotFound except;
         except.message = std::string("Volume not found");
         throw except;
-    }
-}
-
-int32_t FDSP_ConfigPathReqHandler::GetDomainStats(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-    return 0;
-}
-
-int32_t FDSP_ConfigPathReqHandler::GetDomainStats(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
-
-    int err = 0;
-    try {
-        int domain_id = get_stats_msg->domain_id;
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-
-        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id;
-
-        /* Use default domain for now... */
-        NodeUuid svc_uuid(getUuidFromResourceName(fdsp_msg->src_node_name));
-        local->om_send_bucket_stats(5, svc_uuid, fdsp_msg->req_cookie);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing get domain stats";
-        return -1;
-    }
-
-    return err;
-}
-
-void FDSP_OMControlPathReqHandler::GetDomainStats(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::GetDomainStats(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
-
-    try {
-        int domain_id = get_stats_msg->domain_id;
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        NodeUuid svc_uuid((fdsp_msg->src_service_uuid).uuid);
-
-        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id
-                  << " from node " << fdsp_msg->src_node_name << ":"
-                  << std::hex << svc_uuid.uuid_get_val() << std::dec;
-
-        /* Use default domain for now... */
-        local->om_send_bucket_stats(5, svc_uuid, fdsp_msg->req_cookie);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing get domain stats";
     }
 }
 
@@ -611,25 +579,28 @@ void FDSP_ConfigPathReqHandler::ListServices(
 
 static void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
                           NodeAgent::pointer ptr) {
-    Platform     *plat;
-    node_data_t   ndata;
-    fds_uint32_t  base;
 
-    base = ptr->node_base_port();
-    plat = Platform::platf_singleton();
+    fpi::FDSP_RegisterNodeType nodeData;
 
-    ptr->node_info_frm_shm(&ndata);
-    NodeUuid uuid = ndata.nd_node_uuid;
+    fpi::SvcInfo svcInfo;
+    fpi::SvcUuid svcUuid;
+    svcUuid.svc_uuid = ptr->rs_get_uuid().uuid_get_val();
+    /* Getting from svc map.  Should be able to get it from config db as well */
+    if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
+        GLOGWARN << "could not fing svcinfo for uuid:" << svcUuid.svc_uuid;
+        return;
+    }
+
     fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
-    nodeInfo.node_uuid = ndata.nd_node_uuid;
-    nodeInfo.service_uuid = ndata.nd_service_uuid;
-    nodeInfo.node_name = ptr->get_node_name();
-    nodeInfo.node_type = ndata.nd_svc_type;
+    nodeInfo.node_uuid = SvcMgr::mapToSvcUuid(svcUuid, fpi::FDSP_PLATFORM).svc_uuid;
+    nodeInfo.service_uuid = svcUuid.svc_uuid;
+    nodeInfo.node_name = svcInfo.name;
+    nodeInfo.node_type = svcInfo.svc_type;
     nodeInfo.node_state = ptr->node_state();
-    nodeInfo.ip_lo_addr = netSession::ipString2Addr(ptr->get_ip_str());
-    nodeInfo.control_port = plat->plf_get_my_ctrl_port(base);
-    nodeInfo.data_port = plat->plf_get_my_data_port(base);
-    nodeInfo.migration_port = plat->plf_get_my_migration_port(base);
+    nodeInfo.ip_lo_addr =  net::ipString2Addr(svcInfo.ip);
+    nodeInfo.control_port = nodeData.control_port;
+    nodeInfo.data_port = svcInfo.svc_port;
+    nodeInfo.migration_port = nodeData.migration_port;
     vec.push_back(nodeInfo);
 }
 
@@ -678,136 +649,13 @@ void FDSP_ConfigPathReqHandler::ListVolumes(
     vols->vol_up_foreach<std::vector<FDSP_VolumeDescType> &>(_return, add_vol_to_vector);
 }
 
-int32_t FDSP_ConfigPathReqHandler::applyTierPolicy(
-    const ::FDS_ProtocolInterface::tier_pol_time_unit& policy) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-    return 0;
-}
-
-int32_t FDSP_ConfigPathReqHandler::applyTierPolicy(
-    ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
-    int err = 0;
-    try {
-        err = orchMgr->ApplyTierPolicy(policy);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing apply tier policy";
-        return -1;
-    }
-
-    return err;
-}
-
-int32_t FDSP_ConfigPathReqHandler::auditTierPolicy(
-    const ::FDS_ProtocolInterface::tier_pol_audit& audit) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-    return 0;
-}
-
-int32_t FDSP_ConfigPathReqHandler::auditTierPolicy(
-    ::FDS_ProtocolInterface::tier_pol_auditPtr& audit) {
-    int err = 0;
-    try {
-        err = orchMgr->AuditTierPolicy(audit);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing audit tier policy";
-        return -1;
-    }
-
-    return err;
-}
-
-
 FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
-    OrchMgr *oMgr) {
+    OrchMgr *oMgr)
+    : PlatNetSvcHandler(oMgr) 
+    {
     orchMgr = oMgr;
 
     // REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyMigrationStatus, migrationDone);
-}
-
-void FDSP_OMControlPathReqHandler::CreateBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_CreateVolType& crt_buck_req) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::CreateBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
-#if 0
-    LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name
-              << " from " << fdsp_msg->src_node_name  << " node uuid: "
-              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
-
-    try {
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        if (domain->om_local_domain_up()) {
-            local->om_create_vol(fdsp_msg, crt_buck_req, true);
-        } else {
-            LOGWARN << "OM Local Domain is not up yet, rejecting bucket "
-                    << " create; try later";
-        }
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing create bucket";
-    }
-#endif
-}
-
-void FDSP_OMControlPathReqHandler::DeleteBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_buck_req) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::DeleteBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req) {
-#if 0
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_delete_vol(fdsp_msg, del_buck_req);
-#endif
-}
-
-void FDSP_OMControlPathReqHandler::ModifyBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_ModifyVolType& mod_buck_req) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::ModifyBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req) {
-#if 0
-    LOGNOTIFY << "Received modify bucket " << (mod_buck_req->vol_desc).vol_name
-              << " from " << fdsp_msg->src_node_name  << " node uuid: "
-              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_modify_vol(mod_buck_req);
-#endif
-}
-
-void FDSP_OMControlPathReqHandler::AttachBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_buck_req) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::AttachBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_buck_req) {
-    LOGNOTIFY << "Received attach bucket " << atc_buck_req->vol_name
-              << " from " << fdsp_msg->src_node_name  << " node uuid: "
-              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
-
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_attach_vol(fdsp_msg, atc_buck_req);
 }
 
 void FDSP_OMControlPathReqHandler::RegisterNode(
@@ -841,76 +689,6 @@ void FDSP_OMControlPathReqHandler::RegisterNode(
               << ", node uuid " << reg_node_req->node_uuid.uuid
               << ", svc uuid " << new_node_uuid.uuid_get_val()
               << ", node type " << reg_node_req->node_type << std::dec;
-}
-
-void FDSP_OMControlPathReqHandler::NotifyQueueFull(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_NotifyQueueStateType& queue_state_info){
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::NotifyQueueFull(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_NotifyQueueStateTypePtr& queue_state_info) {
-    orchMgr->NotifyQueueFull(fdsp_msg, queue_state_info);
-}
-
-void FDSP_OMControlPathReqHandler::NotifyPerfstats(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_PerfstatsType& perf_stats_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::NotifyPerfstats(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& perf_stats_msg) {
-
-#if 0
-    orchMgr->NotifyPerfstats(fdsp_msg, perf_stats_msg);
-#endif
-}
-
-void FDSP_OMControlPathReqHandler::TestBucket(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_TestBucket& test_buck_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::TestBucket(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg) {
-#if 0
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_test_bucket(fdsp_msg, test_buck_msg);
-#endif
-}
-
-void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
-    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_MigrationStatusType& status_msg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-}
-
-void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
-    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg) {
-
-    try {
-        LOGNOTIFY << "Received migration done notification from node "
-                  << fdsp_msg->src_node_name << ":"
-                  << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
-
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-
-        // TODO(Anna) Should we use node names or node uuids directly in
-        // fdsp messages? for now getting uuid from hashing the name
-        NodeUuid node_uuid(fdsp_msg->src_service_uuid.uuid);
-        Error err = domain->om_recv_migration_done(node_uuid, status_msg->DLT_version);
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing migration done request";
-    }
 }
 
 void FDSP_OMControlPathReqHandler::migrationDone(boost::shared_ptr<fpi::AsyncHdr>& hdr,

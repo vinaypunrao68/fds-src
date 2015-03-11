@@ -7,6 +7,7 @@ import time
 from parse_cntrs import Counters
 import dataset
 import math
+import perf_framework_utils as utils
 
 g_pidmap = {}
 
@@ -20,17 +21,6 @@ g_drives = [ "sdg ",
 "sdf", 
 "nb0", 
 "nb16" ]
-
-NODES = {
-        "node1" : "10.1.10.16",
-        "node2" : "10.1.10.17",
-        "node3" : "10.1.10.18",
-        "tiefighter" : "10.1.10.102",
-        "luke" : "10.1.10.222",
-        "han" : "10.1.10.139",
-        "chewie" : "10.1.10.80",
-        "c3po" : "10.1.10.221",
-    }
 
 nodes = {}
 
@@ -390,7 +380,7 @@ def main():
     compute_pidmap()
     options.nodes = {}
     for n in options.fds_nodes.split(","):
-        nodes[n] = NODES[n]
+        nodes[n] = utils.get_ip(n)
     db = None 
     if options.dump_to_db != None:
         db = dataset.connect('sqlite:///%s' % options.dump_to_db)
@@ -483,9 +473,9 @@ def main():
     print_counter(counters, "am", "am_put_dm", "latency", table, options.node)
     print_counter(counters, "am", "am_put_qos", "latency", table, options.node)
     
-    javalat = getavg(get_java_cntr())
-    print "avgjavalat,", javalat, ", ",
-    table["javalat"] = javalat
+    # javalat = getavg(get_java_cntr())
+    # print "avgjavalat,", javalat, ", ",
+    # table["javalat"] = javalat
     # print_counter(counters, "am","am_stat_blob_obj_req", "latency")
     # print_counter(counters, "sm","get_obj_req", "latency")
     #print_counter("AMAgent","am_stat_blob_obj_req", "latency")

@@ -9,13 +9,13 @@
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
-#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
-#include <apis/ConfigurationService.h>
+#include "fdsp/ConfigurationService.h"
+#include "fdsp/sm_api_types.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -78,7 +78,7 @@ TEST_F(SMApi, put_get)
 
     fpi::SvcUuid svcUuid;
     std::list<ObjectID> objIds;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* To generate random data between 10 to 100 bytes */
@@ -133,7 +133,7 @@ TEST_F(SMApi, drop_puts)
     int nPuts =  this->getArg<int>("puts-cnt");
 
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* Set fault to drop all puts */

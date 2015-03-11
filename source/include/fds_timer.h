@@ -63,6 +63,17 @@ struct LessFdsTimerTaskPtr {
 };
 
 /**
+* @brief Timer task to wrap std::function
+*/
+struct FdsTimerFunctionTask : FdsTimerTask {
+    FdsTimerFunctionTask(FdsTimer &fds_timer, const std::function<void()> &f);
+    virtual void runTimerTask() override;
+
+ protected:
+    std::function<void()> f_;
+};
+
+/**
  * The timer class is used to schedule tasks for one-time execution or
  * repeated execution. Tasks are executed by the dedicated timer thread
  * sequentially.
@@ -127,7 +138,7 @@ private:
             const std::chrono::duration<Rep, Period>& time,
             const bool &repeated)
     {
-        fds_assert(time >= std::chrono::seconds(1))
+        fds_assert(time >= std::chrono::seconds(1));
 
         lock_.lock();
         task->durationMs_ = std::chrono::duration_cast<std::chrono::milliseconds>(time);

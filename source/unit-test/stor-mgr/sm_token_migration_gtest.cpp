@@ -6,10 +6,6 @@
 #include <vector>
 #include <string>
 
-#include <boost/lexical_cast.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
 #include <chrono>
 #include <condition_variable>
 
@@ -121,8 +117,8 @@ class TestReqHandler: public SmIoReqHandler {
         SmIoApplyObjRebalDeltaSet *rebalReq = static_cast<SmIoApplyObjRebalDeltaSet*>(ioReq);
         GLOGNORMAL << "Apply delta set executor ID " << rebalReq->executorId
                    << " seqNum " << rebalReq->seqNum << " lastSet " << rebalReq->lastSet
-                   << " qosSeqNum " << rebalReq->qosSeqNum << " totalQosCnt "
-                   << rebalReq->totalQosCount << " Objs to apply " << rebalReq->deltaSet.size();
+                   << " qosSeqNum " << rebalReq->qosSeqNum << " qosLastSet "
+                   << rebalReq->qosLastSet << " Objs to apply " << rebalReq->deltaSet.size();
 
         rebalReq->smioObjdeltaRespCb(ERR_OK, rebalReq);
     }
@@ -146,7 +142,7 @@ class SmTokenMigrationTest : public ::testing::Test {
             &SmTokenMigrationTest::snapshotDoneCb, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         tokenMigrationMgr = SmTokenMigrationMgr::unique_ptr(
-                                    new(std::nothrow) SmTokenMigrationMgr(dataStore));
+            new(std::nothrow) SmTokenMigrationMgr(dataStore));
         migration_done = ATOMIC_VAR_INIT(false);
         EXPECT_TRUE(dataStore != NULL);
     }
@@ -246,7 +242,7 @@ TEST_F(SmTokenMigrationTest, destination) {
         dataStore->createObjectDBIfNeeded(SmDiskMap::smTokenId(i+100));
         msg->migrations.push_back(grp);
     }
-    err = tokenMigrationMgr->startMigration(msg, bitsPerDltToken);
+    err = tokenMigrationMgr->startMigration(msg, NULL, NodeUuid(0x12345), bitsPerDltToken);
 
     // wait until migration is finished
     // TODO(anna) we do not set migration_done to true anywhere

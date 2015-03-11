@@ -12,8 +12,10 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-from fds_service.ttypes import *
-from fds_service.constants import *
+from common.ttypes import *
+from svc_api.ttypes import *
+from svc_types.ttypes import *
+from svc_types.constants import *
 
 from FdsException import *
 
@@ -190,7 +192,7 @@ def newGetBucketMsg(volId, startOff, maxKey):
     msg = GetBucketMsg()
     msg.volume_id = volId
     msg.startPos = startOff
-    msg.maxKeys = maxKey
+    msg.count = maxKey
     return msg
 
 ##
@@ -268,14 +270,10 @@ def newDisableScrubberMsg():
     msg.scrubber_status = FDSP_ScrubberStatusType.FDSP_SCRUB_DISABLE
     return msg
 
-def newListBlobsByPatternMsg(volId, startPos, maxKeys, pattern):
-    msg = ListBlobsByPatternMsg()
-    msg.volume_id = volId
-    msg.startPos = startPos
-    msg.maxKeys = maxKeys
-    msg.pattern = pattern
+def newShutdownMODMsg():
+    msg = ShutdownMODMsg()
     return msg
 
-def newShutdownSMMsg():
-    msg = ShutdownSMMsg()
+def newCtrlStartHybridTierCtrlrMsg():
+    msg = CtrlStartHybridTierCtrlrMsg()
     return msg

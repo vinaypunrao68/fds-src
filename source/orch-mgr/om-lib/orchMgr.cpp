@@ -15,22 +15,29 @@
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
+#include <fdsp/OMSvc.h>
+#include <om-svc-handler.h>
+#include <net/SvcMgr.h>
 
 namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
-    : PlatformProcess(argc, argv, "fds.om.", "om.log", platform, mod_vec),
-      conf_port_num(0),
+OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
+    : conf_port_num(0),
       ctrl_port_num(0),
       test_mode(false),
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-      cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
       cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
       snapshotMgr(this), deleteScheduler(this)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
+    fds::gl_orch_mgr = this;
+
+    static fds::Module *omVec[] = {
+        omModule,
+        NULL
+    };
 
     for (int i = 0; i < MAX_OM_NODES; i++) {
         /*
@@ -39,6 +46,9 @@ OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
          */
         node_id_to_name[i] = "";
     }
+
+    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
+                                                 "fds.om.", "om.log", omVec);
 
     /*
      * Testing code for loading test info from disk.
@@ -56,6 +66,7 @@ OrchMgr::~OrchMgr()
     if (policy_mgr) {
         delete policy_mgr;
     }
+    fds::gl_orch_mgr =  nullptr;
 }
 
 void OrchMgr::proc_pre_startup()
@@ -63,7 +74,8 @@ void OrchMgr::proc_pre_startup()
     int    argc;
     char **argv;
 
-    PlatformProcess::proc_pre_startup();
+    SvcProcess::proc_pre_startup();
+
     argv = mod_vectors_->mod_argv(&argc);
 
     /*
@@ -158,7 +170,6 @@ void OrchMgr::proc_pre_startup()
                 cfg_req_handler);
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
-    om_policy_srv = new Orch_VolPolicyServ();
 }
 
 void OrchMgr::proc_pre_service()
@@ -168,6 +179,27 @@ void OrchMgr::proc_pre_service()
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
     local_domain->om_load_state(config_db_up ? configDB : NULL);
+}
+
+void OrchMgr::setupSvcInfo_()
+{
+    SvcProcess::setupSvcInfo_();
+
+    auto config = MODULEPROVIDER()->get_conf_helper();
+    svcInfo_.ip = config.get_abs<std::string>("fds.common.om_ip_list");
+    svcInfo_.svc_port = config.get_abs<int>("fds.common.om_port");
+    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(
+        config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
+
+    LOGNOTIFY << "Service info(After overriding): " << fds::logString(svcInfo_);
+}
+
+void OrchMgr::registerSvcProcess()
+{
+    LOGNOTIFY << "register service process";
+
+    /* Add om information to service map */
+    svcMgr_->updateSvcMap({svcInfo_});
 }
 
 int OrchMgr::run()
@@ -207,16 +239,6 @@ const std::string &
 OrchMgr::om_stor_prefix()
 {
     return orchMgr->stor_prefix;
-}
-
-int OrchMgr::ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy) {  // NOLINT
-    om_policy_srv->serv_recvTierPolicyReq(policy);
-    return 0;
-}
-
-int OrchMgr::AuditTierPolicy(::fpi::tier_pol_auditPtr& audit) {  // NOLINT
-    om_policy_srv->serv_recvAuditTierPolicy(audit);
-    return 0;
 }
 
 int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
@@ -320,60 +342,6 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
     }
 }
 
-void OrchMgr::NotifyPerfstats(const boost::shared_ptr<fpi::AsyncHdr>& fdsp_msg,
-                              const FDSP_PerfstatsType *perf_stats_msg)
-{
-    LOGNORMAL << "OM received perfstats from node of type: "
-              << perf_stats_msg->node_type
-              << " start ts "
-              <<  perf_stats_msg->start_timestamp;
-
-    /* Since we do not negotiate yet (should we?) the slot length of stats with AM and SM
-     * the stat slot length in AM and SM should be FDS_STAT_DEFAULT_SLOT_LENGTH */
-    // fds_verify(perf_stats_msg->slot_len_sec == FDS_STAT_DEFAULT_SLOT_LENGTH);
-
-    if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
-        LOGNORMAL << "OM received perfstats from AM, start ts "
-                  << perf_stats_msg->start_timestamp;
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        local->om_handle_perfstats_from_am(perf_stats_msg->vol_hist_list,
-                                           perf_stats_msg->start_timestamp);
-
-        for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
-            auto vol_hist = (perf_stats_msg->vol_hist_list)[i];
-            LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
-            for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
-                FDS_ProtocolInterface::FDSP_PerfStatType stat = (vol_hist.stat_list)[j];
-                LOGDEBUG << "OM: --- stat_type " << stat.stat_type
-                         << " rel_secs " << stat.rel_seconds
-                         << " iops " << stat.nios << " lat " << stat.ave_lat;
-            }
-        }
-    } else if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) {
-        LOGNORMAL << "OM received perfstats from SM, start ts "
-                  << perf_stats_msg->start_timestamp;
-        /*
-         * We need to decide whether we want to merge stats from multiple SMs from one
-         * volume or have them separate. Should just mostly follow the code of handling
-         * stats from AM but for now output debug msg to the log
-         */
-        for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
-            auto vol_hist = (perf_stats_msg->vol_hist_list)[i];
-            LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
-            for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
-                FDS_ProtocolInterface::FDSP_PerfStatType& stat = (vol_hist.stat_list)[j];
-                LOGNORMAL << "OM: --- stat_type " << stat.stat_type
-                          << " rel_secs " << stat.rel_seconds
-                          << " iops " << stat.nios << " lat " << stat.ave_lat;
-            }
-        }
-    } else {
-        LOGWARN << "OM received perfstats from node of type "
-                << perf_stats_msg->node_type
-                << " which we don't need stats from (or we do now?)";
-    }
-}
-
 void OrchMgr::defaultS3BucketPolicy()
 {
     Error err(ERR_OK);
@@ -381,8 +349,8 @@ void OrchMgr::defaultS3BucketPolicy()
     FDS_ProtocolInterface::FDSP_PolicyInfoType policy_info;
     policy_info.policy_name = std::string("FDS Default/Stock Policy");
     policy_info.policy_id = 50;
-    policy_info.iops_min = 100;
-    policy_info.iops_max = 400;
+    policy_info.iops_min = conf_helper_.get<int>("default_iops_min");;
+    policy_info.iops_max = conf_helper_.get<int>("default_iops_max");;
     policy_info.rel_prio = 1;
 
     orchMgr->om_mutex->lock();
@@ -409,18 +377,24 @@ bool OrchMgr::loadFromConfigDB() {
     }
 
     // get local domains
-    std::map<int, std::string> mapDomains;
-    configDB->getLocalDomains(mapDomains);
+    std::vector<fds::apis::LocalDomain> localDomains;
+    configDB->listLocalDomains(localDomains);
 
-    if (mapDomains.empty())  {
-        LOGWARN << "no local domains stored in the system .."
-                << "setting a default local domain";
-        configDB->addLocalDomain("local", 0);
-        configDB->getLocalDomains(mapDomains);
+    if (localDomains.empty())  {
+        LOGWARN << "No Local Domains stored in the system. "
+                << "Setting a default Local Domain: local.";
+        int64_t id = configDB->createLocalDomain("local");
+        if (id <= 0) {
+            LOGERROR << "Some issue in Local Domain creation. ";
+            return false;
+        } else {
+            LOGNOTIFY << "Local Domain creation succeded. " << id << ": " << "local";
+        }
+        configDB->listLocalDomains(localDomains);
     }
 
-    if (mapDomains.empty()) {
-        LOGCRITICAL << "something wrong with the configdb"
+    if (localDomains.empty()) {
+        LOGCRITICAL << "Something wrong with the configdb. "
                     << " -- not loading data.";
         return false;
     }

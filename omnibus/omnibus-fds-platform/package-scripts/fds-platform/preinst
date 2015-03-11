@@ -1,0 +1,7 @@
+#!/bin/bash
+#
+# Perform necessary fds-platform setup steps
+# before package is installed.
+#
+
+echo "You're about to install fds-platform!"

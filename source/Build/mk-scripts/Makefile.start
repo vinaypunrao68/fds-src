@@ -109,7 +109,7 @@ main_cc_defs    := -D_REENTRANT -D_FILE_OFFSET_BITS=64
 main_cc_flags   := -fPIC -fpic
 main_cc_flags   += $(local_cc_common) $(main_cc_defs)
 
-main_cpp_flags  := -std=c++11 -fPIC -fpic
+main_cpp_flags  := -std=c++1y -fPIC -fpic
 main_cpp_flags  += $(local_cc_common) $(main_cc_defs)
 
 main_so_flags   := -shared

@@ -3,19 +3,15 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authorizer;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.blob.Mode;
-import com.formationds.util.thrift.OMConfigException;
-import com.formationds.util.thrift.OMConfigServiceClient;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.io.ByteBufferPool;
@@ -32,45 +28,34 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
+// TODO: merge XDI/XDIAsync
 public class XdiAsync {
-    private final AuthenticationToken token;
     private AsyncAm asyncAm;
     private ByteBufferPool bufferPool;
-    private Authorizer authorizer;
-    private OMConfigServiceClient  configurationApi;
+    private XdiConfigurationApi configurationApi;
     private AsyncRequestStatistics statistics;
 
     public XdiAsync(AsyncAm asyncAm,
                     ByteBufferPool bufferPool,
-                    AuthenticationToken token,
-                    Authorizer authorizer,
-                    OMConfigServiceClient configurationApi) {
-        this.asyncAm = new AuthorizedAsyncAm(token, authorizer, asyncAm);
+                    XdiConfigurationApi configurationApi) {
+        this.asyncAm = asyncAm;
         this.bufferPool = bufferPool;
-        this.token = token;
-        this.authorizer = authorizer;
         this.configurationApi = configurationApi;
         statistics = new AsyncRequestStatistics();
     }
 
-    public XdiAsync withStats(AsyncRequestStatistics statistics) {
-        this.statistics = statistics;
-        return this;
-    }
-
     public CompletableFuture<BlobInfo> getBlobInfo(String domain, String volume, String blob) {
-
         CompletableFuture<VolumeDescriptor> volumeDescriptorFuture = statVolume(domain, volume);
         CompletableFuture<BlobWithMetadata> getObject0Future = volumeDescriptorFuture
-                                                                   .thenCompose(vd -> getBlobWithMetadata(domain,
-                                                                                                          volume, blob,
-                                                                                                          0,
-                                                                                                          vd.getPolicy().maxObjectSizeInBytes));
+                .thenCompose(vd -> getBlobWithMetadata(domain,
+                        volume, blob,
+                        0,
+                        vd.getPolicy().maxObjectSizeInBytes));
         return getObject0Future.thenCompose(bwm ->
-                                                volumeDescriptorFuture
-                                                    .thenApply(vd -> new BlobInfo(domain, volume, blob,
-                                                                                  bwm.getBlobDescriptor(), vd,
-                                                                                  bwm.getBytes())));
+                volumeDescriptorFuture
+                        .thenApply(vd -> new BlobInfo(domain, volume, blob,
+                                bwm.getBlobDescriptor(), vd,
+                                bwm.getBytes())));
     }
 
     public CompletableFuture<PutResult> putBlobFromStream(String domain, String volume, String blob, Map<String, String> metadata, InputStream stream) {
@@ -91,7 +76,7 @@ public class XdiAsync {
         });
     }
 
-    public CompletableFuture<Void> getBlobToStream(BlobInfo blob, OutputStream str) {
+    public CompletableFuture<Void> writeBlobToStream(BlobInfo blob, OutputStream str) {
         return getBlobToConsumer(blob, bytes -> {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             CompletableFuture.runAsync(() -> {
@@ -108,8 +93,6 @@ public class XdiAsync {
     }
 
     public CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor) {
-        //CompletableFuture<BlobDescriptor> blobDescriptorFuture = statBlob(domain, volume, blob);
-
         int objectSize = blobInfo.volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
 
         // TODO: do we need to worry about limiting reads?
@@ -165,6 +148,7 @@ public class XdiAsync {
                         updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), condensedBuffer, condensedBuffer.remaining(), objectOffset, md)
                                 .whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
             } else {
+                // secondPut is called for the put requests equal to or larger than the objectSize.
                 return secondPut(putParameters, objectOffset + 1, condensedBuffer);
             }
         });
@@ -179,7 +163,7 @@ public class XdiAsync {
             final ByteBuffer condensedBuffer = condenseBuffer(readBuf);
             if (condensedBuffer.remaining() == 0) {
                 return putParameters.getFinalizedMetadata().thenCompose(md ->
-                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset, md).whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
+                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset - 1, md).whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
             } else {
                 CompletableFuture<Void> digestFuture = putParameters.digest.update(condensedBuffer);
                 return createTx(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue()).thenComposeAsync(tx -> {
@@ -234,12 +218,10 @@ public class XdiAsync {
     public CompletableFuture<VolumeDescriptor> statVolume(String domain, String volume) {
         CompletableFuture<VolumeDescriptor> cf = new CompletableFuture<>();
         try {
-            VolumeDescriptor volumeDescriptor = configurationApi.statVolume(token, domain, volume);
+            VolumeDescriptor volumeDescriptor = configurationApi.statVolume(domain, volume);
             cf.complete(volumeDescriptor);
-        } catch (OMConfigException e) {
-            // Wrap in a thrift TException in an attempt to maintain backward compatibility
-            TException te = new TException(e.getMessage(), e);
-            cf.completeExceptionally(te);
+        } catch (TException e) {
+            cf.completeExceptionally(e);
         }
 
         return cf;

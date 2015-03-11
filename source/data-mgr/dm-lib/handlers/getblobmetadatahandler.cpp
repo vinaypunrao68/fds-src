@@ -4,7 +4,6 @@
 
 #include <dmhandler.h>
 #include <fds_assert.h>
-#include <fdsp_utils.h>
 #include <DmIoReq.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
                            // incomplete type errors in BaseAsyncSvcHandler.h

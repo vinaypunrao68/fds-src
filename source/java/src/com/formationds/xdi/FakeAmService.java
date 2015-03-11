@@ -3,7 +3,10 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
@@ -12,7 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class FakeAmService implements AmService.Iface {
+public class FakeAmService implements XdiService.Iface {
 
     public static final byte[] ARRAY = new byte[4096];
 
@@ -28,7 +31,7 @@ public class FakeAmService implements AmService.Iface {
     }
 
     @Override
-    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws ApiException, TException {
+    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
         return Collections.emptyList();
     }
 

@@ -29,6 +29,7 @@ package com.formationds.util;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.util.s3.S3SignatureGenerator;
 import org.apache.commons.cli.*;
 import org.apache.http.ConnectionReuseStrategy;
@@ -59,10 +60,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -87,6 +85,7 @@ public class TrafficGen {
     static AtomicInteger issued = new AtomicInteger(0);
     static AtomicInteger successes = new AtomicInteger(0);
     static AtomicInteger failures = new AtomicInteger(0);
+    static AtomicInteger http_errors = new AtomicInteger(0);
     static AtomicInteger keepalive = new AtomicInteger(0);
     static AtomicLong total_latency = new AtomicLong(0);
 
@@ -104,11 +103,14 @@ public class TrafficGen {
     static long runtime = 0;
     static long timeout = Long.MAX_VALUE;
 
-    static RandomFile rf = null;
     private static String username;
     private static String token;
 
     static boolean test_timeout = false;
+
+    static Random _gen = new Random(123);
+    static byte [] random_buf = null;
+    static Integer random_buf_index = 0;
 
     static class TimeoutTimerTask extends TimerTask {
         @Override
@@ -118,14 +120,25 @@ public class TrafficGen {
     }
 
     static public BasicHttpEntityEnclosingRequest createPutRequest(int size, String vol, String obj, int n_objs) throws FileNotFoundException, IOException {
-        if (rf == null) {
-            rf = new RandomFile(size, n_objs);
-            // FIXME: when do I close this?
-            rf.create_file();
-            rf.open();
+        if (random_buf == null) {
+            try {
+                random_buf = new byte[size * n_objs];
+            } catch (NegativeArraySizeException e) {
+                System.err.println("size * n_objs must be less than 2^31");
+                System.exit(1);
+            }
+            _gen.nextBytes(random_buf);
+        }
+        int index;
+        synchronized (random_buf_index) {
+            if (size * n_objs - random_buf_index < size) {
+                random_buf_index = 0;
+            }
+            index = random_buf_index;
+            random_buf_index += size;
         }
         byte[] buf = new byte[size];
-        rf.read(buf);
+        System.arraycopy(random_buf, index, buf, 0, size);
         ByteArrayEntity entity = new ByteArrayEntity(buf);
         BasicHttpEntityEnclosingRequest req = new BasicHttpEntityEnclosingRequest("PUT", "/" + vol + "/" + obj);
         req.setEntity(entity);
@@ -320,35 +333,39 @@ public class TrafficGen {
         // Execute HTTP GETs to the following hosts and
         HttpHost target = new HttpHost(hostname, port, "http");
 
-        List<HttpRequest> requests = new ArrayList<>();
-        for (int i = 0; i < n_reqs; i++) {
-            int obj_index = i % n_files;
-            switch (test_type) {
-                case "GET":
-                    requests.add(sign(new BasicHttpRequest(test_type, "/" + volume_name + "/file" + obj_index)));
-                    break;
-                case "PUT":
-                    BasicHttpEntityEnclosingRequest req = (BasicHttpEntityEnclosingRequest) sign(createPutRequest(osize, volume_name, "file" + obj_index, n_files));
-                    requests.add(req);
-                    break;
-                default:
-                    throw new Exception("Type of this test is not supported: " + test_type);
-            }
-        }
-
         Timer timer = new Timer();
         if (runtime > 0) {
             timer.schedule(new TimeoutTimerTask(), runtime * 1000);
         }
 
-        final CountDownLatch latch = new CountDownLatch(requests.size());
+        final CountDownLatch latch = new CountDownLatch(n_reqs);
         long startTime = System.nanoTime();
         System.out.println("Start test - timestamp: " + startTime);
         Semaphore semaphore = new Semaphore(slots);
 
-        for (final HttpRequest request : requests) {
+        for (int j = 0; j < n_reqs; j++) {
+            HttpRequest request;
+            int obj_index = j % n_files;
+            semaphore.acquire();
+            switch (test_type) {
+                case "GET":
+                    request = new BasicHttpRequest(test_type, "/" + volume_name + "/file" + obj_index);
+                    if (username != "" && token != "") {
+                        request = sign(request);
+                    }
+                    break;
+                case "PUT":
+                    request = createPutRequest(osize, volume_name, "file" + obj_index, n_files);
+                    if (username != "" && token != "") {
+                        request = sign(request);
+                    }
+                    break;
+                default:
+                    throw new Exception("Type of this test is not supported: " + test_type);
+            }
+
             if (runtime > 0 && test_timeout) {
-                for (int i = 0; i < requests.size() - issued.get(); i++) {
+                for (int i = 0; i < n_reqs - issued.get(); i++) {
                     latch.countDown();
                 }
                 break;
@@ -362,11 +379,6 @@ public class TrafficGen {
                     new BasicAsyncRequestProducer(target, request) {
                         @Override
                         public synchronized HttpRequest generateRequest() {
-                            try {
-                                semaphore.acquire();
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
                             reqStartTime[0] = System.nanoTime();
                             return super.generateRequest();
                         }
@@ -384,6 +396,7 @@ public class TrafficGen {
                             latch.countDown();
                             int response_code = response.getStatusLine().getStatusCode();
                             if (response_code != 200) {
+                                http_errors.incrementAndGet();
                                 failures.incrementAndGet();
                             } else {
                                 successes.incrementAndGet();
@@ -414,14 +427,12 @@ public class TrafficGen {
                             semaphore.release();
                             failures.incrementAndGet();
                             latch.countDown();
-                            System.out.println(target + "->" + ex);
                         }
 
                         public void cancelled() {
                             semaphore.release();
                             failures.incrementAndGet();
                             latch.countDown();
-                            System.out.println(target + " cancelled");
                         }
                     });
         }
@@ -436,6 +447,8 @@ public class TrafficGen {
         System.out.println("IOPs: " + (double) n_reqs / total_time * 1e9);
         System.out.println("successes: " + successes);
         System.out.println("failures: " + failures);
+        System.out.println("Http errors: " + http_errors);
+
         System.out.println("keepalive: " + keepalive);
         System.out.println("Average latency [ns]: " + total_latency.doubleValue() / successes.doubleValue());
 
@@ -444,6 +457,10 @@ public class TrafficGen {
         System.out.println("Shutting down I/O reactor");
         ioReactor.shutdown();
         System.out.println("Done");
+        if (failures.get() > 0) {
+            System.exit(1);
+
+        }
     }
 
     private static HttpRequest sign(HttpRequest request) {

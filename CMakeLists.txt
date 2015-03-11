@@ -592,18 +592,11 @@ set(SOURCE_FILES
     source/access-mgr/amlib/handlers/responsehandler.cpp
     source/access-mgr/amlib/AccessMgr.cpp
     source/access-mgr/amlib/am-tx-mgr.cpp
-    source/access-mgr/amlib/AmAsyncDataApi.cpp
-    source/access-mgr/amlib/AmAsyncResponseApi.cpp
-    source/access-mgr/amlib/AmAsyncService.cpp
     source/access-mgr/amlib/AmCache.cpp
     source/access-mgr/amlib/AmDataApi.cpp
     source/access-mgr/amlib/AmDispatcher.cpp
     source/access-mgr/amlib/AmProcessor.cpp
-    source/access-mgr/amlib/fdsn-server.cpp
     source/access-mgr/amlib/requests.cpp
-    source/access-mgr/block/am-nbd.cpp
-    source/access-mgr/block/nbd-test-mod.cpp
-    source/access-mgr/block/nbd-test-mod.h
     source/access-mgr/include/requests/AbortBlobTxReq.h
     source/access-mgr/include/requests/AttachVolBlobReq.h
     source/access-mgr/include/requests/CommitBlobTxReq.h
@@ -617,21 +610,17 @@ set(SOURCE_FILES
     source/access-mgr/include/requests/StatBlobReq.h
     source/access-mgr/include/requests/VolumeContentsReq.h
     source/access-mgr/include/AccessMgr.h
-    source/access-mgr/include/am-nbd.h
     source/access-mgr/include/am-node-workflow.h
     source/access-mgr/include/am-platform.h
     source/access-mgr/include/am-tx-mgr.h
     source/access-mgr/include/AmAsyncDataApi.h
     source/access-mgr/include/AmAsyncResponseApi.h
-    source/access-mgr/include/AmAsyncService.h
     source/access-mgr/include/AmCache.h
     source/access-mgr/include/AmDataApi.h
     source/access-mgr/include/AmDispatcher.h
     source/access-mgr/include/AmProcessor.h
-    source/access-mgr/include/AmReqHandlers.h
     source/access-mgr/include/AmRequest.h
     source/access-mgr/include/AMSvcHandler.h
-    source/access-mgr/include/fdsn-server.h
     source/access-mgr/include/responsehandler.h
     source/access-mgr/include/StorHvVolumes.h
     source/access-mgr/platform/am-node-workflow.cpp
@@ -643,13 +632,8 @@ set(SOURCE_FILES
     source/access-mgr/stor-hvisor/StorHvQosCtrl.h
     source/access-mgr/test/AmFunctionalTest.cpp
     source/access-mgr/am-main.cpp
-    source/access-mgr/AmBindings.cpp
-    source/access-mgr/com_formationds_am_NativeAm.h
-    source/am-engine/misc/am-urls.cpp
-    source/am-engine/am-urls.cpp
     source/apis/apis.thrift
     source/apis/Makefile
-    source/apis/ycm.flags
     source/checker/checker.cpp
     source/checker/checker.h
     source/checker/dm_checker.cpp
@@ -660,15 +644,10 @@ set(SOURCE_FILES
     source/checker/smchk_driver.h
     source/data-mgr/dm-lib/dm-tvc/CommitLog.cpp
     source/data-mgr/dm-lib/dm-tvc/TimeVolumeCatalog.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmExtentTypes.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmOIDArrayMmap.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmPersistVc.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolDB.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolDir.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolFile.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmVcCache.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmVolumeCatalog.cpp
-    source/data-mgr/dm-lib/dm-vol-cat/DmVolumeDirectory.cpp
     source/data-mgr/dm-lib/handlers/deleteblobhandler.cpp
     source/data-mgr/dm-lib/handlers/dmhandler.cpp
     source/data-mgr/dm-lib/handlers/getbuckethandler.cpp
@@ -682,15 +661,10 @@ set(SOURCE_FILES
     source/data-mgr/dm-lib/VolumeMeta.cpp
     source/data-mgr/include/dm-tvc/CommitLog.h
     source/data-mgr/include/dm-tvc/TimeVolumeCatalog.h
-    source/data-mgr/include/dm-vol-cat/DmExtentTypes.h
     source/data-mgr/include/dm-vol-cat/DmOIDArrayMmap.h
-    source/data-mgr/include/dm-vol-cat/DmPersistVc.h
     source/data-mgr/include/dm-vol-cat/DmPersistVolDB.h
-    source/data-mgr/include/dm-vol-cat/DmPersistVolDir.h
     source/data-mgr/include/dm-vol-cat/DmPersistVolFile.h
-    source/data-mgr/include/dm-vol-cat/DmVcCache.h
     source/data-mgr/include/dm-vol-cat/DmVolumeCatalog.h
-    source/data-mgr/include/dm-vol-cat/DmVolumeDirectory.h
     source/data-mgr/include/CatalogSync.h
     source/data-mgr/include/CatalogSyncRecv.h
     source/data-mgr/include/DataMgr.h
@@ -706,7 +680,6 @@ set(SOURCE_FILES
     source/data-mgr/platform/dm-node-workflow.cpp
     source/data-mgr/platform/dm-platform.cpp
     source/data-mgr/dm-main.cpp
-    source/fds_client/blk_dev/fbd.mod.c
     source/include/access-mgr/am-block.h
     source/include/apis/AmService.cpp
     source/include/apis/AmService.h
@@ -809,12 +782,6 @@ set(SOURCE_FILES
     source/include/fdsp/FDSP_MetaSyncResp.cpp
     source/include/fdsp/FDSP_MetaSyncResp.h
     source/include/fdsp/FDSP_MetaSyncResp_server.skeleton.cpp
-    source/include/fdsp/FDSP_MigrationPathReq.cpp
-    source/include/fdsp/FDSP_MigrationPathReq.h
-    source/include/fdsp/FDSP_MigrationPathReq_server.skeleton.cpp
-    source/include/fdsp/FDSP_MigrationPathResp.cpp
-    source/include/fdsp/FDSP_MigrationPathResp.h
-    source/include/fdsp/FDSP_MigrationPathResp_server.skeleton.cpp
     source/include/fdsp/FDSP_OMControlPathReq.cpp
     source/include/fdsp/FDSP_OMControlPathReq.h
     source/include/fdsp/FDSP_OMControlPathReq_server.skeleton.cpp
@@ -876,7 +843,6 @@ set(SOURCE_FILES
     source/include/net/SvcRequest.h
     source/include/net/SvcRequestPool.h
     source/include/net/SvcRequestTracker.h
-    source/include/net-proxies/iomsg.h
     source/include/net-proxies/vol_policy.h
     source/include/nginx-driver/atmos-connector.h
     source/include/nginx-driver/http_utils.h
@@ -905,13 +871,6 @@ set(SOURCE_FILES
     source/include/util/timeutils.h
     source/include/util/TraceBuffer.h
     source/include/util/type.h
-    source/include/xdi/am_shim_constants.cpp
-    source/include/xdi/am_shim_constants.h
-    source/include/xdi/am_shim_types.cpp
-    source/include/xdi/am_shim_types.h
-    source/include/xdi/AmShim.cpp
-    source/include/xdi/AmShim.h
-    source/include/xdi/AmShim_server.skeleton.cpp
     source/include/ClusterCommMgr.h
     source/include/cpplist.h
     source/include/data_mgr.h
@@ -1052,9 +1011,6 @@ set(SOURCE_FILES
     source/lib/simple_object_allocator.h
     source/lib/StatsCollector.h
     source/lib/VolumeCatalog.h
-    source/net-proxies/iomsg_clnt.c
-    source/net-proxies/iomsg_serv.c
-    source/net-proxies/iomsg_xdr.c
     source/net-service/endpoint/endpoint.cpp
     source/net-service/endpoint/ep-attr.cpp
     source/net-service/endpoint/ep-map.cpp
@@ -1139,7 +1095,6 @@ set(SOURCE_FILES
     source/orch-mgr/com_formationds_om_NativeOm.h
     source/orch-mgr/OmBindings.cpp
     source/orch-mgr/orch-mgr-main.cpp
-    source/osdep/umod-linux/fds-shm-queue.cpp
     source/osdep/umod-linux/fds-shmem.cpp
     source/osdep/umod-linux/fds_osdep.c
     source/persistent-layer/io-lib/dm_index.cpp
@@ -1186,22 +1141,6 @@ set(SOURCE_FILES
     source/stor-mgr/include/TierEngine.h
     source/stor-mgr/include/TierMigration.h
     source/stor-mgr/include/TierPutAlgorithms.h
-    source/stor-mgr/migrations/fds_base_migrators.h
-    source/stor-mgr/migrations/fds_migration.cpp
-    source/stor-mgr/migrations/fds_migration.h
-    source/stor-mgr/migrations/TokenPullReceiver.cpp
-    source/stor-mgr/migrations/TokenPullReceiver.h
-    source/stor-mgr/migrations/TokenPullSender.cpp
-    source/stor-mgr/migrations/TokenPullSender.h
-    source/stor-mgr/migrations/TokenReceiver.cpp
-    source/stor-mgr/migrations/TokenReceiver.h
-    source/stor-mgr/migrations/TokenSender.cpp
-    source/stor-mgr/migrations/TokenSender.h
-    source/stor-mgr/migrations/TokenSyncBaseEvents.h
-    source/stor-mgr/migrations/TokenSyncReceiver.cpp
-    source/stor-mgr/migrations/TokenSyncReceiver.h
-    source/stor-mgr/migrations/TokenSyncSender.cpp
-    source/stor-mgr/migrations/TokenSyncSender.h
     source/stor-mgr/platform/sm-node-workflow.cpp
     source/stor-mgr/platform/sm-platform.cpp
     source/stor-mgr/policy/policy_rpc.cpp
@@ -1413,9 +1352,6 @@ set(SOURCE_FILES
     source/unit-test/orch-mgr/place_tbl_unit_test.cpp
     source/unit-test/persistent-layer/dm_io_test.cpp
     source/unit-test/persistent-layer/dm_service_test.cpp
-    source/unit-test/shmem/basic_shm.cpp
-    source/unit-test/shmem/sPrd_nCns.cpp
-    source/unit-test/stor-mgr/svc-test/checker_gtest.cpp
     source/unit-test/stor-mgr/svc-test/ngx_modules.c
     source/unit-test/stor-mgr/svc-test/smapi_gtest.cpp
     source/unit-test/stor-mgr/svc-test/smperf_gtest.cpp
@@ -1446,7 +1382,6 @@ set(SOURCE_FILES
     source/unit-test/umod-lib/conc_unit_test.cpp
     source/unit-test/umod-lib/fds_actor_ut.cpp
     source/unit-test/umod-lib/python_bind_ut.cpp
-    source/unit-test/umod-lib/shm-queue.cpp
     source/unit-test/umod-lib/ThreadPoolTest.cpp
     source/unit-test/util/fds_panic_test.cpp
     source/unit-test/util/log_unit_test.cpp
@@ -1833,5 +1768,7 @@ include_directories(source/lib)
 include_directories(source/orch-mgr/include)
 include_directories(source/platform/include)
 include_directories(source/stor-mgr/include)
+include_directories(source/include)
+include_directories(source/include/net)
 
 add_executable(dev ${SOURCE_FILES})

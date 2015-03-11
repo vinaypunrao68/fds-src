@@ -1,11 +1,16 @@
 .fds-tooltip {
-    max-width: 75%;
-    background-color: rgba( 255, 255, 255, 0.9 );
+//    max-width: 75%;
+    background-color: rgba( 255, 255, 255, 0.9 ) !important;
     color: black;
     position: absolute;
     border-radius: 4px;
     padding: 4px;
     z-index: 1000;
+    
+    .tooltip-body {
+        background-color: transparent !important;
+        color: black !important;
+    }
     
     .left-side {
         left: 8px;

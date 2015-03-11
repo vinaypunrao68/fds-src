@@ -1,10 +1,3 @@
-/**@import 'vendor/bootstrap_imports_and_overrides';
-@import 'vendor/retina/retina';
-@import 'vendor/retina/sprite';
-@import 'vendor/retina/background';
-@import 'vendor/nvd3';
-@import 'vendor/magnific_popup';
-**/
 @import 'variables';
 @import 'mixin';
 @import 'base';
@@ -14,26 +7,23 @@
 
 @import 'login/form';
 @import 'main/mainshell';
-@import 'components/widgets';
 @import 'components/menu';
-@import 'components/popups';
 @import 'components/tables';
 @import 'components/buttons';
 @import 'components/tap_form';
-@import 'components/content';
+@import 'components/popups';
 @import 'components/collapse_form';
 @import 'components/page_slider';
 @import 'components/page_defaults';
-@import 'components/forms/errorHandling';
-@import 'components/forms/summaryforms';
-@import 'components/forms/snapshotforms';
+@import 'components/forms';
 @import 'components/comingsoon';
 
-@import 'nodes/index';
 @import 'admin/index';
 @import 'volumes/index';
 @import 'volumes/new';
 @import 'volumes/view';
+@import 'volumes/clone';
+@import 'system/system';
 @import 'status/index';
 @import 'account/index';
 
@@ -44,6 +34,7 @@
 @import '../../scripts/directives/widgets/waterfallslider/waterfallslider';
 @import '../../scripts/directives/widgets/statustile/statusTile';
 @import '../../scripts/directives/widgets/slidewindowstack/slidewindowstack';
+@import '../../scripts/directives/widgets/mouseover/mouseover';
 @import '../../scripts/directives/widgets/tooltip/tooltip';
 @import '../../scripts/directives/widgets/spinner/spinner';
 @import '../../scripts/directives/widgets/tristatecheck/tristatecheck';
@@ -57,10 +48,12 @@
 @import '../../scripts/directives/angular-fui/fui-slider/fui-slider';
 @import '../../scripts/directives/widgets/timeslider/timeslider';
 @import '../../scripts/directives/widgets/timespinner/timespinner';
+@import '../../scripts/directives/widgets/statustimeline/statustimeline';
 @import '../../scripts/directives/widgets/datepicker/datepicker';
 @import '../../scripts/directives/widgets/datetimetyper/datetimetyper';
 @import '../../scripts/directives/angular-fui/fui-input/fui-input';
 @import '../../scripts/directives/widgets/buttonbar/buttonbar';
+@import '../../scripts/directives/widgets/switch/switch';
 @import '../../scripts/directives/widgets/navitem/navitem';
 @import '../../scripts/directives/widgets/slider/slider';
 @import '../../scripts/directives/widgets/priorityslider/priority_slider';

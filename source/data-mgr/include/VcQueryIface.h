@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <fds_error.h>
+#include "fdsp/dm_api_types.h"
 
 namespace fds {
 
@@ -93,7 +94,7 @@ class VolumeCatalogQueryIface {
      * to volume catalog
      */
     virtual Error listBlobs(fds_volid_t volume_id,
-                            fpi::BlobInfoListType* binfo_list) = 0;
+                            fpi::BlobDescriptorListType* bdescr_list) = 0;
 
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'
@@ -108,6 +109,10 @@ class VolumeCatalogQueryIface {
      * get total matadata size for a volume
      */
     virtual fds_uint64_t getTotalMetadataSize(fds_volid_t volume_id) = 0;
+    
+    virtual Error activateCatalog(fds_volid_t volId) {
+        return ERR_OK;
+    };
 };
 
 }  // namespace fds

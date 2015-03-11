@@ -26,6 +26,18 @@ std::chrono::system_clock::time_point FdsTimerTask::getExpiryTime() const {
     return expTime_;
 }
 
+FdsTimerFunctionTask::FdsTimerFunctionTask(FdsTimer &timer,
+                                           const std::function<void()> &f)
+: FdsTimerTask(timer),
+    f_(f)
+{
+}
+
+void FdsTimerFunctionTask::runTimerTask()
+{
+    f_();
+}
+
 /**
  * Constructor
  */

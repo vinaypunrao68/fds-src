@@ -3,13 +3,10 @@
  */
 
 #include <StorMgr.h>
-#include <policy_tier.h>
-#include <sm-platform.h>
-#include <net/net-service.h>
+#include <net/SvcProcess.h>
+#include <SMSvcHandler.h>
 
-#include "platform/platform_process.h"
-
-class SMMain : public PlatformProcess
+class SMMain : public SvcProcess
 {
  public:
     SMMain(int argc, char *argv[]) {
@@ -21,22 +18,26 @@ class SMMain : public PlatformProcess
         /* Create the dependency vector */
         static fds::Module *smVec[] = {
             &diskio::gl_dataIOMod,
-            &fds::gl_SmPlatform,
-            &fds::gl_NetService,
-            &fds::gl_tierPolicy,
             sm,
             nullptr
         };
 
+         /* Before calling init, close all file descriptors.  Later, we may daemonize the
+         * process, in which case we may be closing all existing file descriptors while
+         * threads may access the file descriptor.
+         */
+        closeAllFDs();
+
         /* Init platform process */
-        init(argc, argv, "fds.sm.", "sm.log", &gl_SmPlatform, smVec);
+        init<fds::SMSvcHandler, fpi::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.",
+                "sm.log", smVec);
 
         /* setup signal handler */
         setupSigHandler();
 
         /* Daemonize */
-        fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.sm.testing.test_mode", false);
-        if (noDaemon == false) {
+        fds_bool_t daemonizeProc = get_fds_config()->get<bool>("fds.sm.daemonize", true);
+        if (true == daemonizeProc) {
             daemonize();
         }
     }

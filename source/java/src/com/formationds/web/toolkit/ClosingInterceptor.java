@@ -10,7 +10,7 @@ import java.io.OutputStream;
 public class ClosingInterceptor extends OutputStream {
     private OutputStream underlying;
 
-    ClosingInterceptor(OutputStream underlying) {
+    public ClosingInterceptor(OutputStream underlying) {
         this.underlying = underlying;
     }
 

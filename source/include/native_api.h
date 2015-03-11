@@ -178,9 +178,6 @@ class FDS_NativeAPI {
      * Helper function to initialize volume info to some default values, 
      * used by several native api methods
      */
-    void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info,
-                     const std::string& bucket_name);
-
     void initVolDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr vol_desc,
                      const std::string& bucket_name);
 };

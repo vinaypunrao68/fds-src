@@ -21,32 +21,31 @@ fds: {
     /* Feature toggles, use "common:" for features that propogate across components */
     feature_toggle: {
         common: {
-            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
 
-            java_is_fussy_an_entry_must_exist_here = true
+            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
         }
         plat: {
-            use_disk_hints = {{ ft_platform_use_disk_hints }}
-            force_simulation_mode = {{ ft_platform_force_simulation_mode }}
 
-            java_is_fussy_an_entry_must_exist_here = true
+            use_disk_hints = {{ ft_platform_use_disk_hints }}
+            control_disk_simulation_mode = {{ ft_platform_control_disk_simulation_mode }}
         }
         dm: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         sm: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         am: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
         om: {
-            java_is_fussy_an_entry_must_exist_here = true
+
         }
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
+
 {% if om_ip_count != empty_om_list %}
 {% set hosts = groups[group_names[0]] %}
 {% for i in range(om_ip_count|int) %}
@@ -55,30 +54,41 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
-
-        java_is_fussy_an_entry_must_exist_here = true
+	om_port = 7004
+	om_uuid = 1028
     }
 
-    plat: {
+    pm: {
         /* process id */
-        id = "auto"
+        id = "pm"
 
         /* Log file */
-        logfile = "pltform"
+        logfile = "pm"
 
         /* Log severity */
         log_severity = "{{ pm_log_severity }}"
 
-        /* Control path port */
+        /* Platform uuid.  From this base uuid other service runnig on this node detrive their uuids */
+	platform_uuid = 1024
+        /* Platform port.  This is the node base port.  All services running on this node derive */
+	/* their port based on this port */
         platform_port = 7000
 
         /* Orchestration manager info */
+	/* TODO(Rao): Deprecate om_ip, om_port, om_platform_port.  We don't need them anymore */
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
 
         /* Don't spawn any service daemon */
         auto_start_services = true
+
+        /* Disk types, hints file.  Relative to fds-root */
+        disk_hints_path_file = "dev/disk-hints.conf"
+
+        /* Force disk simulation_mode (enable Feature Toggle first) */
+        /* true=simuation mode, false=auto detection */
+        force_disk_simulation = {{ force_disk_simulation }}
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
@@ -90,31 +100,42 @@ fds: {
             period = 5
         }
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 8
-            max_thread  = 10
+            num_threads = 10
         }
         /* Internal testing related info */
-	testing: {
-	    /* overwrite node capabilities from this config */
-	    manual_nodecap = true
-	    disk_iops_max  = 100000
-	    disk_iops_min  = 60000
-	}
-	/* Service layer stanza */
-	svc: {
-	    lftp: {
-		/* Enable lockfree threadpool optimizations or not */
-	        enable = {{ svc_plat_lftp_enable }}
-		io_thread_cnt = 2
-		worker_thread_cnt = 2
-	    }
-	}
+        testing: {
+	    standalone = false
+            /* overwrite node capabilities from this config */
+            manual_nodecap = true
+            disk_iops_max  = 100000
+            disk_iops_min  = 60000
+        }
+        /* Service layer stanza */
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
     }
 
     dm: {
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
 
         qos: {
@@ -131,6 +152,7 @@ fds: {
         /* process id */
         id      = "dm"
         no_om   = false;
+	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -145,6 +167,13 @@ fds: {
            default_max_entries = 200
         }
 
+        migration: {
+            /* Rsync username to use during migration */
+            rsync_username = "root"
+            /* Rsync password to use during migration */
+	    rsync_password = "passwd"
+        }
+
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
         graphite: {
@@ -157,17 +186,12 @@ fds: {
         }
 
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 8
-            max_thread  = 10
+            num_threads = 10
         }
 
         /* Internal testing related info */
         testing: {
-            /* General testing mode...should depricate */
-            test_mode = false
+            standalone = false
 
             /* Forces all DM APIs to immediately return success */
             uturn_all = false
@@ -191,11 +215,23 @@ fds: {
     }
 
     sm: {
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
 
         /* process id */
         id      = "sm"
         prefix  = ""
+	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -210,9 +246,15 @@ fds: {
         /* verify data in background */
         data_verify_background = {{ sm_data_verify_background }}
 
+        /* daemonize or not */
+        daemonize=true
+
         objectstore: {
             /* Size of the hashed task synchronizer */
             synchronizer_size = 100
+            faults: {
+                fail_writes = 0.0
+            }
         }
         cache: {
             /* Default max number of data cache entries */
@@ -269,20 +311,36 @@ fds: {
             cold_threshold = 0
         }
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 8
-            max_thread  = 10
+            num_threads = 10
         }
         /* Migration related info */
         migration: {
             /* IP of the migration server */
+	    /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
             ip = "{{ om_ip }}"
 
             /* Number of threads for doing migration work */
+            /* DEPRECATED */
             thread_cnt=5
+
+            /* size of the delta set from source SM to destination SM */
+            max_delta_set_size=16
+
+            /* verify the integrity of the metadata and data  on destination SM */
+            verify_migration_data=false
+
+            /* boolean to enable/disable SM token migration feature */
+            enable_feature = true
         }
+	tiering: {
+	    hybrid: {
+	        enable 		= false
+		/* Number of objects to move at a time */
+		batchSz 	= 1024
+		/* In seconds to make testing easier (default 172800s = 2days) */
+		frequency 	= 172800
+	    }
+	}
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
         graphite: {
@@ -296,10 +354,25 @@ fds: {
     }
 
     am: {
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
+
+        /* process id */
+	id = "am"
 
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"
+	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
 
@@ -314,23 +387,23 @@ fds: {
         s3_https_port=8443
         swift_port=9999
         memory_backend=false
-        nbd_server_port = 10809
-        enable_nbd_log=true
-        enable_nbd_block_exclusion=false
         fdsn_server_threads=30
         qos_threads=4
 
+        connector: {
+            nbd: {
+                server_port=10809
+                non_block_io=true
+            }
+        }
+
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 10
-            max_thread  = 15
+            num_threads = 10
         }
         cache: {
             /* Default max data entries in a volume's AM cache */
             max_data_entries =  {{ am_cache_max_data_entries }}
-	    /* Default max entries in a volume's AM cache */
+            /* Default max entries in a volume's AM cache */
             max_metadata_entries =  {{ am_cache_max_metadata_entries }}
             /* Default max staged entries in a volume's tx descriptor */
             tx_max_staged_entries = 10
@@ -339,7 +412,7 @@ fds: {
         /* Internal testing related info */
         testing: {
             /* Toggle stand alone mode */
-            toggleStandAlone = false
+            standalone = false
 
             /* Toggle to disable stats collection for metadata streaming */
             toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }}
@@ -388,17 +461,37 @@ fds: {
 
     om:
     {
+        /* Service layer stanza */
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
+	/* Testing stanza */
+	testing: {
+            /* Toggle stand alone mode */
+            standalone = false
+	}
         id="om"
         prefix=""
         log_severity = "{{ om_log_severity }}"
         logfile="om"
         config_port=8903
+	/* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
         control_port=8904
         ip_address = "{{ om_ip }}"
         enable_graphite = {{ metrics_enabled }}
         token_factor=8
         replica_factor=4
         placement_algo="ConsistHash"
+        default_iops_min=0
+        default_iops_max=0
 
         web_dir="../lib/admin-webapp/"
         http_port=7777
@@ -408,11 +501,7 @@ fds: {
         }
         test_mode=false
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 8
-            max_thread  = 10
+            num_threads = 10
         }
 
         snmp: {
@@ -431,6 +520,7 @@ fds: {
         control_port = 6991
 
         /* Orchestration manager ip */
+	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip = "{{ om_ip }}"
 
         /* Orchestration manager port */
@@ -439,16 +529,12 @@ fds: {
         enable_graphite = {{ metrics_enabled }}
 
         threadpool: {
-            max_task    = 10
-            spawn_thres = 5
-            idle_sec    = 3
-            min_thread  = 3
-            max_thread  = 8
+            num_threads = 10
         }
     }
 
     xdi: {
-	am_host = "{{ am_host }}"
+        am_host = "{{ am_host }}"
     }
 }
 {% endblock %}

@@ -7,13 +7,12 @@
 #include <vector>
 #include <map>
 #include <thread>
-#include <fdsn-server.h>
+#include <condition_variable>
+
 #include <util/fds_stat.h>
-#include <am-platform.h>
-#include <net/net-service.h>
 #include <AccessMgr.h>
-#include "AmAsyncXdi.h"
-#include "AmAsyncDataApi.cxx"
+#include "connector/xdi/AmAsyncXdi.h"
+#include "AmAsyncDataApi_impl.h"
 
 #include "boost/program_options.hpp"
 #include <boost/enable_shared_from_this.hpp>
@@ -24,7 +23,11 @@
 
 namespace fds {
 
-AccessMgr::unique_ptr am;
+namespace xdi_atp = apache::thrift::protocol;
+namespace xdi_ats = apache::thrift::server;
+namespace xdi_att = apache::thrift::transport;
+
+AccessMgr::unique_ptr am = nullptr;
 
 class AmProcessWrapper : public FdsProcess {
   public:
@@ -56,7 +59,7 @@ struct null_deleter
 
 class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                    public AmAsyncResponseApi<boost::shared_ptr<apis::RequestId>>,
-                   public apis::AsyncAmServiceResponseIf
+                   public apis::AsyncXdiServiceResponseIf
 {
   public:
     AmLoadProc(int argc, char **argv)
@@ -121,7 +124,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
             // serverTransport.reset(new xdi_att::TServerSocket("/tmp/am-resp-sock"));
             transportFactory.reset(new xdi_att::TFramedTransportFactory());
             protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
-            processor.reset(new apis::AsyncAmServiceResponseProcessor(
+            processor.reset(new apis::AsyncXdiServiceResponseProcessor(
                 responseApi));
             ttServer.reset(new xdi_ats::TThreadedServer(processor,
                                                         serverTransport,
@@ -139,9 +142,9 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                 boost::make_shared<xdi_att::TFramedTransport>(respSock));
             boost::shared_ptr<xdi_atp::TProtocol> respProto(
                 boost::make_shared<xdi_atp::TBinaryProtocol>(respTrans));
-            asyncThriftClient = boost::make_shared<apis::AsyncAmServiceRequestClient>(respProto);
+            asyncThriftClient = boost::make_shared<apis::AsyncXdiServiceRequestClient>(respProto);
             respSock->open();
-            asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
+            asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncXdiServiceRequestIf>(
                 asyncThriftClient);
         } else {
             asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(shared_from_this());
@@ -164,13 +167,13 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void attachVolumeResponse(const apis::RequestId& requestId) {}
     void attachVolumeResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
     void volumeContents(const apis::RequestId& requestId,
-                        const std::vector<apis::BlobDescriptor> & response) {}
+                        const std::vector<fpi::BlobDescriptor> & response) {}
     void volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
-                        boost::shared_ptr<std::vector<apis::BlobDescriptor> >& response) {}
+                        boost::shared_ptr<std::vector<fpi::BlobDescriptor> >& response) {}
     void statBlobResponse(const apis::RequestId& requestId,
-                          const apis::BlobDescriptor& response) {}
+                          const fpi::BlobDescriptor& response) {}
     void statBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
-                          boost::shared_ptr<apis::BlobDescriptor>& response) {
+                          boost::shared_ptr<fpi::BlobDescriptor>& response) {
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -195,10 +198,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     }
     void getBlobWithMetaResponse(const apis::RequestId& requestId,
                                  const std::string& data,
-                                 const apis::BlobDescriptor& blobDesc) {}
+                                 const fpi::BlobDescriptor& blobDesc) {}
     void getBlobWithMetaResponse(boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<std::string>& data,
-                                 boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+                                 boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -219,10 +222,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void volumeStatus(boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<apis::VolumeStatus>& response) {}
     void completeExceptionally(const apis::RequestId& requestId,
-                               const apis::ErrorCode errorCode,
+                               const fpi::ErrorCode errorCode,
                                const std::string& message) {}
     void completeExceptionally(boost::shared_ptr<apis::RequestId>& requestId,
-                               boost::shared_ptr<apis::ErrorCode>& errorCode,
+                               boost::shared_ptr<fpi::ErrorCode>& errorCode,
                                boost::shared_ptr<std::string>& message) {}
 
     void attachVolumeResp(const Error &error,
@@ -304,7 +307,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                              boost::shared_ptr<apis::RequestId>& requestId,
                              boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
-                             boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+                             boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -314,7 +317,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
-                      boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+                      boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -343,7 +346,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void volumeContentsResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId,
-                            boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) {
+                            boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -444,11 +447,22 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                 boost::shared_ptr<int64_t> offset(
                     boost::make_shared<int64_t>());
                 *offset = 0;
+                boost::shared_ptr<std::string> pattern(new std::string());
+                boost::shared_ptr<fpi::BlobListOrder> orderBy(
+                    boost::make_shared<fpi::BlobListOrder>());
+                *orderBy = fpi::UNSPECIFIED;
+                boost::shared_ptr<bool> descending(
+                    boost::make_shared<bool>());
+                *descending = false;
+
                 asyncDataApi->volumeContents(reqId,
                                              domainName,
                                              volumeName,
                                              count,
-                                             offset);
+                                             offset,
+                                             pattern,
+                                             orderBy,
+                                             descending);
             } else {
                 fds_panic("Unknown op type");
             }
@@ -482,7 +496,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                     am->dataApi->updateBlobOnce(domainName, volumeName,
                                                 blobGen.blobName, blobMode,
                                                 localData, blobLength, off, meta);
-                } catch(apis::ApiException fdsE) {
+                } catch(fpi::ApiException fdsE) {
                     fds_panic("updateBlob failed");
                 }
             } else if (opType == GET) {
@@ -494,7 +508,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                                          blobGen.blobName,
                                          blobLength,
                                          off);
-                } catch(apis::ApiException fdsE) {
+                } catch(fpi::ApiException fdsE) {
                     fds_panic("getBlob failed");
                 }
             } else if (opType == STARTTX) {
@@ -505,7 +519,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                                              volumeName,
                                              blobGen.blobName,
                                              blobMode);
-                } catch(apis::ApiException fdsE) {
+                } catch(fpi::ApiException fdsE) {
                     fds_panic("statBlob failed");
                 }
             } else {
@@ -640,10 +654,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     std::mutex done_mutex;
 
     /// Data API to AM
-    boost::shared_ptr<apis::AsyncAmServiceRequestIf> asyncDataApi;
+    boost::shared_ptr<apis::AsyncXdiServiceRequestIf> asyncDataApi;
 
     /// Thrift client
-    boost::shared_ptr<apis::AsyncAmServiceRequestClient> asyncThriftClient;
+    boost::shared_ptr<apis::AsyncXdiServiceRequestClient> asyncThriftClient;
     /// Thrift IP
     std::string serverIp;
     /// Thrift port
@@ -659,7 +673,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     boost::shared_ptr<xdi_att::TServerTransport>  serverTransport;
     boost::shared_ptr<xdi_att::TTransportFactory> transportFactory;
     boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
-    boost::shared_ptr<apis::AsyncAmServiceResponseProcessor> processor;
+    boost::shared_ptr<apis::AsyncXdiServiceResponseProcessor> processor;
 };
 
 }  // namespace fds

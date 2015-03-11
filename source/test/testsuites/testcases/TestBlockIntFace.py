@@ -22,37 +22,10 @@ pwd = ""
 #
 class TestBlockCrtVolume(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestBlockCrtVolume, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockCrtVolume():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Creating an block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockCrtVolume,
+                                             "Creating an block volume")
 
     def test_BlockCrtVolume(self):
         """
@@ -67,7 +40,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         fds_root = nodes[0].nd_conf_dict['fds_root']
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         global pwd
-        pwd = os.getcwd()
+        cur_dir = os.getcwd()
         os.chdir(bin_dir)
 
         # Block volume create command
@@ -75,6 +48,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         blkCrtCmd = "./fdscli --fds-root=" + fds_root + " --volume-create blockVolume -i 1 -s 10240 -p 50 -y blk"
         result = subprocess.call(blkCrtCmd, shell=True)
         if result != 0:
+            os.chdir(cur_dir)
             self.log.error("Failed to create block volume")
             return False
         time.sleep(5)
@@ -82,8 +56,12 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         blkModCmd = "./fdscli --fds-root=" + fds_root + " --volume-modify \"blockVolume\" -s 10240 -g 0 -m 0 -r 10"
         result = subprocess.call(blkModCmd, shell=True)
         if result != 0:
+            os.chdir(cur_dir)
             self.log.error("Failed to modify block volume")
             return False
+
+        os.chdir(cur_dir)
+
         time.sleep(5)
 
         return True
@@ -92,57 +70,45 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
 # the FDS interface to attach a volume.
 #
 class TestBlockAttachVolume(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
-        super(TestBlockAttachVolume, self).__init__(parameters)
+    def __init__(self, parameters=None, volume=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockAttVolume,
+                                             "Attaching a block volume")
 
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockAttVolume():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Attaching a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        self.passedVolume = volume
 
     def test_BlockAttVolume(self):
         """
         Test Case:
-        Attempt to attach a block volume.
+        Attempt to attach a block volume client.
         """
 
-        # TODO(Andrew): We shouldn't hard code the path, volume name, port, ip
-        blkAttCmd = ['sudo', '../../../cinder/nbdadm.py', 'attach', 'localhost', 'blockVolume']
-        nbdadm = subprocess.Popen(blkAttCmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        (stdout, stderr) = nbdadm.communicate()
-        if nbdadm.returncode != 0:
-            self.log.error("Failed to attach block volume %s %s" % (stdout, stderr))
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        volume = 'blockVolume'
+
+        # Check if a volume was passed to us.
+        if self.passedVolume is not None:
+            volume = self.passedVolume
+
+        cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
+        blkAttCmd = '%s/nbdadm.py attach %s %s' % (cinder_dir, om_node.nd_conf_dict['ip'], volume)
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = om_node.nd_agent.exec_wait(blkAttCmd, return_stdin=True)
+
+        if status != 0:
+            self.log.error("Failed to attach block volume %s: %s." % (volume, stdout))
             return False
         else:
             global nbd_device
             nbd_device = stdout.rstrip()
-        self.log.info("Attached block device %s" % (nbd_device))
+
         time.sleep(5)
+        self.log.info("Attached block device %s" % (nbd_device))
 
         return True
 
@@ -150,37 +116,13 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
 # the FDS interface to disconnect a volume.
 #
 class TestBlockDetachVolume(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
-        super(TestBlockDetachVolume, self).__init__(parameters)
+    def __init__(self, parameters=None, volume=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockDetachVolume,
+                                             "Disconnecting a block volume")
 
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockDetachVolume():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Disconnecting a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        self.passedVolume = volume
 
     def test_BlockDetachVolume(self):
         """
@@ -188,53 +130,40 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
         Attempt to detach a block volume.
         """
 
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        volume = 'blockVolume'
+
+        # Check if a volume was passed to us.
+        if self.passedVolume is not None:
+            volume = self.passedVolume
+
+        cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
+
         # Command to detach a block volume
-        # TODO(Andrew): Don't hard code path, volume name
-        blkDetachCmd = "sudo ../../../cinder/nbdadm.py detach blockVolume"
-        result = subprocess.call(blkDetachCmd, shell=True)
-        if result != 0:
-            self.log.error("Failed to detach block volume")
+        blkDetachCmd = '%s/nbdadm.py detach %s' % (cinder_dir, volume)
+
+        status = om_node.nd_agent.exec_wait(blkDetachCmd)
+
+        if status != 0:
+            self.log.error("Failed to detach block volume with status %s." % status)
             return False
+
         time.sleep(5)
 
-        os.chdir(pwd)
         return True
 
 # This class contains the attributes and methods to test
-# writing block data
+# writing block data.
 #
 class TestBlockFioSeqW(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestBlockFioSeqW, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockFioWrite():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Writing a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockFioWrite,
+                                             "Writing a block volume")
 
 
     def test_BlockFioWrite(self):
@@ -243,13 +172,29 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         Attempt to write to a block volume.
         """
 
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        if self.childPID is None:
+            # Not running in a forked process.
+            # Stop on failures.
+            verify_fatal = 1
+        else:
+            # Running in a forked process. Don't
+            # stop on failures.
+            verify_fatal = 0
+
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=1 --size=16m --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
-        result = subprocess.call(fioCmd, shell=True)
-        if result != 0:
-            self.log.error("Failed to run write workload")
+        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k " \
+                 "--iodepth=128 --numjobs=1 --size=16m --filename=%s --verify=md5 --verify_fatal=%d" %\
+                 (nbd_device, verify_fatal)
+
+        status = om_node.nd_agent.exec_wait(fioCmd)
+
+        if status != 0:
+            self.log.error("Failed to run write workload with status %s." % status)
             return False
-        time.sleep(5)
 
         return True
 
@@ -258,39 +203,12 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
 #
 class TestBlockFioRandW(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestBlockFioRandW, self).__init__(parameters)
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockFioRandW,
+                                             "Randomly writing a block volume")
 
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockFioWrite():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Writing a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
-
-    def test_BlockFioWrite(self):
+    def test_BlockFioRandW(self):
         """
         Test Case:
         Attempt to write to a block volume.
@@ -311,37 +229,10 @@ class TestBlockFioRandW(TestCase.FDSTestCase):
 #
 class TestBlockFioRW(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestBlockFioRW, self).__init__(parameters)
-
-
-    def runTest(self):
-        test_passed = True
-
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
-        else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
-
-        try:
-            if not self.test_BlockFioReadWrite():
-                test_passed = False
-        except Exception as inst:
-            self.log.error("Reading/writing a block volume caused exception:")
-            self.log.error(traceback.format_exc())
-            self.log.error(inst.message)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
-
-        # If there is any test fixture teardown to be done, do it here.
-
-        if self.parameters["pyUnit"]:
-            self.assertTrue(test_passed)
-        else:
-            return test_passed
-
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockFioReadWrite,
+                                             "Reading/writing a block volume")
 
     def test_BlockFioReadWrite(self):
         """
@@ -358,6 +249,7 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         time.sleep(5)
 
         return True
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

@@ -3,22 +3,19 @@
  */
 #include <fds_config.hpp>
 #include <fds_process.h>
-#include "NetSession.h"
 #include <dlt.h>
 #include <ObjectId.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <net/net_utils.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
-#include <am-platform.h>
 #include <fdsp_utils.h>
 
 #include "requests/requests.h"
 
 #include "lib/StatsCollector.h"
 #include "AmCache.h"
+#include "AccessMgr.h"
 #include "AmDispatcher.h"
 #include "AmProcessor.h"
 #include "am-tx-mgr.h"
@@ -56,8 +53,8 @@ StorHvCtrl::StorHvCtrl(int argc,
      * some in ubd. We need to unify this.
      */
     if (mode == NORMAL) {
-        omIpStr = config.get_abs<string>("fds.plat.om_ip");
-        omConfigPort = config.get_abs<int>("fds.plat.om_port");
+        omIpStr = config.get_abs<string>("fds.pm.om_ip");
+        omConfigPort = config.get_abs<int>("fds.pm.om_port");
     }
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "--om_ip=", 8) == 0) {
@@ -93,8 +90,6 @@ StorHvCtrl::StorHvCtrl(int argc,
     struct ifaddrs *ifa          = NULL;
     void   *tmpAddrPtr           = NULL;
 
-    rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
-
     LOGNOTIFY << "StorHvCtrl - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
 
     /*  Create the QOS Controller object */
@@ -104,8 +99,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                                  GetLog());
 
     // Check the AM standalone toggle
-    toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
-    if (toggleStandAlone) {
+    standalone = config.get_abs<bool>("fds.am.testing.standalone");
+    if (standalone) {
         LOGWARN << "Starting SH CTRL in stand alone mode";
     }
 
@@ -122,16 +117,14 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       omConfigPort,
 			       node_name,
 			       GetLog(),
-			       rpcSessionTbl,
-			       &gl_AmPlatform,
+			       nullptr,
+			       nullptr,
 			       instanceId);
-    if (toggleStandAlone) {
+    if (standalone) {
 	om_client->setNoNetwork(true);
     } else {
-	om_client->initialize();
 
 	qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-	om_client->startAcceptingControlMessages();
 
 	StatsCollector::singleton()->registerOmClient(om_client);
 	fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
@@ -146,7 +139,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     DMTManagerPtr dmtMgr;
     DLTManagerPtr dltMgr;
-    if (toggleStandAlone) {
+    if (standalone) {
         dmtMgr = boost::make_shared<DMTManager>(1);
         dltMgr = boost::make_shared<DLTManager>();
     } else {
@@ -187,7 +180,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
 
-    if (toggleStandAlone) {
+    if (standalone) {
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
                                                          NULL);
     } else {
@@ -226,14 +219,10 @@ SysParams* StorHvCtrl::getSysParams() {
 }
 
 void StorHvCtrl::StartOmClient() {
-    /*
-     * Start listening for OM control messages
-     * Appropriate callbacks were setup by data placement and volume table objects
-     */
-    if (om_client) {
-        LOGNOTIFY << "StorHvCtrl - Started accepting control messages from OM";
-        om_client->registerNodeWithOM(&gl_AmPlatform);
-    }
+    // Call the dispatcher startup function here since this
+    // legacy class doesn't actually extend from Module but
+    // needs a member's startup to be called.
+    amDispatcher->mod_startup();
 }
 
 Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
@@ -241,10 +230,11 @@ Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
                                         const std::string& secret_access_key) {
     Error err(ERR_OK);
     int om_err = 0;
+
     LOGNORMAL << "bucket: " << bucket_name;
 
     // send test bucket message to OM
-    FDSP_VolumeInfoTypePtr vol_info(new FDSP_VolumeInfoType());
+    FDSP_VolumeDescTypePtr vol_info(new FDSP_VolumeDescType());
     initVolInfo(vol_info, bucket_name);
     om_err = om_client->testBucket(bucket_name,
                                                vol_info,
@@ -257,27 +247,18 @@ Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
     return err;
 }
 
-void StorHvCtrl::initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
+void StorHvCtrl::initVolInfo(FDSP_VolumeDescTypePtr vol_info,
                              const std::string& bucket_name) {
     vol_info->vol_name = std::string(bucket_name);
     vol_info->tennantId = 0;
     vol_info->localDomainId = 0;
-    vol_info->globDomainId = 0;
 
     // Volume capacity is in MB
     vol_info->capacity = (1024*10);  // for now presetting to 10GB
-    vol_info->maxQuota = 0;
     vol_info->volType = FDSP_VOL_S3_TYPE;
 
-    vol_info->defReplicaCnt = 0;
-    vol_info->defWriteQuorum = 0;
-    vol_info->defReadQuorum = 0;
-    vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
-
     vol_info->volPolicyId = 50;  // default S3 policy desc ID
-    vol_info->archivePolicyId = 0;
     vol_info->placementPolicy = 0;
-    vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
     vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
 }
 
@@ -304,6 +285,10 @@ void
 StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
                              CallbackPtr cb) {
     LOGDEBUG << "Attach request for volume " << volumeName;
+    if (am->isShuttingDown()) {
+        cb->call(ERR_SHUTTING_DOWN);
+        return;
+    }
 
     // check if volume is already attached
     fds_volid_t volId = invalid_vol_id;
@@ -361,6 +346,10 @@ StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
 
 void
 StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
+    if (am->isShuttingDown()) {
+        blobReq->cb->call(ERR_SHUTTING_DOWN);
+        return;
+    }
     fds_verify(blobReq->magicInUse() == true);
 
     // check if volume is attached to this AM
@@ -385,6 +374,15 @@ processBlobReq(AmRequest *amReq) {
 
     fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(amReq->magicInUse() == true);
+
+    /*
+     * Drain the queue if we are shutting down.
+     */
+    if (am->isShuttingDown()) {
+        Error err(ERR_SHUTTING_DOWN);
+        amReq->cb->call(err);
+        return;
+    }
 
     switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:

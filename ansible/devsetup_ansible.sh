@@ -23,18 +23,17 @@ case $? in
     0)
         if [ ! -f /usr/local/bin/ansible-playbook ]; then
             sudo apt-get install -y --force-yes python-pip python-dev
-            sudo pip install -q ansible
+            sudo -H pip install ansible
         fi
 
         rm -f ${script_dir}/.devsetup-is-up-to-date
 
         # Construct the collection of ansible args
 
-        ansible_args="--inventory ${script_dir}/ansible_hosts --connection local 
-                      --inventory ${script_dir}/ansible_hosts 
+        ansible_args="--inventory ${script_dir}/inventory/devsetup-inventory.sh --connection local 
                       ${script_dir}/playbooks/devsetup.yml"
 
-        sudo chmod -R a+w ~/.ansible
+        [[ -d ~/.ansible ]] && sudo chmod -R a+w ~/.ansible
         sudo ansible-playbook ${ansible_args}
 
         if [ $? -eq 0 ]; then

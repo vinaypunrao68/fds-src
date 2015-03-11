@@ -1,11 +1,10 @@
 from svchelper import *
-import pyfdsp.snapshot
-import pyfdsp.snapshot.ttypes
+import pyfdsp.config_types
+import pyfdsp.config_types.ttypes
 
 class SnapshotPolicyContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd
@@ -14,7 +13,7 @@ class SnapshotPolicyContext(Context):
     @arg('retention-time', type=long, help= "-retension time for the snapshot")
     def create(self, policy_name, recurrence_rule, retention_time):
         try:
-            snap_policy = pyfdsp.snapshot.ttypes.SnapshotPolicy(
+            snap_policy = pyfdsp.config_types.ttypes.SnapshotPolicy(
                 id                    =   0,
                 recurrenceRule        =   recurrence_rule,
                 policyName            =   policy_name,

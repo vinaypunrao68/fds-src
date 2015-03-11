@@ -1,15 +1,19 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
-#include "./configdbtool.h"
 #include <string>
 #include <vector>
 #include <utility>
 #include <map>
+
+#include "configdbtool.h"
+#include "platform/node_data.h"
+
 #define LINE std::cout << "  "
 #define ERRORLINE LINE << Color::Red    << "[error] : " << Color::End
 #define WARNLINE  LINE << Color::Yellow << "[warn ] : " << Color::End
 #define REGISTERCMD(c, fn) registerCommand(c, (CmdCallBack)&ConfigDBTool::cmd##fn);
+
 using PAIR = std::pair<std::string, std::string>;
 
 #define PRINTSTREAM(x) {                        \
@@ -94,9 +98,9 @@ void ConfigDBTool::cmdInfo(std::vector <std::string>& args) {
 
     LINE << "global.domain   : " << db->getGlobalDomain() << "\n";
 
-    std::map<int, std::string> mapDomains;
-    db->getLocalDomains(mapDomains);
-    LINE << "localdomains    : " << mapDomains.size() << "\n";
+    std::vector<fds::apis::LocalDomain> localDomains;
+    db->listLocalDomains(localDomains);
+    LINE << "localdomains    : " << localDomains.size() << "\n";
 
     std::vector<VolumeDesc> volumes;
     db->getVolumes(volumes);

@@ -1,0 +1,12 @@
+<div class="switch-widget" ng-class="{ disabled : disabled === true, on : active === true }" ng-style="{ width: calcWidth }" ng-click="switch()">
+    
+    <div class="veil" ng-show="disabled === true"></div>
+    
+    <div class="switch-button" ng-class="{ on : active === true }"></div>
+    
+    <div class="switch-text-parent">
+        <div ng-show="active == true" class="on-text">{{ onText }}</div>
+        <div ng-show="active != true" class="off-text">{{ offText }}</div>
+    </div>
+    
+</div>

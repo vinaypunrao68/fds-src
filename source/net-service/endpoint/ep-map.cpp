@@ -336,7 +336,7 @@ PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
     NodeAgent::pointer        agent;
     DomainContainer::pointer  local;
 
-    std::cout << "Plat lib uuid binding is called " << std::endl;
+    LOGDEBUG << "Plat lib uuid binding is called " << std::endl;
     return;
 
     /* Cache the binding info. */

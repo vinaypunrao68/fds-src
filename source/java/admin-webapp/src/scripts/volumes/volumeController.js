@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element ){
+angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', '$authorization', '$timeout', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element, $authorization, $timeout ){
     
     $scope.searchText = '';
     $scope.sortPredicate = '';
@@ -123,10 +123,16 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
                 return 'rgba( 255, 255, 255, 0.0)';
             }
         };
-        
+
         var now = new Date();
-        var capacityFirebreak = now.getTime() - volume.firebreak.capacity;
-        var performanceFirebreak = now.getTime() - volume.firebreak.performance;
+        var capacityFirebreak = 3600*25;
+        var performanceFirebreak = capacityFirebreak;
+        
+        if ( angular.isDefined( volume.firebreak ) ){
+            
+            now.getTime() - volume.firebreak.capacity;
+            now.getTime() - volume.firebreak.performance;
+        }
         
         if ( capacityFirebreak < performanceFirebreak ){
             return getColor( capacityFirebreak );
@@ -139,6 +145,10 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
     
     $scope.$on( 'fds::authentication_logout', function(){
         $scope.volumes = [];
+    });
+    
+    $scope.$on( 'fds::authentication_success', function(){
+        $timeout( $state.reload );
     });
 
     $scope.$watch( function(){ return $volume_api.volumes; }, function(){
@@ -153,11 +163,12 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         if ( newVal === 0 ){
             $scope.volumeVars.viewing = false;
             $scope.volumeVars.creating = false;
+            $scope.volumeVars.editing = false;
         }
     });
     
     $scope.$watch( 'volumeVars.creating', function( newVal ){ if ( newVal === false ){ $volume_api.refresh(); }} );
 
+    $scope.isAllowed = $authorization.isAllowed;
     $volume_api.refresh();
-
 }]);

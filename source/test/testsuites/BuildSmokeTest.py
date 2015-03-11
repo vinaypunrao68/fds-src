@@ -8,50 +8,50 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
-import ClusterBootSuite
+import DomainBootSuite
 import NodeWaitSuite
 import BotoBLOBSuite
 import NodeResilienceSuite
 import BlockBlobSuite
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
     Build Smoke Test suite.
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS infrastructure and boot the cluster
+    # Build the necessary FDS infrastructure and boot the domain
     # according to configuration.
-    clusterBootSuite = ClusterBootSuite.suiteConstruction()
-    suite.addTest(clusterBootSuite)
+    domainBootSuite = DomainBootSuite.suiteConstruction(self=None)
+    suite.addTest(domainBootSuite)
 
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
 
     # Small/Large BLOB test using Boto.
-    blobSuite = BotoBLOBSuite.suiteConstruction()
+    blobSuite = BotoBLOBSuite.suiteConstruction(self=None)
     suite.addTest(blobSuite)
 
     # Everyone should still be up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
     suite.addTest(nodeUpSuite)
 
     # Block Blob test.
-    blockSuite = BlockBlobSuite.suiteConstruction()
+    blockSuite = BlockBlobSuite.suiteConstruction(self=None)
     suite.addTest(blockSuite)
 
     # Everyone should still be up.
     suite.addTest(nodeUpSuite)
 
     # Node Resiliency suite.
-    nodeResilienceSuite = NodeResilienceSuite.suiteConstruction()
+    nodeResilienceSuite = NodeResilienceSuite.suiteConstruction(self=None)
     suite.addTest(nodeResilienceSuite)
 
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
+    suite.addTest(testcases.TestFDSSysMgt.TestNodeKill())
 
     # Cleanup FDS installation directory.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
@@ -77,6 +77,6 @@ if __name__ == '__main__':
     #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
     runner.run(test_suite)
 

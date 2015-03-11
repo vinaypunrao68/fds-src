@@ -34,7 +34,7 @@ FDSTEST_ROOT=/fds-test
 run_from_install_dir=0
 
 source ${TOOLSDIR}/loghelper.sh
-init_loghelper /tmp/fds_tool.log
+init_loghelper /tmp/fds_tool.${UID}.log
 ########################################################################
 
 REDIS_ARG=
@@ -65,6 +65,7 @@ function usage() {
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
     log "   - $(yellow tail)      : tail the application log file"
+    log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
     log "   - $(yellow release)   : switch to $(green release) build"
     log "   - $(yellow debug)     : switch to $(red debug) build"
@@ -131,7 +132,7 @@ function activate() {
     if [[ -n $actapps ]]; then
         # Bao: wait for platformd before activate
         sleep 5
-        
+
         logwarn "asking OM to accept all discovered nodes..."
         (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e "$actapps" > cli.out) 2>/dev/null
         loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
@@ -152,6 +153,16 @@ function startApp() {
     case "$appname" in
         om|pm|all|redis)
             ${TOOLSDIR}/redis.sh start 1 $REDIS_ARG
+            ;;
+    esac
+
+    # start influxdb if needed
+    case "$appname" in
+        om|all|influx*)
+            pid=$(pgrep -f influxdb)
+            if [ $? == 1 ]; then
+                sudo service influxdb start
+            fi
             ;;
     esac
 
@@ -176,7 +187,7 @@ function startApp() {
     done
 
     case "$appname" in
-        om|pm|all)
+        om|all)
             activate
             ;;
     esac
@@ -188,6 +199,15 @@ function stopApp() {
     if [[ $appname == "redis" ]] ; then
         ${TOOLSDIR}/redis.sh stop 1 $REDIS_ARG
     fi
+
+    case "$appname" in 
+        om|all|influx*)
+            pid=$(pgrep -f influxdb)
+            if [ $? == 0 ]; then
+                sudo service influxdb stop
+            fi
+            ;;
+    esac
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
@@ -239,6 +259,12 @@ function statusApp() {
     if [[ $appname == "all" ]] || [[ $appname == "redis" ]] ; then
         ${TOOLSDIR}/redis.sh status 1 $REDIS_ARG
     fi
+
+    case "$appname" in 
+        om|all|influx*)
+            sudo service influxdb status
+            ;;
+    esac
 }
 
 function getAppPid() {
@@ -330,17 +356,10 @@ function taillog() {
     local app=$1
     local logfiles
     case "${app}" in
-        om|am|dm|sm)
+        om|am|dm|sm|pm)
             ls -1 ${FDSROOT}/var/logs/${app}.log*.log
             for n in $(seq 0 20); do
                 logfiles="$logfiles ${FDSROOT}/var/logs/${app}.log_${n}.log"
-            done
-            tail -qF ${logfiles} 2>/dev/null
-            ;;
-        pm)
-            ls -1 ${FDSROOT}/var/logs/platform.log*.log
-            for n in $(seq 0 20); do
-                logfiles="$logfiles ${FDSROOT}/var/logs/platform.log_${n}.log"
             done
             tail -qF ${logfiles} 2>/dev/null
             ;;
@@ -352,6 +371,32 @@ function taillog() {
             ;;
     esac
 }
+
+function showerrors() {
+    local apps="$@"
+    if [[ $1 == 'all' ]]; then
+        apps="am om dm sm pm xdi"
+    fi
+    for app in ${apps}; do
+        loginfo $(yellow "showing errors/warn/critical log data for : ") $(blue $app)
+        case "${app}" in
+            om|am|dm|sm)
+                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSROOT}/var/logs/${app}.log*.log 2>/dev/null
+                ;;
+            pm)
+                grep -iE "\[(warning|error|CRITICAL)\]" ${FDSROOT}/var/logs/platform.log*.log 2>/dev/null
+                ;;
+            xdi)
+                grep -E " (WARN|ERROR|FATAL) " ${FDSROOT}/var/logs/om-xdi*.log ${FDSROOT}/var/logs/xdi*.log 2>/dev/null
+                ;;
+            *)
+                logerror "can grep logs of only om|am|dm|sm|pm|xdi"
+                ;;
+        esac
+        echo
+    done
+}
+
 
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
@@ -390,9 +435,14 @@ function clean() {
                 rm -rf /${node}/user-repo/*
                 rm -rf /${node}/dev/*
                 rm -rf /${node}/var/stats/*
+                rm -rf /${node}/var/db/*
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
-                cleanlogs
+
+                # influxdb
+                # TODO: how to clean influx data?
+				rm -rf /${node}/var/logs
+                #cleanlogs
             ) 2>/dev/null
         fi
     done
@@ -491,7 +541,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail) ;;
+    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*) ;;
     *)
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -508,7 +558,7 @@ printBuildMode
 
 case "${CMD}" in
     start) startApp $APP
-        waitForAll
+        [[ $APP == "all" ]] && waitForAll
         statusApp $APP
         ;;
     stop) stopApp  $APP;;
@@ -533,6 +583,9 @@ case "${CMD}" in
         ;;
     tail)
         taillog $APP
+        ;;
+    err*)
+        showerrors $APP
         ;;
     *) usage ;;
 esac

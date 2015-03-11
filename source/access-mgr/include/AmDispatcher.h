@@ -159,6 +159,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * Callback for get blob responses.
      */
     void getObjectCb(AmRequest* amReq,
+                     fds_uint64_t dltVersion,
                      FailoverSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
@@ -170,6 +171,13 @@ class AmDispatcher : public Module, public boost::noncopyable {
                            FailoverSvcRequest* svcReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for catalog query error checks from service layer.
+     */
+    fds_bool_t getQueryCatalogAppStatusCb(AmRequest* amReq,
+                                          const Error& error,
+                                          boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for set metadata on blob responses.
@@ -190,6 +198,10 @@ class AmDispatcher : public Module, public boost::noncopyable {
     /**
      * Callback for update blob responses.
      */
+    void updateCatalogOnceCb(AmRequest* amReq,
+                             QuorumSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload);
     void updateCatalogCb(AmRequest* amReq,
                          QuorumSvcRequest* svcReq,
                          const Error& error,
@@ -199,6 +211,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * Callback for put object responses.
      */
     void putObjectCb(AmRequest* amReq,
+                     fds_uint64_t dltVersion,
                      QuorumSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);

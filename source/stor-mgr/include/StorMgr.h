@@ -12,13 +12,11 @@
 #include <utility>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_DataPathReq.h"
 #include "fds_types.h"
 #include "ObjectId.h"
 #include "util/Log.h"
 #include "StorMgrVolumes.h"
 #include "persistent-layer/dm_io.h"
-#include "fds_migration.h"
 #include "hash/md5.h"
 
 #include "fds_qos.h"
@@ -40,10 +38,7 @@
 #include "lib/OMgrClient.h"
 
 #include "fds_module.h"
-#include "platform/typedefs.h"
 
-// #include "NetSession.h"
-#include "kvstore/tokenstatedb.h"
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>
@@ -55,26 +50,16 @@
 #define FDS_MAX_WAITING_CONNS  10
 
 using namespace FDS_ProtocolInterface;  // NOLINT
-namespace FDS_ProtocolInterface {
-    class FDSP_DataPathReqProcessor;
-    class FDSP_DataPathReqIf;
-    class FDSP_DataPathRespClient;
-}
-typedef netServerSessionEx<FDSP_DataPathReqProcessor,
-                FDSP_DataPathReqIf,
-                FDSP_DataPathRespClient> netDataPathServerSession;
 
 namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
 
-using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
-using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
-
-/*
- * Forward declarations
+/* File names for storing DLT and UUID.  Mainly used by smchk to
+ * determine proper token ownership.
  */
-class ObjectStorMgrI;
+const std::string DLTFileName = "/currentDLT";
+const std::string UUIDFileName = "/uuidDLT";
 
 class ObjectStorMgr : public Module, public SmIoReqHandler {
     public:
@@ -92,8 +77,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      CommonModuleProviderIf *modProvider_;
      /*
-      * glocal dedupe  stats  counter 
-      */ 
+      * glocal dedupe  stats  counter
+      */
 
      std::atomic<fds_uint64_t> dedupeByteCnt;
 
@@ -101,52 +86,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      ObjectStore::unique_ptr objectStore;
      /// Manager of token migration
      SmTokenMigrationMgr::unique_ptr migrationMgr;
-
-     /*
-      * FDSP RPC members
-      * The map is used for sending back the response to the
-      * appropriate SH/DM
-      */
-     boost::shared_ptr<netSessionTbl> nst_;
-     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
-     netDataPathServerSession *datapath_session_;
-
-     /** Cluster communication manager */
-     ClusterCommMgrPtr clust_comm_mgr_;
-
-     /** Migrations related */
-     FdsMigrationSvcPtr migrationSvc_;
-
-     /** Token state db */
-     kvstore::TokenStateDBPtr tokenStateDb_;
-
-
-     /* To indicate whether tokens were migrated or not for the dlt. Based on this
-      * flag we simulate sync/io close notification to OM.  We shouldn't need this
-      * flag once we start doing per token copy/syncs
-      */
-     bool tok_migrated_for_dlt_;
-
-     /** Helper for accessing datapth response client */
-     DPRespClientPtr fdspDataPathClient(const std::string& session_uuid);
-
-     /*
-      * Service UUID to Session UUID mapping stuff. Used to support
-      * proxying where SM doesn't know the session UUID because it
-      * was proxyed from another node. We can use service UUID instead.
-      */
-     typedef std::string SessionUuid;
-     typedef std::unordered_map<NodeUuid, SessionUuid, UuidHash> SvcToSessMap;
-     /** Maps service UUIDs to established session id */
-     SvcToSessMap svcSessMap;
-     /** Protects the service to session map */
-     fds_rwlock svcSessLock;
-     /** Stores mapping from service uuid to session uuid */
-     void addSvcMap(const NodeUuid    &svcUuid,
-                    const SessionUuid &sessUuid);
-     SessionUuid getSvcSess(const NodeUuid &svcUuid);
-
-     NodeAgentDpClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
 
      /*
       * TODO: this one should be the singleton by itself.  Need to make it
@@ -221,22 +160,24 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
      SysParams *sysParams;
 
+     /**
+      * should be just enough to make sure system task makes progress
+      */
      inline fds_uint32_t getSysTaskIopsMin() {
-         return totalRate/10;  // 10% of total rate
+         return 10;
      }
 
+     /**
+      * We should not care about max iops -- if there is no other work
+      * in SM, we should be ok to take all available bandwidth
+      */
      inline fds_uint32_t getSysTaskIopsMax() {
-         return totalRate/5;  // 20% of total rate
+         return 0;
      }
 
      inline fds_uint32_t getSysTaskPri() {
          return FdsSysTaskPri;
      }
-
-
-    protected:
-     void setup_datapath_server(const std::string &ip);
-     void setup_migration_svc(const std::string &obj_dir);
 
   public:
     SmQosCtrl  *qosCtrl;
@@ -266,8 +207,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_bool_t testUturnPutObj;
 
      checksum_calc   *chksumPtr;
-     // Extneral plugin object to handle policy requests.
-     VolPolicyServ  *omc_srv_pol;
 
      fds_bool_t isShuttingDown() const {
          return shuttingDown;
@@ -324,49 +263,54 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void sampleSMStats(fds_uint64_t timestamp);
 
+     struct always_call {
+         using C = std::function<void()>;
+         always_call() = delete;
+         explicit always_call(C const& call) :
+             c(call)
+         {}
+         always_call(always_call const& rhs) = default;
+         always_call& operator=(always_call const& rhs) = default;
+         ~always_call()
+         { c(); }
+         C c;
+     };
+
+     always_call
+     getTokenLock(ObjectID const& id, bool exclusive = false)
+     {
+         fds_uint32_t b_p_t = getDLT()->getNumBitsForToken();
+         return getTokenLock(SmDiskMap::smTokenId(id, b_p_t), exclusive);
+     }
+
+     always_call
+     getTokenLock(fds_token_id const& id, bool exclusive = false);
+
      Error getObjectInternal(SmIoGetObjectReq *getReq);
      Error putObjectInternal(SmIoPutObjectReq* putReq);
      Error deleteObjectInternal(SmIoDeleteObjectReq* delReq);
      Error addObjectRefInternal(SmIoAddObjRefReq* addRefReq);
 
-     void putTokenObjectsInternal(SmIoReq* ioReq);
-     void getTokenObjectsInternal(SmIoReq* ioReq);
      void snapshotTokenInternal(SmIoReq* ioReq);
-     void applySyncMetadataInternal(SmIoReq* ioReq);
-     void resolveSyncEntryInternal(SmIoReq* ioReq);
-     void applyObjectDataInternal(SmIoReq* ioReq);
-     void readObjectDataInternal(SmIoReq* ioReq);
-     void readObjectMetadataInternal(SmIoReq* ioReq);
      void compactObjectsInternal(SmIoReq* ioReq);
      void moveTierObjectsInternal(SmIoReq* ioReq);
+     void applyRebalanceDeltaSet(SmIoReq* ioReq);
+     void readObjDeltaSet(SmIoReq* ioReq);
 
      void handleDltUpdate();
 
-     static void nodeEventOmHandler(int node_id,
-                                    unsigned int node_ip_addr,
-                                    int node_state,
-                                    fds_uint32_t node_port,
-                                    FDS_ProtocolInterface::FDSP_MgrIdType node_type);
+     void storeCurrentDLT();
+
      static Error volEventOmHandler(fds::fds_volid_t volume_id,
                                     fds::VolumeDesc *vdb,
                                     int vol_action,
                                     FDSP_NotifyVolFlag vol_flag,
                                     FDSP_ResultType resut);
-     static void migrationEventOmHandler(bool dlt_type);
-     static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
-                                      const std::string& session_uuid);
-     void migrationSvcResponseCb(const Error& err, const MigrationStatus& status);
 
      virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();
-     TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
-     TVIRTUAL kvstore::TokenStateDBPtr getTokenStateDb();
-     TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId);
-
-     Error putTokenObjects(const fds_token_id &token,
-                           FDSP_MigrateObjectList &obj_list);
 
      const std::string getStorPrefix() {
          return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");
@@ -386,67 +330,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          ret << " ObjectStorMgr";
          return ret.str();
      }
-     /*
-      * Declare the FDSP interface class as a friend so it can access
-      * the internal request tracking members.
-      * TODO: Make this a nested class instead. No reason to make it
-      * a separate class.
-      */
-     friend ObjectStorMgrI;
+
      friend class SmLoadProc;
      friend class SMSvcHandler;
-};
-
-class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
-    public:
-     ObjectStorMgrI();
-     ~ObjectStorMgrI();
-     void GetObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                    boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
-
-     void PutObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                    boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
-
-     void DeleteObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                       boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
-
-     void OffsetWriteObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                            boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req);
-
-     void RedirReadObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                          boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req);
-
-     void GetObjectMetadata(boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req);
-
-     void GetObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void PutObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void DeleteObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void OffsetWriteObject(const FDSP_MsgHdrType&, const FDSP_OffsetWriteObjType&) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void RedirReadObject(const FDSP_MsgHdrType&, const FDSP_RedirReadObjType&) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-     void GetObjectMetadata(const FDSP_GetObjMetadataReq& metadata_req) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-
-     /* user defined methods */
-     void GetObjectMetadataCb(const Error &e, SmIoReadObjectMetadata *read_data);
-
-     void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-                                 const FDSP_MsgHdrType& fdsp_msg) {
-         // Don't do anything here. This stub is just to keep cpp compiler happy
-     }
-
-     void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-                                 boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
 };
 
 }  // namespace fds

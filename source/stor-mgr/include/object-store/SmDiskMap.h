@@ -22,6 +22,9 @@ namespace fds {
  */
 class SmDiskMap : public Module, public boost::noncopyable {
   public:
+   const std::string DISK_MAP_FILE = "/disk-map";
+
+  public:
     explicit SmDiskMap(const std::string& modName);
     ~SmDiskMap();
 
@@ -36,6 +39,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * change when we port back SM token migration
      */
     Error handleNewDlt(const DLT* dlt);
+    Error handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid);
 
     /**
      * Translation from token or object ID to SM token ID

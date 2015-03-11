@@ -12,13 +12,17 @@
 
 namespace fds {
 
+/* Forward declarations */
+struct CommonModuleProviderIf;
+
 /**
  * Tracker svc requests.  svc requests are tracked by their id
  */
-class SvcRequestTracker {
+class SvcRequestTracker : HasModuleProvider {
  public:
+    explicit SvcRequestTracker(CommonModuleProviderIf *moduleProvider);
     bool addForTracking(const SvcRequestId& id, SvcRequestIfPtr req);
-    bool removeFromTracking(const SvcRequestId& id);
+    SvcRequestIfPtr popFromTracking(const SvcRequestId& id);
     SvcRequestIfPtr getSvcRequest(const SvcRequestId &id);
 
  protected:
@@ -26,7 +30,6 @@ class SvcRequestTracker {
     std::unordered_map<SvcRequestId, SvcRequestIfPtr> svcReqMap_;
 };
 
-extern SvcRequestTracker* gSvcRequestTracker;
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_NET_SVCREQUESTTRACKER_H_

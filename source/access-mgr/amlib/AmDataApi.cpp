@@ -94,24 +94,34 @@ AmDataApi::volumeStatus(apis::VolumeStatus& _return,
 }
 
 void
-AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
+AmDataApi::volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                           const std::string& domainName,
                           const std::string& volumeName,
                           const int32_t count,
-                          const int64_t offset) {
+                          const int64_t offset,
+                          const std::string& pattern,
+                          const fpi::BlobListOrder orderBy,
+                          const bool descending) {
     fds_panic("You shouldn't be here.");
 }
 
 void
-AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
+AmDataApi::volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                           boost::shared_ptr<std::string>& domainName,
                           boost::shared_ptr<std::string>& volumeName,
                           boost::shared_ptr<int32_t>& count,
-                          boost::shared_ptr<int64_t>& offset) {
+                          boost::shared_ptr<int64_t>& offset,
+                          boost::shared_ptr<std::string>& pattern,
+                          boost::shared_ptr<fpi::BlobListOrder>& orderBy,
+                          boost::shared_ptr<bool>& descending) {
     ListBucketResponseHandler::ptr handler(new ListBucketResponseHandler(_return));
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
                                                *volumeName,
                                                *count,
+                                               *offset,
+                                               *pattern,
+                                               *orderBy,
+                                               *descending,
                                                SHARED_DYN_CAST(Callback, handler));
     storHvisor->enqueueBlobReq(blobReq);
 
@@ -120,7 +130,7 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
 }
 
 void
-AmDataApi::statBlob(apis::BlobDescriptor& _return,
+AmDataApi::statBlob(fpi::BlobDescriptor& _return,
                     const std::string& domainName,
                     const std::string& volumeName,
                     const std::string& blobName) {
@@ -128,7 +138,7 @@ AmDataApi::statBlob(apis::BlobDescriptor& _return,
 }
 
 void
-AmDataApi::statBlob(apis::BlobDescriptor& _return,
+AmDataApi::statBlob(fpi::BlobDescriptor& _return,
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
@@ -221,11 +231,11 @@ AmDataApi::commitBlobTx(boost::shared_ptr<std::string>& domainName,
 
     handler->wait();
     if (handler->error != ERR_OK) {
-        apis::ApiException fdsE;
+        fpi::ApiException fdsE;
         if (handler->error == ERR_BLOB_NOT_FOUND) {
-            fdsE.errorCode = apis::MISSING_RESOURCE;
+            fdsE.errorCode = fpi::MISSING_RESOURCE;
         } else {
-            fdsE.errorCode = apis::BAD_REQUEST;
+            fdsE.errorCode = fpi::BAD_REQUEST;
         }
         throw fdsE;
     }
@@ -314,11 +324,11 @@ AmDataApi::getBlob(std::string& _return,
     getHandler->wait();
 
     if (getHandler->error != ERR_OK) {
-        apis::ApiException fdsE;
+        fpi::ApiException fdsE;
         if (getHandler->error == ERR_BLOB_NOT_FOUND) {
-            fdsE.errorCode = apis::MISSING_RESOURCE;
+            fdsE.errorCode = fpi::MISSING_RESOURCE;
         } else {
-            fdsE.errorCode = apis::BAD_REQUEST;
+            fdsE.errorCode = fpi::BAD_REQUEST;
         }
         throw fdsE;
     }
@@ -436,7 +446,7 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
 
         // Throw an exception if we didn't get an OK response
     if (putHandler->status != ERR_OK) {
-        apis::ApiException fdsE;
+        fpi::ApiException fdsE;
         throw fdsE;
     }
 }
@@ -509,7 +519,7 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
 
     // Throw an exception if we didn't get an OK response
     if (putHandler->status != ERR_OK) {
-        apis::ApiException fdsE;
+        fpi::ApiException fdsE;
         throw fdsE;
     }
 }
@@ -544,11 +554,11 @@ AmDataApi::deleteBlob(boost::shared_ptr<std::string>& domainName,
     txnPtr->txId = txnId.txId;
     try {
         handler->process();
-    } catch(apis::ApiException& e) {
+    } catch(fpi::ApiException& e) {
         LOGDEBUG << "delete failed with exception : " << e.what();
         try {
             abortBlobTx(domainName, volumeName, blobName, txnPtr);
-        } catch(apis::ApiException& e) {
+        } catch(fpi::ApiException& e) {
             LOGERROR << "exception @ abortBlobTx : " << e.what();
         }
         throw e;

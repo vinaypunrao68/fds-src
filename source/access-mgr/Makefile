@@ -6,27 +6,22 @@ user_build_dir    := \
     include \
     amlib \
     stor-hvisor \
-    platform \
+    connector \
     test
 
 user_incl_dir     := \
 	stor-hvisor \
-	include \
-	/usr/include/cryptopp
+	include
 
 user_fds_ar_libs  :=  \
     fds-qos-lib \
     fds-am-engine \
-    fds-am-engine \
-    fds-am-plat \
-    fds-plat-lib \
-    fds-net-svc \
+    fds-am-connectors \
     fds-svc-request \
     fds-umod \
     fds-lib \
     fds-util \
     fds-fdsp \
-    fds-xdi \
     fds-hash \
     fds-thread \
     fds-osdep
@@ -52,7 +47,7 @@ user_non_fds_libs :=  \
     thrift \
     jansson \
     config++ \
-    cryptopp \
+    crypto \
     hiredis \
     event \
 	rt \

@@ -16,11 +16,16 @@
 #include <syslog.h>
 #include <execinfo.h>
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 namespace fds {
 
 /* Processwide globals from fds_process.h */
+// TODO(Rao): Ideally we shouldn't have globals (g_fdslog maybe an exception).  As we slowly
+// migrate towards not having globals, these should go away.
+
 FdsProcess *g_fdsprocess                    = NULL;
-CommonModuleProviderIf *gModuleProvider     = NULL;
 fds_log *g_fdslog                           = NULL;
 boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 const FdsRootDir                 *g_fdsroot;
@@ -38,12 +43,26 @@ void init_process_globals(fds_log *log)
     g_cntrs_mgr.reset(new FdsCountersMgr(net::get_my_hostname()+".unknown"));
 }
 
+void destroy_process_globals() {
+    if (g_fdslog) {
+        delete g_fdslog;
+        g_fdslog = nullptr;
+    }
+}
+
+CommonModuleProviderIf* getModuleProvider() {
+    return g_fdsprocess;
+}
+
 /**
 * @brief Constructor.  Keep it as bare shell.  Do the initialization work
 * in init()
 */
 FdsProcess::FdsProcess()
 {
+    mod_vectors_ = nullptr;
+    proc_root = nullptr;
+    proc_thrp = nullptr;
 }
 
 /**
@@ -91,11 +110,8 @@ void FdsProcess::init(int argc, char *argv[],
 
     fds_verify(g_fdsprocess == NULL);
 
-    mod_shutdown_invoked_  = false;
-
     /* Initialize process wide globals */
     g_fdsprocess = this;
-    gModuleProvider = g_fdsprocess;
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
@@ -137,28 +153,45 @@ void FdsProcess::init(int argc, char *argv[],
         setup_timer_service();
 
         /* if graphite is enabled, setup graphite task to dump counters */
-        if (conf_helper_.get<bool>("enable_graphite")) {
+        if (conf_helper_.get<bool>("enable_graphite",false)) {
             /* NOTE: Timer service will be setup as well */
             setup_graphite();
         }
         /* If threadpool option is specified, create one. */
         if (conf_helper_.exists("threadpool")) {
-            int max_task, spawn_thres, idle_sec, min_thr, max_thr;
-
-            max_task    = conf_helper_.get<int>("threadpool.max_task", 10);
-            spawn_thres = conf_helper_.get<int>("threadpool.spawn_thres", 5);
-            idle_sec    = conf_helper_.get<int>("threadpool.idle_sec", 3);
-            min_thr     = conf_helper_.get<int>("threadpool.min_thread", 3);
-            max_thr     = conf_helper_.get<int>("threadpool.max_thread", 8);
-            proc_thrp   = new fds_threadpool(max_task, spawn_thres,
-                                             idle_sec, min_thr, max_thr);
+            int num_thr = conf_helper_.get<int>("threadpool.num_threads", 10);
+            proc_thrp   = new fds_threadpool(num_thr);
         }
     } else {
         g_fdslog  = new fds_log(def_log_file, proc_root->dir_fds_logs());
     }
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
-        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
+        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","NORMAL")));
+
+    /* detect the core file size limit and print to log */
+    struct rlimit crlim;
+    int ret = getrlimit(RLIMIT_CORE, &crlim);
+    if (-1 == ret) {
+        LOGERROR << "getrlimit(RLIMIT_CORE) failed with errno " << errno;
+    } else {
+        LOGNOTIFY << "current rlimit(RLIMIT_CORE): soft limit " << crlim.rlim_cur
+                  << ", hard limit " << crlim.rlim_max;
+        if ((crlim.rlim_cur != RLIM_INFINITY) ||
+            (crlim.rlim_max != RLIM_INFINITY)) {
+
+            struct rlimit newcrlim;
+            newcrlim.rlim_cur = RLIM_INFINITY;
+            newcrlim.rlim_max = RLIM_INFINITY;
+            int ret = setrlimit(RLIMIT_CORE, &newcrlim);
+            if (-1 == ret) {
+                LOGERROR << "setrlimit(RLIMIT_CORE) failed with errno " << errno;
+            } else {
+                LOGNOTIFY << "rlimit(RLIMIT_CORE) is set to infinity";
+            }
+        }
+    }
+
 }
 
 FdsProcess::~FdsProcess()
@@ -169,20 +202,18 @@ FdsProcess::~FdsProcess()
     }
     /* cleanup process wide globals */
     g_fdsprocess = nullptr;
-    gModuleProvider = nullptr;
-    delete g_fdslog;
 
     /* Terminate signal handling thread */
-    int rc = pthread_kill(sig_tid_, SIGTERM);
-    fds_assert(rc == 0);
-    rc = pthread_join(sig_tid_, NULL);
-    fds_assert(rc == 0);
-
-    if (proc_thrp != NULL) {
-        delete proc_thrp;
+    if (sig_tid_) {
+        int rc = pthread_kill(*sig_tid_, SIGTERM);
+        fds_assert(rc == 0);
+        rc = pthread_join(*sig_tid_, NULL);
+        fds_assert(rc == 0);
     }
-    delete proc_root;
-    delete mod_vectors_;
+
+    if (proc_thrp) delete proc_thrp;
+    if (proc_root) delete proc_root;
+    if (mod_vectors_) delete mod_vectors_;
 }
 
 void FdsProcess::proc_pre_startup() {}
@@ -199,10 +230,10 @@ int FdsProcess::main()
     /* Run the main loop. */
     ret = run();
 
-    /* Only do module shutdown once.  Module shutdown can happen in interrupt_cb() */
-    if (!mod_shutdown_invoked_) {
-        shutdown_modules();
-    }
+    std::call_once(mod_shutdown_invoked_,
+                    &FdsProcess::shutdown_modules,
+                    this);
+
     return ret;
 }
 
@@ -321,7 +352,8 @@ void FdsProcess::setup_sig_handler()
     fds_assert(rc == 0);
 
     // Joinable thread
-    rc = pthread_create(&sig_tid_, 0, FdsProcess::sig_handler, 0);
+    sig_tid_.reset(new pthread_t);
+    rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, 0);
     fds_assert(rc == 0);
 }
 
@@ -340,7 +372,7 @@ FdsProcess::atExitHandler()
         symbolString += symStrings[i];
     }
 
-    syslog(LOG_NOTICE, "Exiting...%s", symbolString.c_str());
+    syslog(LOG_NOTICE, "FDS_PROC Exiting...%s", symbolString.c_str());
 }
 
 void
@@ -378,35 +410,68 @@ void FdsProcess::setup_graphite()
 
 void FdsProcess::interrupt_cb(int signum)
 {
-    mod_shutdown_invoked_ = true;
-    /* Do FDS shutdown sequence. */
-    mod_vectors_->mod_stop_services();
-    mod_vectors_->mod_shutdown_locksteps();
-    mod_vectors_->mod_shutdown();
+    std::call_once(mod_shutdown_invoked_,
+                    &FdsProcess::shutdown_modules,
+                    this);
+}
+
+void
+FdsProcess::closeAllFDs()
+{
+    /* close all file descriptors.  however, redirect std file descriptors
+     * to /dev/null.
+     */
+    int devNullFd = open("/dev/null", O_RDWR);
+    for (int i = getdtablesize(); i >= 0 ; --i) {
+        int ret;
+        /* redirect std io to /dev/null */
+        if ((i == STDIN_FILENO) || (i == STDOUT_FILENO) || (i == STDERR_FILENO)) {
+            /* flush before re-directing file descriptors.  flush all of them same
+             * time, because really don't need to convert fileno to filep for
+             * stdio (yeah.. laziness).
+             */
+            fflush(stdin);
+            fflush(stdout);
+            fflush(stderr);
+            ret = dup2(i, devNullFd);
+            if (-1 == ret) {
+                LOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
+            }
+        } else {
+            ret = close(i);
+            /* intentionally ignoring return value. some file descriptor may not be
+             * open for closing.  not all entries in the dtable is populated.
+             */
+        }
+    }
 }
 
 void FdsProcess::daemonize() {
     // adapted from http://www.enderunix.org/docs/eng/daemon.php
 
-    if (getppid() == 1) return; /* already a daemon */
+    if (getppid() == 1) {
+        /* already a daemon */
+        return;
+    }
+
+    /* fork a process */
     int childpid = fork();
     if (childpid < 0) {
+        /* fork failed */
         LOGERROR << "error forking for daemonize : " << errno;
         exit(1);
     }
     if (childpid > 0) {
+        /* parent process */
         LOGNORMAL << "forked successfully : child pid : " << childpid;
         exit(0);
     }
 
-    // The actual daemon .
+    /* child process */
 
     /* obtain a new process group */
     setsid();
-    int ret;
-    int i;
-    for (i = getdtablesize(); i >= 0 ; --i) close(i); /* close all descriptors */
-    i = open("/dev/null", O_RDWR); ret = dup(i); ret = dup(i); /* handle standart I/O */
+
     // umask(027); /* set newly created file permissions */
     // ignore tty signals
     signal(SIGTSTP, SIG_IGN);
@@ -414,6 +479,10 @@ void FdsProcess::daemonize() {
     signal(SIGTTIN, SIG_IGN);
     signal(SIGHUP , SIG_IGN);
     // signal(SIGTERM,signal_handler);
+}
+
+util::Properties* FdsProcess::getProperties() {
+    return &properties;
 }
 
 fds_log* HasLogger::GetLog() const {

@@ -6,7 +6,7 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
         transclude: false,
         templateUrl: 'scripts/directives/widgets/summarynumberdisplay/summaryNumberDisplay.html',
         // data is an array of numbers and can hold up to 3
-        // [{number: number, description: desc, suffix: suffix}, ... ]
+        // [{number: number, description: desc, suffix: suffix, iconClass: <optional>, iconColor: <optional>}, ... ]
         scope: { data: '=ngModel', autoChange: '@' }, 
         controller: function( $scope, $interval ){
             
@@ -41,19 +41,42 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
             
             var calculateNumbers = function( item ){
                 
-                if ( angular.isNumber( item.number ) ){
+                var pInt = parseFloat( item.number );
                 
-                    item.wholeNumber = Math.floor( item.number );
-                    item.decimals = Math.round( (item.number - item.wholeNumber)*100 );
+                if ( !isNaN( pInt ) && angular.isNumber( pInt ) ){
+                
+                    item.wholeNumber = Math.floor( pInt );
+                    item.decimals = Math.round( (pInt - item.wholeNumber)*100 );
                 }
                 else {
                     item.wholeNumber = item.number;
                 }
             };
             
+            $scope.getIconColor = function(){
+                
+                if ( angular.isDefined( $scope.data ) && angular.isDefined( $scope.data[ $scope.visibleIndex ] ) && 
+                    angular.isDefined( $scope.data[ $scope.visibleIndex ].iconColor ) ){
+                    return $scope.data[ $scope.visibleIndex ].iconColor;
+                }
+                
+                return 'black';
+            };
+            
             $scope.$watch( 'data', function( newVal ){
                 
-                if ( !angular.isDefined( $scope.data ) || $scope.data.length === 0 ){
+                if ( !angular.isDefined( $scope.data )){
+                    return;
+                }
+                
+                if ( !angular.isArray( $scope.data ) || $scope.data.length === 0 ){
+                    
+                    if ( angular.isDefined( $scope.data.number ) ){
+                        var d = [];
+                        d.push( $scope.data );
+                        $scope.data = d;
+                    }
+                    
                     return;
                 }
                 

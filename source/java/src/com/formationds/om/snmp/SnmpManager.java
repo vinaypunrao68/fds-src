@@ -55,7 +55,7 @@ public class SnmpManager
     private TrapSend trap = null;
     private boolean logOnce = false;
 
-    private enum DisableReason {
+    public enum DisableReason {
 
         INITIALIZE_ERROR,
         MISSING_CONFIG,
@@ -75,8 +75,6 @@ public class SnmpManager
                 return;
             }
 
-            logger.info( "SNMP feature is enabled. Initialize SNMP components." );
-
             if( System.getProperty( TrapSend.SNMP_TARGET_KEY ) == null ) {
 
                 disable( DisableReason.MISSING_CONFIG );
@@ -84,7 +82,7 @@ public class SnmpManager
             } else {
 
                 try {
-
+                    logger.info( "SNMP feature is enabled. Initialize SNMP components." );
                     this.trap = new TrapSend();
 
                 } catch( IOException e ) {
@@ -97,7 +95,7 @@ public class SnmpManager
         }
     }
 
-    private void disable( final DisableReason reason ) {
+    public void disable( final DisableReason reason ) {
 
         if( FdsFeatureToggles.SNMP.isActive() ) {
 
@@ -146,7 +144,7 @@ public class SnmpManager
 
                     this.trap.notify( event );
 
-                } catch( IOException e ) {
+                } catch( Exception e ) {
 
                     logger.error( e.getMessage(), e );
                 }

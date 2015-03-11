@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <fds_module.h>
-#include <apis/AmService.h>
+#include <fdsp/XdiService.h>
 
 namespace fds {
 
@@ -16,7 +16,7 @@ namespace fds {
  * AM's data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to.
  */
-class AmDataApi : public apis::AmServiceIf {
+class AmDataApi : public apis::XdiServiceIf {
   private:
     /// Uturn test all AM service APIs
     fds_bool_t testUturnAll;
@@ -55,22 +55,28 @@ class AmDataApi : public apis::AmServiceIf {
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName);
 
-    void volumeContents(std::vector<apis::BlobDescriptor> & _return,
+    void volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                         const std::string& domainName,
                         const std::string& volumeName,
                         const int32_t count,
-                        const int64_t offset);
-    void volumeContents(std::vector<apis::BlobDescriptor> & _return,
+                        const int64_t offset,
+                        const std::string& pattern,
+                        const fpi::BlobListOrder orderBy,
+                        const bool descending);
+    void volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<int32_t>& count,
-                        boost::shared_ptr<int64_t>& offset);
+                        boost::shared_ptr<int64_t>& offset,
+                        boost::shared_ptr<std::string>& pattern,
+                        boost::shared_ptr<fpi::BlobListOrder>& orderBy,
+                        boost::shared_ptr<bool>& descending);
 
-    void statBlob(apis::BlobDescriptor& _return,
+    void statBlob(fpi::BlobDescriptor& _return,
                   const std::string& domainName,
                   const std::string& volumeName,
                   const std::string& blobName);
-    void statBlob(apis::BlobDescriptor& _return,
+    void statBlob(fpi::BlobDescriptor& _return,
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName);

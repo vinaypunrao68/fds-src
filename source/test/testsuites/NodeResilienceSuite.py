@@ -8,13 +8,14 @@ import unittest
 import xmlrunner
 import testcases.TestCase
 import testcases.TestFDSEnvMgt
-import testcases.TestFDSModMgt
+import testcases.TestFDSServiceMgt
 import testcases.TestFDSSysMgt
+import testcases.TestMgt
 import testcases.TestOMIntFace
 import testcases.TestS3IntFace
 import NodeWaitSuite
 
-def suiteConstruction():
+def suiteConstruction(self):
     """
     Construct the ordered set of test cases that check the
     resiliency of a node as components are stopped and started.
@@ -22,7 +23,7 @@ def suiteConstruction():
     suite = unittest.TestSuite()
 
     # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
     suite.addTest(nodeUpSuite)
 
     # Create a S3 bucket and object that we can use to make sure
@@ -45,36 +46,36 @@ def suiteConstruction():
     # our bucket and BLOB and meta-data.
     #
     # Currently (12/16/2014) the OM is not very resilient.
-    #suite.addTest(testcases.TestFDSModMgt.TestOMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestOMVerifyShutdown())
+    #suite.addTest(testcases.TestFDSModMgt.TestOMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestOMVerifyDown())
     #suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestOMWait())
 
-    #suite.addTest(testcases.TestFDSModMgt.TestAMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestAMVerifyShutdown())
-    #suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMVerifyDown())
+    #suite.addTest(testcases.TestFDSModMgt.TestAMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestAMWait())
 
-    suite.addTest(testcases.TestFDSModMgt.TestSMShutDown())
-    suite.addTest(testcases.TestFDSModMgt.TestSMVerifyShutdown())
-    suite.addTest(testcases.TestFDSModMgt.TestSMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestSMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMKill())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMVerifyDown())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMBringUp())
+    suite.addTest(testcases.TestFDSServiceMgt.TestSMWait())
 
-    #suite.addTest(testcases.TestFDSModMgt.TestDMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestDMVerifyShutdown())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMKill())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMVerifyDown())
     #suite.addTest(testcases.TestFDSModMgt.TestDMBringUp())
     #suite.addTest(testcases.TestFDSModMgt.TestDMWait())
 
-    suite.addTest(testcases.TestFDSModMgt.TestPMShutDown())
-    suite.addTest(testcases.TestFDSModMgt.TestPMVerifyShutdown())
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMKill())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMBringUp())
+    suite.addTest(testcases.TestFDSServiceMgt.TestPMWait())
 
     # Verify everyone is up.
     suite.addTest(nodeUpSuite)
 
     # Given the node some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestWait())
+    suite.addTest(testcases.TestMgt.TestWait())
 
     # Now verify we still have our data.
     suite.addTest(testcases.TestS3IntFace.TestS3VerifyMBLOB())
@@ -103,7 +104,7 @@ if __name__ == '__main__':
     # Get a test runner that will output an xUnit XML report for Jenkins
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction()
+    test_suite = suiteConstruction(self=None)
 
     runner.run(test_suite)
 

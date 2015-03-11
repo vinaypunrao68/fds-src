@@ -6,22 +6,23 @@
 
 #include "fds_process.h"
 
-#include "am-platform.h"
-
 #include "AmCache.h"
 #include "AccessMgr.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
 
-extern AmPlatform gl_AmPlatform;
+#include "connector/xdi/AmAsyncService.h"
+#include "connector/xdi/fdsn-server.h"
+#include "connector/block/NbdConnector.h"
 
 namespace fds {
 
 AccessMgr::AccessMgr(const std::string &modName,
                      CommonModuleProviderIf *modProvider)
         : Module(modName.c_str()),
-          modProvider_(modProvider) {
+          modProvider_(modProvider),
+          shuttingDown(false) {
 }
 
 AccessMgr::~AccessMgr() {
@@ -56,16 +57,12 @@ AccessMgr::mod_init(SysParams const *const param) {
         new AsyncDataServer("AM Async Server", instanceId));
     asyncServer->init_server();
 
-    if (!conf.get<bool>("testing.toggleStandAlone")) {
+    if (!conf.get<bool>("testing.standalone")) {
         omConfigApi = boost::make_shared<OmConfigApi>();
     }
 
-    blkConnector = boost::shared_ptr<NbdConnector>(
-        boost::make_shared<NbdConnector>(omConfigApi));
+    blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(omConfigApi));
 
-    // Update the AM's platform with our instance ID so that
-    // common fields (e.g., ports) can be updated
-    gl_AmPlatform.setInstanceId(instanceId);
     return 0;
 }
 
@@ -78,12 +75,11 @@ AccessMgr::mod_shutdown() {
     delete storHvisor;
 }
 
-void
-AccessMgr::mod_lockstep_start_service() {
+void AccessMgr::mod_enable_service()
+{
+    LOGNOTIFY << "Enbaling services ";
     storHvisor->StartOmClient();
     storHvisor->qos_ctrl->runScheduler();
-
-    this->mod_lockstep_done();
 }
 
 void
@@ -100,6 +96,36 @@ AccessMgr::registerVolume(const VolumeDesc& volDesc) {
     // on a single volume add location.
     storHvisor->amCache->createCache(volDesc);
     return storHvisor->vol_table->registerVolume(volDesc);
+}
+
+// Set AM in shutdown mode.
+void
+AccessMgr::setShutDown() {
+    shuttingDown = true;
+
+    /*
+     * If there are no
+     * more outstanding requests, tell the QoS
+     * Dispatcher that we're shutting down.
+     */
+    if (storHvisor->qos_ctrl->htb_dispatcher->num_outstanding_ios == 0)
+    {
+        stop();
+    }
+}
+
+void
+AccessMgr::stop() {
+    LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
+    storHvisor->qos_ctrl->htb_dispatcher->stop();
+    asyncServer->getTTServer()->stop();
+    fdsnServer->getNBServer()->stop();
+}
+
+// Check whether AM is in shutdown mode.
+bool
+AccessMgr::isShuttingDown() {
+    return shuttingDown;
 }
 
 }  // namespace fds

@@ -5,7 +5,6 @@ package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.events.FirebreakType;
-import com.formationds.commons.model.Events;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.DateRangeBuilder;
 import com.formationds.commons.model.entity.Event;
@@ -18,6 +17,7 @@ import com.formationds.om.repository.query.builder.CriteriaQueryBuilder;
 import javax.jdo.Query;
 import javax.persistence.EntityManager;
 import javax.persistence.criteria.Expression;
+
 import java.io.File;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -29,7 +29,7 @@ import java.util.List;
 /**
  *
  */
-public class EventRepository extends JDORepository<Event, Long, Events, QueryCriteria> {
+public class EventRepository extends JDORepository<Event, Long> {
 
     private static final String DBNAME = "var/db/events.odb";
 
@@ -69,28 +69,23 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
     }
 
     @Override
-    public Events query(QueryCriteria queryCriteria) {
+    public List<? extends Event> query(QueryCriteria queryCriteria) {
         EntityManager em = newEntityManager();
         try {
-            final List<Event> results;
             EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(em).searchFor(queryCriteria);
-            results = tq.resultsList();
-            return new Events(results);
+            return tq.resultsList();
         } finally {
             em.close();
         }
     }
 
-    public Events queryTenantUsers(QueryCriteria queryCriteria, List<Long> tenantUsers) {
+    public List<? extends Event> queryTenantUsers(QueryCriteria queryCriteria, List<Long> tenantUsers) {
         EntityManager em = newEntityManager();
         try {
-            final List<? extends Event> results;
-
             UserEventCriteriaQueryBuilder tq =
             new UserEventCriteriaQueryBuilder(em).usersIn(tenantUsers)
                                                  .searchFor(queryCriteria);
-            results = tq.resultsList();
-            return new Events(results);
+            return tq.resultsList();
         } finally {
             em.close();
         }

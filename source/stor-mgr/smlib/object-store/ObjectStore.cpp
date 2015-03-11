@@ -4,6 +4,10 @@
 
 #include <string>
 #include <map>
+#include <fiu-control.h>
+#include <fiu-local.h>
+
+#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
@@ -14,6 +18,8 @@
 #include <object-store/TieringConfig.h>
 
 namespace fds {
+
+extern std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg);
 
 ObjectStore::ObjectStore(const std::string &modName,
                          SmIoReqHandler *data_store,
@@ -28,7 +34,10 @@ ObjectStore::ObjectStore(const std::string &modName,
               "SM Object Metadata Storage Module")),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
-                                    volTbl, data_store)) {
+                                    volTbl, diskMap, data_store)),
+          SMCheckCtrl(new SMCheckControl("SM Checker",
+                                         diskMap, data_store))
+{
 }
 
 ObjectStore::~ObjectStore() {
@@ -79,6 +88,8 @@ Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData) {
+    fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
+
     PerfContext objWaitCtx(SM_PUT_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
@@ -109,7 +120,8 @@ ObjectStore::putObject(fds_volid_t volId,
 
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
-            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
+                        << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
@@ -144,7 +156,7 @@ ObjectStore::putObject(fds_volid_t volId,
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
 
     // either new data or dup, update assoc entry
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->updateAssocEntry(objId, volId);
     volumeTbl->updateDupObj(volId,
@@ -192,15 +204,6 @@ ObjectStore::putObject(fds_volid_t volId,
         updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
-    // TODO(Anna) When we review SM -> SM migration, review if we need origin timestamp
-    // Would need to pass int64_t origin timestamp as param to this method
-    /*
-    if (md.obj_map.obj_create_time == 0) {
-        md.obj_map.obj_create_time = opCtx.ts;
-    }
-    md.obj_map.assoc_mod_time = opCtx.ts;
-    */
-
     // write metadata to metadata store
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
 
@@ -227,7 +230,8 @@ ObjectStore::getObject(fds_volid_t volId,
 
     // check if object corrupted
     if (objMeta->isObjCorrupted()) {
-        LOGCRITICAL << "Obj metadata indicates data corrupted, will return err";
+        LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
+                    << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         err = ERR_ONDISK_DATA_CORRUPT;
         return NULL;
     }
@@ -277,6 +281,25 @@ ObjectStore::getObject(fds_volid_t volId,
 
     return objData;
 }
+boost::shared_ptr<const std::string>
+ObjectStore::getObjectData(fds_volid_t volId,
+                       const ObjectID &objId,
+                       ObjMetaData::const_ptr objMetaData,
+                       Error& err)
+{
+    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
+
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(volId, objId, objMetaData, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data " << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+    }
+    return objData;
+}
 
 Error
 ObjectStore::deleteObject(fds_volid_t volId,
@@ -303,13 +326,14 @@ ObjectStore::deleteObject(fds_volid_t volId,
 
     // if object corrupted, no point of updating metadata
     if (objMeta->isObjCorrupted()) {
-        LOGCRITICAL << "Object corrupted, returning error ";
+        LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
+                    << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         return err = ERR_ONDISK_DATA_CORRUPT;
     }
 
     // Create new object metadata to update the refcnts
     updatedMeta.reset(new ObjMetaData(objMeta));
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     // remove volume assoc entry
     fds_bool_t change = updatedMeta->deleteAssocEntry(objId,
@@ -380,8 +404,22 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
 
     // do not move if object is deleted
     if (objMeta->getRefCnt() < 1) {
-        LOGWARN << "Object refcnt == 0";
-        return err;
+        LOGWARN << "object " << objId << " refcnt == 0";
+        return ERR_SM_ZERO_REFCNT_OBJECT;
+    }
+
+    if (relocateFlag &&
+        fromTier == diskio::DataTier::flashTier &&
+        toTier == diskio::DataTier::diskTier) {
+        std::vector<fds_volid_t> vols;
+        objMeta->getAssociatedVolumes(vols);
+        /* Skip moving from flash to disk if all associated volumes are flash only */
+        if (!(volumeTbl->hasFlashOnlyVolumes(vols))) {
+            /* NOTE: Phyically moving the object should be taken care by GC */
+            return updateLocationFromFlashToDisk(objId, objMeta);
+        } else {
+            return ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME;
+        }
     }
 
     // make sure the object is not on destination tier already
@@ -406,9 +444,7 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         LOGERROR << "Failed to write " << objId << " to obj data store "
                  << ", tier " << toTier << " " << err;
         return err;
-    }
-
-    // update physical location that we got from data store
+    } // update physical location that we got from data store
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
     updatedMeta->updatePhysLocation(&objPhyLoc);
     if (relocateFlag) {
@@ -420,6 +456,33 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
     err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
     if (!err.ok()) {
         LOGERROR << "Failed to update metadata for obj " << objId;
+    }
+    return err;
+}
+
+Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
+                                                 ObjMetaData::const_ptr objMeta)
+{
+    Error err;
+
+    if (!objMeta->onTier(diskio::DataTier::diskTier)) {
+        LOGNOTIFY << "Object " << objId << " hasn't made it to disk yet.  Ignoring move";
+        return ERR_SM_TIER_WRITEBACK_NOT_DONE;
+    }
+
+    /* Remove flash as the phsycal location */
+    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+    updatedMeta->removePhyLocation(diskio::DataTier::flashTier);
+    fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
+    fds_assert(updatedMeta->onTier(diskio::DataTier::flashTier) == false);
+
+    /* write metadata to metadata store */
+    err = metaStore->putObjectMetadata(invalid_vol_id, objId, updatedMeta);
+    if (!err.ok()) {
+        LOGERROR << "Failed to update metadata for obj " << objId;
+    } else {
+        // TODO(Rao): Remove this log statement
+        DBG(LOGDEBUG << "Moved object " << objId << "from flash to disk");
     }
     return err;
 }
@@ -448,7 +511,7 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 
     // copy association entry
     updatedMeta.reset(new ObjMetaData(objMeta));
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->copyAssocEntry(objId, srcVolId, destVolId);
 
@@ -467,7 +530,8 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                                      diskio::DataTier tier,
-                                     fds_bool_t verifyData) {
+                                     fds_bool_t verifyData,
+                                     fds_bool_t objOwned) {
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     Error err(ERR_OK);
 
@@ -484,7 +548,8 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         return err;
     }
 
-    if (!TokenCompactor::isDataGarbage(*objMeta, tier)) {
+    if (!TokenCompactor::isDataGarbage(*objMeta, tier) &&
+        objOwned) {
         // this object is valid, copy it to a current token file
         ObjMetaData::ptr updatedMeta;
         LOGDEBUG << "Will copy " << objId << " to new file on tier " << tier;
@@ -511,8 +576,9 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                 // on-disk data corruption
                 // mark object metadata as corrupted! will copy it to new
                 // location anyway so we can debug the issue
-                LOGCRITICAL << "Encountered a on-disk data corruption object "
-                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex();
+                LOGCRITICAL << "CORRUPTION: On-disk corruption detected: "
+                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex()
+                            << " ObjMetaData=" << updatedMeta->logString();
                 // set flag in object metadata
                 updatedMeta->setObjCorrupted();
             }
@@ -536,10 +602,11 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         }
     } else {
         // not going to copy object to new location
-        LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
+        LOGDEBUG << "Will garbage-collect " << objId << " on tier " << tier;
         // remove entry from index db if data + meta is garbage
-        if (TokenCompactor::isGarbage(*objMeta)) {
-            LOGNORMAL << "Removing metadata for " << objId;
+        if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
+            LOGDEBUG << "Removing metadata for " << objId
+                      << " object owned? " << objOwned;
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
     }
@@ -547,15 +614,249 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
     return err;
 }
 
+Error
+ObjectStore::applyObjectMetadataData(const ObjectID& objId,
+                                     const fpi::CtrlObjectMetaDataPropagate& msg) {
+    // we do not expect to receive rebal message for same object id concurrently
+    // but we may do GC later while migrating, etc, so locking anyway
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
+    Error err(ERR_OK);
+    diskio::DataTier useTier = diskio::maxTier;
+    // since object can be associated with multiple volumes, we just
+    // set volume id to invalid. Here is it used only to collect perf
+    // stats and associate them with a volume; all metadata and disk
+    // accesses for token migration will be counted against volume 0
+    fds_volid_t unknownVolId = invalid_vol_id;
+
+    // We will update metadata with metadata sent to us from source SM
+    ObjMetaData::ptr updatedMeta;
+
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
+    if (err == ERR_OK) {
+        // we must not have the case if metadata exists but object data is missing
+        // token migration always applies both data and metadata first, then updates metadata
+        fds_verify(objMeta->dataPhysicallyExists());
+
+        // If the metadata was found on the destination, then the object already exists.
+        // This means we either have to reconcile or overwrite existing metadata on
+        // destination SM.
+        fds_assert((msg.objectReconcileFlag == fpi::OBJ_METADATA_RECONCILE) ||
+                   (msg.objectReconcileFlag == fpi::OBJ_METADATA_OVERWRITE));
+
+        // check if existing object corrupted
+        if (objMeta->isObjCorrupted()) {
+            LOGCRITICAL << "CORRUPTION: Dup object corruption detected: " << objMeta->logString()
+                        << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
+            return ERR_SM_DUP_OBJECT_CORRUPT;
+        }
+
+        // if we got data with this message, check if it matches data stored on this SM
+        if ((msg.objectData.size() != 0) &&
+            (conf_verify_data == true)) {
+            // verify data -- read object from object data store
+            // data in this msg
+            boost::shared_ptr<const std::string> objData = boost::make_shared<std::string>(
+                msg.objectData);
+            // data stored in object store
+            boost::shared_ptr<const std::string> existObjData
+                    = dataStore->getObjectData(unknownVolId, objId, objMeta, err);
+            // if we get an error, there are inconsistencies between
+            // data and metadata; assert for now
+            fds_assert(err.ok());
+
+            // check if data is the same
+            if (*existObjData != *objData) {
+                LOGCRITICAL << "CORRUPTION: Mismatch between data in object store and data received "
+                            << "from source SM for " << objId << " !!!";
+                return ERR_SM_TOK_MIGRATION_DATA_MISMATCH;
+            }
+        }
+
+        // create new object metadata for update from source SM
+        updatedMeta.reset(new ObjMetaData(objMeta));
+        // we temporary assign error duplicate to indicate that we already have metadata
+        // and data for this object, to differentiate from the case when this is the
+        // first time this SM sees this object
+        err = ERR_DUPLICATE;
+    } else {  // if (getMetadata != OK)
+        // We didn't find any metadata, make sure it was just not there and reset
+        fds_verify(err == ERR_NOT_FOUND);
+
+        // If we didn't find the metadata on the destination SM, then there is
+        // no need for metadata reconcile or overwrite
+        fds_assert(msg.objectReconcileFlag == fpi::OBJ_METADATA_NO_RECONCILE);
+
+        err = ERR_OK;
+        // make sure we got object data as well in this message
+        if (msg.objectData.size() == 0) {
+            LOGERROR << "Got zero-length objectData for object " << objId
+                     << " in rebalance delta set from source SM, while this SM "
+                     << " does not have metadata/data for this object";
+            return ERR_SM_TOK_MIGRATION_NO_DATA_RECVD;
+        }
+        updatedMeta.reset(new ObjMetaData());
+        updatedMeta->initialize(objId, msg.objectData.size());
+    }
+
+    // Put data in store if we got data/metadata. We expect the data put to be atomic.
+    // If we crash after the writing the data but before writing
+    // the metadata, the orphaned object data will get cleaned up
+    // on a subsequent scavenger pass.
+    if (err.ok()) {
+
+        // new object in this SM, put object to data store
+        boost::shared_ptr<const std::string> objData = boost::make_shared<std::string>(
+            msg.objectData);
+
+        // we have to select tier based on volume policy with the highest tier policy
+        StorMgrVolume* selectVol = NULL;
+        for (auto volAssoc : msg.objectVolumeAssoc) {
+            fds_volid_t volId = volAssoc.volumeAssoc;
+            StorMgrVolume* vol = volumeTbl->getVolume(volId);
+            fds_assert(vol);  // SM must know about all volumes
+            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+                selectVol = vol;
+                break;   // ssd-only is highest media policy
+            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+                // we didn't find ssd-only volume yet, so potential candidate
+                // but we may see ssd-only volumes, so continue search
+                selectVol = vol;
+            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
+                if (selectVol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_HYBRID) {
+                    selectVol = vol;
+                }
+            } else if (!selectVol) {
+                selectVol = vol;
+            }
+        }
+
+        // select tier to put object
+        useTier = tierEngine->selectTier(objId, *selectVol->voldesc);
+
+        if (useTier == diskio::flashTier) {
+            fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
+                    objData->size(), tierEngine->getFlashFullThreshold());
+
+            if (!ssdSuccess) {
+                useTier = diskio::diskTier;
+            }
+        }
+
+        // put object to datastore
+        obj_phy_loc_t objPhyLoc;  // will be set by data store
+        err = dataStore->putObjectData(unknownVolId, objId, useTier, objData, objPhyLoc);
+        if (!err.ok()) {
+            LOGERROR << "Failed to write " << objId << " to obj data store "
+                     << err;
+            if (useTier == diskio::flashTier) {
+                diskMap->ssdTrackCapacityDelete(objId, objData->size());
+            }
+            return err;
+        }
+
+        // Notify tier engine of recent IO
+        tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *selectVol->voldesc, useTier);
+
+        // update physical location that we got from data store
+        updatedMeta->updatePhysLocation(&objPhyLoc);
+    }
+
+
+    // TODO(Sean):
+    // So, if the reconcile flag is OVERWRITE, how would it work with tiering?  Overwrite
+    // means that a SM node is added with existing data.  Not sure what it means to added
+    // a new node with existing objects and volume.  What if the volume policy has changed?
+    // How does volume policy propagated to SM?
+    // For now, do nothing with tiering, and keep the existing tier.
+
+    // update metadata
+    // note that we are not updating assoc entry as with datapath put
+    // we are copying assoc entries from the msg and also copying ref count
+    err = updatedMeta->updateFromRebalanceDelta(msg);
+    if (!err.ok()) {
+        LOGCRITICAL << "Failed to update metadata from delta from source SM " << err;
+    }
+
+    // write metadata to metadata store
+    if (err.ok()) {
+        err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+    }
+
+    LOGDEBUG << "Applied object data/metadata to object store " << objId
+             << " delta from src SM " << fds::logString(msg)
+             << " updated meta " << *updatedMeta << " " << err;
+    return err;
+}
+
 void
 ObjectStore::snapshotMetadata(fds_token_id smTokId,
-                              SmIoSnapshotObjectDB::CbType notifFn) {
-    metaStore->snapshot(smTokId, notifFn);
+                              SmIoSnapshotObjectDB::CbType notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
+    metaStore->snapshot(smTokId, notifFn, snapReq);
+}
+
+void
+ObjectStore::snapshotMetadata(fds_token_id smTokId,
+                              SmIoSnapshotObjectDB::CbTypePersist notifFn,
+                              SmIoSnapshotObjectDB* snapReq) {
+    metaStore->snapshot(smTokId, notifFn, snapReq);
 }
 
 Error
 ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
     return dataStore->scavengerControlCmd(scavCmd);
+}
+
+Error
+ObjectStore::tieringControlCmd(SmTieringCmd* tierCmd) {
+    Error err(ERR_OK);
+    LOGDEBUG << "Executing tiering command " << tierCmd->command;
+    switch (tierCmd->command) {
+        case SmTieringCmd::TIERING_ENABLE:
+            tierEngine->enableTierMigration();
+            break;
+        case SmTieringCmd::TIERING_DISABLE:
+            tierEngine->disableTierMigration();
+            break;
+        case SmTieringCmd::TIERING_START_HYBRIDCTRLR:
+            tierEngine->startHybridTierCtrlr();
+            break;
+        default:
+            fds_panic("Unknown tiering command");
+    }
+    return err;
+}
+
+void
+ObjectStore::SmCheckUpdateDLT(const DLT *latestDLT)
+{
+    SMCheckCtrl->updateSMCheckDLT(latestDLT);
+}
+Error
+ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
+{
+    Error err(ERR_OK);
+
+    LOGDEBUG << "Executing SM Check command " << checkCmd->command;
+    switch (checkCmd->command) {
+        case SmCheckCmd::SMCHECK_START:
+            err = SMCheckCtrl->startSMCheck();
+            break;
+        case SmCheckCmd::SMCHECK_STOP:
+            err = SMCheckCtrl->stopSMCheck();
+            break;
+        case SmCheckCmd::SMCHECK_STATUS:
+            {
+                SmCheckStatusCmd *statusCmd = static_cast<SmCheckStatusCmd *>(checkCmd);
+                err = SMCheckCtrl->getStatus(statusCmd->checkStatus);
+            }
+            break;
+        default:
+            fds_panic("Unknown SM Check command");
+    }
+    return err;
 }
 
 fds_uint32_t
@@ -577,6 +878,12 @@ ObjectStore::mod_init(SysParams const *const p) {
     };
     mod_intern = objStoreDepMods;
     Module::mod_init(p);
+
+    // Conditionally enable write faults at the given rate
+    float write_failure_rate = g_fdsprocess->get_fds_config()->get<float>("fds.sm.objectstore.faults.fail_writes", 0.0f);
+    if (write_failure_rate != 0.0f) {
+        fiu_enable_random("sm.objectstore.faults.putObject", 1, nullptr, 0, write_failure_rate);
+    }
 
     conf_verify_data = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.data_verify");
     taskSyncSize =

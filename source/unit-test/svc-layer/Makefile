@@ -5,8 +5,7 @@ user_incl_dir     := \
     $(source_dir)/stor-mgr/include \
 	$(source_dir)/stor-mgr/migrations \
 	$(source_dir)/lib \
-	$(source_dir)/include/fdsp \
-	/usr/include/cryptopp
+	$(source_dir)/include/fdsp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

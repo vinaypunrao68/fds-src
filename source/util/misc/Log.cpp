@@ -13,6 +13,31 @@
 #include <fds_globals.h>
 namespace fds {
 
+std::string cleanNameFromPrettyFunc(const std::string& prettyFunction, bool fClassOnly) {
+    size_t colons = prettyFunction.find("::");
+    if (colons == std::string::npos)
+        return "::";
+    colons = prettyFunction.find("(");
+    if (fClassOnly) {
+        // move before the fn.
+        colons = prettyFunction.rfind("::", colons);
+    }
+    size_t begin = prettyFunction.substr(0,colons).rfind(" ") + 1;
+    size_t end = colons - begin;
+
+    return prettyFunction.substr(begin,end);
+}
+
+__TRACER__::__TRACER__(const std::string& _prettyName, const std::string& _filename, int _lineno) 
+        : prettyName(cleanNameFromPrettyFunc(_prettyName)),filename(_filename),lineno(_lineno) {
+    GLOGDEBUG << "enter : " << prettyName << ":" << filename << ":" << lineno;
+}
+
+__TRACER__::~__TRACER__() {
+    GLOGDEBUG << "exit  : " << prettyName << ":" << filename << ":" << lineno;
+}
+
+
 /*
  * Rotate log when reachs N bytes
  */
@@ -30,6 +55,7 @@ inline std::basic_ostream< CharT, TraitsT >& operator<< (std::basic_ostream< Cha
             {
                 "trace",
                 "debug",
+                "migrate",
                 "io",
                 "normal",
                 "notify",
@@ -49,6 +75,7 @@ fds_log::severity_level fds_log::getLevelFromName(std::string level) {
     boost::trim(level);
     if (0 == level.compare(0, 5, "TRACE")) return trace;
     if (0 == level.compare(0, 5, "DEBUG")) return debug;
+    if (0 == level.compare(0, 7, "MIGRATE")) return migrate;
     if (0 == level.compare(0, 2, "IO")) return io;
     if (0 == level.compare(0, 6, "NORMAL")) return normal;
     if (0 == level.compare(0, 4, "INFO")) return normal;

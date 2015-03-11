@@ -1,12 +1,19 @@
 /* Copyright 2014 Formation Data Systems, Inc.
  */
-#include <net/SvcRequestTracker.h>
-#include <net/net-service.h>
+#include <fds_module_provider.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
+#include <net/PlatNetSvcHandler.h>
+#include <net/SvcRequest.h>
+#include <net/SvcMgr.h>
+#include <net/SvcRequestTracker.h>
 
 namespace fds {
 
+SvcRequestTracker::SvcRequestTracker(CommonModuleProviderIf *moduleProvider)
+    : HasModuleProvider(moduleProvider)
+{
+}
 
 /**
  * Add the request for tracking
@@ -27,20 +34,22 @@ bool SvcRequestTracker::addForTracking(const SvcRequestId& id,
 }
 
 /**
- * Remove the request from tracking
+ * Pop the request from tracking
  * @param id
  */
-bool SvcRequestTracker::removeFromTracking(const SvcRequestId& id)
+SvcRequestIfPtr
+SvcRequestTracker::popFromTracking(const SvcRequestId& id)
 {
     DBG(GLOGDEBUG << "Req Id: " << id);
 
     fds_scoped_lock l(svcReqMaplock_);
     auto itr = svcReqMap_.find(id);
     if (itr != svcReqMap_.end()) {
+        auto r = itr->second;
         svcReqMap_.erase(itr);
-        return true;
+        return r;
     }
-    return false;
+    return nullptr;
 }
 
 /**

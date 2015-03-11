@@ -5,6 +5,7 @@
 #include <AmCache.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
+#include <climits>
 
 namespace fds {
 
@@ -96,7 +97,7 @@ AmCache::getBlobObject(fds_volid_t volId,
 }
 
 Error
-AmCache::putTxDescriptor(const AmTxDescriptor::ptr txDesc) {
+AmCache::putTxDescriptor(const AmTxDescriptor::ptr txDesc, fds_uint64_t const blobSize) {
     LOGTRACE << "Cache insert tx descriptor for volume " << std::hex
              << txDesc->volId << std::dec << " blob " << txDesc->blobName;
     Error err(ERR_OK);
@@ -108,23 +109,25 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr txDesc) {
                          txDesc->blobName);
     } else {
         fds_verify(txDesc->opType == FDS_PUT_BLOB);
+
+        for (auto& offset_pair : txDesc->stagedBlobOffsets) {
+            putOffset(txDesc->volId,
+                      offset_pair.first,
+                      boost::make_shared<ObjectID>(offset_pair.second));
+        }
+
         // Add blob descriptor from tx to descriptor cache
         // TODO(Andrew): We copy now because the data given to cache
         // isn't actually shared. It needs its own copy.
         BlobDescriptor::ptr cacheDesc = txDesc->stagedBlobDesc;
+
+        // Set the blob size to the one returned by DM
+        cacheDesc->setBlobSize(blobSize);
+
         BlobDescriptor::ptr evictedDesc =
                 descriptor_cache.add(cacheDesc->getVolId(), cacheDesc->getBlobName(), cacheDesc);
         if (evictedDesc != NULL) {
             LOGTRACE << "Evicted cached descriptor " << *evictedDesc;
-        }
-
-        // Add blob offsets from tx to offset cache
-        for (const auto &offsetPair : txDesc->stagedBlobOffsets) {
-            // TODO(Andrew): Allocate an objectId the cache can own.
-            // We should change this to just take a pointer from the
-            // transaction manager
-            ObjectID::ptr cacheObjId = boost::make_shared<ObjectID>(offsetPair.second);
-            putOffset(txDesc->volId, offsetPair.first, cacheObjId);
         }
 
         // Add blob objects from tx to object cache

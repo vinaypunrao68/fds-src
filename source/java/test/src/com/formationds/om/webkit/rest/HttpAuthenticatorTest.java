@@ -47,7 +47,7 @@ public class HttpAuthenticatorTest {
         Cookie[] cookies = {new Cookie(HttpAuthenticator.FDS_TOKEN, "foo")};
         when(request.getCookies()).thenReturn(cookies);
         Authenticator authenticator = mock(Authenticator.class);
-        when(authenticator.resolveToken(eq("foo"))).thenThrow(LoginException.class);
+        when(authenticator.parseToken(eq("foo"))).thenThrow(LoginException.class);
         HttpAuthenticator httpAuthenticator = new HttpAuthenticator((t) -> mockHandler, authenticator);
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, httpAuthenticator.handle(request, new HashMap<>()).getHttpStatus());
     }

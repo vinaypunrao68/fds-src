@@ -23,7 +23,7 @@ public class FdsObjectStreamer extends InputStream {
     public int read() throws IOException {
         byte[] buf = new byte[1];
         int readBytes = read(buf);
-        return readBytes == -1 ? readBytes : buf[0];
+        return readBytes == -1 ? readBytes : Byte.toUnsignedInt(buf[0]);
     }
 
     @Override

@@ -7,20 +7,15 @@ package com.formationds.om.webkit.rest;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_VolumeDescType;
-
-import com.formationds.apis.AmService;
-import com.formationds.apis.Tenant;
-import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeStatus;
-import com.formationds.apis.VolumeType;
+import com.formationds.apis.*;
+import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.MediaPolicyConverter;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
@@ -43,20 +38,14 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class ListVolumes implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(ListVolumes.class);
 
-    private AmService.Iface amApi;
+    private XdiService.Iface amApi;
     private ConfigurationApi config;
     private FDSP_ConfigPathReq.Iface legacyConfig;
     private AuthenticationToken token;
@@ -64,7 +53,7 @@ public class ListVolumes implements RequestHandler {
 
     private static DecimalFormat df = new DecimalFormat("#.00");
 
-    public ListVolumes( Authorizer authorizer, ConfigurationApi config,  AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
+    public ListVolumes( Authorizer authorizer, ConfigurationApi config,  XdiService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
         this.config = config;
         this.amApi = amApi;
         this.legacyConfig = legacyConfig;
@@ -77,39 +66,36 @@ public class ListVolumes implements RequestHandler {
         String domain = ""; // not yet supported
         JSONArray jsonArray = config.listVolumes(domain)
                                     .stream()
-                                    .filter(v -> authorizer.hasAccess(token, v.getName()))
-                                    .map(v -> {
-                                        try {
-                                            JSONObject volResponse = toJsonObject(v);
+				.filter(v -> authorizer.ownsVolume(token, v.getName()))
+				.map(v -> {
+					try {
+						JSONObject volResponse = toJsonObject(v);
 
-                                            // putting the tenant information here because the static call
-                                            // below won't always have access to the api.  It should be injected
-                                            // so that it's always acceptable
-                                            List<Tenant> tenants =
-                                                SingletonConfigAPI.instance().api().listTenants(0).stream()
-                                                                  .filter((t) -> {
+						// putting the tenant information here because the static call
+						// below won't always have access to the api.  It should be injected
+						// so that it's always acceptable
+						List<Tenant> tenants =
+								SingletonConfigAPI.instance().api().listTenants(0).stream()
+										.filter((t) -> {
 
-                                                                      if (t.getId() == v.getTenantId()) {
-                                                                          return true;
-                                                                      }
+											return t.getId() == v.getTenantId();
 
-                                                                      return false;
-                                                                  })
-                                                                  .collect(Collectors.toList());
+										})
+										.collect(Collectors.toList());
 
-                                            String tenantName = "";
+						String tenantName = "";
 
-                                            if (tenants.size() > 0) {
-                                                tenantName = tenants.get(0).getIdentifier();
-                                            }
+						if (tenants.size() > 0) {
+							tenantName = tenants.get(0).getIdentifier();
+						}
 
-                                            volResponse.put("tenant_name", tenantName);
+						volResponse.put("tenant_name", tenantName);
 
-                                            return volResponse;
-                                        } catch (TException e) {
-                                            LOG.error("Error fetching configuration data for volume", e);
-						                    throw new RuntimeException(e);
-                                        }
+						return volResponse;
+					} catch (TException e) {
+						LOG.error("Error fetching configuration data for volume", e);
+						throw new RuntimeException(e);
+					}
 				})
 				.collect(new JsonArrayCollector());
 
@@ -171,7 +157,8 @@ struct VolumeDescriptor {
 
 		// getting firebreak information
 		Volume volume = new VolumeBuilder().withId( Long.toString( volInfo.getVolUUID() ) )
-				.withName( v.getName() ).build();
+										   .withName( v.getName() )
+										   .build();
 
 		final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( volume );
 
@@ -185,8 +172,12 @@ struct VolumeDescriptor {
 			if( volInfo != null ) {
 				o.put( "id", Long.toString( volInfo.getVolUUID() ) );
 				o.put( "priority", volInfo.getRel_prio() );
-				o.put( "sla", volInfo.getIops_min() );
+				o.put( "sla", volInfo.getIops_guarantee() );
 				o.put( "limit", volInfo.getIops_max() );
+				
+				MediaPolicy policy = MediaPolicyConverter.convertToMediaPolicy( volInfo.getMediaPolicy() );
+				o.put( "mediaPolicy", policy.name() );
+				
 				o.put( "commit_log_retention", volInfo.getContCommitlogRetention() );
 			}
 
@@ -207,20 +198,21 @@ struct VolumeDescriptor {
 				// TODO: update UI to use the policy object above and remove the duplicate data
 				if (v.getPolicy().getVolumeType() != null &&
 					v.getPolicy().getVolumeType().equals( VolumeType.OBJECT ) ) {
-					o.put( "data_connector", new JSONObject().put("type", "object" )
-							.put("api", "S3, Swift") );
+					o.put( "data_connector",
+						   new JSONObject().put( "type", "object" )
+										   .put( "api", "S3, Swift" ) );
 				} else {
 					JSONObject connector = new JSONObject().put( "type", "block" );
 					Size size = Size.size( v.getPolicy()
-							.getBlockDeviceSizeInBytes() );
+											.getBlockDeviceSizeInBytes() );
                     JSONObject attributes = new JSONObject()
-                                                .put("size", size.getCount())
-                                                .put("unit", size.getSizeUnit().toString());
+                                                .put( "size", size.getCount() )
+                                                .put( "unit", size.getSizeUnit().toString() );
 					connector.put( "attributes", attributes );
 					o.put( "data_connector", connector );
 				}
 
-				o.put( "mediaPolicy", v.getPolicy().getMediaPolicy().name() );
+//				o.put( "mediaPolicy", v.getPolicy().getMediaPolicy().name() );
 			}
 
 			JSONObject fbObject = new JSONObject();
@@ -255,7 +247,7 @@ struct VolumeDescriptor {
 	 * @return
 	 */
 	private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ){
-		
+
 		MetricQueryCriteria query = new MetricQueryCriteria();      
 		DateRange range = new DateRange();
 		range.setEnd( new Date().getTime() );
@@ -271,16 +263,16 @@ struct VolumeDescriptor {
 			new MetricCriteriaQueryBuilder( repo.newEntityManager() ) 
 				.searchFor( query )
 				.resultsList();
-		
+
 		FirebreakHelper fbh = new FirebreakHelper();
 		EnumMap<FirebreakType, VolumeDatapointPair> map = null;
-		
+
 		try {
 			map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
 		} catch (TException e) {
 			 LOG.warn( "Could not determine the firebreak events for volume: " + v.getId() + ":" + v.getName(), e );
 		}
-		
+
 		return map;
 	}
 

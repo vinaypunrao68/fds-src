@@ -39,7 +39,11 @@ public class LibConfigLexer extends Lexer {
 	public LibConfigLexer(CharStream input, RecognizerSharedState state) {
 		super(input,state);
 	}
-	@Override public String getGrammarFileName() { return "/home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g"; }
+
+	@Override public String getGrammarFileName()
+	{
+		return "LibConfig.g";
+	}
 
 	// $ANTLR start "T__17"
 	public final void mT__17() throws RecognitionException {

@@ -1,12 +1,24 @@
-angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope ){
+angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', '$media_policy_helper', '$translate', '$time_converter', '$qos_policy_helper', '$timeline_policy_helper', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope, $media_policy_helper, $translate, $time_converter, $qos_policy_helper, $timeline_policy_helper ){
     
     var translate = function( key ){
         return $filter( 'translate' )( key );
     };
     
+    $scope.firebreakModel = [
+        { x: ((new Date()).getTime()/1000) - (6*60*60), y: 1 },
+        { x: ((new Date()).getTime()/1000) - (10*60*60), y: 1 }
+    ];
+    
+    $scope.firebreakDomain = [ 3600*24, 3600*12, 3600*6, 3600*3, 3600, 0 ];
+    $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
+    $scope.lastTwentyFour = { start: ((new Date()).getTime()/1000) - (24*60*60), end: ((new Date()).getTime()/1000 ) };
+    
     $scope.snapshots = [];
+    $scope.ranges = [];
     $scope.snapshotPolicies = [];
     $scope.timelinePolicies = [];
+    $scope.snapshotPolicyDescriptions = [];
+    $scope.timelinePreset = '';
     
     $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
@@ -16,7 +28,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityLineStipples = [ '2,2', 'none' ];
     $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];
     $scope.capacityColors = [ '#ABD3F5', '#72AEEB' ];
-    $scope.performanceColors = [ '#8784DE', '#606ED7', '#489AE1' ];
+    $scope.performanceColors = [ '#489AE1', '#4857C4', '#8784DE' ];
     $scope.performanceLine = ['#8784DE', 'white', 'white']; 
     
     $scope.dedupLabel = '';
@@ -28,11 +40,14 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.qos = {};
     $scope.dataConnector = {};
     $scope.mediaPolicy = {};
+    $scope.mediaPreset = '';
     
     var capacityIntervalId = -1;
     var performanceIntervalId = -1;
+    var firebreakIntervalId = -1;
     var capacityQuery = {};
     var performanceQuery = {};
+    var firebreakQuery = {};
     
     $scope.timeRanges = [
         { displayName: '30 Days', value: 1000*60*60*24*30, labels: [translate( 'common.l_30_days' ), translate( 'common.l_15_days' ), translate( 'common.l_today' )] },
@@ -100,6 +115,36 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             $filter( 'translate' )( key );
     };
     
+    $scope.getSlaLabel = function(){
+        
+        if ( $scope.qos.sla === 0 ){
+            return $filter( 'translate' )( 'common.l_none' );
+        }
+        
+        return $scope.qos.sla;
+    };
+    
+    $scope.getLimitLabel = function(){
+        
+        if ( $scope.qos.limit === 0 ){
+            return $filter( 'translate' )( 'volumes.qos.l_unlimited' );
+        }
+        
+        return $scope.qos.limit;
+    };
+    
+    $scope.getDataTypeLabel = function(){
+        
+        if ( !angular.isDefined( $scope.dataConnector ) || !angular.isDefined( $scope.dataConnector.type ) ){
+            return '';
+        }
+        
+        var firstLetter = $scope.dataConnector.type.substr( 0, 1 ).toUpperCase();
+        var theRest = $scope.dataConnector.type.substr( 1 ).toLowerCase();
+        
+        return firstLetter + theRest;
+    };
+    
     $scope.deleteVolume = function(){
         
         var confirm = {
@@ -147,47 +192,83 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
-        $scope.performanceItems = [{number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )}];
-        $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.desc_iops_capacity' );
-        $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.desc_iops_capacity' );
-        $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.desc_iops_capacity' );
+        $scope.performanceItems = [
+            {number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )},
+            {number: data.calculated[1].percentage, description: $filter( 'translate' )( 'status.desc_ssd_percent' ), iconClass: 'icon-lightningbolt', iconColor: '#8784DE', suffix: '%' },
+            {number: data.calculated[2].percentage, description: $filter( 'translate' )( 'status.desc_hdd_percent' ), iconClass: 'icon-disk', iconColor: '#4857C4', suffix: '%' }
+        ];
+        $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.l_avg_puts' );
+        $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.l_avg_gets' );
+        $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.l_avg_ssd_gets' );
     };
     
-    var buildQueries = function(){
+    $scope.firebreakReturned = function( data ){
         
-        var now = new Date();
+        $scope.firebreakModel = [];
+                                                                 
+        // transform the raw data into the firebreaktimeline format
+        for ( var i = 0; data.series.length > 0 && i < data.series[0].datapoints.length; i++ ){
+            
+            $scope.firebreakModel.push( data.series[0].datapoints[i] );
+        }
         
-        capacityQuery = StatQueryFilter.create( [$scope.volume], 
-            [StatQueryFilter.LOGICAL_CAPACITY, StatQueryFilter.PHYSICAL_CAPACITY], 
-            Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
-            Math.round( now.getTime() / 1000 ) );
-        
-        performanceQuery = StatQueryFilter.create( [$scope.volume],
-            [StatQueryFilter.PUTS, StatQueryFilter.GETS, StatQueryFilter.SSD_GETS],
-            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
-            Math.round( now.getTime() / 1000 ) );
+        $scope.lastTwentyFour = { start: ((new Date()).getTime()/1000) - (24*60*60), end: ((new Date()).getTime()/1000 ) };
     };
     
     var pollCapacity = function(){
+        
+        var now = new Date();
+        
+        capacityQuery = StatQueryFilter.create( [$scope.thisVolume], 
+            [StatQueryFilter.PHYSICAL_CAPACITY,StatQueryFilter.LOGICAL_CAPACITY], 
+            Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );
+        
         $stats_service.getCapacitySummary( capacityQuery, $scope.capacityReturned );
     };
     
     var pollPerformance = function(){
-        $stats_service.getPerformanceSummary( performanceQuery, $scope.performanceReturned );
+
+        var now = new Date();
+        
+        performanceQuery = StatQueryFilter.create( [$scope.thisVolume],
+            [StatQueryFilter.PUTS, StatQueryFilter.GETS, StatQueryFilter.SSD_GETS],
+            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );
+        
+        $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned );
+    };
+    
+    var pollFirebreak = function(){
+        
+        var now = new Date();
+        
+        firebreakQuery = StatQueryFilter.create( [$scope.thisVolume],
+            [ StatQueryFilter.SHORT_TERM_CAPACITY_SIGMA,
+             StatQueryFilter.LONG_TERM_CAPACITY_SIGMA,
+             StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
+             StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
+            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );        
+        
+        $stats_service.getFirebreakSummary( firebreakQuery, $scope.firebreakReturned );
     };
     
     $scope.$watch( 'capacityTimeChoice', function(){
-        buildQueries();
         pollCapacity();
     });
     
     $scope.$watch( 'performanceTimeChoice', function(){
-        buildQueries();
         pollPerformance();
     });
     
     var initSnapshotSettings = function(){
-        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
+        
+        if ( !angular.isDefined( $scope.volumeVars.selectedVolume ) ){
+            return;
+        }
+        
+        return $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
 
             var notTimelinePolicies = [];
             var timelinePolicies = [];
@@ -209,11 +290,162 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         });
     };
     
+    var initTimeline = function(){
+        
+        $scope.ranges = [];
+        
+        for ( var i = 0; i < $scope.snapshots.length; i++ ){
+            
+            var range = {
+                min: new Date( $scope.snapshots[i].creation )
+            };
+            
+            $scope.ranges.push( range );
+        }
+        
+        // create teh continuous range
+        var now = (new Date()).getTime();
+        $scope.ranges.push( { min: (now - $scope.thisVolume.commit_log_retention*1000), max: now, pwidth: 15 } );
+        $scope.thisVolume.timelineTime = now;
+    };    
+    
     var initQosSettings = function(){
-        $scope.qos.capacity = $scope.thisVolume.sla;
+        $scope.qos.sla = $scope.thisVolume.sla;
         $scope.qos.limit = $scope.thisVolume.limit;
         $scope.qos.priority = $scope.thisVolume.priority;
-//        $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
+        $scope.mediaPolicy = $media_policy_helper.convertRawToObjects( $scope.thisVolume.mediaPolicy );
+        $scope.mediaPreset = $qos_policy_helper.convertRawToPreset( $scope.qos ).label;
+    };
+    
+    /**
+    * This method looks through the timeline policies and tries to make English predicate from the information
+    */
+    var initSnapshotDescriptions = function(){
+        
+        $scope.timelinePreset = $timeline_policy_helper.convertRawToPreset( $scope.timelinePolicies.policies ).label;
+        
+        // must be in this order:  continuous = 0, daily = 1, weekly = 2, monthly = 3, yearly = 4
+        for ( var i = 0; i < $scope.timelinePolicies.policies.length; i++ ){
+            
+            var policy = $scope.timelinePolicies.policies[i];
+            var value = $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( policy.retention * 1000, 0 ) } ).toLowerCase();
+            
+            switch( policy.recurrenceRule.FREQ ){
+                    
+                case 'DAILY':
+                    // figure out the time...
+                    var time = parseInt( policy.recurrenceRule.BYHOUR[0] );
+                    var am = true;
+                    
+                    if ( time > 11 ){
+                        am = false;
+                    }
+                    
+                    time %= 12;
+                    
+                    if ( time === 0 ){
+                        time = 12;
+                    }
+                    
+                    if ( am === true ){
+                        time += 'am';
+                    }
+                    else {
+                        time += 'pm';
+                    }
+                    
+                    $scope.snapshotPolicyDescriptions[1] = {
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_daily' ),
+                        predicate: $filter( 'translate' )( 'volumes.snapshot.desc_at', { time: time } ),
+                        value: value
+                    };
+                    break;
+                case 'WEEKLY':
+                    $scope.snapshotPolicyDescriptions[2] = {
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_weekly' ),
+                        predicate: $filter( 'translate' )( 'volumes.snapshot.desc_plural_days', { day: $timeline_policy_helper.convertAbbreviationToString( policy.recurrenceRule.BYDAY[0] ) } ),
+                        value: value
+                    };
+                    break;
+                case 'MONTHLY':
+                    
+                    var predicate = '';
+                    
+                    // means that we set first or last day
+                    if ( angular.isDefined( policy.recurrenceRule.BYMONTHDAY ) ){
+                        if ( parseInt( policy.recurrenceRule.BYMONTHDAY[0] ) === -1 ){
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_last_day_of_the_month' );
+                        }
+                        else {
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_first_day_of_the_month' );
+                        }
+                    }
+                    // we must have set first or last week
+                    else if ( angular.isDefined( policy.recurrenceRule.BYDAY ) ){
+                        
+                        // last week of the month
+                        if ( policy.recurrenceRule.BYDAY[0].indexOf( '-1' ) !== -1 ){
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_last_weekly' );
+                        }
+                        else {
+                            predicate = $filter( 'translate' )( 'volumes.snapshot.l_first_weekly' );
+                        }
+                    }
+                    
+                    $scope.snapshotPolicyDescriptions[3] = {
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_monthly' ),
+                        predicate: predicate,
+                        value: value
+                    };
+                    break;
+                case 'YEARLY':
+                    $scope.snapshotPolicyDescriptions[4] = {
+                        label: $filter( 'translate' )( 'volumes.snapshot.l_yearly' ),
+                        predicate: $timeline_policy_helper.convertMonthNumberToString( parseInt( policy.recurrenceRule.BYMONTH[0] ) ),
+                        value: value
+                    };
+                    break;
+                default:
+                    break;
+            }
+        }
+        
+        $scope.snapshotPolicyDescriptions[0] = {
+            label: $filter( 'translate' )( 'volumes.l_continuous' ),
+            predicate: $filter( 'translate' )( 'volumes.snapshot.l_kept' ),
+            value: $filter( 'translate' )( 'volumes.snapshot.desc_for', { time: $time_converter.convertToTime( $scope.timelinePolicies.continuous * 1000, 0 ).toLowerCase() } )
+        };
+    };
+    
+    // gets the volume info and regenerates the screen
+    var initializeVolume = function(){
+        
+        if ( !angular.isDefined( $scope.volumeVars.selectedVolume ) ){
+            return;
+        }
+        
+        $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ 
+            $scope.snapshots = data;
+            initTimeline();
+        });
+
+        $scope.thisVolume = $scope.volumeVars.selectedVolume;
+
+        $scope.dataConnector = $scope.thisVolume.data_connector;
+
+        initQosSettings();
+
+        initSnapshotSettings().then( function(){
+            // must come after the snapshot settings initialization
+            initSnapshotDescriptions();
+        });
+
+        capacityIntervalId = $interval( pollCapacity, 60000 );
+        performanceIntervalId = $interval( pollPerformance, 60000 );
+        firebreakIntervalId = $interval( pollFirebreak, 600000 );
+        pollCapacity();
+        pollPerformance();        
+        pollFirebreak();
     };
     
     // when we get shown, get all the snapshots and policies.  THen do the chugging
@@ -221,112 +453,28 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.$watch( 'volumeVars.viewing', function( newVal ){
 
         if ( newVal === true ){
-            $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ 
-                $scope.snapshots = data;
-            });
-            
-            $scope.thisVolume = $scope.volumeVars.selectedVolume;
-            
-            $scope.dataConnector = $scope.thisVolume.data_connector;
-            
-            initQosSettings();
-            
-            initSnapshotSettings();
-            
-            buildQueries();
-            
-            capacityIntervalId = $interval( pollCapacity, 60000 );
-            performanceIntervalId = $interval( pollPerformance, 60000 );
+            initializeVolume();   
         }
         else {
             $interval.cancel( capacityIntervalId );
             $interval.cancel( performanceIntervalId );
+            $interval.cancel( firebreakIntervalId );
             $scope.$broadcast( 'fds::cancel_editing' );
         }
     });
     
-//    $scope.$on( 'fds::snapshot_policy_change', function(){
-//        
-//        $volume_api.getSnapshotPoliciesForVolume( $scope.thisVolume.id, function( oldPolicies ){
-//            // do we need to delete some policies?
-//            var deleteList = [];
-//
-//            for ( var o = 0; o < oldPolicies.length; o++ ){
-//
-//                var found = false;
-//
-//                for ( var n = 0; n < $scope.snapshotPolicies.length; n++ ){
-//
-//                    if ( oldPolicies[o].id === $scope.snapshotPolicies[n].id ){
-//                        found = true;
-//                        break;
-//                    }
-//                }// new policies
-//
-//                // not in the new list... delete it
-//                if ( found === false ){
-//                    deleteList.push( oldPolicies[o] );
-//                }
-//
-//            }// old policies
-//
-//            for( var d = 0; d < deleteList.length; d++ ){
-//
-//                var id = deleteList[d].id;
-//
-//                service.detachPolicy( deleteList[d], volumeId, function( result ){
-//                    service.deleteSnapshotPolicy( id, function(){} );
-//                });
-//            }
-//        
-////            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, oldPolicies, $scope.snapshotPolicies );
-//        });
-//    });
-    
-    $scope.$on( 'fds::qos_changed', function(){
+    // when we're done editing we should refresh the screen as well.
+    $scope.$watch( 'volumeVars.editing', function( newVal, oldVal ){
         
-        if ( !angular.isDefined( $scope.thisVolume.id ) ){
-            return;
+        if ( newVal === false ){
+            initializeVolume();
         }
-    
-        $scope.thisVolume.sla = $scope.qos.capacity;
-        $scope.thisVolume.priority = $scope.qos.priority;
-        $scope.thisVolume.limit = $scope.qos.limit;
-        
-        $volume_api.save( $scope.thisVolume );
     });
     
-    $scope.$on( 'fds::media_policy_changed', function(){
+    $scope.edit = function(){
         
-        $scope.thisVolume.mediaPolicy = $scope.mediaPolicy.value;
-        
-        var temp = $scope.thisVolume;
-        
-        if( !angular.isDefined( $scope.thisVolume.id ) ){
-            return;
-        }
-        
-        $volume_api.save( $scope.thisVolume );
-    });
-    
-    $scope.$on( 'fds::timeline_policy_changed', function( newVal, oldVal ){
-        
-        $scope.thisVolume.commit_log_retention = $scope.timelinePolicies.continuous;
-        
-        $volume_api.save( $scope.thisVolume );
-        
-        $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.timelinePolicies.policies );
-    });
-    
-    $scope.$on( 'fds::data_connector_changed', function( newVal, oldVal ){
-        
-        if ( !angular.isDefined( $scope.thisVolume.id ) || !angular.isDefined( oldVal ) ){
-            return;
-        }        
-
-        $scope.thisVolume.data_connector = $scope.dataConncetor;
-        
-        $volume_api.save( $scope.thisVolume );
-    });
+        $scope.volumeVars.editing = true;
+        $scope.volumeVars.next( 'editVolume' );
+    };
     
 }]);

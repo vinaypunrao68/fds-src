@@ -6,13 +6,22 @@
 #define SOURCE_STOR_MGR_INCLUDE_SMCTRL_H_
 
 #include <fdsp/FDSP_types.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/sm_api_types.h>
 
 namespace fds {
 
 /**
  * Set of control commands that to different internal SM modules
  */
+
+/**
+ * Who initiated
+ */
+enum SmCommandInitiator {
+    SM_CMD_INITIATOR_USER,
+    SM_CMD_INITIATOR_TOKEN_MIGRATION,
+    SM_CMD_INITIATOR_NOT_SET
+};
 
 /**
  * Scavenger command
@@ -33,15 +42,22 @@ class SmScavengerCmd {
         SCAV_GET_STATUS,
         SCAV_CMD_NOT_SET
     };
-    SmScavengerCmd() : command(SCAV_CMD_NOT_SET) {}
-    explicit SmScavengerCmd(CommandType cmd) : command(cmd) {}
+    SmScavengerCmd()
+            : command(SCAV_CMD_NOT_SET), initiator(SM_CMD_INITIATOR_NOT_SET) {}
+    // use this constructor if user is an initiator
+    explicit SmScavengerCmd(CommandType cmd)
+            : command(cmd), initiator(SM_CMD_INITIATOR_USER) {}
+    SmScavengerCmd(CommandType cmd, SmCommandInitiator who)
+            : command(cmd), initiator(who) {}
 
     CommandType command;
+    SmCommandInitiator initiator;
 };
 
 class SmScavengerActionCmd: public SmScavengerCmd {
   public:
-    explicit SmScavengerActionCmd(const fpi::FDSP_ScavengerCmd& cmd) {
+    explicit SmScavengerActionCmd(const fpi::FDSP_ScavengerCmd& cmd,
+                         SmCommandInitiator who) {
         switch (cmd) {
             case fpi::FDSP_SCAVENGER_ENABLE:
                 command = SCAV_ENABLE;
@@ -58,6 +74,7 @@ class SmScavengerActionCmd: public SmScavengerCmd {
             default:
                 fds_panic("Unknown scavenger command");
         }
+        initiator = who;
     }
 };
 
@@ -74,6 +91,7 @@ class SmScrubberActionCmd: public SmScavengerCmd {
             default:
                 fds_panic("Unknown scrubber command");
         }
+        initiator = SM_CMD_INITIATOR_USER;
     }
 };
 
@@ -117,6 +135,62 @@ class SmScavengerGetStatusCmd: public SmScavengerCmd {
 
     // scavenger status to return
     fpi::CtrlQueryScavengerStatusRespPtr retStatus;
+};
+
+/**
+ * Tiering command
+ */
+class SmTieringCmd {
+  public:
+    enum CommandType {
+        TIERING_ENABLE,
+        TIERING_DISABLE,
+        /* Debug message for manually starting hybrid tier controller */
+        TIERING_START_HYBRIDCTRLR,
+        TIERING_CMD_NOT_SET
+    };
+    SmTieringCmd() : command(TIERING_CMD_NOT_SET) {}
+    explicit SmTieringCmd(CommandType cmd) : command(cmd) {}
+
+    CommandType command;
+};
+
+class SmCheckCmd {
+  public:
+    enum CommandType {
+        SMCHECK_START,
+        SMCHECK_STOP,
+        SMCHECK_STATUS,
+        SMCHECK_CMD_NOT_SET
+    };
+    SmCheckCmd() : command(SMCHECK_CMD_NOT_SET) {}
+    explicit SmCheckCmd(CommandType cmd) : command(cmd) {}
+
+    CommandType command;
+};
+
+class SmCheckActionCmd: public SmCheckCmd {
+  public:
+    explicit SmCheckActionCmd(const fpi::SMCheckCmd &cmd) {
+        switch (cmd) {
+            case fpi::SMCHECK_START:
+                command = SMCHECK_START;
+                break;
+            case fpi::SMCHECK_STOP:
+                command = SMCHECK_STOP;
+                break;
+            default:
+                fds_panic("Unknown SmCheckCmd");
+        }
+    }
+};
+
+class SmCheckStatusCmd: public SmCheckCmd {
+  public:
+    explicit SmCheckStatusCmd(fpi::CtrlNotifySMCheckStatusRespPtr& status)
+        : SmCheckCmd(SMCHECK_STATUS), checkStatus(status) {}
+
+    fpi::CtrlNotifySMCheckStatusRespPtr checkStatus;
 };
 
 }  // namespace fds

@@ -94,7 +94,7 @@ namespace fds {
     }
 
    /*
-    * bit mask. this will help to boost the performance 
+    * bit mask. this will help to boost the performance
     */
 
     fds_uint64_t ObjectID::getTokenBits(fds_uint32_t numBits) const {
@@ -268,6 +268,7 @@ uint32_t ObjectID::read(serialize::Deserializer* d) {
       return out << "Object ID: " << ObjectID::ToHex(oid);
     }
 
+
     fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
       unsigned int n1, n2, n3, n4;
       fds_uint32_t ip;
@@ -310,14 +311,7 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
         ENUMCASEOS(FDS_DELETE_BLOB               , os);
         ENUMCASEOS(FDS_VOLUME_CONTENTS           , os);
         ENUMCASEOS(FDS_BUCKET_STATS              , os);
-        ENUMCASEOS(FDS_SM_READ_TOKEN_OBJECTS     , os);
-        ENUMCASEOS(FDS_SM_WRITE_TOKEN_OBJECTS    , os);
         ENUMCASEOS(FDS_SM_SNAPSHOT_TOKEN         , os);
-        ENUMCASEOS(FDS_SM_SYNC_APPLY_METADATA    , os);
-        ENUMCASEOS(FDS_SM_SYNC_RESOLVE_SYNC_ENTRY, os);
-        ENUMCASEOS(FDS_SM_APPLY_OBJECTDATA       , os);
-        ENUMCASEOS(FDS_SM_READ_OBJECTDATA        , os);
-        ENUMCASEOS(FDS_SM_READ_OBJECTMETADATA    , os);
         ENUMCASEOS(FDS_OP_INVALID                , os);
         default:
             os << "unknown op:"<< static_cast<int>(opType);

@@ -6,8 +6,8 @@ user_build_dir :=      \
     persistent-layer   \
     umod-lib           \
     util               \
-    migrations         \
     stor-mgr           \
-    data-mgr
+    data-mgr           \
+    restart
 
 include $(topdir)/Makefile.incl

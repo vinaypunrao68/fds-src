@@ -15,6 +15,7 @@ from tabulate import tabulate
 
 from contexts.svchelper import ServiceMap
 # import needed contexts
+from contexts import domain
 from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
@@ -39,6 +40,7 @@ class FDSConsole(cmd.Cmd):
         setupHistoryFile()
         datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
         self.data = {}
+        self.root = None
         self.recordFile = None
         try :
             self.data = shelve.open(datafile,writeback=True)
@@ -50,9 +52,9 @@ class FDSConsole(cmd.Cmd):
         self.setprompt('fds')
         self.context = None
         self.previouscontext = None
+        ServiceMap.config = self.config
         if fInit:
             self.config.init()
-            ServiceMap.serviceMap = self.config.platform.svcMap
             self.set_root_context(context.RootContext(self.config))
 
     def get_access_level(self):
@@ -136,7 +138,7 @@ class FDSConsole(cmd.Cmd):
                 return 'cc ..'
             elif argv[0] == '-':
                 return 'cc -'
-                
+
         if len(argv) > 0:
             if argv[0] in ['?','-h','--help']:
                 argv[0] = 'help'
@@ -449,7 +451,7 @@ class FDSConsole(cmd.Cmd):
             else:
                 ctx, pos, m = self.get_context_for_command(argv)
                 if ctx == None:
-                    print 'unable to determine correct context!!!'
+                    print 'unable to determine correct context or function!!!'
                     ctx = self.context
                     pos = 0
                 #print 'dispatching : %s' % (argv[pos:])            
@@ -467,6 +469,7 @@ class FDSConsole(cmd.Cmd):
         return ''
 
     def init(self):
+        self.root.add_sub_context(domain.DomainContext(self.config,'domain'))
         vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
         snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
@@ -505,11 +508,11 @@ class FDSConsole(cmd.Cmd):
         self.data.close()
 
 if __name__ == '__main__':
-    args=sys.argv[1:]
-    fInit = not (len(args) > 0 and args[0] == 'set')
+    cmdargs=sys.argv[1:]
+    fInit = not (len(cmdargs) > 0 and cmdargs[0] == 'set')
     fdsconsole = FDSConsole(fInit)
     if fInit:
         fdsconsole.init()
-    fdsconsole.run(args)
+    fdsconsole.run(cmdargs)
     
     

@@ -4,7 +4,7 @@
 
 package com.formationds.om.events;
 
-import com.formationds.commons.crud.JDORepository;
+import com.formationds.commons.crud.EntityPersistListener;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Volume;
@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * A postPersist listener on VolumeDatapoint persistence operations to intercept and detect firebreak events.
  */
-public class VolumeDatapointEntityPersistListener implements JDORepository.EntityPersistListener<VolumeDatapoint> {
+public class VolumeDatapointEntityPersistListener implements EntityPersistListener<VolumeDatapoint> {
 
     private static final Logger logger = LoggerFactory.getLogger(VolumeDatapointEntityPersistListener.class);
 
@@ -65,7 +65,7 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
     // if errors are not handled here.  There could also be some impact on performance of that operation, though it
     // is unlikely to be in the user data path and so impact should be minimal.
     @Override
-    public void postPersist(List<VolumeDatapoint> vdp) {
+    public void postPersist(Collection<VolumeDatapoint> vdp) {
         logger.trace( "postPersist handling of {} Volume data points.", vdp.size());
         try {
             doPostPersist(vdp);
@@ -84,9 +84,11 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
      * @param vdp list of volume datapoints
      * @throws TException
      */
-    protected void doPostPersist(List<VolumeDatapoint> vdp) throws TException {
+    protected void doPostPersist(Collection<VolumeDatapoint> vdp) throws TException {
         Map<String, EnumMap<FirebreakType,FirebreakHelper.VolumeDatapointPair>> fb =
-            new FirebreakHelper().findFirebreakEvents(vdp);
+            new FirebreakHelper().findFirebreakEvents( (vdp instanceof List ?
+                                                        (List<VolumeDatapoint>) vdp :
+                                                        new ArrayList<>( vdp )) );
 
         // first iterate over each volume
         fb.forEach((vid, fbvdps) -> {

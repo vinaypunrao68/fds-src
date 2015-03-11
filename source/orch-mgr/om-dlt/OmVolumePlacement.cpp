@@ -7,12 +7,15 @@
 #include <set>
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
+#include "fdsp/dm_api_types.h"
 
 namespace fds {
 
 VolumePlacement::VolumePlacement()
         : Module("Volume Placement Engine"),
-          dmtMgr(new DMTManager()),
+          dmtMgr(new DMTManager(1)),
+          prevDmtVersion(DMT_VER_INVALID),
+          startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex")
 {
@@ -94,13 +97,17 @@ void
 VolumePlacement::computeDMT(const ClusterMap* cmap)
 {
     Error err(ERR_OK);
-    fds_uint64_t next_version = DMT_VER_INVALID + 1;
+    fds_uint64_t next_version = startDmtVersion;
     fds_uint32_t depth = curDmtDepth;
     DMT *newDmt = NULL;
 
     // if we alreay have commited DMT, next version is inc 1
     if (dmtMgr->hasCommittedDMT()) {
         next_version = dmtMgr->getCommittedVersion() + 1;
+    } else {
+        // will use startDmtVersion, but increment startDmtVersion
+        // in case this DMT will be reverted (due to error)
+        ++startDmtVersion;
     }
     if (cmap->getNumMembers(fpi::FDSP_DATA_MGR) < curDmtDepth) {
         depth = cmap->getNumMembers(fpi::FDSP_DATA_MGR);
@@ -151,7 +158,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     fds_verify(dm_set != NULL);
 
     // node to send the push meta msg -> push_meta message
-    typedef std::map<fds_uint64_t, fpi::FDSP_PushMetaPtr> pm_msgs_t;
+    typedef std::map<fds_uint64_t, fpi::CtrlDMMigrateMetaPtr> pm_msgs_t;
     pm_msgs_t push_meta_msgs;
     RsArray vol_ary;
 
@@ -243,7 +250,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         fds_verify(src_dm != 0);
 
         if (push_meta_msgs.count(src_dm) == 0) {
-            fpi::FDSP_PushMetaPtr meta_msg(new fpi::FDSP_PushMeta());
+            fpi::CtrlDMMigrateMetaPtr meta_msg(new fpi::CtrlDMMigrateMeta());
             push_meta_msgs[src_dm] = meta_msg;
         }
         for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
@@ -256,7 +263,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                  idx < ((push_meta_msgs[src_dm])->metaVol).size();
                  ++idx) {
                 fds_uint64_t uuid_val;
-                uuid_val = ((push_meta_msgs[src_dm])->metaVol)[idx].node_uuid.uuid;
+                uuid_val = ((push_meta_msgs[src_dm])->metaVol)[idx].node_uuid.svc_uuid;
                 if (uuid_val == (*cit).uuid_get_val()) {
                     ((push_meta_msgs[src_dm])->metaVol)[idx].volList.push_back(volid);
                     found = true;
@@ -265,7 +272,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
             }
             if (!found) {
                 fpi::FDSP_metaData meta;
-                meta.node_uuid.uuid = (*cit).uuid_get_val();
+                meta.node_uuid = (*cit).toSvcUuid();
                 meta.volList.push_back(volid);
                 ((push_meta_msgs[src_dm])->metaVol).push_back(meta);
             }
@@ -283,7 +290,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 volid_str.append(",");
             }
             LOGDEBUG << "Src node " << std::hex << it->first << ", Dst node "
-                     << metavol.node_uuid.uuid << std::dec << " volumes " << volid_str;
+                     << metavol.node_uuid.svc_uuid << std::dec << " volumes " << volid_str;
         }
         if (OM_NodeDomainMod::om_in_test_mode()) {
             LOGDEBUG << "IN TEST MODE: not sending push meta messages";
@@ -326,7 +333,61 @@ void VolumePlacement::notifyEndOfRebalancing() {
 
 void
 VolumePlacement::commitDMT() {
-    dmtMgr->commitDMT();
+    // commit DMT without removing target
+    prevDmtVersion = dmtMgr->getCommittedVersion();
+    dmtMgr->commitDMT(false);
+    LOGNORMAL << "DMT version: " << dmtMgr->getCommittedVersion()
+              << " Previous committed DMT version " << prevDmtVersion;
+    LOGDEBUG << *dmtMgr;
+}
+
+void
+VolumePlacement::undoTargetDmtCommit() {
+    if (dmtMgr->hasTargetDMT()) {
+        if (!hasNonCommitedTarget()) {
+            // we already assigned committed DMT target, revert
+            Error err = dmtMgr->commitDMT(prevDmtVersion);
+            fds_verify(err.ok());
+            prevDmtVersion = DMT_VER_INVALID;
+        }
+
+        // forget about target DMT and remove it from DMT manager
+        dmtMgr->unsetTarget(true);
+
+        // also forget target DMT in persistent store
+        if (!configDB->setDmtType(0, "target")) {
+            LOGWARN << "unable to store target dmt type to config db";
+        }
+    }
+}
+
+/**
+ * Returns true if there is no target DMT computed or committed
+ * as an official version
+ */
+fds_bool_t
+VolumePlacement::hasNoTargetDmt() const {
+    return (dmtMgr->hasTargetDMT() == false);
+}
+
+fds_bool_t
+VolumePlacement::hasNonCommitedTarget() const {
+    if ((dmtMgr->hasCommittedDMT() == false) ||
+        (dmtMgr->getCommittedVersion() != dmtMgr->getTargetVersion())) {
+        return true;
+    }
+    return false;
+}
+
+Error
+VolumePlacement::persistCommitedTargetDmt() {
+    if (!dmtMgr->hasTargetDMT() ||
+        !dmtMgr->hasCommittedDMT()) {
+        return ERR_NOT_FOUND;
+    } else if (dmtMgr->getCommittedVersion() != dmtMgr->getTargetVersion()) {
+        return ERR_NOT_READY;
+    }
+
     // both the new & the old dlts should already be in the config db
     // just set their types
     if (!configDB->setDmtType(dmtMgr->getCommittedVersion(), "committed")) {
@@ -337,8 +398,15 @@ VolumePlacement::commitDMT() {
     if (!configDB->setDmtType(0, "target")) {
         LOGWARN << "unable to store target dmt type to config db";
     }
-    LOGNORMAL << "version: " << dmtMgr->getCommittedVersion();
+    LOGNORMAL << "DMT version: " << dmtMgr->getCommittedVersion();
     LOGDEBUG << *dmtMgr;
+
+    // unset target DMT in DMT Mgr
+    Error err = dmtMgr->unsetTarget(false);
+    if (!err.ok()) {
+        LOGERROR << "Failed to unset DMT target " << err;
+    }
+    return err;
 }
 
 Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)

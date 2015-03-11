@@ -70,6 +70,7 @@ typedef enum {
     ERR_INVALID_VOL_ID        = 47,
     ERR_DM_JOURNAL_TIME       = 48,
     ERR_DM_REPLAY_JOURNAL     = 49,
+
     ERR_ARCHIVE_SNAP_TAR_FAILED = 50,
     ERR_ARCHIVE_SNAP_PUT_FAILED = 51,
     ERR_ARCHIVE_SNAP_GET_FAILED = 52,
@@ -94,6 +95,7 @@ typedef enum {
     ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND,
     ERR_SM_TOKENSTATEDB_DUPLICATE_KEY,
     ERR_SM_OBJECT_DATA_MISSING,
+    ERR_SM_ZERO_REFCNT_OBJECT,
     ERR_SM_OLT_DISKS_INCONSISTENT,
     ERR_SM_SUPERBLOCK_MISSING_FILE,
     ERR_SM_SUPERBLOCK_CHECKSUM_FAIL,
@@ -103,11 +105,18 @@ typedef enum {
     ERR_SM_SUPERBLOCK_NO_RECONCILE,
     ERR_SM_NOERR_PRISTINE_STATE,
     ERR_SM_GC_ENABLED,
+    ERR_SM_GC_TEMP_DISABLED,
     ERR_SM_AUTO_GC_FAILED,
     ERR_SM_DUP_OBJECT_CORRUPT,
     ERR_SM_SHUTTING_DOWN,
     ERR_SM_TOK_MIGRATION_DESTINATION_MSG_CORRUPT,
     ERR_SM_TOK_MIGRATION_SOURCE_MSG_CORRUPT,
+    ERR_SM_TOK_MIGRATION_NO_DATA_RECVD,
+    ERR_SM_TOK_MIGRATION_DATA_MISMATCH,
+    ERR_SM_TOK_MIGRATION_METADATA_MISMATCH,
+    ERR_SM_TOK_MIGRATION_ABORTED,
+    ERR_SM_TIER_WRITEBACK_NOT_DONE,
+    ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,
@@ -243,6 +252,11 @@ class Error {
 
     friend bool operator== (const Error& lhs, const Error& rhs);
     friend bool operator!= (const Error& lhs, const Error& rhs);
+};
+
+struct ErrorHash {
+    size_t operator()(const Error& e) const
+    { return e.GetErrno(); }
 };
 
 inline std::string Error::GetErrstr() const {

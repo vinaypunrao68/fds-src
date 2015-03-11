@@ -1,0 +1,7 @@
+<div class="fds-mouseover" ng-style="{ top: top, left: left }" ng-show="show">
+    <svg height="6" width="7" style="position: absolute;top: -6px;" ng-show="below" ng-class="{ 'left-side': leftSide, 'right-side': !leftSide }">
+        <polygon points="4,0 7,6 0,6" style="fill: white;fill-opacity: 0.9;"></polygon></svg>
+    <svg height="6" width="7" style="position: absolute;top: 100%;" ng-show="!below" ng-class="{ 'left-side': leftSide, 'right-side': !leftSide }">
+        <polygon points="0,0 7,0 4,6" style="fill: white;fill-opacity: 0.9;"></polygon></svg>
+    <div ng-transclude class="tooltip-body"></div>
+</div>

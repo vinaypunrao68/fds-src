@@ -6,20 +6,24 @@ package com.formationds.om.webkit.rest.events;
 
 import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
-import com.formationds.commons.model.Events;
+import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticatedRequestContext;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -54,14 +58,14 @@ public class QueryEvents implements RequestHandler {
             User requestUser = findUser(uid);
 
             EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
-            Events events = null;
+            List<? extends Event> events = null;
             if (requestUser == null || requestUser.isIsFdsAdmin()) {
                 events = er.query(eventQuery);
             } else {
                 final List<Long> tenantUserIds = findTenantUserIds(uid);
                 events = er.queryTenantUsers(eventQuery, tenantUserIds);
             }
-            return new TextResource( events.toJSON() );
+            return new JsonResource( new JSONArray( events ) );
         }
     }
 

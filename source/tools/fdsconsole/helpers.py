@@ -49,8 +49,12 @@ class ConfigData:
     structure to share/ store & retrieve data
     across different contexts
     '''
-    def __init__(self,data):
+    def __init__(self, data):
         self.__data = data
+        self.__rest = None
+        self.__s3rest = None
+        self.__platform = None
+        self.__token = None
         self.checkDefaults()
 
     def checkDefaults(self):
@@ -67,22 +71,33 @@ class ConfigData:
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
 
+    def getRestApi(self):
+        if self.__rest == None:
+            self.__rest = restendpoint.RestEndpoint(self.getHost(), 7443, user=self.getUser(), password=self.getPass(), auth=False)
+            self.__token = self.__rest.login(self.getUser(), self.getPass())
+        return self.__rest
+
+    def getS3Api(self):
+        if self.__s3rest == None:
+            if not self.__token:
+                print '[WARN] : unable to login as {}'.format(self.getUser())
+                self.__s3rest = None
+            else:
+                #print token
+                self.__s3rest = boto.connect_s3(aws_access_key_id=self.getUser(),
+                                                aws_secret_access_key=self.__token,
+                                                host=self.getHost(),
+                                                port=8443,
+                                                calling_format=boto.s3.connection.OrdinaryCallingFormat())
+        return self.__s3rest
+
+    def getPlatform(self):
+        if self.__platform == None:
+            self.__platform = platformservice.PlatSvc(1690, self.getHost(), self.getPort())
+        return self.__platform
+
     def init(self):
         self.checkDefaults()
-        self.rest = restendpoint.RestEndpoint(self.getHost(), 7443, user=self.getUser(), password=self.getPass(), auth=False)
-        token = self.rest.login(self.getUser(), self.getPass())
-        if not token:
-            print '[WARN] : unable to login as {}'.format(self.getUser())
-            self.s3rest = None
-        else:
-            #print token
-            self.s3rest   = boto.connect_s3(aws_access_key_id='admin',
-                                            aws_secret_access_key=token,
-                                            host=self.getHost(),
-                                            port=8443,
-                                            calling_format=boto.s3.connection.OrdinaryCallingFormat())
-
-        self.platform = platformservice.PlatSvc(1690, self.getHost(), self.getPort())
 
     def set(self, key, value, namespace):
         if namespace not in self.__data:

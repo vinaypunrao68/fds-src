@@ -1,6 +1,7 @@
 FROM registry.formationds.com:5000/fds_base
 MAINTAINER Aaron Nichols <aaron@formationds.com>
 #
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 # Download cosbench
 WORKDIR /opt
 RUN wget https://github.com/intel-cloud/cosbench/releases/download/v0.4.0.1/0.4.0.1.zip
@@ -25,6 +26,11 @@ RUN make devsetup
 RUN git remote set-url origin https://github.com/fds-dev/fds-src
 RUN rm -f ~/.ssh/*
 RUN ccache -M 2G
+
+RUN git config --global user.name "Deploy"
+RUN git config --global user.email "deploy@formationds.com"
+RUN git config --global --unset user.name
+RUN git config --global --unset user.email
 
 USER root
 RUN rm -rf /home/pairing/.ansible

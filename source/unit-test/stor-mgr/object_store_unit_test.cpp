@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include <util/Log.h>
+#include <fdsp_utils.h>
 #include <fds_types.h>
 #include <ObjectId.h>
 #include <fds_module.h>
@@ -29,6 +30,7 @@ static ObjectStore::unique_ptr objectStore;
 static TestVolume::ptr volume1;
 static TestVolume::ptr largeCapVolume;
 static TestVolume::ptr largeObjVolume;
+static TestVolume::ptr migrVolume;
 
 class ObjectStoreTest : public FdsProcess {
   public:
@@ -123,6 +125,13 @@ void setupTests(fds_uint32_t hddCount,
                                         TestVolume::STORE_OP_PUT,
                                         datasetSize, 2*1024*1024));
     volTbl->registerVolume(largeObjVolume->voldesc_);
+
+    // volume we will use to test migration code
+    migrVolume.reset(new TestVolume(volId+3, "ut_migration_vol",
+                                    1, 0,
+                                    TestVolume::STORE_OP_PUT,
+                                    datasetSize, 4096));
+    volTbl->registerVolume(migrVolume->voldesc_);
 
     delete dlt;
 }
@@ -268,6 +277,168 @@ TEST_F(SmObjectStoreTest, move_to_ssd) {
     ObjectID oid = (volume1->testdata_).dataset_[0];
     err = objectStore->moveObjectToTier(oid, diskio::diskTier, diskio::flashTier, false);
     EXPECT_TRUE(err == ERR_DUPLICATE);
+}
+
+void
+initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg) {
+    // cleanup first
+    msg.objectVolumeAssoc.clear();
+    msg.objectData.clear();
+    msg.objectSize = 0;
+
+    // init
+    MetaDataVolumeAssoc volAssoc;
+    volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
+    volAssoc.volumeRefCnt = 1;
+    msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
+    msg.objectVolumeAssoc.push_back(volAssoc);
+    msg.objectRefCnt = 1;
+    msg.objectCompressType = 0;
+    msg.objectCompressLen = 0;
+    msg.objectBlkLen = 4096;
+    msg.objectFlags = 0;
+    msg.objectExpireTime = 0;
+}
+
+TEST_F(SmObjectStoreTest, apply_deltaset) {
+    Error err(ERR_OK);
+    fpi::CtrlObjectMetaDataPropagate msg;
+    initMetaDataPropagate(msg);
+
+    // apply first half of objects
+    fds_uint32_t firstSetSize = (migrVolume->testdata_).dataset_.size() / 2;
+    fds_uint32_t secondSetSize = (migrVolume->testdata_).dataset_.size() - firstSetSize;
+
+    LOGDEBUG << "Applying first half of objects to object store";
+    for (fds_uint32_t i = 0; i < firstSetSize; ++i) {
+        ObjectID oid = (migrVolume->testdata_).dataset_[i];
+        boost::shared_ptr<std::string> data =
+                (migrVolume->testdata_).dataset_map_[oid].getObjectData();
+
+        // update msg fields that depend on particular object/test
+        initMetaDataPropagate(msg);
+        fds::assign(msg.objectID, oid);
+        msg.objectData.clear();
+        msg.objectData.resize(data->length());
+        msg.objectData.assign(*data);
+        msg.objectSize = data->length();
+
+        // apply this delta -- this this the first time
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // read and see if data is there...
+        boost::shared_ptr<const std::string> retData;
+        diskio::DataTier usedTier = diskio::maxTier;
+        retData = objectStore->getObject((migrVolume->voldesc_).volUUID, oid, usedTier, err);
+        EXPECT_TRUE(err.ok());
+        EXPECT_TRUE((migrVolume->testdata_).dataset_map_[oid].isValid(retData));
+    }
+
+    // apply next object without data, must return error
+    fds_uint32_t index = firstSetSize;
+    EXPECT_TRUE(index < (migrVolume->testdata_).dataset_.size());
+    msg.objectData.clear();
+    msg.objectSize = 0;
+    err = objectStore->applyObjectMetadataData((migrVolume->testdata_).dataset_[index], msg);
+    EXPECT_TRUE(err == ERR_SM_TOK_MIGRATION_NO_DATA_RECVD);
+
+    // apply object with data during second phase, when object
+    // did not exist during the first phase
+    ++index;
+    EXPECT_TRUE(index < (migrVolume->testdata_).dataset_.size());
+    ObjectID newOid = (migrVolume->testdata_).dataset_[index];
+    boost::shared_ptr<std::string> newData =
+            (migrVolume->testdata_).dataset_map_[newOid].getObjectData();
+    initMetaDataPropagate(msg);
+    fds::assign(msg.objectID, newOid);
+    // if we add data during second phase, we should still set reconcile = false
+    msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
+    msg.objectData.clear();
+    msg.objectData.resize(newData->length());
+    msg.objectData.assign(*newData);
+    msg.objectSize = newData->length();
+    LOGDEBUG << "Object with data during second phase " << newOid;
+    err = objectStore->applyObjectMetadataData(newOid, msg);
+    EXPECT_TRUE(err.ok());
+    // read and see if data is there...
+    boost::shared_ptr<const std::string> retNewData;
+    diskio::DataTier usedTierNew = diskio::maxTier;
+    retNewData = objectStore->getObject((migrVolume->voldesc_).volUUID, newOid, usedTierNew, err);
+    EXPECT_TRUE(err.ok());
+    EXPECT_TRUE((migrVolume->testdata_).dataset_map_[newOid].isValid(retNewData));
+    ++index;
+
+    // apply second set of objects + one more metadata change (refcnt ++)
+    LOGDEBUG << "Applying second half of objects to object store";
+    for (fds_uint32_t i = index; i < (migrVolume->testdata_).dataset_.size(); ++i) {
+        ObjectID oid = (migrVolume->testdata_).dataset_[i];
+        boost::shared_ptr<std::string> data =
+                (migrVolume->testdata_).dataset_map_[oid].getObjectData();
+
+        // update msg fields that depend on particular object/test
+        initMetaDataPropagate(msg);
+        fds::assign(msg.objectID, oid);
+        msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
+        msg.objectData.clear();
+        msg.objectData.resize(data->length());
+        msg.objectData.assign(*data);
+        msg.objectSize = data->length();
+
+        // apply this delta -- this this the first time
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // read and see if data is there...
+        boost::shared_ptr<const std::string> retData;
+        diskio::DataTier usedTier = diskio::maxTier;
+        retData = objectStore->getObject((migrVolume->voldesc_).volUUID, oid, usedTier, err);
+        EXPECT_TRUE(err.ok());
+        EXPECT_TRUE((migrVolume->testdata_).dataset_map_[oid].isValid(retData));
+
+        // increase refcount (+2) and apply metadata again
+        msg.objectReconcileFlag = fpi::OBJ_METADATA_RECONCILE;
+        msg.objectRefCnt = 2;
+        msg.objectVolumeAssoc[0].volumeRefCnt = 2;
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // decrease refcnt (-1) and apply metadata again
+        msg.objectReconcileFlag = fpi::OBJ_METADATA_RECONCILE;
+        msg.objectRefCnt = -1;
+        msg.objectVolumeAssoc[0].volumeRefCnt = -1;
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // add new volume association
+        MetaDataVolumeAssoc volAssoc2;
+        volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID;
+        volAssoc2.volumeRefCnt = 3;
+        msg.objectRefCnt = 3;
+        // setting it to 0, so volume[0] doesn't factor into reconciling.
+        msg.objectVolumeAssoc[0].volumeRefCnt = 0;
+        msg.objectVolumeAssoc.push_back(volAssoc2);
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // remove volume association we just added
+        msg.objectVolumeAssoc[1].volumeRefCnt = -3;
+        msg.objectRefCnt = -3;
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_TRUE(err.ok());
+
+        // remove it again -- should be an error
+        msg.objectVolumeAssoc[1].volumeRefCnt = -3;
+        msg.objectRefCnt = -3;
+        err = objectStore->applyObjectMetadataData(oid, msg);
+        EXPECT_FALSE(err.ok());
+
+        // read data again
+        boost::shared_ptr<const std::string> retDataAgain;
+        retDataAgain = objectStore->getObject((migrVolume->voldesc_).volUUID, oid, usedTier, err);
+        EXPECT_TRUE(err.ok());
+        EXPECT_TRUE((migrVolume->testdata_).dataset_map_[oid].isValid(retDataAgain));
+    }
 }
 
 TEST_F(SmObjectStoreTest, concurrent_puts) {

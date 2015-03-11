@@ -7,7 +7,7 @@ import sys
 
 artifacts_to_keep = 14
 deb_dict = {}
-deb_names = [ "fds-coredump", "fds-platform" ]
+deb_names = [ "fds-platform" ]
 
 conn = Http()
 conn.add_credentials('jenkins','UP93STXWFy5c')
@@ -22,10 +22,10 @@ for deb_name in deb_names:
 
 for record in content_json['children']:
     for deb_name in deb_names:
-        if re.compile(".*" + deb_name + ".*").match(record['uri']):
+        if re.compile(".*" + deb_name + "_.*-(debug|release)-.*").match(record['uri']):
             deb_dict[deb_name].append(record['uri'])
 
-        deb_dict[deb_name].sort(key=lambda deb: int(deb.split('-')[2].split('.')[0]))
+        deb_dict[deb_name].sort(key=lambda deb: int(deb.split('-')[3].split('.')[0]))
 
 for deb_name in deb_dict.keys():
     if len(deb_dict[deb_name]) > artifacts_to_keep:

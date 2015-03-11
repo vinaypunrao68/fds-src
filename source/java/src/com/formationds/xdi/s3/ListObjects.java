@@ -4,21 +4,21 @@ package com.formationds.xdi.s3;
  */
 
 import com.amazonaws.services.s3.internal.ServiceUtils;
-import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-public class ListObjects implements RequestHandler {
+public class ListObjects implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
 
@@ -28,9 +28,19 @@ public class ListObjects implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String bucket = requiredString(routeParameters, "bucket");
-        List<BlobDescriptor> contents = xdi.volumeContents(token, S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
+    public Resource handle(HttpContext ctx) throws Exception {
+        String bucket = ctx.getRouteParameter("bucket");
+
+        // [FS-745] We must return 404 if the bucket doesn't exist, regardless of authentication status.
+        // Amazon S3 treats the existence (or non-existence) of a bucket as a public resource.
+        // XDI implements the Brewer-Nash model for volumes, so we need to bypass authorization for this
+        // Tested in S3SmokeTest.testMissingBucketReturnsFourOfFour.
+
+        if (!xdi.volumeExists(S3Endpoint.FDS_S3, bucket)) {
+            return new S3Failure(S3Failure.ErrorCode.NoSuchBucket, "No such bucket", bucket);
+        }
+
+        List<BlobDescriptor> contents = xdi.volumeContents(token, S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
 
         XmlElement result = new XmlElement("ListBucketResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")

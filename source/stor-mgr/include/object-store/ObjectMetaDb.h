@@ -87,6 +87,13 @@ class ObjectMetadataDb {
                   leveldb::DB*& db,
                   leveldb::ReadOptions& opts);
 
+    /**
+     * Returns persistent snapshot of metadata DB for a given SM token
+     */
+    Error snapshot(fds_token_id smTokId,
+                   std::string &snapDir,
+                   leveldb::CopyEnv **env);
+
   private:  // methods
     /**
      * Open object metadata DB for a given SM token

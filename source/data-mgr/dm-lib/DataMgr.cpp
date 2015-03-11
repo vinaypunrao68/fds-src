@@ -7,45 +7,12 @@
 #include <vector>
 #include <net/net_utils.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
+#include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
 
 namespace fds {
-
-Error
-DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
-                            const FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
-                            const std::string& session_uuid) {
-    Error err(ERR_OK);
-    OMgrClient* om_client = dataMgr->omClient;
-    GLOGNORMAL << "Received Volume Catalog request";
-    if (catalog_action == fds_catalog_push_meta) {
-        if (dataMgr->feature.isCatSyncEnabled()) {
-            err = dataMgr->catSyncMgr->startCatalogSync(
-                push_meta->metaVol, om_client, session_uuid);
-        } else {
-            LOGWARN << "catalog sync feature - NOT enabled";
-        }
-    } else if (catalog_action == fds_catalog_dmt_commit) {
-        // thsi will ignore this msg if catalog sync is not in progress
-        if (dataMgr->feature.isCatSyncEnabled()) {
-            err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
-        } else {
-            LOGWARN << "catalog sync feature - NOT enabled";
-        }
-    } else if (catalog_action == fds_catalog_dmt_close) {
-        // will finish forwarding when all queued updates are processed
-        GLOGNORMAL << "Received DMT Close";
-        err = dataMgr->notifyDMTClose();
-    } else {
-        fds_assert(!"Unknown catalog command");
-    }
-    return err;
-}
 
 /**
  * Receiver DM processing of volume sync state.
@@ -56,11 +23,15 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
 Error
 DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
     Error err(ERR_OK);
-    LOGNORMAL << "DM received volume sync state for volume " << std::hex
-              << volume_id << std::dec << " forward complete? " << fwd_complete;
+    LOGMIGRATE << "DM received volume sync state for volume " << std::hex
+               << volume_id << std::dec << " forward complete? " << fwd_complete;
+
+    // open catalogs so we can start processing updates
+    // TODO(Andrew): Actually do something if this fails. It doesn't really matter
+    // now because our caller never replies to other other DM anyways...
+    fds_verify(ERR_OK == timeVolCat_->activateVolume(volume_id));
 
     if (!fwd_complete) {
-        // open catalogs so we can start processing updates
         err = timeVolCat_->activateVolume(volume_id);
         if (err.ok()) {
             // start processing forwarded updates
@@ -126,7 +97,6 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     fds_uint64_t total_bytes = 0;
     fds_uint64_t total_blobs = 0;
     fds_uint64_t total_objects = 0;
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
 
     // find all volumes for which this DM is primary (we only need
     // to collect capacity stats from DMs that are primary).
@@ -137,9 +107,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
         if (vol_it->second->vol_desc->fSnapshot) {
             continue;
         }
-        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vol_it->first);
-        fds_verify(nodes->getLength() > 0);
-        if (*mySvcUuid == nodes->get(0)) {
+        if (amIPrimary(vol_it->first)) {
             prim_vols.insert(vol_it->first);
         }
     }
@@ -278,17 +246,16 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
     // set the state
     vol_map_mtx->lock();
     VolumeMeta *vol_meta = vol_meta_map[volid];
-    fds_verify(vol_meta->isForwarding());
+    // Skip this verify because it's actually set later?
+    // TODO(Andrew): If the above comment is correct, we
+    // remove most of what this function actually do
+    // fds_verify(vol_meta->isForwarding());
     vol_meta->setForwardFinish();
     vol_map_mtx->unlock();
 
     // notify cat sync mgr
-    if (feature.isCatSyncEnabled()) {
-        if (catSyncMgr->finishedForwardVolmeta(volid)) {
-            all_finished = true;
-        }
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
+    if (catSyncMgr->finishedForwardVolmeta(volid)) {
+        all_finished = true;
     }
 }
 
@@ -452,7 +419,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                     err = timeVolCat_->addVolume(*vdesc);
                 }
 
-                // now replay neccessary commit logs as needed
+                // now replay necessary commit logs as needed
                 // TODO(dm-team): check for validity of TxnLogs
                 bool fHasValidTxnLogs = (util::getTimeStampMicros() - snapshotTime) <=
                         volmeta->vol_desc->contCommitlogRetention * 1000*1000;
@@ -492,7 +459,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     }
 
     if (err.ok() && vdesc->isClone() && fPrimary) {
-        // all actions were successfull now rsync it to other DMs
+        // all actions were successful now rsync it to other DMs
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
         Error err1;
         for (uint i = 1; i < nodes->getLength(); i++) {
@@ -533,7 +500,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     }
 
 
-    LOGDEBUG << "Added vol meta for vol uuid and per Volume queue" << std::hex
+    LOGDEBUG << "Added vol meta for vol uuid and per Volume queue " << std::hex
              << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
     vol_map_mtx->lock();
@@ -675,7 +642,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     // mark volume as deleted if it's not empty
     if (check_only) {
         // check if not empty and mark volume as deleted to
-        // prevent futher updates to the volume as we are going
+        // prevent further updates to the volume as we are going
         // to remove it
         err = timeVolCat_->markVolumeDeleted(vol_uuid);
         if (!err.ok()) {
@@ -688,7 +655,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
         // if notify delete asked to only check if deleting volume
         // was ok; so we return here; DM will get
         // another notify volume delete with check_only == false to
-        // actually cleanup all other datastructures for this volume
+        // actually cleanup all other data structures for this volume
         return err;
     }
 
@@ -721,7 +688,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
 Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
     Error err(ERR_OK);
     // get list of blobs for volume
-    fpi::BlobInfoListType blobList;
+    fpi::BlobDescriptorListType blobList;
     VolumeCatalogQueryIface::ptr volCatIf = timeVolCat_->queryIface();
     blob_version_t version = 0;
     // FIXME(DAC): This needs to happen within the context of a transaction.
@@ -736,9 +703,9 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
         // FIXME(DAC): Error is ignored, and only the last error from deleteBlob will be returned
         //             to the caller.
         err = volCatIf->getBlobMeta(volId,
-                                    blob.blob_name,
+                                    blob.name,
                                     &version, &blobSize, &metaList);
-        err = volCatIf->deleteBlob(volId, blob.blob_name, version);
+        err = volCatIf->deleteBlob(volId, blob.name, version);
     }
 
     return err;
@@ -759,7 +726,9 @@ Error DataMgr::notifyDMTClose() {
             return err;
         }
         // set DMT close time in catalog sync mgr
-        catSyncMgr->setDmtCloseNow();
+        // TODO(Andrew): We're doing this later in the process,
+        // so can remove this when that works for sure.
+        // catSyncMgr->setDmtCloseNow();
     } else {
         LOGWARN << "catalog sync feature - NOT enabled";
     }
@@ -774,19 +743,15 @@ Error DataMgr::notifyDMTClose() {
         VolumeMeta *vol_meta = vol_it->second;
         vol_meta->finishForwarding();
         pushMetaDoneIo = new DmIoPushMetaDone(vol_it->first);
-        err = enqueueMsg(vol_it->first, pushMetaDoneIo);
-        fds_verify(err.ok());
+        handleDMTClose(pushMetaDoneIo);
     }
     vol_map_mtx->unlock();
 
-    // we will stop forwarding for each volume when all transactions
-    // open before time we received dmt close get committed or aborted
-    // but we timeout to ensure we send DMT close ack
-    if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(60))) {
-        // TODO(xxx) how do we handle this?
-        // fds_panic("Failed to schedule closedmt timer!");
-        LOGWARN << "Failed to schedule close dmt timer task";
-    }
+    // TODO(Andrew): Um, no where to we have a useful error statue
+    // to even return.
+    sendDmtCloseCb(err);
+    LOGMIGRATE << "Sent DMT close message to OM";
+
     return err;
 }
 
@@ -796,31 +761,16 @@ Error DataMgr::notifyDMTClose() {
 //
 void DataMgr::handleDMTClose(dmCatReq *io) {
     DmIoPushMetaDone *pushMetaDoneReq = static_cast<DmIoPushMetaDone*>(io);
+    LOGMIGRATE << "Processed all commits that arrived before DMT close "
+               << "will now notify dst DM to open up volume queues: vol "
+               << std::hex << pushMetaDoneReq->volId << std::dec;
 
-    LOGDEBUG << "Processed all commits that arrived before DMT close "
-             << "will now notify dst DM to open up volume queues: vol "
-             << std::hex << pushMetaDoneReq->volId << std::dec;
-
-    Error err(ERR_OK);
-    if (feature.isCatSyncEnabled()) {
-        err = catSyncMgr->issueServiceVolumeMsg(pushMetaDoneReq->volId);
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
-    }
-    // TODO(Anna) if err, send DMT close ack with error???
-    fds_verify(err.ok());
-
-    // If there are no open transactions that started before we got
-    // DMT close, we can finish forwarding right now
-    if (feature.isCatSyncEnabled()) {
-        if (!timeVolCat_->isPendingTx(pushMetaDoneReq->volId, catSyncMgr->dmtCloseTs())) {
-            finishForwarding(pushMetaDoneReq->volId);
-        }
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
-    }
-
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*pushMetaDoneReq);
+    // Notify any other DMs we're migrating to that it's OK to dispatch
+    // from their blocked QoS queues.
+    // If we commit any currently open or in process transactions they
+    // will still get forwarded when they complete.
+    fds_verify(ERR_OK == catSyncMgr->issueServiceVolumeMsg(pushMetaDoneReq->volId));
+    LOGMIGRATE << "Sent message to migration destination to open blocked queues.";
     delete pushMetaDoneReq;
 }
 
@@ -850,7 +800,7 @@ DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
         : Module("dm"),
           modProvider_(modProvider)
 {
-    // NOTE: Don't put much stuff in the constuctor.  Move any construction
+    // NOTE: Don't put much stuff in the constructor.  Move any construction
     // into mod_init()
 }
 
@@ -859,7 +809,7 @@ int DataMgr::mod_init(SysParams const *const param)
     Error err(ERR_OK);
 
     omConfigPort = 0;
-    use_om = true;
+    standalone = false;
     numTestVols = 10;
     scheduleRate = 10000;
 
@@ -895,6 +845,23 @@ int DataMgr::mod_init(SysParams const *const param)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
+    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
+    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
+    if (!standalone) {
+        LOGDEBUG << " Initialising the OM client ";
+        /*
+         * Setup communication with OM.
+         */
+        omClient = new OMgrClient(FDSP_DATA_MGR,
+                                  omIpStr,
+                                  omConfigPort,
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
+                                  GetLog(),
+                                  nullptr,
+                                  nullptr);
+        omClient->setNoNetwork(false);
+    }
+
     return 0;
 }
 
@@ -913,7 +880,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
-    handlers[FDS_DM_LIST_BLOBS_BY_PATTERN] = new dm::ListBlobsByPatternHandler();
+    new dm::ReloadVolumeHandler();
 }
 
 DataMgr::~DataMgr()
@@ -924,12 +891,11 @@ int DataMgr::run()
 {
     // TODO(Rao): Move this into module init
     initHandlers();
-    try {
-        nstable->listenServer(metadatapath_session);
+
+    while (true) {
+        sleep(1);
     }
-    catch(...){
-        std::cout << "starting server threw an exception" << std::endl;
-    }
+
     return 0;
 }
 
@@ -943,58 +909,12 @@ void DataMgr::mod_startup()
 
     runMode = NORMAL_MODE;
 
-    // Get config values from that platform lib.
-    //
-    omConfigPort = modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
-    omIpStr      = *modProvider_->get_plf_manager()->plf_get_om_ip();
-
-    use_om = !(modProvider_->get_fds_config()->get<bool>("fds.dm.no_om", false));
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
     }
     LOGNORMAL << "Data Manager using control port "
-              << modProvider_->get_plf_manager()->plf_get_my_ctrl_port();
-
-    /* Set up FDSP RPC endpoints */
-    nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
-    myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-    assert(myIp.empty() == false);
-    std::string node_name = "_DM_" + myIp;
-
-    LOGNORMAL << "Data Manager using IP:"
-              << myIp << " and node name " << node_name;
-
-    setup_metadatapath_server(myIp);
-
-    if (use_om) {
-        LOGDEBUG << " Initialising the OM client ";
-        /*
-         * Setup communication with OM.
-         */
-        omClient = new OMgrClient(FDSP_DATA_MGR,
-                                  omIpStr,
-                                  omConfigPort,
-                                  node_name,
-                                  GetLog(),
-                                  nstable,
-                                  modProvider_->get_plf_manager());
-        omClient->setNoNetwork(false);
-        omClient->initialize();
-        omClient->registerCatalogEventHandler(volcat_evt_handler);
-        /*
-         * Brings up the control path interface.
-         * This does not require OM to be running and can
-         * be used for testing DM by itself.
-         */
-        omClient->startAcceptingControlMessages();
-
-        /*
-         * Registers the DM with the OM. Uses OM for bootstrapping
-         * on start. Requires the OM to be up and running prior.
-         */
-        omClient->registerNodeWithOM(modProvider_->get_plf_manager());
-    }
+              << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
 
     setup_metasync_service();
 
@@ -1004,15 +924,10 @@ void DataMgr::mod_startup()
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    fpi::StorCapMsg stor_cap;
-    if (!feature.isTestMode()) {
-        const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
-        NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
-        my_agent->init_stor_cap_msg(&stor_cap);
-    } else {
-        stor_cap.disk_iops_min = 60*1000;  // for testing
-    }
-    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
+    auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+    fds_uint32_t diskIOPsMin = feature.isTestMode() ? 60*1000 :
+            svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
+                                                 "disk_iops_min");
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -1020,7 +935,8 @@ void DataMgr::mod_enable_service() {
     // totalRate to disk_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
-    scheduleRate = 2*stor_cap.disk_iops_min;
+    scheduleRate = 2 * diskIOPsMin;
+    LOGNOTIFY << "Will set totalRate to " << scheduleRate;
 
     /*
      *  init Data Manager  QOS class.
@@ -1069,10 +985,18 @@ void DataMgr::mod_enable_service() {
         std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
     timeline.open();
+
+    // Register the DLT manager with service layer so that
+    // outbound requests have the correct dlt_version.
+    if (!feature.isTestMode()) {
+        gSvcRequestPool->setDltManager(omClient->getDltManager());
+    }
 }
 
 void DataMgr::mod_shutdown()
 {
+    shuttingDown = true;
+
     LOGNORMAL;
     statStreamAggr_->mod_shutdown();
     timeVolCat_->mod_shutdown();
@@ -1100,25 +1024,6 @@ void DataMgr::mod_shutdown()
     delete omClient;
     delete vol_map_mtx;
     delete qosCtrl;
-}
-
-void DataMgr::setup_metadatapath_server(const std::string &ip)
-{
-    metadatapath_handler.reset(new ReqHandler());
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_DM_" + ip;
-    // TODO(Andrew): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(Andrew): Figure out who cleans up datapath_session_
-    metadatapath_session = nstable->\
-            createServerSession<netMetaDataPathServerSession>(
-                myIpInt,
-                modProvider_->get_plf_manager()->plf_get_my_data_port(),
-                node_name,
-                FDSP_STOR_HVISOR,
-                metadatapath_handler);
 }
 
 void DataMgr::setup_metasync_service()
@@ -1173,66 +1078,19 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
     return result;
 }
 
-DataMgr::ReqHandler::ReqHandler() {
-}
-
-DataMgr::ReqHandler::~ReqHandler() {
-}
-
-void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
-                                            FDSP_GetVolumeBlobListReqTypePtr& blobListReq) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
 /**
  * Checks the current DMT to determine if this DM primary
  * or not for a given volume.
  */
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-    DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
-    fds_verify(nodes->getLength() > 0);
+    if (omClient->hasCommittedDMT()) {
+        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
+        fds_verify(nodes->getLength() > 0);
 
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-    return (*mySvcUuid == nodes->get(0));
-}
-
-void
-DataMgr::ReqHandler::StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
-                                 boost::shared_ptr<std::string> &volumeName,
-                                 boost::shared_ptr<std::string> &blobName,
-                                 FDS_ProtocolInterface::TxDescriptorPtr &txDesc) {
-    GLOGDEBUG << "Received start blob transction request for volume "
-              << *volumeName << " and blob " << *blobName;
-    fds_panic("must not get here");
-}
-
-void
-DataMgr::ReqHandler::StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
-                              boost::shared_ptr<std::string> &volumeName,
-                              boost::shared_ptr<std::string> &blobName) {
-    GLOGDEBUG << "Received stat blob requested for volume "
-              << *volumeName << " and blob " << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
-                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                              FDS_ProtocolInterface::
-                                              FDSP_UpdateCatalogTypePtr
-                                              &update_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
-                                             FDSP_MsgHdrTypePtr &msg_hdr,
-                                             FDS_ProtocolInterface::
-                                             FDSP_QueryCatalogTypePtr
-                                             &query_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
+        return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
+    }
+    return false;
 }
 
 /**
@@ -1247,10 +1105,6 @@ DataMgr::snapVolCat(dmCatReq *io) {
     DmIoSnapVolCat *snapReq = static_cast<DmIoSnapVolCat*>(io);
     fds_verify(snapReq != NULL);
 
-    LOGDEBUG << "Will do first or second rsync for volume "
-             << std::hex << snapReq->volId << " to node "
-             << (snapReq->node_uuid).uuid_get_val() << std::dec;
-
     if (io->io_type == FDS_DM_SNAPDELTA_VOLCAT) {
         // we are doing second rsync, set volume state to forward
         // We are doing this before we do catalog rsync, so some
@@ -1259,13 +1113,25 @@ DataMgr::snapVolCat(dmCatReq *io) {
         // because we are serializing the updates to the same blob.
         // so they will also make it in order (assuming that sending
         // update A before update B will also cause receiving DM to receive
-        // udpdate A before update B -- otherwise we will have a race
+        // update A before update B -- otherwise we will have a race
         // which will also happen with other forwarded updates).
         vol_map_mtx->lock();
         fds_verify(vol_meta_map.count(snapReq->volId) > 0);
         VolumeMeta *vol_meta = vol_meta_map[snapReq->volId];
+        // TODO(Andrew): We're setting the forwarding state separately from
+        // taking the snapshot, which means that we'll start forwarding
+        // data that will also be in the delta snapshot that we rsync, which
+        // is incorrect. These two steps should be made atomic.
         vol_meta->setForwardInProgress();
         vol_map_mtx->unlock();
+        LOGMIGRATE << "Starting 2nd (delta) rsync for volume " << std::hex
+                   << snapReq->volId << " to node "
+                   << (snapReq->node_uuid).uuid_get_val() << std::dec;
+    } else {
+        fds_verify(FDS_DM_SNAP_VOLCAT == io->io_type);
+        LOGMIGRATE << "Starting 1st rsync for volume " << std::hex
+                   << snapReq->volId << " to node "
+                   << (snapReq->node_uuid).uuid_get_val() << std::dec;
     }
 
     // sync the catalog
@@ -1303,7 +1169,8 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->src_id = FDSP_DATA_MGR;
     msgHdr->dst_id = FDSP_STOR_MGR;
 
-    msgHdr->src_node_name = *(modProvider_->get_plf_manager()->plf_get_my_name());
+    auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+    msgHdr->src_node_name = svcmgr->getSelfSvcName();
 
     msgHdr->origin_timestamp = fds::get_fds_timestamp_ms();
 
@@ -1319,7 +1186,7 @@ Error
 DataMgr::expungeObjectsIfPrimary(fds_volid_t volid,
                                  const std::vector<ObjectID>& oids) {
     Error err(ERR_OK);
-    if (runMode == TEST_MODE) return err;  // no SMs, noone to notify
+    if (runMode == TEST_MODE) return err;  // no SMs, no one to notify
     if (amIPrimary(volid) == false) return err;  // not primary
 
     for (std::vector<ObjectID>::const_iterator cit = oids.cbegin();
@@ -1350,18 +1217,20 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     // Set message parameters
     expReq->volId = volId;
     fds::assign(expReq->objId, objId);
-    expReq->origin_timestamp = fds::get_fds_timestamp_ms();
 
     // Make RPC call
+    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    // get DLT and increment refcount so that DM will respond to
+    // DLT commit of the next DMT only after all deletes with this DLT complete
+    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
 
     auto asyncExpReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(omClient->getDLTNodesForDoidKey(objId)));
+        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
     asyncExpReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), expReq);
     asyncExpReq->setTimeoutMs(5000);
-    // TODO(brian): How to do cb?
-    // asyncExpReq->onResponseCb(NULL);  // in other areas respcb is a parameter
+    asyncExpReq->onResponseCb(RESPONSE_MSG_HANDLER(DataMgr::expungeObjectCb,
+                                                   dlt->getVersion()));
     asyncExpReq->invoke();
-    // Return any errors
     return err;
 }
 
@@ -1369,50 +1238,13 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
  * Callback for expungeObject call
  */
 void
-DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
+DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
+                         QuorumSvcRequest* svcReq,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
-}
-
-void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
-                                              FDSP_MsgHdrTypePtr &msg_hdr,
-                                              FDS_ProtocolInterface::
-                                              FDSP_DeleteCatalogTypePtr
-                                              &delete_catalog) {
-    Error err(ERR_OK);
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& msgHeader,
-                                          boost::shared_ptr<std::string>& volumeName,
-                                          boost::shared_ptr<std::string>& blobName,
-                                          boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
-    GLOGDEBUG << " Set metadata for volume:" << *volumeName
-              << " blob:" << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& msgHeader,
-                                          boost::shared_ptr<std::string>& volumeName,
-                                          boost::shared_ptr<std::string>& blobName) {
-    GLOGDEBUG << " volume:" << *volumeName
-              << " blob:" << *blobName;
-    fds_panic("must not get here");
-}
-
-void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
-                                            boost::shared_ptr<std::string>& volumeName) {
-    Error err(ERR_OK);
-    GLOGDEBUG << " volume:" << *volumeName << " txnid:" << header->req_cookie;
-
-    dmCatReq* request = new dmCatReq(header->glob_volume_id,
-                                     "",
-                                     header->session_uuid,
-                                     blob_version_invalid,
-                                     FDS_GET_VOLUME_METADATA);
-    err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
-    fds_verify(err == ERR_OK);
+    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    dltMgr->decDLTRefcnt(dltVersion);
 }
 
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)

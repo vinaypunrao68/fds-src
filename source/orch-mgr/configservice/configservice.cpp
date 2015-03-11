@@ -3,8 +3,8 @@
  */
 #include <arpa/inet.h>
 
-#include <apis/snapshot_types.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/common_types.h>
+#include <fdsp/ConfigurationService.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/server/TSimpleServer.h>
@@ -59,6 +59,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     // stubs to keep cpp compiler happy - BEGIN
+    int64_t createLocalDomain(const std::string& domainName) { return 0;}
     int64_t createTenant(const std::string& identifier) { return 0;}
     void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
     int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
@@ -75,13 +76,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
     int32_t registerStream(const std::string& url, const std::string& http_method, const std::vector<std::string> & volume_names, const int32_t sample_freq_seconds, const int32_t duration_seconds) { return 0;} //NOLINT
-    void getStreamRegistrations(std::vector<StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
+    void getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
     void deregisterStream(const int32_t registration_id) {}
-    int64_t createSnapshotPolicy(const  ::FDS_ProtocolInterface::SnapshotPolicy& policy) {return 0;} //NOLINT
-    void listSnapshotPolicies(std::vector< ::FDS_ProtocolInterface::SnapshotPolicy> & _return, const int64_t unused) {} //NOLINT
+    int64_t createSnapshotPolicy(const  fds::apis::SnapshotPolicy& policy) {return 0;} //NOLINT
+    void listSnapshotPolicies(std::vector< fds::apis::SnapshotPolicy> & _return, const int64_t unused) {} //NOLINT
     void deleteSnapshotPolicy(const int64_t id) {} //NOLINT
     void attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
-    void listSnapshotPoliciesForVolume(std::vector< ::FDS_ProtocolInterface::SnapshotPolicy> & _return, const int64_t volumeId) {} //NOLINT
+    void listSnapshotPoliciesForVolume(std::vector< fds::apis::SnapshotPolicy> & _return, const int64_t volumeId) {} //NOLINT
     void detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId) {} //NOLINT
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
@@ -90,6 +91,18 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
 
     // stubs to keep cpp compiler happy - END
+
+    int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName) {
+        int64_t id = configDB->createLocalDomain(*domainName);
+        if (id <= 0) {
+            LOGERROR << "Some issue in Local Domain creation. ";
+            apiException("Error creating Local Domain.");
+        } else {
+            LOGNOTIFY << "Local Domain creation succeded. " << id << ": " << *domainName;
+        }
+
+        return id;
+    }
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
         return configDB->createTenant(*identifier);
@@ -243,14 +256,16 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         LOGDEBUG << "just Active volumes";
         volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec, VolumeInfo::pointer vol) { //NOLINT
-                LOGDEBUG << (vol->vol_get_properties()->isSnapshot()?"snapshot":"volume")
+                LOGDEBUG << (vol->vol_get_properties()->isSnapshot()
+                            ? "snapshot" : "volume")
                          << " - " << vol->vol_get_name()
                          << ":" << vol->vol_get_properties()->getStateName();
-                VolumeDescriptor volDescriptor;
-                // if (vol->vol_get_properties()->isStateActive()) {
-                convert::getVolumeDescriptor(volDescriptor, vol);
-                vec.push_back(volDescriptor);
-                // }
+
+                if (!vol->vol_get_properties()->isSnapshot()) {
+                    VolumeDescriptor volDescriptor;
+                    convert::getVolumeDescriptor(volDescriptor, vol);
+                    vec.push_back(volDescriptor);
+                }
             });
     }
 
@@ -260,7 +275,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                            boost::shared_ptr<int32_t>& sample_freq_seconds,
                            boost::shared_ptr<int32_t>& duration_seconds) {
         int32_t regId = configDB->getNewStreamRegistrationId();
-        fpi::StreamingRegistrationMsg regMsg;
+        apis::StreamingRegistrationMsg regMsg;
         regMsg.id = regId;
         regMsg.url = *url;
         regMsg.http_method = *http_method;
@@ -284,7 +299,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         return 0;
     }
 
-    void getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg> & _return,
+    void getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg> & _return,
                                 boost::shared_ptr<int32_t>& ignore) { //NOLINT
         configDB->getStreamRegistrations(_return);
     }
@@ -293,7 +308,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         configDB->removeStreamRegistration(*registration_id);
     }
 
-    int64_t createSnapshotPolicy(boost::shared_ptr<fpi::SnapshotPolicy>& policy) {
+    int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
         if (configDB->createSnapshotPolicy(*policy)) {
             om->snapshotMgr.addPolicy(*policy);
             return policy->id;
@@ -301,7 +316,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         return -1;
     }
 
-    void listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & _return,
+    void listSnapshotPolicies(std::vector<fds::apis::SnapshotPolicy> & _return,
                       boost::shared_ptr<int64_t>& unused) {
         configDB->listSnapshotPolicies(_return);
     }
@@ -316,7 +331,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         configDB->attachSnapshotPolicy(*volumeId, *policyId);
     }
 
-    void listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & _return,
+    void listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & _return,
                                        boost::shared_ptr<int64_t>& volumeId) {
         configDB->listSnapshotPoliciesForVolume(_return, *volumeId);
     }
@@ -415,7 +430,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
         }
 
-        return 0;
+        return vol->vol_get_properties()->volUUID;
     }
 
     void createSnapshot(boost::shared_ptr<int64_t>& volumeId,

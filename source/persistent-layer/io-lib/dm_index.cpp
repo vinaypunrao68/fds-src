@@ -32,7 +32,6 @@ int
 DataIndexModule::mod_init(fds::SysParams const *const param)
 {
     Module::mod_init(param);
-    std::cout << "DataIndex init..." << std::endl;
 
     sgt_oidProxy = new DataIndexProxy(1000);
     return 0;
@@ -42,7 +41,6 @@ void
 DataIndexModule::mod_startup()
 {
     Module::mod_startup();
-    std::cout << "DataIndex startup..." << std::endl;
 }
 
 void

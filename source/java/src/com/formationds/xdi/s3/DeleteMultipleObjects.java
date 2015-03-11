@@ -3,34 +3,31 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ApiException;
+import com.formationds.protocol.ApiException;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.spike.later.HttpContext;
+import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
-import org.eclipse.jetty.server.Request;
 
-import java.util.Map;
-
-public class DeleteMultipleObjects implements RequestHandler {
+public class DeleteMultipleObjects implements SyncRequestHandler {
     private Xdi xdi;
     private AuthenticationToken token;
-    private String bucketName;
 
-    public DeleteMultipleObjects(Xdi xdi, AuthenticationToken token, String bucketName) {
+    public DeleteMultipleObjects(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
-        this.bucketName = bucketName;
     }
 
     @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+    public Resource handle(HttpContext ctx) throws Exception {
+        String bucketName = ctx.getRouteParameter("bucket");
         StringBuffer result = new StringBuffer();
         result.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<DeleteResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">");
 
-        new DeleteObjectsFrame(request.getInputStream(), s -> {
+        new DeleteObjectsFrame(ctx.getInputStream(), s -> {
             try {
                 xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, s);
                 result.append("<Deleted><Key>");

@@ -14,12 +14,10 @@
 #include <map>
 #include <fds_types.h>
 #include <fds_error.h>
-#include <dm-platform.h>
 #include <util/Log.h>
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
-#include <fdsp/fds_service_types.h>
 
 namespace fds {
 

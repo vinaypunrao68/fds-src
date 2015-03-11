@@ -5,7 +5,7 @@ package com.formationds.xdi.s3;
 
 import com.formationds.util.async.AsyncResourcePool;
 
-class VoidImpl implements AsyncResourcePool.Impl<Void> {
+public class VoidImpl implements AsyncResourcePool.Impl<Void> {
 
     @Override
     public Void construct() throws Exception {

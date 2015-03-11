@@ -1,13 +1,28 @@
 .fui-input{
 
     position: relative;
-    border-radius: 10px;
+    border-radius: 6px;
     background-color: white;
     padding: 7px;
     padding-right: 8px;
     padding-left: 8px;
     color: black;
     font-family: "Lato";
+    border: 1px solid #CCCCCC;
+    
+    &.skinny {
+        height: 32px;
+        padding-top: 2px;
+        
+        .input-icon {
+            top: 6px;
+            right: 6px;
+        }
+    }
+    
+    &.no-border {
+        border: 0px;   
+    }
 
     input {
         width: 100%;
@@ -28,6 +43,8 @@
         position: absolute;
         top:4px;
         right: 15px;
-        color: #A9A9A9;
+        color: #CCCCCC;
+        
+        
     }
 }

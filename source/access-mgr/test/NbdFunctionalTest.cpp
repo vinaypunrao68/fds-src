@@ -7,11 +7,9 @@
 #include <vector>
 #include <map>
 #include <thread>
-#include <fdsn-server.h>
+#include <condition_variable>
 #include <util/fds_stat.h>
-#include <am-platform.h>
-#include <net/net-service.h>
-#include <NbdOperations.h>
+#include "connector/block/NbdOperations.h"
 #include <AccessMgr.h>
 
 #include "boost/program_options.hpp"
@@ -21,8 +19,6 @@
 #include "fds_process.h"
 
 namespace fds {
-
-AccessMgr::unique_ptr am;
 
 class AmProcessWrapper : public FdsProcess {
   public:
@@ -177,13 +173,13 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                         fds_verify(offData.count(offset) == 0);
                         offData[offset] = localData;
                     }
-                } catch(apis::ApiException fdsE) {
+                } catch(fpi::ApiException fdsE) {
                     fds_panic("write failed");
                 }
             } else if (opType == GET) {
                 try {
                     nbdOps->read(blobSize, offset, ++handle);
-                } catch(apis::ApiException fdsE) {
+                } catch(fpi::ApiException fdsE) {
                     fds_panic("read failed");
                 }
             } else {

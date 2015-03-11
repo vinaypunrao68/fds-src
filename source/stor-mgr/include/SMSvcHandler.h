@@ -4,9 +4,13 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 #define SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/SMSvc.h>
+
+namespace FDS_ProtocolInterface {
+struct CtrlNotifyDMTUpdate;
+}
 
 namespace fds {
 
@@ -23,7 +27,12 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     uint64_t mockTimeoutUs = 200;
     bool mockTimeoutEnabled = false;
 
-    SMSvcHandler();
+    explicit SMSvcHandler(CommonModuleProviderIf *provider);
+
+    virtual int mod_init(SysParams const *const param) override;
+
+    void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                   boost::shared_ptr<std::string>& payload) override;
 
     void getObject(const fpi::AsyncHdr &asyncHdr,
             const fpi::GetObjectMsg &getObjMsg) {
@@ -106,13 +115,8 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void NotifyDLTClose(boost::shared_ptr <fpi::AsyncHdr> &hdr,
             boost::shared_ptr <fpi::CtrlNotifyDLTClose> &dlt);
 
-    virtual void
-            TierPolicy(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-            boost::shared_ptr <fpi::CtrlTierPolicy> &msg);
-
-    virtual void
-            TierPolicyAudit(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-            boost::shared_ptr <fpi::CtrlTierPolicyAudit> &msg);
+    void startHybridTierCtrlr(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                              boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg);
 
     void addObjectRef(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::AddObjectRefMsg> &addObjRefMsg);
@@ -122,10 +126,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
             SmIoAddObjRefReq *addObjRefReq);
 
     void shutdownSM(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::ShutdownSMMsg> &shutdownMsg);
-
-    void StartMigration(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::CtrlStartMigration> &startMigration);
+            boost::shared_ptr <fpi::ShutdownMODMsg> &shutdownMsg);
 
     /**
     * Handler for the new SM token migration messages
@@ -134,17 +135,35 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void migrationInit(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlNotifySMStartMigration> &migrationMsg);
 
+    void startMigrationCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          fds_uint64_t dltVersion,
+                          const Error &err);
+
+    void migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifySMAbortMigration>& abortMsg);
+
     void initiateObjectSync(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlObjectRebalanceFilterSet> &filterObjSet);
 
     void syncObjectSet(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             boost::shared_ptr <fpi::CtrlObjectRebalanceDeltaSet> &deltaObjSet);
 
+    void getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                      boost::shared_ptr<fpi::CtrlGetSecondRebalanceDeltaSet>& getDeltaSetMsg);
+
     /**
     * Handler for the new DMT messages
     */
     void NotifyDMTUpdate(boost::shared_ptr <fpi::AsyncHdr> &hdr,
             boost::shared_ptr <fpi::CtrlNotifyDMTUpdate> &dmt);
+
+    /**
+     * Handlers for smcheck
+     */
+    void NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                       boost::shared_ptr<fpi::CtrlNotifySMCheck>& msg);
+    void querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                            boost::shared_ptr<fpi::CtrlNotifySMCheckStatus>& msg);
 };
 
 }  // namespace fds

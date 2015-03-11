@@ -3,7 +3,13 @@
     <div class="tile-content" ng-transclude></div>
     <div class="tile-status-bar">
         
-        <summary-number-display ng-model="calculatedData" auto-change="true" ng-show="calculatedData"></summary-number-display>
+        <div ng-show="calculatedData && rowDisplay !== 'true'">
+            <summary-number-display ng-model="calculatedData" auto-change="true"></summary-number-display>
+        </div>
+        
+        <div ng-show="calculatedData && rowDisplay === 'true'" class="flex">
+            <summary-number-display ng-repeat="data in calculatedData" ng-model="data" auto-change="false" style="margin-right: 12px;"></summary-number-display>
+        </div>
 <!--
         <div class="pull-left main-number">{{wholeNumber}}</div>
         <div class="pull-left decimals">

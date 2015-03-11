@@ -6,23 +6,19 @@ package com.formationds.om.repository.helper;
 
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.Events;
 import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
-import com.formationds.commons.model.calculated.capacity.AverageIOPs;
-import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
-import com.formationds.commons.model.calculated.capacity.CapacityDeDupRatio;
-import com.formationds.commons.model.calculated.capacity.CapacityFull;
-import com.formationds.commons.model.calculated.capacity.CapacityToFull;
-import com.formationds.commons.model.calculated.capacity.TotalCapacity;
-import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
+import com.formationds.commons.model.calculated.capacity.*;
+import com.formationds.commons.model.calculated.performance.AverageIOPs;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
+import com.formationds.commons.model.calculated.performance.PercentageConsumed;
+import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
@@ -43,23 +39,22 @@ import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.persistence.EntityManager;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
-import javax.persistence.EntityManager;
-
 /**
  * @author ptinius
  */
-@SuppressWarnings( "UnusedDeclaration" )
 public class QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
@@ -117,7 +112,7 @@ public class QueryHelper {
             final List<Series> series = new ArrayList<>();
             final List<Calculated> calculatedList = new ArrayList<>();
 
-            EntityManager em = repo.newEntityManager();
+            EntityManager em = getRepo().newEntityManager();
             try {
             	
             	query.setContexts( validateContextList( query, authorizer, token ) );
@@ -125,22 +120,16 @@ public class QueryHelper {
 	            final List<VolumeDatapoint> queryResults =
 	                new MetricCriteriaQueryBuilder( em ).searchFor( query )
 	                                                               .resultsList();
+	            
 	            final Map<String, List<VolumeDatapoint>> originated =
 	                byVolumeNameTimestamp( queryResults );
 	
-	            if( isFirebreakQuery( query.getSeriesType() ) ) {
-	
-	                series.addAll( new FirebreakHelper().processFirebreak( queryResults ) );
-	                final FirebreaksLast24Hours firebreak = new FirebreaksLast24Hours();
-	                firebreak.setCount( last24Hours( series ) );
-	                calculatedList.add( firebreak );
-	
-	            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
+	            if( isPerformanceQuery( query.getSeriesType() ) ) {
 	
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,
 	                                                        query,
-	                                                        StatOperation.RATE ) );
+	                                                        StatOperation.SUM ) );
 	                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
 	                ioPsConsumed.setDailyAverage( 0.0 );
 	                calculatedList.add( ioPsConsumed );
@@ -150,7 +139,7 @@ public class QueryHelper {
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,
 	                                                        query,
-	                                                        StatOperation.SUM) );
+	                                                        StatOperation.MAX) );
 	
 	                calculatedList.add( deDupRatio() );
 	
@@ -187,33 +176,39 @@ public class QueryHelper {
 	
 	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
 	            	
-	            	normalizeDatapoints( queryResults );
-	            	
 	            	series.addAll(
 	            		new SeriesHelper().getRollupSeries( queryResults, 
 	            										 	query,
 	            										 	StatOperation.RATE) );
 	            	
-	            	// GETS has the total # of gets and SSD is a subset of those.
-	            	// This query wants GETS for HDD access and SSD access so we mutate the
-	            	// GETS series with a quick subtraction of the corresponding SSD field
-	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
-	            		.findFirst().get();
-	            	
-	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
-	            		.findFirst().get();
-	            	
-	            	gets.getDatapoints().forEach( 
-	            		gPoint -> {
-	            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
-	            				.forEach(
-		            				sPoint -> {
-		            					gPoint.setY( gPoint.getY() - sPoint.getY() );
-		            				}
-		            			);
-	            		});
+	            	// we could just test the query, but this captures more potential problems retrieving the list
+	            	try {
+	            		
+		            	// GETS has the total # of gets/sec and SSD is a subset of those.
+		            	// This query wants GETS for HDD access and SSD access so we mutate the
+		            	// GETS series with a quick subtraction of the corresponding SSD field
+		            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
+		            		.findFirst().get();
+	            		
+		            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
+		            		.findFirst().get();
+		            	
+		            	gets.getDatapoints().forEach( 
+		            		gPoint -> {
+		            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
+		            				.forEach(
+			            				sPoint -> {
+			            					gPoint.setY( gPoint.getY() - sPoint.getY() );
+			            				}
+			            			);
+		            		});
+	            	}
+	            	catch( NoSuchElementException noEm ) {
+	            		logger.info( "The query either did not contain an SSD element, or one was not found.  Calculations will not include it." );
+	            	}
 	            	
 	            	calculatedList.add( getAverageIOPs( series ) );
+	            	calculatedList.addAll( getTieringPercentage( series ) );
 	            	
 	            } else {
 	            	
@@ -226,8 +221,14 @@ public class QueryHelper {
 	            }
 	
 	            if( !series.isEmpty() ) {
-	                series.forEach( ( s ) ->
-	                    new DatapointHelper().sortByX( s.getDatapoints() ) );
+	            	
+	                series.forEach( ( s ) -> {
+	                	
+	                	// if the datapoints set is null, don't try to sort it.  Leave it alone
+	                	if ( s.getDatapoints() != null && !s.getDatapoints().isEmpty() ) {
+	                		new DatapointHelper().sortByX( s.getDatapoints() );
+	                	}
+	                });
 	                stats.setSeries( series );
 	            }
 	
@@ -249,7 +250,7 @@ public class QueryHelper {
      * @return the events matching the query criteria
      * @throws TException
      */
-    public Events executeEventQuery( final QueryCriteria query )
+    public List<? extends Event> executeEventQuery( final QueryCriteria query )
             throws TException {
         EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
 
@@ -263,6 +264,11 @@ public class QueryHelper {
      *         {@link List} are of performance type. Otherwise {@code false}
      */
     protected boolean isPerformanceQuery( final List<Metrics> metrics ) {
+    	
+    	if ( metrics.size() != Metrics.PERFORMANCE.size() ){
+    		return false;
+    	}
+    	
         for( final Metrics m : metrics ) {
             if( !Metrics.PERFORMANCE.contains( m ) ) {
                 return false;
@@ -279,24 +285,13 @@ public class QueryHelper {
      *         {@link List} are of capacity type. Otherwise {@code false}
      */
     protected boolean isCapacityQuery( final List<Metrics> metrics ) {
+    	
+    	if ( metrics.size() != Metrics.CAPACITY.size() ){
+    		return false;
+    	}
+    	
         for( final Metrics m : metrics ) {
             if( !Metrics.CAPACITY.contains( m ) ) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @param metrics the [@link List} of {@link Metrics}
-     *
-     * @return Returns {@code true} if all {@link Metrics} within the
-     *         {@link List} are of firebreak type. Otherwise {@code false}
-     */
-    protected boolean isFirebreakQuery( final List<Metrics> metrics ) {
-        for( final Metrics m : metrics ) {
-            if( !Metrics.FIREBREAK.contains( m ) ) {
                 return false;
             }
         }
@@ -311,7 +306,12 @@ public class QueryHelper {
      * 
      * @return returns true if all {@link Metrics} are included in both sets
      */
-    protected boolean isPerformanceBreakdownQuery( final List<Metrics> metrics ) {
+    protected boolean isPerformanceBreakdownQuery( final List<Metrics> metrics ) { 
+    	
+    	if ( metrics.size() != Metrics.PERFORMANCE_BREAKDOWN.size() ){
+    		return false;
+    	}
+    	
     	for ( final Metrics m : metrics ) {
     		if ( !Metrics.PERFORMANCE_BREAKDOWN.contains( m ) ){
     			return false;
@@ -336,6 +336,12 @@ public class QueryHelper {
 
         organized.forEach( ( key, volumeDatapoints ) -> {
             final Series s = new Series();
+            
+            // if a bogus metric was sent in, don't attempt to add it to the set
+            if ( metrics == null ){
+            	return;
+            }
+            
             s.setType( metrics.name() );
             volumeDatapoints.stream()
                             .distinct()
@@ -357,29 +363,6 @@ public class QueryHelper {
 
         return series;
     }
-
-    /**
-     * This method will run through all the results and normailze the
-     * values so that the are reduced to values per second.
-     * @param points
-     */
-    protected void normalizeDatapoints( final List<VolumeDatapoint> points ){
-    	
-    	points.stream().forEach( point -> {
-    		
-    		/**
-    		 * In the future we'll have a calculation interval per datapoint
-    		 * that is tied in to the data rollup strategy
-    		 * and we can use that to normalize the data into per seconds.
-    		 * 
-    		 * For now we always do 2 minute intervals
-    		 */
-//    		long intervalInSeconds = point.getCalculationInterval();
-    		final Double intervalInSeconds = new Double(1);
-    		
-    		point.setValue( point.getValue() / intervalInSeconds );
-    	});
-    }
     
     /**
      * This will look at the {@link Context} of the query and make sure the user has access
@@ -393,9 +376,9 @@ public class QueryHelper {
      * @param query
      * @param token
      */
-    protected List<Context> validateContextList( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token ){
+    protected List<Volume> validateContextList( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token ){
     	
-    	List<Context> contexts = query.getContexts();
+    	List<Volume> contexts = query.getContexts();
     	
     	com.formationds.util.thrift.ConfigurationApi api = SingletonConfigAPI.instance().api();
     	
@@ -406,23 +389,22 @@ public class QueryHelper {
 
 	    		contexts = api.listVolumes("")
 	    			.stream()
-	    			.filter( vd -> authorizer.hasAccess( token, vd.getName() ) )
-	    			.map( vd -> {
+                        .filter(vd -> authorizer.ownsVolume(token, vd.getName()))
+                        .map(vd -> {
 
-	    				String volumeId = "";
+                            String volumeId = "";
 
-	    				try{
-	    					volumeId = String.valueOf( api.getVolumeId( vd.getName() ) );
-	    				}
-	    				catch( TException e ){
+                            try {
+                                volumeId = String.valueOf(api.getVolumeId(vd.getName()));
+                            } catch (TException e) {
 
-	    				}
+                            }
 
-	    				Volume volume = new VolumeBuilder().withId( volumeId ).withName( vd.getName() )
-	    					.build();
+                            Volume volume = new VolumeBuilder().withId(volumeId).withName(vd.getName())
+                                    .build();
 
-	    				return volume;
-	    			})
+                            return volume;
+                        })
 	    			.collect( Collectors.toList() );
 
     		} catch ( Exception e ){
@@ -433,9 +415,9 @@ public class QueryHelper {
     	else {
     		
     		contexts = contexts.stream().filter( c -> {
-    			boolean hasAccess = authorizer.hasAccess( token, ((Volume)c).getName() );
-    			
-    			if ( hasAccess == false ){
+                boolean hasAccess = authorizer.ownsVolume(token, ((Volume) c).getName());
+
+                if ( hasAccess == false ){
     				// TODO: Add an audit event here because someone may be trying an attack
     				logger.warn( "User does not have access to query for volume: " + ((Volume)c).getName() +
     					".  It will be removed from the query context." );
@@ -448,6 +430,10 @@ public class QueryHelper {
     	}
     	
     	return contexts;
+    }
+    
+    protected MetricsRepository getRepo(){
+    	return this.repo;
     }
     
     /**
@@ -464,16 +450,54 @@ public class QueryHelper {
      */
     protected AverageIOPs getAverageIOPs( List<Series> series ){
     	
+    	// sum each series (which is already a series of averages)
+    	// divide by input # to get the average of averages
+    	// now add the averages together for the total average
     	Double rawAvg = series.stream().flatMapToDouble( s -> {
     		return DoubleStream.of( s.getDatapoints().stream()
     				.flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() / s.getDatapoints().size() );
     	}).sum();
- 
     	
     	final AverageIOPs avgIops = new AverageIOPs();
     	avgIops.setAverage( rawAvg );
     	
     	return avgIops;
+    }
+    
+    /**
+     * This will look at all the gets and calculate the percentage of each
+     * 
+     * @param series
+     * @return
+     */
+    protected List<PercentageConsumed> getTieringPercentage( List<Series> series ){
+    	
+    	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
+        	.findFirst().get();
+    	
+    	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+    	
+    	Series getsssd = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
+        		.findFirst().get();
+    	
+    	Double getsSsd = getsssd.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+    	
+    	Double sum = getsHdd + getsSsd;
+    	
+    	long ssdPerc = Math.round( (getsSsd / sum) * 100.0 );
+    	long hddPerc = Math.round( (getsHdd / sum) * 100.0 );
+    	
+    	PercentageConsumed ssd = new PercentageConsumed();
+    	ssd.setPercentage( (double)ssdPerc );
+    	
+    	PercentageConsumed hdd = new PercentageConsumed();
+    	hdd.setPercentage( (double)hddPerc );
+    	
+    	List<PercentageConsumed> percentages = new ArrayList<PercentageConsumed>();
+    	percentages.add( ssd );
+    	percentages.add( hdd );
+    	
+    	return percentages;
     }
 
     /**

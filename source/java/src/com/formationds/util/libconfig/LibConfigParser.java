@@ -58,7 +58,10 @@ public class LibConfigParser extends Parser {
 		return adaptor;
 	}
 	@Override public String[] getTokenNames() { return LibConfigParser.tokenNames; }
-	@Override public String getGrammarFileName() { return "/home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g"; }
+	@Override public String getGrammarFileName()
+	{
+		return "LibConfig.g";
+	}
 
 
 	public static class namespace_return extends ParserRuleReturnScope {

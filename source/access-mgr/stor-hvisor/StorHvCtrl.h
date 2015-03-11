@@ -35,7 +35,7 @@ namespace fds_pi = FDS_ProtocolInterface;
 namespace FDS_ProtocolInterface
 {
     class FDSP_AnnounceDiskCapability;
-    class FDSP_VolumeInfoType;
+    class FDSP_VolumeDescType;
 }  // namespace FDS_ProtocolInterface
 
 template<class T> using b_sp = boost::shared_ptr<T>;
@@ -70,7 +70,6 @@ public:
 
     // Data Members
     StorHvDataPlacement*    dataPlacementTbl;
-    b_sp<netSessionTbl>     rpcSessionTbl; // RPC calls Switch Table
     fds::StorHvVolumeTable* vol_table;  
     fds::StorHvQosCtrl*     qos_ctrl; // Qos Controller object
     fds::OMgrClient*        om_client;
@@ -80,7 +79,7 @@ public:
     std::string                 my_node_name;
 
     /// Toggle AM standalone mode for testing
-    fds_bool_t toggleStandAlone;
+    fds_bool_t standalone;
 
     /// Dispatcher layer module
     b_sp<fds::AmDispatcher> amDispatcher;
@@ -98,7 +97,7 @@ public:
                              const std::string& access_key_id = "",
                              const std::string& secret_access_key = "");
 
-    void initVolInfo(b_sp<fds_pi::FDSP_VolumeInfoType> vol_info,
+    void initVolInfo(b_sp<fds_pi::FDSP_VolumeDescType> vol_info,
                      const std::string& bucket_name);
 
     void attachVolume(fds::AmRequest *amReq);

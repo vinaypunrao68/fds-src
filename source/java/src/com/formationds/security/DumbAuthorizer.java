@@ -12,7 +12,7 @@ public class DumbAuthorizer implements Authorizer {
     }
 
     @Override
-    public boolean hasAccess(AuthenticationToken token, String volume) {
+    public boolean ownsVolume(AuthenticationToken token, String volume) {
         return true;
     }
 

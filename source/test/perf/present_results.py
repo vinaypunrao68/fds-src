@@ -171,9 +171,6 @@ git version: %s\n\
 System: Xeon 1S 6-core HT, 32GB DRAM, 1GigE, 12HDD, 2SSDs \n\
 ---\n\
 " % (gitbranch, hostname, githead)
-#    epilogue = "\
-#Data uploaded to Influxdb @ 10.1.10.222:8083 - login guest - guest - database: perf\n\
-#Confluence: https://formationds.atlassian.net/wiki/display/ENG/InfluxDB+for+Performance"
     epilogue = "\n"
     text = "Results:\n"
     table = []
@@ -355,10 +352,6 @@ if __name__ == "__main__":
                 # print indices, [iops[i] for i in indices]
                 indices = [i for i, x in enumerate(conns) if x == 100]
                 iops_100 = max([iops_get_mean[i] for i in indices])
-                print indices
-                print [conns[i] for i in indices]
-                print [threads[i] for i in indices]
-                print [outstanding[i] for i in indices]
                 index = iops_get_mean.index(iops_100)
                 assert index in indices
                 lat_100 = lat[index]

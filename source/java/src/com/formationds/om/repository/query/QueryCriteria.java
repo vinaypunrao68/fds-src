@@ -6,6 +6,7 @@ package com.formationds.om.repository.query;
 
 import com.formationds.commons.crud.SearchCriteria;
 import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.ModelBase;
 
@@ -22,7 +23,17 @@ public class QueryCriteria
     private DateRange range;           // date range ; starting and ending
     private Integer points;            // number of points to provide in results
     private Long firstPoint;           // first point, i.e. row number
-    private List<Context> contexts;    // the context
+    
+    //TODO: This is a hack!  When JSON comes into the server it has no way to know which Context
+    // object type to turn the JSON into so it's always null due to Context having no public constructor.
+    //
+    // The real fix is to add a "TYPE" enum to the Context object and overwrite the "toObject" method
+    // to that it can pass the correct class to GSON so we get a Volume or a ... whatever.
+    //
+    // For now the only time Context is used is with a Volume type so in favor of speed we are
+    // changing the query to only take volumes
+    private List<Volume> contexts;    // the context
+    private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important 
 
     /**
      * @return Returns the {@link com.formationds.commons.model.DateRange}
@@ -41,7 +52,7 @@ public class QueryCriteria
     /**
      * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.abs.Context}
      */
-    public List<Context> getContexts() {
+    public List<Volume> getContexts() {
         if( contexts == null ) {
             this.contexts = new ArrayList<>();
         }
@@ -51,7 +62,7 @@ public class QueryCriteria
     /**
      * @param contexts the {@link java.util.List} of {@link com.formationds.commons.model.abs.Context}
      */
-    public void setContexts( final List<Context> contexts ) {
+    public void setContexts( final List<Volume> contexts ) {
         this.contexts = contexts;
     }
 
@@ -83,5 +94,37 @@ public class QueryCriteria
      */
     public void setFirstPoint( final Long firstPoint ) {
         this.firstPoint = firstPoint;
+    }
+    
+    /**
+     * 
+     * @return a list of {@link OrderBy} arguments for this search
+     */
+    public List<OrderBy> getOrderBy(){
+    	if ( this.orderBys == null ){
+    		this.orderBys = new ArrayList<OrderBy>();
+    	}
+    	
+    	return this.orderBys;
+    }
+    
+    /**
+     * 
+     * @param someOrders a list of ordering criteria
+     */
+    public void setOrderBy( List<OrderBy> someOrders ){
+    	this.orderBys = someOrders;
+    }
+    
+    /**
+     * Convenience method to add a single orderby at a time
+     * 
+     * @param anOrderBy
+     */
+    public void addOrderBy( OrderBy anOrderBy ){
+    	
+    	if ( !getOrderBy().contains( anOrderBy ) ){
+    		getOrderBy().add( anOrderBy );
+    	}
     }
 }

@@ -5,10 +5,13 @@
 #include <algorithm>
 #include <string>
 #include <vector>
-#include <fds_process.h>
+
+#include "fds_process.h"
+#include "fdsp/dm_api_types.h"
+#include "fdsp/sm_api_types.h"
+
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
-#include <net/net-service-tmpl.hpp>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include "AsyncResponseHandlers.h"
@@ -18,6 +21,24 @@
 #include <AmDispatcherMocks.hpp>
 
 namespace fds {
+
+// Some logging routines have external linkage
+// ======
+extern std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
+extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
+
+extern std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
+extern std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
+extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
+extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
+// ======
 
 AmDispatcher::AmDispatcher(const std::string &modName,
                            DLTManagerPtr _dltMgr,
@@ -44,6 +65,12 @@ AmDispatcher::mod_init(SysParams const *const param) {
 
 void
 AmDispatcher::mod_startup() {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    if (!conf.get<bool>("testing.standalone")) {     
+        // Set the DLT manager in svc layer so that it knows to dispatch
+        // requests on behalf of specific placement table versions.
+        gSvcRequestPool->setDltManager(dltMgr);
+    }
 }
 
 void
@@ -75,7 +102,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
     GetVolumeMetaDataReq * volReq =
             static_cast<fds::GetVolumeMetaDataReq*>(amReq);
     GetVolumeMetaDataMsgPtr volMDMsg =
-        net::ep_deserialize<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
 
     if (ERR_OK == error)
         volReq->volumeMetadata = volMDMsg->volume_meta_data;
@@ -252,6 +279,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     updCatMsg->volume_id    = amReq->io_vol_id;
     updCatMsg->txId         = blobReq->tx_desc->getValue();
     updCatMsg->blob_mode    = blobReq->blob_mode;
+    updCatMsg->dmt_version  = dmtMgr->getCommittedVersion();
 
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
@@ -280,10 +308,34 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
         boost::make_shared<DmtVolumeIdEpProvider>(
             dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), updCatMsg);
-    asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogCb, amReq));
+    asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogOnceCb, amReq));
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << logString(*updCatMsg);
+}
+
+void
+AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
+                              QuorumSvcRequest* svcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload) {
+    fds_verify(amReq->magicInUse());
+    PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
+    fpi::UpdateCatalogOnceRspMsgPtr updCatRsp =
+        fds::deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
+
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
+    if (error != ERR_OK) {
+        LOGERROR << "Obj ID: " << amReq->obj_id
+                 << " blob name: " << amReq->getBlobName()
+                 << " offset: " << amReq->blob_offset
+                 << " Error: " << error;
+    } else {
+        LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
+        blobReq->final_blob_size = updCatRsp->byteCount;
+        blobReq->final_meta_data.swap(updCatRsp->meta_list);
+    }
+    blobReq->notifyResponse(error);
 }
 
 void
@@ -294,7 +346,7 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
-        net::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << amReq->obj_id
@@ -318,42 +370,53 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
 
     PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
     putObjMsg->volume_id        = amReq->io_vol_id;
-    putObjMsg->origin_timestamp = util::getTimeStampMillis();
     putObjMsg->data_obj.assign(blobReq->dataPtr->c_str(), amReq->data_len);
     putObjMsg->data_obj_len     = amReq->data_len;
     putObjMsg->data_obj_id.digest = std::string(
         reinterpret_cast<const char*>(amReq->obj_id.GetId()),
         amReq->obj_id.GetLen());
 
+    // get DLT and add refcnt to account for in-flight IO sent with
+    // this DLT version; when DLT version changes, we don't ack to OM
+    // until all in-flight IO for the previous version complete
+    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
+
     PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
 
     auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(
-            dltMgr->getDLT()->getNodes(amReq->obj_id)));
+            dlt->getNodes(amReq->obj_id)));
     asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-    asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb, amReq));
+    asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
+                                                   amReq, dlt->getVersion()));
     asyncPutReq->invoke();
 
-    LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg);
+    LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg)
+             << " DLT version " << dlt->getVersion();
 }
 
 void
 AmDispatcher::putObjectCb(AmRequest* amReq,
+                          fds_uint64_t dltVersion,
                           QuorumSvcRequest* svcReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
     fpi::PutObjectRspMsgPtr putObjRsp =
-            net::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
+            fds::deserializeFdspMsg<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << amReq->obj_id
             << " blob name: " << amReq->getBlobName()
             << " offset: " << amReq->blob_offset << " Error: " << error;
     } else {
-        LOGDEBUG << svcReq->logString() << logString(*putObjRsp);
+        LOGDEBUG << svcReq->logString() << logString(*putObjRsp)
+                 << " DLT version " << dltVersion;
     }
+
+    // notify DLT manager that request completed, so we can decrement refcnt
+    dltMgr->decDLTRefcnt(dltVersion);
 
     static_cast<fds::PutBlobReq*>(amReq)->notifyResponse(error);
 }
@@ -392,10 +455,15 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
         reinterpret_cast<const char*>(objId.GetId()),
         objId.GetLen());
 
+    // get DLT and add refcnt to account for in-flight IO sent with
+    // this DLT version; when DLT version changes, we don't ack to OM
+    // until all in-flight IO for the previous version complete
+    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
+
     auto asyncGetReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(dltMgr->getDLT()->getNodes(objId)));
+        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
     asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
-    asyncGetReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq));
+    asyncGetReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq, dlt->getVersion()));
     asyncGetReq->invoke();
 
     LOGDEBUG << asyncGetReq->logString() << logString(*getObjMsg);
@@ -403,37 +471,27 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
 
 void
 AmDispatcher::getObjectCb(AmRequest* amReq,
-                        FailoverSvcRequest* svcReq,
-                        const Error& error,
-                        boost::shared_ptr<std::string> payload)
+                          fds_uint64_t dltVersion,
+                          FailoverSvcRequest* svcReq,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload)
 {
     fds_verify(amReq->magicInUse());
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    // notify DLT manager that request completed, so we can decrement refcnt
+    dltMgr->decDLTRefcnt(dltVersion);
 
     fpi::GetObjectRespPtr getObjRsp =
-        net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
     if (error == ERR_OK) {
-        LOGDEBUG << svcReq->logString() << logString(*getObjRsp);
-        /* NOTE: we are currently supporting only getting the whole blob
-         * so the requester does not know about the blob length, 
-         * we get the blob length in response from SM;
-         * will need to revisit when we also support (don't ignore) byteCount in native api.
-         * For now, just verify the existing buffer is big enough to hold
-         * the data.
-         */
-        if (amReq->data_len >= (4 * 1024)) {
-            // Check that we didn't get too much data
-            // Since 4K is our min, it's OK to get more
-            // when less than 4K is requested
-            // TODO(Andrew): Revisit for unaligned IO
-            fds_verify(getObjRsp->data_obj.size() <= amReq->data_len);
-        }
-
+        LOGDEBUG << svcReq->logString() << logString(*getObjRsp)
+                 << " DLT version " << dltVersion;
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
         cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {
+        cb->returnSize = 0;
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
             << amReq->blob_offset << " Error: " << error;
     }
@@ -473,9 +531,26 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
             dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
     asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
     asyncQueryReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb, amReq));
+    asyncQueryReq->onEPAppStatusCb(std::bind(&AmDispatcher::getQueryCatalogAppStatusCb,
+                                             this, amReq, std::placeholders::_1,
+                                             std::placeholders::_2));
     asyncQueryReq->invoke();
 
     LOGDEBUG << asyncQueryReq->logString() << logString(*queryMsg);
+}
+
+fds_bool_t
+AmDispatcher::getQueryCatalogAppStatusCb(AmRequest* amReq,
+                                         const Error& error,
+                                         boost::shared_ptr<std::string> payload) {
+    // Tell service layer that it's OK to see these errors. These
+    // could mean we're just reading something we haven't written
+    // before.
+    if ((ERR_CAT_ENTRY_NOT_FOUND == error) ||
+        (ERR_BLOB_NOT_FOUND == error)) {
+        return true;
+    }
+    return false;
 }
 
 void
@@ -486,14 +561,14 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
 {
     fds_verify(amReq->magicInUse());
     fpi::QueryCatalogMsgPtr qryCatRsp =
-        net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
     if (error != ERR_OK) {
         // TODO(Andrew): We should consider logging this error at a
         // higher level when the volume is not block
-        LOGDEBUG << "blob name: " << amReq->getBlobName() << "offset: "
+        LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
                  << amReq->blob_offset << " Error: " << error;
         amReq->proc_cb(error == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_NOT_FOUND : error);
         return;
@@ -533,7 +608,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     }
 
     // if we are here, we did not get response for offset we needed!
-    LOGDEBUG << "blob name: " << amReq->getBlobName() << "offset: "
+    LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
              << amReq->blob_offset << " not in returned offset list from DM";
     amReq->proc_cb(ERR_BLOB_OFFSET_INVALID);
 }
@@ -595,7 +670,7 @@ AmDispatcher::setBlobMetadataCb(AmRequest *amReq,
                                 boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     fpi::SetBlobMetaDataRspMsgPtr setMDRsp =
-        net::ep_deserialize<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
     if (error != ERR_OK) {
         LOGERROR << "Set metadata blob name: " << amReq->getBlobName() << " Error: " << error;
     } else {
@@ -662,6 +737,14 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
+    fpi::CommitBlobTxRspMsgPtr response =
+        fds::deserializeFdspMsg<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
+    LOGDEBUG << svcReq->logString();
+    if (ERR_OK == error) {
+        auto blobReq =  static_cast<CommitBlobTxReq *>(amReq);
+        blobReq->final_blob_size = response->byteCount;
+        blobReq->final_meta_data.swap(response->meta_list);
+    }
     // Notify upper layers that the request is done.
     amReq->proc_cb(error);
 }
@@ -671,14 +754,17 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
               GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
-              cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>(); \
+              cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>(); \
               amReq->proc_cb(ERR_OK); \
               return;);
 
     GetBucketMsgPtr message = boost::make_shared<GetBucketMsg>();
     message->volume_id = amReq->io_vol_id;
-    message->startPos  = 0;
-    message->maxKeys   = static_cast<VolumeContentsReq *>(amReq)->maxkeys;
+    message->startPos  = static_cast<VolumeContentsReq *>(amReq)->offset;
+    message->count   = static_cast<VolumeContentsReq *>(amReq)->count;
+    message->pattern = static_cast<VolumeContentsReq *>(amReq)->pattern;
+    message->orderBy = static_cast<VolumeContentsReq *>(amReq)->orderBy;
+    message->descending = static_cast<VolumeContentsReq *>(amReq)->descending;
 
     auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
@@ -700,19 +786,14 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
     // Return if err
     if (ERR_OK == error) {
         // using the same structure for input and output
-        auto response = MSG_DESERIALIZE(GetBucketMsg, error, payload);
+        auto response = MSG_DESERIALIZE(GetBucketRspMsg, error, payload);
+
+        LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " <<
+                response->blob_descr_list.size();
 
         GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
-        size_t count = response->blob_info_list.size();
-        LOGDEBUG << " volid: " << response->volume_id << " numBlobs: " << count;
-        cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>();
-        cb->vecBlobs->reserve(count);
-        for (size_t i = 0; i < count; ++i) {
-            apis::BlobDescriptor bd;
-            bd.name = response->blob_info_list[i].blob_name;
-            bd.byteCount = response->blob_info_list[i].blob_size;
-            cb->vecBlobs->push_back(bd);
-        }
+        cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>();
+        cb->vecBlobs->swap(response->blob_descr_list);
     }
     amReq->proc_cb(error);
 }

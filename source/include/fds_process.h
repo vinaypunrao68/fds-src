@@ -28,6 +28,7 @@ class FdsCountersMgr;
 /* These are exposed to make it easy to access them */
 extern FdsProcess* g_fdsprocess;
 extern fds_log* g_fdslog;
+// TODO(Rao): Remove this global.  Other than g_fdslog, we shouldn't have any globals
 extern boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 extern fds_log* GetLog();
 
@@ -36,6 +37,7 @@ extern fds_log* GetLog();
  */
 void init_process_globals(const std::string &log_name);
 void init_process_globals(fds_log *log);
+void destroy_process_globals();
 
 /**
  * Generic process class.  It provides the following capabilities
@@ -66,10 +68,10 @@ class FdsProcess : public boost::noncopyable,
      * @param def_log_file - default log file path
      * @param mod_vec - module vectors for the process.
      */
-    void init(int argc, char *argv[],
-              const std::string &def_cfg_file,
-              const std::string &base_path,
-              const std::string &def_log_file,  Module **mod_vec);
+    virtual void init(int argc, char *argv[],
+                      const std::string &def_cfg_file,
+                      const std::string &base_path,
+                      const std::string &def_log_file,  Module **mod_vec);
 
     /**
      * Add dynamic module created during proc_pre_startup() call.  It's not correct to
@@ -138,6 +140,8 @@ class FdsProcess : public boost::noncopyable,
 
     void daemonize();
 
+    void closeAllFDs();
+
     /**
      * Handler function for Ctrl+c like signals.  Default implementation
      * just calls exit(0).
@@ -183,6 +187,8 @@ class FdsProcess : public boost::noncopyable,
         return proc_thrp;
     }
 
+    virtual util::Properties* getProperties();
+
 
  protected:
     // static members/methods
@@ -201,10 +207,12 @@ class FdsProcess : public boost::noncopyable,
     virtual void setupAtExitHandler();
 
     /* Signal handler thread */
-    pthread_t sig_tid_;
+    std::unique_ptr<pthread_t> sig_tid_;
 
     /* Process wide config accessor */
     FdsConfigAccessor conf_helper_;
+
+    util::Properties properties;
 
     /* Process wide counters manager */
     boost::shared_ptr<FdsCountersMgr> cntrs_mgrPtr_;
@@ -223,7 +231,7 @@ class FdsProcess : public boost::noncopyable,
     ModuleVector *mod_vectors_;
 
     /* Flag to indicate whether modulue shutdown has been invoked or not */
-    std::atomic<bool>mod_shutdown_invoked_;
+    std::once_flag mod_shutdown_invoked_;
 
     /* FdsRootDir globals. */
     FdsRootDir   *proc_root;

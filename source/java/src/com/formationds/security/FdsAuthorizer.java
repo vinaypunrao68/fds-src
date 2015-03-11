@@ -3,16 +3,18 @@
  */
 package com.formationds.security;
 
-import com.formationds.apis.Tenant;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.User;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.commons.model.Volume;
 import com.formationds.util.thrift.ConfigurationApi;
 import org.apache.thrift.TException;
-
-import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FdsAuthorizer implements Authorizer {
+    private static final Logger logger = LoggerFactory.getLogger(FdsAuthorizer.class);
+
     private ConfigurationApi config;
 
     public FdsAuthorizer(ConfigurationApi config) {
@@ -29,32 +31,67 @@ public class FdsAuthorizer implements Authorizer {
     }
 
     @Override
-    public boolean hasAccess(AuthenticationToken token, String volume) throws SecurityException {
+    public boolean ownsVolume(AuthenticationToken token, String volume) throws SecurityException {
+        if (AuthenticationToken.ANONYMOUS.equals(token)) {
+            return false;
+        }
         try {
             VolumeDescriptor v = config.statVolume("", volume);
             if (v == null) {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("AUTHZ::HASACCESS::DENIED " + volume + " not found.");
+                }
                 return false;
             }
 
             User user = userFor(token);
             if (user.isIsFdsAdmin()) {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("AUTHZ::HASACCESS::GRANTED " + volume + " (admin)");
+                }
                 return true;
             }
 
             long volTenantId = v.getTenantId();
             long userTenantId = tenantId(token);
 
-            return userTenantId == volTenantId;
+            if (userTenantId == volTenantId) {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("AUTHZ::HASACCESS::GRANTED volume={} userid={}", volume, token.getUserId());
+                }
+
+                return true;
+            } else {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("AUTHZ::HASACCESS::DENIED volume={} userid={}", volume, token.getUserId());
+                }
+
+                return false;
+            }
+        } catch (ApiException apie) {
+            if (apie.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("AUTHZ::HASACCESS::DENIED " + volume + " not found.");
+                }
+                return false;
+            }
+            throw new IllegalStateException("Failed to access config service.", apie);
 
         } catch (TException e) {
-            throw new IllegalStateException("Failed to access server.", e);
+            throw new IllegalStateException("Failed to access config service.", e);
         }
     }
 
     @Override
     public User userFor(AuthenticationToken token) throws SecurityException {
         User user = config.getUser(token.getUserId());
-        if (user == null || !user.getSecret().equals(token.getSecret())) {
+        if (user == null) {
+            if (logger.isTraceEnabled()) {
+                logger.trace("AUTHZ::HASACCESS::DENIED user userid={} not found.", token.getUserId());
+            }
+
+            throw new SecurityException();
+        } else if (!user.getSecret().equals(token.getSecret())) {
             throw new SecurityException();
         }
         return user;

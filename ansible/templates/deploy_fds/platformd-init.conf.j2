@@ -1,0 +1,12 @@
+# platformd
+#
+
+description     "platformd"
+
+limit nofile 400000 400000
+limit core unlimited unlimited
+env LD_LIBRARY_PATH=/fds/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
+env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/fds-deps/embedded/bin:/opt/fds-deps/embedded/jre/bin:/fds/bin:/fds/bin
+chdir /fds/bin
+
+exec platformd --fds-root=/fds --fds.plat.id=node{{ node_num }} --fds.plat.om_ip={{ hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] }} 2>&1 /fds/bin/pm.out

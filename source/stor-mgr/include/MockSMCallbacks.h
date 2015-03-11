@@ -5,14 +5,13 @@
 
 #include <StorMgr.h>
 #include <fdsp_utils.h>
-#include <sm-platform.h>
 #include <SMSvcHandler.h>
 
 namespace fds {
 
 struct MockSMCallbacks : SMSvcHandler {
-    static void mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
-    static void mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
+    void mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
+    void mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
 };
 }  // namespace fds
 

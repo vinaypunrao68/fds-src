@@ -3,17 +3,21 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ApiException;
+import com.formationds.protocol.ApiException;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.spike.later.SyncRequestHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletException;
 import java.util.function.Function;
 
-public class S3FailureHandler implements Function<AuthenticationToken, RequestHandler> {
-    private Function<AuthenticationToken, RequestHandler> supplier;
+public class S3FailureHandler implements Function<AuthenticationToken, SyncRequestHandler> {
+    private static final Logger logger = LoggerFactory.getLogger(S3FailureHandler.class);
 
-    public S3FailureHandler(Function<AuthenticationToken, RequestHandler> supplier) {
+    private Function<AuthenticationToken, SyncRequestHandler> supplier;
+
+    public S3FailureHandler(Function<AuthenticationToken, SyncRequestHandler> supplier) {
         this.supplier = supplier;
     }
 
@@ -43,15 +47,19 @@ public class S3FailureHandler implements Function<AuthenticationToken, RequestHa
     }
 
     @Override
-    public RequestHandler apply(AuthenticationToken authenticationToken) {
-        return (request, routeParameters) -> {
-            String requestedResource = request.getRequestURI();
+    public SyncRequestHandler apply(AuthenticationToken authenticationToken) {
+        return (ctx) -> {
+            String requestedResource = ctx.getRequestURI();
 
             try {
-                return supplier.apply(authenticationToken).handle(request, routeParameters);
+                return supplier.apply(authenticationToken).handle(ctx);
             } catch (ApiException e) {
                 return makeS3Failure(requestedResource, e);
             } catch (SecurityException e) {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("S3::FAILURE: " + e.getMessage(), e);
+                }
+
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestedResource);
             } catch (ServletException e) {
                 return new S3Failure(S3Failure.ErrorCode.InvalidRequest, e.getMessage(), requestedResource);

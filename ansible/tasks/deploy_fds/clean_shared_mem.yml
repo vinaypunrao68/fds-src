@@ -1,0 +1,7 @@
+---
+-   name: clean_node
+    shell: rm -rf {{item}}
+    with_items:
+        - /dev/shm/0x*
+    tags:
+        - cleanshm

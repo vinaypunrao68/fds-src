@@ -29,6 +29,7 @@ public class Volume
   private Long sla;                     // minimum IOPS -- service level agreement
   private String id;                    // volume Id
   private Integer priority;
+  private Integer max_object_size;
   private Connector data_connector;
   private Usage current_usage;
   private MediaPolicy mediaPolicy;
@@ -50,6 +51,10 @@ public class Volume
                     new ModelFieldValidator( KeyFields.LIMIT,
                                              SLA_MIN,
                                              SLA_MAX ) );
+    VALIDATORS.put( "max_object_size",
+                    new ModelFieldValidator( KeyFields.MAX_OBJECT_SIZE,
+                                             OBJECT_SIZE_MIN,
+                                             OBJECT_SIZE_MAX ) );
   }
 
   /**
@@ -126,6 +131,32 @@ public class Volume
     }
     this.priority = priority;
   }
+
+  /**
+   * @return Returns a {@code int} representing the maximum number of bytes
+   * in the volume's underlying objects.
+   */
+  public int getMaxObjectSize() {
+    if (max_object_size == null) {
+	    return 0;
+    }
+    return max_object_size;
+  }
+
+  /**
+   * @param max_object_size a {@code int} representing the maximum number of
+   * bytes in the volume's underlying objects.
+   */
+  public void setMaxObjectSize( final int max_object_size ) {
+    if( !VALIDATORS.get( "max_object_size" )
+                   .isValid( max_object_size ) ) {
+      throw new IllegalArgumentException(
+        outOfRange(
+          VALIDATORS.get( "max_object_size" ), ( long ) max_object_size ) );
+    }
+    this.max_object_size = max_object_size;
+  }
+
 
   /**
    * @return Returns a {@link String} representing the universally unique
@@ -262,6 +293,7 @@ public class Volume
     sb.append(", limit=").append(limit);
     sb.append(", sla=").append(sla);
     sb.append(", priority=").append(priority);
+    sb.append(", max_object_size=").append(max_object_size);
     sb.append(", data_connector=").append(data_connector);
     sb.append(", current_usage=").append(current_usage);
     sb.append('}');

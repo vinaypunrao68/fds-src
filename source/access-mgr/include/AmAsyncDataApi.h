@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <fds_module.h>
-#include <apis/AsyncAmServiceRequest.h>
+#include <fdsp/AsyncXdiServiceRequest.h>
 #include <AmAsyncResponseApi.h>
 
 namespace fds {
@@ -58,7 +58,10 @@ class AmAsyncDataApi {
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_int_type& count,
-                        shared_size_type& offset);
+                        shared_size_type& offset,
+                        shared_string_type& pattern,
+                        boost::shared_ptr<fpi::BlobListOrder>& orderBy,
+                        shared_bool_type& descending);
 
     void statBlob(handle_type& requestId,
                   shared_string_type& domainName,

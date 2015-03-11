@@ -8,6 +8,7 @@
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <fiu-control.h>
@@ -16,7 +17,8 @@
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
 #include <testlib/Datasets.h>
-#include <apis/ConfigurationService.h>
+#include "fdsp/ConfigurationService.h"
+#include "fdsp/sm_api_types.h"
 #include <thrift/concurrency/Monitor.h>
 
 #include <gmock/gmock.h>
@@ -144,7 +146,7 @@ TEST_F(SMApi, putsPerf)
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
     if (svcUuid.svc_uuid == 0) {
-        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     }
     ASSERT_NE(svcUuid.svc_uuid, 0);;
     DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(1);
@@ -225,10 +227,14 @@ TEST_F(SMApi, putsPerf)
             << "Puts throughput: " << throughput << "\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "Puts avg latency: " << avgPutLatency_.value() << std::endl
-            << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
-            << "svc sendPayloadLat: " << gSvcRequestCntrs->sendPayloadLat.value() << std::endl
-            << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
-            << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl;
+            << "svc sendLat: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->sendLat.value() << std::endl
+            << "svc sendPayloadLat: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->sendPayloadLat.value() << std::endl
+            << "svc serialization latency: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->serializationLat.value() << std::endl
+            << "svc op latency: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->reqLat.value() << std::endl;
 
     std::cout << "putsIssued: " << putsIssued_
               << " putsSuccessCnt_: " << putsSuccessCnt_

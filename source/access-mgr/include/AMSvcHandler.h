@@ -4,10 +4,10 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_
 
-#include <net/net-service.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fds_typedefs.h>
 #include <fdsp/AMSvc.h>
+#include <AccessMgr.h>  /* For references to "am" */
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -21,7 +21,7 @@ namespace fds {
 class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHandler
 {
   public:
-    AMSvcHandler();
+    explicit AMSvcHandler(CommonModuleProviderIf *provider);
     virtual ~AMSvcHandler();
 
     /**
@@ -30,10 +30,6 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
     virtual void
     notifySvcChange(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
                     boost::shared_ptr<fpi::NodeSvcInfo> &msg);
-
-    virtual void
-    NotifyBucketStats(boost::shared_ptr<fpi::AsyncHdr>             &hdr,
-                      boost::shared_ptr<fpi::CtrlNotifyBucketStat> &msg);
 
     virtual void
     SetThrottleLevel(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
@@ -62,6 +58,15 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &msg);
+
+    void
+    NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                      boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
+                      const Error                                 &err);
+
+    virtual void
+    shutdownAM(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+               boost::shared_ptr<fpi::ShutdownMODMsg>   &shutdownMsg);
 };
 
 }  // namespace fds

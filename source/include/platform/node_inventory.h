@@ -9,6 +9,7 @@
 
 #include "fds-shmobj.h"
 #include "fds_resource.h"
+#include "fdsp/svc_types_types.h"
 #include "typedefs.h"
 
 namespace fds

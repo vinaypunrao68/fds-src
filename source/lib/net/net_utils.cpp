@@ -50,5 +50,25 @@ std::string get_local_ip(std::string ifc)
     fds_verify(myIp.size() > 0 && "Request ifc not found");
     return myIp;
 }
+
+std::string ipAddr2String(int ipaddr) 
+{
+    struct sockaddr_in sa;
+    char buf[32];
+    sa.sin_addr.s_addr = htonl(ipaddr);
+    inet_ntop(AF_INET, reinterpret_cast<void *>(&(sa.sin_addr)),
+              buf, INET_ADDRSTRLEN);
+    std::string ipaddr_str(buf);
+    return (ipaddr_str);
+}
+
+int ipString2Addr(std::string ipaddr_str) 
+{
+    struct sockaddr_in sa;
+    sa.sin_addr.s_addr = 0;
+    inet_pton(AF_INET, reinterpret_cast<const char *>(ipaddr_str.data()),
+              reinterpret_cast<void *>(&(sa.sin_addr)));
+    return (ntohl(sa.sin_addr.s_addr));
+}
 }  // namespace net
 }  // namespace fds

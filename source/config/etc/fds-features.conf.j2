@@ -24,4 +24,15 @@ WEB_KIT = true
 
 # The feature 'SNMP' is enabled.
 SNMP = true
+
+# InfluxDB feature toggles.  Idea here is we will continue to
+# persist to ObjectDB until we have fully implemented InfluxDB
+# query support at which point we will enable the influxdb query
+# toggle.  We can at any point disable persistence to ObjectDB.
+# Once fully implemented and validated, we will remove
+# ObjectDB support and these toggles.
+PERSIST_OBJECTDB = true
+PERSIST_INFLUXDB = true
+QUERY_INFLUXDB = false
+
 {% endblock %}

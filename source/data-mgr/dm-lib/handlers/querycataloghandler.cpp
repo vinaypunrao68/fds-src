@@ -5,7 +5,6 @@
 #include <dmhandler.h>
 #include <fds_assert.h>
 #include <util/Log.h>
-#include <fdsp_utils.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
 #include <fds_error.h>
@@ -23,9 +22,6 @@ QueryCatalogHandler::QueryCatalogHandler() {
 void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::QueryCatalogMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
-
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_queries > 0));
 
     auto dmReq = new DmIoQueryCat(message);
     dmReq->cb = BIND_MSG_CALLBACK(QueryCatalogHandler::handleResponse, asyncHdr, message);
@@ -59,9 +55,8 @@ void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
 void QueryCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::QueryCatalogMsg>& message,
                                          Error const& e, dmCatReq* dmRequest) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
-
     asyncHdr->msg_code = e.GetErrno();
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     // TODO(Rao): We should have a separate response message for QueryCatalogMsg for
     // consistency

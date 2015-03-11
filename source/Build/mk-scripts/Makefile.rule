@@ -348,7 +348,10 @@ ctags:
 #
 .PHONY: precheckin
 precheckin:
-	@echo Run primitive precheckin....
+	@echo Run precheckin....
+	@echo Running Unit tests
+	(cd $(topdir) && ../jenkins_scripts/run-unit-tests.py)
+	@echo Running Smoke test
 	(cd $(topdir) && python test/fds-primitive-smoke.py)
 
 # -----------------------------------------------------------------------------
@@ -409,6 +412,33 @@ ifdef VERBOSE
 else
 	@$(run_ansible_playbook_local)/generate_config_files.yml
 endif
+
+# -----------------------------------------------------------------------------
+# Run omnibus to build fds-deps package
+# -----------------------------------------------------------------------------
+omnibus_dir := $(incl_scripts)/../../../omnibus
+
+ifeq (package,$(firstword $(MAKECMDGOALS)))
+  project := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(project):;@:)
+endif
+
+ifneq "$(project)" ""
+pkg: $(omnibus_dir)
+	[ -e /usr/local/bin/bundle ] && echo "Bundler installed, continuing" || sudo gem install bundler
+	[ -d $(omnibus_dir)/omnibus-$(project) ] || (echo "No such project '$(project)'" && exit 1)
+	cd $(omnibus_dir)/omnibus-$(project) && rm -f pkg/*
+	cd $(omnibus_dir)/omnibus-$(project) && bundle install --without development --binstubs
+	cd $(omnibus_dir)/omnibus-$(project) && FDS_SRC_DIR=$(shell cd $(incl_scripts)/../../.. && pwd -P) bundle exec bin/omnibus build $(project)
+	
+else
+pkg:
+	@echo "You must pass an argument to the 'package' target (ex: make package fds-platform)"
+endif
+
+.PHONY: package
+package : pkg
+
 
 # -----------------------------------------------------------------------------
 # List Targets

@@ -26,20 +26,7 @@ public class NodeBuilderTest {
   @Test
   public void test()
   {
-//    final Node node =
-//      new NodeBuilder()
-//        .withDomain(  )
-//        .withLoAddr(  )
-//        .withHiAddr(  )
-//        .withId(  )
-//        .withLocalDomain(  )
-//        .withName(  )
-//        .withName(  )
-//        .withRoot(  )
-//        .withSite(  )
-//        .withState(  )
-//        .withUuid(  )
-//        .build();
+
   }
 
 }

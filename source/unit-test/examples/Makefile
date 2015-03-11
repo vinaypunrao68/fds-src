@@ -19,15 +19,13 @@ user_fds_ar_libs  := \
     fds-dsk-io \
     fds-dsk-mgnt \
     fds-hash \
-    fds-xdi \
+    fds-fdsp \
     fds-smlib     \
-    fds-vpolicy   \
     fds-hash      \
     fds-migrations \
     fds-odb       \
     fds-sm-plat   \
-    fds-smlib \
-    platform_core
+    fds-smlib
 
 local_nginx_libs   :=  \
     ngx-http-module \
@@ -51,7 +49,6 @@ user_non_fds_libs :=  \
     pcre \
     crypto \
     z \
-    cryptopp \
     leveldb \
     gmock \
     profiler \

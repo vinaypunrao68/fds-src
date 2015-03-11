@@ -1,10 +1,12 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2014-2015 Formation Data Systems, Inc.
  */
 
 #include <string>
 #include <fdsp_utils.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/am_types_types.h>
+#include <fdsp/dm_types_types.h>
+#include <fdsp/sm_api_types.h>
 #include <fds_resource.h>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -52,6 +54,13 @@ assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
     return lhs;
 }
 
+FDS_ProtocolInterface::FDSP_Uuid&
+assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs)
+{
+    lhs.uuid = rhs.svc_uuid.svc_uuid;
+    return lhs;
+}
+
 void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header)
 {
     auto temp = header->msg_src_uuid;
@@ -69,6 +78,26 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
         << std::dec
         << " error: " << header.msg_code;
     return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
+{
+    std::stringstream ss;
+    ss << "Svc handle svc_uuid: " << std::hex << info.svc_id.svc_uuid.svc_uuid
+        << std::dec << " ip: " << info.ip << " port: " << info.svc_port
+        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
+    return ss.str();
+}
+
+std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
+{
+    std::stringstream ss;
+    ss << fds::logString(info) << "\n";
+    auto &props = info.props;
+    for (auto &kv : props) {
+        ss << kv.first << " : " << kv.second << std::endl;
+    }
+    return ss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj)
@@ -96,7 +125,43 @@ std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
 std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
 {
     std::ostringstream oss;
-    oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest);
+    oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest)
+	<< " Volume UUID " << std::hex << putObj.volume_id << std::dec
+	<< " Object length " << putObj.data_obj_len;
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
+{
+    std::ostringstream oss;
+    oss << " CtrlObjectMetaDataPropagate for object " << ObjectID(msg.objectID.digest)
+	    << " reconcile " << msg.objectReconcileFlag
+        << " refcnt " << msg.objectRefCnt
+        << " objectCompressType " << msg.objectCompressType
+        << " objectCompressLen " << msg.objectCompressLen
+        << " objectBlkLen " << msg.objectBlkLen
+        << " objectSize " << msg.objectSize
+        << " objectFlags " << (fds_uint16_t)msg.objectFlags
+        << " objectExpireTime" << msg.objectExpireTime << std::endl;
+    for (auto volAssoc : msg.objectVolumeAssoc) {
+        oss << "CtrlObjectMetaDataPropagate vol assoc "
+            << std::hex << volAssoc.volumeAssoc << std::dec
+            << " refcnt " << volAssoc.volumeRefCnt;
+    }
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataSync& msg)
+{
+    std::ostringstream oss;
+    oss << " CtrlObjectMetaDataSync for object " << ObjectID(msg.objectID.digest)
+        << " refcnt " << msg.objRefCnt << std::endl;
+
+    for (auto volAssoc : msg.objVolAssoc) {
+        oss << "CtrlObjectMetaDataPropagate vol assoc "
+            << std::hex << volAssoc.volumeAssoc << std::dec
+            << " refcnt " << volAssoc.volumeRefCnt;
+    }
     return oss.str();
 }
 
@@ -148,19 +213,6 @@ std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
     oss < " CommitBlobTxMs";
     return oss.str();
 }
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delcatMsg)
-{
-    std::ostringstream oss;
-    oss < " DeleteCatalogObjectMsg";
-    return oss.str();
-}
-
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delcatRspMsg)
-{
-    std::ostringstream oss;
-    oss < " DeleteCatalogObjectRspMsg";
-    return oss.str();
-}
 
 std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& setMDMsg)
 {
@@ -179,7 +231,8 @@ std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& setMDR
 std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
 {
     std::ostringstream oss;
-    oss < " DeleteObjectMsg";
+    oss << " DeleteObjectMsg " << ObjectID(delMsg.objId.digest)
+	<< " Volume UUID " << std::hex << delMsg.volId << std::dec;
     return oss.str();
 }
 
@@ -221,18 +274,24 @@ std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg) {
     return "GetVolumeMetaDataMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternMsg& msg) {
+std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {
     std::ostringstream oss;
-    oss << " ListBlobsByPatternMsg(volume_id: " << msg.volume_id
-            << ", maxKeys: " << msg.maxKeys
+    oss << " GetBucketMsg(volume_id: " << msg.volume_id
+            << ", count: " << msg.count
             << ", startPos: " << msg.startPos
             << ", pattern: " << msg.pattern << ")";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternRspMsg& msg) {
+std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
     std::ostringstream oss;
-    oss << " ListBlobsByPatternRspMsg(count: " << msg.blobDescriptors.size() << ")";
+    oss << " GetBucketRspMsg(count: " << msg.blob_descr_list.size() << ")";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg) {
+    std::ostringstream oss;
+    oss << " DeleteBlobMsg ";
     return oss.str();
 }
 

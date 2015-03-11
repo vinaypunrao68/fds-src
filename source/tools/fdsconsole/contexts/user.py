@@ -1,18 +1,22 @@
 from  svchelper import *
-from fdslib.pyfdsp.apis import ttypes
 import restendpoint
 
 class UserContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        self.restApi = restendpoint.UserEndpoint(self.config.rest)
+        self.__restApi = None
+
+    def restApi(self):
+        if self.__restApi == None:
+            self.__restApi = restendpoint.UserEndpoint(self.config.getRestApi())
+        return self.__restApi
 
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
         'show the list of users in the system'
         try:
-            users = self.restApi.listUsers()
+            users = self.restApi().listUsers()
             return tabulate([(item['id'], item['identifier'], 'YES' if item['isFdsAdmin'] else 'NO')
                               for item in sorted(users, key=itemgetter('identifier'))  ],
                             headers=['id', 'identifier', 'admin'], tablefmt=self.config.getTableFormat())
@@ -27,7 +31,7 @@ class UserContext(Context):
     def create(self, name, password):
         'create a new user'
         try:
-            return self.restApi.createUser(name, password)
+            return self.restApi().createUser(name, password)
         except Exception, e:
             log.exception(e)
             return 'unable to create user: {}'.format(name)
@@ -38,7 +42,7 @@ class UserContext(Context):
     @arg('password', help= "password")
     def update_password(self, name, password):
         try:
-            return self.restApi.updatePassword(name, password)
+            return self.restApi().updatePassword(name, password)
         except Exception, e:
             log.exception(e)
             return 'unbale to update password for : {}'.format(name)

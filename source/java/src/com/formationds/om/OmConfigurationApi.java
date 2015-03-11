@@ -3,13 +3,14 @@
  */
 package com.formationds.om;
 
+import com.formationds.protocol.ApiException;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.StreamingRegistrationMsg;
 import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.commons.events.*;
 import com.formationds.om.events.EventManager;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.util.thrift.ConfigServiceClientFactory;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.HashMultimap;
@@ -131,6 +132,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     private final ThriftClientFactory<ConfigurationService.Iface>  configClientFactory;
     private final ConcurrentHashMap<Long, ConfigurationCache> map;
 
+    private StatStreamRegistrationHandler statStreamRegistrationHandler;
+
     public OmConfigurationApi(ThriftClientFactory<Iface> configClientFactory) throws Exception {
         this.configClientFactory = configClientFactory;
 
@@ -145,8 +148,13 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         });
     }
 
+    void startStatStreamRegistrationHandler() {
+        this.statStreamRegistrationHandler = new StatStreamRegistrationHandler( this );
+        this.statStreamRegistrationHandler.start();
+    }
+
     void startConfigurationUpdater() {
-        new Thread(new Updater()).start();
+        new Thread(new Updater(),"om_config_updater").start();
     }
 
     private Iface getConfig() {
@@ -159,6 +167,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     enum ConfigEvent implements EventDescriptor {
 
+        CREATE_LOCAL_DOMAIN(EventCategory.SYSTEM, "Created local domain {0}", "domainName"),
         CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {0}", "identifier"),
         CREATE_USER(EventCategory.SYSTEM, "Created user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
         UPDATE_USER(EventCategory.SYSTEM, "Updated user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
@@ -231,12 +240,20 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
+    public long createLocalDomain(String domainName)
+        throws TException {
+        long id = getConfig().createLocalDomain(domainName);
+        EventManager.notifyEvent(ConfigEvent.CREATE_LOCAL_DOMAIN, domainName);
+        return id;
+    }
+
+    @Override
     public long createTenant(String identifier)
         throws TException {
         long tenantId = getConfig().createTenant(identifier);
         VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY);
         // TODO: XDI implementation hardcodes tenant system volume domain to "FDS_S3" (via S3Endpoint.FDS_S3. Not sure if this is correct?
-        getConfig().createVolume("FDS_S3", systemFolderName(tenantId), volumeSettings, tenantId);
+        getConfig().createVolume( "FDS_S3", systemFolderName( tenantId ), volumeSettings, tenantId );
         dropCache();
         EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
         return tenantId;
@@ -248,24 +265,13 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     /**
-     *
-     * @return
-     * @throws ApiException
-     * @throws TException
-     */
-    @Override
-    public Collection<User> listUsers() {
-        return fillCacheMaybe().users();
-    }
-
-    /**
      * @param userId
      * @return
      * @throws TException
      */
     @Override
     public Optional<Tenant> tenantFor(long userId) {
-        return fillCacheMaybe().tenantFor(userId);
+        return fillCacheMaybe().tenantFor( userId );
     }
 
     @Override
@@ -288,7 +294,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public void revokeUserFromTenant(long userId, long tenantId)
         throws TException {
-        getConfig().revokeUserFromTenant(userId, tenantId);
+        getConfig().revokeUserFromTenant( userId, tenantId );
         dropCache();
         EventManager.notifyEvent(ConfigEvent.REVOKE_USER_TENANT, userId, tenantId);
     }
@@ -306,7 +312,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public Long tenantId(long userId) throws SecurityException {
-        return get().tenantsByUser.get(userId);
+        return get().tenantsByUser.get( userId );
     }
 
     /**
@@ -316,7 +322,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public User getUser(long userId) {
-        return get().usersById().get(userId);
+        return get().usersById().get( userId );
     }
 
     /**
@@ -331,7 +337,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<User> listUsersForTenant(long tenantId) {
-        return fillCacheMaybe().listUsersForTenant(tenantId);
+        return fillCacheMaybe().listUsersForTenant( tenantId );
     }
 
     @Override
@@ -361,6 +367,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         EventManager.notifyEvent(ConfigEvent.CREATE_VOLUME, domainName, volumeName, tenantId,
                                  vt.name(),
                                  maxSize);
+        statStreamRegistrationHandler.notifyVolumeCreated( domainName, volumeName );
     }
 
     @Override
@@ -372,7 +379,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public String getVolumeName(long volumeId)
         throws ApiException, org.apache.thrift.TException {
-        return getConfig().getVolumeName(volumeId);
+        return getConfig().getVolumeName( volumeId );
     }
 
     @Override
@@ -381,6 +388,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         getConfig().deleteVolume(domainName, volumeName);
         dropCache();
         EventManager.notifyEvent(ConfigEvent.DELETE_VOLUME, domainName, volumeName);
+        statStreamRegistrationHandler.notifyVolumeDeleted( domainName, volumeName );
     }
 
     @Override
@@ -393,20 +401,20 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<VolumeDescriptor> listVolumes(String domainName)
         throws TException {
-        return Lists.newArrayList(fillCacheMaybe().volumesByName()
-                                                  .values());
+        return Lists.newArrayList( fillCacheMaybe().volumesByName()
+                                                   .values() );
     }
 
     @Override
     public int registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds)
         throws TException {
-        return getConfig().registerStream(url, http_method, volume_names, sample_freq_seconds, duration_seconds);
+        return getConfig().registerStream( url, http_method, volume_names, sample_freq_seconds, duration_seconds );
     }
 
     @Override
     public List<StreamingRegistrationMsg> getStreamRegistrations(int ignore)
         throws TException {
-        return getConfig().getStreamRegistrations(ignore);
+        return getConfig().getStreamRegistrations( ignore );
     }
 
     @Override
@@ -477,7 +485,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
-    public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId)
+    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId)
         throws ApiException, org.apache.thrift.TException {
         return getConfig().listSnapshots(volumeId);
     }

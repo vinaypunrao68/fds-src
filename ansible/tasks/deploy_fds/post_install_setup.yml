@@ -1,13 +1,13 @@
 ---
 -   name: copy fdsinstall.py to /root/fdsinstally.py
-    copy: src=../../source/tools/install/fdsinstall.py
+    copy: src=../../../source/tools/install/fdsinstall.py
         dest=/root/fdsinstall.py
         mode=0755
     tags:
         - post-install
 
 -   name: copy disk_type.py to /root/disk_type.py
-    copy: src=../../source/platform/python/disk_type.py
+    copy: src=../../../source/platform/python/disk_type.py
         dest=/root/disk_type.py
         mode=0755
     tags:
@@ -19,7 +19,7 @@
     tags:
         - post-install
 
--   name: render formation.conf
+-   name: render deploy_formation.conf
     template:
         src=../../source/test/formation.conf.j2
         dest=/fds/sbin/deploy_formation.conf
@@ -47,9 +47,59 @@
         - post-install
         - fdsconfig
 
+-   name: setup influxdb user and group
+    group: name=influxdb
+    tags:
+        - post-install
+        - influxdb
+
+-   user: name=influxdb
+        createhome=no
+        group=influxdb
+    tags:
+        - post-install
+        - influxdb
+
+-   name: render influxdb config
+    template:
+        src=../templates/deploy_fds/influxdb_config.toml.j2
+        dest=/fds/etc/influxdb_config.toml
+        owner=influxdb
+        group=influxdb
+        mode=0644
+    tags:
+        - post-install
+        - influxdb
+
+-   name: copy influxdb init script
+    copy:
+        src=../files/deploy_fds/influxdb_init.sh
+        dest=/etc/init.d/influxdb
+        owner=root
+        group=root
+        mode=0744
+    tags:
+        - post-install
+        - init
+        - influxdb
+
+-   name: create influxdb log and data dirs
+    file:
+        path=/fds/var/{{item}}/influxdb
+        state=directory
+        owner=influxdb
+        group=root
+        mode=0755
+    with_items:
+        - logs
+        - db
+    tags:
+        - post-install
+        - influxdb
+
 -   name: render_init_scripts
     template:
-        src=../templates/{{item}}-init.conf.j2
+        src=../templates/deploy_fds/{{item}}-init.conf.j2
         dest=/etc/init/{{item}}.conf
         owner=root
         group=root
@@ -62,13 +112,3 @@
     tags:
         - post-install
         - init
-
--   name: java_symlink
-    file:
-        src=/usr/lib/jvm/jdk-8-oracle-x64/
-        dest=/usr/lib/jvm/jdk-8-oracle
-        owner=root
-        group=root
-        state=link
-    tags:
-        - post-install

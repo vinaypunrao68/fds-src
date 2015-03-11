@@ -5,14 +5,18 @@
 package com.formationds.om.repository.query.builder;
 
 import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.Context;
+import com.formationds.om.repository.query.OrderBy;
 import com.formationds.om.repository.query.QueryCriteria;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.*;
+
 import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +41,7 @@ public class CriteriaQueryBuilder<T> {
     protected final Root<T> from;
     protected List<Predicate> orPredicates;
     protected List<Predicate> andPredicates;
+    protected List<Order> orderPrecedence;
     private Integer maxResults;
     private Integer firstResult;
 
@@ -70,6 +75,18 @@ public class CriteriaQueryBuilder<T> {
      * @return the context name
      */
     public String getTimestampField() { return timestampField; }
+    
+    /**
+     * @return the list of order objects
+     */
+    protected List<Order> getOrderPrecedence() {
+    	
+    	if ( orderPrecedence == null ) {
+    		orderPrecedence = new ArrayList<Order>();
+    	}
+    	
+    	return orderPrecedence;
+    }
 
     /**
      * @param dateRange the {@link com.formationds.commons.model.DateRange} representing the search date range window
@@ -102,6 +119,29 @@ public class CriteriaQueryBuilder<T> {
         }
 
         return (CQ)this;
+    }
+    
+    public <CQ extends CriteriaQueryBuilder> CQ withOrderInstructions( final List<OrderBy> orders ){
+   
+    	orders.stream().forEach( order -> {
+        	
+    		logger.trace( String.format( "Order criteria: %s ASCENDING:: %b ", 
+        			order.getFieldName(), 
+        			order.isAscending() ) );
+    		
+    		Order javaxOrder = null;
+    		
+        	if ( order.isAscending() ){
+        		javaxOrder = cb.asc( from.get( order.getFieldName() ) );
+        	}
+        	else {
+        		javaxOrder = cb.desc( from.get( order.getFieldName() ) );        		
+        	}
+        	
+        	getOrderPrecedence().add( javaxOrder );
+    	});
+    	
+    	return (CQ)this;
     }
 
     /**
@@ -147,6 +187,10 @@ public class CriteriaQueryBuilder<T> {
         if ( searchCriteria.getPoints() != null ) {
             this.maxResults( searchCriteria.getPoints() );
         }
+        
+        if ( !searchCriteria.getOrderBy().isEmpty() ) {
+        	this.withOrderInstructions( searchCriteria.getOrderBy() );
+        }
 
         return (CQ)this;
     }
@@ -157,19 +201,31 @@ public class CriteriaQueryBuilder<T> {
      * @return Returns {@link MetricCriteriaQueryBuilder}
      */
     @SuppressWarnings( "unchecked" )
-    public <CQ extends CriteriaQueryBuilder> CQ withContexts( final List<Context> contexts ) {
+    public <CQ extends CriteriaQueryBuilder> CQ withContexts( final List<Volume> contexts ) {
 
+    	//TODO:  No idea why this doesn't work, but it's not working at all even though
+    	// the query string appears correct.  Since this is being removed in favor of InfluxDB
+    	// I'm just going to post-process to remove everything that doesn't match the context list.
+    	
         if( contexts != null && !contexts.isEmpty() ) {
 
-            final List<String> in = new ArrayList<>();
-            for( final Context c : contexts ) {
+//            final List<String> in = new ArrayList<>();
+            
+            List<Predicate> possibleNames = new ArrayList<Predicate>();
+            
+            for( final Volume c : contexts ) {
 
-                in.add( c.getContext() );
+//                in.add( c.getContext() );
 
+            	possibleNames.add( cb.equal(from.get( getContextName() ), c.getName() ) );
             }
+            
+            Predicate ordContexts = cb.or( possibleNames.toArray( new Predicate[possibleNames.size()]) );
 
-            final Expression<String> expression = from.get( getContextName() );
-            andPredicates.add(expression.in(in.toArray(new String[in.size()])));
+//            final Expression<String> expression = from.get( getContextName() );
+            
+//            andPredicates.add(expression.in(in.toArray(new String[in.size()])));
+            andPredicates.add( ordContexts );
         }
 
         return (CQ)this;
@@ -178,7 +234,7 @@ public class CriteriaQueryBuilder<T> {
     /**
      * @return Returns a {@link List} of the entities matching the query criteria
      */
-    public List<T> resultsList() {
+    public List<? extends T> resultsList() {
         if( firstResult != null && maxResults != null ) {
             return build().setFirstResult( firstResult )
                           .setMaxResults( maxResults )
@@ -229,52 +285,55 @@ public class CriteriaQueryBuilder<T> {
      */
     public TypedQuery<T> build() {
         logger.trace( "AND::{} OR::{}", andPredicates, orPredicates );
+        
+        CriteriaQuery<T> criteriaQuery = null;
+        
+        // handle the predicates.  Ordering is handled once below
         if( !andPredicates.isEmpty() && !orPredicates.isEmpty() ) {
-            return em.createQuery(
-                                 cq.select( from )
-                                   .orderBy( cb.asc( from.get( getContextName() ) ),
-                                             cb.asc( from.get( getTimestampField() ) ) )
-                                   .where(
-                                       cb.and(
-                                           andPredicates.toArray(
-                                               new Predicate[ andPredicates.size() ] ) ),
-                                       cb.or(
-                                           orPredicates.toArray(
-                                               new Predicate[ orPredicates.size() ] ) )
-                                         )
-                         );
+        	
+        	criteriaQuery = cq.select( from )
+                               .where(
+                                   cb.and(
+                                       andPredicates.toArray(
+                                           new Predicate[ andPredicates.size() ] ) ),
+                                   cb.or(
+                                       orPredicates.toArray(
+                                           new Predicate[ orPredicates.size() ] ) )
+                                     );
         }
-
-        if( andPredicates.isEmpty() && !orPredicates.isEmpty() ) {
-            return em.createQuery(
-                                 cq.select( from )
-                                   .orderBy( cb.asc( from.get( getContextName() ) ),
-                                             cb.asc( from.get( getTimestampField() ) ) )
-                                   .where(
-                                       cb.or(
-                                           orPredicates.toArray(
-                                               new Predicate[ orPredicates.size() ] ) )
-                                         )
-                         );
+        else if( andPredicates.isEmpty() && !orPredicates.isEmpty() ) {
+        	criteriaQuery =  cq.select( from )
+                               .where(
+                                   cb.or(
+                                       orPredicates.toArray(
+                                           new Predicate[ orPredicates.size() ] ) )
+                                     );
         }
-
-        if( !andPredicates.isEmpty() ) {
-            return em.createQuery(
-                                 cq.select( from )
-                                   .orderBy( cb.asc( from.get( getContextName() ) ),
-                                             cb.asc( from.get( getTimestampField() ) ) )
-                                   .where(
-                                       cb.and(
-                                           andPredicates.toArray(
-                                               new Predicate[ andPredicates.size() ] ) )
-                                         )
-                         );
+        else if( !andPredicates.isEmpty() ) {
+        	criteriaQuery = cq.select( from )
+                               .where(
+                                   cb.and(
+                                       andPredicates.toArray(
+                                           new Predicate[ andPredicates.size() ] ) )
+                                     );
         }
-
-        return em.createQuery(
-                             cq.select( from )
-                               .orderBy( cb.asc( from.get( getContextName() ) ),
-                                         cb.asc( from.get( getTimestampField() ) ) ) );
+        else {
+        	criteriaQuery = cq.select( from );
+        }
+        
+        // setting the default ordering if none was specified
+        if ( getOrderPrecedence().isEmpty() ) {
+        	criteriaQuery = cq.orderBy( cb.asc( from.get( getTimestampField() ) ), 
+        								cb.asc( from.get( getContextName() ) ) );
+        }
+        // otherwise we use the list of specified order precedence
+        else {
+        	criteriaQuery = cq.orderBy( getOrderPrecedence() );
+        }
+        
+        TypedQuery<T> tQuery = em.createQuery( criteriaQuery );
+        
+        return tQuery;
     }
 
     @SuppressWarnings( "unchecked" )

@@ -4,9 +4,10 @@
 
 package com.formationds.commons.togglz.feature.flag;
 
-import com.formationds.commons.togglz.FdsFeatureManagerProvider;
+import com.formationds.commons.togglz.feature.FdsFeatureManagerProvider;
 import com.formationds.commons.togglz.feature.annotation.Activities;
 import com.formationds.commons.togglz.feature.annotation.Firebreak;
+import com.formationds.commons.togglz.feature.annotation.InfluxDB;
 import com.formationds.commons.togglz.feature.annotation.Snapshot;
 import com.formationds.commons.togglz.feature.annotation.Snmp;
 import com.formationds.commons.togglz.feature.annotation.Statistics;
@@ -60,7 +61,20 @@ public enum FdsFeatureToggles
 
   @Label( "SNMP Feature" )
   @Snmp
-  SNMP;
+  SNMP,
+
+  @EnabledByDefault
+  @Label( "Persist To ObjectDB Feature" )
+  @InfluxDB
+  PERSIST_OBJECTDB,
+
+  @Label( "Persist To InfluxDB Feature" )
+  @InfluxDB
+  PERSIST_INFLUXDB,
+
+  @Label( "Query InfluxDB Feature" )
+  @InfluxDB
+  QUERY_INFLUXDB;
 
   /**
    * @return Returns {@code true} if the feature associated with {@code this}

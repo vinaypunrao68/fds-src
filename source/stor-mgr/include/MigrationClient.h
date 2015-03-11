@@ -7,18 +7,20 @@
 
 #include <list>
 #include <map>
+#include <atomic>
 
 #include <fds_types.h>
 
 #include <SmIo.h>
-
+#include <odb.h>
 #include <MigrationUtility.h>
 
 namespace fds {
 
-const fds_token_id SMTokenInvalidID = 0xffffffff;
-const uint64_t invalidExecutorID = 0xffffffffffffffff;
+/* Forward declarations */
+struct EPSvcRequest;
 
+const fds_token_id SMTokenInvalidID = 0xffffffff;
 /**
  * This is the client class for token migration.  This class is instantiated by the
  * source SM.
@@ -32,9 +34,20 @@ class MigrationClient {
   public:
     explicit MigrationClient(SmIoReqHandler *_dataStore,
                              NodeUuid& _destinationSMNodeID,
+                             fds_uint64_t& targetDltVersion,
                              fds_uint32_t bitsPerToken);
     ~MigrationClient();
 
+     enum MigrationClientState {
+            MIG_CLIENT_INIT,
+            MIG_CLIENT_FILTER_SET,
+            MIG_CLIENT_FIRST_PHASE_DELTA_SET,
+            MIG_CLIENT_FIRST_PHASE_DELTA_SET_COMPLETE,
+            MIG_CLIENT_SECOND_PHASE_DELTA_SET,
+            MIG_CLIENT_SECOND_PHASE_DELTA_SET_COMPLETE,
+            MIG_CLIENT_FINISH,
+            MIG_CLIENT_ERROR
+     };
 
     typedef std::unique_ptr<MigrationClient> unique_ptr;
     typedef std::shared_ptr<MigrationClient> shared_ptr;
@@ -53,10 +66,15 @@ class MigrationClient {
      *             Since, not sure what this callback is going to do, making
      *             it a generic name.
      */
-    void migClientSnapshotCB(const Error& error,
-                             SmIoSnapshotObjectDB* snapRequest,
-                             leveldb::ReadOptions& options,
-                             leveldb::DB *db);
+    void migClientSnapshotFirstPhaseCb(const Error& error,
+                                       SmIoSnapshotObjectDB* snapRequest,
+                                       std::string &snapDir,
+                                       leveldb::CopyEnv *env);
+
+    void migClientSnapshotSecondPhaseCb(const Error& error,
+                                        SmIoSnapshotObjectDB* snapRequest,
+                                        std::string &snapDir,
+                                        leveldb::CopyEnv *env);
 
     /**
      * Add initial set of DLT and Objects to the clients
@@ -73,11 +91,83 @@ class MigrationClient {
      *              sequence number isn't updated for a long time, take the
      *              node offline.
      */
-    Error migClientAddObjectSet(fpi::CtrlObjectRebalanceFilterSetPtr &filterSet);
+    Error migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet);
+
+    Error migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhaseMsg);
+
+    /**
+     * Callback from the QoS
+     */
+    void migClientReadObjDeltaSetCb(const Error& error,
+                                    SmIoReadObjDeltaSetReq *req);
+
+    /**
+     * Will set forwarding flag to true
+     * @param smToken is SM token, for sanity check
+     */
+    void setForwardingFlagIfSecondPhase(fds_token_id smTok);
+
+    /**
+     * Forwards requests if given DLT token is migrating and migration
+     * client has forwarding flag set
+     * @return true if request was forwarded
+     */
+    fds_bool_t forwardIfNeeded(fds_token_id dltToken,
+                               FDS_IOType* req);
 
   private:
+    /* Verify that set of DLT tokens belong to the same SM token.
+     */
     bool migClientVerifyDestination(fds_token_id dltToken,
                                     fds_uint64_t executorId);
+
+    /* Add object meta data to the set to be sent to QoS.
+     */
+    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
+                                                    fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
+                              fds_bool_t lastSet);
+
+    void fwdPutObjectCb(SmIoPutObjectReq* putReq,
+                        EPSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload);
+
+    void fwdDelObjectCb(SmIoDeleteObjectReq* delReq,
+                        EPSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload);
+
+    /**
+     * In error, sets error state and report error to OM
+     */
+    void handleMigrationError(const Error& error);
+
+    /**
+     * Return sequence number for delta set message from source SM to
+     * destination SM.
+     */
+    uint64_t getSeqNumDeltaSet();
+
+    /**
+     * Reset sequence number
+     */
+    void resetSeqNumDeltaSet();
+
+    /**
+     * Get current MigrationClient state.
+     */
+    MigrationClientState getMigClientState();
+
+    /**
+     * Set current Migration Client state.
+     */
+    void setMigClientState(MigrationClientState newState);
+
+    /**
+     * MigrationClient state.
+     * Doesn't really need to be atomic, but for safety in future????
+     */
+    std::atomic<MigrationClientState> migClientState;
 
     /**
      * SM token which is derived from the set of DLT tokens.
@@ -88,6 +178,24 @@ class MigrationClient {
      * bits per dlt token.
      */
     fds_uint32_t bitsPerDltToken;
+
+    /**
+     * Target DLT version for the undergoing SM token migration.
+     */
+    fds_uint64_t targetDltVersion;
+
+    /**
+     * Flag indicating objects in SM token for which this migration
+     * client is responsible need to be forwarded to destination SM
+     * Does not need to be atomic, because currently it is set under
+     * write lock in stor mgr.
+     */
+    fds_bool_t forwardingIO;
+
+    /**
+     * Mutex for dltTokenIDs and filterObjectSet.
+     */
+    std::mutex migClientLock;
 
     /**
      * Set of dlt tokens to filter against the the snapshot.
@@ -104,8 +212,8 @@ class MigrationClient {
      * TODO(Sean):  Need to optimize this.  If sizing is issue, we may
      *              need multiple set of object list and filter against
      *              snapshot multiple times.
-     *              1MB can hold 37,449 objects (28 bytes for <objectID+refcnt>)
-     *              1GB can hold 38,347,776 objects...
+     *              1MB can hold 23,831 objects (44 bytes for <objectID+refcnt+(volid+refcnt)>)
+     *              1GB can hold 24,443,223 objects...
      *
      * TODO(Sean): Second optimization is how to filter this object lists against the
      *             source SM snapshot.  If filterObjectList is big, then we have to something
@@ -113,7 +221,7 @@ class MigrationClient {
      *             filterObjectList and snapshot, and iterate like merge sort to get
      *             unique objects.
      */
-    std::unordered_map<ObjectID, int64_t, ObjectHash> filterObjectSet;
+    std::unordered_map<ObjectID, fpi::CtrlObjectMetaDataSync, ObjectHash> filterObjectSet;
 
     /**
      * Maintain the message from the destination SM to determine if all
@@ -121,10 +229,10 @@ class MigrationClient {
      * destination SM is asynchronous, the client can receive them
      * out of order.  This is to ensure that all messages are received.
      */
-    MigrationSeqNumReceiver seqNumFilterSet;
+    MigrationSeqNum seqNumFilterSet;
 
     /**
-     * destination SM node ID.  This is the SM Node ID that's requesting the
+     * Destination SM node ID.  This is the SM Node ID that's requesting the
      * the set of objects associated with the
      */
     NodeUuid destSMNodeID;
@@ -147,20 +255,30 @@ class MigrationClient {
     SmIoSnapshotObjectDB snapshotRequest;
 
     /**
-     * Pointer to the snapshot.  This is set in the snapshot callback.
+     * First persistent leveldb snapshot directory.  This is set in the snapshot callback.
      */
-    leveldb::DB *snapDB;
+    std::string firstPhaseSnapshotDir;
 
     /**
-     * Pointer to the snapshot iterator.  We need to save the iterator,
-     * since we need to keep the pointer to the current iteration.
+     * Second persistent leveldb snapshot directory.  This is set in the snapshot callback.
      */
-    leveldb::Iterator *iterDB;
+    std::string secondPhaseSnapshotDir;
 
     /**
      * Maximum number of objects to send in delta set back to the destination SM.
      */
     fds_uint32_t maxDeltaSetSize;
+
+    /**
+     * Maintain the sequence number for the delta set of object to be sent
+     * from the source SM to destination SM.
+     */
+    std::atomic<uint64_t> seqNumDeltaSet;
+
+    /**
+     * Standalone test mode.
+     */
+    fds_bool_t testMode;
 };  // class MigrationClient
 
 }  // namespace fds

@@ -8,13 +8,12 @@
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
-#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
-#include <apis/ConfigurationService.h>
+#include <fdsp/ConfigurationService.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -97,7 +96,7 @@ TEST_F(SMApi, DISABLED_putsPerf)
     bool uturnPuts = this->getArg<bool>("uturn");
 
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* Set fault to uturn all puts */

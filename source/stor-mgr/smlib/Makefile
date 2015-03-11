@@ -10,8 +10,7 @@ user_incl_dir     := \
 	../include \
 	$(topdir)/stor-mgr/migrations \
 	$(topdir)/lib \
-	$(topdir)/persistent-layer/include \
-	/usr/include/cryptopp
+	$(topdir)/persistent-layer/include
 
 user_cpp_flags    := -DOBJCACHE_ENABLE
 user_cpp          :=                   \
@@ -22,14 +21,17 @@ user_cpp          :=                   \
     ObjStats.cpp                       \
     TierMigration.cpp                  \
     TierEngine.cpp                     \
+    HybridTierCtrlr.cpp		           \
     ObjMeta.cpp                        \
-    SmObjDb.cpp                        \
     SMSvcHandler.cpp                   \
     MockSMCallbacks.cpp                \
     TokenMigrationMgr.cpp              \
-	MigrationExecutor.cpp 			   \
-	MigrationClient.cpp 			   \
-	MigrationUtility.cpp 			   
+    MigrationExecutor.cpp              \
+    MigrationClient.cpp                \
+    MigrationUtility.cpp               \
+    MigrationTools.cpp				   \
+	SMCheck.cpp                        \
+	SMCheckCtrl.cpp
 
 user_ar_libs      := fds-smlib
 fds-smlib         := $(user_cpp)

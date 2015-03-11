@@ -3,7 +3,11 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.util.blob.Mode;
 import org.apache.thrift.TException;
 
@@ -14,7 +18,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-public class MemoryAmService implements AmService.Iface {
+public class MemoryAmService implements XdiService.Iface {
     class Tx {
         private final Map<Long, byte[]> data;
         private long id;
@@ -168,7 +172,7 @@ public class MemoryAmService implements AmService.Iface {
     }
 
     @Override
-    public List<BlobDescriptor> volumeContents(String domain, String volume, int count, long offset) throws ApiException, TException {
+    public List<BlobDescriptor> volumeContents(String domain, String volume, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
         return getVolume(volume).blobMap.entrySet().stream()
                 .sorted((i, j) -> i.getKey().compareTo(j.getKey()))
                 .skip(offset)

@@ -198,7 +198,7 @@ TEST_F(SmTierMigrationTest, writeback) {
 
     // wait until write-back is finished
     std::unique_lock<std::mutex> lk(cond_mutex);
-    if (done_cond.wait_for(lk, std::chrono::milliseconds(10000),
+    if (done_cond.wait_for(lk, std::chrono::milliseconds(30000),
                            [this](){return atomic_load(&migration_done);})) {
         GLOGNOTIFY << "Finished waiting for write-back to finish!";
     } else {

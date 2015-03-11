@@ -16,6 +16,8 @@
 #include <odb.h>
 #include <FdsRandom.h>
 
+#include "platform/platform_consts.h"
+
 namespace fds {
 
 class SmUtUtils {
@@ -113,7 +115,7 @@ class SmUtUtils {
                                    fds_uint32_t simSsdCount) {
         std::string devDir = dir->dir_dev();
         FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
-        std::string diskmapPath = devDir + std::string("disk-map");
+        std::string diskmapPath = devDir + DISK_MAP_FILE;
         std::ifstream map(diskmapPath, std::ifstream::in);
         fds_uint32_t diskCount = 0;
         if (map.fail() == false) {
@@ -166,8 +168,7 @@ class SmUtUtils {
         fds_uint64_t  uuid;
         std::string   path, dev;
 
-        std::ifstream map(dir->dir_dev() + std::string("/disk-map"),
-                          std::ifstream::in);
+        std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
 
         diskMap->clear();
         fds_verify(map.fail() == false);

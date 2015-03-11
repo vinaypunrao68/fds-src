@@ -12,17 +12,12 @@
 
 #include <PerfTrace.h>
 #include <ObjMeta.h>
-#include <policy_rpc.h>
-#include <policy_tier.h>
 #include <StorMgr.h>
-#include <NetSession.h>
 #include <fds_timestamp.h>
-#include <fdsp_utils.h>
 #include <net/net_utils.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
-
-#include "platform/platform.h"
+#include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
+#include <SMSvcHandler.h>
 
 using diskio::DataTier;
 
@@ -36,76 +31,9 @@ fds_bool_t  stor_mgr_stopping = false;
 
 ObjectStorMgr *objStorMgr;
 
-/*
- * SM's FDSP interface member functions
- */
-ObjectStorMgrI::ObjectStorMgrI()
-{
-}
-
-ObjectStorMgrI::~ObjectStorMgrI()
-{
-}
-
-void
-ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
-                          FDSP_PutObjTypePtr& putObj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
-                          FDSP_GetObjTypePtr& getObj)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
-                             FDSP_DeleteObjTypePtr& delObj)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::OffsetWriteObject(FDSP_MsgHdrTypePtr& msg_hdr,
-                                  FDSP_OffsetWriteObjTypePtr& offset_write_obj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void
-ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr,
-                                FDSP_RedirReadObjTypePtr& redir_read_obj) {
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void ObjectStorMgrI::GetObjectMetadata(
-        boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
-    // This should never be called
-    fds_assert(1 == 0);
-}
-void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
-        SmIoReadObjectMetadata *read_data)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
-void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
-{
-    // This should never be called
-    fds_assert(1 == 0);
-}
-
 /**
  * Storage manager member functions
- * 
+ *
  * TODO: The number of test vols, the
  * totalRate, and number of qos threads
  * are being hard coded in the initializer
@@ -183,10 +111,23 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    /*
-     * Will setup OM comm during run()
-     */
     omClient = NULL;
+    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    if (testStandalone == false) {
+        std::string omIP;
+        fds_uint32_t omPort = 0;
+        MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
+        LOGNOTIFY << "om ip: " << omIP
+                  << " port: " << omPort;
+        omClient = new OMgrClient(FDSP_STOR_MGR,
+                                  omIP,
+                                  omPort,
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
+                                  GetLog(),
+                                  nullptr,
+                                  nullptr);
+    }
+
 
     return 0;
 }
@@ -196,42 +137,12 @@ void ObjectStorMgr::mod_startup()
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
-    std::string     myIp;
-
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
 
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
-
-    /* Token state db */
-    tokenStateDb_.reset(new kvstore::TokenStateDB());
-    // TODO(Rao): token state db population should be done based on
-    // om events.  For now hardcoding
-    for (fds_token_id tok = 0; tok < 256; tok++) {
-        tokenStateDb_->addToken(tok);
-    }
-
-    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
-    if (testStandalone == false) {
-        /* Set up FDSP RPC endpoints */
-        nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-        myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-        setup_datapath_server(myIp);
-
-        /*
-         * Register this node with OM.
-         */
-        LOGNOTIFY << "om ip: " << *modProvider_->get_plf_manager()->plf_get_om_ip()
-                  << " port: " << modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
-        omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  *modProvider_->get_plf_manager()->plf_get_om_ip(),
-                                  modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),
-                                  "localhost-sm",
-                                  GetLog(),
-                                  nst_, modProvider_->get_plf_manager());
-    }
 
     /*
      * Create local volume table. Create after omClient
@@ -274,27 +185,6 @@ void ObjectStorMgr::mod_startup()
         qosThrds = qosOutNum + 1;   // one is used for dispatcher
     }
 
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        /*
-         * Register/boostrap from OM
-         */
-        omClient->initialize();
-        omClient->registerEventHandlerForNodeEvents(
-            (node_event_handler_t)nodeEventOmHandler);
-        omClient->registerEventHandlerForMigrateEvents(
-            (migration_event_handler_t)migrationEventOmHandler);
-        omClient->registerEventHandlerForDltCloseEvents(
-            (dltclose_event_handler_t) dltcloseEventHandler);
-        omClient->omc_srv_pol = &sg_SMVolPolicyServ;
-        omClient->startAcceptingControlMessages();
-        omClient->registerNodeWithOM(modProvider_->get_plf_manager());
-
-        clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
-
-        omc_srv_pol = &sg_SMVolPolicyServ;
-        setup_migration_svc(obj_dir);
-    }
-
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
 }
@@ -307,18 +197,15 @@ void ObjectStorMgr::mod_startup()
 void ObjectStorMgr::mod_enable_service()
 {
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
-        NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
-        fpi::StorCapMsg stor_cap;
-        sm_node->init_stor_cap_msg(&stor_cap);
-
         // note that qos dispatcher in SM/DM uses total rate just to assign
         // guaranteed slots, it still will dispatch more IOs if there is more
         // perf capacity available (based on how fast IOs return). So setting
         // totalRate to disk_iops_min does not actually restrict the SM from
         // servicing more IO if there is more capacity (eg.. because we have
         // cache and SSDs)
-        totalRate = stor_cap.disk_iops_min;
+        auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+        totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
+                modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "disk_iops_min");
     }
 
     /*
@@ -390,80 +277,23 @@ void ObjectStorMgr::mod_enable_service()
             delete testVdb;
         }
     }
+
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        gSvcRequestPool->setDltManager(omClient->getDltManager());
+    }
 }
 
 void ObjectStorMgr::mod_shutdown()
 {
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
-        return;  // no migration or netsession
-    }
-    migrationSvc_->mod_shutdown();
-    nst_->endAllSessions();
-    nst_.reset();
-}
-
-void ObjectStorMgr::setup_datapath_server(const std::string &ip)
-{
-    ObjectStorMgrI *osmi = new ObjectStorMgrI();
-    datapath_handler_.reset(osmi);
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_SM";
-    // TODO(???): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(???): Figure out who cleans up datapath_session_
-    datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
-        myIpInt,
-        modProvider_->get_plf_manager()->plf_get_my_data_port(),
-        node_name,
-        FDSP_STOR_HVISOR,
-        datapath_handler_);
-}
-
-void ObjectStorMgr::setup_migration_svc(const std::string& obj_dir)
-{
-    migrationSvc_.reset(new FdsMigrationSvc(this,
-                                            FdsConfigAccessor(modProvider_->get_fds_config(),
-                                                              "fds.sm.migration."),
-                                            obj_dir,
-                                            GetLog(),
-                                            nst_,
-                                            clust_comm_mgr_,
-                                            tokenStateDb_));
-    migrationSvc_->mod_startup();
 }
 
 int ObjectStorMgr::run()
 {
-    nst_->listenServer(datapath_session_);
+    while (true) {
+        sleep(1);
+    }
     return 0;
-}
-
-void
-ObjectStorMgr::addSvcMap(const NodeUuid    &svcUuid,
-                         const SessionUuid &sessUuid) {
-    svcSessLock.write_lock();
-    LOGNORMAL << "NodeUuid: " << svcUuid.uuid_get_val() << ", Session Uuid: " << sessUuid;
-    svcSessMap[svcUuid] = sessUuid;
-    svcSessLock.write_unlock();
-}
-
-ObjectStorMgr::SessionUuid
-ObjectStorMgr::getSvcSess(const NodeUuid &svcUuid) {
-    SessionUuid sessId;
-    svcSessLock.read_lock();
-    fds_verify(svcSessMap.count(svcUuid) > 0);
-    sessId = svcSessMap[svcUuid];
-    svcSessLock.read_unlock();
-
-    return sessId;
-}
-
-DPRespClientPtr
-ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
-    return datapath_session_->getRespClient(session_uuid);
 }
 
 const TokenList&
@@ -487,10 +317,12 @@ ObjectStorMgr::getTotalNumTokens() const {
 
 NodeUuid
 ObjectStorMgr::getUuid() const {
-    return omClient->getUuid();
+    NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    return mySvcUuid;
 }
 
 const DLT* ObjectStorMgr::getDLT() {
+    if (!omClient) { return nullptr; }
     return omClient->getCurrentDLT();
 }
 
@@ -500,79 +332,7 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
     }
     DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
     fds_verify(nodes->getLength() > 0);
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-    return (*mySvcUuid == nodes->get(0));
-}
-
-fds_token_id ObjectStorMgr::getTokenId(const ObjectID& objId) {
-    return omClient->getCurrentDLT()->getToken(objId);
-}
-
-kvstore::TokenStateDBPtr ObjectStorMgr::getTokenStateDb()
-{
-    return tokenStateDb_;
-}
-
-bool ObjectStorMgr::isTokenInSyncMode(const fds_token_id &tokId) {
-    kvstore::TokenStateInfo::State state;
-    tokenStateDb_->getTokenState(tokId, state);
-    return (state == kvstore::TokenStateInfo::SYNCING ||
-            state == kvstore::TokenStateInfo::PULL_REMAINING);
-}
-
-void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
-{
-    auto curDlt = objStorMgr->omClient->getCurrentDLT();
-    auto prevDlt = objStorMgr->omClient->getPreviousDLT();
-    std::set<fds_token_id> tokens =
-            DLT::token_diff(objStorMgr->getUuid(), curDlt, prevDlt);
-    // TODO(Rao): hack to not exercise migration code path.  Once
-    // we enable multinode enable this code path
-    tokens.clear();
-    prevDlt = curDlt;
-    ////////////////////////////////////////////////////////////
-
-    GLOGNORMAL << " tokens to copy size: " << tokens.size();
-
-    if (tokens.size() > 0) {
-        for (auto t : tokens) {
-            /* This says we own the token, but don't have any data for it */
-            objStorMgr->getTokenStateDb()->\
-                    setTokenState(t, kvstore::TokenStateInfo::UNINITIALIZED);
-        }
-        objStorMgr->tok_migrated_for_dlt_ = true;
-        /* Issue bulk copy request */
-        MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
-        copy_req->tokens = tokens;
-        // Send migration request to migration service
-        copy_req->migsvc_resp_cb = std::bind(
-            &ObjectStorMgr::migrationSvcResponseCb,
-            objStorMgr,
-            std::placeholders::_1,
-            std::placeholders::_2);
-        FdsActorRequestPtr copy_far(new FdsActorRequest(
-            FAR_ID(MigSvcBulkCopyTokensReq), copy_req));
-        objStorMgr->migrationSvc_->send_actor_request(copy_far);
-    } else {
-        /* Nothing to migrate case */
-        if (curDlt == prevDlt) {
-            /* This is the first node.  Set all tokens owned by this node to
-             * healthy.
-             * TODO(Rao): This is hacky.  We need a better way to test first
-             * node case.
-             */
-            GLOGDEBUG << "No dlt change.  Nothing to migrate.  Setting all tokens in"
-                    " current dlt to healthy";
-            auto tokens = curDlt->getTokens(objStorMgr->getUuid());
-            for (auto t : tokens) {
-                /* This says we own the token, but don't have any data for it */
-                objStorMgr->getTokenStateDb()->\
-                        setTokenState(t, kvstore::TokenStateInfo::HEALTHY);
-            }
-        }
-        objStorMgr->tok_migrated_for_dlt_ = false;
-        objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
-    }
+    return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
 }
 
 void ObjectStorMgr::handleDltUpdate() {
@@ -585,79 +345,6 @@ void ObjectStorMgr::handleDltUpdate() {
     if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
         LOGDEBUG << "Received DLT update that has removed this node.";
         // TODO(brian): Not sure if this is where we should kill scavenger or not
-    }
-}
-
-void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
-        const std::string& session_uuid)
-{
-    #if 0
-    fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
-    objStorMgr->cached_dlt_close_.first = session_uuid;
-    objStorMgr->cached_dlt_close_.second = dlt_close;
-
-    MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
-    close_req->sync_close_ts = get_fds_timestamp_ms();
-
-    FdsActorRequestPtr close_far(new FdsActorRequest(
-            FAR_ID(MigSvcSyncCloseReq), close_req));
-
-    objStorMgr->migrationSvc_->send_actor_request(close_far);
-
-    GLOGNORMAL << "Received ioclose. Time: " << close_req->sync_close_ts;
-
-    /* It's possible no tokens were migrated.  In this we case we simulate
-     * MIGRATION_OP_COMPLETE.
-     */
-    if (objStorMgr->tok_migrated_for_dlt_ == false) {
-        objStorMgr->migrationSvcResponseCb(ERR_OK, MIGRATION_OP_COMPLETE);
-    }
-
-    // Check to see if we should be shutting down
-    const DLT * currentDlt = objStorMgr->getDLT();
-    if (currentDlt->getTokens(objStorMgr->getUuid()).empty()) {
-        delete objStorMgr;
-    }
-    #endif
-}
-
-void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
-        const MigrationStatus& status) {
-    if (status == TOKEN_COPY_COMPLETE) {
-        LOGNORMAL << "Token copy complete";
-        omClient->sendMigrationStatusToOM(err);
-    } else if (status == MIGRATION_OP_COMPLETE) {
-        LOGNORMAL << "Token migration complete";
-        LOGNORMAL << migrationSvc_->mig_cntrs.toString();
-
-        // omClient->sendDLTCloseAckToOM();
-
-        objStorMgr->tok_migrated_for_dlt_ = false;
-    }
-}
-
-void ObjectStorMgr::nodeEventOmHandler(int node_id,
-                                       unsigned int node_ip_addr,
-                                       int node_state,
-                                       fds_uint32_t node_port,
-                                       FDS_ProtocolInterface::FDSP_MgrIdType node_type)
-{
-    GLOGDEBUG << "ObjectStorMgr - Node event Handler " << node_id
-              << " Node IP Address " <<  node_ip_addr;
-    switch (node_state) {
-        case FDS_Node_Up :
-            GLOGNOTIFY << "ObjectStorMgr - Node UP event NodeId "
-                       << node_id << " Node IP Address " <<  node_ip_addr;
-            break;
-        case FDS_Node_Down:
-        case FDS_Node_Rmvd:
-            GLOGNOTIFY << " ObjectStorMgr - Node Down event NodeId: "
-                       << node_id << " node IP addr" << node_ip_addr;
-            break;
-        case FDS_Start_Migration:
-            GLOGNOTIFY << " ObjectStorMgr - Start Migration  event NodeId: "
-                       << node_id << " node IP addr" << node_ip_addr;
-            break;
     }
 }
 
@@ -762,8 +449,39 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     }
 }
 
+/* Initialize an instance specific vector of locks to cover the entire
+ * range of potential sm tokens.
+ *
+ * Take a read (or optionally write lock) on a sm token and return
+ * a structure that will automatically call the correct unlock when
+ * it goes out of scope.
+ */
+ObjectStorMgr::always_call
+ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
+    using lock_array_type = std::vector<fds_rwlock*>;
+    static lock_array_type token_locks;
+    static std::once_flag f;
+
+    fds_uint32_t b_p_t = getDLT()->getNumBitsForToken();
+
+    // Once, resize the vector appropriately on the bits in the token
+    std::call_once(f,
+                   [](fds_uint32_t size) {
+                       token_locks.resize(0x01<<size);
+                       token_locks.shrink_to_fit();
+                       for (auto& p : token_locks)
+                       { p = new fds_rwlock(); }
+                   },
+                   b_p_t);
+
+    auto lock = token_locks[id];
+    exclusive ? lock->write_lock() : lock->read_lock();
+    return always_call([lock, exclusive] { exclusive ? lock->write_unlock() : lock->read_unlock(); });
+}
+
+
 /*------------------------------------------------------------------------- ------------
- * FDSP Protocol internal processing 
+ * FDSP Protocol internal processing
  -------------------------------------------------------------------------------------*/
 
 Error
@@ -776,20 +494,32 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
 
-    // latency of ObjectStore layer
-    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
+    {  // token lock
+        auto token_lock = getTokenLock(objId);
 
-    // TODO(Andrew): Remove this copy. The network should allocated
-    // a shared ptr structure so that we can directly store that, even
-    // after the network message is freed.
-    err = objectStore->putObject(volId,
-                                 objId,
-                                 boost::make_shared<std::string>(
-                                     putReq->putObjectNetReq->data_obj));
-    qosCtrl->markIODone(*putReq);
+        // latency of ObjectStore layer
+        PerfTracer::tracePointBegin(putReq->opLatencyCtx);
 
-    // end of ObjectStore layer latency
-    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
+        // TODO(Andrew): Remove this copy. The network should allocated
+        // a shared ptr structure so that we can directly store that, even
+        // after the network message is freed.
+        err = objectStore->putObject(volId,
+                                     objId,
+                                     boost::make_shared<std::string>(
+                                         putReq->putObjectNetReq->data_obj));
+        qosCtrl->markIODone(*putReq);
+
+        // end of ObjectStore layer latency
+        PerfTracer::tracePointEnd(putReq->opLatencyCtx);
+
+        // forward this IO to destination SM if needed, but only if we succeeded locally
+        if (err.ok() &&
+            migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq)) {
+            // we forwarded request, however we will ack to AM right away, and if
+            // forwarded request fails, we will fail the migration
+            LOGMIGRATE << "Forwarded Put " << objId << " to destination SM ";
+        }
+    }
 
     putReq->response_cb(err, putReq);
     return err;
@@ -808,15 +538,27 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
     LOGDEBUG << "Volume " << std::hex << volId << std::dec
              << " " << objId;
 
-    // start of ObjectStore layer latency
-    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
+    {  // token lock
+        auto token_lock = getTokenLock(objId);
 
-    err = objectStore->deleteObject(volId, objId);
+        // start of ObjectStore layer latency
+        PerfTracer::tracePointBegin(delReq->opLatencyCtx);
 
-    qosCtrl->markIODone(*delReq);
+        err = objectStore->deleteObject(volId, objId);
 
-    // end of ObjectStore layer latency
-    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+        qosCtrl->markIODone(*delReq);
+
+        // end of ObjectStore layer latency
+        PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+
+        // forward this IO to destination SM if needed, but only if we succeeded locally
+        if (err.ok() &&
+            migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq)) {
+            // we forwarded request, however we will ack to AM right away, and if
+            // forwarded request fails, we will fail the migration
+            LOGMIGRATE << "Forwarded Delete " << objId << " to destination SM ";
+        }
+    }
 
     delReq->response_cb(err, delReq);
     return err;
@@ -895,48 +637,13 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     return err;
 }
 
-NodeAgentDpClientPtr
-ObjectStorMgr::getProxyClient(ObjectID& oid,
-                              const FDSP_MsgHdrTypePtr& msg) {
-    const DLT* dlt = getDLT();
-    NodeUuid uuid = 0;
-
-    // TODO(Andrew): Why is it const if we const_cast it?
-    FDSP_MsgHdrTypePtr& fdsp_msg = const_cast<FDSP_MsgHdrTypePtr&> (msg);
-    // get the first Node that is not ME!!
-    DltTokenGroupPtr nodes = dlt->getNodes(oid);
-    for (uint i = 0; i < nodes->getLength(); i++) {
-        if (nodes->get(i) != getUuid()) {
-            uuid = nodes->get(i);
-            break;
-        }
-    }
-
-    fds_verify(uuid != getUuid());
-
-    LOGDEBUG << "obj " << oid << " not located here "
-             << getUuid() << " proxy_count " << fdsp_msg->proxy_count;
-    LOGDEBUG << "proxying request to " << uuid;
-    fds_int32_t node_state = -1;
-
-    NodeAgent::pointer node = modProvider_->get_plf_manager()->plf_node_inventory()->
-            dc_get_sm_nodes()->agent_info(uuid);
-    SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
-    NodeAgentDpClientPtr smClient = sm->get_sm_client();
-
-    // Increment the proxy count so the receiver knows
-    // this is a proxied request
-    fdsp_msg->proxy_count++;
-    return smClient;
-}
-
 /**
  * @brief Enqueues a message into storage manager for processing
  *
  * @param volId
  * @param ioReq
  *
- * @return 
+ * @return
  */
 Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
@@ -952,18 +659,11 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     }
 
     switch (ioReq->io_type) {
-        case FDS_SM_WRITE_TOKEN_OBJECTS:
-        case FDS_SM_READ_TOKEN_OBJECTS:
-        {
-            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
-            fds_assert(smVol);
-            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
-                    static_cast<FDS_IOType*>(ioReq));
-            break;
-        }
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
+        case FDS_SM_APPLY_DELTA_SET:
+        case FDS_SM_READ_DELTA_SET:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
@@ -986,26 +686,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_DELETE_OBJECT:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
-        case FDS_SM_SYNC_APPLY_METADATA:
-            objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
-            objectId = static_cast<SmIoResolveSyncEntry*>(ioReq)->object_id;
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        case FDS_SM_APPLY_OBJECTDATA:
-            objectId = static_cast<SmIoApplyObjectdata*>(ioReq)->obj_id;
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        case FDS_SM_READ_OBJECTDATA:
-            objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjId();
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        case FDS_SM_READ_OBJECTMETADATA:
-            objectId = static_cast<SmIoReadObjectMetadata*>(ioReq)->getObjId();
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
         default:
             LOGERROR << "Unknown message: " << ioReq->io_type;
             fds_panic("Unknown message");
@@ -1018,97 +698,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     return err;
 }
 
-
-/**
- * @brief Does a bulk put of objects+metadata from obj_list
- * @param the request structure ptr
- * @return any associated error
- */
-void
-ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
-{
-    Error err(ERR_OK);
-    SmIoPutTokObjectsReq *putTokReq = static_cast<SmIoPutTokObjectsReq*>(ioReq);
-    FDSP_MigrateObjectList &objList = putTokReq->obj_list;
-    fds_panic("need to be ported to new SM org");
-
-    for (auto obj : objList) {
-        ObjectID objId(obj.meta_data.object_id.digest);
-
-        ObjMetaData objMetadata;
-        // err = smObjDb->get(objId, objMetadata);
-        if (err != ERR_OK && err != ERR_NOT_FOUND) {
-            fds_assert(!"ObjMetadata read failed");
-            LOGERROR << "Failed to write the object: " << objId;
-            break;
-        }
-
-        err = ERR_OK;
-
-        /* Apply metadata */
-        objMetadata.apply(obj.meta_data);
-
-        /* Update token healthy timestamp
-         * TODO(Rao):  Ideally this code belongs in SmObjDb::put()
-         */
-        getTokenStateDb()->updateHealthyTS(putTokReq->token_id,
-                objMetadata.getModificationTs());
-
-
-        LOGDEBUG << objMetadata.logString();
-
-        if (objMetadata.dataPhysicallyExists()) {
-            /* write metadata */
-            // smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
-            /* No need to write the object data.  It already exits */
-            continue;
-        }
-
-        /* Moving the data to not incur copy penalty */
-        DBG(std::string temp_data = obj.data);
-        ObjectBuf objData;
-        *(objData.data) = std::move(obj.data);
-        fds_assert(temp_data == *(objData.data));
-        obj.data.clear();
-
-        /* write data to storage tier */
-        obj_phy_loc_t phys_loc;
-        fds_panic("need to port back to new SM org");
-        // err = writeObjectDataToTier(objId, objData, diskio::diskTier, phys_loc);
-        if (err != ERR_OK) {
-            LOGERROR << "Failed to write the object: " << objId;
-            break;
-        }
-
-        /* write the metadata */
-        objMetadata.updatePhysLocation(&phys_loc);
-        // smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
-    }
-
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*putTokReq,
-                        diskio::diskTier);
-
-    putTokReq->response_cb(err, putTokReq);
-    /* NOTE: We expect the caller to free up ioReq */
-}
-
-void
-ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
-{
-    Error err(ERR_OK);
-    fds_panic("need to be ported to new SM org");
-    SmIoGetTokObjectsReq *getTokReq = static_cast<SmIoGetTokObjectsReq*>(ioReq);
-    // smObjDb->iterRetrieveObjects(getTokReq->token_id,
-    //                             getTokReq->max_size, getTokReq->obj_list, getTokReq->itr);
-
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*getTokReq,
-                        diskio::diskTier);
-
-    getTokReq->response_cb(err, getTokReq);
-    /* NOTE: We expect the caller to free up ioReq */
-}
 /**
  * Takes snapshot of sm object metadata db identifed by
  * token
@@ -1119,33 +708,28 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
+    LOGDEBUG << *snapReq;
 
-    objectStore->snapshotMetadata(snapReq->token_id,
-                                  snapReq->smio_snap_resp_cb);
+    // When this lock is held, any put/delete request in that
+    // object id range will block
+    auto token_lock = getTokenLock(snapReq->token_id, true);
 
+    // if this is the second snapshot for migration, start forwarding puts and deletes
+    // for this migration client (which is addressed by executorID on destination side)
+    migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
+
+    if (snapReq->isPersistent) {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_persist_snap_resp_cb,
+                                      snapReq);
+    } else {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_snap_resp_cb,
+                                      snapReq);
+    }
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
-}
-
-void
-ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
-{
-    fds_panic("need to be ported to new SM org");
-    SmIoApplySyncMetadata *applyMdReq =  static_cast<SmIoApplySyncMetadata*>(ioReq);
-    // Error e = smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
-    //                                applyMdReq->md, applyMdReq->dataExists);
-    Error e(ERR_OK);
-    if (e != ERR_OK) {
-        fds_assert(!"error");
-        LOGERROR << "Error in applying sync metadata.  Object Id: "
-                 << applyMdReq->md.object_id.digest;
-    }
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*applyMdReq,
-            diskio::diskTier);
-
-    applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
 }
 
 void
@@ -1154,17 +738,43 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoCompactObjects *cobjs_req =  static_cast<SmIoCompactObjects*>(ioReq);
     fds_verify(cobjs_req != NULL);
+    const DLT* curDlt = getDLT();
+    NodeUuid myUuid = getUuid();
 
     for (fds_uint32_t i = 0; i < (cobjs_req->oid_list).size(); ++i) {
         const ObjectID& obj_id = (cobjs_req->oid_list)[i];
+        fds_bool_t objOwned = true;
+
+        // we will garbage collect an object even if its refct > 0
+        // if it belongs to DLT token that this SM is not responsible anymore
+        // However, migration should be idle and DLT must be closed (not just
+        // committed) -- if that does not hold, we will garbage collect this
+        // object next time.. correctness holds.
+        if (migrationMgr->isMigrationIdle() && curDlt->isClosed()) {
+            DltTokenGroupPtr nodes = curDlt->getNodes(obj_id);
+            fds_bool_t found = false;
+            for (uint i = 0; i < nodes->getLength(); ++i) {
+                if (nodes->get(i) == myUuid) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                objOwned = false;
+                LOGTRACE << "Will remove " << obj_id << " even if refct > 0 "
+                         << " because the object no longer owned by this SM";
+            }
+        }
 
         LOGDEBUG << "Compaction is working on object " << obj_id
                  << " on tier " << cobjs_req->tier << " verify data?"
-                 << cobjs_req->verifyData;
+                 << cobjs_req->verifyData << " object owned? "
+                 << objOwned;
 
         // copy this object if not garbage, otherwise rm object db entry
         err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
-                                                   cobjs_req->verifyData);
+                                                   cobjs_req->verifyData,
+                                                   objOwned);
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;
@@ -1177,7 +787,125 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
 
     cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
 
-    delete cobjs_req;
+    /** TODO(Sean)
+     *  Originally cobjs_req was deleted here, but valgrind detected is as memory leak.
+     *  However, moving the delete call into the smio_compactobj_resp_cb() make valgrind
+     *  happy.  Need to investigate why this is.  Could be that 1% false positive valgrind
+     *  can report.
+     */
+}
+
+void
+ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
+{
+    Error err(ERR_OK);
+    SmIoApplyObjRebalDeltaSet* rebalReq = static_cast<SmIoApplyObjRebalDeltaSet*>(ioReq);
+    fds_verify(rebalReq != NULL);
+
+    LOGMIGRATE << "Applying Delta Set:"
+               << " executorID=" << rebalReq->executorId
+               << " seqNum=" << rebalReq->seqNum
+               << " lastSet=" << rebalReq->lastSet
+               << " qosSeqNum=" << rebalReq->qosSeqNum
+               << " qosLastSet=" << rebalReq->qosLastSet
+               << " delta set size=" << rebalReq->deltaSet.size();
+
+    for (fds_uint32_t i = 0; i < (rebalReq->deltaSet).size(); ++i) {
+        const fpi::CtrlObjectMetaDataPropagate& objDataMeta = (rebalReq->deltaSet)[i];
+        ObjectID objId(ObjectID(objDataMeta.objectID.digest));
+
+        LOGMIGRATE << "Applying DeltaSet element: " << objId;
+
+        err = objectStore->applyObjectMetadataData(objId, objDataMeta);
+        if (!err.ok()) {
+            // we will stop applying object metadata/data and report error to migr mgr
+            LOGERROR << "Failed to apply object metadata/data " << objId
+                     << ", " << err;
+            break;
+        }
+    }
+
+    // mark request as complete
+    qosCtrl->markIODone(*rebalReq, diskio::diskTier);
+
+    // notify migration executor we are done with this request
+    rebalReq->smioObjdeltaRespCb(err, rebalReq);
+
+    delete rebalReq;
+}
+
+void
+ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
+{
+    Error err(ERR_OK);
+
+    SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
+    fds_verify(NULL != readDeltaSetReq);
+
+    LOGMIGRATE << "Filling DeltaSet:"
+               << " destinationSmId " << readDeltaSetReq->destinationSmId
+               << " executorID=" << readDeltaSetReq->executorId
+               << " seqNum=" << readDeltaSetReq->seqNum
+               << " lastSet=" << readDeltaSetReq->lastSet
+               << " delta set size=" << readDeltaSetReq->deltaSet.size();
+
+    fpi::CtrlObjectRebalanceDeltaSetPtr objDeltaSet(new fpi::CtrlObjectRebalanceDeltaSet());
+    NodeUuid destSmId = readDeltaSetReq->destinationSmId;
+    objDeltaSet->executorID = readDeltaSetReq->executorId;
+    objDeltaSet->seqNum = readDeltaSetReq->seqNum;
+    objDeltaSet->lastDeltaSet = readDeltaSetReq->lastSet;
+
+    for (fds_uint32_t i = 0; i < (readDeltaSetReq->deltaSet).size(); ++i) {
+        ObjMetaData::ptr objMetaDataPtr = (readDeltaSetReq->deltaSet)[i].first;
+        fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;
+
+        const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
+
+        fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
+
+        /* copy metadata to object propagation message. */
+        objMetaDataPtr->propagateObjectMetaData(objMetaDataPropagate,
+                                                reconcileFlag);
+
+        /* Read object data, if NO_RECONCILE or OVERWRITE */
+        if (fpi::OBJ_METADATA_NO_RECONCILE == reconcileFlag) {
+
+            /* get the object from metadata information. */
+            boost::shared_ptr<const std::string> dataPtr =
+                    objectStore->getObjectData(invalid_vol_id,
+                                               objID,
+                                               objMetaDataPtr,
+                                               err);
+            /* TODO(sean): For now, just panic. Need to know why
+             * object read failed.
+             */
+            fds_verify(err.ok());
+
+            /* Copy the object data */
+            objMetaDataPropagate.objectData = *dataPtr;
+        }
+
+        /* Add metadata and data to the delta set */
+        objDeltaSet->objectToPropagate.push_back(objMetaDataPropagate);
+
+        LOGMIGRATE << "Adding DeltaSet element: " << objID
+                   << " reconcileFlag=" << reconcileFlag;
+    }
+
+    auto asyncDeltaSetReq = gSvcRequestPool->newEPSvcRequest(destSmId.toSvcUuid());
+    asyncDeltaSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceDeltaSet),
+                                 objDeltaSet);
+    asyncDeltaSetReq->setTimeoutMs(0);
+    asyncDeltaSetReq->invoke();
+
+    // mark request as complete
+    qosCtrl->markIODone(*readDeltaSetReq, diskio::diskTier);
+
+    // notify migration executor we are done with this request
+    readDeltaSetReq->smioReadObjDeltaSetReqCb(err, readDeltaSetReq);
+
+    /* Delete the delta set request */
+    delete readDeltaSetReq;
 }
 
 void
@@ -1190,17 +918,24 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
              << moveReq->fromTier << " to tier " << moveReq->fromTier
              << " relocate? " << moveReq->relocate;
 
+    moveReq->movedCnt = 0;
     for (fds_uint32_t i = 0; i < (moveReq->oidList).size(); ++i) {
         const ObjectID& objId = (moveReq->oidList)[i];
         err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
                                             moveReq->toTier, moveReq->relocate);
         if (!err.ok()) {
-            LOGERROR << "Failed to move " << objId << " from tier "
-                     << moveReq->fromTier << " to tier " << moveReq->fromTier
-                     << " relocate? " << moveReq->relocate << " " << err;
-            // we will just continue to move other objects; ok for promotions
-            // demotion should not assume that object was written back to HDD
-            // anyway, because writeback is eventual
+            if (err != ERR_SM_ZERO_REFCNT_OBJECT &&
+                err != ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME &&
+                err != ERR_SM_TIER_WRITEBACK_NOT_DONE) {
+                LOGERROR << "Failed to move " << objId << " from tier "
+                    << moveReq->fromTier << " to tier " << moveReq->fromTier
+                    << " relocate? " << moveReq->relocate << " " << err;
+                // we will just continue to move other objects; ok for promotions
+                // demotion should not assume that object was written back to HDD
+                // anyway, because writeback is eventual
+            }
+        } else {
+            moveReq->movedCnt++;
         }
     }
 
@@ -1214,136 +949,29 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
 }
 
 void
-ObjectStorMgr::resolveSyncEntryInternal(SmIoReq* ioReq)
+ObjectStorMgr::storeCurrentDLT()
 {
-    fds_panic("need to be ported to new SM org");
-    SmIoResolveSyncEntry *resolve_entry =  static_cast<SmIoResolveSyncEntry*>(ioReq);
-    Error e(ERR_OK);  //  = smObjDb->resolveEntry(resolve_entry->object_id);
-    if (e != ERR_OK) {
-        fds_assert(!"error");
-        LOGERROR << "Error in resolving metadata entry.  Object Id: "
-                << resolve_entry->object_id;
-    }
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*resolve_entry,
-            diskio::diskTier);
+    // Store current DLT to a file in log directory, so offline smcheck can use it to
+    // verify dlt ownership.
+    //
+    // TODO(Sean):  cleanup when going moving to online smcheck
+    DLT *currentDLT = const_cast<DLT *>(objStorMgr->omClient->getCurrentDLT());
+    std::string dltPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + DLTFileName;
 
-    resolve_entry->smio_resolve_resp_cb(e, resolve_entry);
+    // Must remove pre-existing file.  Otherwise, it will append a new version to the
+    // end of the file.  When de-serializing, it read from the beginning of the file,
+    // thus getting the oldest copy of DLT, if not removed.
+    remove(dltPath.c_str());
+    currentDLT->storeToFile(dltPath);
+
+    // To validate the token ownership by SM, we also need UUID of the SM to compare it
+    // against DLT
+    NodeUuid myUuid = getUuid();
+    std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
+    std::ofstream uuidFile(uuidPath);
+    uuidFile <<  myUuid.uuid_get_val();
 }
 
-void
-ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
-{
-    SmIoApplyObjectdata *applydata_entry =  static_cast<SmIoApplyObjectdata*>(ioReq);
-    ObjectID objId = applydata_entry->obj_id;
-    ObjMetaData objMetadata;
-    fds_panic("need to be ported to new SM org");
-    Error err(ERR_OK);  //  = smObjDb->get(objId, objMetadata);
-    if (err != ERR_OK && err != ERR_NOT_FOUND) {
-        fds_assert(!"ObjMetadata read failed");
-        LOGERROR << "Failed to write the object: " << objId;
-        qosCtrl->markIODone(*applydata_entry,
-                diskio::diskTier);
-        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
-        return;
-    }
-
-    err = ERR_OK;
-
-    if (objMetadata.dataPhysicallyExists()) {
-        /* No need to write the object data.  It already exits */
-        LOGDEBUG << "Object already exists. Id: " << objId;
-        qosCtrl->markIODone(*applydata_entry,
-                diskio::diskTier);
-        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
-        return;
-    }
-
-    /* Moving the data to not incur copy penalty */
-    DBG(std::string temp_data = applydata_entry->obj_data);
-    ObjectBuf objData;
-    *(objData.data) = std::move(applydata_entry->obj_data);
-    fds_assert(temp_data == *(objData.data));
-    applydata_entry->obj_data.clear();
-
-    /* write data to storage tier */
-    obj_phy_loc_t phys_loc;
-    fds_panic("need to port back to new SM org");
-    // err = writeObjectDataToTier(objId, objData, diskio::diskTier, phys_loc);
-    if (err != ERR_OK) {
-        fds_assert(!"Failed to write");
-        LOGERROR << "Failed to write the object: " << objId;
-        qosCtrl->markIODone(*applydata_entry,
-                diskio::diskTier);
-        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
-        return;
-    }
-
-    /* write the metadata */
-    objMetadata.updatePhysLocation(&phys_loc);
-    // smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
-
-    qosCtrl->markIODone(*applydata_entry,
-            diskio::diskTier);
-
-    applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
-}
-
-void
-ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
-{
-    SmIoReadObjectdata *read_entry =  static_cast<SmIoReadObjectdata*>(ioReq);
-    ObjectBuf        objData;
-    ObjMetaData objMetadata;
-    diskio::DataTier tierUsed;
-
-    /*
-    Error err = readObject(SmObjDb::NON_SYNC_MERGED, read_entry->getObjId(),
-                           objMetadata, objData, tierUsed, 0);
-    */
-    Error err(ERR_OK);
-    fds_panic("This method should not be called");
-    if (err != ERR_OK) {
-        fds_assert(!"failed to read");
-        LOGERROR << "Failed to read object id: " << read_entry->getObjId();
-        qosCtrl->markIODone(*read_entry,
-                diskio::diskTier);
-        read_entry->smio_readdata_resp_cb(err, read_entry);
-    }
-    // TODO(Rao): use std::move here
-    read_entry->obj_data.data = *(objData.data);
-    fds_assert(read_entry->obj_data.data.size() > 0);
-
-    qosCtrl->markIODone(*read_entry,
-            diskio::diskTier);
-
-    read_entry->smio_readdata_resp_cb(err, read_entry);
-}
-
-void
-ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
-{
-    SmIoReadObjectMetadata *read_entry =  static_cast<SmIoReadObjectMetadata*>(ioReq);
-    ObjMetaData objMetadata;
-
-    fds_panic("need to be ported to new SM org");
-    Error err(ERR_OK);  //  = smObjDb->get(read_entry->getObjId(), objMetadata);
-    if (err != ERR_OK) {
-        fds_assert(!"failed to read");
-        LOGERROR << "Failed to read object metadata id: " << read_entry->getObjId();
-        qosCtrl->markIODone(*read_entry,
-                diskio::diskTier);
-        read_entry->smio_readmd_resp_cb(err, read_entry);
-        return;
-    }
-
-    objMetadata.extractSyncData(read_entry->meta_data);
-
-    qosCtrl->markIODone(*read_entry,
-            diskio::diskTier);
-
-    read_entry->smio_readmd_resp_cb(err, read_entry);
-}
 
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
@@ -1382,19 +1010,8 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
                                  static_cast<SmIoAddObjRefReq *>(io));
             break;
         }
-        case FDS_SM_WRITE_TOKEN_OBJECTS:
-        {
-            LOGDEBUG << "Processing a write token ibjects";
-            threadPool->schedule(&ObjectStorMgr::putTokenObjectsInternal, objStorMgr, io);
-            break;
-        }
-        case FDS_SM_READ_TOKEN_OBJECTS:
-            LOGDEBUG << "Processing a read token objects";
-            threadPool->schedule(&ObjectStorMgr::getTokenObjectsInternal, objStorMgr, io);
-            break;
         case FDS_SM_SNAPSHOT_TOKEN:
         {
-            LOGDEBUG << "Processing snapshot";
             threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
             break;
         }
@@ -1408,36 +1025,12 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_SM_TIER_PROMOTE_OBJECTS:
             threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
             break;
-        case FDS_SM_SYNC_APPLY_METADATA:
-        {
-            LOGDEBUG << "Processing sync apply metadata";
-            threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
+        case FDS_SM_APPLY_DELTA_SET:
+            threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
             break;
-        }
-        case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
-        {
-            LOGDEBUG << "Processing sync resolve";
-            threadPool->schedule(&ObjectStorMgr::resolveSyncEntryInternal, objStorMgr, io);
+        case FDS_SM_READ_DELTA_SET:
+            threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
             break;
-        }
-        case FDS_SM_APPLY_OBJECTDATA:
-        {
-            LOGDEBUG << "Processing sync apply object metadata";
-            threadPool->schedule(&ObjectStorMgr::applyObjectDataInternal, objStorMgr, io);
-            break;
-        }
-        case FDS_SM_READ_OBJECTDATA:
-        {
-            LOGDEBUG << "Processing read object data";
-            threadPool->schedule(&ObjectStorMgr::readObjectDataInternal, objStorMgr, io);
-            break;
-        }
-        case FDS_SM_READ_OBJECTMETADATA:
-        {
-            LOGDEBUG << "Processing read object metadata";
-            threadPool->schedule(&ObjectStorMgr::readObjectMetadataInternal, objStorMgr, io);
-            break;
-        }
         default:
             fds_assert(!"Unknown message");
             break;

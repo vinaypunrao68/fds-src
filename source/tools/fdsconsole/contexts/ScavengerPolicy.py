@@ -1,6 +1,5 @@
 from  svchelper import *
-from fdslib.pyfdsp.apis import ttypes
-from fds_service.ttypes import *
+from svc_api.ttypes import *
 import platformservice
 from platformservice import *
 import FdspUtils 
@@ -12,7 +11,9 @@ class ScavengerPolicyContext(Context):
 
     def __init__(self, *args):
         Context.__init__(self, *args)
-        self.smClient = self.config.platform
+
+    def smClient(self):
+        return self.config.getPlatform()
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
@@ -22,11 +23,11 @@ class ScavengerPolicyContext(Context):
     @arg('tokens-per-disk', help="-Tokens per disk", type=int)
     def set(self, threshold1, threshold2, token_reclaim_threshold, tokens_per_disk):
         try: 
-            smUuids = self.smClient.svcMap.svcUuids('sm')
+            smUuids = self.smClient().svcMap.svcUuids('sm')
             setScavMsg = FdspUtils.newSetScavengerPolicyMsg(threshold1, threshold2, 
                                                             token_reclaim_threshold, tokens_per_disk)
             scavCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(smUuids[0], setScavMsg, scavCB)
+            self.smClient().sendAsyncSvcReq(smUuids[0], setScavMsg, scavCB)
             scavCB.wait()
 
         except Exception, e:
@@ -37,10 +38,10 @@ class ScavengerPolicyContext(Context):
     @cliadmincmd
     def get(self):
         try: 
-            smUuids = self.smClient.svcMap.svcUuids('sm')
+            smUuids = self.smClient().svcMap.svcUuids('sm')
             getScavMsg = FdspUtils.newQueryScavengerPolicyMsg()
             scavCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
+            self.smClient().sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
             scavCB.wait()
             resp = """Current policy:
             Threshold 1: {}

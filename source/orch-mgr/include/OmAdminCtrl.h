@@ -17,10 +17,13 @@
 #include <fds_typedefs.h>
 #include <util/Log.h>
 
-namespace fds {
 
-struct node_stor_cap;
-typedef fpi::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
+namespace FDS_ProtocolInterface {
+class FDSP_AnnounceDiskCapability;
+};
+namespace fpi = FDS_ProtocolInterface;
+
+namespace fds {
 
 class FdsAdminCtrl {
   public:
@@ -28,7 +31,7 @@ class FdsAdminCtrl {
     ~FdsAdminCtrl();
 
     // Defines minimum object size in a volume in bytes
-    static const fds_uint32_t minVolObjSize = (4 * 1024);  // 4KB
+    static const fds_uint32_t minVolObjSize = 512;
 
     /* Per local domain  dynamic disk resource  counters */
     fds_uint64_t  total_disk_iops_max;
@@ -55,10 +58,10 @@ class FdsAdminCtrl {
     fds_uint64_t  total_vol_iops_max;
     double        total_vol_disk_cap_GB;
 
-    void addDiskCapacity(const struct node_stor_cap *n_info);
-    void removeDiskCapacity(const struct node_stor_cap *n_info);
-    void getAvailableDiskCapacity(const FdspVolInfoPtr  pVolInfo);
-    void updateAvailableDiskCapacity(const FdspVolInfoPtr pVolInfo);
+    void addDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);
+    void removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);
+    void getAvailableDiskCapacity(const FdspVolDescPtr  pVolInfo);
+    void updateAvailableDiskCapacity(const FdspVolDescPtr pVolInfo);
     Error volAdminControl(VolumeDesc *pVolDesc);
     Error checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc);
     void updateAdminControlParams(VolumeDesc  *pVolInfo);
@@ -74,8 +77,8 @@ class FdsAdminCtrl {
      * to a setting for volume for a given service
      * @param[in] svc_type is type of service (AM, SM, or DM)
      */
-    void userQosToServiceQos(fpi::FDSP_VolumeDescType *voldesc,
-                             fpi::FDSP_MgrIdType svc_type);
+    void userQosToServiceQos(FDS_ProtocolInterface::FDSP_VolumeDescType *voldesc,
+                             FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
 
   private:
     void initDiskCapabilities();

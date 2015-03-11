@@ -21,7 +21,10 @@ RequestHelper::~RequestHelper() {
 }
 
 QueueHelper::QueueHelper(dmCatReq *dmRequest)
-    : dmRequest(dmRequest), ioIsMarkedAsDone(false), cancelled(false) {
+        : dmRequest(dmRequest),
+          ioIsMarkedAsDone(false),
+          cancelled(false),
+          skipImplicitCb(false) {
 }
 
 QueueHelper::~QueueHelper() {
@@ -36,7 +39,7 @@ QueueHelper::~QueueHelper() {
                     dmRequest->perfNameStr);
         }
          */
-        if (dmRequest->cb != NULL) {
+        if (!skipImplicitCb) {
             LOGDEBUG << "calling cb for volid: " << dmRequest->volId;
             dmRequest->cb(err, dmRequest);
         }

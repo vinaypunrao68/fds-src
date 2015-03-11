@@ -10,46 +10,57 @@
     </div>
 
     <div class="settings-body">
+    <form>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_create_volume</label>
+            <div ng-include="'scripts/volumes/create/clone.html'" class="add-bottom-space"></div>
+        </section>
         
-        <div ng-include="'scripts/volumes/create/clone.html'" class="add-bottom-space"></div>
-        
-        <section>
-            <div class="header">
-                <span class="light-print" translate>volumes.l_volume_name</span>
-            </div>
+        <section class="side-by-side">
+            
+            <label class="right-align" style="width: 150px;" translate>volumes.l_volume_name</label>
+            
             <div class="volume-settings-panel">
-                <div class="volume-option form-group">
-                    <input type="text" class="volume-name form-control" size="32" placeholder="Enter Volume Name" ng-model="volumeName">
+                <div class="volume-option">
+                    <fui-input type="text" class="volume-name-input skinny" size="32" placeholder="Enter Volume Name" ng-model="volumeName"></fui-input>
                 </div>
             </div>
         </section>
         
-        <section>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_data_connector</label>
             <connector-panel ng-model="dataConnector"></connector-panel>
         </section>
-<!--
-        <section>
-            <tiering-panel ng-model="mediaPolicy"></tiering-policy-panel>
-        </section>        
--->
-        <section>
-            <qos-panel ng-model="qos" save-only="true"></qos-panel>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_qos</label>
+            <div class="add-bottom-space">
+                <qos-panel ng-model="newQos" save-only="true"></qos-panel>
+            </div>
         </section>
-        <section>
-            <timeline-policy-panel ng-model="timelinePolicies" save-only="true"></timeline-policy-panel>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_timeline</label>
+            <div class="add-bottom-space">
+                <timeline-policy-panel ng-model="timelinePolicies" save-only="true"></timeline-policy-panel>
+            </div>
         </section>
+        <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_tiering</label>
+            <tiering-panel ng-model="mediaPolicy" class="add-bottom-space"></tiering-policy-panel>
+        </section>          
 <!--
         <section>
             <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
         </section>
 -->
-
+    </form>    
     </div>
 
-    <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;">
-        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">
+    <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;margin-left: 150px;">
+        <button class="btn btn-primary skinny" style="display: inline-block;" ng-click="save()">
             <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
         </button>
-        <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
+        <button class="btn btn-secondary cancel-creation skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
     </div>
+    
+    <div style="height: 20px;"></div>
 </div>

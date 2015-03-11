@@ -27,26 +27,24 @@ CommitBlobTxHandler::CommitBlobTxHandler() {
 
 void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::CommitBlobTxMsg>& message) {
-    if (dataMgr->testUturnAll) {
-        LOGNOTIFY << "Uturn testing commit blob tx " << logString(*asyncHdr) << logString(*message);
-        handleResponse(asyncHdr, message, ERR_OK, nullptr);
-        return;
-    }
-
     LOGDEBUG << logString(*asyncHdr) << logString(*message);
+
+    HANDLE_INVALID_TX_ID();
+
+    // Handle U-turn
+    HANDLE_U_TURN();
 
     auto dmReq = new DmIoCommitBlobTx(message->volume_id,
                                       message->blob_name,
                                       message->blob_version,
                                       message->dmt_version);
-    dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
-
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
-    dmReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(message->txId));
+    dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
+    dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
+
+    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
     addToQueue(dmReq);
 }
@@ -67,6 +65,7 @@ void CommitBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
                                                               std::placeholders::_2,
                                                               std::placeholders::_3,
                                                               std::placeholders::_4,
+                                                              std::placeholders::_5,
                                                               typedRequest));
     // Our callback, volumeCatalogCb(), will be called and will handle calling handleResponse().
     if (helper.err.ok()) {
@@ -85,13 +84,21 @@ void CommitBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
 void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_version,
                                           BlobObjList::const_ptr const& blob_obj_list,
                                           MetaDataList::const_ptr const& meta_list,
+                                          fds_uint64_t const blobSize,
                                           DmIoCommitBlobTx* commitBlobReq) {
     QueueHelper helper(commitBlobReq);
     helper.err = e;
+    if (!helper.err.ok()) {
+        LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
+        return;
+    }
 
-    LOGDEBUG << "Dmt version: " << commitBlobReq->dmt_version << " blob "
+    meta_list->toFdspPayload(commitBlobReq->rspMsg.meta_list);
+    commitBlobReq->rspMsg.byteCount = blobSize;
+
+    LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
              << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
-             << " ; current DMT version " << dataMgr->omClient->getDMTVersion();
+             << " current DMT version " << dataMgr->omClient->getDMTVersion();
 
     // 'finish this io' for qos accounting purposes, if we are
     // forwarding, the main time goes to waiting for response
@@ -103,7 +110,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     helper.markIoDone();
 
     // do forwarding if needed and commit was successful
-    if (helper.err.ok() && commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
+    if (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
         VolumeMeta* vol_meta = nullptr;
         fds_bool_t is_forwarding = false;
 
@@ -115,27 +122,21 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         is_forwarding = vol_meta->isForwarding();
         dataMgr->vol_map_mtx->unlock();
 
-        // move the state, once we drain  planned queue contents
-        LOGTRACE << "is_forwarding ? " << is_forwarding << " req DMT ver "
-                 << commitBlobReq->dmt_version << " DMT ver " << dataMgr->omClient->getDMTVersion();
-
         if (is_forwarding) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion()) {
-                if (dataMgr->feature.isCatSyncEnabled()) {
-                    helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
-                                                                            blob_version,
-                                                                            blob_obj_list,
-                                                                            meta_list);
-                } else {
-                    LOGWARN << "catalog sync feature - NOT enabled";
-                }
+                LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
+                           << " because our DMT is " << dataMgr->omClient->getDMTVersion();
+                helper.err = dataMgr->catSyncMgr->forwardCatalogUpdate(commitBlobReq,
+                                                                       blob_version,
+                                                                       blob_obj_list,
+                                                                       meta_list);
                 if (helper.err.ok()) {
                     // we forwarded the request!!!
                     // if forwarding -- do not reply to AM yet, will reply when we receive response
                     // for fwd cat update from destination DM
                     // TODO(DAC): Actually sent the above mentioned response.
-                    commitBlobReq->cb = NULL;
+                    helper.skipImplicitCb = true;
                 }
             }
         } else {
@@ -165,23 +166,13 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
                                          Error const& e, dmCatReq* dmRequest) {
-    /*
-     * we are not sending any response  message  in this call, instead we
-     * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload
-     * static response
-     */
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::CommitBlobTxRspMsg stBlobTxRsp;
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId, stBlobTxRsp);
 
-    if (dataMgr->testUturnAll) {
-        fds_verify(dmRequest == nullptr);
-    } else {
-        delete dmRequest;
-    }
+    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
+            static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
+
+    delete dmRequest;
 }
 
 }  // namespace dm

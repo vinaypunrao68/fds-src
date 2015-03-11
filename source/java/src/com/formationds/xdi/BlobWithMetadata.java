@@ -1,6 +1,6 @@
 package com.formationds.xdi;
 
-import com.formationds.apis.BlobDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 
 import java.nio.ByteBuffer;
 

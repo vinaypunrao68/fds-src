@@ -6,6 +6,7 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_ASYNCRESPONSEHANDLERS_H_
 
 #include "responsehandler.h"
+#include <AccessMgr.h>  /* For references to "am" */
 
 namespace fds
 {
@@ -16,8 +17,8 @@ struct AsyncResponseHandler :   public ResponseHandler,
 {
     typedef C proc_type;
 
-    explicit AsyncResponseHandler(proc_type& _proc_func)
-        : proc_func(_proc_func)
+    explicit AsyncResponseHandler(proc_type&& _proc_func)
+        : proc_func(std::forward<proc_type>(_proc_func))
     { type = HandlerType::IMMEDIATE; }
 
     void process()

@@ -9,14 +9,14 @@
 #include <stdexcept>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
-#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <fiu-control.h>
 #include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
-#include <apis/ConfigurationService.h>
+#include "fdsp/ConfigurationService.h"
+#include "fdsp/sm_api_types.h"
 #include <util/fiu_util.h>
 
 #include <gmock/gmock.h>
@@ -85,14 +85,15 @@ void invokeWork(SMApi *smapi,
     // header.msg_type_id = msgTypeId;
 
     try {
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(reqId, msgTypeId, dstUuid, srcUuid);
+        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(reqId, msgTypeId, dstUuid, srcUuid);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         // auto hdr = new fpi::AsyncHdr();
         // auto respHdr = SvcRequestPool::newSvcRequestHeader(reqId, msgTypeId, srcUuid, dstUuid);
         // respHdr.msg_code = ERR_SVC_REQUEST_INVOCATION;
         // smapi->putCb(opStartTs, nullptr, ERR_OK, nullptr);
         // gSvcRequestPool->postError(respHdr);
-        NetMgr::ep_mgr_thrpool()->schedule(&SMApi::putCb, smapi,opStartTs, nullptr, ERR_OK, nullptr);
+        MODULEPROVIDER()->proc_thrpool()->schedule(&SMApi::putCb, smapi,
+                                                  opStartTs, nullptr, ERR_OK, nullptr);
         // smapi->tp->enqueue(std::bind(&SMApi::putCb, smapi, opStartTs, nullptr, ERR_OK, nullptr));
     } catch (std::exception &e) {
     }

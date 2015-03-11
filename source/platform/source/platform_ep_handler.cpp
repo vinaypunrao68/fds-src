@@ -2,11 +2,13 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+#include "fdsp/dm_api_types.h"
 #include "platform_ep_handler.h"
 #include "node_shm_rw_ctrl.h"
 #include "node_platform.h"
 #include "node_info_iter.h"
 #include "node_update_iter.h"
+#include <net/SvcRequest.h>
 
 namespace fds
 {
@@ -19,7 +21,8 @@ namespace fds
     {
     }
 
-    PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc) : fpi::PlatNetSvcIf(), net_plat(svc)
+    PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
+        : PlatNetSvcHandler(nullptr), net_plat(svc)
     {
         REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
         REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
@@ -172,7 +175,7 @@ namespace fds
 
             local = Platform::platf_singleton()->plf_node_inventory();
             local->dc_foreach_pm(&info);
-            std::cout << "Sent back " << info.rs_iter_count() << std::endl;
+            LOGNORMAL << "Sent back " << info.rs_iter_count() << std::endl;
         }
     }
 

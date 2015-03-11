@@ -38,13 +38,11 @@ class AmRequest : public FDS_IOType {
               const std::string&  _blob_name,
               CallbackPtr         _cb,
               fds_uint64_t        _blob_offset = 0,
-              fds_uint64_t        _data_len = 0,
-              char*               _data_buf = nullptr)
+              fds_uint64_t        _data_len = 0)
         : volume_name(_vol_name),
         blob_name(_blob_name),
         blob_offset(_blob_offset),
         data_len(_data_len),
-        data_buf(_data_buf),
         cb(_cb)
     {
         io_magic  = FDS_SH_IO_MAGIC_IN_USE;
@@ -66,11 +64,7 @@ class AmRequest : public FDS_IOType {
     const std::string& getBlobName() const
     { return blob_name; }
 
-    const char *getDataBuf() const
-    { return data_buf; }
-
  protected:
-    char*              data_buf;
     std::string        blob_name;
     util::StopWatch    stopwatch;
 };

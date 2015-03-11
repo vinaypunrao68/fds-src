@@ -12,19 +12,34 @@ import org.apache.thrift.transport.*;
 import java.io.IOException;
 import java.util.function.Function;
 
-public class ThriftClientConnectionFactory<T> implements KeyedPooledObjectFactory<ConnectionSpecification, ThriftClientConnection<T>> {
-    private Function<TBinaryProtocol, T> makeClient;
+public class ThriftClientConnectionFactory<T>
+    implements KeyedPooledObjectFactory<ConnectionSpecification, ThriftClientConnection<T>> {
 
-    public ThriftClientConnectionFactory(Function<TBinaryProtocol, T> makeClient) {
-        this.makeClient = makeClient;
+    /**
+     * Create a factory for asynchronous connections
+     *
+     * @param cspec
+     * @param constructor
+     * @param <T>
+     * @return
+     * @throws IOException
+     */
+    public static <T> ThriftClientConnection<T> makeAsyncConnection(ConnectionSpecification cspec,
+                                                                    Function<TNonblockingTransport,
+                                                                                T> constructor) throws IOException {
+        TNonblockingTransport transport = new TNonblockingSocket(cspec.getHost(),
+                                                                 cspec.getPort());
+        return new ThriftClientConnection<T>(transport, constructor.apply(transport));
     }
 
-    public static <T> ThriftClientConnection<T> makeAsyncConnection(ConnectionSpecification connectionSpecification,
-                                                          Function<TNonblockingTransport, T> constructor)  throws
-                                                                                                           IOException {
-        TNonblockingTransport transport = new TNonblockingSocket(connectionSpecification.getHost(),
-                                                                 connectionSpecification.getPort());
-        return new ThriftClientConnection<T>(transport, constructor.apply(transport));
+    private final Function<TBinaryProtocol, T> makeClient;
+
+    /**
+     * Create connection factory for synchronous connections
+     * @param makeClient
+     */
+    public ThriftClientConnectionFactory(Function<TBinaryProtocol, T> makeClient) {
+        this.makeClient = makeClient;
     }
 
     @Override
@@ -42,22 +57,26 @@ public class ThriftClientConnectionFactory<T> implements KeyedPooledObjectFactor
     }
 
     @Override
-    public void destroyObject(ConnectionSpecification cspec, PooledObject<ThriftClientConnection<T>> xdiClientConnectionPooledObject) throws Exception {
-        xdiClientConnectionPooledObject.getObject().close();
+    public void destroyObject(ConnectionSpecification cspec,
+                              PooledObject<ThriftClientConnection<T>> pooledConn) throws Exception {
+        pooledConn.getObject().close();
     }
 
     @Override
-    public boolean validateObject(ConnectionSpecification cspec, PooledObject<ThriftClientConnection<T>> xdiClientConnectionPooledObject) {
-        return xdiClientConnectionPooledObject.getObject().valid();
+    public boolean validateObject(ConnectionSpecification cspec,
+                                  PooledObject<ThriftClientConnection<T>> pooledConn) {
+        return pooledConn.getObject().valid();
     }
 
     @Override
-    public void activateObject(ConnectionSpecification cspec, PooledObject<ThriftClientConnection<T>> xdiClientConnectionPooledObject) throws Exception {
+    public void activateObject(ConnectionSpecification cspec,
+                               PooledObject<ThriftClientConnection<T>> pooledConn) throws Exception {
 
     }
 
     @Override
-    public void passivateObject(ConnectionSpecification cspec, PooledObject<ThriftClientConnection<T>> xdiClientConnectionPooledObject) throws Exception {
+    public void passivateObject(ConnectionSpecification cspec,
+                                PooledObject<ThriftClientConnection<T>> pooledConn) throws Exception {
 
     }
 }

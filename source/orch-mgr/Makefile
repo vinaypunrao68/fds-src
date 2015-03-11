@@ -10,11 +10,8 @@ user_build_dir    := \
 	om-dlt \
 	om-common \
 	om-lib \
-	om-discovery \
 	configservice \
 	snapshot \
-    om-domain \
-	platform
 
 user_fds_ar_libs  := \
     fds-util \
@@ -23,10 +20,8 @@ user_fds_ar_libs  := \
     fds-om-common \
     fds-om-lib \
     fds-om-dlt \
-    fds-om-discovery \
-    fds-om-plat \
     fds-plat-lib \
-    fds-xdi
+    fds-fdsp
 
 user_non_fds_libs := \
     leveldb ical
@@ -38,12 +33,21 @@ user_incl_dir     := $(topdir) include \
 	$(JAVA_HOME)/include/linux
 
 orch_mgr_cpp      := $(wildcard *.cpp)
+
+om_output_prefix := lib
+om_output_ext := .so
 user_ld_flags     := -shared
+
+ifdef BINARY
+user_ld_flags     :=
+om_output_prefix :=
+om_output_ext :=
+endif
 
 user_hh           := $(wildcard *.h)
 user_no_style     := $(wildcard com_*.h)
 user_cpp          := $(orch_mgr_cpp)
-user_bin_exe      := liborchmgr.so
-liborchmgr.so     := $(orch_mgr_cpp)
+user_bin_exe      := $(om_output_prefix)orchmgr$(om_output_ext)
+$(om_output_prefix)orchmgr$(om_output_ext)     := $(orch_mgr_cpp)
 
 include $(topdir)/Makefile.incl

@@ -10,7 +10,6 @@
 #include <OmResources.h>
 #include <OmVolumePlacement.h>
 #include <orchMgr.h>
-#include <om-discovery.h>
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
 #include <util/type.h>
@@ -756,7 +755,7 @@ VolumeInfo::~VolumeInfo()
 // ------------------
 //
 void
-VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeInfoType &info)
+VolumeInfo::vol_mk_description(const fpi::FDSP_VolumeDescType &info)
 {
     vol_properties = new VolumeDesc(info, rs_uuid.uuid_get_val());
     setName(info.vol_name);
@@ -816,25 +815,20 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->volUUID       = pVol->volUUID;
     pkt->tennantId     = pVol->tennantId;
     pkt->localDomainId = pVol->localDomainId;
-    pkt->globDomainId  = pVol->globDomainId;
 
     pkt->maxObjSizeInBytes = pVol->maxObjSizeInBytes;
     pkt->capacity      = pVol->capacity;
     pkt->volType       = pVol->volType;
-    pkt->maxQuota      = pVol->maxQuota;
-    pkt->defReplicaCnt = pVol->replicaCnt;
 
     pkt->volPolicyId   = pVol->volPolicyId;
     pkt->iops_max      = pVol->iops_max;
     pkt->iops_min      = pVol->iops_min;
+    pkt->iops_guarantee      = pVol->iops_guarantee;
     pkt->rel_prio      = pVol->relativePrio;
 
-    pkt->defConsisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
-    pkt->appWorkload       = pVol->appWorkload;
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
-    pkt->srcVolumeId   = pVol->srcVolumeId;
-    pkt->qosQueueId   = pVol->qosQueueId;
+    pkt->srcVolumeId = pVol->srcVolumeId;
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
 }
@@ -860,6 +854,8 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
         case fpi::FDSP_MSG_DELETE_VOL:
         case fpi::FDSP_MSG_MODIFY_VOL:
         case fpi::FDSP_MSG_CREATE_VOL: {
+            /* TODO(Andrew): Remove usage of deleted struct fields.
+               This code was dead (compiled, but unused) to begin with.
             FdspNotVolPtr notif = *out->u.vol_notif;
 
             vol_fmt_desc_pkt(&notif->vol_desc);
@@ -872,14 +868,18 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
                 notif->type = fpi::FDSP_NOTIFY_RM_VOL;
             }
             break;
+            */
         }
         case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
         case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
+            /* TODO(Andrew): Remove usage of deleted struct fields.
+               This code was dead (compiled, but unused) to begin with.
             FdspAttVolPtr attach = *out->u.vol_attach;
 
             vol_fmt_desc_pkt(&attach->vol_desc);
             attach->vol_name = vol_get_name();
             break;
+            */
         }
         default: {
             fds_panic("Unknown volume request code");
@@ -979,6 +979,11 @@ VolumeInfo::vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr)
     }
     // We admitted modified policy.
     setDescription(*vdesc_ptr);
+    // store it in config db..
+    if (!gl_orch_mgr->getConfigDB()->addVolume(*vdesc_ptr)) {
+        LOGWARN << "unable to store volume info in to config db "
+                << "[" << vdesc_ptr->name << ":" <<vdesc_ptr->volUUID << "]";
+    }
     local->om_bcast_vol_modify(this);
     return err;
 }
@@ -1328,6 +1333,7 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         // Change policy id and its description from the catalog.
         //
         new_desc->volPolicyId = mod_msg->vol_desc.volPolicyId;
+        new_desc->iops_guarantee = mod_msg->vol_desc.iops_guarantee;
         err = v_pol->fillVolumeDescPolicy(new_desc.get());
         if (!err.ok()) {
             const char *msg = (err == ERR_CAT_ENTRY_NOT_FOUND) ?
@@ -1349,6 +1355,7 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         //
         new_desc->iops_min     = mod_msg->vol_desc.iops_min;
         new_desc->iops_max     = mod_msg->vol_desc.iops_max;
+        new_desc->iops_guarantee     = mod_msg->vol_desc.iops_guarantee;
         new_desc->relativePrio = mod_msg->vol_desc.rel_prio;
         LOGNOTIFY << "Modify volume " << vname
                   << " - keeps policy id " << vol->vol_get_properties()->volPolicyId
@@ -1473,7 +1480,7 @@ VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
     OM_AmAgent::pointer  am;
 
     LOGNOTIFY << "Received test bucket request " << vname
-              << "attach_vol_reqd " << req->attach_vol_reqd
+              << " attach_vol_reqd " << req->attach_vol_reqd
               << " from " << n_uid;
 
     am = local->om_am_agent(n_uid);
