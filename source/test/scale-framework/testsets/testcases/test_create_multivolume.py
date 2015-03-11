@@ -22,6 +22,7 @@ from boto.s3.key import Key
 from boto.s3.bucket import Bucket
 from filechunkio import FileChunkIO
 
+import samples
 import s3
 import testsets.testcase as testcase
 import utils
@@ -33,26 +34,24 @@ class TestCreateMultivolume(testcase.FDSTestCase):
         super(TestCreateMultivolume, self).__init__(parameters=parameters,
                                                     config_file=config_file,
                                                     om_ip_address=om_ip_address)
-        # self.log.info("OM IP Address: %s", self.om_ip_address)
         self.ip_addresses = config_parser.get_ips_from_inventory(
-                                           config.DEFAULT_INVENTORY_FILE)
+                                           self.inventory_file)
         self.buckets = []
         self.hash_table = {}
         self.sample_files = []
-        f_sample = "sample_file_%s"
-        if not os.path.exists(config.SAMPLE_DIR):
-            os.makedirs(config.SAMPLE_DIR)
-        if not os.path.exists(config.DOWNLOAD_DIR):
-            os.makedirs(config.DOWNLOAD_DIR)
+        self.s3_connections = []
+    
+        utils.create_dir(config.TEST_DIR)
+        utils.create_dir(config.DOWNLOAD_DIR)
             
         # for this test, we will create 5 sample files, 2MB each
-        for i in xrange(0, 5):
-            current = f_sample % i
-            if utils.create_file_sample(current, 2):
+        for current in samples.sample_mb_files[:3]:
+            path = os.path.join(config.TEST_DIR, current)
+            if os.path.exists(path):
                 self.sample_files.append(current)
-                path = os.path.join(config.SAMPLE_DIR, current)
                 encode = utils.hash_file_content(path)
                 self.hash_table[current] = encode
+        self.log.info("hash table: %s" % self.hash_table)
         
     def runTest(self):
         self.log.info("Starting the multivolume test...\n")
@@ -65,14 +64,8 @@ class TestCreateMultivolume(testcase.FDSTestCase):
             else:
                 self.test_passed = True
         
-        self.buckets = []
         self.log.info("Removing the sample files created.")
-        if os.path.exists(config.SAMPLE_DIR):
-            self.log.info("Removing %s" % config.SAMPLE_DIR)
-            shutil.rmtree(config.SAMPLE_DIR)
-        if os.path.exists(config.DOWNLOAD_DIR):
-            self.log.info("Removing %s" % config.DOWNLOAD_DIR)
-            shutil.rmtree(config.DOWNLOAD_DIR)
+        # utils.remove_dir(config.DOWNLOAD_DIR)
         self.reportTestCaseResult(self.test_passed)
     
     def create_volumes(self, ip):
@@ -93,6 +86,7 @@ class TestCreateMultivolume(testcase.FDSTestCase):
             None,
             ip,
             config.FDS_S3_PORT,
+            ip,
         )
         s3conn.s3_connect()
         bucket_name = "volume0%s-test"
@@ -129,6 +123,7 @@ class TestCreateMultivolume(testcase.FDSTestCase):
         return s3conn
 
     def download_files(self, bucket):
+        utils.create_dir(config.DOWNLOAD_DIR)
         bucket_list = bucket.list()
         for l in bucket_list:
             key_string = str(l.key)
@@ -150,9 +145,8 @@ class TestCreateMultivolume(testcase.FDSTestCase):
         '''
         # add the data files to the bucket.
         k = Key(bucket)
-        #path = os.path.join(config.SAMPLE_DIR, sample)
         for sample in self.sample_files:
-            path = os.path.join(config.SAMPLE_DIR, sample)
+            path = os.path.join(config.TEST_DIR, sample)
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,
