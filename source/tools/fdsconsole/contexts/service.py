@@ -13,7 +13,7 @@ class ServiceContext(Context):
     def list(self):
         try:
             services = ServiceMap.list()
-            return tabulate(services, headers=['nodeid','service','ip','port', 'status'],
+            return tabulate(services, headers=['service id','service', 'incarnation no', 'ip','port', 'status'],
                             tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
@@ -21,11 +21,10 @@ class ServiceContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', help= "node id",  type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
-    def listcounter(self, nodeid, svcname):
+    @arg('svcid', help= "Service Uuid",  type=long)
+    def listcounter(self, svcid):
         try:
-            cntrs = ServiceMap.client(nodeid, svcname).getCounters('*')
+            cntrs = ServiceMap.client(svcid).getCounters('*')
             data = [(v,k) for k,v in cntrs.iteritems()]
             data.sort(key=itemgetter(1))
             return tabulate(data,headers=['value', 'counter'], tablefmt=self.config.getTableFormat())
@@ -36,42 +35,39 @@ class ServiceContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', help= "node id",  type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
-    def listflag(self, nodeid, svcname, name=None):
+    @arg('svcid', help= "Service Uuid",  type=long)
+    def listflag(self, svcid, name=None):
         try:
             if name is None:
-                flags = ServiceMap.client(nodeid, svcname).getFlags(None)
+                flags = ServiceMap.client(svcid).getFlags(None)
                 data = [(v,k) for k,v in flags.iteritems()]
                 data.sort(key=itemgetter(1))
                 return tabulate(data, headers=['value', 'flag'], tablefmt=self.config.getTableFormat())
             else:
-                return ServiceMap.client(nodeid, svcname).getFlag(name)
+                return ServiceMap.client(svcid).getFlag(name)
         except Exception, e:
             log.exception(e)
             return 'unable to get volume list'
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
+    @arg('svcid', type=long)
     @arg('flag', type=str)
     @arg('value', type=long)
-    def setflag(self, nodeid, svcname, flag, value):
+    def setflag(self, svcid, flag, value):
         try:
-            ServiceMap.client(nodeid, svcname).setFlag(flag, value)
+            ServiceMap.client(svcid).setFlag(flag, value)
             return 'Ok'
         except Exception, e:
             log.exception(e)
             return 'Unable to set flag: {}'.format(flag)
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
+    @arg('svcid', type=long)
     @arg('cmd', type=str)
-    def setfault(self, nodeid, svcname, cmd):
+    def setfault(self, svcid, cmd):
         try:
-            success = ServiceMap.client(nodeid, svcname).setFault(cmd)
+            success = ServiceMap.client(svcid).setFault(cmd)
             if success:
                 return 'Ok'
             else:

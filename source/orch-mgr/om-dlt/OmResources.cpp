@@ -1108,6 +1108,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 
         om_locDomain->om_bcast_new_node(newNode, msg);
 
+        if (fpi::FDSP_CONSOLE == msg->node_type || fpi::FDSP_TEST_APP == msg->node_type) {
+            return err;
+        }
+
         // Let this new node know about exisiting node list.
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //

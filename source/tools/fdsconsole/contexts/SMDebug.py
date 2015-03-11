@@ -13,28 +13,26 @@ class SMDebugContext(Context):
         return self.config.getPlatform()
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('nodeid', help= "-Uuid of the SM/DM/AM to send the command to", type=long)
+    @arg('svcid', help= "-Uuid of the SM/DM/AM to send the command to", type=long)
     @arg('svcname', help= "service name",  choices=['sm','dm','am'])
-    def shutdown(self, nodeid, svcname):
+    def shutdown(self, svcid, svcname):
         try:
-            svcUuid = self.smClient().svcMap.svcUuid(nodeid, svcname)
             shutdownMsg = FdspUtils.newShutdownMODMsg()
-            self.smClient().sendAsyncSvcReq(svcUuid, shutdownMsg, None)
+            self.smClient().sendAsyncSvcReq(svcid, shutdownMsg, None)
         except Exception, e:
             log.exception(e)
             return 'Shutdown failed'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('nodeid', help= "-Uuid of the SM to send the command to", type=long)
-    def startHtc(self, nodeid):
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    def startHtc(self, sm):
         """
         Debug message for starting hybrid tier controller.
         NOTE: Once long term tiering design is consolidated, this message should go into
         tiering context
         """
         try:
-            sm = self.smClient().svcMap.svcUuid(nodeid, "sm")
             startHtc = FdspUtils.newCtrlStartHybridTierCtrlrMsg()
             self.smClient().sendAsyncSvcReq(sm, startHtc, None)
         except Exception, e:
@@ -43,10 +41,10 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('nodeid', help= "node id",  type=long)
-    def listtierstats(self, nodeid):
+    @arg('svcid', help= "Service Uuid",  type=long)
+    def listtierstats(self, svcid):
         try:
-            cntrs = ServiceMap.client(nodeid, 'sm').getCounters('*')
+            cntrs = ServiceMap.client(svcid).getCounters('*')
             data = [('hdd-reads', cntrs['hdd_reads:volume=0']),
                     ('hdd-writes', cntrs['hdd_writes:volume=0']),
                     ('ssd-reads', cntrs['ssd_reads:volume=0']),
