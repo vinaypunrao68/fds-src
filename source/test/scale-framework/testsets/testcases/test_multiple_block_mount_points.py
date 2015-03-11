@@ -42,7 +42,7 @@ class TestMultipleBlockMountPoints(testcase.FDSTestCase):
                     #'umount /fdsmount',
                     #'rm -rf /fdsmount',
                     #'rm -rf sample_file',
-                    'mkdir /fdsmount_%s' % i,
+                    '#mkdir /fdsmount_%s' % i,
                     #'./nbdadm.py detach %s' % (volume_name),
                     './nbdadm.py attach %s %s' % (self.om_ip_address, volume_name),
                     #'mkfs.ext4 /dev/nbd%s' % i,

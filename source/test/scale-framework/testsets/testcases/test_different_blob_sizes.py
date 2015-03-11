@@ -48,7 +48,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
             self.om_ip_address,
         )
         s3conn.s3_connect()
-        bucket_name = "volume_blob_test"
+        bucket_name = "volume_blob_test_mb"
         bucket = s3conn.conn.create_bucket(bucket_name)
         if bucket == None:
             raise Exception("Invalid bucket.")
