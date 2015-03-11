@@ -21,6 +21,7 @@ namespace fds
     : HasModuleProvider(provider),
     Module("BaseAsyncSvcHandler")
     {
+        deferRequests_ = false;
     }
 
     /**
@@ -42,6 +43,26 @@ namespace fds
     void BaseAsyncSvcHandler::mod_shutdown()
     {
     }
+
+    void BaseAsyncSvcHandler::deferRequests(bool defer)
+    {
+        /* NOTE: For now the supported deferring sequence is to start with 
+         * defer set to true and at a later point set defer to false.
+         */
+
+        deferRequests_ = defer;
+
+        if (deferRequests_ == false) {
+            /* Drain all the deferred requests.  NOTE it's possible to drain them
+             * on a threadpool as well
+             */
+            fds_scoped_lock l(lock_);
+            for (auto &reqPair: deferredReqs_) {
+                asyncReqt(reqPair.first, reqPair.second);        
+            }
+        }
+    }
+
 
     /**
     * @brief 
@@ -91,8 +112,18 @@ namespace fds
         SVCPERF(header->rqRcvdTs = util::getTimeStampNanos());
         fiu_do_on("svc.uturn.asyncreqt", header->msg_code = ERR_INVALID;
                   sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); return; );
-        GLOGDEBUG << logString(*header);
 
+        while (deferRequests_) {
+            fds_scoped_lock l(lock_);
+            if (!deferRequests_) {
+                break;
+            }
+            GLOGNOTIFY << "Deferred: " << logString(*header);
+            deferredReqs_.push_back(std::make_pair(header, payload));
+            return;
+        }
+
+        GLOGDEBUG << logString(*header);
         try
         {
             /* Deserialize the message and invoke the handler.  Deserialization is performed
