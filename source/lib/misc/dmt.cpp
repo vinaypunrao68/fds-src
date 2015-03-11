@@ -316,9 +316,15 @@ Error DMTManager::commitDMT(fds_uint64_t version) {
     Error err(ERR_OK);
     dmt_lock.write_lock();
     if (version != DMT_VER_INVALID) {
-        fds_verify(dmt_map.count(version) > 0);
-        committed_version = version;
-        target_version = DMT_VER_INVALID;
+        if (dmt_map.count(version) > 0) {
+            committed_version = version;
+            target_version = DMT_VER_INVALID;
+        } else {
+            fds_verify(dmt_map.size() == 0);
+            committed_version = DMT_VER_INVALID;
+            target_version = DMT_VER_INVALID;
+            err = ERR_NOT_FOUND;
+        }
     } else {
         committed_version = DMT_VER_INVALID;
         target_version = DMT_VER_INVALID;
