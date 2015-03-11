@@ -16,6 +16,28 @@ class ServiceContext(Context):
         return self.__restApi
 
     #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('nodeid', help= "node id",  type=long)
+    def addNode(self, nodeid):
+        'activate services on a node'
+        try:
+            return self.restApi().activateNode(nodeid)
+        except Exception, e:
+            log.exception(e)
+            return 'unable to remove node'
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('nodeid', help= "node id",  type=long)
+    def removeNode(self, nodeid):
+        'deactivate services on a node'
+        try:
+            return self.restApi().deactivateNode(nodeid)
+        except Exception, e:
+            log.exception(e)
+            return 'unable to remove node'
+
+    #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
         'show the list of services in the system'
@@ -23,7 +45,7 @@ class ServiceContext(Context):
             services = self.restApi().listServices()
             return tabulate(services,
                             headers={
-                                'uuid':     'Service UUID',
+                                'uuid':     'Node UUID',
                                 'service':  'Service Name',
                                 'ip':       'IP4 Address',
                                 'port':     'TCP Port',
