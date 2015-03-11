@@ -126,14 +126,9 @@ class ServiceEndpoint:
         self.rest = rest
         self.rest_path = self.rest.base_path + '/api/config/services'
 
-    def activateNode(self, node_uuid):
+    def toggleServices(self, node_uuid, service_map):
         path = '{}/{}'.format(self.rest_path, str(node_uuid))
-        res = self.rest.post(path, data=json.dumps({'am': True, 'sm': True, 'dm': True}))
-        res = self.rest.parse_result(res)
-
-    def deactivateNode(self, node_uuid):
-        path = '{}/{}'.format(self.rest_path, str(node_uuid))
-        res = self.rest.put(path, data=json.dumps({'am': False, 'sm': False, 'dm': False}))
+        res = self.rest.post(path, data=json.dumps(service_map))
         res = self.rest.parse_result(res)
 
     def listServices(self):

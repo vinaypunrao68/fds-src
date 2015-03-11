@@ -18,10 +18,11 @@ class ServiceContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('nodeid', help= "node id",  type=long)
-    def addNode(self, nodeid):
+    @arg('svcname', help= "service name",  choices=['sm','dm','am'])
+    def addService(self, nodeid, svcname):
         'activate services on a node'
         try:
-            return self.restApi().activateNode(nodeid)
+            return self.restApi().toggleServices(nodeid, {svcname: True})
         except Exception, e:
             log.exception(e)
             return 'unable to remove node'
@@ -29,10 +30,11 @@ class ServiceContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('nodeid', help= "node id",  type=long)
-    def removeNode(self, nodeid):
+    @arg('svcname', help= "service name",  choices=['sm','dm','am'])
+    def removeService(self, nodeid, svcname):
         'deactivate services on a node'
         try:
-            return self.restApi().deactivateNode(nodeid)
+            return self.restApi().toggleServices(nodeid, {svcname: False})
         except Exception, e:
             log.exception(e)
             return 'unable to remove node'
