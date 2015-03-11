@@ -3,17 +3,55 @@ from svc_api.ttypes import *
 import platformservice
 from platformservice import *
 import FdspUtils 
+import restendpoint
 
 class ServiceContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
+        self.__restApi = None
+
+    def restApi(self):
+        if self.__restApi == None:
+            self.__restApi = restendpoint.ServiceEndpoint(self.config.getRestApi())
+        return self.__restApi
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('nodeid', help= "node id",  type=long)
+    @arg('svcname', help= "service name",  choices=['sm','dm','am'])
+    def addService(self, nodeid, svcname):
+        'activate services on a node'
+        try:
+            return self.restApi().toggleServices(nodeid, {svcname: True})
+        except Exception, e:
+            log.exception(e)
+            return 'unable to remove node'
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('nodeid', help= "node id",  type=long)
+    @arg('svcname', help= "service name",  choices=['sm','dm','am'])
+    def removeService(self, nodeid, svcname):
+        'deactivate services on a node'
+        try:
+            return self.restApi().toggleServices(nodeid, {svcname: False})
+        except Exception, e:
+            log.exception(e)
+            return 'unable to remove node'
 
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
+        'show the list of services in the system'
         try:
-            services = ServiceMap.list()
-            return tabulate(services, headers=['nodeid','service','ip','port', 'status'],
+            services = self.restApi().listServices()
+            return tabulate(services,
+                            headers={
+                                'uuid':     'Node UUID',
+                                'service':  'Service Name',
+                                'ip':       'IP4 Address',
+                                'port':     'TCP Port',
+                                'status':   'Service Status'},
                             tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)

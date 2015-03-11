@@ -473,9 +473,9 @@ def main():
     print_counter(counters, "am", "am_put_dm", "latency", table, options.node)
     print_counter(counters, "am", "am_put_qos", "latency", table, options.node)
     
-    javalat = getavg(get_java_cntr())
-    print "avgjavalat,", javalat, ", ",
-    table["javalat"] = javalat
+    # javalat = getavg(get_java_cntr())
+    # print "avgjavalat,", javalat, ", ",
+    # table["javalat"] = javalat
     # print_counter(counters, "am","am_stat_blob_obj_req", "latency")
     # print_counter(counters, "sm","get_obj_req", "latency")
     #print_counter("AMAgent","am_stat_blob_obj_req", "latency")

@@ -151,6 +151,9 @@ namespace fds {
         inline fds_uint64_t getCommittedDMTVersion() const {
             return dmtMgr->getCommittedVersion();
         }
+        inline fds_uint64_t getTargetDMTVersion() const {
+            return dmtMgr->getTargetVersion();
+        }
 
         /**
          * Returns true if volume metadata for volumes in the same
@@ -224,6 +227,14 @@ namespace fds {
          * revert commited DMT for recovery
          */
         fds_uint64_t prevDmtVersion;
+
+        /**
+         * DMT version we will assign to the first DMT we compute
+         * if there are no DMTs persisted. It is not always 1, because
+         * we may compute/commit and then revert DMT; we don't want next
+         * DMT to have the same version
+         */
+        fds_uint64_t startDmtVersion;
 
         /**
          * Current algorithm used to compute new DMT

@@ -404,13 +404,12 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
         boost::shared_ptr<fpi::CtrlNotifyDMAbortMigration>& abortMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Got abort migration, reverting to DMT version" << abortMsg->DMT_version;
+    fds_uint64_t dmtVersion = abortMsg->DMT_version;
+    LOGDEBUG << "Got abort migration, reverting to DMT version" << dmtVersion;
 
-
-    // revert to DMT version provided in abort message ??
-    // need to discuss semantics here
+    // revert to DMT version provided in abort message
     if (abortMsg->DMT_version > 0) {
-        // dataMgr->omClient->getDmtManager()->setCurrent(abortMsg->DMT_version);
+        dataMgr->omClient->getDmtManager()->commitDMT(dmtVersion);
     }
 
     // Tell the DMT manager

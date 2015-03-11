@@ -1,6 +1,6 @@
 test_topdir       := ..
 user_build_dir    := svc-test
-user_incl_dir     := /opt/fds-deps/embedded/include/cryptopp
+user_incl_dir     :=
 
 user_hh           := $(wildcard *.h)
 user_fds_so_libs  :=

@@ -10,8 +10,7 @@ user_thrift       := \
 	$(topdir)/fdsp/xdi.thrift \
 	$(topdir)/fdsp/svc_api.thrift \
 	$(topdir)/fdsp/config_api.thrift \
-	$(topdir)/fdsp/om_api.thrift \
-	$(topdir)/fdsp/pm_service.thrift
+	$(topdir)/fdsp/om_api.thrift
 
 user_thrift_flag  := -r --gen java
 

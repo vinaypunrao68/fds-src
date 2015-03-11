@@ -4,7 +4,7 @@
 
 include "common.thrift"
 include "dm_types.thrift"
-include "pm_service.thrift"
+include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.dm
@@ -484,5 +484,5 @@ struct VolSyncStateRspMsg {
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service DMSvc extends pm_service.PlatNetSvc {
+service DMSvc extends svc_api.PlatNetSvc {
 }
