@@ -36,7 +36,7 @@ user_non_fds_libs :=  \
     thrift \
     jansson \
     config++ \
-    cryptopp \
+    crypto \
     gmock \
     hiredis \
     event \

@@ -6,6 +6,6 @@ user_ar_libs     := fds-lib
 fds-lib          := $(user_cpp)
 
 user_no_style    :=
-user_incl_dir    := /opt/fds-deps/embedded/include/cryptopp
+user_incl_dir    :=
 
 include $(topdir)/Makefile.incl
