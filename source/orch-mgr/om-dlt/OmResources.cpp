@@ -1444,7 +1444,8 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
     // migration if SM is down, because this could be SM that is source
     // for migration.
     if (respError.ok() ||
-        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_STOR_MGR))) {
+        ((respError == ERR_SVC_REQUEST_TIMEOUT ||
+          respError == ERR_SVC_REQUEST_INVOCATION) && (node_type != fpi::FDSP_STOR_MGR))) {
         // set node's confirmed dlt version to this version
         agent->set_node_dlt_version(dlt_version);
 
@@ -1452,6 +1453,7 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
         // when all 'up' nodes acked this dlt commit
         dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, uuid));
     } else {
+        LOGERROR << "Received " << respError << " with DLT commit; handling..";
         dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
     }
 
@@ -1487,6 +1489,7 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     if (respError.ok()) {
         dltMod->dlt_deploy_event(DltCloseOkEvt());
     } else {
+        LOGERROR << "Received " << respError << " with response, handling";
         dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
     }
 

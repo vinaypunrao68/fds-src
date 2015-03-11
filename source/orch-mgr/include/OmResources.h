@@ -228,6 +228,9 @@ class OM_PmAgent : public OM_NodeAgent
     OM_SmAgent::pointer     activeSmAgent;  // pointer to active SM service or NULL
     OM_DmAgent::pointer     activeDmAgent;  // pointer to active DM service or NULL
     OM_AmAgent::pointer     activeAmAgent;  // pointer to active AM service or NULL
+
+  private:
+    fds_mutex               dbNodeInfoLock;
 };
 
 // -------------------------------------------------------------------------------------
