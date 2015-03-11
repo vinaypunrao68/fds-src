@@ -409,7 +409,12 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 
     // revert to DMT version provided in abort message
     if (abortMsg->DMT_version > 0) {
-        dataMgr->omClient->getDmtManager()->commitDMT(dmtVersion);
+        err = dataMgr->omClient->getDmtManager()->commitDMT(dmtVersion);
+        if (err == ERR_NOT_FOUND) {
+            LOGNOTIFY << "We did not revert to previous DMT, because DM did not receive it."
+                      << " DM will not have any DMT, which is ok";
+            err = ERR_OK;
+        }
     }
 
     // Tell the DMT manager
