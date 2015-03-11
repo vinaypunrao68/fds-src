@@ -19,8 +19,10 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.InputStreamReader;
@@ -63,7 +65,7 @@ public class QueryEvents implements RequestHandler {
                 final List<Long> tenantUserIds = findTenantUserIds(uid);
                 events = er.queryTenantUsers(eventQuery, tenantUserIds);
             }
-            return new JsonResource( new JSONObject( ObjectModelHelper.toJSON( events ) ) );
+            return new JsonResource( new JSONArray( events ) );
         }
     }
 
