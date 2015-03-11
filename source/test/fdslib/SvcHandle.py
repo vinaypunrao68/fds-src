@@ -10,10 +10,10 @@ import logging
 from FDS_ProtocolInterface.ttypes import *
 from svc_api.ttypes import *
 from svc_api.constants import *
+from svc_api import PlatNetSvc
 from sm_api import SMSvc
 from dm_api import DMSvc
 from config_api import ConfigurationService
-from pm_service import PlatNetSvc
 
 from thrift import Thrift
 from thrift.transport import TSocket
