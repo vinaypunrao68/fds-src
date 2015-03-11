@@ -33,5 +33,6 @@ build do
     copy "#{fds_src_dir}/source/config/etc/*.conf", "#{install_dir}/etc/"
     copy "#{fds_src_dir}/source/test/formation.conf", "#{install_dir}/sbin/deploy_formation.conf"
     copy "#{fds_src_dir}/source/tools/fdsconsole.py", "#{install_dir}/sbin"
+    copy "#{fds_src_dir}/source/cinder/nbdadm.py", "#{install_dir}/sbin"
     sync "#{fds_src_dir}/source/tools/fdsconsole", "#{install_dir}/sbin/fdsconsole", exclude: "*.pyc"
 end

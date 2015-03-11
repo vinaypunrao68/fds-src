@@ -38,14 +38,14 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         nodes = fdscfg.rt_obj.cfg_nodes
         fds_root = nodes[0].nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        sbin_dir = fdscfg.rt_env.get_sbin_dir(debug=False)
         global pwd
         cur_dir = os.getcwd()
-        os.chdir(bin_dir)
+        os.chdir(sbin_dir)
 
         # Block volume create command
         # TODO(Andrew): Don't hard code volume name
-        blkCrtCmd = "./fdscli --fds-root=" + fds_root + " --volume-create blockVolume -i 1 -s 10240 -p 50 -y blk"
+        blkCrtCmd = "./fdsconsole.py volume create  volume1 --vol-type block --blk-dev-size 10485760"
         result = subprocess.call(blkCrtCmd, shell=True)
         if result != 0:
             os.chdir(cur_dir)
@@ -53,7 +53,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
             return False
         time.sleep(5)
 
-        blkModCmd = "./fdscli --fds-root=" + fds_root + " --volume-modify \"blockVolume\" -s 10240 -g 0 -m 0 -r 10"
+        blkModCmd = "./fdsconsole.py volume modify volume1 --minimum 0 --maximum 10000 --priority 1"
         result = subprocess.call(blkModCmd, shell=True)
         if result != 0:
             os.chdir(cur_dir)

@@ -2,12 +2,13 @@
 
 for i in 1 2 3 4
 do
-    /fds/bin/fdscli --volume-create Volume$i -i 1 -s 10240 -p 50 -y blk
+    pushd ../tools
+    ./fdsconsole.py volume create  Volume$i --vol-type block --blk-dev-size 10485760
     sleep 1
-    /fds/bin/fdscli --volume-modify Volume$i -s 10240 -g 0 -m 10000 -r 1
+    ./fdsconsole.py volume modify Volume$i  --minimum 0 --maximum 10000 --priority 1
     sleep 1
-    let j=$i-1
-    nbd-client -N Volume1 10.1.10.102 /dev/nbd$j -b 4096
+    ../cinder/nbdadm.py attach localhost Volume$i 
     sleep 1
+    popd
 done
 
