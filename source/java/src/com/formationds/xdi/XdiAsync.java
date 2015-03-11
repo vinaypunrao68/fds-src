@@ -148,6 +148,7 @@ public class XdiAsync {
                         updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), condensedBuffer, condensedBuffer.remaining(), objectOffset, md)
                                 .whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
             } else {
+                // secondPut is called for the put requests equal to or larger than the objectSize.
                 return secondPut(putParameters, objectOffset + 1, condensedBuffer);
             }
         });
@@ -162,7 +163,7 @@ public class XdiAsync {
             final ByteBuffer condensedBuffer = condenseBuffer(readBuf);
             if (condensedBuffer.remaining() == 0) {
                 return putParameters.getFinalizedMetadata().thenCompose(md ->
-                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset, md).whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
+                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset - 1, md).whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
             } else {
                 CompletableFuture<Void> digestFuture = putParameters.digest.update(condensedBuffer);
                 return createTx(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue()).thenComposeAsync(tx -> {

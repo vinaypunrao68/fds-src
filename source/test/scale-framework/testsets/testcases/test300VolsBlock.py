@@ -41,7 +41,7 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
             self.log.info("header = %s", header)
 
             #Get the s3 connection from the testcase parameters
-            conn = self.parameters['s3'].get_s3_connection()
+            # conn = self.parameters['s3'].get_s3_connection()
 
             #Get number of volumes currently?
 
@@ -65,12 +65,15 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
 
                 #create volume
                 r = requests.post(url, data=json_data, headers=header)
-                self.log.info("request = %s", r.request)
-                self.log.info("response = %s", r.json())
-                self.log.info("status = %s", r.status_code)
-
-                #Check return code
-                self.assertTrue(200 == r.status_code)
+                if r is None:
+                    raise ValueError, "r is None"
+                else:
+                    self.log.info("request = %s", r.request)
+                    self.log.info("response = %s", r.json())
+                    self.log.info("status = %s", r.status_code)
+    
+                    #Check return code
+                    self.assertTrue(200 == r.status_code)
 
                 #Write to the volume
 
@@ -85,11 +88,11 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
             test_passed = True
 
 
-        except:
-            self.log.info("response = %s", r.json())
+        except Exception, e:
+            self.log.exception(e)
             test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
+        finally:
+            super(self.__class__, self).reportTestCaseResult(test_passed)
 
     '''
     Undo it.
