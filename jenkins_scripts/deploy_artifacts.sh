@@ -41,7 +41,7 @@ function deploy_to_artifactory () {
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 fds_platform_dir=(${script_dir}/../omnibus/omnibus-fds-platform/pkg ${script_dir}/../omnibus/omnibus-fds-deps/pkg)
 pkgs_to_deploy=(
-    fds-platform
+#    fds-platform
 		fds-deps
 )
 

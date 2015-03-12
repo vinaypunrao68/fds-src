@@ -52,6 +52,7 @@ dependency "libcryptopp"
 dependency "server-jre"
 dependency "mdadm"
 dependency "influxdb"
+dependency "gmond"
 
 # Version manifest file
 dependency "version-manifest"
