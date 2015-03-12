@@ -1,125 +1,26 @@
-/*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+/**
+ * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
  */
+
 package com.formationds.om.repository;
 
-import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.Volume;
-import com.formationds.commons.model.builder.DateRangeBuilder;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
-import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.CriteriaQueryBuilder;
 
-import javax.jdo.Query;
 import javax.persistence.EntityManager;
 import javax.persistence.criteria.Expression;
-
-import java.io.File;
-import java.sql.Timestamp;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- *
- */
-public class EventRepository extends JDORepository<Event, Long> {
+public interface EventRepository {
 
-    private static final String DBNAME = "var/db/events.odb";
-
-    /**
-     * default constructor
-     */
-    public EventRepository() {
-        this( SingletonConfiguration.instance().getConfig().getFdsRoot() +
-                  File.separator +
-                  DBNAME );
-    }
-
-    /**
-     * @param dbName the {@link String} representing the name and location of the
-     *               repository
-     */
-    public EventRepository( final String dbName ) {
-        super();
-        initialize(dbName);
-    }
-
-    @Override
-    public Event findById(Long id) {
-        final Query query = manager().newQuery(Event.class, "id == :id");
-        query.setUnique( true );
-        try {
-            return ( Event ) query.execute( id );
-        } finally {
-            query.closeAll();
-        }
-    }
-
-    // TODO: what is this API asking for?  Count all events by what? non-null fields of the entity like JPA QueryByExample?
-    @Override
-    public long countAllBy(Event entity) {
-        return 0;
-    }
-
-    @Override
-    public List<? extends Event> query(QueryCriteria queryCriteria) {
-        EntityManager em = newEntityManager();
-        try {
-            EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(em).searchFor(queryCriteria);
-            return tq.resultsList();
-        } finally {
-            em.close();
-        }
-    }
-
-    public List<? extends Event> queryTenantUsers(QueryCriteria queryCriteria, List<Long> tenantUsers) {
-        EntityManager em = newEntityManager();
-        try {
-            UserEventCriteriaQueryBuilder tq =
-            new UserEventCriteriaQueryBuilder(em).usersIn(tenantUsers)
-                                                 .searchFor(queryCriteria);
-            return tq.resultsList();
-        } finally {
-            em.close();
-        }
-    }
-
-    /**
-     * Find the latest firebreak on the specified volume and type.
-     *
-     * @param v the volume
-     * @param type the firebreak type
-     *
-     * @return the latest (active) firebreak event for the volume and firebreak type
-     */
-    public FirebreakEvent findLatestFirebreak(Volume v, FirebreakType type) {
-        EntityManager em = newEntityManager();
-        try {
-            FirebreakEventCriteriaQueryBuilder cb = new FirebreakEventCriteriaQueryBuilder(em);
-            Instant oneDayAgo = Instant.now().minus(Duration.ofDays(1));
-            Timestamp tsOneDayAgo = new Timestamp(oneDayAgo.toEpochMilli());
-            cb.volumeByName(v.getName())
-              .volumeByFBType(type)
-              .withDateRange(new DateRangeBuilder(tsOneDayAgo, null).build());
-
-            List<FirebreakEvent> r = cb.build().getResultList();
-            if (r.isEmpty()) return null;
-
-            // TODO: reverse order in query and get(0)...
-            return r.get(r.size()-1);
-        } finally {
-            em.close();
-        }
-    }
-
-    private static class EventCriteriaQueryBuilder extends CriteriaQueryBuilder<Event> {
+    public static class EventCriteriaQueryBuilder extends CriteriaQueryBuilder<Event> {
 
         // TODO: how to support multiple contexts (category and severity)?
         private static final String CONTEXT = "category";
@@ -130,7 +31,7 @@ public class EventRepository extends JDORepository<Event, Long> {
         }
     }
 
-    private static class UserEventCriteriaQueryBuilder extends CriteriaQueryBuilder<UserActivityEvent> {
+    public static class UserEventCriteriaQueryBuilder extends CriteriaQueryBuilder<UserActivityEvent> {
 
         // TODO: how to support multiple contexts (category and severity)?
         private static final String CONTEXT = "category";
@@ -148,7 +49,7 @@ public class EventRepository extends JDORepository<Event, Long> {
         }
     }
 
-    private static class FirebreakEventCriteriaQueryBuilder extends CriteriaQueryBuilder<FirebreakEvent> {
+    public static class FirebreakEventCriteriaQueryBuilder extends CriteriaQueryBuilder<FirebreakEvent> {
 
         // TODO: how to support multiple contexts (category and severity)?
         private static final String CONTEXT = "category";
@@ -180,7 +81,7 @@ public class EventRepository extends JDORepository<Event, Long> {
         }
 
         protected FirebreakEventCriteriaQueryBuilder volumesById(String... in) {
-            return volumesById((in != null ? Arrays.asList(in) : new ArrayList<>()));
+            return volumesById((in != null ? Arrays.asList( in ) : new ArrayList<>()));
         }
 
         protected FirebreakEventCriteriaQueryBuilder volumesById(List<String> in) {
@@ -205,4 +106,26 @@ public class EventRepository extends JDORepository<Event, Long> {
             return this;
         }
     }
+
+    /**
+     * Persist the event in the underlying storage
+     * @param event the event
+     * @return the event, with any auto-generated data filled in (id etc)
+     */
+    Event save( Event event );
+
+    /**
+     * Persist the list of events
+     *
+     * @param events the list of events
+     *
+     * @return the list per
+     */
+    List<Event> save( Event... events );
+
+    List<? extends Event> query( QueryCriteria queryCriteria );
+
+    List<? extends Event> queryTenantUsers( QueryCriteria queryCriteria, List<Long> tenantUsers );
+
+    FirebreakEvent findLatestFirebreak( Volume v, FirebreakType type );
 }

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * @author ptinius
@@ -27,6 +28,7 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      *
      * @return the entity
      */
+    //XXX no usages
     T findById( final PrimaryKey primaryKey );
 
     /**
@@ -65,7 +67,7 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    default List<T> save(final T... entities )     {
+    default List<T> save(final T... entities ) {
         return (entities != null ? save( Arrays.asList( entities )) : new ArrayList<>(0));
     }
 

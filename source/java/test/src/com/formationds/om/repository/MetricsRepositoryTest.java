@@ -132,100 +132,100 @@ public class MetricsRepositoryTest {
   private static final List<VolumeDatapoint> DATAPOINTS = new ArrayList<>();
 
   private static
-  MetricsRepository store = null;
+  JDOMetricsRepository store = null;
 
-  public void setUp() {
-    store = new MetricsRepository( DB_PATH );
-    final JSONArray array = new JSONArray( JSON );
-    for( int i = 0;
-         i < array.length();
-         i++ ) {
-      DATAPOINTS.add( ObjectModelHelper.toObject( array.getJSONObject( i )
-                                                       .toString(),
-                                                  VolumeDatapoint.class ) );
+    public void setUp() {
+        store = new JDOMetricsRepository( DB_PATH );
+        final JSONArray array = new JSONArray( JSON );
+        for ( int i = 0;
+              i < array.length();
+              i++ ) {
+            DATAPOINTS.add( ObjectModelHelper.toObject( array.getJSONObject( i )
+                                                             .toString(),
+                                                        VolumeDatapoint.class ) );
+        }
     }
-  }
 
-  public void create() {
-    store.save( new VolumeDatapointBuilder().withKey( Metrics.PUTS.key() )
-                                            .withVolumeName( "TestVolume" )
-                                            .withTimestamp( System.currentTimeMillis() / 1000 )
-                                            .withValue( 1.0 )
-                                            .build() );
-    Assert.assertTrue( Files.exists( Paths.get( DB_PATH ) ) );
-  }
-
-  public void populate() {
-    DATAPOINTS.forEach( store::save );
-  }
-
-  public void counts() {
-    System.out.println( "Total row count: " +
-                          store.countAll() );
-
-    System.out.println( "TestVolume row count: " +
-                          store.countAllBy(
-                            new VolumeDatapointBuilder()
-                              .withVolumeName( "TestVolume" )
-//                              .withKey( Metrics.PUTS.key() )
-                              .build() ) );
-  }
-
-  public void findAll() {
-    store.findAll()
-         .forEach( System.out::println );
-  }
-
-  public void remove() {
-    System.out.println( "before: " + store.countAll() );
-    store.findAll()
-         .stream()
-         .filter( vdp -> vdp.getKey()
-                            .equals( Metrics.LBYTES.key() ) )
-         .forEach( store::delete );
-    System.out.println( "after: " + store.countAll() );
-  }
-
-  public void removeAll() {
-    System.out.println( "before: " + store.countAll() );
-    store.findAll()
-         .forEach( store::delete );
-    System.out.println( "after: " + store.countAll() );
-  }
-
-  public void cleanup() {
-    try {
-      if( Files.exists( Paths.get( DB_PATH ) ) ) {
-        Files.delete( Paths.get( DB_PATH ) );
-      }
-
-      if( Files.exists( Paths.get( DB_PATH_TRANS_LOG ) ) ) {
-        Files.delete( Paths.get( DB_PATH_TRANS_LOG ) );
-      }
-
-      if( Files.exists( Paths.get( DB_PATH )
-                             .getParent() ) ) {
-        Files.delete( Paths.get( DB_PATH )
-                           .getParent() );
-      }
-    } catch( IOException e ) {
-      Assert.fail( e.getMessage() );
+    public void create() {
+        store.save( new VolumeDatapointBuilder().withKey( Metrics.PUTS.key() )
+                                                .withVolumeName( "TestVolume" )
+                                                .withTimestamp( System.currentTimeMillis() / 1000 )
+                                                .withValue( 1.0 )
+                                                .build() );
+        Assert.assertTrue( Files.exists( Paths.get( DB_PATH ) ) );
     }
-  }
 
-  /**
-   * Since there is a directive inplace that states we shou
-   */
-//  @Test
-//  public void test()
-//  {
-//    setUp();
-//    create();
-//    populate();
-//    counts();
-//    findAll();
-//    remove();
-//    removeAll();
-//    cleanup();
-//  }
+    public void populate() {
+        DATAPOINTS.forEach( store::save );
+    }
+
+    public void counts() {
+        System.out.println( "Total row count: " +
+                            store.countAll() );
+
+        System.out.println( "TestVolume row count: " +
+                            store.countAllBy(
+                                                new VolumeDatapointBuilder()
+                                                    .withVolumeName( "TestVolume" )
+                                                         //                              .withKey( Metrics.PUTS.key() )
+                                                    .build() ) );
+    }
+
+    public void findAll() {
+        store.findAll()
+             .forEach( System.out::println );
+    }
+
+    public void remove() {
+        System.out.println( "before: " + store.countAll() );
+        store.findAll()
+             .stream()
+             .filter( vdp -> vdp.getKey()
+                                .equals( Metrics.LBYTES.key() ) )
+             .forEach( store::delete );
+        System.out.println( "after: " + store.countAll() );
+    }
+
+    public void removeAll() {
+        System.out.println( "before: " + store.countAll() );
+        store.findAll()
+             .forEach( store::delete );
+        System.out.println( "after: " + store.countAll() );
+    }
+
+    public void cleanup() {
+        try {
+            if ( Files.exists( Paths.get( DB_PATH ) ) ) {
+                Files.delete( Paths.get( DB_PATH ) );
+            }
+
+            if ( Files.exists( Paths.get( DB_PATH_TRANS_LOG ) ) ) {
+                Files.delete( Paths.get( DB_PATH_TRANS_LOG ) );
+            }
+
+            if ( Files.exists( Paths.get( DB_PATH )
+                                    .getParent() ) ) {
+                Files.delete( Paths.get( DB_PATH )
+                                   .getParent() );
+            }
+        } catch ( IOException e ) {
+            Assert.fail( e.getMessage() );
+        }
+    }
+
+    /**
+     * Since there is a directive inplace that states we shou
+     */
+    //  @Test
+    //  public void test()
+    //  {
+    //    setUp();
+    //    create();
+    //    populate();
+    //    counts();
+    //    findAll();
+    //    remove();
+    //    removeAll();
+    //    cleanup();
+    //  }
 }

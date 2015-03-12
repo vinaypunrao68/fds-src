@@ -19,7 +19,9 @@ import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.EventRepository;
-import com.formationds.om.repository.MetricsRepository;
+import com.formationds.om.repository.JDOEventRepository;
+import com.formationds.om.repository.MetricRepository;
+import com.formationds.om.repository.JDOMetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.util.Configuration;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -49,39 +51,39 @@ public class EventManagerTest {
     static final Configuration mockedConfiguration = mock(Configuration.class);
     static final ConfigurationApi mockedConfig = mock(ConfigurationApi.class);
     static final XdiService.Iface  mockedAMService = mock(XdiService.Iface.class);
-    static final MetricsRepository
-        metricsRepoMock = mock(MetricsRepository.class);
+    static final MetricRepository
+        metricsRepoMock = mock( JDOMetricsRepository.class );
 
     @BeforeClass
     static public void setUpClass() throws Exception {
 
-        Path fdsRoot = Files.createTempDirectory("fds");
-        Path vardb = Files.createDirectories(fdsRoot.resolve("var/db"));
-        when(mockedConfiguration.getFdsRoot()).thenReturn(fdsRoot.toString());
+        Path fdsRoot = Files.createTempDirectory( "fds" );
+        Path vardb = Files.createDirectories( fdsRoot.resolve( "var/db" ) );
+        when( mockedConfiguration.getFdsRoot() ).thenReturn( fdsRoot.toString() );
 
-        SingletonConfiguration.instance().setConfig(mockedConfiguration);
-        System.setProperty("fds-root", SingletonConfiguration.instance().getConfig().getFdsRoot());
+        SingletonConfiguration.instance().setConfig( mockedConfiguration );
+        System.setProperty( "fds-root", SingletonConfiguration.instance().getConfig().getFdsRoot() );
 
-        SingletonConfigAPI.instance().api(mockedConfig);
-        SingletonAmAPI.instance().api(mockedAMService);
+        SingletonConfigAPI.instance().api( mockedConfig );
+        SingletonAmAPI.instance().api( mockedAMService );
         VolumeStatus vstat = new VolumeStatus();
-        vstat.setCurrentUsageInBytes(1024);
-        Optional<VolumeStatus> opStats = Optional.of(vstat);
-        when(metricsRepoMock.getLatestVolumeStatus("")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("volume1")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("volume2")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("volume3")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("sys-ov1")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("sys-bv1")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("u1-ov1")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("u1-bv1")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("u2-ov1")).thenReturn(opStats);
-        when(metricsRepoMock.getLatestVolumeStatus("u2.bv1")).thenReturn(opStats);
+        vstat.setCurrentUsageInBytes( 1024 );
+        Optional<VolumeStatus> opStats = Optional.of( vstat );
+        when( metricsRepoMock.getLatestVolumeStatus( "" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "volume1" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "volume2" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "volume3" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "sys-ov1" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "sys-bv1" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "u1-ov1" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "u1-bv1" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "u2-ov1" ) ).thenReturn( opStats );
+        when( metricsRepoMock.getLatestVolumeStatus( "u2.bv1" ) ).thenReturn( opStats );
 
-        Files.deleteIfExists(Paths.get(SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db",
-                                       "events.odb"));
-        Files.deleteIfExists(Paths.get(SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db",
-                                       "events.odb$"));
+        Files.deleteIfExists( Paths.get( SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db",
+                                         "events.odb" ) );
+        Files.deleteIfExists( Paths.get( SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db",
+                                         "events.odb$" ) );
 
         // initialize the event manager notification handler to store in both the event repository and an in-memory map
         EventManager.instance().initEventNotifier(key, (e) -> {
@@ -407,12 +409,12 @@ public class EventManagerTest {
 //                                  .forEach((e) -> System.out.println("Event: " + e));
 
         final Volume v3 = new VolumeBuilder().withId("3").withName("u1-ov1").build();
-        FirebreakEvent fbe = new EventRepository().findLatestFirebreak(v3, FirebreakType.CAPACITY);
-        FirebreakEvent fbpe = new EventRepository().findLatestFirebreak(v3, FirebreakType.PERFORMANCE);
+        FirebreakEvent fbe = new JDOEventRepository().findLatestFirebreak(v3, FirebreakType.CAPACITY);
+        FirebreakEvent fbpe = new JDOEventRepository().findLatestFirebreak(v3, FirebreakType.PERFORMANCE);
 
         final Volume v5 = new VolumeBuilder().withId("5").withName("u2-ov1").build();
-        FirebreakEvent fbe2 = new EventRepository().findLatestFirebreak(v5, FirebreakType.CAPACITY);
-        FirebreakEvent fbpe2 = new EventRepository().findLatestFirebreak(v5, FirebreakType.PERFORMANCE);
+        FirebreakEvent fbe2 = new JDOEventRepository().findLatestFirebreak(v5, FirebreakType.CAPACITY);
+        FirebreakEvent fbpe2 = new JDOEventRepository().findLatestFirebreak(v5, FirebreakType.PERFORMANCE);
 
 //        if (fbe != null) System.out.println("Latest FBE(u1-ov1): " + fbe);
 //        if (fbpe != null) System.out.println("Latest FBPE(u1-ov1): " + fbpe);
@@ -470,8 +472,8 @@ public class EventManagerTest {
 //        System.out.println("now: " + nowMS + ";2 mins ago: " + (nowMS-120000) + "; 25 hours ago: " + oldTsMS + "; diff(ms): " + (nowMS-oldTsMS));
 //        er.findAll().forEach((e) -> System.out.println("Event: " + e));
 
-        FirebreakEvent fbe = new EventRepository().findLatestFirebreak(v1, FirebreakType.CAPACITY);
-        FirebreakEvent fbe2 = new EventRepository().findLatestFirebreak(v2, FirebreakType.CAPACITY);
+        FirebreakEvent fbe = new JDOEventRepository().findLatestFirebreak(v1, FirebreakType.CAPACITY);
+        FirebreakEvent fbe2 = new JDOEventRepository().findLatestFirebreak(v2, FirebreakType.CAPACITY);
 
 //        if (fbe != null) System.out.println("Latest FBE(v1): " + fbe);
 //        if (fbe2 != null) System.out.println("Latest FBE(v2): " + fbe2);
@@ -487,6 +489,9 @@ public class EventManagerTest {
 
     private void clearEvents() {
         EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
-        er.findAll().forEach((e) -> er.delete(e));
+
+// TODO: uncomment and remove fail
+//        er.findAll().forEach((e) -> er.delete(e));
+        Assert.fail( "Failed to clear all events.  Test not updated for repository refactor (fs-1113).");
     }
 }

@@ -25,7 +25,8 @@ import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.EventRepository;
-import com.formationds.om.repository.MetricsRepository;
+import com.formationds.om.repository.JDOMetricsRepository;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
@@ -59,7 +60,7 @@ public class QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
 
-    private final MetricsRepository repo;
+    private final MetricRepository repo;
 
     /**
      * default constructor
@@ -77,7 +78,7 @@ public class QueryHelper {
      * representing a {@link List} of {@link VolumeDatapoint}
      */
     protected static Map<String, List<VolumeDatapoint>> byVolumeNameTimestamp(
-        final List<VolumeDatapoint> datapoints ) {
+                                                                                 final List<VolumeDatapoint> datapoints ) {
         final Map<String, List<VolumeDatapoint>> mapped = new HashMap<>();
 
         final Comparator<VolumeDatapoint> VolumeDatapointComparator =
@@ -87,7 +88,7 @@ public class QueryHelper {
         datapoints.stream()
                   .sorted( VolumeDatapointComparator )
                   .forEach( ( v ) -> {
-                      if( !mapped.containsKey( v.getVolumeName() ) ) {
+                      if ( !mapped.containsKey( v.getVolumeName() ) ) {
                           mapped.put( v.getVolumeName(), new ArrayList<>() );
                       }
 
@@ -104,27 +105,28 @@ public class QueryHelper {
      * @return Returns the {@link Statistics} representing the result of {@code
      * query}
      */
-    @SuppressWarnings( "unchecked" )
-    public Statistics execute( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token )
+    @SuppressWarnings("unchecked")
+    public Statistics execute( final MetricQueryCriteria query, final Authorizer authorizer,
+                               final AuthenticationToken token )
         throws TException {
         final Statistics stats = new Statistics();
-        if( query != null ) {
+        if ( query != null ) {
             final List<Series> series = new ArrayList<>();
             final List<Calculated> calculatedList = new ArrayList<>();
 
             EntityManager em = getRepo().newEntityManager();
             try {
-            	
-            	query.setContexts( validateContextList( query, authorizer, token ) );
-            	
-	            final List<VolumeDatapoint> queryResults =
-	                new MetricCriteriaQueryBuilder( em ).searchFor( query )
-	                                                               .resultsList();
-	            
-	            final Map<String, List<VolumeDatapoint>> originated =
-	                byVolumeNameTimestamp( queryResults );
-	
-	            if( isPerformanceQuery( query.getSeriesType() ) ) {
+
+                query.setContexts( validateContextList( query, authorizer, token ) );
+
+                final List<VolumeDatapoint> queryResults =
+                    new MetricCriteriaQueryBuilder( em ).searchFor( query )
+                                                        .resultsList();
+
+                final Map<String, List<VolumeDatapoint>> originated =
+                    byVolumeNameTimestamp( queryResults );
+
+                if ( isPerformanceQuery( query.getSeriesType() ) ) {
 	
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,
@@ -432,7 +434,7 @@ public class QueryHelper {
     	return contexts;
     }
     
-    protected MetricsRepository getRepo(){
+    protected MetricRepository getRepo(){
     	return this.repo;
     }
     

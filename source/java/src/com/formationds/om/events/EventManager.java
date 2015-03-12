@@ -14,14 +14,14 @@ import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.om.repository.MetricsRepository;
+import com.formationds.om.repository.JDOMetricsRepository;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -156,7 +156,7 @@ public enum EventManager {
 
     // TODO: this is probably not how we want to do this in the long run...
     public void initEventListeners() {
-        MetricsRepository mr = SingletonRepositoryManager.instance()
+        MetricRepository mr = SingletonRepositoryManager.instance()
                                                          .getMetricsRepository();
 
         EntityPersistListener<VolumeDatapoint> l =
@@ -176,12 +176,5 @@ public enum EventManager {
             logger.error(String.format( "Failed to persist event key=%s", key ), re);
             return false;
         }
-    }
-
-    /**
-     * @return the list of events.
-     */
-    public List<Event> getEvents() {
-        return SingletonRepositoryManager.instance().getEventRepository().findAll();
     }
 }

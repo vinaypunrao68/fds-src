@@ -8,6 +8,7 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import com.formationds.apis.*;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
@@ -17,7 +18,7 @@ import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.MediaPolicyConverter;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.repository.MetricsRepository;
+import com.formationds.om.repository.JDOMetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
@@ -257,7 +258,7 @@ struct VolumeDescriptor {
 		query.setContexts( Arrays.asList(v) );
 		query.setRange( range );
 
-		MetricsRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+		MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
 
 		final List<VolumeDatapoint> queryResults =
 			new MetricCriteriaQueryBuilder( repo.newEntityManager() ) 

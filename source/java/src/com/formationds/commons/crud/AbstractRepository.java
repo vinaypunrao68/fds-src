@@ -11,6 +11,7 @@ import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * @param <T>  the entity type managed by this repository
@@ -28,6 +29,18 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
     protected AbstractRepository() {
         logger = LoggerFactory.getLogger( this.getClass() );
     }
+
+    /**
+     * Open the repository and initialize any connection/entity management necessary for
+     * interacting with the underlying repository.
+     */
+    abstract protected void open(Properties properties);
+
+    /**
+     * No-op implementation of close.  Override in sub-class if it is necessary to
+     * perform any specific resource cleanup on close.
+     */
+    public void close() {}
 
     /**
      * Add a Entity persist listener for pre/post persistence callbacks
