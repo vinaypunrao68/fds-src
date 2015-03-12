@@ -37,7 +37,8 @@ class SMMain : public SvcProcess
 
         /* Daemonize */
         fds_bool_t daemonizeProc = get_fds_config()->get<bool>("fds.sm.daemonize", true);
-        if (true == daemonizeProc) {
+        // xxx: Daemonize should be the first thing that needs to happen
+        if (false && true == daemonizeProc) {
             daemonize();
         }
     }
