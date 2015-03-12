@@ -43,4 +43,7 @@ build do
   make "#{args}", env: env
   make "#{args} -f Makefile-libbz2_so", env: env
   make "#{args} install", env: env
+  copy "#{project_dir}/libbz2.so.#{version}", "#{install_dir}/embedded/lib/libbz2.so.#{version}"
+  link "#{install_dir}/embedded/lib/libbz2.so.#{version}", "#{install_dir}/embedded/lib/libbz2.so.1.0"
+  link "#{install_dir}/embedded/lib/libbz2.so.1.0", "#{install_dir}/embedded/lib/libbz2.so.1"
 end
