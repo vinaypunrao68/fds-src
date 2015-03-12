@@ -40,6 +40,10 @@ struct  DeleteObjectMsg {
   1: i64                        volId;
   /** Object identifier */
   2: common.FDS_ObjectIdType    objId; 
+  /** DELETE is a forwarded request during SM token migration 
+   *  By default, false
+   */
+  3: bool                       forwardedReq = false;
 }
 
 /**
@@ -73,13 +77,17 @@ struct GetObjectResp {
  */
 struct PutObjectMsg {
   /** Volume identifier. */
-   1: i64    			volume_id;
+  1: i64    			        volume_id;
   /** Object identifier. */
-   2: common.FDS_ObjectIdType 	data_obj_id;
+  2: common.FDS_ObjectIdType 	data_obj_id;
+  /** PUT is a forwarded request during SM token migration.
+   *  By default, false
+   */
+  3: bool                       forwardedReq = false;
   /** Object length. */
-   3: i32                      	data_obj_len;
+  4: i32                      	data_obj_len;
   /** Object data. */
-   4: binary                   	data_obj;
+  5: binary                   	data_obj;
 }
 
 /**

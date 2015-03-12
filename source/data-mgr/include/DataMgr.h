@@ -115,23 +115,45 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     } dmRunModes;
     dmRunModes    runMode;
 
-    struct Features {
+    class Features {
+      private:
         bool fQosEnabled = true;
         bool fCatSyncEnabled = true;
         bool fTestMode = false;
-        bool isTestMode() {
-            return fTestMode;
-        }
-        bool isQosEnabled() {
+        bool fTimelineEnabled = true;
+
+      public:
+        inline bool isQosEnabled() const {
             return fQosEnabled;
         }
-        bool isCatSyncEnabled() {
+        inline void setQosEnabled(bool val) {
+            fQosEnabled = val;
+        }
+
+        inline bool isCatSyncEnabled() const {
             return fCatSyncEnabled;
         }
-    } feature;
+        inline void setCatSyncEnabled(bool val) {
+            fCatSyncEnabled = val;
+        }
+
+        inline bool isTestMode() const {
+            return fTestMode;
+        }
+        inline void setTestMode(bool val) {
+            fTestMode = val;
+        }
+
+        inline bool isTimelineEnabled() const {
+            return fTimelineEnabled;
+        }
+        inline void setTimelineEnabled(bool val) {
+            fTimelineEnabled = val;
+        }
+    } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
-    TimelineDB timeline;
+    boost::shared_ptr<TimelineDB> timeline;
 
     /**
      * For timing out request forwarding in DM (to send DMT close ack)

@@ -246,6 +246,8 @@ class VolumeEndpoint:
 
     def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
 
+	assert vol_type == "object" or vol_type == "block", "vol_type must be either 'block' or 'object'"
+
         volume_info = {
             'name' : volume_name,
             'priority' : int(priority),
@@ -545,22 +547,27 @@ class DomainEndpoint():
         self.rest = rest
         self.rest_path = self.rest.base_path + '/local_domains'
 
-    def createDomain(self, domain_name):
+    def createDomain(self, domain_name, domain_site):
 
         '''
         Create a new local domain in the system.
         Params:
            domain_name - str: name of the new local domain
+           domain_site - str: location of the new local domain
         Returns:
            the integer id of the new local domain, None on failure
         '''
         path = '{}/{}'.format(self.rest_path, domain_name)
 
-        res = self.rest.post(path)
+        domain_info = {
+            'site': domain_site
+        }
+
+        res = self.rest.post(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
-            if ('domainId' in res) and (res['domainId'] > 0):
-                return res['domainId']
+            if ('domainId' in res) and (int(res['domainId']) > 0):
+                return int(res['domainId'])
             else:
                 return None
         else:

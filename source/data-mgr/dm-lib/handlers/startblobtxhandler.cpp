@@ -15,7 +15,7 @@ namespace fds {
 namespace dm {
 
 StartBlobTxHandler::StartBlobTxHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::StartBlobTxMsg, handleRequest);
     }
 }

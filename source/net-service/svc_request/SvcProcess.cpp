@@ -72,6 +72,60 @@ void SvcProcess::init(int argc, char *argv[],
     setupSvcMgr_(handler, processor);
 }
 
+void SvcProcess::start_modules()
+{
+    /* NOTE: This sequnce is copied from fds_process::start_modules().  For
+     * SvcProcess we need to register with OM as part of startup sequence.
+     * This is very complicated and needs to be simplified.
+     * Overall in my observation mod_init(), mod_startup(), registerSvcProcess(),
+     * mod_start_services() seems to be common sequence.  However even this can
+     * be further simplfied to mod_init() (pregister), registerSvcProcess(), 
+     * mod_startup() (post register).  It'd be nice to change names as well
+     * I guess it will stay this way until we find time to refactor this code.
+     */
+
+
+    /* Defer any incoming requests over the network */
+    svcMgr_->getSvcRequestHandler()->deferRequests(true);
+
+    mod_vectors_->mod_init_modules();
+
+    /* The process should have all objects allocated in proper place. */
+    proc_pre_startup();
+
+    /* The false flags runs module appended by the pre_startup() call. */
+    mod_vectors_->mod_init_modules(false);
+
+    /* Do FDS process startup sequence. */
+    mod_vectors_->mod_startup_modules();
+    mod_vectors_->mod_startup_modules(false);
+
+    /* Register with OM */
+    LOGNOTIFY << "Registering the service with om";
+    /* Default implementation registers with OM.  Until registration complets
+     * this will not return
+     */
+    auto config = get_conf_helper();
+    bool registerWithOM = !(config.get<bool>("testing.standalone"));
+    if (registerWithOM) {
+        registerSvcProcess();
+    }
+
+    /*  Star to run the main process. */
+    proc_pre_service();
+    mod_vectors_->mod_start_services();
+    mod_vectors_->mod_start_services(false);
+
+    mod_vectors_->mod_run_locksteps();
+
+    /* At this time service is ready for network requests.  Any pending request
+     * are drained in notifyAllowRequests() call.
+     */
+    svcMgr_->getSvcRequestHandler()->deferRequests(false);
+
+}
+
+#if 0
 void SvcProcess::proc_pre_startup()
 {
     LOGNOTIFY << "Registering the service with om";
@@ -86,6 +140,7 @@ void SvcProcess::proc_pre_startup()
 
     /* After registraion is complete other modules can proceed.  See FdsProcess::main() */
 }
+#endif
 
 void SvcProcess::registerSvcProcess()
 {

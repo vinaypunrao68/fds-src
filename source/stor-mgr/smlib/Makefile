@@ -25,7 +25,7 @@ user_cpp          :=                   \
     ObjMeta.cpp                        \
     SMSvcHandler.cpp                   \
     MockSMCallbacks.cpp                \
-    TokenMigrationMgr.cpp              \
+    MigrationMgr.cpp                   \
     MigrationExecutor.cpp              \
     MigrationClient.cpp                \
     MigrationUtility.cpp               \

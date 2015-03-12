@@ -265,18 +265,29 @@ class SmIoDeleteObjectReq : public SmIoReq {
     typedef std::function<void (const Error&, SmIoDeleteObjectReq *resp)> CbType;
     virtual std::string log_string() override;
 
-    fds_uint64_t dltVersion;
+    explicit SmIoDeleteObjectReq(boost::shared_ptr<fpi::DeleteObjectMsg> &msg)
+        : delObjectNetReq(msg),
+          forwardedReq(false) {
+    }
 
     /// Service layer put request
     boost::shared_ptr<fpi::DeleteObjectMsg> delObjectNetReq;
 
+    /// Callback after completion of DELETE object request.
     CbType response_cb;
+
+    /// DLT version for the DELETE request
+    fds_uint64_t dltVersion;
+
+    /// If the DELETE request was forwarded by the SM token migration.
+    bool forwardedReq;
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const SmIoDeleteObjectReq& delReq) {
-        out << "DELETE object request " << delReq.getObjId()
-            << " volume " << std::hex << delReq.getVolId() << std::dec
-            << " DLT version " << delReq.dltVersion;
+        out << "DELETE object request:" << delReq.getObjId()
+            << " volume=" << std::hex << delReq.getVolId() << std::dec
+            << " DLTversion=" << delReq.dltVersion
+            << " forwarded=" << delReq.forwardedReq;
         return out;
     }
 };
@@ -290,23 +301,28 @@ class SmIoPutObjectReq : public SmIoReq {
     virtual std::string log_string() override;
 
     explicit SmIoPutObjectReq(boost::shared_ptr<fpi::PutObjectMsg>& msg)
-            : putObjectNetReq(msg) {
+            : putObjectNetReq(msg),
+              forwardedReq(false) {
     }
-
-    /// DLT version for the put request
-    fds_uint64_t dltVersion;
 
     /// Service layer put request
     boost::shared_ptr<fpi::PutObjectMsg> putObjectNetReq;
 
-    /// Response callback
+    /// Response callback after completion of PUT object request
     CbType response_cb;
+
+    /// DLT version for the PUT request
+    fds_uint64_t dltVersion;
+
+    /// if the PUT request was forwarded by the SM token migration
+    bool forwardedReq;
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const SmIoPutObjectReq& putReq) {
-        out << "PUT object request " << putReq.getObjId()
-            << " volume " << std::hex << putReq.getVolId() << std::dec
-            << " DLT version " << putReq.dltVersion;
+        out << "PUT object request: " << putReq.getObjId()
+            << " volume=" << std::hex << putReq.getVolId() << std::dec
+            << " DLTversion=" << putReq.dltVersion
+            << " forwarded=" << putReq.forwardedReq;
         return out;
     }
 };
@@ -394,7 +410,7 @@ class SmIoSnapshotObjectDB : public SmIoReq {
      */
     fds_uint64_t executorId;
 
-    /** 
+    /**
      * SM token's snapshot number
      */
     std::string snapNum;

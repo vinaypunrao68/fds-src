@@ -43,7 +43,8 @@ class DMMain : public SvcProcess
 
         /* Daemonize */
         fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
-        if (noDaemon == false) {
+        // xxx: Daemonize should be the first thing that needs to happen
+        if (false && noDaemon == false) {
             daemonize();
         }
     }

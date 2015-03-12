@@ -59,7 +59,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     // stubs to keep cpp compiler happy - BEGIN
-    int64_t createLocalDomain(const std::string& domainName) { return 0;}
+    int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
+    void listLocalDomains(std::vector<LocalDomain> & _return, const int32_t ignore) {}
     int64_t createTenant(const std::string& identifier) { return 0;}
     void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
     int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
@@ -92,16 +93,20 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     // stubs to keep cpp compiler happy - END
 
-    int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName) {
-        int64_t id = configDB->createLocalDomain(*domainName);
+    int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& domainSite) {
+        int64_t id = configDB->createLocalDomain(*domainName, *domainSite);
         if (id <= 0) {
-            LOGERROR << "Some issue in Local Domain creation. ";
+            LOGERROR << "Some issue in Local Domain creation: " << *domainName;
             apiException("Error creating Local Domain.");
         } else {
             LOGNOTIFY << "Local Domain creation succeded. " << id << ": " << *domainName;
         }
 
         return id;
+    }
+
+    void listLocalDomains(std::vector<LocalDomain>& _return, boost::shared_ptr<int32_t>& ignore) {
+        configDB->listLocalDomains(_return);
     }
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
@@ -309,8 +314,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
-        if (configDB->createSnapshotPolicy(*policy)) {
-            om->snapshotMgr.addPolicy(*policy);
+        if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
+            om->snapshotMgr->addPolicy(*policy);
             return policy->id;
         }
         return -1;
@@ -322,8 +327,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
-        configDB->deleteSnapshotPolicy(*id);
-        om->snapshotMgr.removePolicy(*id);
+        if (om->enableSnapshotSchedule) {
+            configDB->deleteSnapshotPolicy(*id);
+            om->snapshotMgr->removePolicy(*id);
+        }
     }
 
     void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
@@ -418,7 +425,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             apiException("error creating volume");
         } else {
             // volume created successfully ,
-            // no create a base snapshot. [FS-471]
+            // now create a base snapshot. [FS-471]
             // we have to do this here because only OM can create a new
             // volume id
             boost::shared_ptr<int64_t> sp_volId(new int64_t(vol->rs_get_uuid().uuid_get_val()));
@@ -464,7 +471,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             apiException(err.GetErrstr());
         }
         // add this snapshot to the retention manager ...
-        om->snapshotMgr.deleteScheduler->addSnapshot(snapshot);
+        if (om->enableSnapshotSchedule) {
+            om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
+        }
     }
 };
 

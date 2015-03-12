@@ -65,6 +65,7 @@ public class CreateLocalDomain
       throws Exception {
 
       String domainName = "";
+      String domainSite = "";
       long domainId = -1;
       
       try {
@@ -75,10 +76,20 @@ public class CreateLocalDomain
                   HttpServletResponse.SC_BAD_REQUEST );
       }
 
-      logger.debug( "Creating local domain {}.", domainName );
+      String source = IOUtils.toString(request.getInputStream());
+      try {
+          JSONObject o = new JSONObject(source);
+          domainSite = o.getString( "site" );
+      } catch(JSONException e) {
+          return new JsonResource(
+                  new JSONObject().put( "message", "Missing new Local Domain site." ),
+                  HttpServletResponse.SC_BAD_REQUEST );
+      }
+
+      logger.debug( "Creating local domain {} at site {}.", domainName, domainSite );
 
       try {
-          domainId = configApi.createLocalDomain(domainName);
+          domainId = configApi.createLocalDomain(domainName, domainSite);
       } catch( ApiException e ) {
 
           if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
@@ -105,6 +116,7 @@ public class CreateLocalDomain
           o.put("status", "success");
           o.put("domainName", domainName);
           o.put("domainId", domainId);
+          o.put("domainSite", domainSite);
           return new JsonResource(o);
       }
 

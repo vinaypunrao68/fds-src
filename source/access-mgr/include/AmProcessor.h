@@ -6,7 +6,6 @@
 
 #include <string>
 #include <fds_module.h>
-#include <FdsRandom.h>
 #include <StorHvVolumes.h>
 #include <StorHvQosCtrl.h>
 #include <am-tx-mgr.h>
@@ -15,6 +14,9 @@
 
 namespace fds {
 
+struct AmCache;
+struct RandNumGenerator;
+
 /**
  * AM request processing layer. The processor handles state and
  * execution for AM requests.
@@ -22,9 +24,9 @@ namespace fds {
 class AmProcessor : public Module, public boost::noncopyable {
   public:
     /**
-     * The processor takes shared ptrs to a cache and tx manager.
-     * TODO(Andrew): Remove the cache and tx from constructor
-     * and make them owned by the processor. It's only this way
+     * The processor takes a shared ptr to a tx manager.
+     * TODO(Andrew): Remove the tx from constructor
+     * and make it owned by the processor. It's only this way
      * until we clean up the legacy path.
      * TODO(Andrew): Use a different structure than SHVolTable.
      */
@@ -32,9 +34,9 @@ class AmProcessor : public Module, public boost::noncopyable {
                 AmDispatcher::shared_ptr _amDispatcher,
                 StorHvQosCtrl     *_qosCtrl,
                 StorHvVolumeTable *_volTable,
-                AmTxManager::shared_ptr _amTxMgr,
-                AmCache::shared_ptr _amCache);
-    ~AmProcessor() {}
+                AmTxManager::shared_ptr _amTxMgr);
+    ~AmProcessor();
+
     typedef std::unique_ptr<AmProcessor> unique_ptr;
 
     /**
@@ -44,6 +46,11 @@ class AmProcessor : public Module, public boost::noncopyable {
     { Module::mod_init(param); return 0; }
     void mod_startup() {}
     void mod_shutdown() {}
+
+    /**
+     * Create object/metadata/offset caches for the given volume
+     */
+    Error createCache(const VolumeDesc& volDesc);
 
     /**
      * Processes a get volume metadata request
@@ -94,6 +101,11 @@ class AmProcessor : public Module, public boost::noncopyable {
     void getBlob(AmRequest *amReq);
 
     /**
+     * Callback for catalog query request
+     */
+    void queryCatalogCb(AmRequest *amReq, const Error& error);
+
+    /**
      * Callback for get blob request
      */
     void getBlobCb(AmRequest *amReq, const Error& error);
@@ -120,11 +132,6 @@ class AmProcessor : public Module, public boost::noncopyable {
     void volumeContents(AmRequest *amReq);
 
     /**
-     * Callback for catalog query request
-     */
-    void queryCatalogCb(AmRequest *amReq, const Error& error);
-
-    /**
      * Processes a commit blob transaction
      */
     void commitBlobTx(AmRequest *amReq);
@@ -143,6 +150,12 @@ class AmProcessor : public Module, public boost::noncopyable {
     void respond(AmRequest *amReq, const Error& error);
 
   private:
+
+    /**
+     * Return pointer to volume iff volume is not a snapshot
+     */
+    StorHvVolumeTable::volume_ptr_type getNoSnapshotVolume(AmRequest* amReq);
+
     /// Raw pointer to QoS controller
     // TODO(Andrew): Move this to unique once it's owned here.
     StorHvQosCtrl *qosCtrl;
@@ -161,13 +174,11 @@ class AmProcessor : public Module, public boost::noncopyable {
     // TODO(Andrew): Move to unique once owned here.
     AmTxManager::shared_ptr txMgr;
 
-    // Shared ptr to the data object cache
-    // TODO(bszmyd): Tue 07 Oct 2014 08:43:26 PM MDT
-    // Make this a unique pointer once owned here.
-    AmCache::shared_ptr amCache;
+    // Unique ptr to the data object cache
+    std::unique_ptr<AmCache> amCache;
 
     /// Unique ptr to a random num generator for tx IDs
-    RandNumGenerator::unique_ptr randNumGen;
+    std::unique_ptr<RandNumGenerator> randNumGen;
 };
 
 }  // namespace fds

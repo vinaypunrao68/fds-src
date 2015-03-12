@@ -73,6 +73,11 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req);
         LOGMIGRATE << "Forwarding " << *putReq;
         if (!testMode) {
+            // Set the forwarded flag, so the destination can appropriately handle
+            // forwarded request.
+            fds_assert(false == putReq->putObjectNetReq->forwardedReq);
+            putReq->putObjectNetReq->forwardedReq = true;
+
             auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
             asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg),
                                     putReq->putObjectNetReq);
@@ -84,6 +89,11 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
         LOGMIGRATE << "Forwarding " << *delReq;
         if (!testMode) {
+            // Set the forwarded flag, so the destination can appropriately handle
+            // forwarded request.
+            fds_assert(false == delReq->delObjectNetReq->forwardedReq);
+            delReq->delObjectNetReq->forwardedReq = true;
+
             auto asyncDelReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
             asyncDelReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg),
                                     delReq->delObjectNetReq);
@@ -273,7 +283,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
         LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
                    << "status " << status.ToString();
         return;
-    } 
+    }
 
     leveldb::Iterator *iterDB = dbFromFirstSnap->NewIterator(read_options);
 
@@ -463,7 +473,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     /* TODO(Gurpreet): Propogate error to Token Migration Manager.
      */
     if (!status.ok()) {
-        LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot." 
+        LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
                    << "status " << status.ToString();
         return;
     }
@@ -578,7 +588,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      */
     migClientAddMetaData(objMetaDataSet, true);
 
-    /* We no longer need these snapshots. 
+    /* We no longer need these snapshots.
      * Delete the snapshot directory and files.
      */
     if (env) {
