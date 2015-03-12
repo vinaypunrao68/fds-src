@@ -28,6 +28,13 @@
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
+			},
+			{
+				"name" : "TestMultipleBlockMountPoints",
+				"file" : "test_multiple_block_mount_points.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
 			}
 		]
 	}

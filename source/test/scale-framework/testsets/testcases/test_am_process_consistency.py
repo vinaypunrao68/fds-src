@@ -125,7 +125,7 @@ class TestAMProcessConsistency(testcase.FDSTestCase):
         if os.path.exists(path):
             # produce a random generated number so the same file has different
             # names
-            k.key = "%s_%s" % (self.sample_file, random.randint(0, 1000))
+            k.key = self.sample_file
             self.log.info("Uploading file %s" % k.key)
             k.set_contents_from_filename(path,
                                          cb=utils.percent_cb,
