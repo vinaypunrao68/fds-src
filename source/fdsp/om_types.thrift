@@ -22,3 +22,10 @@ struct FDSP_TestBucket {
   /** Access Secret */
   5: string                 	secretAccessKey;
 }
+
+exception OmRegisterException {
+}
+
+exception SvcLookupException {
+     1: string message;
+}

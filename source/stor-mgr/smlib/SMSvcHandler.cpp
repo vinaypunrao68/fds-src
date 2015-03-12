@@ -2,17 +2,17 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <StorMgr.h>
-#include <net/net-service-tmpl.hpp>
+#include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
-// #include <platform/flags_map.h>
-#include <sm-platform.h>
 #include <string>
+#include <net/SvcMgr.h>
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
 #include <random>
 #include <chrono>
 #include <MockSMCallbacks.h>
+#include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
 #include <OMgrClient.h>
@@ -25,16 +25,9 @@ extern std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetObjectMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& msg);
 
-SMSvcHandler::SMSvcHandler()
+SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
+    : PlatNetSvcHandler(provider)
 {
-    mockTimeoutEnabled = gModuleProvider->get_fds_config()->\
-                         get<bool>("fds.sm.testing.enable_mocking");
-    mockTimeoutUs = gModuleProvider->get_fds_config()->\
-                    get<uint32_t>("fds.sm.testing.mocktimeout");
-    if (true == mockTimeoutEnabled) {
-        mockHandler.reset(new MockSvcHandler());
-    }
-
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
@@ -70,6 +63,17 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+}
+
+int SMSvcHandler::mod_init(SysParams const *const param) {
+    mockTimeoutEnabled = MODULEPROVIDER()->get_fds_config()->\
+                         get<bool>("fds.sm.testing.enable_mocking");
+    mockTimeoutUs = MODULEPROVIDER()->get_fds_config()->\
+                    get<uint32_t>("fds.sm.testing.mocktimeout");
+    if (true == mockTimeoutEnabled) {
+        mockHandler.reset(new MockSvcHandler());
+    }
+    return 0;
 }
 
 void
@@ -315,8 +319,6 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     DBG(GLOGDEBUG << logString(*asyncHdr) << fds::logString(*getObjMsg));
 
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
     fiu_do_on("svc.drop.getobject", return);
 #if 0
     fiu_do_on("svc.uturn.getobject",
@@ -325,11 +327,13 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
               getReq->getObjectNetResp = resp; \
               getObjectCb(asyncHdr, ERR_OK, getReq); return;);
 #endif
+#if 0
     fiu_do_on("svc.uturn.getobject", \
               mockHandler->schedule(mockTimeoutUs, \
-                                    std::bind(MockSMCallbacks::mockGetCb, \
+                                    std::bind(&MockSMCallbacks::mockGetCb, this,\
                                               asyncHdr)); \
               return;);
+#endif
 
     Error err(ERR_OK);
     auto getReq = new SmIoGetObjectReq(getObjMsg);
@@ -424,15 +428,15 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*putObjMsg));
 
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
     fiu_do_on("svc.drop.putobject", return);
     // fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
+#if 0
     fiu_do_on("svc.uturn.putobject", \
               mockHandler->schedule(mockTimeoutUs, \
-                                    std::bind(MockSMCallbacks::mockPutCb, \
+                                    std::bind(&MockSMCallbacks::mockPutCb, this,\
                                               asyncHdr)); \
               return;);
+#endif
 
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);

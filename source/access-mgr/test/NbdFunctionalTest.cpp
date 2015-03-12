@@ -7,9 +7,8 @@
 #include <vector>
 #include <map>
 #include <thread>
+#include <condition_variable>
 #include <util/fds_stat.h>
-#include <am-platform.h>
-#include <net/net-service.h>
 #include "connector/block/NbdOperations.h"
 #include <AccessMgr.h>
 

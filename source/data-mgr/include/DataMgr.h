@@ -15,7 +15,6 @@
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
-#include <dm-platform.h>
 #include <fds_timer.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
@@ -231,8 +230,6 @@ struct DataMgr : Module, DmIoReqHandler {
         }
     };
 
-    fds_rwlock respMapMtx;
-
     FDS_VolumeQueue*  sysTaskQueue;
     std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
 
@@ -241,7 +238,7 @@ struct DataMgr : Module, DmIoReqHandler {
      */
     std::string  stor_prefix;   /* String prefix to make file unique */
     fds_uint32_t  scheduleRate;
-    fds_bool_t   use_om;        /* Whether to bootstrap from OM */
+    fds_bool_t   standalone;    /* Whether to bootstrap from OM */
     std::string  omIpStr;       /* IP addr of the OM used to bootstrap */
     fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
 

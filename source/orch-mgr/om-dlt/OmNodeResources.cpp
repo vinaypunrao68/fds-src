@@ -12,19 +12,16 @@
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
 #include <OmDeploy.h>
-#include <OmDmtDeploy.h>
-#include <net/RpcFunc.h>
 #include <orchMgr.h>
 #include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
+#include <OmDmtDeploy.h>
 #include <fdsp/am_api_types.h>
 #include <fdsp/sm_api_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
-
-#include "platform/node_data.h"
-#include "platform/platform.h"
+#include <net/SvcMgr.h>
 
 namespace fds {
 
@@ -41,6 +38,7 @@ OM_NodeAgent::OM_NodeAgent(const NodeUuid &uuid, fpi::FDSP_MgrIdType type)
 int
 OM_NodeAgent::node_calc_stor_weight()
 {
+    TRACEFUNC;
     return 0;
 }
 
@@ -51,6 +49,7 @@ OM_NodeAgent::node_calc_stor_weight()
 void
 OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
 {
+    TRACEFUNC;
     // TODO(Andrew): This function is deprecated and should not
     // be called. It is not in any main code path but has a long
     // deprecated call chain that can be removed when OM is re-factored.
@@ -63,6 +62,7 @@ OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
 void
 OM_NodeAgent::om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr throttle)
 {
+    TRACEFUNC;
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyThrottle), throttle);
     req->invoke();
@@ -78,6 +78,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
                               fpi::FDSPMsgTypeId      cmd_type,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
+    TRACEFUNC;
     return om_send_vol_cmd(vol, NULL, cmd_type, vol_flag);
 }
 
@@ -86,6 +87,7 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
                       EPSvcRequest* req,
                       const Error& error,
                       boost::shared_ptr<std::string> payload) {
+    TRACEFUNC;
     if (vol == NULL || vol->rs_get_uuid() == 0) {
         
         /*
@@ -113,6 +115,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                               fpi::FDSPMsgTypeId      cmd_type,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
+    TRACEFUNC;
     const char       *log;
     const VolumeDesc *desc;
 
@@ -183,12 +186,9 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     req->onResponseCb(cb);
     req->invoke();
     if (desc != NULL) {
-        Platform *plat = Platform::platf_singleton();
-        int ctrl_port = plat->plf_get_my_ctrl_port(node_base_port());
         LOGNORMAL << log << desc->volUUID << " " << desc->name
                   << " to node " << get_node_name() << std::hex
-                  << ", uuid " << get_uuid().uuid_get_val() << std::dec
-                  << ", port " << ctrl_port;
+                  << ", uuid " << get_uuid().uuid_get_val() << std::dec;
     } else {
         
         /*
@@ -212,6 +212,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
 void
 OM_NodeAgent::om_send_reg_resp(const Error &err)
 {
+    TRACEFUNC;
     fpi::FDSP_MsgHdrTypePtr       m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_RegisterNodeTypePtr r_msg(new fpi::FDSP_RegisterNodeType);
 
@@ -228,6 +229,7 @@ OM_NodeAgent::om_send_reg_resp(const Error &err)
 
 Error
 OM_NodeAgent::om_send_sm_abort_migration(fds_uint64_t dltVersion) {
+    TRACEFUNC;
     Error err(ERR_OK);
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifySMAbortMigrationPtr msg(new fpi::CtrlNotifySMAbortMigration());
@@ -254,6 +256,7 @@ OM_NodeAgent::om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr
                                            const Error& error,
                                            boost::shared_ptr<std::string> payload)
 {
+    TRACEFUNC;
     LOGNOTIFY << "OM received response for SM Abort Migration from node "
               << std::hex << req->getPeerEpId().svc_uuid << std::dec
               << " with version " << msg->DLT_version
@@ -268,6 +271,7 @@ OM_NodeAgent::om_send_abort_sm_migration_resp(fpi::CtrlNotifySMAbortMigrationPtr
 
 Error
 OM_NodeAgent::om_send_dm_abort_migration(fds_uint64_t dmtVersion) {
+    TRACEFUNC;
     Error err(ERR_OK);
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMAbortMigrationPtr msg(new fpi::CtrlNotifyDMAbortMigration());
@@ -294,6 +298,7 @@ OM_NodeAgent::om_send_abort_dm_migration_resp(fpi::CtrlNotifyDMAbortMigrationPtr
         const Error& error,
         boost::shared_ptr<std::string> payload)
 {
+    TRACEFUNC;
     LOGNOTIFY << "OM received response for DM Abort Migration from node "
                 << std::hex << req->getPeerEpId().svc_uuid << std::dec
                 << " with version " << msg->DMT_version
@@ -309,6 +314,7 @@ OM_NodeAgent::om_send_abort_dm_migration_resp(fpi::CtrlNotifyDMAbortMigrationPtr
 
 Error
 OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
+    TRACEFUNC;
     Error err(ERR_OK);
     if (curDlt == NULL) {
         LOGNORMAL << "No current DLT to send to " << get_node_name();
@@ -348,6 +354,7 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
 
 Error
 OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
+    TRACEFUNC;
     Error err(ERR_OK);
     if (node_state() == fpi::FDS_Node_Down) {
         LOGNORMAL << "Will not send dlt close to service we know is down... "
@@ -378,6 +385,7 @@ OM_NodeAgent::om_send_dlt_close_resp(fpi::CtrlNotifyDLTClosePtr msg,
         const Error& error,
         boost::shared_ptr<std::string> payload)
 {
+    TRACEFUNC;
     LOGDEBUG << "OM received response for NotifyDltClose from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " with version " << msg->dlt_close.DLT_version
@@ -481,6 +489,7 @@ OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
 
 Error
 OM_NodeAgent::om_send_qosinfo(fds_uint64_t total_rate) {
+    TRACEFUNC;
     fpi::CtrlNotifyQoSControlPtr qos_msg(new fpi::CtrlNotifyQoSControl());
     fpi::FDSP_QoSControlMsgType *qosctrl = &qos_msg->qosctrl;
     qosctrl->total_rate = total_rate;
@@ -667,6 +676,7 @@ OM_NodeAgent::om_send_shutdown() {
 void
 OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
+    TRACEFUNC;
     NodeInventory::init_msg_hdr(msgHdr);
 
     msgHdr->src_id       = FDS_ProtocolInterface::FDSP_ORCH_MGR;
@@ -684,6 +694,7 @@ OM_PmAgent::OM_PmAgent(const NodeUuid &uuid)
 void
 OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
+    TRACEFUNC;
     NodeInventory::init_msg_hdr(msgHdr);
     msgHdr->src_id = FDS_ProtocolInterface::FDSP_ORCH_MGR;
     msgHdr->dst_id = FDS_ProtocolInterface::FDSP_PLATFORM;
@@ -697,6 +708,7 @@ OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 fds_bool_t
 OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
 {
+    TRACEFUNC;
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             if (activeSmAgent != NULL)
@@ -723,6 +735,7 @@ Error
 OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
                                     NodeAgent::pointer svc_agent)
 {
+    TRACEFUNC;
     // we cannot register more than one service of the same type
     // with the same node (platform)
     if (service_exists(svc_type)) {
@@ -779,6 +792,7 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
 NodeUuid
 OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
+    TRACEFUNC;
     // update configDB -- remove the service
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
@@ -825,6 +839,7 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
 void
 OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
 {
+    TRACEFUNC;
     if (activeSmAgent->get_uuid() == uuid) {
         handle_unregister_service(FDS_ProtocolInterface::FDSP_STOR_MGR);
     } else if (activeDmAgent->get_uuid() == uuid) {
@@ -842,6 +857,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                                    fds_bool_t activate_dm,
                                    fds_bool_t activate_am)
 {
+    TRACEFUNC;
     Error err(ERR_OK);
     fds_bool_t do_activate_sm = activate_sm;
     fds_bool_t do_activate_dm = activate_dm;
@@ -892,35 +908,30 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         // but for now assume always success and set active state here
         set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
         kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-        node_data_t node_data;
         fds_mutex::scoped_lock l(dbNodeInfoLock);
-        if (!configDB->getNode(get_uuid(), &node_data)) {
+        if (!configDB->nodeExists(get_uuid())) {
             // for now store only if the node was not known to DB
-            node_info_frm_shm(&node_data);
-            configDB->addNode(&node_data);
+            configDB->addNode(*getNodeInfo());
             LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
-                      << std::hex << get_uuid().uuid_get_val() << std::dec
-                      << " in configDB";
+                << std::hex << get_uuid().uuid_get_val() << std::dec
+                << " in configDB";
         }
     }
 
-    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_ActivateNodeTypePtr node_msg(new fpi::FDSP_ActivateNodeType());
+    fpi::ActivateServicesMsgPtr activateMsg = boost::make_shared<fpi::ActivateServicesMsg>();
+    fpi::FDSP_ActivateNodeType& activateInfo = activateMsg->info;
 
-    init_msg_hdr(m_hdr);
-    m_hdr->msg_code        = fpi::FDSP_MSG_NOTIFY_NODE_ACTIVE;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
+    (activateInfo.node_uuid).uuid = get_uuid().uuid_get_val();
+    activateInfo.node_name = get_node_name();
+    activateInfo.has_sm_service = activate_sm;
+    activateInfo.has_dm_service = activate_dm;
+    activateInfo.has_am_service = activate_am;
+    activateInfo.has_om_service = false;
 
-    (node_msg->node_uuid).uuid = get_uuid().uuid_get_val();
-    node_msg->node_name = get_node_name();
-    node_msg->has_sm_service = activate_sm;
-    node_msg->has_dm_service = activate_dm;
-    node_msg->has_am_service = activate_am;
-    node_msg->has_om_service = false;
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::ActivateServicesMsg), activateMsg);
+    req->invoke();
 
-    NET_SVC_RPC_CALL(nd_eph, nd_svc_rpc, notifyNodeActive, node_msg);
     return err;
 }
 
@@ -929,6 +940,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
 // ---------------------------------------------------------------------------------
 OM_AgentContainer::OM_AgentContainer(FdspNodeType id) : AgentContainer(id)
 {
+    TRACEFUNC;
 }
 
 // agent_register
@@ -940,6 +952,7 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
                                   NodeAgent::pointer   *out,
                                   bool                  activate)
 {
+    TRACEFUNC;
     Error err = AgentContainer::agent_register(uuid, msg, out, false);
 
     if (OM_NodeDomainMod::om_in_test_mode() || (err != ERR_OK)) {
@@ -953,9 +966,6 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
         return err;
     }
 
-    // Only make it known to the container when we have the endpoint.
-    // XXX(Vy): it's possible that we can lost the endpoint during the activate call.
-    //
     agent_activate(agent);
     return err;
 }
@@ -985,15 +995,16 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
                                NodeAgent::pointer   *out,
                                bool                  activate)
 {
+    TRACEFUNC;
     // check if this is a known Node
     bool        known;
-    node_data_t node;
+    fpi::FDSP_RegisterNodeType nodeInfo;
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
-    if (configDB->getNode(uuid, &node)) {
+    if (configDB->getNode(uuid, nodeInfo)) {
         // this is a known node
         known = true;
-        msg->node_name = node.nd_assign_name;
+        msg->node_name = nodeInfo.node_name;
     } else {
         // we are ignoring name that platform sends us
         known = false;
@@ -1014,9 +1025,17 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
         }
     }
     Error err = OM_AgentContainer::agent_register(uuid, msg, out, activate);
-    if ((err == ERR_OK) && (known == true)) {
-        fds_verify(out != NULL);
-        OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
+    if (!err.ok()) {
+        return err;
+    }
+
+    fds_verify(out != NULL);
+    OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(*out);
+
+    /* Cache the node information */
+    agent->setNodeInfo(msg);
+
+    if ((known == true)) {
 
         // start services that were running on that node
         NodeServices services;
@@ -1051,6 +1070,7 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
 fds_bool_t
 OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
                                   FDS_ProtocolInterface::FDSP_MgrIdType svc_role) {
+    TRACEFUNC;
     fds_bool_t bret = false;
     NodeAgent::pointer agent = agent_info(pm_uuid);
     if (agent == NULL) {
@@ -1076,6 +1096,7 @@ OM_PmContainer::handle_register_service(const NodeUuid &pm_uuid,
                                         FDS_ProtocolInterface::FDSP_MgrIdType svc_role,
                                         NodeAgent::pointer svc_agent)
 {
+    TRACEFUNC;
     Error err(ERR_OK);
     NodeAgent::pointer pm_agt = agent_info(pm_uuid);
 
@@ -1093,6 +1114,7 @@ OM_PmContainer::handle_unregister_service(const NodeUuid& node_uuid,
                                           const std::string& node_name,
                                           FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
+    TRACEFUNC;
     NodeUuid svc_uuid;
     NodeAgent::pointer agent;
     if (node_uuid.uuid_get_val() == 0) {
@@ -1141,6 +1163,7 @@ OM_SmContainer::OM_SmContainer() : OM_AgentContainer(fpi::FDSP_STOR_MGR) {}
 void
 OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
 {
+    TRACEFUNC;
     LOGNORMAL << "Activate node uuid " << std::hex
               << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
@@ -1156,6 +1179,7 @@ OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
 void
 OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
 {
+    TRACEFUNC;
     LOGNORMAL << "Deactivate node uuid " << std::hex
               << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
@@ -1171,6 +1195,7 @@ OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
 void
 OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
 {
+    TRACEFUNC;
     rs_mtx.lock();
     addNodes->splice(addNodes->begin(), node_up_pend);
     rmNodes->splice(rmNodes->begin(), node_down_pend);
@@ -1182,6 +1207,7 @@ OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes,
                                         NodeList *rmNodes,
                                         const NodeUuidSet& filter_nodes)
 {
+    TRACEFUNC;
     rs_mtx.lock();
     for (NodeUuidSet::const_iterator cit = filter_nodes.cbegin();
          cit != filter_nodes.cend();
@@ -1228,6 +1254,7 @@ OM_NodeContainer::OM_NodeContainer()
                       new OM_PmContainer(),
                       new OmContainer(FDSP_ORCH_MGR))
 {
+    TRACEFUNC;
     om_volumes    = new VolumeContainer();
 }
 
@@ -1242,6 +1269,7 @@ OM_NodeContainer::~OM_NodeContainer()
 void
 OM_NodeContainer::om_init_domain()
 {
+    TRACEFUNC;
     om_admin_ctrl = new FdsAdminCtrl(OrchMgr::om_stor_prefix(), g_fdslog);
 
     // TODO(Anna) PerfStats class is replaced, not sure yet if we
@@ -1269,31 +1297,29 @@ om_send_qos_info(fds_uint64_t total_rate, NodeAgent::pointer node)
 // ------------------
 //
 void
-OM_NodeContainer::om_update_capacity(NodeAgent::pointer node,
+OM_NodeContainer::om_update_capacity(OM_PmAgent::pointer pm_agent,
                                      fds_bool_t b_add)
 {
-    OM_SmAgent::pointer agent = OM_SmAgent::agt_cast_ptr(node);
+    TRACEFUNC;
     fds_uint64_t old_max_iopc = om_admin_ctrl->getMaxIOPC();
+    if (b_add) {
+        om_admin_ctrl->addDiskCapacity(pm_agent->getDiskCapabilities());
+    } else {
+        om_admin_ctrl->removeDiskCapacity(pm_agent->getDiskCapabilities());
+    }
 
-    if (agent->node_get_svc_type() != fpi::FDSP_STOR_HVISOR) {
-        if (b_add) {
-            om_admin_ctrl->addDiskCapacity(node->node_capability());
-        } else {
-            om_admin_ctrl->removeDiskCapacity(node->node_capability());
-        }
-
-        // if perf capability changed, notify AMs to modify QoS
-        // control params accordingly
-        fds_uint64_t new_max_iopc = om_admin_ctrl->getMaxIOPC();
-        if ((new_max_iopc != 0) &&
-            (new_max_iopc != old_max_iopc)) {
-            dc_am_nodes->agent_foreach<fds_uint64_t>(new_max_iopc, om_send_qos_info);
-        }
+    // if perf capability changed, notify AMs to modify QoS
+    // control params accordingly
+    fds_uint64_t new_max_iopc = om_admin_ctrl->getMaxIOPC();
+    if ((new_max_iopc != 0) &&
+        (new_max_iopc != old_max_iopc)) {
+        dc_am_nodes->agent_foreach<fds_uint64_t>(new_max_iopc, om_send_qos_info);
     }
 }
 
 void
 OM_NodeContainer::om_send_me_qosinfo(NodeAgent::pointer me) {
+    TRACEFUNC;
     OM_AmAgent::pointer agent = OM_AmAgent::agt_cast_ptr(me);
 
     // for now we are just sending total rate to AM
@@ -1311,6 +1337,7 @@ OM_NodeContainer::om_send_me_qosinfo(NodeAgent::pointer me) {
 static void
 om_send_my_info_to_peer(NodeAgent::pointer me, NodeAgent::pointer peer)
 {
+    TRACEFUNC;
     OM_SmAgent::agt_cast_ptr(me)->om_send_myinfo(peer);
 }
 
@@ -1320,6 +1347,7 @@ om_send_my_info_to_peer(NodeAgent::pointer me, NodeAgent::pointer peer)
 void
 OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
+    TRACEFUNC;
     if (ref->node_type == fpi::FDSP_STOR_HVISOR) {
         return;
     }
@@ -1334,6 +1362,7 @@ OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPt
 static void
 om_send_peer_info_to_me(NodeAgent::pointer me, NodeAgent::pointer peer)
 {
+    TRACEFUNC;
     OM_SmAgent::agt_cast_ptr(peer)->om_send_myinfo(me);
 }
 
@@ -1343,6 +1372,7 @@ om_send_peer_info_to_me(NodeAgent::pointer me, NodeAgent::pointer peer)
 void
 OM_NodeContainer::om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
+    TRACEFUNC;
     dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
     dc_dm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
     dc_am_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
@@ -1357,6 +1387,7 @@ om_activate_services(fds_bool_t activate_sm,
                      fds_bool_t activate_am,
                      NodeAgent::pointer node)
 {
+    TRACEFUNC;
     OM_PmAgent::agt_cast_ptr(node)->send_activate_services(activate_sm,
                                                            activate_dm,
                                                            activate_am);
@@ -1370,6 +1401,7 @@ OM_NodeContainer::om_cond_bcast_activate_services(fds_bool_t activate_sm,
                                                   fds_bool_t activate_dm,
                                                   fds_bool_t activate_am)
 {
+    TRACEFUNC;
     dc_pm_nodes->agent_foreach<fds_bool_t, fds_bool_t, fds_bool_t>
             (activate_sm, activate_dm, activate_am, om_activate_services);
 }
@@ -1382,6 +1414,7 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_dm,
                                             fds_bool_t activate_am) {
+    TRACEFUNC;
     OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
     if (agent == NULL) {
         LOGERROR << "activate node services: platform service is not "
@@ -1401,6 +1434,7 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
 static void
 om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer vol)
 {
+    TRACEFUNC;
     /*
      * Only send if not deleted or marked to be deleted.
      */
@@ -1640,6 +1674,7 @@ fds_uint32_t
 OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                const DMTPtr& curDmt)
 {
+    TRACEFUNC;
     fds_uint32_t count = 0;
     if (svc_type == fpi::FDSP_DATA_MGR) {
         count += dc_dm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
@@ -1669,6 +1704,7 @@ OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
 static Error
 om_send_dmt_close(fds_uint64_t dmt_version, NodeAgent::pointer agent)
 {
+    TRACEFUNC;
     return OM_DmAgent::agt_cast_ptr(agent)->om_send_dmt_close(dmt_version);
 }
 
@@ -1721,6 +1757,7 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt,
                                fds_bool_t to_dm,
                                fds_bool_t to_am)
 {
+    TRACEFUNC;
     fds_uint32_t count = 0;
     if (to_sm) {
         count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
@@ -1879,5 +1916,33 @@ OM_NodeContainer::om_bcast_shutdown_msg()
     LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully";
 }
 
+void OM_NodeContainer::om_bcast_svcmap()
+{
+    LOGDEBUG << "Broadcasting service map";
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+    boost::shared_ptr<std::string>buf;
+    fpi::UpdateSvcMapMsgPtr updateMsg = boost::make_shared<fpi::UpdateSvcMapMsg>(); 
+
+    /* Construct svcmap message */
+    svcMgr->getSvcMap(updateMsg->updates);
+    fds::serializeFdspMsg(*updateMsg, buf);
+
+    /* Update the domain by broadcasting */
+    auto header = svcMgr->getSvcRequestMgr()->newSvcRequestHeaderPtr(
+        SvcRequestPool::SVC_UNTRACKED_REQ_ID,
+        FDSP_MSG_TYPEID(fpi::UpdateSvcMapMsg),
+        svcMgr->getSelfSvcUuid(),
+        fpi::SvcUuid());
+
+    /* NOTE: Ideally service map should be persisted in configdb also..But the current
+     * code stores node information which is slightly different from svc map.  Once,
+     * we unify svc map and node/domain container concpets, we will broadcast the persisted
+     * svc map
+     */
+    // TODO(Rao): add the filter so that we don't send the broad cast to om
+    svcMgr->broadcastAsyncSvcReqMessage(header, buf,
+                                        [](const fpi::SvcInfo& info) {return true;});
+}
 
 }  // namespace fds

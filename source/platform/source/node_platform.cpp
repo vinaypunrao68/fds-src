@@ -62,12 +62,11 @@ namespace fds
 
         mod_intern = dep_mods;
         Platform::mod_init(param);
-        gSvcRequestPool = new SvcRequestPool();
         FdsConfigAccessor    conf(g_fdsprocess->get_conf_helper());
 
         disk_ctrl        = DiskPlatModule::dsk_plat_singleton();
         plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
-        plf_my_node_name = conf.get_abs<std::string>("fds.plat.id", "auto");
+        plf_my_node_name = conf.get_abs<std::string>("fds.pm.id", "pm");
         return 0;
     }
 

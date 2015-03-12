@@ -57,6 +57,7 @@ ClusterMap::mod_shutdown() {
 
 fds_uint32_t
 ClusterMap::getNumMembers(fpi::FDSP_MgrIdType svc_type) const {
+    TRACEFUNC;
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
             return curSmMap.size();
@@ -70,6 +71,7 @@ ClusterMap::getNumMembers(fpi::FDSP_MgrIdType svc_type) const {
 
 fds_uint64_t
 ClusterMap::getTotalStorWeight() const {
+    TRACEFUNC;
     fds_uint64_t total_weight = 0;
     for (const_sm_iterator it = cbegin_sm();
          it != cend_sm();
@@ -81,6 +83,7 @@ ClusterMap::getTotalStorWeight() const {
 
 void
 ClusterMap::resetPendServices(fpi::FDSP_MgrIdType svc_type) {
+    TRACEFUNC;
     fds_mutex::scoped_lock l(mapMutex);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
@@ -100,6 +103,7 @@ Error
 ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
                       const NodeList &addNodes,
                       const NodeList &rmNodes) {
+    TRACEFUNC;
     Error    err(ERR_OK);
     NodeUuid uuid;
     fds_uint32_t removed;
@@ -163,6 +167,7 @@ void
 ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
                                 const NodeUuid& rm_uuid)
 {
+    TRACEFUNC;
     fds_mutex::scoped_lock l(mapMutex);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
@@ -182,6 +187,7 @@ ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
 void
 ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
                                   const NodeUuid& svc_uuid) {
+    TRACEFUNC;
     fds_mutex::scoped_lock l(mapMutex);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
@@ -203,6 +209,7 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
 
 std::unordered_set<NodeUuid, UuidHash>
 ClusterMap::getAddedServices(fpi::FDSP_MgrIdType svc_type) const {
+    TRACEFUNC;
     /*
      * TODO: We should ensure that we're not
      * in the process of updating the cluster map
@@ -222,6 +229,7 @@ ClusterMap::getAddedServices(fpi::FDSP_MgrIdType svc_type) const {
 
 std::unordered_set<NodeUuid, UuidHash>
 ClusterMap::getRemovedServices(fpi::FDSP_MgrIdType svc_type) const {
+    TRACEFUNC;
     /*
      * TODO: We should ensure that we're not
      * in the process of updating the cluster map

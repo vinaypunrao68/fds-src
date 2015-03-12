@@ -38,9 +38,7 @@
 #include "lib/OMgrClient.h"
 
 #include "fds_module.h"
-#include "platform/typedefs.h"
 
-// #include "NetSession.h"
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>

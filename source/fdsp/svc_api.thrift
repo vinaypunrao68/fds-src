@@ -67,6 +67,32 @@ struct CtrlStartHybridTierCtrlrMsg
 }
 
 /**
+ * Request for getting the service map
+ */
+struct GetSvcMapMsg {
+}
+
+/**
+ * Reponse for GetSvcMap request
+ */
+struct GetSvcMapRespMsg {
+  1: required list<svc_types.SvcInfo>       svcMap;
+}
+
+/**
+ * Message for requesting service status
+ */
+struct GetSvcStatusMsg {
+}
+
+/**
+ * Response message for service status
+ */
+struct GetSvcStatusRespMsg {
+  1: svc_types.ServiceStatus  status;
+}
+
+/**
  * Empty msg (No-op)
  */
 struct EmptyMsg {
@@ -76,6 +102,13 @@ struct EmptyMsg {
  * Shutdown service.
  */
 struct ShutdownMODMsg {
+}
+
+/**
+ * Message to sent to update the service information
+ */
+struct UpdateSvcMapMsg {
+  1: required list<svc_types.SvcInfo>       updates;
 }
 
 /* ------------------------------------------------------------
@@ -94,7 +127,6 @@ service PlatNetSvc extends BaseAsyncSvc {
 
     list<svc_types.NodeInfoMsg> notifyNodeInfo(1: svc_types.NodeInfoMsg info, 2: bool bcast);
     svc_types.DomainNodes getDomainNodes(1: svc_types.DomainNodes dom);
-    svc_types.NodeEvent getSvcEvent(1: svc_types.NodeEvent input);
 
     svc_types.ServiceStatus getStatus(1: i32 nullarg);
     map<string, i64> getCounters(1: string id);

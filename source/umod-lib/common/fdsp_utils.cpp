@@ -54,6 +54,13 @@ assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
     return lhs;
 }
 
+FDS_ProtocolInterface::FDSP_Uuid&
+assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs)
+{
+    lhs.uuid = rhs.svc_uuid.svc_uuid;
+    return lhs;
+}
+
 void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header)
 {
     auto temp = header->msg_src_uuid;
@@ -71,6 +78,26 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
         << std::dec
         << " error: " << header.msg_code;
     return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
+{
+    std::stringstream ss;
+    ss << "Svc handle svc_uuid: " << std::hex << info.svc_id.svc_uuid.svc_uuid
+        << std::dec << " ip: " << info.ip << " port: " << info.svc_port
+        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
+    return ss.str();
+}
+
+std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
+{
+    std::stringstream ss;
+    ss << fds::logString(info) << "\n";
+    auto &props = info.props;
+    for (auto &kv : props) {
+        ss << kv.first << " : " << kv.second << std::endl;
+    }
+    return ss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj)

@@ -22,8 +22,10 @@
 namespace fds {
 
 /* Processwide globals from fds_process.h */
+// TODO(Rao): Ideally we shouldn't have globals (g_fdslog maybe an exception).  As we slowly
+// migrate towards not having globals, these should go away.
+
 FdsProcess *g_fdsprocess                    = NULL;
-CommonModuleProviderIf *gModuleProvider     = NULL;
 fds_log *g_fdslog                           = NULL;
 boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 const FdsRootDir                 *g_fdsroot;
@@ -41,12 +43,26 @@ void init_process_globals(fds_log *log)
     g_cntrs_mgr.reset(new FdsCountersMgr(net::get_my_hostname()+".unknown"));
 }
 
+void destroy_process_globals() {
+    if (g_fdslog) {
+        delete g_fdslog;
+        g_fdslog = nullptr;
+    }
+}
+
+CommonModuleProviderIf* getModuleProvider() {
+    return g_fdsprocess;
+}
+
 /**
 * @brief Constructor.  Keep it as bare shell.  Do the initialization work
 * in init()
 */
 FdsProcess::FdsProcess()
 {
+    mod_vectors_ = nullptr;
+    proc_root = nullptr;
+    proc_thrp = nullptr;
 }
 
 /**
@@ -96,7 +112,6 @@ void FdsProcess::init(int argc, char *argv[],
 
     /* Initialize process wide globals */
     g_fdsprocess = this;
-    gModuleProvider = g_fdsprocess;
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
@@ -138,7 +153,7 @@ void FdsProcess::init(int argc, char *argv[],
         setup_timer_service();
 
         /* if graphite is enabled, setup graphite task to dump counters */
-        if (conf_helper_.get<bool>("enable_graphite")) {
+        if (conf_helper_.get<bool>("enable_graphite",false)) {
             /* NOTE: Timer service will be setup as well */
             setup_graphite();
         }
@@ -152,7 +167,7 @@ void FdsProcess::init(int argc, char *argv[],
     }
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
-        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
+        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","NORMAL")));
 
     /* detect the core file size limit and print to log */
     struct rlimit crlim;
@@ -187,20 +202,18 @@ FdsProcess::~FdsProcess()
     }
     /* cleanup process wide globals */
     g_fdsprocess = nullptr;
-    gModuleProvider = nullptr;
-    delete g_fdslog;
 
     /* Terminate signal handling thread */
-    int rc = pthread_kill(sig_tid_, SIGTERM);
-    fds_assert(rc == 0);
-    rc = pthread_join(sig_tid_, NULL);
-    fds_assert(rc == 0);
-
-    if (proc_thrp != NULL) {
-        delete proc_thrp;
+    if (sig_tid_) {
+        int rc = pthread_kill(*sig_tid_, SIGTERM);
+        fds_assert(rc == 0);
+        rc = pthread_join(*sig_tid_, NULL);
+        fds_assert(rc == 0);
     }
-    delete proc_root;
-    delete mod_vectors_;
+
+    if (proc_thrp) delete proc_thrp;
+    if (proc_root) delete proc_root;
+    if (mod_vectors_) delete mod_vectors_;
 }
 
 void FdsProcess::proc_pre_startup() {}
@@ -339,7 +352,8 @@ void FdsProcess::setup_sig_handler()
     fds_assert(rc == 0);
 
     // Joinable thread
-    rc = pthread_create(&sig_tid_, 0, FdsProcess::sig_handler, 0);
+    sig_tid_.reset(new pthread_t);
+    rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, 0);
     fds_assert(rc == 0);
 }
 
@@ -465,6 +479,10 @@ void FdsProcess::daemonize() {
     signal(SIGTTIN, SIG_IGN);
     signal(SIGHUP , SIG_IGN);
     // signal(SIGTERM,signal_handler);
+}
+
+util::Properties* FdsProcess::getProperties() {
+    return &properties;
 }
 
 fds_log* HasLogger::GetLog() const {

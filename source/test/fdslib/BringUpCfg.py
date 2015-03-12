@@ -191,6 +191,7 @@ class FdsNodeConfig(FdsConfig):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
 
         if self.nd_run_om():
+            om_ip_arg = ' --fds.common.om_ip_list=%s' % self.nd_conf_dict['ip']
             if self.nd_agent is None:
                 print "You need to call nd_connect_agent() first"
                 sys.exit(0)
@@ -212,12 +213,12 @@ class FdsNodeConfig(FdsConfig):
             self.nd_start_influxdb();
 
             if test_harness:
-                status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
-                                                 (fds_dir, log_dir),
+                status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s %s > %s/om.out 2>&1 &) \"' %
+                                                 (fds_dir, om_ip_arg, log_dir),
                                                  fds_bin=True)
             else:
                 status = self.nd_agent.ssh_exec_fds(
-                    "orchMgr --fds-root=%s > %s/om.out" % (fds_dir, log_dir))
+                    "orchMgr --fds-root=%s %s > %s/om.out" % (fds_dir, om_ip_arg, log_dir))
 
             time.sleep(2)
         else:
@@ -270,16 +271,16 @@ class FdsNodeConfig(FdsConfig):
     # Start platform services in all nodes.
     #
     def nd_start_platform(self, om_ip = None, test_harness=False, _bin_dir=None, _log_dir=None):
-        port_arg = '--fds-root=%s --fds.plat.id=%s' % \
+        port_arg = '--fds-root=%s --fds.pm.id=%s' % \
                    (self.nd_conf_dict['fds_root'], self.nd_conf_dict['node-name'])
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
-            port_arg = port_arg + (' --fds.plat.platform_port=%s' % port)
+            port_arg = port_arg + (' --fds.pm.platform_port=%s' % port)
         else:
             port = 7000  # PM default.
 
         if om_ip is not None:
-            port_arg = port_arg + (' --fds.plat.om_ip=%s' % om_ip)
+            port_arg = port_arg + (' --fds.common.om_ip_list=%s' % om_ip)
 
         fds_dir = self.nd_conf_dict['fds_root']
 
@@ -331,23 +332,22 @@ class FdsNodeConfig(FdsConfig):
                                                  return_stdin=True,
                                                  fds_bin=True)
 
+        # Figure out the platform uuid.  Platform has 'pm' as the name
         if status == 0:
             for line in stdout.split('\n'):
                 if line.count("Node UUID") > 0:
                     assigned_uuid = line.split()[2]
-                if line.count("Name") > 0:
-                    assigned_name = line.split()[1]
                 if line.count("IPv4") > 0:
                     ipad = line.split()[1]
                     hostName = socket.gethostbyaddr(ipad)[0]
                     ourIP = (ipad == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
-                if line.count("Control") > 0:
-                    if ourIP and (int(line.split()[2]) - 1 == int(port)):
-                        self.nd_assigned_name = assigned_name
+                if line.count("Name") > 0:
+                    assigned_name = line.split()[1]
+                    if assigned_name == 'pm':
+                        self.nd_assigned_name = 'pm'
                         self.nd_uuid = assigned_uuid
-                        break
 
-            if (self.nd_assigned_name is None) or (self.nd_uuid is None):
+            if (self.nd_uuid is None):
                 log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
                 log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
                 log.error("Results from service list:\n%s." % stdout)

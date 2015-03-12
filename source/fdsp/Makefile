@@ -8,13 +8,15 @@ user_thrift      := \
 	FDSP.thrift \
 	common.thrift \
 	svc_types.thrift \
-    am_types.thrift \
-    dm_types.thrift \
+	am_types.thrift \
+	dm_types.thrift \
 	om_types.thrift \
 	sm_types.thrift \
 	config_types.thrift \
 	fds_stream.thrift \
 	svc_api.thrift \
+	pm_service.thrift \
+	pm_data.thrift \
 	am_api.thrift \
 	dm_api.thrift \
 	om_api.thrift \

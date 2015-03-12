@@ -7,7 +7,6 @@ user_build_dir    := \
     amlib \
     stor-hvisor \
     connector \
-    platform \
     test
 
 user_incl_dir     := \
@@ -17,10 +16,7 @@ user_incl_dir     := \
 user_fds_ar_libs  :=  \
     fds-qos-lib \
     fds-am-engine \
-    fds-am-plat \
     fds-am-connectors \
-    fds-plat-lib \
-    fds-net-svc \
     fds-svc-request \
     fds-umod \
     fds-lib \

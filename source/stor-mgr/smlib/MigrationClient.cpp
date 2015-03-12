@@ -3,6 +3,9 @@
  */
 #include <fds_assert.h>
 
+#include <net/SvcRequest.h>
+#include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
 #include <ObjMeta.h>
 #include <dlt.h>
@@ -776,7 +779,8 @@ MigrationClient::handleMigrationError(const Error& error) {
         LOGMIGRATE << "Migration Client error " << error
                    << " reporting to OM to abort token migration";
         fpi::CtrlTokenMigrationAbortPtr msg(new fpi::CtrlTokenMigrationAbort());
-        auto req = gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+        auto req = gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->\
+                                                    getSvcMgr()->getOmSvcUuid());
         req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTokenMigrationAbort), msg);
         req->invoke();
     }

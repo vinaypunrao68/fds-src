@@ -7,7 +7,7 @@
 #include <vector>
 #include <set>
 #include <string>
-#include <net/net-service-tmpl.hpp>
+#include <fdsp_utils.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include <NetSession.h>

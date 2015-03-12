@@ -30,8 +30,6 @@ public enum ServiceStatus {
                 return Optional.of( ACTIVE );
             case SVC_STATUS_INACTIVE:
                 return Optional.of( INACTIVE );
-            case SVC_STATUS_IN_ERR:
-                return Optional.of( ERROR );
         }
 
         return Optional.empty();

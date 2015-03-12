@@ -21,6 +21,8 @@
 #include <net/fdssocket.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 
+#define DEPRECATED_CODEPATH  "deprecated codepath"
+
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
     class TSocket;
@@ -55,6 +57,7 @@ class DomainAgent;
 class Platform;
 class FdsTimer;
 class PlatUuidBind;
+// struct SvcMgr;
 
 struct ep_map_rec;
 template <class SendIf, class RecvIf> class EndPoint;
@@ -516,6 +519,7 @@ class NetMgr : public Module
                       bo::shared_ptr<fpi::PlatNetSvcClient> &rpc);
 
     bo::shared_ptr<FdsTimer> ep_get_timer() const;
+    // SvcMgr* getSvcMgr();
 
     /**
      * Utility function for swapping the endpoints in the header
@@ -544,6 +548,7 @@ class NetMgr : public Module
     Platform                      *plat_lib;
     NetPlatSvc                    *plat_net;
     EpPlatLibMod                  *ep_shm;
+    // SvcMgr                        *svcMgr;
 
     SynchronizedTaskExecutor<uint64_t> *ep_task_executor;
 

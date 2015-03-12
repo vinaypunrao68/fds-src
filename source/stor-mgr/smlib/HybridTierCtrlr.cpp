@@ -14,7 +14,7 @@ uint32_t HybridTierCtrlr::BATCH_SZ = 1024;
 uint32_t HybridTierCtrlr::FREQUENCY = 10;
 
 HTCCounters::HTCCounters(const std::string &id)
-    : FdsCounters(id, gModuleProvider ? gModuleProvider->get_cntrs_mgr().get() : nullptr),
+    : FdsCounters(id, MODULEPROVIDER() ? MODULEPROVIDER()->get_cntrs_mgr().get() : nullptr),
     movedCnt("movedCnt", this)
 {
 }
@@ -28,13 +28,13 @@ HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
                                  SmDiskMap::ptr diskMap)
     : htcCntrs_("sm.htc.")
 {
-    threadpool_ = gModuleProvider->proc_thrpool();
+    threadpool_ = MODULEPROVIDER()->proc_thrpool();
     storMgr_ = storMgr;
     diskMap_ = diskMap;
 
-    BATCH_SZ = gModuleProvider->get_fds_config()->\
+    BATCH_SZ = MODULEPROVIDER()->get_fds_config()->\
                        get<uint32_t>("fds.sm.tiering.hybrid.batchSz");
-    FREQUENCY = gModuleProvider->get_fds_config()->\
+    FREQUENCY = MODULEPROVIDER()->get_fds_config()->\
                        get<uint32_t>("fds.sm.tiering.hybrid.frequency");
 
     state_ = HTC_STOPPED;
@@ -45,7 +45,7 @@ HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
                                               std::placeholders::_2,
                                               std::placeholders::_3,
                                               std::placeholders::_4);
-    auto &timer = *(gModuleProvider->getTimer());
+    auto &timer = *(MODULEPROVIDER()->getTimer());
     runTask_.reset(
         new FdsTimerFunctionTask(
             timer,
@@ -64,7 +64,7 @@ void HybridTierCtrlr::start(bool manual)
             return;
         }
         if (state_ == HTC_SCHEDULED) {
-            gModuleProvider->getTimer()->cancel(runTask_);
+            MODULEPROVIDER()->getTimer()->cancel(runTask_);
         }
         /* Schedule in the next 1 second */
         nextScheduleInSecs = 1;
@@ -77,7 +77,7 @@ void HybridTierCtrlr::scheduleNextRun_(uint32_t nextRunInSeconds)
 {
     /* Schedule run() on timer */
     state_ = HTC_SCHEDULED;
-    gModuleProvider->getTimer()->\
+    MODULEPROVIDER()->getTimer()->\
         schedule(runTask_, std::chrono::seconds(nextRunInSeconds));
 }
 
@@ -103,7 +103,7 @@ void HybridTierCtrlr::stop()
 
     GLOGNOTIFY;
 
-    gModuleProvider->getTimer()->cancel(runTask_);
+    MODULEPROVIDER()->getTimer()->cancel(runTask_);
 }
 
 void HybridTierCtrlr::moveToNextToken()
