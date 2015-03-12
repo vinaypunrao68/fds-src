@@ -4,6 +4,7 @@
 
 package com.formationds.om.repository;
 
+import com.formationds.commons.crud.CRUDRepository;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.entity.Event;
@@ -18,7 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public interface EventRepository {
+public interface EventRepository extends CRUDRepository<Event, Long> {
 
     public static class EventCriteriaQueryBuilder extends CriteriaQueryBuilder<Event> {
 
@@ -108,24 +109,19 @@ public interface EventRepository {
     }
 
     /**
-     * Persist the event in the underlying storage
-     * @param event the event
-     * @return the event, with any auto-generated data filled in (id etc)
-     */
-    Event save( Event event );
-
-    /**
-     * Persist the list of events
      *
-     * @param events the list of events
-     *
-     * @return the list per
+     * @param queryCriteria the query criteria
+     * @param tenantUsers the list of tenant users to search
+     * @return the list of events matching the query criteria and belonging to the specified tenant users.
      */
-    List<Event> save( Event... events );
-
-    List<? extends Event> query( QueryCriteria queryCriteria );
-
     List<? extends Event> queryTenantUsers( QueryCriteria queryCriteria, List<Long> tenantUsers );
 
+    /**
+     *
+     * @param v the volume
+     * @param type the type of firebreak
+     *
+     * @return the latest firebreak for the specified volume.s
+     */
     FirebreakEvent findLatestFirebreak( Volume v, FirebreakType type );
 }

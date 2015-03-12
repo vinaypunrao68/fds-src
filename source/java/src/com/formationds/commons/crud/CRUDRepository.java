@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Properties;
 
 /**
  * @author ptinius
@@ -22,6 +21,39 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      * @return the class
      */
     Class<T> getEntityClass();
+
+    /**
+     * Get the entity name.
+     *
+     * <p/>
+     * The default implementation here returns the fully-qualified name of the
+     * entity class, which is consistent with a JPA implementation default naming
+     * strategy (i.e., no Table annotation or override in the @Entity annotation)
+     * For a JPA implementation, which is assumed by the default implemnentation,
+     * this is the name of the entity class.
+     *
+     * @return the underlying entity name, for example the mapped table name in jpa land.
+     */
+    default String getEntityName() { return getEntityClass().getName(); }
+
+    // TODO: add list of column mappings?
+    //LinkedHashMap<String, ColumnDefinition> getColumnMap();
+
+    /**
+     * Add a Entity persist listener for pre/post persistence callbacks.
+     * <p/>
+     * These are passed-through to the underlying data store.
+     *
+     * @param l the listener
+     */
+    public void addEntityPersistListener( EntityPersistListener<T> l );
+
+    /**
+     * Remove the entity persist listener.
+     *
+     * @param l the listener to remove
+     */
+    public void removeEntityPersistListener( EntityPersistListener<T> l );
 
     /**
      * @param primaryKey the primary key

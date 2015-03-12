@@ -5,22 +5,38 @@
 package com.formationds.om.repository;
 
 import com.formationds.apis.VolumeStatus;
+import com.formationds.commons.crud.CRUDRepository;
 import com.formationds.commons.crud.EntityPersistListener;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.repository.query.QueryCriteria;
-import com.formationds.om.repository.result.VolumeDatapointList;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.persistence.EntityManager;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-public interface MetricRepository {
+public interface MetricRepository extends CRUDRepository<VolumeDatapoint, Long> {
+
+    /**
+     *
+     * @return the name of the timestamp column
+     */
+    default public String getTimestampColumnName() { return "timestamp"; }
+
+    /**
+     *
+     * @return the volume name column name
+     */
+    default public Optional<String> getVolumeNameColumnName() { return Optional.of( "volumeName" ); }
+
+    /**
+     *
+     * @return the volume id column name
+     */
+    default public Optional<String> getVolumeIdColumnName() { return Optional.of( "volumeId" ); }
 
     /**
      * TEMPORARY.  This is here only to satisfy existing access to query apis that
@@ -32,22 +48,6 @@ public interface MetricRepository {
      */
     @Deprecated
     default public EntityManager newEntityManager() { return null; }
-
-    /**
-     * Add a Entity persist listener for pre/post persistence callbacks.
-     * <p/>
-     * These are passed-through to the underlying data store.
-     *
-     * @param l the listener
-     */
-    public void addEntityPersistListener( EntityPersistListener<VolumeDatapoint> l );
-
-    /**
-     * Remove the entity persist listener.
-     *
-     * @param l the listener to remove
-     */
-    public void removeEntityPersistListener( EntityPersistListener<VolumeDatapoint> l );
 
     /**
      * Listener implementing prePersist to ensure that the volume id is set on each datapoint before
@@ -84,19 +84,6 @@ public interface MetricRepository {
         }
     }
 
-    /**
-     *
-     * @param volumeDatapoints
-     * @return
-     */
-    // TODO: can we make this save(Timestamp, Volume, List<Datapoint>); or similar
-    // the arbitrary list of VolumeDatapoints is rather unpleasant to work with.
-    // it may, or may not, include datapoints from different times and multiple
-    // volumes
-    List<VolumeDatapoint> save(Collection<VolumeDatapoint> volumeDatapoints);
-
-    @SuppressWarnings("unchecked")
-    List<? extends VolumeDatapoint> query( QueryCriteria criteria );
 
     Double sumLogicalBytes();
 

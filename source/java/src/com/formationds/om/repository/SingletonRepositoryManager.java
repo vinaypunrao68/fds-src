@@ -136,7 +136,7 @@ public enum SingletonRepositoryManager {
     }
 
     protected void initializeEventRepository() {
-        // TODO: use toggles on event repository too
+        // TODO: fs-1111 use toggles on event repository too
         eventRepository = new JDOEventRepository( );
     }
 

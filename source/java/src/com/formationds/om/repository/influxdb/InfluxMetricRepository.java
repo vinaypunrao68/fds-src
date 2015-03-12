@@ -5,7 +5,6 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.apis.VolumeStatus;
-import com.formationds.commons.crud.AbstractRepository;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.repository.MetricRepository;
@@ -28,6 +27,8 @@ import java.util.stream.Collectors;
 public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Long> implements MetricRepository {
 
     public static final String VOL_SERIES_NAME = "volume_metrics";
+    public static final String VOL_ID_COLUMN_NAME = "volume_id";
+    public static final String TIMESTAMP_COLUMN_NAME = "time";
 
     /**
      * the static list of metric names store in the influxdb database.
@@ -48,7 +49,7 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
                                          .collect( Collectors.toList() );
 
         List<String> volMetricNames = new ArrayList<>();
-        volMetricNames.add( "volume_id" );
+        volMetricNames.add( VOL_ID_COLUMN_NAME );
         volMetricNames.addAll( metricNames );
 
         return volMetricNames;
@@ -76,6 +77,26 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
         super.open( properties );
     }
 
+    @Override
+    public String getEntityName() {
+        return VOL_SERIES_NAME;
+    }
+
+    @Override
+    public String getTimestampColumnName() {
+        return TIMESTAMP_COLUMN_NAME;
+    }
+
+    @Override
+    public Optional<String> getVolumeNameColumnName() {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> getVolumeIdColumnName() {
+        return Optional.of( VOL_ID_COLUMN_NAME );
+    }
+
     /**
      * @throws UnsupportedOperationException persisting individual metrics is not supported for the
      * Influx Metric Repository
@@ -93,6 +114,7 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
         // and may contain any number of volumes and timestamps.  Ironically, the AM receives the datapoints
         // exactly as we need  them here, but it then splits them in JsonStatisticsFormatter
         List<VolumeDatapoint> vdps = (entities instanceof List ? (List)entities : new ArrayList<>( entities ));
+
         // timestamp, map<volname, List<vdp>>>
         Map<Long, Map<String, List<VolumeDatapoint>>> orderedVDPs;
         orderedVDPs = vdps.stream()
