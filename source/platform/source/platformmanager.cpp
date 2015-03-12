@@ -24,7 +24,8 @@ PlatformManager::PlatformManager() : Module("pm") {
 int  PlatformManager::mod_init(SysParams const *const param) {
     conf = new FdsConfigAccessor(g_fdsprocess->get_conf_helper());
     rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
-    db = new kvstore::PlatformDB(conf->get<std::string>("redis_host","localhost"),
+    db = new kvstore::PlatformDB(rootDir,
+                                 conf->get<std::string>("redis_host","localhost"),
                                  conf->get<int>("redis_port", 6379),1);
 
     if (!db->isConnected()) {
