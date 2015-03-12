@@ -12,8 +12,8 @@ from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
 from FDS_ProtocolInterface.ttypes import *
-from pm_service.ttypes import *
-from pm_service.constants import *
+from svc_api.ttypes import *
+from svc_api.constants import *
 
 from SvcHandle import *
 import FdspUtils
