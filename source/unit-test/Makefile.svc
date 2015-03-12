@@ -36,7 +36,7 @@ user_non_fds_libs +=  \
 	parted \
     $(local_nginx_libs) \
     pthread crypt pcre crypto \
-	z cryptopp \
+	z \
     ssl \
     gmock \
     leveldb \

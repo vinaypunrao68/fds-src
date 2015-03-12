@@ -18,7 +18,7 @@ user_non_fds_libs := \
 	boost_filesystem \
 	boost_thread \
 	boost_date_time \
-    ssl crypto cryptopp
+    ssl crypto
 
 user_incl_dir     := \
 	$(util_dir) \

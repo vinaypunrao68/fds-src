@@ -37,11 +37,6 @@ ifdef user_thrift_loc
 toolchain_thrf_opts  += -out $(user_thrift_loc)
 endif
 
-# cryptopp settings.
-#
-toolchain_cryptopp_lib  := /opt/fds-deps/embedded/lib
-toolchain_cryptopp_incl := /opt/fds-deps/embedded/include/cryptopp
-
 # Boost settings.
 #
 toolchain_boost_lib  := /usr/local/lib
@@ -88,14 +83,12 @@ endif
 # Global scope variables tool chain to use with the final compiling/linking.
 #
 toolchain_incl_flags := -I$(toolchain_boost_incl)
-toolchain_incl_flags := -I$(toolchain_crypto_incl)
 toolchain_incl_flags += -I$(toolchain_ldb_incl) -I$(toolchain_ldb)
 toolchain_incl_flags += $(toolchain_nginx_incl)
 toolchain_incl_flags += $(toolchain_thrf_incl)
 toolchain_incl_flags += $(toolchain_jansson_incl)
 toolchain_incl_flags += $(toolchain_hiredis_incl)
 toolchain_incl_flags += $(toolchain_cmdconsole_incl)
-#toolchain_incl_flags += $(toolchain_cryptopp_incl)
 toolchain_incl_flags += $(toolchain_python_bind_incl)
 toolchain_incl_flags += $(toolchain_gmock_incl)
 
@@ -103,7 +96,6 @@ toolchain_cc_flags   := $(toolchain_incl_flags)
 toolchain_cpp_flags  := $(toolchain_incl_flags)
 
 toolchain_ld_flags   := -L$(toolchain_boost_lib)
-toolchain_ld_flags   := -L$(toolchain_cryptopp_lib)
 toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
 toolchain_ld_flags   += $(toolchain_python_bind_lib)
 toolchain_ld_flags   += $(toolchain_gmock_lib)
