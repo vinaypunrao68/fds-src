@@ -9,6 +9,11 @@
 # operator is made VERY aware of any impact running this may have. Any option
 # added which could impact the running of a system MUST be disabled by default
 # and SHOULD provide a warning when enabled that requires acknowledgement
+#
+# TODO:
+# - Need a disk space check before gathering data - if < 5G or so of free 
+#   space in the destination disk we shouldn't proceed or we should not
+#   collect large artifacts (binaries, cores).
 
 import os
 import sys
@@ -19,7 +24,7 @@ import subprocess
 import glob
 import logging
 
-class FDSCoroner:
+class FDSCoroner(object):
     """ FDSCoroner - a general purpose system information collection class
         intended to be used for collection of data about a system"""
 
@@ -41,7 +46,7 @@ class FDSCoroner:
             logging.basicConfig(format=self.logformat,level=logging.INFO)
 
     def check_uid(self, uid=0):
-        """Exit if the current uid is not 0"""
+        """Exit if the current uid is not equal to uid (expected to be root)"""
         if not os.geteuid() == uid:
             sys.exit("\nThis script requires root access\n")
 
@@ -72,13 +77,13 @@ class FDSCoroner:
         """This prepares the base collection directory by getting a unique
            time-based name which is where all further data is collected into"""
         bag_name = self.get_bag_name()
-        if not os.path.exists(bag_name):
-            logging.debug("Creating bag directory %s" % bag_name)
-            os.makedirs(bag_name)
-            self.bodybag = bag_name
-        else:
+        if os.path.exists(bag_name):
             logging.error("%s already exists, cannot create bag" % bag_name)
             exit(1)
+
+        logging.debug("Creating bag directory %s" % bag_name)
+        os.makedirs(bag_name)
+        self.bodybag = bag_name
 
     def prep_data_dir(self, dirname):
         """Prepare a named data directory for holding data. This method is
@@ -124,7 +129,7 @@ class FDSCoroner:
             name = command
             name.replace(" ", "_")
         # We run all cmd with nice -n 19 to reduce system impact
-        nice = ['/usr/bin/nice', '-n', '9']
+        nice = ['/usr/bin/nice', '-n', '19']
         parsed_command = nice + command.split()
         mydir = self.prep_data_dir('command-logs')
         logging.debug("Collecting cmd: %s" % command),
@@ -151,7 +156,7 @@ class FDSCoroner:
     def compress_sparse_files(self, dirname):
         """Compress all files inside a given directory as individual files and
            treat them as sparse files to allow efficient decompression. This
-           is exlusively used for core files right now"""
+           is exclusively used for core files right now"""
         mydir = self.get_dir_path(dirname)
         for filename in glob.glob("%s/*" % mydir):
             logging.debug("Compressing %s" % filename)
@@ -217,8 +222,8 @@ def run_collect(opts):
     bodybag.collect_cmd(command='/bin/netstat -ns', name='netstat_stats')
     bodybag.collect_cmd(command='/sbin/fdisk -l', name='fdisk_list')
     bodybag.collect_cmd(
-        command='/opt/fds-deps/embedded/sbin/parted --list',
-        name='fdisk_list'
+        command='/opt/fds-deps/embedded/sbin/parted --list --script',
+        name='parted'
     )
     bodybag.collect_cmd(command='/usr/bin/lshw', name='lshw')
     bodybag.collect_cmd(

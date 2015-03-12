@@ -128,9 +128,15 @@ class TestFDSCoroner(unittest.TestCase):
         self.bodybag.collect_dir("bag_dir", "/capture_dir_parent/capture_dir")
         mock_call.assert_called_with(mock_args)
 
+    @mock.patch('coroner.open', create=True)
+    @mock.patch('coroner.FDSCoroner.prep_data_dir')
     @mock.patch('coroner.logging')
     @mock.patch('coroner.subprocess.Popen')
-    def test_collect_cmd_success(self, mock_subproc_popen, mock_log):
+    def test_collect_cmd_success(self,
+                                 mock_subproc_popen,
+                                 mock_log,
+                                 mock_prep_data_dir,
+                                 mock_open):
         process_mock = mock.Mock()
         attrs = {
                 'communicate.return_value': ('output', 'error'),
@@ -138,8 +144,10 @@ class TestFDSCoroner(unittest.TestCase):
         }
         process_mock.configure_mock(**attrs)
         mock_subproc_popen.return_value = process_mock
+        mock_prep_data_dir.return_value = True
+        mock_open.return_value = mock.MagicMock(spec=file)
         self.bodybag.collect_cmd('workingcmd')
-        mock_args = ['/usr/bin/nice', '-n', '9', 'workingcmd']
+        mock_args = ['/usr/bin/nice', '-n', '19', 'workingcmd']
         mock_subproc_popen.assert_called_once_with(
                 mock_args,
                 stderr=-1,
@@ -147,9 +155,15 @@ class TestFDSCoroner(unittest.TestCase):
         )
         self.assertTrue(mock_log.info.called)
 
+    @mock.patch('coroner.open', create=True)
+    @mock.patch('coroner.FDSCoroner.prep_data_dir')
     @mock.patch('coroner.logging')
     @mock.patch('coroner.subprocess.Popen')
-    def test_collect_cmd_failure(self, mock_subproc_popen, mock_log):
+    def test_collect_cmd_failure(self,
+                                 mock_subproc_popen,
+                                 mock_log,
+                                 mock_prep_data_dir,
+                                 mock_open):
         process_mock = mock.Mock()
         attrs = {
                 'communicate.return_value': ('output', 'error'),
@@ -157,8 +171,10 @@ class TestFDSCoroner(unittest.TestCase):
         }
         process_mock.configure_mock(**attrs)
         mock_subproc_popen.return_value = process_mock
+        mock_prep_data_dir.return_value = True
+        mock_open.return_value = mock.MagicMock(spec=file)
         self.bodybag.collect_cmd('workingcmd')
-        mock_args = ['/usr/bin/nice', '-n', '9', 'workingcmd']
+        mock_args = ['/usr/bin/nice', '-n', '19', 'workingcmd']
         mock_subproc_popen.assert_called_once_with(
                 mock_args,
                 stderr=-1,
