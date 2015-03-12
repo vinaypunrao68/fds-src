@@ -6,93 +6,85 @@
 
 #include <boost/shared_ptr.hpp>
 #include <fds_types.h>
-#include <concurrency/fds_actor.h>
-#include <S3Client.h>
 
 namespace fds {
 
-typedef std::function<void (const Error &err)> ArchivePutCb;
-typedef std::function<void (const Error &err)> ArchiveGetCb;
-struct DataMgrIf;
+/* Forward declarations */
+struct S3Client;
 
 /**
-* @brief Get request message
+* @brief Base interface for archiving snapshots.  For now the functionality is very limited.
+* We only support uploading and download snapshot.
 */
-struct ArchiveClPutReq {
-    ArchiveClPutReq(fds_volid_t volId,
-                    int64_t snapId,
-                    ArchivePutCb cb)
-    {
-        this->volId = volId;
-        this->snapId = snapId;
-        this->cb = cb;
-    }
-    fds_volid_t volId;
-    int64_t snapId;
-    ArchivePutCb cb;
-};
-typedef boost::shared_ptr<ArchiveClPutReq> ArchiveClPutReqPtr;
-
-/**
-* @brief Put request message
-*/
-struct ArchiveClGetReq {
-    ArchiveClGetReq(fds_volid_t volId,
-                    int64_t snapId,
-                    ArchiveGetCb cb)
-    {
-        this->volId = volId;
-        this->snapId = snapId;
-        this->cb = cb;
-    }
-    fds_volid_t volId;
-    int64_t snapId;
-    ArchiveGetCb cb;
-};
-typedef boost::shared_ptr<ArchiveClGetReq> ArchiveClGetReqPtr;
-
-/**
-* @brief 
-*/
-struct ArchiveClient : FdsRequestQueueActor
+struct ArchiveClient
 {
-    ArchiveClient(DataMgrIf* dataMgrIf,
-                  fds_threadpoolPtr threadpool);
-    void connect(const std::string &host,
-                 const std::string &authEp,
-                 const std::string &admin,
-                 const std::string &passwd);
-    void putSnap(const fds_volid_t &volId,
-                 const int64_t &snapId,
-                 ArchivePutCb cb);
-    Error putSnapSync(const fds_volid_t &volId,
-                 const int64_t &snapId);
-    void getSnap(const fds_volid_t &volId,
-                 const int64_t &snapId,
-                 ArchiveGetCb cb);
-    Error getSnapSync(const fds_volid_t &volId,
-                 const int64_t &snapId);
+    explicit ArchiveClient(DataMgrIf* dataMgrIf);
+    virtual ~ArchiveClient() {}
 
-    virtual Error handle_actor_request(FdsActorRequestPtr req) override;
+    virtual Error connect() = 0;
+
+    virtual Error putSnap(const fds_volid_t &volId,
+                 const int64_t &snapId) = 0;
+    virtual Error getSnap(const fds_volid_t &volId,
+                 const int64_t &snapId) = 0;
+    virtual Error getFile(const std::string &bucketName,
+                          const std::string &objName,
+                          const std::string &filePath)  = 0;
+    virtual Error putFile(const std::string &bucketName,
+                          const std::string &objName,
+                          const std::string &filePath)  = 0;
 
  protected:
     void populateSnapInfo_(const fds_volid_t &volId, const int64_t &snapId,
                            std::string &snapName,
                            std::string &snapDirPath,
                            std::string &snapPath);
-    void handlePutSnap_(ArchiveClPutReqPtr &putPayload);
-    void handleGetSnap_(ArchiveClGetReqPtr &getPayload);
+    Error tarSnap_(uint64_t volId, uint64_t snapId,
+                 const std::string &snapDirPath,
+                 const std::string &snapName);
+    Error untarSnap_(uint64_t volId, uint64_t snapId,
+                    const std::string &snapDirPath,
+                    const std::string &snapName);
 
-#if 0
-    std::string getSysVolumeName_(const fds_volid_t &volId);
-    std::string getSnapDirName_(const fds_volid_t &volId, const int64_t snapId);
-#endif
-
-    std::unique_ptr<S3Client> s3client_;
     std::string snapDirBase_;
     DataMgrIf *dataMgrIf_;
 };
 typedef boost::shared_ptr<ArchiveClient> ArchiveClientPtr;
+
+/**
+* @brief Boto based implementation of archive client
+*/
+struct BotoArchiveClient : ArchiveClient
+{
+    BotoArchiveClient(const std::string &host,
+             int port,
+             const std::string &authEp,
+             const std::string &user,
+             const std::string &passwd,
+             const std::string &s3script,
+             DataMgrIf *dataMgrIf);
+    ~BotoArchiveClient();
+
+    virtual Error connect() override;
+
+    virtual Error putSnap(const fds_volid_t &volId,
+                         const int64_t &snapId) override;
+    virtual Error getSnap(const fds_volid_t &volId,
+                         const int64_t &snapId) override;
+    virtual Error getFile(const std::string &bucketName,
+                          const std::string &objName,
+                          const std::string &filePath) override;
+    virtual Error putFile(const std::string &bucketName,
+                          const std::string &objName,
+                          const std::string &filePath) override;
+ protected:
+    /* We use s3client just for getting access token.  Ideally we would use S3Client for puts
+     * and gets as well.  However authentication is incomplete in S3Client
+     */
+    S3Client *s3client_;
+    /* We use s3script (python script) for doing puts/gets */
+    std::string s3script_;
+};
 
 }  // namespace fds
 #endif

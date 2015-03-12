@@ -8,101 +8,58 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <DataMgrIf.h>
+#include <S3Client.h>
 #include <archive/ArchiveClient.h>
 
 namespace fds {
 
-ArchiveClient::ArchiveClient(DataMgrIf* dataMgrIf,
-                             fds_threadpoolPtr threadpool)
-: FdsRequestQueueActor("ArchiveClient", nullptr, threadpool)
+ArchiveClient::ArchiveClient(DataMgrIf* dataMgrIf)
 {
     dataMgrIf_ = dataMgrIf;
     snapDirBase_ = dataMgrIf_->getSnapDirBase();
 }
 
-void ArchiveClient::connect(const std::string &host,
-                            const std::string &authEp,
-                            const std::string &admin,
-                            const std::string &passwd)
+Error ArchiveClient::tarSnap_(uint64_t volId, uint64_t snapId,
+                              const std::string &snapDirPath,
+                              const std::string &snapName)
 {
-    s3client_.reset(new S3Client(host, authEp, admin, passwd));
-}
-
-void ArchiveClient::putSnap(const fds_volid_t &volId,
-                            const int64_t &snapId,
-                            ArchivePutCb cb)
-{
-    auto payload = boost::make_shared<ArchiveClPutReq>(volId, snapId, cb);
-    send_actor_request(boost::make_shared<FdsActorRequest>(
-            FAR_ID(ArchiveClPutReq), payload));
-}
-
-Error ArchiveClient::putSnapSync(const fds_volid_t &volId,
-                                 const int64_t &snapId)
-{
-    Error retErr;
-    concurrency::TaskStatus taskStatus;
-    putSnap(volId, snapId,
-            [&](const Error &err) {
-                retErr = err;
-                taskStatus.done();
-            });
-    taskStatus.await();
-    return retErr;
-}
-
-void ArchiveClient::getSnap(const fds_volid_t &volId,
-                            const int64_t &snapId,
-                            ArchiveGetCb cb)
-{
-    auto payload = boost::make_shared<ArchiveClGetReq>(volId, snapId, cb);
-    send_actor_request(boost::make_shared<FdsActorRequest>(
-            FAR_ID(ArchiveClGetReq), payload));
-}
-
-Error ArchiveClient::getSnapSync(const fds_volid_t &volId,
-                                 const int64_t &snapId)
-{
-    Error retErr;
-    concurrency::TaskStatus taskStatus;
-    getSnap(volId, snapId,
-            [&](const Error &err) {
-                retErr = err;
-                taskStatus.done();
-            });
-    taskStatus.await();
-    return retErr;
-}
-
-Error ArchiveClient::handle_actor_request(FdsActorRequestPtr req)
-{
-    Error err = ERR_OK;
-    switch (req->type) {
-    case FAR_ID(ArchiveClPutReq):
-    {
-        auto putPayload = req->get_payload<ArchiveClPutReq>();
-        handlePutSnap_(putPayload);
-        break;
+    std::stringstream ss;
+    ss << "cd " << snapDirPath << "; ";
+    ss << "tar czf " << snapName << " " << snapId;
+    GLOGDEBUG << "cmd: " << ss.str();
+    int retCode = std::system(ss.str().c_str());
+    if (retCode != 0) {
+        GLOGERROR << "Failed to tar snap.  volid: " << volId
+            << " snapid: " << snapId;
+        return ERR_ARCHIVE_SNAP_TAR_FAILED;
     }
-    case FAR_ID(ArchiveClGetReq):
-    {
-        auto getPayload = req->get_payload<ArchiveClGetReq>();
-        handleGetSnap_(getPayload);
-        break;
-    }
-    default:
-    {
-        GLOGERROR <<  "Unknown type: " << req->type;
-        err = ERR_FAR_INVALID_REQUEST;
-    }
-    }
-    return err;
+    GLOGDEBUG << "Tarring commpleted.  snapName: " << snapName;
+    return ERR_OK;
 }
 
-void ArchiveClient::populateSnapInfo_(const fds_volid_t &volId, const int64_t &snapId,
-                                     std::string &snapName,
-                                     std::string &snapDirPath,
-                                     std::string &snapPath)
+Error ArchiveClient::untarSnap_(uint64_t volId, uint64_t snapId,
+                               const std::string &snapDirPath,
+                               const std::string &snapName)
+{
+    std::stringstream ss;
+    ss << "cd " << snapDirPath << "; " << "tar xzf " << snapName;
+    int retCode = std::system(ss.str().c_str());
+    if (retCode != 0) {
+        GLOGERROR << "Failed to untar snap.  volid: " << volId
+            << " snapid: " << snapId;
+        return ERR_ARCHIVE_SNAP_TAR_FAILED;
+    } else {
+        GLOGDEBUG << "untarring commpleted. snapName: " << snapName;
+        return ERR_OK;
+    }
+}
+
+
+void ArchiveClient::populateSnapInfo_(const fds_volid_t &volId,
+                                      const int64_t &snapId,
+                                      std::string &snapName,
+                                      std::string &snapDirPath,
+                                      std::string &snapPath)
 {
     std::stringstream ss;
     /* Construct snap name */
@@ -121,79 +78,135 @@ void ArchiveClient::populateSnapInfo_(const fds_volid_t &volId, const int64_t &s
     ss.str(std::string());
 }
 
-void ArchiveClient::handlePutSnap_(ArchiveClPutReqPtr &putPayload)
+BotoArchiveClient::BotoArchiveClient(const std::string &host,
+                                     int port,
+                                     const std::string &authEp,
+                                     const std::string &user,
+                                     const std::string &passwd,
+                                     const std::string &s3script,
+                                     DataMgrIf *dataMgrIf)
+: ArchiveClient(dataMgrIf) 
+{
+    s3script_ = s3script;
+    s3client_ = new S3Client(host, port, authEp, user, passwd);
+}
+
+BotoArchiveClient::~BotoArchiveClient()
+{
+    delete s3client_;
+}
+
+Error BotoArchiveClient::connect()
+{
+    return s3client_->authenticate();
+}
+
+Error BotoArchiveClient::putSnap(const fds_volid_t &volId,
+                                 const int64_t &snapId)
 {
     // TODO(Rao:)
     // 1. Clean up the tar file and snap after upload is done
-    std::stringstream ss;
+    Error e;
     std::string snapName;
     std::string snapDirPath;
     std::string snapPath;
-    populateSnapInfo_(putPayload->volId, putPayload->snapId,
+    populateSnapInfo_(volId, snapId,
                       snapName, snapDirPath, snapPath);
 
-
-    /* Construct command to tar the file */
-    ss << "cd " << snapDirPath << "; ";
-    ss << "tar czf " << snapName << " " << putPayload->snapId;
-    GLOGDEBUG << "cmd: " << ss.str();
-    int retCode = std::system(ss.str().c_str());
-    if (retCode != 0) {
-        GLOGERROR << "Failed to tar snap.  volid: " << putPayload->volId << " snapid: "
-            << putPayload->snapId;
-        putPayload->cb(ERR_ARCHIVE_SNAP_TAR_FAILED);
-        return;
+    e = tarSnap_(volId, snapId, snapDirPath, snapName);
+    if (e != ERR_OK) {
+        GLOGERROR << "Failed to tar snap.  volid: " << volId
+            << " snapid: " << snapId;
+        return e;
     }
-    GLOGDEBUG << "Tarring commpleted.  snapName: " << snapName;
 
-    /* Upload to s3 */
-    std::string sysVolName = dataMgrIf_->getSysVolumeName(putPayload->volId);
-    auto uploadStatus = s3client_->putFile(sysVolName, snapName, snapPath);
-    if (uploadStatus != ERR_OK) {
-        GLOGERROR << "Failed to upload snap.  volid: " << putPayload->volId << " snapid: "
-            << putPayload->snapId;
-        putPayload->cb(ERR_ARCHIVE_SNAP_PUT_FAILED);
-    } else {
-        GLOGDEBUG << "upload commpleted.  snapName: " << snapName;
-        putPayload->cb(ERR_OK);
-    }
+    std::string sysVolName = dataMgrIf_->getSysVolumeName(volId);
+    e = putFile(sysVolName, snapName, snapPath);
+    return e;
+
 }
 
-void ArchiveClient::handleGetSnap_(ArchiveClGetReqPtr &getPayload)
+Error BotoArchiveClient::getSnap(const fds_volid_t &volId,
+                                const int64_t &snapId)
 {
-    // TODO(Rao:)
-    // 1. Clean up the tar file after untar is complete
-    // 2. Make sure the snapshot doesn't exist as a dir or as a tar
-
-    std::stringstream ss;
+    Error e;
     std::string snapName;
     std::string snapDirPath;
     std::string snapPath;
-    populateSnapInfo_(getPayload->volId, getPayload->snapId,
+
+    populateSnapInfo_(volId, snapId,
                       snapName, snapDirPath, snapPath);
 
-    /* Download from s3 */
-    std::string sysVolName = dataMgrIf_->getSysVolumeName(getPayload->volId);
-    auto downloadStatus = s3client_->getFile(sysVolName, snapName, snapPath);
-    if (downloadStatus != ERR_OK) {
-        GLOGERROR << "Failed to upload snap.  volid: " << getPayload->volId << " snapid: "
-            << getPayload->snapId;
-        getPayload->cb(ERR_ARCHIVE_SNAP_GET_FAILED);
-        return;
+    /* Download the snap */
+    std::string sysVolName = dataMgrIf_->getSysVolumeName(volId);
+    e = getFile(sysVolName, snapName, snapPath);
+    if (e != ERR_OK) {
+        GLOGERROR << "Failed to download snap.  volid: " << volId
+            << " snapid: " << snapId;
+        return ERR_ARCHIVE_GET_FAILED;
     }
-    GLOGDEBUG << "download commpleted. snapName: " << snapName;
 
-    /* untar snap */
-    ss << "cd " << snapDirPath << "; " << "tar xzf " << snapName;
+    e = untarSnap_(volId, snapId, snapDirPath, snapName);
+    return e;
+}
+
+Error BotoArchiveClient::getFile(const std::string &bucketName,
+                                 const std::string &objName,
+                                 const std::string &filePath)
+{
+    if (!s3client_->hasAccessKey()) {
+        GLOGWARN << "Don't have access key";
+        return ERR_UNAUTH_ACCESS;
+    }
+
+    std::stringstream ss;
+    ss << s3script_ << " get" << " "
+        << " admin" << " "
+        << s3client_->getAccessKey() << " "
+        << s3client_->getHost() << " "
+        << s3client_->getPort() << " "
+        << bucketName << " "
+        << objName << " "
+        << filePath;
+    LOGDEBUG << "cmd: " << ss.str();
+
     int retCode = std::system(ss.str().c_str());
     if (retCode != 0) {
-        GLOGERROR << "Failed to untar snap.  volid: " << getPayload->volId << " snapid: "
-            << getPayload->snapId;
-        getPayload->cb(ERR_ARCHIVE_SNAP_TAR_FAILED);
-    } else {
-        GLOGDEBUG << "untarring commpleted. snapName: " << snapName;
-        getPayload->cb(ERR_OK);
+        GLOGWARN << "Failed to get bucketName: " << bucketName
+            << " objName: " << objName << " filePath: " << filePath;
+        return ERR_ARCHIVE_GET_FAILED;
     }
+    return ERR_OK;
 }
+
+Error BotoArchiveClient::putFile(const std::string &bucketName,
+                                 const std::string &objName,
+                                 const std::string &filePath)
+{
+    if (!s3client_->hasAccessKey()) {
+        GLOGWARN << "Don't have access key";
+        return ERR_UNAUTH_ACCESS;
+    }
+
+    std::stringstream ss;
+    ss << s3script_ << " put" << " "
+        << " admin" << " "
+        << s3client_->getAccessKey() << " "
+        << s3client_->getHost() << " "
+        << s3client_->getPort() << " "
+        << bucketName << " "
+        << objName << " "
+        << filePath;
+    LOGDEBUG << "cmd: " << ss.str();
+
+    int retCode = std::system(ss.str().c_str());
+    if (retCode != 0) {
+        GLOGWARN << "Failed to put bucketName: " << bucketName
+            << " objName: " << objName << " filePath: " << filePath;
+        return ERR_ARCHIVE_PUT_FAILED;
+    }
+    return ERR_OK;
+}
+
 }  // namespace fds
 

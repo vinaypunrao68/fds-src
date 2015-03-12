@@ -95,64 +95,15 @@ TEST_F(ArchiveClientTest, put_get)
     ASSERT_TRUE(prepareSnap(volId, snapId));
 
     /* Create archive client */
-    fds_threadpoolPtr threadpool = boost::make_shared<fds_threadpool>();
-    ArchiveClientPtr archiveCl = boost::make_shared<ArchiveClient>(this, threadpool);
-    archiveCl->connect("http://localhost:8000", "","admin", "passwd");
+    ArchiveClientPtr archiveCl = boost::make_shared<BotoArchiveClient>("127.0.0.1", 8443,
+            "http://localhost:8000", "admin", "admin", "../bin/archivehelper.py", this);
 
+#if 0
     /* put the file */
     EXPECT_EQ(archiveCl->putSnapSync(volId, snapId), ERR_OK);
     /* get the file */
     EXPECT_EQ(archiveCl->getSnapSync(volId, snapId), ERR_OK);
     /* Optional: make sure the contents match */
-#if 0
-    int nPuts =  this->getArg<int>("puts-cnt");
-
-    fpi::SvcUuid svcUuid;
-    std::list<ObjectID> objIds;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
-    ASSERT_NE(svcUuid.svc_uuid, 0);
-
-    /* To generate random data between 10 to 100 bytes */
-    auto g = boost::make_shared<RandDataGenerator<>>(10, 100);
-    ProfilerStart("/tmp/output.prof");
-    /* Issue puts */
-    for (int i = 0; i < nPuts; i++) {
-        auto putObjMsg = SvcMsgFactory::newPutObjectMsg(volId_, g);
-        auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-        asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-        asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this,
-                                            std::placeholders::_1,
-                                            std::placeholders::_2, std::placeholders::_3));
-        putsIssued_++;
-        asyncPutReq->invoke();
-
-        objIds.push_back(ObjectID(putObjMsg->data_obj_id.digest));
-    }
-
-    /* Poll for completion.  For now giving 1000ms/per put.  We should tighten that */
-    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, nPuts * 1000);
-
-    /* Issue gets */
-    for (int i = 0; i < nPuts; i++) {
-        auto getObjMsg = SvcMsgFactory::newGetObjectMsg(volId_, objIds.front());
-        auto asyncGetReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-        asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
-        asyncGetReq->onResponseCb(std::bind(&SMApi::getCb, this,
-                                            std::placeholders::_1,
-                                            std::placeholders::_2, std::placeholders::_3));
-        getsIssued_++;
-        asyncGetReq->invoke();
-
-        objIds.pop_front();
-    }
-
-    /* Poll for completion.  For now giving 1000ms/per get.  We should tighten that */
-    POLL_MS((getsIssued_ == getsSuccessCnt_ + getsFailedCnt_), 500, nPuts * 1000);
-
-    ProfilerStop();
-
-    ASSERT_TRUE(getsIssued_ == getsSuccessCnt_) << "getsIssued: " << getsIssued_
-        << " getsSuccessCnt: " << getsSuccessCnt_;
 #endif
 }
 

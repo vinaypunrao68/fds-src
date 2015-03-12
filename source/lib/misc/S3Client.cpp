@@ -16,13 +16,15 @@
 namespace fds {
 
 S3Client::S3Client(const std::string &host,
+                   int port,
                    const std::string &authEp,
-                   const std::string &admin,
+                   const std::string &user,
                    const std::string &passwd)
 {
     host_ = host;
+    port_ = port;
     authEp_ = authEp;
-    admin_ = admin;
+    user_ = user;
     passwd_ = passwd;
 
     curl_global_init(CURL_GLOBAL_ALL);
@@ -33,7 +35,7 @@ S3Client::S3Client(const std::string &host,
         GLOGDEBUG << "Doing authentication";
 
         isHttps_ = true;
-        Error e = authenticate_();
+        Error e = authenticate();
         if (e != ERR_OK) {
             LOGWARN << "Authentication failed";
         }
@@ -48,7 +50,7 @@ S3Client::~S3Client()
     curl_global_cleanup();
 }
 
-Error S3Client::authenticate_()
+Error S3Client::authenticate()
 {
     std::string s3key;
     std::stringstream ss;
@@ -59,7 +61,7 @@ Error S3Client::authenticate_()
 
     fds_assert(isHttps_ == true);
 
-    ss << authEp_ << "/api/auth/token?login=" << admin_ << "&password=" << passwd_;
+    ss << authEp_ << "/api/auth/token?login=" << user_ << "&password=" << passwd_;
     url = ss.str();
 
     err = curlGet_(url, retJson);
@@ -104,7 +106,7 @@ Error S3Client::putFile(const std::string &bucketName,
     std::string url;
 
     std::stringstream ss;
-    ss << host_ << "/" << bucketName << "/" << objName;
+    ss << host_ << ":" << port_ << "/" << bucketName << "/" << objName;
     url = ss.str();
 
     /* get the file size of the local file */
@@ -160,7 +162,7 @@ Error S3Client::getFile(const std::string &bucketName,
     std::stringstream ss;
     int64_t httpCode = 200;
 
-    ss << host_ << "/" << bucketName << "/" << objName;
+    ss << host_ << ":" << port_ << "/" << bucketName << "/" << objName;
     url = ss.str();
 
     fp = fopen(filePath.c_str(), "wb");
@@ -277,5 +279,24 @@ size_t S3Client::getFileCb(void *ptr, size_t size, size_t nmemb, FILE *stream)
     return written;
 }
 
+std::string S3Client::getAccessKey() const
+{
+    return accessKey_;
+}
+
+bool S3Client::hasAccessKey() const
+{
+    return accessKey_.size() > 0;
+}
+
+std::string S3Client::getHost() const
+{
+    return host_;
+}
+
+int S3Client::getPort() const
+{
+    return port_;
+}
 
 }  // namespace fds
