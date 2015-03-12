@@ -9,9 +9,9 @@ include "common.thrift"
 namespace cpp fds.apis
 namespace java com.formationds.apis
 
-/*
- * Operations on the tenancy, users, volumes and snapshots.
- */
+/* ------------------------------------------------------------
+   Operations on the tenancy, users, volumes and snapshots.
+   ------------------------------------------------------------*/
 
 /**
  * Configuration Service
