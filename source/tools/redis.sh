@@ -77,16 +77,16 @@ function usageRedis() {
 }
 
 function makeRedisDirs() {
-    if [[ ! -f /fds/var/redis ]] ; then
-        mkdir -p /fds/var/redis
+    if [[ ! -f ${FDSROOT}/var/redis ]] ; then
+        mkdir -p ${FDSROOT}/var/redis
     fi
 
-    if [[ ! -f /fds/var/run/redis ]] ; then
-        mkdir -p /fds/var/redis/run
+    if [[ ! -f ${FDSROOT}/var/run/redis ]] ; then
+        mkdir -p ${FDSROOT}/var/redis/run
     fi
     
-    if [[ ! -f /fds/var/logs/redis ]] ; then
-        mkdir -p /fds/var/logs/redis
+    if [[ ! -f ${FDSROOT}/var/logs/redis ]] ; then
+        mkdir -p ${FDSROOT}/var/logs/redis
     fi
 }
 
@@ -190,8 +190,10 @@ function cleanRedis() {
         logwarn "cleaning redis @ [port:${REDISPORT}]"
         echo "FLUSHALL" | redis-cli -p $REDISPORT >/dev/null
         echo "BGREWRITEAOF" | redis-cli -p $REDISPORT >/dev/null
+        return 0
     else
         logwarn "redis is NOT running @ [port:${REDISPORT}]"
+        return 1
     fi
 }
 
