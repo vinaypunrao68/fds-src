@@ -49,6 +49,8 @@
 #define _ATLINE_
 #endif
 
+#define __CLASS_NAME__ fds::classNameFromPrettyFunc(__PRETTY_FUNCTION__)
+
 #define LEVELCHECK(sev) if (LOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
 #define GLEVELCHECK(sev) if (GLOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
 
@@ -73,9 +75,24 @@
 #define GLOGERROR    GLEVELCHECK(error)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::error)        _ATLINE_
 #define GLOGCRITICAL GLEVELCHECK(critical)     FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::critical)     _ATLINE_
 
+// #define FUNCTRACING
+
+#ifdef FUNCTRACING
+#define TRACEFUNC fds::__TRACER__ __tt__(__PRETTY_FUNCTION__, __FILE__, __LINE__);
+#else
+#define TRACEFUNC
+#endif
 
 namespace fds {
+struct __TRACER__ {
+    __TRACER__(const std::string& prettyName, const std::string& filename, int lineno);
+    ~__TRACER__();
+    const std::string prettyName;
+    const std::string filename;
+    int lineno;
+};
 
+std::string cleanNameFromPrettyFunc(const std::string& prettyFunction, bool fClassOnly = false);
 class fds_log {
   public:
     enum severity_level {

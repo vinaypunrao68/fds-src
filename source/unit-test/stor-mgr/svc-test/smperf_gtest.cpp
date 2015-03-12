@@ -8,6 +8,8 @@
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
+#include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <fiu-control.h>
 #include <testlib/DataGen.hpp>
@@ -181,7 +183,7 @@ TEST_F(SMApi, putsPerf)
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
     if (svcUuid.svc_uuid == 0) {
-        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     }
     ASSERT_NE(svcUuid.svc_uuid, 0);;
     DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(1);
@@ -293,10 +295,14 @@ TEST_F(SMApi, putsPerf)
             << "Throughput: " << throughput << "\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "(ns) Avg op latency: " << avgLatency_.value() << std::endl
-            << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
-            << "svc sendPayloadLat: " << gSvcRequestCntrs->sendPayloadLat.value() << std::endl
-            << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
-            << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl;
+            << "svc sendLat: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->sendLat.value() << std::endl
+            << "svc sendPayloadLat: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->sendPayloadLat.value() << std::endl
+            << "svc serialization latency: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->serializationLat.value() << std::endl
+            << "svc op latency: " << MODULEPROVIDER()->getSvcMgr()->\
+            getSvcRequestCntrs()->reqLat.value() << std::endl;
     printOpTs(this->getArg<std::string>("output"));
 
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_

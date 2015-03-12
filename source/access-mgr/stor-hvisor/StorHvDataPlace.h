@@ -82,6 +82,8 @@ public:
                     fds_uint32_t *node_ip_addr,
                     fds_uint32_t *node_port,
                     int *node_state) {
+    // TODO(Roa): Remove this function
+    fds_panic("deprecated.  Use SvcMgr");
     Error err(ERR_OK);
     int ret_code = 0;
     

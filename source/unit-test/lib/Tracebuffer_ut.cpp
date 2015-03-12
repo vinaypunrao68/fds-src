@@ -20,6 +20,8 @@ using namespace fds;  // NOLINT
 
 namespace fds {
 
+
+
 struct TracebufferPoolProvider : CommonModuleProviderIf {
     explicit TracebufferPoolProvider(int poolEntryCnt) {
         pool_.reset(new TracebufferPool(poolEntryCnt));
@@ -33,13 +35,15 @@ struct TracebufferPoolProvider : CommonModuleProviderIf {
 * @brief Helper function
 */
 void traceFunc() {
-    Tracebuffer tb(TB_RINGBUFFER);
+    auto moduleProvider = new TracebufferPoolProvider(100);
+    Tracebuffer tb(moduleProvider, TB_RINGBUFFER);
     for (uint32_t i = 0; i < MAX_TRACEBUFFER_ENTRY_CNT+5; i++) {
         std::stringstream ss;
         ss << "hello " << i;
         tb.trace(ss.str());
     }
     EXPECT_TRUE(tb.size() == MAX_TRACEBUFFER_ENTRY_CNT);
+    delete moduleProvider;
 }
 
 /**
@@ -52,9 +56,9 @@ void traceFunc() {
  */
 TEST(Tracebuffer, trace1)
 {
-    gModuleProvider = new TracebufferPoolProvider(100);
+    auto moduleProvider = new TracebufferPoolProvider(100);
     traceFunc();
-    delete gModuleProvider;
+    delete moduleProvider;
 }
 
 /**
@@ -65,9 +69,9 @@ TEST(Tracebuffer, trace1)
 TEST(Tracebuffer, trace2)
 {
     uint32_t maxTraceCnt = 5;
-    gModuleProvider = new TracebufferPoolProvider(maxTraceCnt);
+    auto moduleProvider = new TracebufferPoolProvider(maxTraceCnt);
 
-    Tracebuffer tb(TB_RINGBUFFER);
+    Tracebuffer tb(moduleProvider, TB_RINGBUFFER);
     for (uint32_t i = 0; i < maxTraceCnt+5; i++) {
         std::stringstream ss;
         ss << "hello " << i;
@@ -75,7 +79,7 @@ TEST(Tracebuffer, trace2)
     }
     EXPECT_TRUE(tb.size() == maxTraceCnt);
 
-    delete gModuleProvider;
+    delete moduleProvider;
 }
 
 /**
@@ -85,7 +89,7 @@ TEST(Tracebuffer, trace2)
  */
 TEST(Tracebuffer, trace3)
 {
-    gModuleProvider = new TracebufferPoolProvider(100);
+    auto moduleProvider = new TracebufferPoolProvider(100);
 
     std::thread t1(traceFunc);
     std::thread t2(traceFunc);
@@ -96,7 +100,7 @@ TEST(Tracebuffer, trace3)
     t3.join();
     t4.join();
 
-    delete gModuleProvider;
+    delete moduleProvider;
 }
 
 

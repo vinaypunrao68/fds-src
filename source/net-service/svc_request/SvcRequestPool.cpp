@@ -4,45 +4,56 @@
 #include <string>
 #include <functional>
 #include <iostream>
-#include <net/net-service.h>
-#include "platform/platform.h"
+#include <fds_module_provider.h>
+#include <fds_counters.h>
 #include <fdsp_utils.h>
-#include <fds_process.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
+#include <net/SvcRequest.h>
+#include <net/SvcMgr.h>
 #include <net/SvcRequestTracker.h>
-#include <net/SvcRequestPool.h>
 #include <fiu-control.h>
+#include <net/SvcRequestPool.h>
 
 namespace fds {
 
-// TODO(Rao): Make SvcRequestPool and SvcRequestTracker a module
+// TODO(Rao): This shouldn't be global.  We should access it via SvcMgr.
+// Lot of code refers to gSvcRequestPool. This will be slowly migrated over
 SvcRequestPool *gSvcRequestPool;
-SvcRequestCounters* gSvcRequestCntrs;
-SvcRequestTracker* gSvcRequestTracker;
+
+uint64_t SvcRequestPool::SVC_UNTRACKED_REQ_ID = 0;
 
 template<typename T>
 T SvcRequestPool::get_config(std::string const& option)
-{ return gModuleProvider->get_fds_config()->get<T>(option); }
+{ return MODULEPROVIDER()->get_fds_config()->get<T>(option); }
 
 /**
  * Constructor
  */
-SvcRequestPool::SvcRequestPool()
+SvcRequestPool::SvcRequestPool(CommonModuleProviderIf *moduleProvider,
+                               const fpi::SvcUuid &selfUuid,
+                               PlatNetSvcHandlerPtr handler)
+: HasModuleProvider(moduleProvider)
 {
-    gSvcRequestTracker = new SvcRequestTracker();
-    gSvcRequestCntrs = new SvcRequestCounters("SvcReq", g_cntrs_mgr.get());
+    svcRequestTracker_ = new SvcRequestTracker(MODULEPROVIDER());
+    svcRequestCntrs_ = new SvcRequestCounters("SvcReq",
+                                              MODULEPROVIDER()->get_cntrs_mgr().get());
 
-    nextAsyncReqId_ = 0;
+    selfUuid_ = selfUuid;
+    svcReqHandler_ = handler;
+
+    nextAsyncReqId_ = SVC_UNTRACKED_REQ_ID + 1;
+
     finishTrackingCb_ = std::bind(&SvcRequestTracker::popFromTracking,
-            gSvcRequestTracker, std::placeholders::_1);
+            svcRequestTracker_, std::placeholders::_1);
 
-    svcSendTp_.reset(new LFMQThreadpool(get_config<uint32_t>(
-                "fds.plat.svc.lftp.io_thread_cnt")));
-    svcWorkerTp_.reset(new LFMQThreadpool(get_config<uint32_t>(
-                "fds.plat.svc.lftp.worker_thread_cnt")));
-    if (true == get_config<bool>("fds.plat.svc.lftp.enable")) {
+    if (true == get_config<bool>("fds.pm.svc.lftp.enable")) {
+        svcSendTp_.reset(new LFMQThreadpool(get_config<uint32_t>(
+                    "fds.pm.svc.lftp.io_thread_cnt")));
+        svcWorkerTp_.reset(new LFMQThreadpool(get_config<uint32_t>(
+                    "fds.pm.svc.lftp.worker_thread_cnt")));
         fiu_enable("svc.use.lftp", 1, NULL, 0);
     }
+    reqTimeout_ = get_config<uint32_t>("fds.pm.svc.timeout.thrift_message");
 }
 
 /**
@@ -50,7 +61,9 @@ SvcRequestPool::SvcRequestPool()
  */
 SvcRequestPool::~SvcRequestPool()
 {
-    nextAsyncReqId_ = 0;
+    nextAsyncReqId_ = SVC_UNTRACKED_REQ_ID;
+    delete svcRequestTracker_;
+    delete svcRequestCntrs_;
 }
 
 /**
@@ -103,32 +116,50 @@ boost::shared_ptr<fpi::AsyncHdr> SvcRequestPool::newSvcRequestHeaderPtr(
 }
 
 /**
+* @brief Swaps request header
+*
+* @param req_hdr
+*
+* @return 
+*/
+fpi::AsyncHdr
+SvcRequestPool::swapSvcReqHeader(const fpi::AsyncHdr &reqHdr)
+{
+    auto respHdr = reqHdr;
+    respHdr.msg_src_uuid = reqHdr.msg_dst_uuid;
+    respHdr.msg_dst_uuid = reqHdr.msg_src_uuid;
+    return respHdr;
+}
+/**
  * Common handling as part of any async request creation
  * @param req
  */
 void SvcRequestPool::asyncSvcRequestInitCommon_(SvcRequestIfPtr req)
 {
     // Initialize this once the first time it's used from the config file
-    static auto const timeout = get_config<uint32_t>("fds.plat.svc.timeout.thrift_message");
 
     req->setCompletionCb(finishTrackingCb_);
-    req->setTimeoutMs(timeout);
-    gSvcRequestTracker->addForTracking(req->getRequestId(), req);
+    req->setTimeoutMs(reqTimeout_);
+    svcRequestTracker_->addForTracking(req->getRequestId(), req);
 }
 
 EPSvcRequestPtr
 SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version)
 {
     auto reqId = ++nextAsyncReqId_;
-    Platform *plat = Platform::platf_singleton();
-
+    
+    // TODO(Rao): Kept here just for reference.  Once we totally decouple for platform
+    // remove this code
+#if 0
     fpi::SvcUuid myEpId;
     if (plat->plf_get_node_type() == fpi::FDSP_ORCH_MGR) {
         fds::assign(myEpId, gl_OmUuid);
     } else {
         fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
     }
-    EPSvcRequestPtr req(new EPSvcRequest(reqId, myEpId, peerEpId));
+#endif
+
+    EPSvcRequestPtr req(new EPSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, peerEpId));
     req->set_minor(minor_version);
     asyncSvcRequestInitCommon_(req);
 
@@ -140,10 +171,7 @@ FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(
 {
     auto reqId = ++nextAsyncReqId_;
 
-    fpi::SvcUuid myEpId;
-    fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
-
-    FailoverSvcRequestPtr req(new FailoverSvcRequest(reqId, myEpId, epProvider));
+    FailoverSvcRequestPtr req(new FailoverSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, epProvider));
     asyncSvcRequestInitCommon_(req);
 
     return req;
@@ -153,10 +181,7 @@ QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr ep
 {
     auto reqId = ++nextAsyncReqId_;
 
-    fpi::SvcUuid myEpId;
-    fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
-
-    QuorumSvcRequestPtr req(new QuorumSvcRequest(reqId, myEpId, epProvider));
+    QuorumSvcRequestPtr req(new QuorumSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, epProvider));
     asyncSvcRequestInitCommon_(req);
 
     return req;
@@ -177,16 +202,21 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
     /* Counter adjustment */
     switch (header->msg_code) {
     case ERR_SVC_REQUEST_INVOCATION:
-        gSvcRequestCntrs->invokeerrors.incr();
+        svcRequestCntrs_->invokeerrors.incr();
         break;
     case ERR_SVC_REQUEST_TIMEOUT:
-        gSvcRequestCntrs->timedout.incr();
+        svcRequestCntrs_->timedout.incr();
         break;
+    }
+
+    if (header->msg_src_id == static_cast<int64_t>(SVC_UNTRACKED_REQ_ID)) {
+        // TODO(Rao): For untracked requests invoke the error callback if one specified
+        return;
     }
 
     /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
-    Platform::platf_singleton()->getBaseAsyncSvcHandler()->asyncResp(header, payload);
+    svcReqHandler_->asyncResp(header, payload);
 }
 
 LFMQThreadpool* SvcRequestPool::getSvcSendThreadpool()
@@ -214,6 +244,15 @@ void SvcRequestPool::dumpLFTPStats()
     }
 }
 
+SvcRequestCounters* SvcRequestPool::getSvcRequestCntrs() const
+{
+    return svcRequestCntrs_;
+}
+
+SvcRequestTracker* SvcRequestPool::getSvcRequestTracker() const
+{
+    return svcRequestTracker_;
+}
 void SvcRequestPool::setDltManager(DLTManagerPtr dltManager) {
     dltMgr = dltManager;
 }

@@ -11,6 +11,8 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
+from common.ttypes import SvcID;
+from common.ttypes import SvcUuid;
 from FDS_ProtocolInterface.ttypes import *
 from svc_types.ttypes import *
 from svc_types.constants import *
@@ -60,9 +62,9 @@ class PlatSvc(object):
         self.startServer()
         time.sleep(1)
         
-        # register with  domain
+        # register with OM
         try :
-            self.registerWithDomain(basePort, omPlatIp, omPlatPort)
+            self.registerService(basePort, omPlatIp, omPlatPort)
         except Exception, e:
             print e
             print 'failed to register with om'
@@ -72,23 +74,23 @@ class PlatSvc(object):
         if self.serverSock:
             self.serverSock.close()
         
-    def registerWithDomain(self, basePort, omPlatIp, omPlatPort):
+    def registerService(self, basePort, omPlatIp, omPlatPort):
         """
         Run the registration protocol to register with the domain
         """
+        svcinfo = SvcInfo();
+        svcinfo.svc_id = SvcID(SvcUuid(self.mySvcUuid), 'Formation Console Service');
+        svcinfo.svc_port = basePort;
+        svcinfo.svc_type = FDSP_MgrIdType.FDSP_CONSOLE;
+        svcinfo.svc_status = ServiceStatus.SVC_STATUS_ACTIVE;
+        svcinfo.svc_auto_name = 'Formation Console Service';
         # TODO(Rao): Get IP
-        myIp = '127.0.0.1'
-        # send registration message to om platform
-        nodeInfoMsg = FdspUtils.newNodeInfoMsg(svcUuid=self.mySvcUuid,
-                                     ip=myIp,
-                                     port=basePort,
-                                     svcType=FDSP_MgrIdType.FDSP_TEST_APP) 
-        nodeInfoMsg.validate()
-        self.svcMap.omPlat().notifyNodeInfo(nodeInfoMsg, False)
-        # Broadcast my information to all platforms
-        pmHandleList = self.svcMap.svcHandles('pm')
-        for pmHandle in pmHandleList:
-            pmHandle.client.notifyNodeInfo(nodeInfoMsg, False)
+        svcinfo.ip = '127.0.0.1'
+        svcinfo.incarnationNo = 0;
+        svcinfo.name = 'Formation Console';
+        svcinfo.props = {};
+        # send registration message to OM
+        self.svcMap.omSvc().registerService(svcinfo);
 
     def startServer(self):
         #handler = PlatNetSvcHandler()

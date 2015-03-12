@@ -19,13 +19,15 @@ namespace fds
 
     PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
     {
+#if 0
         pm_ep_svc = Platform::platf_singleton()->plat_new_pm_svc(this, 0, 0);
         NetMgr::ep_mgr_singleton()->ep_register(pm_ep_svc, false);
+#endif
     }
 
     EpEvtPlugin::pointer PmAgent::agent_ep_plugin()
     {
-        return pm_ep_svc->ep_evt_plugin();
+        return nullptr;
     }
 
     // agent_svc_info
@@ -33,6 +35,8 @@ namespace fds
     //
     void PmAgent::agent_svc_info(fpi::NodeSvcInfo *out) const
     {
+        // TODO(Rao): Figure out when this is getting called and possibly 
+        // get this info either from service map or config db
         node_data_t    ninfo;
 
         node_info_frm_shm(&ninfo);
@@ -83,7 +87,7 @@ namespace fds
     PmSvcEp::pointer
     PmAgent::agent_ep_svc()
     {
-        return pm_ep_svc;
+        return nullptr;
     }
 
     // agent_bind_ep
@@ -91,7 +95,9 @@ namespace fds
     //
     void PmAgent::agent_bind_ep()
     {
+#if 0
         EpSvcImpl::pointer    ep = NetPlatform::nplat_singleton()->nplat_my_ep();
         NodeAgent::agent_bind_ep(ep, pm_ep_svc);
+#endif
     }
 }  // namespace fds

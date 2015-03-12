@@ -2,14 +2,14 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <DataMgr.h>
-#include <net/net-service-tmpl.hpp>
+#include <fdsp_utils.h>
 #include <DMSvcHandler.h>
-#include <dm-platform.h>
 #include <StatStreamAggregator.h>
 #include "fdsp/sm_api_types.h"
 
 namespace fds {
-DMSvcHandler::DMSvcHandler()
+DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider)
+    : PlatNetSvcHandler(provider)
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);

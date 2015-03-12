@@ -1,12 +1,19 @@
 /* Copyright 2014 Formation Data Systems, Inc.
  */
-#include <net/SvcRequestTracker.h>
-#include <net/net-service.h>
+#include <fds_module_provider.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
+#include <net/PlatNetSvcHandler.h>
+#include <net/SvcRequest.h>
+#include <net/SvcMgr.h>
+#include <net/SvcRequestTracker.h>
 
 namespace fds {
 
+SvcRequestTracker::SvcRequestTracker(CommonModuleProviderIf *moduleProvider)
+    : HasModuleProvider(moduleProvider)
+{
+}
 
 /**
  * Add the request for tracking

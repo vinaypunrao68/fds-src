@@ -43,7 +43,7 @@ TierEngine::~TierEngine() {
 int TierEngine::mod_init(SysParams const *const param) {
     Module::mod_init(param);
 
-    if (gModuleProvider->get_fds_config()->\
+    if (MODULEPROVIDER()->get_fds_config()->\
         get<bool>("fds.sm.tiering.hybrid.enable")) {
         hybridTierCtrlr.start(false);
     }

@@ -51,6 +51,7 @@ dependency "python-scp"
 dependency "libcryptopp"
 dependency "server-jre"
 dependency "mdadm"
+dependency "influxdb"
 
 # Version manifest file
 dependency "version-manifest"

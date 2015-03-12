@@ -9,7 +9,6 @@
 #include <string>
 #include <set>
 
-#include <dm-platform.h>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_module.h>

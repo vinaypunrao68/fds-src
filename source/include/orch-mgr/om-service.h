@@ -62,8 +62,6 @@ class OM_Module : public Module
     VolumePlacement         *om_volume_place;
 };
 
-extern OM_Module             gl_OMModule;
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_ORCH_MGR_OM_SERVICE_H_

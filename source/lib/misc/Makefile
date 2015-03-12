@@ -2,7 +2,8 @@ topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
 user_cpp         :=      \
-    dlt.cpp \
+    config.cpp           \
+    dlt.cpp              \
     FdsRandom.cpp        \
     NetSession.cpp       \
     Catalog.cpp          \

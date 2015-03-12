@@ -17,9 +17,13 @@
 #include <fds_typedefs.h>
 #include <util/Log.h>
 
-namespace fds {
 
-struct node_stor_cap;
+namespace FDS_ProtocolInterface {
+class FDSP_AnnounceDiskCapability;
+};
+namespace fpi = FDS_ProtocolInterface;
+
+namespace fds {
 
 class FdsAdminCtrl {
   public:
@@ -54,8 +58,8 @@ class FdsAdminCtrl {
     fds_uint64_t  total_vol_iops_max;
     double        total_vol_disk_cap_GB;
 
-    void addDiskCapacity(const struct node_stor_cap *n_info);
-    void removeDiskCapacity(const struct node_stor_cap *n_info);
+    void addDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);
+    void removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);
     void getAvailableDiskCapacity(const FdspVolDescPtr  pVolInfo);
     void updateAvailableDiskCapacity(const FdspVolDescPtr pVolInfo);
     Error volAdminControl(VolumeDesc *pVolDesc);
