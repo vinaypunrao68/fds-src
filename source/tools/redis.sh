@@ -193,7 +193,7 @@ function cleanRedis() {
         return 0
     else
         logwarn "redis is NOT running @ [port:${REDISPORT}]"
-        
+        return 1
     fi
 }
 
