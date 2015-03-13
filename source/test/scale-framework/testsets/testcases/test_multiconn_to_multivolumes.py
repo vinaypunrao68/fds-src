@@ -26,6 +26,7 @@ from filechunkio import FileChunkIO
 
 import config
 import s3
+import samples
 import testsets.testcase as testcase
 import utils
 
@@ -94,14 +95,8 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                 self.id_number += 1
 
         self.concurrently_volumes()
-
         self.log.info("Removing the sample files created.")
-        if os.path.exists(config.SAMPLE_DIR):
-            self.log.info("Removing %s" % config.SAMPLE_DIR)
-            shutil.rmtree(config.SAMPLE_DIR)
-        if os.path.exists(config.DOWNLOAD_DIR):
-            self.log.info("Removing %s" % config.DOWNLOAD_DIR)
-            shutil.rmtree(config.DOWNLOAD_DIR)
+        utils.remove_dir(config.DOWNLOAD_DIR)
         self.reportTestCaseResult(self.test_passed)
     
     def concurrently_volumes(self):
@@ -116,7 +111,6 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                                  bucket for s3conn, bucket in \
                                  self.s3_connections_table.iteritems() }
             for future in concurrent.futures.as_completed(future_volumes):
-                self.log.info(future)
                 try:
                     # self.delete_volume(s3conn, bucket)
                     self.test_passed = True
@@ -124,6 +118,9 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                     self.log.exception('generated an exception: %s' % exc)
                     self.test_passed = False
                     break
+        # clean up existing buckets
+        for s3conn, bucket in self.s3_connections_table.iteritems():
+            self.delete_volume(s3conn, bucket)
         self.reportTestCaseResult(self.test_passed)   
 
     def run_tasks(self, s3conn, bucket):
@@ -209,7 +206,7 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
         # add the data files to the bucket.
         k = Key(bucket)
         for sample in self.sample_files:
-            path = os.path.join(config.SAMPLE_DIR, sample)
+            path = os.path.join(config.TEST_DIR, sample)
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,
@@ -235,7 +232,4 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                 bucket.delete_key(key)
             self.log.info("Deleting bucket: %s", bucket.name)
             s3conn.conn.delete_bucket(bucket.name)
-        
-        if self.s3_connections_table.has_key(s3conn):
-            del self.s3_connections_table[s3conn]
             s3conn.s3_disconnect()
