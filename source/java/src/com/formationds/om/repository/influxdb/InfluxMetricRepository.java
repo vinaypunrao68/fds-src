@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -257,9 +258,18 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     	for ( Map<String, Object> row : rowList ) {
     		
     		// get the timestamp
-    		Object timestampO = row.get( getTimestampColumnName() );
-    		Object volumeIdO = row.get( getVolumeIdColumnName().get() );
-    		Object volumeNameO = row.get( getVolumeNameColumnName().get() );
+    		Object timestampO = null;
+    		Object volumeIdO = null;
+    		Object volumeNameO = null;
+    		
+    		try {
+				timestampO = row.get( getTimestampColumnName() );
+				volumeIdO = row.get( getVolumeIdColumnName().get() );
+				volumeNameO = row.get( getVolumeNameColumnName().get() );
+				
+    		} catch( NoSuchElementException nsee ) {
+    			continue;
+    		}
     		
     		// we expect a value for all of these fields.  If not, bail
     		if ( timestampO == null || volumeIdO == null || volumeNameO == null ) {
@@ -274,10 +284,14 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     		
     			// If we run across a column for metadata we just skip it.
     			// we're only interested in the stats columns at this point
-    			if ( key.equals( getTimestampColumnName() ) ||
-    				key.equals( getVolumeIdColumnName().get() ) || 
-    				key.equals( getVolumeNameColumnName().get() ) ||
-    				value == null ) {
+    			try {
+	    			if ( key.equals( getTimestampColumnName() ) ||
+	    				key.equals( getVolumeIdColumnName().get() ) || 
+	    				key.equals( getVolumeNameColumnName().get() ) ||
+	    				value == null ) {
+	    				return;
+	    			}
+    			} catch( NoSuchElementException nsee ) {
     				return;
     			}
     			
