@@ -878,11 +878,18 @@ void
 SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt)
 {
+    Error err(ERR_OK);
     LOGNOTIFY << "Receiving DLT Close";
     // Set closed flag for the DLT. We use it for garbage collecting
     // DLT tokens that are no longer belong to this SM. We want to make
     // sure we garbage collect only when DLT is closed
-    objStorMgr->omClient->setCurrentDLTClosed();
+    err = objStorMgr->omClient->getDltManager()->setCurrentDltClosed();
+    if (err == ERR_NOT_FOUND) {
+        LOGERROR << "SM received DLT close without receiving DLT, ok for now, but fix OM!!!";
+        // returning OK to OM
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        return;
+    }
 
     // Store the current DLT to the presistent storage to be used
     // by offline smcheck.
@@ -894,7 +901,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // will be a noop
     SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
                                  SM_CMD_INITIATOR_TOKEN_MIGRATION);
-    Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
     SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 
