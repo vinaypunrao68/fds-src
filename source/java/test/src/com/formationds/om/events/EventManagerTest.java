@@ -14,6 +14,7 @@ import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;

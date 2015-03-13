@@ -9,6 +9,7 @@ import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.DateRangeBuilder;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
+import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
 
@@ -83,7 +84,7 @@ public class JDOEventRepository extends JDORepository<Event, Long> implements Ev
     }
 
     @Override
-    public List<? extends Event> queryTenantUsers( QueryCriteria queryCriteria, List<Long> tenantUsers ) {
+    public List<UserActivityEvent> queryTenantUsers( QueryCriteria queryCriteria, List<Long> tenantUsers ) {
         EntityManager em = newEntityManager();
         try {
             UserEventCriteriaQueryBuilder tq =

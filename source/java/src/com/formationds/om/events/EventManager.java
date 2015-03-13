@@ -11,6 +11,7 @@ import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.entity.Event;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.commons.model.entity.VolumeDatapoint;
@@ -159,7 +160,7 @@ public enum EventManager {
         MetricRepository mr = SingletonRepositoryManager.instance()
                                                          .getMetricsRepository();
 
-        EntityPersistListener<VolumeDatapoint> l =
+        EntityPersistListener<IVolumeDatapoint> l =
                 new VolumeDatapointEntityPersistListener();
 
         mr.addEntityPersistListener(l);

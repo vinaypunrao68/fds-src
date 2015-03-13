@@ -6,6 +6,7 @@ package com.formationds.om.repository;
 
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.crud.JDORepository;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfiguration;
@@ -27,7 +28,7 @@ import java.util.Optional;
  * @author ptinius
  */
 @SuppressWarnings("UnusedDeclaration")
-public class JDOMetricsRepository extends JDORepository<VolumeDatapoint, Long> implements MetricRepository {
+public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> implements MetricRepository {
 
     private static final String DBNAME      = "var/db/metrics.odb";
     private static final String VOLUME_NAME = "volumeName";
@@ -74,7 +75,7 @@ public class JDOMetricsRepository extends JDORepository<VolumeDatapoint, Long> i
      * @return the number of entities
      */
     @Override
-    public long countAllBy( final VolumeDatapoint entity ) {
+    public long countAllBy( final IVolumeDatapoint entity ) {
         return countAllBy( VOLUME_NAME, entity.getVolumeName() );
     }
 

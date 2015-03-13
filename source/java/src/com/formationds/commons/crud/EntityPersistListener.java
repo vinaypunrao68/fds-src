@@ -36,7 +36,7 @@ public interface EntityPersistListener<T> {
      *
      * @throws RuntimeException if an error occurs.
      */
-    default void prePersist( Collection<T> entities ) {
+    default void prePersist( Collection<? extends T> entities ) {
         entities.forEach( ( e ) -> prePersist( e ) );
     }
 
@@ -56,7 +56,7 @@ public interface EntityPersistListener<T> {
      *
      * @throws RuntimeException if an error occurs.
      */
-    default void postPersist( Collection<T> entities ) {
+    default void postPersist( Collection<? extends T> entities ) {
         entities.forEach( ( e ) -> postPersist( e ) );
     }
 }
