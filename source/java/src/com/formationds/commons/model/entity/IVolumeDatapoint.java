@@ -17,6 +17,8 @@ public interface IVolumeDatapoint {
     String getVolumeName();
 
     String getVolumeId();
+    
+    void setVolumeId( String anId );
 
     String getKey();
 }
