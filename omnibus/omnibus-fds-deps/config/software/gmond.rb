@@ -13,6 +13,8 @@ source url: "http://archive.ubuntu.com/ubuntu/pool/universe/g/ganglia/ganglia_#{
 
 relative_path "ganglia-#{version}"
 
+fds_src_dir = ENV['FDS_SRC_DIR']
+
 build do
   env = with_standard_compiler_flags(with_embedded_path)
 
@@ -21,4 +23,9 @@ build do
 
   make "-j #{workers}", env: env
   make "install", env: env
+
+  mkdir "#{install_dir}/embedded/etc/init"
+  copy "#{fds_src_dir}/ansible/files/gmond/upstart_gmond.conf", "#{install_dir}/embedded/etc/init/gmond.conf"
+  copy "#{fds_src_dir}/ansible/files/gmond/base_gmond.conf", "#{install_dir}/embedded/etc/gmond.conf"
+
 end

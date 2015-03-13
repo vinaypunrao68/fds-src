@@ -8,6 +8,9 @@ name "fds-deps"
 maintainer "Formation Data Systems"
 homepage "http://www.formationds.com"
 
+fds_src_dir = ENV['FDS_SRC_DIR']
+raise "FDS_SRC_DIR must be set'" unless fds_src_dir
+
 # Defaults to C:/fds-deps on Windows
 # and /opt/fds-deps on all other platforms
 install_dir "#{default_root}/#{name}"
