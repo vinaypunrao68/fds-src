@@ -231,6 +231,10 @@ AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     else
     {
         err = storHvisor->om_client->updateDmt(msg->dmt_data.dmt_type, msg->dmt_data.dmt_data);
+        if (err == ERR_DUPLICATE) {
+            LOGWARN << "Received duplicate DMT version, ignoring";
+            err = ERR_OK;
+        }
     }
 
     hdr->msg_code = err.GetErrno();

@@ -928,6 +928,10 @@ SMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     LOGNOTIFY << "OMClient received new DMT commit version  "
                 << dmt->dmt_data.dmt_type;
     err = objStorMgr->omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    if (err == ERR_DUPLICATE) {
+        LOGWARN << "Received duplicate DMT, ignoring";
+        err = ERR_OK;
+    }
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *dmt);
 }
