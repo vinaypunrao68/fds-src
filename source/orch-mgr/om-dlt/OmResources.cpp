@@ -1047,20 +1047,6 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
     }
 }
 
-struct ThreadHelper {
-    NodeUuid      uuid;
-    FdspNodeRegPtr msg;
-    NodeAgent::pointer   newNode;
-    OM_NodeDomainMod *domain;
-    void run() {
-        new std::thread ( [this]  {
-                usleep(3*1000*1000); // 3s
-                this->domain->setupNewNode(this->uuid, this->msg, this->newNode);
-            });
-    }
-};
-
-
 // om_reg_node_info
 // ----------------
 //
@@ -1101,22 +1087,26 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
      */
     
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
-        //setupNewNode(uuid, msg, newNode);
-
-        auto th = new ThreadHelper();
-        th->uuid = uuid;
-        th->msg = msg;
-        th->newNode = newNode;
-        th->domain = this;
-        th->run();
+        /**
+         * schedule the broadcast with a 1s delay.
+         */
+        MODULEPROVIDER()->proc_thrpool()->schedule(&OM_NodeDomainMod::setupNewNode,
+                                                  this, uuid, msg, newNode, 1000);
         //*/
     }
     return err;
 }
 
 Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
-                                    const FdspNodeRegPtr msg,
-                                    NodeAgent::pointer   newNode) {
+                                     const FdspNodeRegPtr msg,
+                                     NodeAgent::pointer   newNode,
+                                     fds_uint32_t delayTime
+                                     ) {
+
+    if (delayTime) {
+        usleep(delayTime * 1000);
+    }
+    
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes;
 
