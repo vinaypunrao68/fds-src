@@ -129,7 +129,6 @@ def attach(args):
 
     conns = set([d for (_, d, _, _) in nbd_connections()])
     for dev in devs:
-        if True:
         if dev not in conns:
             if args.should_use_c:
                 try:
