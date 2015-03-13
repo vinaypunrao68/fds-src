@@ -41,7 +41,11 @@ class InfluxDBConnection
         }
     }
 
-    synchronized protected InfluxDB connect() {
+    /**
+     *
+     * @return the InfluxDB api connection
+     */
+    synchronized public InfluxDB connect() {
         if ( influxDB == null ) {
             influxDB = InfluxDBFactory.connect( url, user, String.valueOf( credentials ) );
         }

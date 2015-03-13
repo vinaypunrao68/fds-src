@@ -106,7 +106,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     /**
      * @return the connection (null if not open)
      */
-    protected InfluxDBConnection getConnection() {
+    public InfluxDBConnection getConnection() {
         return this.connection;
     }
 
