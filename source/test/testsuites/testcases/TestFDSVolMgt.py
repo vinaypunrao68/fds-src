@@ -55,7 +55,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
 
             if 'size' not in volume.nd_conf_dict:
                 raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
-            cmd = cmd + (' -blk-dev-size %s' % volume.nd_conf_dict['size'])
+            cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
 
             # if 'policy' not in volume.nd_conf_dict:
             #     raise Exception('Volume section %s must have "policy" keyword.' % volume.nd_conf_dict['vol-name'])
