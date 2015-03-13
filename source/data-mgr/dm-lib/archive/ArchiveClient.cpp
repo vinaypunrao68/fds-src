@@ -78,7 +78,7 @@ void ArchiveClient::populateSnapInfo_(const fds_volid_t &volId,
     ss.str(std::string());
 }
 
-BotoArchiveClient::BotoArchiveClient(const std::string &host,
+BotoArchiveClient::BotoArchiveClient(const std::string &ip,
                                      int port,
                                      const std::string &authEp,
                                      const std::string &user,
@@ -88,7 +88,7 @@ BotoArchiveClient::BotoArchiveClient(const std::string &host,
 : ArchiveClient(dataMgrIf) 
 {
     s3script_ = s3script;
-    s3client_ = new S3Client(host, port, authEp, user, passwd);
+    s3client_ = new S3Client(ip, port, authEp, user, passwd);
 }
 
 BotoArchiveClient::~BotoArchiveClient()
@@ -160,10 +160,11 @@ Error BotoArchiveClient::getFile(const std::string &bucketName,
     }
 
     std::stringstream ss;
-    ss << s3script_ << " get" << " "
-        << " admin" << " "
+    ss << "python " << s3script_ << " "
+        << "get" << " "
+        << "admin" << " "
         << s3client_->getAccessKey() << " "
-        << s3client_->getHost() << " "
+        << s3client_->getIp() << " "
         << s3client_->getPort() << " "
         << bucketName << " "
         << objName << " "
@@ -189,10 +190,11 @@ Error BotoArchiveClient::putFile(const std::string &bucketName,
     }
 
     std::stringstream ss;
-    ss << s3script_ << " put" << " "
-        << " admin" << " "
+    ss << "python " << s3script_ << " "
+        << "put" << " "
+        << "admin" << " "
         << s3client_->getAccessKey() << " "
-        << s3client_->getHost() << " "
+        << s3client_->getIp() << " "
         << s3client_->getPort() << " "
         << bucketName << " "
         << objName << " "

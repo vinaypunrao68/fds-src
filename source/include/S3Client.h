@@ -14,9 +14,13 @@ struct CurlMemoryStruct {
     size_t size;
 };
 
+/**
+* @brief S3 client for doing basic puts/gets
+* GAPS: 1. s3 key sigining
+*/
 struct S3Client
 {
-    S3Client(const std::string &host,
+    S3Client(const std::string &ip,
              int port,
              const std::string &authEp,
              const std::string &user,
@@ -33,7 +37,7 @@ struct S3Client
                   const std::string &objName,
                   const std::string &filePath);
 
-    std::string getHost() const;
+    std::string getIp() const;
     int getPort() const;
     std::string getAccessKey() const;
     bool hasAccessKey() const;
@@ -45,7 +49,7 @@ struct S3Client
  protected:
     Error curlGet_(const std::string &url, std::string& retJson);
 
-    std::string host_;
+    std::string ip_;
     int port_;
     bool isHttps_;
     std::string authEp_;

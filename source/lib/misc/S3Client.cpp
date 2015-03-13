@@ -15,13 +15,13 @@
 
 namespace fds {
 
-S3Client::S3Client(const std::string &host,
+S3Client::S3Client(const std::string &ip,
                    int port,
                    const std::string &authEp,
                    const std::string &user,
                    const std::string &passwd)
 {
-    host_ = host;
+    ip_ = ip;
     port_ = port;
     authEp_ = authEp;
     user_ = user;
@@ -29,8 +29,11 @@ S3Client::S3Client(const std::string &host,
 
     curl_global_init(CURL_GLOBAL_ALL);
 
+    isHttps_ = true;
+
+#if 0
     if (!authEp_.empty()) {
-        fds_assert(host.find("https://") == 0);
+        fds_assert(ip.find("https://") == 0);
         fds_assert(authEp.find("https://") == 0);
         GLOGDEBUG << "Doing authentication";
 
@@ -40,9 +43,10 @@ S3Client::S3Client(const std::string &host,
             LOGWARN << "Authentication failed";
         }
     } else {
-        fds_assert(host.find("https://") == std::string::npos);
+        fds_assert(ip.find("https://") == std::string::npos);
         isHttps_ = false;
     }
+#endif
 }
 
 S3Client::~S3Client()
@@ -106,7 +110,7 @@ Error S3Client::putFile(const std::string &bucketName,
     std::string url;
 
     std::stringstream ss;
-    ss << host_ << ":" << port_ << "/" << bucketName << "/" << objName;
+    ss << ip_ << ":" << port_ << "/" << bucketName << "/" << objName;
     url = ss.str();
 
     /* get the file size of the local file */
@@ -162,7 +166,7 @@ Error S3Client::getFile(const std::string &bucketName,
     std::stringstream ss;
     int64_t httpCode = 200;
 
-    ss << host_ << ":" << port_ << "/" << bucketName << "/" << objName;
+    ss << ip_ << ":" << port_ << "/" << bucketName << "/" << objName;
     url = ss.str();
 
     fp = fopen(filePath.c_str(), "wb");
@@ -289,9 +293,9 @@ bool S3Client::hasAccessKey() const
     return accessKey_.size() > 0;
 }
 
-std::string S3Client::getHost() const
+std::string S3Client::getIp() const
 {
-    return host_;
+    return ip_;
 }
 
 int S3Client::getPort() const

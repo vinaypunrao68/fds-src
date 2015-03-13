@@ -17,6 +17,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <testlib/TestFixtures.h>
 #include <fds_volume.h>
 #include <DataMgrIf.h>
 #include <archive/ArchiveClient.h>
@@ -26,7 +27,7 @@ using ::testing::Return;
 using namespace fds;  // NOLINT
 
 
-struct ArchiveClientTest : public ::testing::Test, DataMgrIf
+struct ArchiveClientTest : public BaseTestFixture, DataMgrIf
 {
     ArchiveClientTest()
         : volDesc_("dummy", 0)
@@ -91,20 +92,24 @@ TEST_F(ArchiveClientTest, put_get)
 {
     fds_volid_t volId = 1;
     int64_t snapId = 1;
+    std::string script = this->getArg<std::string>("script");
 
     ASSERT_TRUE(prepareSnap(volId, snapId));
 
     /* Create archive client */
     ArchiveClientPtr archiveCl = boost::make_shared<BotoArchiveClient>("127.0.0.1", 8443,
-            "http://localhost:8000", "admin", "admin", "../bin/archivehelper.py", this);
+            "https://localhost:7443", "admin", "admin",
+            script, this);
+    archiveCl->connect();
 
-#if 0
     /* put the file */
-    EXPECT_EQ(archiveCl->putSnapSync(volId, snapId), ERR_OK);
+    auto ret = archiveCl->putSnap(volId, snapId);
+    EXPECT_EQ(ret , ERR_OK);
+
     /* get the file */
-    EXPECT_EQ(archiveCl->getSnapSync(volId, snapId), ERR_OK);
+    ret = archiveCl->getSnap(volId, snapId);
+    EXPECT_EQ(ret, ERR_OK);
     /* Optional: make sure the contents match */
-#endif
 }
 
 int main(int argc, char** argv) {
@@ -112,7 +117,8 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
-        ("puts-cnt", po::value<int>(), "puts count");
+        ("script", po::value<std::string>(), "archive script");
     fds::GetLog()->setSeverityFilter(fds_log::trace);
+    ArchiveClientTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }
