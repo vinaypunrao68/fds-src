@@ -704,6 +704,10 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
+    Error setupNewNode(const NodeUuid&      uuid,
+                      const FdspNodeRegPtr msg,
+                      NodeAgent::pointer   newNode);
+
     /**
     * @brief Registers the service
     *

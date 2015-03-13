@@ -18,7 +18,7 @@
 #include <fds_process.h>
 #include <net/net_utils.h>
 #include <net/SvcMgr.h>
-
+#include <unistd.h>
 #define OM_WAIT_NODES_UP_SECONDS   (5*60)
 #define OM_WAIT_START_SECONDS      1
 
@@ -1047,6 +1047,20 @@ void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo,
     }
 }
 
+struct ThreadHelper {
+    NodeUuid      uuid;
+    FdspNodeRegPtr msg;
+    NodeAgent::pointer   newNode;
+    OM_NodeDomainMod *domain;
+    void run() {
+        new std::thread ( [this]  {
+                usleep(3*1000*1000); // 3s
+                this->domain->setupNewNode(this->uuid, this->msg, this->newNode);
+            });
+    }
+};
+
+
 // om_reg_node_info
 // ----------------
 //
@@ -1080,7 +1094,35 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     }
 
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+
+    /**
+     * Note this is a temporary hack to return the node registration call immediatley
+     * and wait for for 3s before broadcast...
+     */
+    
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
+        //setupNewNode(uuid, msg, newNode);
+
+        auto th = new ThreadHelper();
+        th->uuid = uuid;
+        th->msg = msg;
+        th->newNode = newNode;
+        th->domain = this;
+        th->run();
+        //*/
+    }
+    return err;
+}
+
+Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
+                                    const FdspNodeRegPtr msg,
+                                    NodeAgent::pointer   newNode) {
+    Error err(ERR_OK);
+    OM_PmContainer::pointer pmNodes;
+
+    pmNodes = om_locDomain->om_pm_nodes();
+    fds_assert(pmNodes != NULL);
+
         fds_verify(newNode != NULL);
 
         // tell parent PM Agent about its new service
@@ -1169,7 +1211,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));
         }
-    }
     return err;
 }
 
