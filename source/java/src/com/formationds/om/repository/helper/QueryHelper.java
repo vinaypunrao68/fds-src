@@ -472,7 +472,7 @@ public class QueryHelper {
 
     	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
 
-    	Series getsssd = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
+    	Series getsssd = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
         		.findFirst().get();
 
     	Double getsSsd = getsssd.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
