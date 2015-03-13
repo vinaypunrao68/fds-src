@@ -86,7 +86,7 @@
 -   name: create influxdb log dir
     file:
         path=/fds/var/logs/influxdb
-        state=touch
+        state=directory
         owner=influxdb
         group=root
         mode=0755
