@@ -317,7 +317,8 @@ ObjectStorMgr::getTotalNumTokens() const {
 
 NodeUuid
 ObjectStorMgr::getUuid() const {
-    return omClient->getUuid();
+    NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    return mySvcUuid;
 }
 
 const DLT* ObjectStorMgr::getDLT() {
