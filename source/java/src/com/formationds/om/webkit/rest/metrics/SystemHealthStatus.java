@@ -4,13 +4,11 @@ import FDS_ProtocolInterface.*;
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.model.*;
-import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
-import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.HealthState;
 import com.formationds.commons.model.type.ManagerType;
@@ -23,7 +21,6 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
@@ -35,8 +32,6 @@ import com.formationds.web.toolkit.TextResource;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-
-import javax.persistence.EntityManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -201,11 +196,9 @@ public class SystemHealthStatus implements RequestHandler {
                 .withRange(range)
                 .build();
 
-        final EntityManager em = SingletonRepositoryManager.instance().getMetricsRepository().newEntityManager();
-
-        final List<IVolumeDatapoint> queryResults = new MetricCriteriaQueryBuilder(em)
-                .searchFor(query)
-                .resultsList();
+        final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>)SingletonRepositoryManager.instance()
+                                                                                                      .getMetricsRepository()
+                                                                                                      .query( query );
 
         try {
 
@@ -279,11 +272,9 @@ public class SystemHealthStatus implements RequestHandler {
                 .withRange(range)
                 .build();
 
-        final EntityManager em = SingletonRepositoryManager.instance().getMetricsRepository().newEntityManager();
-
-        final List<IVolumeDatapoint> queryResults = new MetricCriteriaQueryBuilder(em)
-                .searchFor(query)
-                .resultsList();
+        final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>)SingletonRepositoryManager.instance()
+                                                                                        .getMetricsRepository()
+                                                                                        .query( query );
 
         // has some helper functions we can use for calculations
         QueryHelper qh = new QueryHelper();

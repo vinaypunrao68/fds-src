@@ -15,16 +15,13 @@ import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
-import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.MediaPolicyConverter;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.repository.JDOMetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.JsonArrayCollector;
@@ -261,10 +258,7 @@ struct VolumeDescriptor {
 
 		MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
 
-		final List<IVolumeDatapoint> queryResults =
-			new MetricCriteriaQueryBuilder( repo.newEntityManager() ) 
-				.searchFor( query )
-				.resultsList();
+		final List<? extends IVolumeDatapoint> queryResults = repo.query( query );
 
 		FirebreakHelper fbh = new FirebreakHelper();
 		EnumMap<FirebreakType, VolumeDatapointPair> map = null;
