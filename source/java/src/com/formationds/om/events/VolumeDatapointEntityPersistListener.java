@@ -10,6 +10,7 @@ import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.FirebreakEvent;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.om.repository.JDOEventRepository;
 import com.formationds.om.repository.MetricRepository;
@@ -27,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * A postPersist listener on VolumeDatapoint persistence operations to intercept and detect firebreak events.
  */
-public class VolumeDatapointEntityPersistListener implements EntityPersistListener<VolumeDatapoint> {
+public class VolumeDatapointEntityPersistListener implements EntityPersistListener<IVolumeDatapoint> {
 
     private static final Logger logger = LoggerFactory.getLogger(VolumeDatapointEntityPersistListener.class);
 
@@ -68,7 +69,7 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
     // if errors are not handled here.  There could also be some impact on performance of that operation, though it
     // is unlikely to be in the user data path and so impact should be minimal.
     @Override
-    public void postPersist( Collection<VolumeDatapoint> vdp) {
+    public void postPersist( Collection<? extends IVolumeDatapoint> vdp) {
         logger.trace( "postPersist handling of {} Volume data points.", vdp.size());
         try {
             doPostPersist(vdp);
@@ -87,11 +88,11 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
      * @param vdp list of volume datapoints
      * @throws TException
      */
-    protected void doPostPersist(Collection<VolumeDatapoint> vdp) throws TException {
+    protected void doPostPersist(Collection<? extends IVolumeDatapoint> vdp) throws TException {
         Map<String, EnumMap<FirebreakType,FirebreakHelper.VolumeDatapointPair>> fb =
             new FirebreakHelper().findFirebreakEvents( (vdp instanceof List ?
-                                                        (List<VolumeDatapoint>) vdp :
-                                                        new ArrayList<>( vdp )) );
+                                                        (List<IVolumeDatapoint>) vdp :
+                                                        new ArrayList<IVolumeDatapoint>( vdp )) );
 
         // first iterate over each volume
         fb.forEach((vid, fbvdps) -> {

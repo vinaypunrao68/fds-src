@@ -8,6 +8,7 @@ import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
+import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.query.QueryCriteria;
 
@@ -117,7 +118,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 	}
 
 	@Override
-	public List<? extends Event> queryTenantUsers(QueryCriteria queryCriteria,
+	public List<UserActivityEvent> queryTenantUsers(QueryCriteria queryCriteria,
 			List<Long> tenantUsers) {
 		// TODO Auto-generated method stub
 		return null;

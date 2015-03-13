@@ -14,6 +14,8 @@ import java.lang.reflect.Proxy;
 import java.util.List;
 
 /**
+ * Factory to access to Metrics and Events repositories.
+ *
  * @author ptinius
  */
 public enum SingletonRepositoryManager {
@@ -131,10 +133,28 @@ public enum SingletonRepositoryManager {
         initializeEventRepository( );
     }
 
+    /**
+     * Initialize the metric repository.  The implementation returned is dependent on the settings
+     * of feature toggles:
+     * <ul>
+     *     <li>PERSIST_OBJECTDB</li>
+     *     <li>PERSIST_INFLUXDB</li>
+     *     <LI>QUERY_INFLUXDB</LI>
+     * </ul>
+     */
     protected void initializeMetricRepository() {
         metricsRepository = MetricRepositoryProxyIH.newMetricsProxy();
     }
 
+    /**
+     * Initialize the event repository.  The implementation returned is dependent on the settings
+     * of feature toggles:
+     * <ul>
+     *     <li>PERSIST_OBJECTDB</li>
+     *     <li>PERSIST_INFLUXDB</li>
+     *     <LI>QUERY_INFLUXDB</LI>
+     * </ul>
+     */
     protected void initializeEventRepository() {
         // TODO: fs-1111 use toggles on event repository too
         eventRepository = new JDOEventRepository( );

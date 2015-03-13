@@ -6,7 +6,9 @@ package com.formationds.om.repository.influxdb;
 
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.entity.builder.VolumeDatapointBuilder;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.query.QueryCriteria;
@@ -28,7 +30,7 @@ import java.util.stream.Collectors;
 /**
  *
  */
-public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Long> implements MetricRepository {
+public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, Long> implements MetricRepository {
 
     public static final String VOL_SERIES_NAME = "volume_metrics";
     public static final String VOL_ID_COLUMN_NAME = "volume_id";
@@ -105,36 +107,36 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
      * Influx Metric Repository
      */
     @Override
-    protected VolumeDatapoint doPersist( VolumeDatapoint entity ) {
+    protected VolumeDatapoint doPersist( IVolumeDatapoint entity ) {
         throw new UnsupportedOperationException( "Persisting individual metrics is not supported for the Influx Metric repository" );
     }
 
     @Override
-    protected List<VolumeDatapoint> doPersist( Collection<VolumeDatapoint> entities ) {
+    protected List<IVolumeDatapoint> doPersist( Collection<IVolumeDatapoint> entities ) {
         Object[] metricValues = new Object[ VOL_METRIC_NAMES.size() ];
 
         // TODO: currently the collection of VolumeDatapoint objects is a list of individual data points
         // and may contain any number of volumes and timestamps.  Ironically, the AM receives the datapoints
         // exactly as we need  them here, but it then splits them in JsonStatisticsFormatter
-        List<VolumeDatapoint> vdps = (entities instanceof List ? (List)entities : new ArrayList<>( entities ));
+        List<IVolumeDatapoint> vdps = (entities instanceof List ? (List)entities : new ArrayList<>( entities ));
 
         // timestamp, map<volname, List<vdp>>>
-        Map<Long, Map<String, List<VolumeDatapoint>>> orderedVDPs;
+        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs;
         orderedVDPs = vdps.stream()
-                           .collect( Collectors.groupingBy( VolumeDatapoint::getTimestamp,
-                                                            Collectors.groupingBy( VolumeDatapoint::getVolumeName ) ) );
+                           .collect( Collectors.groupingBy( IVolumeDatapoint::getTimestamp,
+                                                            Collectors.groupingBy( IVolumeDatapoint::getVolumeName ) ) );
 
-        for (Map.Entry<Long,Map<String,List<VolumeDatapoint>>> e : orderedVDPs.entrySet())
+        for (Map.Entry<Long,Map<String,List<IVolumeDatapoint>>> e : orderedVDPs.entrySet())
         {
             Long ts = e.getKey();
-            Map<String, List<VolumeDatapoint>> volumeDatapoints = e.getValue();
+            Map<String, List<IVolumeDatapoint>> volumeDatapoints = e.getValue();
 
-            for (Map.Entry<String, List<VolumeDatapoint>> e2 : volumeDatapoints.entrySet()) {
+            for (Map.Entry<String, List<IVolumeDatapoint>> e2 : volumeDatapoints.entrySet()) {
                 String volid = e2.getKey();
 
                 metricValues[0] = volid;
 
-                for (VolumeDatapoint vdp : e2.getValue())
+                for (IVolumeDatapoint vdp : e2.getValue())
                 {
                     // TODO: figure out what metric it maps to, then figure out its position in
                     // the values array.
@@ -144,13 +146,15 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
                                   .columns( VOL_METRIC_NAMES.toArray( new String[VOL_METRIC_NAMES.size()] ) )
                                   .values()
                                   .build();
+
+
             }
         }
         return vdps;
     }
 
     @Override
-    protected void doDelete( VolumeDatapoint entity ) {
+    protected void doDelete( IVolumeDatapoint entity ) {
         // TODO: not supported yet
         throw new UnsupportedOperationException( "Delete not yet supported" );
     }
@@ -158,14 +162,16 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
     @Override
     public VolumeDatapoint findById( Long aLong ) {
         // TODO: not sure how meaningful this is in the context of influxdb?
+        // there is a generated sequence and a timestamp that effectively indicate the id, but
+        // it seems pretty useless in this context.
         return null;
     }
 
     @Override
-    public List<VolumeDatapoint> findAll() {
+    public List<IVolumeDatapoint> findAll() {
         QueryCriteria criteria = new QueryCriteria();
-        List<VolumeDatapoint> results = query( criteria );
-        
+        List<IVolumeDatapoint> results = query( criteria );
+
         return results;
     }
 
@@ -175,7 +181,7 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
     }
 
     @Override
-    public long countAllBy( VolumeDatapoint entity ) {
+    public long countAllBy( IVolumeDatapoint entity ) {
         return 0;
     }
     
@@ -236,9 +242,9 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
      * @param series
      * @return
      */
-    protected List<VolumeDatapoint> convertSeriesToPoints( List<Serie> series ) {
+    protected List<IVolumeDatapoint> convertSeriesToPoints( List<Serie> series ) {
     	
-    	final List<VolumeDatapoint> datapoints = new ArrayList<VolumeDatapoint>();
+    	final List<IVolumeDatapoint> datapoints = new ArrayList<IVolumeDatapoint>();
     	
     	// we expect rows from one and only one series.  If there are more, we'll only use
     	// the first one
@@ -287,7 +293,7 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
     }
 
     @Override
-    public List<? extends VolumeDatapoint> query( QueryCriteria queryCriteria ) {
+    public List<IVolumeDatapoint> query( QueryCriteria queryCriteria ) {
     	
     	// get the query string
     	String queryString = formulateQueryString( queryCriteria );
@@ -296,7 +302,7 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
     	List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
     	
     	// convert from influxdb format to FDS model format
-    	List<VolumeDatapoint> datapoints = convertSeriesToPoints( series );
+    	List<IVolumeDatapoint> datapoints = convertSeriesToPoints( series );
     	
         return datapoints;
     }
@@ -312,22 +318,22 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
     }
 
     @Override
-    public VolumeDatapoint mostRecentOccurrenceBasedOnTimestamp( String volumeName, Metrics metric ) {
+    public <VDP extends IVolumeDatapoint> VDP  mostRecentOccurrenceBasedOnTimestamp( String volumeName, Metrics metric ) {
         return null;
     }
 
     @Override
-    public VolumeDatapoint mostRecentOccurrenceBasedOnTimestamp( Long volumeId, Metrics metric ) {
+    public <VDP extends IVolumeDatapoint> VDP  mostRecentOccurrenceBasedOnTimestamp( Long volumeId, Metrics metric ) {
         return null;
     }
 
     @Override
-    public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp( Long volumeId, Metrics metric ) {
+    public <VDP extends IVolumeDatapoint> VDP  leastRecentOccurrenceBasedOnTimestamp( Long volumeId, Metrics metric ) {
         return null;
     }
 
     @Override
-    public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp( String volumeName, Metrics metric ) {
+    public <VDP extends IVolumeDatapoint> VDP  leastRecentOccurrenceBasedOnTimestamp( String volumeName, Metrics metric ) {
         return null;
     }
 

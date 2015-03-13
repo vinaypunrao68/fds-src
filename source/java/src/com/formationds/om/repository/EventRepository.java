@@ -114,7 +114,7 @@ public interface EventRepository extends CRUDRepository<Event, Long> {
      * @param tenantUsers the list of tenant users to search
      * @return the list of events matching the query criteria and belonging to the specified tenant users.
      */
-    List<? extends Event> queryTenantUsers( QueryCriteria queryCriteria, List<Long> tenantUsers );
+    List<UserActivityEvent> queryTenantUsers( QueryCriteria queryCriteria, List<Long> tenantUsers );
 
     /**
      *

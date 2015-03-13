@@ -7,6 +7,7 @@ package com.formationds.om.repository;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.crud.CRUDRepository;
 import com.formationds.commons.crud.EntityPersistListener;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -18,7 +19,7 @@ import javax.persistence.EntityManager;
 import java.util.List;
 import java.util.Optional;
 
-public interface MetricRepository extends CRUDRepository<VolumeDatapoint, Long> {
+public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long> {
 
     /**
      *
@@ -42,7 +43,7 @@ public interface MetricRepository extends CRUDRepository<VolumeDatapoint, Long> 
      * Listener implementing prePersist to ensure that the volume id is set on each datapoint before
      * saving it.  When processing multiple datapoints, also aligns the timestamp to the first datapoint.
      */
-    public static class MetricsEntityPersistListener implements EntityPersistListener<VolumeDatapoint> {
+    public static class MetricsEntityPersistListener implements EntityPersistListener<IVolumeDatapoint> {
         private static final Logger logger =
             LoggerFactory.getLogger( MetricsEntityPersistListener.class );
 
@@ -78,16 +79,16 @@ public interface MetricRepository extends CRUDRepository<VolumeDatapoint, Long> 
 
     Double sumPhysicalBytes();
 
-    VolumeDatapoint mostRecentOccurrenceBasedOnTimestamp( String volumeName,
+    <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( String volumeName,
                                                           Metrics metric );
 
-    VolumeDatapoint mostRecentOccurrenceBasedOnTimestamp( Long volumeId,
+    <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( Long volumeId,
                                                           Metrics metric );
 
-    VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp( Long volumeId,
+    <VDP extends IVolumeDatapoint> VDP leastRecentOccurrenceBasedOnTimestamp( Long volumeId,
                                                            Metrics metric );
 
-    VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp( String volumeName,
+    <VDP extends IVolumeDatapoint> VDP leastRecentOccurrenceBasedOnTimestamp( String volumeName,
                                                            Metrics metric );
 
     Optional<VolumeStatus> getLatestVolumeStatus( Long volumeId );

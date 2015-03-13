@@ -8,6 +8,7 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import com.formationds.apis.*;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.commons.events.FirebreakType;
@@ -260,7 +261,7 @@ struct VolumeDescriptor {
 
 		MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
 
-		final List<VolumeDatapoint> queryResults =
+		final List<IVolumeDatapoint> queryResults =
 			new MetricCriteriaQueryBuilder( repo.newEntityManager() ) 
 				.searchFor( query )
 				.resultsList();

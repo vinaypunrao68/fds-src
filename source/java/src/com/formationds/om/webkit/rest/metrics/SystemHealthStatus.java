@@ -9,6 +9,7 @@ import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.HealthState;
@@ -202,7 +203,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         final EntityManager em = SingletonRepositoryManager.instance().getMetricsRepository().newEntityManager();
 
-        final List<VolumeDatapoint> queryResults = new MetricCriteriaQueryBuilder(em)
+        final List<IVolumeDatapoint> queryResults = new MetricCriteriaQueryBuilder(em)
                 .searchFor(query)
                 .resultsList();
 
@@ -280,7 +281,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         final EntityManager em = SingletonRepositoryManager.instance().getMetricsRepository().newEntityManager();
 
-        final List<VolumeDatapoint> queryResults = new MetricCriteriaQueryBuilder(em)
+        final List<IVolumeDatapoint> queryResults = new MetricCriteriaQueryBuilder(em)
                 .searchFor(query)
                 .resultsList();
 
@@ -327,8 +328,8 @@ public class SystemHealthStatus implements RequestHandler {
     /**
      * Generate a status object to roll up service status
      *
-     * @param services
-     * @return
+     * @param rawServices
+     * @return the system service status
      */
     private SystemHealth getServiceStatus(final List<FDSP_Node_Info_Type> rawServices) {
 
