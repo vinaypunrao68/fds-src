@@ -388,7 +388,7 @@ public class EventManagerTest {
         Arrays.asList(testdps).forEach((u) -> {
 //            System.out.println(u);
             int i = c.decrementAndGet();
-            final List<VolumeDatapoint> volumeDatapoints = Arrays.asList(u);
+            final List<IVolumeDatapoint> volumeDatapoints = Arrays.asList(u);
             volumeDatapoints.forEach((vdp) -> { vdp.setTimestamp(now - (i * 7200)); });
 
             int s = events.size();
