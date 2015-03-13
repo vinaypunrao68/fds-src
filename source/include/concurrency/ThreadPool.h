@@ -14,11 +14,14 @@
 #include <fds_types.h>
 #include <concurrency/Mutex.h>
 #include <concurrency/Thread.h>
+#include <concurrency/LFThreadpool.h>
 
 namespace fds {
 class thpool_req;
 class thpool_worker;
 class fds_threadpool;
+struct LFMQThreadpool;
+
 enum thp_state_e { INIT, IDLE, TERM, WAKING_UP, RUNNING, SPAWNING, EXITING };
 
 /*
@@ -111,13 +114,15 @@ class fds_threadpool : boost::noncopyable
     int                 thp_num_threads;
     int                 thp_active_threads;
     int                 thp_tasks_pend;
-
+    bool                use_lftp_instead;
     /* Thread pool stats. */
     fds_uint32_t        thp_total_tasks;
     fds_uint32_t        thp_exec_direct;
 
     /* Called by the worker thread to dequeue or put itself to idle state. */
     thpool_req *thp_dequeue_task_or_idle(thpool_worker *worker);
+
+    LFMQThreadpool *lfthreadpool;
 
   public:
     ~fds_threadpool();
@@ -126,6 +131,7 @@ class fds_threadpool : boost::noncopyable
      */
     explicit fds_threadpool(int num_thr = 10);
 
+    explicit fds_threadpool(int, bool);
     /* Scheduling functions. */
     void schedule(thpool_req *task);
 
@@ -134,28 +140,52 @@ class fds_threadpool : boost::noncopyable
 
     template<typename F, typename A>
     void schedule(F f, A a) {
-       schedule(new thpool_req(f, a));
+        if (use_lftp_instead) {
+            lfthreadpool->schedule(f, a);
+        } else {
+            schedule(new thpool_req(f, a));
+        }
     }
     template<typename F, typename A, typename B>
     void schedule(F f, A a, B b) {
-       schedule(new thpool_req(f, a, b));
+        if (use_lftp_instead) {
+            lfthreadpool->schedule(f, a, b);
+        } else {
+            schedule(new thpool_req(f, a, b));
+        }
     }
     template<typename F, typename A, typename B, typename C>
     void schedule(F f, A a, B b, C c) {
-       schedule(new thpool_req(f, a, b, c));
+        if (use_lftp_instead) {
+            lfthreadpool->schedule(f, a, b, c);
+        } else {
+            schedule(new thpool_req(f, a, b, c));
+        }
     }
     template<typename F, typename A, typename B, typename C, typename D>
     void schedule(F f, A a, B b, C c, D d) {
-       schedule(new thpool_req(f, a, b, c, d));
+        if (use_lftp_instead) {
+            lfthreadpool->schedule(f, a, b, c, d);
+        } else {
+            schedule(new thpool_req(f, a, b, c, d));
+        }
     }
     template<typename F, typename A, typename B, typename C, typename D, typename E>
     void schedule(F f, A a, B b, C c, D d, E e) {
-       schedule(new thpool_req(f, a, b, c, d, e));
+        if (use_lftp_instead) {
+            lfthreadpool->schedule(f, a, b, c, d, e);
+        } else {
+            schedule(new thpool_req(f, a, b, c, d, e));
+        }
     }
     template<typename F, typename A, typename B,
              typename C, typename D, typename E, typename G>
     void schedule(F f, A a, B b, C c, D d, E e, G g) {
-       schedule(new thpool_req(f, a, b, c, d, e, g));
+        if (use_lftp_instead) {
+            lfthreadpool->schedule(f, a, b, c, d, e, g);
+        } else {
+            schedule(new thpool_req(f, a, b, c, d, e, g));
+        }
     }
 };
 

@@ -226,7 +226,8 @@ fds_threadpool::fds_threadpool(int num_thr)
       thp_exec_direct(0),
       thp_num_threads(num_thr),
       thp_active_threads(0),
-      thp_tasks_pend(0)
+      thp_tasks_pend(0),
+      use_lftp_instead(false)
 {
     int            i;
     // dlist_t       *iter;
@@ -249,33 +250,76 @@ fds_threadpool::fds_threadpool(int num_thr)
     }
 }
 
+/** \fds_threadpool constructor
+ * ----------------------------
+ */
+fds_threadpool::fds_threadpool(int num_thr, bool use_lftp)
+    : thp_mutex("thpool mtx"),
+      thp_state(RUNNING),
+      thp_total_tasks(0),
+      thp_exec_direct(0),
+      thp_num_threads(num_thr),
+      thp_active_threads(0),
+      thp_tasks_pend(0),
+      use_lftp_instead(use_lftp)
+{
+    if (use_lftp) {
+        lfthreadpool = new LFMQThreadpool(thp_num_threads);
+    } else {
+        int            i;
+        // dlist_t       *iter;
+        thpool_worker *worker;
+
+        dlist_init(&thp_wk_idle);
+        dlist_init(&thp_tasks);
+
+        thp_workers = new thpool_worker * [thp_num_threads];
+        for (i = 0; i < thp_num_threads; ++i) {
+            thp_workers[i] = new thpool_worker(this, i);
+        }
+
+        /* Spawn threads when all objects have been constructed. */
+        for (i = 0; i < thp_num_threads; ++i) {
+            worker = thp_workers[i];
+            bool spawned = worker->wk_spawn_thread();
+            fds_verify(true == spawned);
+            ++thp_active_threads;
+        }
+    }
+}
+
 /** \fds_threadpool destructor
  * ---------------------------
  */
 fds_threadpool::~fds_threadpool()
 {
-    int            i;
-    dlist_t       *ptr;
-    thpool_worker *worker;
+    if (use_lftp_instead) {
+        delete lfthreadpool;
+    } else {
+        int            i;
+        dlist_t       *ptr;
+        thpool_worker *worker;
 
-    thp_mutex.lock();
-    thp_state = EXITING;
+        thp_mutex.lock();
+        thp_state = EXITING;
 
-    /* Wake up all worker threads. */
-    for (i = 0; i < thp_num_threads; ++i) {
-        thp_workers[i]->wk_wakeup();
+        /* Wake up all worker threads. */
+        for (i = 0; i < thp_num_threads; ++i) {
+            thp_workers[i]->wk_wakeup();
+        }
+        while (thp_active_threads > 0) {
+            thp_condition.wait(thp_mutex);
+        }
+        /* all threads exited now. */
+        fds_assert(dlist_empty(&thp_tasks));
+        fds_assert(dlist_empty(&thp_wk_idle));
+
+        thp_state = TERM;
+        thp_mutex.unlock();
+
+        delete [] thp_workers;
     }
-    while (thp_active_threads > 0) {
-        thp_condition.wait(thp_mutex);
-    }
-    /* all threads exited now. */
-    fds_assert(dlist_empty(&thp_tasks));
-    fds_assert(dlist_empty(&thp_wk_idle));
 
-    thp_state = TERM;
-    thp_mutex.unlock();
-
-    delete [] thp_workers;
 }
 
 

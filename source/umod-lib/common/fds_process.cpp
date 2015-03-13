@@ -160,7 +160,8 @@ void FdsProcess::init(int argc, char *argv[],
         /* If threadpool option is specified, create one. */
         if (conf_helper_.exists("threadpool")) {
             int num_thr = conf_helper_.get<int>("threadpool.num_threads", 10);
-            proc_thrp   = new fds_threadpool(num_thr);
+            bool use_lfthreadpool = conf_helper_.get<bool>("threadpool.use_lftp");
+            proc_thrp   = new fds_threadpool(num_thr, use_lfthreadpool);
         }
     } else {
         g_fdslog  = new fds_log(def_log_file, proc_root->dir_fds_logs());
