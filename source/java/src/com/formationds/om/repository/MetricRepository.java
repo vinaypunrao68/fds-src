@@ -39,17 +39,6 @@ public interface MetricRepository extends CRUDRepository<VolumeDatapoint, Long> 
     default public Optional<String> getVolumeIdColumnName() { return Optional.of( "volumeId" ); }
 
     /**
-     * TEMPORARY.  This is here only to satisfy existing access to query apis that
-     * expect to have an EntityManager.  The EM is only available in JDO (JPA) implementations.
-     *
-     * @return the entity manager
-     *
-     * @deprecated this will be removed very soon.
-     */
-    @Deprecated
-    default public EntityManager newEntityManager() { return null; }
-
-    /**
      * Listener implementing prePersist to ensure that the volume id is set on each datapoint before
      * saving it.  When processing multiple datapoints, also aligns the timestamp to the first datapoint.
      */

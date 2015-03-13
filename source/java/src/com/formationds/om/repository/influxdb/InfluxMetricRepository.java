@@ -5,20 +5,24 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.apis.VolumeStatus;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.query.QueryCriteria;
+
 import org.influxdb.dto.Serie;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -28,7 +32,6 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
 
     public static final String VOL_SERIES_NAME = "volume_metrics";
     public static final String VOL_ID_COLUMN_NAME = "volume_id";
-    public static final String TIMESTAMP_COLUMN_NAME = "time";
 
     /**
      * the static list of metric names store in the influxdb database.
@@ -84,7 +87,7 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
 
     @Override
     public String getTimestampColumnName() {
-        return TIMESTAMP_COLUMN_NAME;
+        return super.getTimestampColumnName();
     }
 
     @Override
@@ -160,7 +163,10 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
 
     @Override
     public List<VolumeDatapoint> findAll() {
-        return null;
+        QueryCriteria criteria = new QueryCriteria();
+        List<VolumeDatapoint> results = query( criteria );
+        
+        return results;
     }
 
     @Override
@@ -172,10 +178,127 @@ public class InfluxMetricRepository extends InfluxRepository<VolumeDatapoint, Lo
     public long countAllBy( VolumeDatapoint entity ) {
         return 0;
     }
+    
+    /**
+     * Method to create a string from the query object that matches influx format
+     * 
+     * @param queryCriteria
+     * @return
+     */
+    protected String formulateQueryString( QueryCriteria queryCriteria ){
+    	
+    	StringBuilder sb = new StringBuilder();
+        
+    	String prefix = SELECT + " * " + FROM + " " + getEntityName();
+    	sb.append( prefix );
+    
+    	if ( queryCriteria.getRange() != null && 
+    			queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
+    		
+    		sb.append( " " + WHERE );
+    	}
+    	
+    	// do time range
+    	if ( queryCriteria.getRange() != null ){
+    	
+	    	String time = " ( " + getTimestampColumnName() + " >= " + queryCriteria.getRange().getStart() + " " + AND + 
+	    			" " + getTimestampColumnName() + " <= " + queryCriteria.getRange().getEnd() + " ) ";
+	    	
+	    	sb.append( time );
+    	}
+    	
+    	if ( queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
+    	
+    		sb.append( AND + " ( " );
+    		
+    		Iterator<Volume> contextIt = queryCriteria.getContexts().iterator();
+    		
+    		while( contextIt.hasNext() ) {
+    			
+    			Volume volume = contextIt.next();
+    			
+    			sb.append( getVolumeIdColumnName().get() + " = " + volume.getId() );
+    			
+    			if ( contextIt.hasNext() ){
+    				sb.append( " " + OR + " " );
+    			}
+    		}
+    		
+    		sb.append( " )" );
+    	}
+    	
+    	return sb.toString();
+    }
+    
+    /**
+     * Convert an influxDB return type into VolumeDatapoints that we can use
+     * 
+     * @param series
+     * @return
+     */
+    protected List<VolumeDatapoint> convertSeriesToPoints( List<Serie> series ) {
+    	
+    	final List<VolumeDatapoint> datapoints = new ArrayList<VolumeDatapoint>();
+    	
+    	// we expect rows from one and only one series.  If there are more, we'll only use
+    	// the first one
+    	if ( series == null || series.size() == 0 ) {
+    		return datapoints;
+    	}
+    	
+    	List<Map< String, Object>> rowList = series.get( 0 ).getRows();
+    	
+    	for ( Map<String, Object> row : rowList ) {
+    		
+    		// get the timestamp
+    		Object timestampO = row.get( getTimestampColumnName() );
+    		Object volumeIdO = row.get( getVolumeIdColumnName().get() );
+    		Object volumeNameO = row.get( getVolumeNameColumnName().get() );
+    		
+    		// we expect a value for all of these fields.  If not, bail
+    		if ( timestampO == null || volumeIdO == null || volumeNameO == null ) {
+    			continue;
+    		}
+    		
+    		Long timestamp = Long.parseLong(timestampO.toString() );
+    		String volumeName = volumeIdO.toString();
+    		String volumeId = volumeIdO.toString();
+    		
+    		row.forEach( ( key, value ) -> {
+    		
+    			// If we run across a column for metadata we just skip it.
+    			// we're only interested in the stats columns at this point
+    			if ( key.equals( getTimestampColumnName() ) ||
+    				key.equals( getVolumeIdColumnName().get() ) || 
+    				key.equals( getVolumeNameColumnName().get() ) ||
+    				value == null ) {
+    				return;
+    			}
+    			
+    			Double numberValue = Double.parseDouble( value.toString() );
+    			
+    			VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeId, volumeName, key, numberValue );
+    			datapoints.add( point );
+    			
+    		});
+    	} // for each row
+    	
+    	return datapoints;
+    }
 
     @Override
     public List<? extends VolumeDatapoint> query( QueryCriteria queryCriteria ) {
-        return null;
+    	
+    	// get the query string
+    	String queryString = formulateQueryString( queryCriteria );
+    	
+    	// execute the query
+    	List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
+    	
+    	// convert from influxdb format to FDS model format
+    	List<VolumeDatapoint> datapoints = convertSeriesToPoints( series );
+    	
+        return datapoints;
     }
 
     @Override

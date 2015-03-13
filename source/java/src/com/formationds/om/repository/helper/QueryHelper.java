@@ -114,133 +114,127 @@ public class QueryHelper {
             final List<Series> series = new ArrayList<>();
             final List<Calculated> calculatedList = new ArrayList<>();
 
-            EntityManager em = getRepo().newEntityManager();
-            try {
+            MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+            
+            query.setContexts( validateContextList( query, authorizer, token ) );
 
-                query.setContexts( validateContextList( query, authorizer, token ) );
+            final List<VolumeDatapoint> queryResults = repo.query( query );
 
-                final List<VolumeDatapoint> queryResults =
-                    new MetricCriteriaQueryBuilder( em ).searchFor( query )
-                                                        .resultsList();
+            final Map<String, List<VolumeDatapoint>> originated =
+                byVolumeNameTimestamp( queryResults );
 
-                final Map<String, List<VolumeDatapoint>> originated =
-                    byVolumeNameTimestamp( queryResults );
+            if ( isPerformanceQuery( query.getSeriesType() ) ) {
 
-                if ( isPerformanceQuery( query.getSeriesType() ) ) {
-	
-	                series.addAll(
-	                    new SeriesHelper().getRollupSeries( queryResults,
-	                                                        query,
-	                                                        StatOperation.SUM ) );
-	                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
-	                ioPsConsumed.setDailyAverage( 0.0 );
-	                calculatedList.add( ioPsConsumed );
-	
-	            } else if( isCapacityQuery( query.getSeriesType() ) ) {
-	            	
-	                series.addAll(
-	                    new SeriesHelper().getRollupSeries( queryResults,
-	                                                        query,
-	                                                        StatOperation.MAX) );
-	
-	                calculatedList.add( deDupRatio() );
-	
-	                final CapacityConsumed consumed = bytesConsumed();
-	                calculatedList.add( consumed );
-	
-	                // only the FDS admin is allowed to get data about the capacity limit
-	                // of the system
-	                if ( authorizer.userFor( token ).isFdsAdmin ){
-	                	
-		                // TODO finish implementing -- once the platform has total system capacity
-		                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-		                                                  .doubleValue();
+                series.addAll(
+                    new SeriesHelper().getRollupSeries( queryResults,
+                                                        query,
+                                                        StatOperation.SUM ) );
+                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
+                ioPsConsumed.setDailyAverage( 0.0 );
+                calculatedList.add( ioPsConsumed );
+
+            } else if( isCapacityQuery( query.getSeriesType() ) ) {
+            	
+                series.addAll(
+                    new SeriesHelper().getRollupSeries( queryResults,
+                                                        query,
+                                                        StatOperation.MAX) );
+
+                calculatedList.add( deDupRatio() );
+
+                final CapacityConsumed consumed = bytesConsumed();
+                calculatedList.add( consumed );
+
+                // only the FDS admin is allowed to get data about the capacity limit
+                // of the system
+                if ( authorizer.userFor( token ).isFdsAdmin ){
+                	
+	                // TODO finish implementing -- once the platform has total system capacity
+	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
+	                                                  .doubleValue();
 //		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
-		                
-		                TotalCapacity totalCap = new TotalCapacity();
-		                totalCap.setTotalCapacity( systemCapacity );
-		                calculatedList.add( totalCap );
-		                
-		                // TODO finish implementing  -- once Nate provides a library
-		            	Series physicalBytes = series.stream()
-		            		.filter( ( s ) -> { 
-		            			return s.getType().equals( Metrics.PBYTES.name() );
-		            		})
-			            	.findFirst().orElse( null );
-		            	
-		            	if ( physicalBytes != null ){
-		            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
-		            	}
-		            	else {
-		            		logger.info( "There were no physical bytes reported for the system.  Cannot calculate time to full.");
-		            	}
-	                }
-	
-	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
+	                
+	                TotalCapacity totalCap = new TotalCapacity();
+	                totalCap.setTotalCapacity( systemCapacity );
+	                calculatedList.add( totalCap );
+	                
+	                // TODO finish implementing  -- once Nate provides a library
+	            	Series physicalBytes = series.stream()
+	            		.filter( ( s ) -> { 
+	            			return s.getType().equals( Metrics.PBYTES.name() );
+	            		})
+		            	.findFirst().orElse( null );
 	            	
-	            	series.addAll(
-	            		new SeriesHelper().getRollupSeries( queryResults, 
-	            										 	query,
-	            										 	StatOperation.RATE) );
-	            	
-	            	// we could just test the query, but this captures more potential problems retrieving the list
-	            	try {
-	            		
-		            	// GETS has the total # of gets/sec and SSD is a subset of those.
-		            	// This query wants GETS for HDD access and SSD access so we mutate the
-		            	// GETS series with a quick subtraction of the corresponding SSD field
-		            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
-		            		.findFirst().get();
-	            		
-		            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
-		            		.findFirst().get();
-		            	
-		            	gets.getDatapoints().forEach( 
-		            		gPoint -> {
-		            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
-		            				.forEach(
-			            				sPoint -> {
-			            					gPoint.setY( gPoint.getY() - sPoint.getY() );
-			            				}
-			            			);
-		            		});
+	            	if ( physicalBytes != null ){
+	            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
 	            	}
-	            	catch( NoSuchElementException noEm ) {
-	            		logger.info( "The query either did not contain an SSD element, or one was not found.  Calculations will not include it." );
+	            	else {
+	            		logger.info( "There were no physical bytes reported for the system.  Cannot calculate time to full.");
 	            	}
-	            	
-	            	calculatedList.add( getAverageIOPs( series ) );
-	            	calculatedList.addAll( getTieringPercentage( series ) );
-	            	
-	            } else {
-	            	
-	                // individual stats
-	                query.getSeriesType()
-	                     .stream()
-	                     .forEach( ( m ) ->
-	                         series.addAll( otherQueries( originated,
-	                                                      m ) ) );
-	            }
-	
-	            if( !series.isEmpty() ) {
-	            	
-	                series.forEach( ( s ) -> {
-	                	
-	                	// if the datapoints set is null, don't try to sort it.  Leave it alone
-	                	if ( s.getDatapoints() != null && !s.getDatapoints().isEmpty() ) {
-	                		new DatapointHelper().sortByX( s.getDatapoints() );
-	                	}
-	                });
-	                stats.setSeries( series );
-	            }
-	
-	            if( !calculatedList.isEmpty() ) {
-	                stats.setCalculated( calculatedList );
-	            }
+                }
 
-            } finally {
-            	em.close();
+            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
+            	
+            	series.addAll(
+            		new SeriesHelper().getRollupSeries( queryResults, 
+            										 	query,
+            										 	StatOperation.RATE) );
+            	
+            	// we could just test the query, but this captures more potential problems retrieving the list
+            	try {
+            		
+	            	// GETS has the total # of gets/sec and SSD is a subset of those.
+	            	// This query wants GETS for HDD access and SSD access so we mutate the
+	            	// GETS series with a quick subtraction of the corresponding SSD field
+	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
+	            		.findFirst().get();
+            		
+	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
+	            		.findFirst().get();
+	            	
+	            	gets.getDatapoints().forEach( 
+	            		gPoint -> {
+	            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
+	            				.forEach(
+		            				sPoint -> {
+		            					gPoint.setY( gPoint.getY() - sPoint.getY() );
+		            				}
+		            			);
+	            		});
+            	}
+            	catch( NoSuchElementException noEm ) {
+            		logger.info( "The query either did not contain an SSD element, or one was not found.  Calculations will not include it." );
+            	}
+            	
+            	calculatedList.add( getAverageIOPs( series ) );
+            	calculatedList.addAll( getTieringPercentage( series ) );
+            	
+            } else {
+            	
+                // individual stats
+                query.getSeriesType()
+                     .stream()
+                     .forEach( ( m ) ->
+                         series.addAll( otherQueries( originated,
+                                                      m ) ) );
             }
+
+            if( !series.isEmpty() ) {
+            	
+                series.forEach( ( s ) -> {
+                	
+                	// if the datapoints set is null, don't try to sort it.  Leave it alone
+                	if ( s.getDatapoints() != null && !s.getDatapoints().isEmpty() ) {
+                		new DatapointHelper().sortByX( s.getDatapoints() );
+                	}
+                });
+                stats.setSeries( series );
+            }
+
+            if( !calculatedList.isEmpty() ) {
+                stats.setCalculated( calculatedList );
+            }
+
         }
 
         return stats;

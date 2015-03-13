@@ -20,6 +20,8 @@ import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.repository.EventRepository;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.FirebreakQueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
@@ -85,12 +87,10 @@ public class FirebreakHelper extends QueryHelper {
     	final List<Series> series = new ArrayList<Series>();
     	final List<Calculated> calculated = new ArrayList<Calculated>();
     	
-    	EntityManager em = getRepo().newEntityManager();
-    	
     	query.setContexts( validateContextList( query, authorizer, token ) );
     	
-        final List<VolumeDatapoint> queryResults =
-        	new MetricCriteriaQueryBuilder( em ).searchFor( query ).resultsList();
+    	MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+        final List<VolumeDatapoint> queryResults = repo.query( query );
         
         try
         {
@@ -172,9 +172,7 @@ public class FirebreakHelper extends QueryHelper {
         	
 	    } catch (TException e) {
 			e.printStackTrace();
-		} finally {
-	    	em.close();
-	    }
+		}
     	
     	return stats;
     }

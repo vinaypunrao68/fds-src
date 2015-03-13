@@ -5,6 +5,7 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.crud.AbstractRepository;
+
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Database;
@@ -69,6 +70,14 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     public static final String CP_CRED = "om.repository.cred";
     public static final String CP_DBNAME = "om.repository.db";
 
+    public static final String TIMESTAMP_COLUMN_NAME = "time";
+    
+    protected static final String SELECT = "select";
+    protected static final String FROM = "from";
+    protected static final String WHERE = "where";
+    protected static final String AND = "and";
+    protected static final String OR = "or";
+    
     private final String url;
     private final String adminUser;
 
@@ -157,5 +166,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         return true;
     }
 
-
+    public String getTimestampColumnName() {
+        return TIMESTAMP_COLUMN_NAME;
+    }
 }
