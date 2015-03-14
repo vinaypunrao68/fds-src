@@ -18,6 +18,7 @@ struct FakeSvc;
 struct FakeSvcDomain;
 
 struct FakeSvcDomain {
+    FakeSvcDomain(const std::string &configFile);
     virtual void registerService(const fpi::SvcInfo &svcInfo) = 0;
 
     virtual void getSvcMap(std::vector<fpi::SvcInfo> &svcMap);
@@ -56,6 +57,7 @@ struct FakeSvcDomain {
     static int PMPORT_BASE;
     static fpi::SvcUuid INVALID_SVCUUID;
 
+    std::string configFile_;
     std::vector<fpi::SvcInfo> svcMap_;
     std::vector<FakeSvc*> svcs_;
 };
@@ -70,7 +72,7 @@ fpi::SvcUuid FakeSvcDomain::INVALID_SVCUUID;
 * space.  All the communication is synchronous.
 */
 struct FakeSyncSvcDomain : FakeSvcDomain {
-    FakeSyncSvcDomain(int numSvcs);
+    FakeSyncSvcDomain(int numSvcs, const std::string &configFile);
     ~FakeSyncSvcDomain();
 
     virtual void registerService(const fpi::SvcInfo &svcInfo) override;
@@ -93,6 +95,10 @@ struct FakeSvc : SvcProcess {
  protected:
     FakeSvcDomain *domain_;
 };
+
+FakeSvcDomain::FakeSvcDomain(const std::string &configFile) {
+    configFile_ = configFile;
+}
 
 void FakeSvcDomain::getSvcMap(std::vector<fpi::SvcInfo> &svcMap) {
     svcMap = svcMap_;
@@ -169,7 +175,9 @@ void FakeSvcDomain::sendGetStatusQuorumSvcRequest(int srcIdx, const std::vector<
     asyncReq->invoke();
 }
 
-FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs) {
+FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs, const std::string &configFile)
+: FakeSvcDomain(configFile)
+{
     INVALID_SVCUUID.svc_uuid = PMUUID_BASE - 1;
 
     /* Create svc mgr instances */
@@ -177,7 +185,7 @@ FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs) {
     for (uint32_t i = 0; i < svcs_.size(); i++) {
         auto uuid = getFakeSvcUuid(i);
         auto port = getFakeSvcPort(i);
-        svcs_[i] = new FakeSvc(this, "/fds/etc/platform.conf", uuid.svc_uuid, port);
+        svcs_[i] = new FakeSvc(this, configFile_, uuid.svc_uuid, port);
     }
 }
 
@@ -211,7 +219,7 @@ void FakeSyncSvcDomain::spawn(int idx) {
      * NOTE: The registration, updating service map, and propagating around the
      * domain takes place synchronously
      */
-    svcs_[idx] = new FakeSvc(this, "/fds/etc/platform.conf",
+    svcs_[idx] = new FakeSvc(this, configFile_,
                              getFakeSvcUuid(idx).svc_uuid,
                              getFakeSvcPort(idx));
 }
