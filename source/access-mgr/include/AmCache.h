@@ -36,14 +36,14 @@ class AmCache {
      * Creates cache structures for the volume described
      * in the volume descriptor.
      */
-    Error addVolume(const VolumeDesc& volDesc);
+    Error registerVolume(fds_volid_t const volDesc);
 
     /**
      * Removes volume cache for the volume.
      * Any dirty entries must be flushed back to persistent
      * storage prior to removal, otherwise they will be lost.
      */
-    Error removeVolume(fds_volid_t volId);
+    Error removeVolume(fds_volid_t const volId);
 
     /**
      * Retrieves blob descriptor from cache for given volume

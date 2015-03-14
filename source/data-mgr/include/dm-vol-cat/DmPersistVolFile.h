@@ -53,6 +53,8 @@ class DmPersistVolFile : public HasLogger, public DmPersistVolCat {
             fds_uint64_t endOffset, BlobObjList & objList) override;
 
     // puts
+    virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
+
     virtual Error putBlobMetaDesc(const std::string & blobName,
             const BlobMetaDesc & blobMeta) override;
 

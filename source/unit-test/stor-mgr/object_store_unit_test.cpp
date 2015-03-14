@@ -11,6 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <fdsp/sm_types_types.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
 #include <fds_types.h>
@@ -293,7 +294,7 @@ initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg) {
     msg.objectSize = 0;
 
     // init
-    MetaDataVolumeAssoc volAssoc;
+    fpi::MetaDataVolumeAssoc volAssoc;
     volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
     volAssoc.volumeRefCnt = 1;
     msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
@@ -417,7 +418,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
         EXPECT_TRUE(err.ok());
 
         // add new volume association
-        MetaDataVolumeAssoc volAssoc2;
+        fpi::MetaDataVolumeAssoc volAssoc2;
         volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID;
         volAssoc2.volumeRefCnt = 3;
         msg.objectRefCnt = 3;

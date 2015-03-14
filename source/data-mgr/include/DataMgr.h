@@ -228,6 +228,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
                 case FDS_STAT_VOLUME:
+                case FDS_SET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
@@ -262,8 +263,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     std::string  stor_prefix;   /* String prefix to make file unique */
     fds_uint32_t  scheduleRate;
     fds_bool_t   standalone;    /* Whether to bootstrap from OM */
-    std::string  omIpStr;       /* IP addr of the OM used to bootstrap */
-    fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
 
     std::string myIp;
 

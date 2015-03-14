@@ -383,7 +383,7 @@ class OM_AmContainer : public OM_AgentContainer
     }
   protected:
     virtual Resource *rs_new(const ResourceUUID &uuid) {
-        return new OM_AmAgent(uuid, fpi::FDSP_STOR_HVISOR);
+        return new OM_AmAgent(uuid, fpi::FDSP_ACCESS_MGR);
     }
 };
 
@@ -680,7 +680,7 @@ class OM_NodeDomainMod : public Module
     }
     inline OM_NodeAgent::pointer om_all_agent(const NodeUuid &uuid) {
         switch (uuid.uuid_get_val() & 0x0F) {
-        case FDSP_STOR_HVISOR:
+        case FDSP_ACCESS_MGR:
             return om_am_agent(uuid);
         case FDSP_STOR_MGR:
             return om_sm_agent(uuid);

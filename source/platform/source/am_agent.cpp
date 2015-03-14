@@ -17,7 +17,7 @@ namespace fds
 
     AmAgent::AmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
     {
-        node_svc_type = fpi::FDSP_STOR_HVISOR;
+        node_svc_type = fpi::FDSP_ACCESS_MGR;
 #if 0
         am_ep_svc     = Platform::platf_singleton()->plat_new_am_svc(this, 0, 0);
         NetMgr::ep_mgr_singleton()->ep_register(am_ep_svc, false);

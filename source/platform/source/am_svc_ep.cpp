@@ -19,7 +19,7 @@ namespace fds
 
     AmSvcEp::AmSvcEp(NodeAgent::pointer agent, fds_uint32_t maj, fds_uint32_t min,
                      NodeAgentEvt::pointer plugin) : EpSvc(agent->get_uuid(),
-                                                           fpi::FDSP_STOR_HVISOR)
+                                                           fpi::FDSP_ACCESS_MGR)
     {
         ep_set_plugin(plugin);
     }

@@ -364,7 +364,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         // get a list of the services so we can use their counts
         List<Service> oms = byService.get(ManagerType.FDSP_ORCH_MGR);
-        List<Service> ams = byService.get(ManagerType.FDSP_STOR_HVISOR);
+        List<Service> ams = byService.get(ManagerType.FDSP_ACCESS_MGR);
         List<Service> pms = byService.get(ManagerType.FDSP_PLATFORM);
         List<Service> dms = byService.get(ManagerType.FDSP_DATA_MGR);
         List<Service> sms = byService.get(ManagerType.FDSP_STOR_MGR);

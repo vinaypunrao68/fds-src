@@ -82,6 +82,11 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
     }
 
     @Override
+    public void setVolumeMetadataResponse(RequestId requestId) throws TException {
+        complete(requestId, null);
+    }
+
+    @Override
     public void statBlobResponse(RequestId requestId, BlobDescriptor blobDescriptor) throws TException {
         complete(requestId, blobDescriptor);
     }

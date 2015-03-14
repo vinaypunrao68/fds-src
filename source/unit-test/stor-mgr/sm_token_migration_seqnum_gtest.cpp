@@ -175,11 +175,13 @@ randomSequenceTest()
 
     shuffle(seqArr.begin(), seqArr.end(), std::default_random_engine(seed));
 
+#ifdef VERBOSE_OUTPUT
     std::cout << "Sequence: ";
     for (int& x : seqArr) {
         std::cout << ' ' << x;
     }
     std::cout << '\n';
+#endif  // VERBOSE_OUTPUT
 
     bool trueSet = false;
     for (int& x : seqArr) {
@@ -273,6 +275,7 @@ randomDoubleSequenceTest()
     /* use different seed to shuffle second sequence */
     shuffle(seqArr2.begin(), seqArr2.end(), std::default_random_engine(seed ^ 0xffffffff));
 
+#ifdef VERBOSE_OUTPUT
     std::cout << "Sequence Arr1: ";
     for (int& x : seqArr1) {
         std::cout << ' ' << x;
@@ -284,6 +287,7 @@ randomDoubleSequenceTest()
         std::cout << ' ' << x;
     }
     std::cout << '\n';
+#endif  // VERBOSE_OUTPUT
 
     for (int& seqNum1 : seqArr1) {
         for (int& seqNum2 : seqArr2) {
