@@ -4,8 +4,10 @@
 
 package com.formationds.om.webkit.rest.metrics;
 
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -14,11 +16,13 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.google.gson.reflect.TypeToken;
 
+
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -53,7 +57,20 @@ public class IngestVolumeStats
     try (final Reader reader =
              new InputStreamReader(request.getInputStream(), "UTF-8")) {
 
-      final List<VolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject(reader, TYPE);
+      final List<IVolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject(reader, TYPE);
+      
+      volumeDatapoints.forEach( vdp -> {
+    	  long volid;
+    	  
+    	  try {
+    		  volid = SingletonConfigAPI.instance().api().getVolumeId( vdp.getVolumeName() );
+    	  } catch (Exception e) {
+    		  throw new IllegalStateException( "Volume does not have an ID associated with the name." );
+    	  }
+    	  
+          vdp.setVolumeId( String.valueOf( volid ) );    	  
+      });
+
       SingletonRepositoryManager.instance().getMetricsRepository().save(volumeDatapoints);
     }
 

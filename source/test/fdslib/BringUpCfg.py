@@ -324,32 +324,39 @@ class FdsNodeConfig(FdsConfig):
         else:
             port = 7000  # PM default.
 
-        fds_dir = om_node.nd_conf_dict['fds_root']
-
         # From the --list-services output we can determine node name
         # and node UUID.
-        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root=%s --list-services) \"' % (fds_dir),
-                                                 return_stdin=True,
-                                                 fds_bin=True)
+        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain listServices local) \"',
+                                                    return_stdin=True,
+                                                    fds_tools=True)
 
         # Figure out the platform uuid.  Platform has 'pm' as the name
         # port should match the read port from fdscli --list-services output
         if status == 0:
             for line in stdout.split('\n'):
-                if line.count("Node UUID") > 0:
-                    assigned_uuid = line.split()[2]
-                if line.count("IPv4") > 0:
-                    ipad = line.split()[1]
-                    hostName = socket.gethostbyaddr(ipad)[0]
-                    ourIP = (ipad == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
-                if line.count("Name") > 0:
-                    assigned_name = line.split()[1]
-                if line.count("Data") > 0:
-                    readPort = (int(line.split()[2]))
-                    if assigned_name == 'pm' and readPort == int(port):
-                        self.nd_assigned_name = assigned_name
-                        self.nd_uuid = assigned_uuid
-                        break
+                # Skip fdsconsole banners and output headers.
+                if not line.startswith('0x'):
+                    continue
+
+                # Output has one row per Service with these columns in this order:
+                # node_uuid, node_root, node_id, IPv4, IPv6, service_name, service_type, service_uuid,
+                # service_state, control_port, data_port, migration_port, metasync_port
+                #
+                # But "node_root" currently (3/25/2015) has no output. Hence, the "-1" everywhere below.
+                #
+                # We want the rows where the service_name is "pm".
+                if line.split()[5-1] == "pm":
+                    # Now make sure this is the PM row for our host and port.
+                    try:
+                        hostName = socket.gethostbyaddr(line.split()[3-1])[0]
+                    except:
+                        hostName = None
+
+                    if (line.split()[3-1] == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"]):
+                        if (int(line.split()[10-1]) == int(port)):
+                            self.nd_assigned_name = line.split()[5-1]
+                            self.nd_uuid = line.split()[0]  # No "-1" here!
+                            break
 
             if (self.nd_uuid is None):
                 log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])

@@ -16,8 +16,15 @@
 				"config" : ""
 			},
 			{
-				"name" : "Test100GBVolume",
-				"file" : "test_100gb_volume.py",
+				"name" : "Test100GBBlockVolume",
+				"file" : "test_100gb_block_volume.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "Test100GBS3Bucket",
+				"file" : "test_100gb_s3_bucket.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""

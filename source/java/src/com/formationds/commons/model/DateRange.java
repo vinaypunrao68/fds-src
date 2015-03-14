@@ -13,6 +13,7 @@ public class DateRange
   extends ModelBase {
   private static final long serialVersionUID = -7728219218469818163L;
 
+  	// TIMES ARE IN SECONDS WHEN USED WITH STATS QUERY
     private Long start;
     private Long end;
 
@@ -24,6 +25,8 @@ public class DateRange
   }
 
     /**
+     * If using with the stats query API please use seconds
+     * 
     * @param start Returns the {@link Long} representing the starting timestamp
     */
     public void setStart( final Long start ) {
@@ -38,6 +41,8 @@ public class DateRange
     }
 
     /**
+     * If using with the stats api please use seconds
+     * 
     * @param end Returns the {@link Long} representing the endind timestamp
     */
     public void setEnd( final Long end ) {

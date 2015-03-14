@@ -61,7 +61,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     // stubs to keep cpp compiler happy - BEGIN
     int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
     void listLocalDomains(std::vector<LocalDomain> & _return, const int32_t ignore) {}
-    void listServices(std::vector<FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
+    void updateLocalDomainName(const std::string& oldDomainName, const std::string& newDomainName) {}
+    void updateLocalDomainSite(const std::string& domainName, const std::string& newSiteName) {}
+    void setThrottle(const std::string& domainName, const double throttleLevel) {}
+    void setScavenger(const std::string& domainName, const std::string& scavengerAction) {}
+    void shutdownLocalDomain(const std::string& domainName) {}
+    void deleteLocalDomain(const std::string& domainName) {}
+    void activateLocalDomainServices(const std::string& domainName) {}
+    void listLocalDomainServices(std::vector<FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
+    void removeLocalDomainServices(const std::string& domainName) {}
     int64_t createTenant(const std::string& identifier) { return 0;}
     void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
     int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
@@ -94,6 +102,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     // stubs to keep cpp compiler happy - END
 
+    /**
+    * Create a Local Domain.
+    *
+    * @param domainName - Name of the new Local Domain. Must be unique within Global Domain.
+    * @param domainSite - Name of the new Local Domain's site.
+    *
+    * @return int64_t - ID of the newly created Local Domain.
+    */
     int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& domainSite) {
         int64_t id = configDB->createLocalDomain(*domainName, *domainSite);
         if (id <= 0) {
@@ -106,11 +122,192 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         return id;
     }
 
+    /**
+    * List the currently defined Local Domains.
+    *
+    * @param _return - Output vecotor of current Local Domains.
+    *
+    * @return void.
+    */
     void listLocalDomains(std::vector<LocalDomain>& _return, boost::shared_ptr<int32_t>& ignore) {
         configDB->listLocalDomains(_return);
     }
 
-    void listServices(std::vector<FDSP_Node_Info_Type>& _return, boost::shared_ptr<std::string>& domainName) {
+    /**
+    * Rename the given Local Domain.
+    *
+    * @param oldDomainName - Current name of the Local Domain.
+    * @param newDomainName - New name of the Local Domain.
+    *
+    * @return void.
+    */
+    void updateLocalDomainName(boost::shared_ptr<std::string>& oldDomainName, boost::shared_ptr<std::string>& newDomainName) {
+        apiException("updateLocalDomainName not implemented.");
+    }
+
+    /**
+    * Rename the given Local Domain's site.
+    *
+    * @param domainName - Name of the Local Domain whose site is to be changed.
+    * @param newSiteName - New name of the Local Domain's site.
+    *
+    * @return void.
+    */
+    void updateLocalDomainSite(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& newSiteName) {
+        apiException("updateLocalDomainSite not implemented.");
+    }
+
+    /**
+    * Set the throttle level of the given Local Domain.
+    *
+    * @param domainName - Name of the Local Domain whose throttle level is to be set.
+    * @param throtleLevel - New throttel level for the Local Domain.
+    *
+    * @return void.
+    */
+    void setThrottle(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<double>& throttleLevel) {
+        try {
+            assert((*throttleLevel >= -10) &&
+                    (*throttleLevel <= 10));
+
+            /*
+             * Currently (3/21/2015) we only have support for one Local Domain. So the specified name is ignored.
+             * At some point we should be able to look up the DomainContainer based on Domain ID (or name).
+             */
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+            local->om_set_throttle_lvl(static_cast<float>(*throttleLevel));
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                            << "processing set throttle level";
+            apiException("setThrottle caused exception.");
+        }
+    }
+
+    /**
+    * Set the given Local Domain's scavenger action.
+    *
+    * @param domainName - Name of the Local Domain whose scavenger action is to be set.
+    * @param scavengerAction - New scavenger action for the Local Domain. One of "enable", "disable", "start", "stop".
+    *
+    * @return void.
+    */
+    void setScavenger(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& scavengerAction) {
+        FDSP_ScavengerCmd cmd;
+
+        if (*scavengerAction == "enable") {
+            cmd = FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE;
+            LOGNOTIFY << "Received scavenger enable command";
+        } else if (*scavengerAction == "disable") {
+            cmd = FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE;
+            LOGNOTIFY << "Received scavenger disable command";
+        } else if (*scavengerAction == "start") {
+            cmd =FDS_ProtocolInterface::FDSP_SCAVENGER_START;
+            LOGNOTIFY << "Received scavenger start command";
+        } else if (*scavengerAction == "stop") {
+            cmd =FDS_ProtocolInterface::FDSP_SCAVENGER_STOP;
+            LOGNOTIFY << "Received scavenger stop command";
+        } else {
+            apiException("Unrecognized scavenger action: " + *scavengerAction);
+        };
+
+        /*
+         * Currently (3/21/2015) we only have support for one Local Domain. So the specified name is ignored.
+         * At some point we should be able to look up the DomainContainer based on Domain ID (or name).
+         */
+        // send scavenger start message to all SMs
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        local->om_bcast_scavenger_cmd(cmd);
+    }
+
+    /**
+    * Shutdown the named Local Domain.
+    *
+    * @return void.
+    */
+    void shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
+        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+
+        if (domainID <= 0) {
+            LOGERROR << "Local Domain not found: " << domainName;
+            apiException("Error shutting down Local Domain " + *domainName + ". Local Domain not found.");
+        }
+
+        /*
+         * Currently (3/21/2015) we only have support for one Local Domain. So the specified name is ignored.
+         * At some point we should be able to look up the DomainContainer based on Domain ID (or name).
+         */
+
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+        try {
+            LOGNORMAL << "Received shutdown for Local Domain " << domainName;
+
+            domain->om_shutdown_domain();
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                            << "processing shutdown local domain";
+            apiException("Error shutting down Local Domain " + *domainName + " Services. Broadcast shutdown failed.");
+        }
+
+    }
+
+    /**
+    * Delete the Local Domain.
+    *
+    * @param domainName - Name of the Local Domain to be deleted.
+    *
+    * @return void.
+    */
+    void deleteLocalDomain(boost::shared_ptr<std::string>& domainName) {
+        apiException("deleteLocalDomain not implemented.");
+    }
+
+    /**
+    * Activate all defined Services for all Nodes defined for the named Local Domain.
+    *
+    * @param domainName - Name of the Local Domain whose services are to be activated.
+    *
+    * @return void.
+    */
+    void activateLocalDomainServices(boost::shared_ptr<std::string>& domainName) {
+        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+
+        if (domainID <= 0) {
+            LOGERROR << "Local Domain not found: " << domainName;
+            apiException("Error activating Local Domain " + *domainName + " Services. Local Domain not found.");
+        }
+
+        /*
+         * Currently (3/21/2015) we only have support for one Local Domain. So the specified name is ignored.
+         * At some point we should be able to look up the DomainContainer based on Domain ID (or name).
+         */
+
+        OM_NodeContainer *localDomain = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+        try {
+            LOGNORMAL << "Received activate services for Local Domain " << domainName;
+
+            localDomain->om_cond_bcast_activate_services();
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                            << "processing activate all node services";
+            apiException("Error activating Local Domain " + *domainName + " Services. Broadcast activate services failed.");
+        }
+
+    }
+
+    /**
+    * List all defined Services for all Nodes defined for the named Local Domain.
+    *
+    * @param _return - Output vector of Services.
+    * @param domainName - Name of the Local Domain whose services are to be activated.
+    *
+    * @return void.
+    */
+    void listLocalDomainServices(std::vector<FDSP_Node_Info_Type>& _return, boost::shared_ptr<std::string>& domainName) {
         // Currently (3/18/2015) only support for one Local Domain. So the specified name is ignored.
         // The following from FDSP_ConfigPathReqHandler::ListServices;
 
@@ -124,6 +321,41 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
         local->om_pm_nodes()->
                 agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
+    }
+
+    /**
+    * Remove all defined Services from all Nodes defined for the named Local Domain.
+    *
+    * @param domainName - Name of the Local Domain whose services are to be removed.
+    *
+    * @return void.
+    */
+    void removeLocalDomainServices(boost::shared_ptr<std::string>& domainName) {
+        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+
+        if (domainID <= 0) {
+            LOGERROR << "Local Domain not found: " << domainName;
+            apiException("Error removing Local Domain " + *domainName + " Services. Local Domain not found.");
+        }
+
+        /*
+         * Currently (3/21/2015) we only have support for one Local Domain. So the specified name is ignored.
+         * At some point we should be able to look up the DomainContainer based on Domain ID (or name).
+         */
+
+        OM_NodeContainer *localDomain = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+        try {
+            LOGNORMAL << "Received remove services for Local Domain " << domainName;
+
+            localDomain->om_cond_bcast_remove_services();
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                            << "processing remove all node services";
+            apiException("Error removing Local Domain " + *domainName + " Services. Broadcast remove services failed.");
+        }
+
     }
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {

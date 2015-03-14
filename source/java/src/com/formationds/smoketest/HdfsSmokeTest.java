@@ -25,6 +25,8 @@ import static org.junit.Assert.*;
 @Ignore
 public class HdfsSmokeTest {
     private final int OBJECT_SIZE = 1024 * 1024 * 2;
+    private final int amResponsePortOffset = 2876;
+    private final int amServicePortOffset = 2988;
     private FdsFileSystem fileSystem;
 
     private static boolean isIntegrationTest() {
@@ -341,12 +343,14 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-        XdiClientFactory xdiCf = new XdiClientFactory();
+	Integer pmPort = 7000;
+
+        XdiClientFactory xdiCf = new XdiClientFactory(pmPort + amResponsePortOffset);
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 
         ConfigurationService.Iface cs = xdiCf.remoteOmService(host, 9090);
-        XdiService.Iface am = xdiCf.remoteAmService(host, 9988);
+        XdiService.Iface am = xdiCf.remoteAmService(host, pmPort + amServicePortOffset);
 
         String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
         String userName = "hdfs-user-" + UUID.randomUUID().toString();

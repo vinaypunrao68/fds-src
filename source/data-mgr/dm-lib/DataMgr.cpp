@@ -115,10 +115,10 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
 
     // collect capacity stats for volumes for which this DM is primary
     for (cit = prim_vols.cbegin(); cit != prim_vols.cend(); ++cit) {
-        err = timeVolCat_->queryIface()->getVolumeMeta(*cit,
-                                                       &total_bytes,
-                                                       &total_blobs,
-                                                       &total_objects);
+        err = timeVolCat_->queryIface()->statVolume(*cit,
+                                                    &total_bytes,
+                                                    &total_blobs,
+                                                    &total_objects);
         if (!err.ok()) {
             LOGERROR << "Failed to get volume meta for vol " << std::hex
                      << *cit << std::dec << " " << err;
@@ -888,7 +888,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
-    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
+    handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
     new dm::ReloadVolumeHandler();
 }
 

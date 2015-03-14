@@ -37,8 +37,6 @@ class TestVolumeCreate(TestCase.FDSTestCase):
 
         # Currently, all volumes are created using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_tools_dir()
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
@@ -71,14 +69,9 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             self.log.info("Create volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(sbin_dir)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py accesslevel debug && nohup ./fdsconsole.py %s > '
-                                          '%s/cli.out 2>&1 &) \"' %
-                                          (cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > %s/cli.out 2>&1 &) \"' %
+                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Volume %s creation on %s returned status %d." %
@@ -112,8 +105,6 @@ class TestVolumeAttach(TestCase.FDSTestCase):
 
         # Currently, all volumes are attached using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_tools_dir()
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
@@ -129,14 +120,9 @@ class TestVolumeAttach(TestCase.FDSTestCase):
             self.log.info("Attach volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(sbin_dir)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./nbdadm.py  %s > '
-                                          '%s/nbdadm.out 2>&1 &) \"' %
-                                          (cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./nbdadm.py  %s > %s/nbdadm.out 2>&1 &) \"' %
+                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Attach volume %s on %s returned status %d." %
@@ -170,8 +156,6 @@ class TestVolumeDelete(TestCase.FDSTestCase):
 
         # Currently, all volumes are attached using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_tools_dir()
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
@@ -186,14 +170,9 @@ class TestVolumeDelete(TestCase.FDSTestCase):
             self.log.info("Delete volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(sbin_dir)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py accesslevel debug && ./fdsconsole.py %s > '
-                                          '%s/cli.out 2>&1) \"' %
-                                          (cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > %s/cli.out 2>&1) \"' %
+                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Delete volume %s on %s returned status %d." %

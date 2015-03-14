@@ -5,7 +5,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  :=
 
 user_hh           := $(wildcard *.h)
-user_cc           := ngx_modules.c
+user_cc           :=
 user_cpp          := \
     dm_mod_gtest.cpp  \
     sldmperf_gtest.cpp
@@ -15,7 +15,7 @@ user_bin_exe      := \
     dm_mod_gtest     \
     sldmperf_gtest
 
-dm_mod_gtest      := dm_mod_gtest.cpp ngx_modules.c
-sldmperf_gtest    := sldmperf_gtest.cpp ngx_modules.c
+dm_mod_gtest      := dm_mod_gtest.cpp
+sldmperf_gtest    := sldmperf_gtest.cpp
 
 include $(test_topdir)/Makefile.svc
