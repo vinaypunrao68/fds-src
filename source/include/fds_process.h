@@ -138,10 +138,6 @@ class FdsProcess : public boost::noncopyable,
      */
     virtual void shutdown_modules();
 
-    void daemonize();
-
-    void closeAllFDs();
-
     /**
      * Handler function for Ctrl+c like signals.  Default implementation
      * just calls exit(0).
@@ -188,6 +184,24 @@ class FdsProcess : public boost::noncopyable,
     }
 
     virtual util::Properties* getProperties();
+
+    /**
+    * @brief Based on arg '--daemonize' is specified daemonizes the process
+    *
+    * @param argc
+    * @param argv[]
+    */
+    static void checkAndDaemonize(int argc, char *argv[]);
+
+    /**
+    * @brief Daemonize the process
+    */
+    static void daemonize();
+
+    /**
+    * @brief Close all fds.  Redirect standards streams to /dev/null
+    */
+    static void closeAllFDs();
 
 
  protected:

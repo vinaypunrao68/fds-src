@@ -20,8 +20,6 @@ class PlatformMain : public SvcProcess {
     PlatformMain(int argc, char *argv[]) {
         platform = new fds::pm::PlatformManager();
 
-        closeAllFDs();
-
         auto handler = boost::make_shared<fds::pm::SvcHandler>(this, platform);
         auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
         init(argc, argv, "platform.conf", "fds.pm.", "pm.log",
@@ -53,7 +51,10 @@ class PlatformMain : public SvcProcess {
 };
 } // namespace fds
 
-int main(int argc, char **argv) {
+int main(int argc, char *argv[]) {
+    /* Based on command line arg --daemonize is set, deamonize the process */
+    fds::FdsProcess::checkAndDaemonize(argc, argv);
+
     auto pmMain = new fds::PlatformMain(argc, argv);
     auto ret = pmMain->main();
     delete pmMain;
