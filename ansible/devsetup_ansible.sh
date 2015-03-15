@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 ### README ###
 #   This is only a helper script to quell parallel executions of the devsetup Ansible playbook
@@ -23,7 +23,7 @@ case $? in
     0)
         if [ ! -f /usr/local/bin/ansible-playbook ]; then
             sudo apt-get install -y --force-yes python-pip python-dev
-            sudo pip install -q ansible
+            sudo -H pip install ansible
         fi
 
         rm -f ${script_dir}/.devsetup-is-up-to-date
@@ -31,7 +31,7 @@ case $? in
         # Construct the collection of ansible args
 
         ansible_args="--inventory ${script_dir}/inventory/devsetup-inventory.sh --connection local 
-                      ${script_dir}/playbooks/devsetup.yml"
+                      ${script_dir}/playbooks/devsetup.yml -vvv"
 
         [[ -d ~/.ansible ]] && sudo chmod -R a+w ~/.ansible
         sudo ansible-playbook ${ansible_args}

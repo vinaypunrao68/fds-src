@@ -34,7 +34,7 @@ FDSTEST_ROOT=/fds-test
 run_from_install_dir=0
 
 source ${TOOLSDIR}/loghelper.sh
-init_loghelper /tmp/fds_tool.log
+init_loghelper /tmp/fds_tool.${UID}.log
 ########################################################################
 
 REDIS_ARG=
