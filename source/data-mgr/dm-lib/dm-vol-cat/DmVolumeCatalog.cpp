@@ -266,6 +266,29 @@ Error DmVolumeCatalog::setVolumeMetadata(fds_volid_t volId,
     return vol->putVolumeMetaDesc(volMetaDesc);
 }
 
+Error DmVolumeCatalog::getVolumeMetadata(fds_volid_t volId,
+                                         fpi::FDSP_MetaDataList &metadataList) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    VolumeMetaDesc volMetaDesc(metadataList);
+    Error rc = vol->getVolumeMetaDesc(volMetaDesc);
+    if (!rc.ok()) {
+        LOGERROR << "Unable to get metadata for volume " << volId << ", " << rc;
+        return rc;
+    }
+
+    // Put key-value pairs into type to return
+    fpi::FDSP_MetaDataPair metadataPair;
+    for (const auto & it : volMetaDesc.meta_list) {
+        metadataPair.key   = it.first;
+        metadataPair.value = it.second;
+        metadataList.push_back(metadataPair);
+    }
+
+    return rc;
+}
+
 Error DmVolumeCatalog::getVolumeObjects(fds_volid_t volId, std::set<ObjectID> & objIds) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();

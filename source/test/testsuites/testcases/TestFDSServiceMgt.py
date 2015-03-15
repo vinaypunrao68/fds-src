@@ -495,10 +495,9 @@ class TestDMActivate(TestCase.FDSTestCase):
         if self.passedNode is None:
             self.log.info("Activate domain DMs from OM node %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e dm > '
-                                                '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, log_dir),
-                                                fds_bin=True)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local dm > '
+                                                '{}/fdsconsole.out 2>&1) \"'.format(log_dir),
+                                                fds_tools=True)
         else:
             node = self.passedNode
 
@@ -855,10 +854,9 @@ class TestSMActivate(TestCase.FDSTestCase):
         if self.passedNode is None:
             self.log.info("Activate domain SMs from OM node %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e sm > '
-                                                '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, log_dir),
-                                                fds_bin=True)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local sm > '
+                                                '{}/fdsconsole.out 2>&1) \"'.format(log_dir),
+                                                fds_tools=True)
         else:
             node = self.passedNode
 
@@ -1369,7 +1367,7 @@ class TestPMForOMWait(TestCase.FDSTestCase):
             # Make sure it wasn't the target of a random kill
             if (om_node, "pm") in self.parameters.get('svc_killed', []):
                 self.log.warning("PM service for node {} previous"
-                                 "killed by random svc kill test. PASSING test.".format(n.nd_conf_dict['node-name']))
+                                 "killed by random svc kill test. PASSING test.".format(om_node.nd_conf_dict['node-name']))
                 return True
 
             self.log.info("Wait for PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
@@ -1556,7 +1554,7 @@ class TestOMWait(TestCase.FDSTestCase):
             # Make sure it wasn't the target of a random kill
             if (om_node, "om") in self.parameters.get('svc_killed', []):
                 self.log.warning("OM service for node {} previous"
-                                 "killed by random svc kill test. PASSING test!".format(n.nd_conf_dict['node-name']))
+                                 "killed by random svc kill test. PASSING test!".format(om_node.nd_conf_dict['node-name']))
                 return True
 
             self.log.info("Wait for OM on %s." % om_node.nd_conf_dict['node-name'])
@@ -1611,7 +1609,8 @@ class TestOMKill(TestCase.FDSTestCase):
 
             # Probably we get the -9 return because pkill for a java process will
             # not find it based on the class name alone. See getSvcPIDforNode().
-            if (status != -9) and (status != 0):
+            # For a remote install, a failed kill (because its already dead) returns 1.
+            if (status != -9) and (status != 0) and (om_node.nd_agent.env_install and status != 1):
                 self.log.error("OM (com.formationds.om.Main) kill on %s returned status %d." %
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
@@ -1765,10 +1764,9 @@ class TestAMActivate(TestCase.FDSTestCase):
         if self.passedNode is None:
             self.log.info("Activate domain AMs from OM node %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e am > '
-                                                '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, log_dir),
-                                                fds_bin=True)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local am > '
+                                                '{}/cli.out 2>&1) \"'.format(log_dir),
+                                                fds_tools=True)
         else:
             node = self.passedNode
 

@@ -159,9 +159,12 @@ function startApp() {
     # start influxdb if needed
     case "$appname" in
         om|all|influx*)
-            pid=$(pgrep -f influxdb)
-            if [ $? == 1 ]; then
-                sudo service influxdb start
+            sudo service influxdb status 2>&1 >> /dev/null
+            if [ $? != 0 ]; then
+                sudo service influxdb start 2>&1 >> /dev/null
+                if [ $? != 0 ]; then
+                    logwarn "Failed to start InfluxDB"
+                fi
             fi
             ;;
     esac
@@ -202,9 +205,12 @@ function stopApp() {
 
     case "$appname" in 
         om|all|influx*)
-            pid=$(pgrep -f influxdb)
+            sudo service influxdb status 2>&1 >> /dev/null
             if [ $? == 0 ]; then
-                sudo service influxdb stop
+                sudo service influxdb stop 2>&1 >> /dev/null
+                if [ $? != 0 ]; then
+                    logwarn "Failed to stop InfluxDB"
+                fi
             fi
             ;;
     esac
@@ -230,7 +236,7 @@ function statusApp() {
 #    echo "====================================================================================="
 #    echo "=    This feature is deprecated, please use fdsadmin --status (or --process-status) ="
 #    echo "====================================================================================="
-    
+
     # the header
     echo "$(yellow app: $(ps u --pid 1000000 | awk '{for(i=1;i<12;i++) printf("\t%s",$i) }'))"
 
@@ -262,7 +268,12 @@ function statusApp() {
 
     case "$appname" in 
         om|all|influx*)
-            sudo service influxdb status
+            sudo service influxdb status 2>&1 >> /dev/null
+            if [ $? == 0 ]; then
+                echo "$(boldblue influxdb) : $(green RUNNING)"
+            else 
+                echo "$(boldblue influxdb) : $(yellow Not running)"
+            fi
             ;;
     esac
 }

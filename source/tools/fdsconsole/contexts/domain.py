@@ -127,13 +127,37 @@ class DomainContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('domain_name', help="Name of the Local Domain whose Services are to be activated.")
-    def activateServices(self, domain_name):
+    @arg('services', help="Optional comma-separated names of the Services to be activated. SM, DM, and/or AM. "
+                          "If not provided, all Services defined for any given Node in the Local Domain are "
+                          "activated. And in this case, if a Node has no defined Services, then all three "
+                          "will be activated.", default="", nargs="?")
+    def activateServices(self, domain_name, services):
         """
-        Activate the pre-defined Services on each node currently defined in the Local Domain.
-        How Services are pre-defined for a given Node is currently (3/20/2015) a mystery.
+        Activate the given or pre-defined Services on each node currently defined in the Local Domain.
+        How Services are pre-defined for a given Node is currently (3/20/2015) a mystery although one way to
+        do it might be to use the single-Node Service activation endpoint specifying those Services you wish
+        to be defined for the Node.
         """
+        sm = False
+        dm = False
+        am = False
+
+        # Which Services, if any, are specified?
+        if services != "":
+            service_list = services.split(",")
+            for service in service_list:
+                if service.lower() == "sm":
+                    sm = True
+                elif service.lower() == "dm":
+                    dm = True
+                elif service.lower() == "am":
+                    am = True
+                else:
+                    return "Services should appear as a comma-separated list of some combination of " \
+                           "SM, DM, and AM. {} is incorrect".format(services)
+
         try:
-            return self.restApi().activateLocalDomainServices(domain_name)
+            return self.restApi().activateLocalDomainServices(domain_name, sm, dm, am)
         except Exception, e:
             log.exception(e)
             return 'Unable to activate Services on Local Domain: {}'.format(domain_name)
@@ -155,13 +179,36 @@ class DomainContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('domain_name', help="Name of the Local Domain whose Services are to be removed.")
-    def removeServices(self, domain_name):
+    @arg('services', help="Optional comma-separated names of the Services to be removed. SM, DM, and/or AM. "
+                          "If not provided, all Services defined for any given Node in the Local Domain are "
+                          "removed.", default="", nargs="?")
+    def removeServices(self, domain_name, services):
         """
-        Remove the pre-defined Services on each node currently defined in the Local Domain.
-        How Services are pre-defined for a given Node is currently (3/20/2015) a mystery.
+        Remove the specified or pre-defined Services on each node currently defined in the Local Domain.
+        How Services are pre-defined for a given Node is currently (3/20/2015) a mystery although one way to
+        do it might be to use the single-Node Service activation endpoint specifying those Services you wish
+        to be defined for the Node.
         """
+        sm = False
+        dm = False
+        am = False
+
+        # Which Services, if any, are specified?
+        if services != "":
+            service_list = services.split(",")
+            for service in service_list:
+                if service.lower() == "sm":
+                    sm = True
+                elif service.lower() == "dm":
+                    dm = True
+                elif service.lower() == "am":
+                    am = True
+                else:
+                    return "Services should appear as a comma-separated list of some combination of " \
+                           "SM, DM, and AM. {} is incorrect".format(services)
+
         try:
-            return self.restApi().removeLocalDomainServices(domain_name)
+            return self.restApi().removeLocalDomainServices(domain_name, sm, dm, am)
         except Exception, e:
             log.exception(e)
             return 'Unable to remove Services from Local Domain: {}'.format(domain_name)
