@@ -52,7 +52,7 @@ class PlatformMain : public SvcProcess {
 } // namespace fds
 
 int main(int argc, char *argv[]) {
-    /* Based on command line arg --daemonize is set, deamonize the process */
+    /* Based on command line arg --foreground is set, don't daemonize the process */
     fds::FdsProcess::checkAndDaemonize(argc, argv);
 
     auto pmMain = new fds::PlatformMain(argc, argv);

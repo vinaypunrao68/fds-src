@@ -74,7 +74,7 @@ class SMMain : public SvcProcess
 
 int main(int argc, char *argv[])
 {
-    /* Based on command line arg --daemonize is set, deamonize the process */
+    /* Based on command line arg --foreground is set, don't daemonize the process */
     fds::FdsProcess::checkAndDaemonize(argc, argv);
 
     auto smMain = new SMMain(argc, argv);

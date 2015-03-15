@@ -186,7 +186,7 @@ class FdsProcess : public boost::noncopyable,
     virtual util::Properties* getProperties();
 
     /**
-    * @brief Based on arg '--daemonize' is specified daemonizes the process
+    * @brief Deamonize the process if '--foreground' arg isn't specified
     *
     * @param argc
     * @param argv[]

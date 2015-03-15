@@ -452,10 +452,10 @@ FdsProcess::closeAllFDs()
 }
 
 void FdsProcess::checkAndDaemonize(int argc, char *argv[]) {
-    bool makeDaemon = false;
+    bool makeDaemon = true;
     for (int i = 1; i < argc; i++) {
-        if (std::string(argv[i]).find("--daemonize") != std::string::npos) {
-            makeDaemon = true;
+        if (std::string(argv[i]).find("--foreground") != std::string::npos) {
+            makeDaemon = false;
             break;
         }
     }
