@@ -175,6 +175,18 @@ def canonMatch(canon, fileToCheck):
     return True
 
 
+def areTokenFilesUpdated(dev_dir, media_type):
+    drives = os.listdir(dev_dir)
+    for drive in drives:
+        if fnmatch.fnmatch(drive, media_type + "-*"):
+            drive_files = os.listdir(dev_dir + drive)
+            for drive_file in drive_files:
+                if fnmatch.fnmatch(drive_file, "tokenFile_*_*"):
+                    token_file_size = os.stat(dev_dir + drive + "/" + drive_file).st_size
+                    if token_file_size > 0:
+                        return True
+    return False
+
 # This class contains the attributes and methods to test
 # whether there occurred successful DM Static migration
 # between two nodes using directory/file comparisons.
@@ -535,8 +547,6 @@ class TestVerifySMMetaMigration(TestCase.FDSTestCase):
         return True
 
 
-
-
 # This class contains the attributes and methods to test
 # whether the specified log entry can be located the sepcified number of times
 # in the specified log before expiration of the specified time.
@@ -609,6 +619,120 @@ class TestWaitForLog(TestCase.FDSTestCase):
             self.log.error("Expected %s occurrences." % self.passedOccurrences)
             return False
         else:
+            return True
+
+#This class checks for updates in the token files of ssd drives attached to the cluster
+class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_CheckSSDTokenFiles,
+                                             "Checking SSD token files")
+        self.passedNode = node
+
+    def test_CheckSSDTokenFiles(self):
+        """
+        Test Case:
+        Check SSD token files to test whether then writes for a volume created with --media-type as SSD
+        are indeed going to SSD disks.
+        """
+
+        # We must have all our parameters supplied.
+        if (self.passedNode is None):
+            self.log.error("Parameter missing values.")
+            raise Exception
+
+        fds_dir = "/fds/" + self.passedNode
+
+        self.log.info("Looking in ssd devices of node %s for token files. And fds_dir is %s"
+                       % (self.passedNode, fds_dir))
+        dev_dir = fds_dir + "/dev/"
+        return areTokenFilesUpdated(dev_dir, "ssd")
+
+
+#This class checks for updates in the token files of hard disk drives attached to the cluster
+class TestCheckHDDTokenFiles(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_CheckHDDTokenFiles,
+                                             "Checking HDD token files")
+        self.passedNode = node
+
+    def test_CheckHDDTokenFiles(self):
+        """
+        Test Case:
+        Check HDD token files to test whether then writes for a volume created with --media-type as HDD
+        are indeed going to HDD disks.
+        """
+
+        # We must have all our parameters supplied.
+        if (self.passedNode is None):
+            self.log.error("Parameter missing values.")
+            raise Exception
+
+        fds_dir = "/fds/" + self.passedNode
+
+        self.log.info("Looking in hdd devices of node %s for token files. And fds_dir is %s"
+                       % (self.passedNode, fds_dir))
+        dev_dir = fds_dir + "/dev/"
+        return areTokenFilesUpdated(dev_dir, "hdd")
+
+
+#This class checks for updates in the token files of both ssd and hard disk drives attached to the cluster
+class TestCheckHybridTokenFiles(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_CheckHybridTokenFiles,
+                                             "Checking token files for SSDs and HDDs")
+        self.passedNode = node
+
+    def test_CheckHybridTokenFiles(self):
+        """
+        Test Case:
+        Check token files for ssd and hdd to test whether then writes for a volume created with
+        --media-type as hybrid are indeed going to SSD and HDD.
+        """
+
+        # We must have all our parameters supplied.
+        if (self.passedNode is None):
+            self.log.error("Parameter missing values.")
+            raise Exception
+
+        fds_dir = "/fds/" + self.passedNode
+
+        self.log.info("Looking in ssd and hdd devices of node %s for token files. And fds_dir is %s"
+                       % (self.passedNode, fds_dir))
+        dev_dir = fds_dir + "/dev/"
+        return (areTokenFilesUpdated(dev_dir, "ssd") and areTokenFilesUpdated(dev_dir, "hdd"))
+
+
+#This class enables and runs the garbage collector on all the SMs in the cluster
+class TestRunScavenger(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RunScavenger,
+                                             "Run scavenger(garbage collector)")
+
+    def test_RunScavenger(self):
+        """
+        Test Case:
+        Run garbage collector for all SMs in the cluster.
+        """
+
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        self.log.info("Enabling garbage collector")
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local enable) \"', fds_tools=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local start) \"', fds_tools=True)
+        if status != 0:
+            self.log.error("Starting garbage collector failed")
+            return False
+        else:
+            self.log.info("Starting garbage collector succeeded")
             return True
 
 

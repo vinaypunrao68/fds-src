@@ -121,15 +121,15 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
     return (0);
 }
 
-Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
+Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
     Error err(ERR_OK);
     LOGNOTIFY << "OMClient received new DLT version  " << dlt_type;
 
     // dltMgr is threadsafe
-    err = dltMgr->addSerializedDLT(dlt_data, NULL, dlt_type);
-    if (err.ok()) {
+    err = dltMgr->addSerializedDLT(dlt_data, cb, dlt_type);
+    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
         dltMgr->dump();
-    } else {
+    } else if (ERR_DUPLICATE != err) {
         LOGERROR << "Failed to update DLT! check dlt_data was set " << err;
     }
 
