@@ -79,6 +79,11 @@
     tags:
       - install-local
 
+-   pause: seconds=5
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps) and this_is_an_ec2_node is not defined
+    tags:
+      - install-local
+
 -   name: install fds deps from local deb
     when: (fds_deploy_local_deps is defined and fds_deploy_local_deps) and this_is_an_ec2_node is not defined
     apt: deb="/root/fds-deps.deb"

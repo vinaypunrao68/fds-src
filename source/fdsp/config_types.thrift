@@ -88,9 +88,9 @@ struct User {
   2: string identifier;
   /** a string representing the users password hash */
   3: string passwordHash;
-  /** */
+  /** a string represetning the secret passphrase */
   4: string secret;
-  /** */
+  /** a boolean flag indicating if the user has adminstration permissions */
   5: bool isFdsAdmin;
 }
 

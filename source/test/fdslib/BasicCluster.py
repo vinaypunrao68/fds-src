@@ -7,12 +7,11 @@ import os
 import time
 
 # List of proceses expected to be running on all nodes.
-all_nodes_process_list = ['am.Main', 'bare_am', 'platformd', 'DataMgr', 'StorMgr']
+all_nodes_process_list = ['am.Main', 'bare_am', 'platformd', 'DataMgr', 'StorMgr', 'redis']
 
 # List of processes expected to be running on AM/OM nodes.
 # TODO: add influxdb and redis to process list once influxdb packaging is completed.
-#process_list = ['om.Main' ] + all_nodes_process_list + ['influxdb', 'redis']
-process_list = [ 'om.Main' ] + all_nodes_process_list
+process_list = [ 'om.Main', 'influxdb' ] + all_nodes_process_list
 
 # Display setting for status command
 process_status_field_list = 'euser,pid,pcpu,pmem,nlwp,stat,bsdstart,bsdtime'

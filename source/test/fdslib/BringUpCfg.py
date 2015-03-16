@@ -333,6 +333,7 @@ class FdsNodeConfig(FdsConfig):
                                                  fds_bin=True)
 
         # Figure out the platform uuid.  Platform has 'pm' as the name
+        # port should match the read port from fdscli --list-services output
         if status == 0:
             for line in stdout.split('\n'):
                 if line.count("Node UUID") > 0:
@@ -343,9 +344,12 @@ class FdsNodeConfig(FdsConfig):
                     ourIP = (ipad == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
                 if line.count("Name") > 0:
                     assigned_name = line.split()[1]
-                    if assigned_name == 'pm':
-                        self.nd_assigned_name = 'pm'
+                if line.count("Data") > 0:
+                    readPort = (int(line.split()[2]))
+                    if assigned_name == 'pm' and readPort == int(port):
+                        self.nd_assigned_name = assigned_name
                         self.nd_uuid = assigned_uuid
+                        break
 
             if (self.nd_uuid is None):
                 log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
