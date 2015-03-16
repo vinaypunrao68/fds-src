@@ -14,21 +14,20 @@ import com.formationds.commons.model.StorageManagerService;
 import com.formationds.commons.model.type.NodeState;
 import com.formationds.commons.model.type.ServiceStatus;
 import com.formationds.commons.model.type.ServiceType;
+import com.formationds.protocol.svc.PlatNetSvc;
 import com.formationds.protocol.svc.types.DomainNodes;
 import com.formationds.protocol.svc.types.NodeSvcInfo;
-import com.formationds.protocol.svc.PlatNetSvc;
 import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.net.HostAndPort;
-import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.thrift.TException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author ptinius
@@ -63,7 +62,7 @@ public class SvcLayerClient
                                    DEF_PM_PORT ) )
                 .build();
 
-        logger.debug( "connecting to platform manager service on {}", host );
+        logger.debug( "connecting to service on {}", host );
     }
 
     public HostAndPort getHost( ) {
@@ -121,6 +120,12 @@ public class SvcLayerClient
 
             for( final NodeSvcInfo nodeInfo : dnodes.getDom_nodes() ) {
 
+		logger.trace( "NODE UUID::" + 
+		    	      nodeInfo.getNode_base_uuid()
+				      .getSvc_uuid() );
+		nodeInfo.getNode_svc_list().stream().forEach((svcInfo) -> {
+			logger.trace( "SVC::" + svcInfo.toString() ); });
+		
                 final Node node =
                     Node.uuid( String.valueOf( nodeInfo.getNode_base_uuid()
                                                        .getSvc_uuid() ) )
