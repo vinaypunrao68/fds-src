@@ -75,6 +75,8 @@ void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
     phy_loc[3].obj_tier = -1;
 }
 
+
+
 /**
  *
  * @return
@@ -344,7 +346,9 @@ fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds
     if ((*it).ref_cnt == 0UL) {
         assoc_entry.erase(it);
     }
+
     obj_map.obj_num_assoc_entry = assoc_entry.size();
+
     obj_map.obj_refcnt--;
     if (obj_map.obj_refcnt == 0UL) {
         obj_map.obj_del_time = ts;
@@ -353,8 +357,7 @@ fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds
 }
 
 void
-ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
-                           fds_uint64_t>& vol_refcnt) const {
+ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint64_t>& vol_refcnt) const {
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (fds_uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
@@ -390,7 +393,9 @@ std::vector<obj_assoc_entry_t>::iterator
 ObjMetaData::getAssociationIt(fds_volid_t volId) {
     std::vector<obj_assoc_entry_t>::iterator it;
     for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
-        if (volId == (*it).vol_uuid) break;
+        if (volId == (*it).vol_uuid) {
+            break;
+        }
     }
     return it;
 }
@@ -680,7 +685,9 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
         // reconcile volume association
         std::vector<obj_assoc_entry_t>::iterator it;
         for (auto volAssoc : objMetaData.objectVolumeAssoc) {
+
             it = getAssociationIt(volAssoc.volumeAssoc);
+
             if (it != assoc_entry.end()) {
                 // found volume association, reconcile
                 newRefcnt = it->ref_cnt + volAssoc.volumeRefCnt;
@@ -703,6 +710,7 @@ ObjMetaData::updateFromRebalanceDelta(const fpi::CtrlObjectMetaDataPropagate& ob
                     obj_assoc_entry_t new_association;
                     new_association.vol_uuid = volAssoc.volumeAssoc;
                     new_association.ref_cnt = volAssoc.volumeRefCnt;
+                    new_association.vol_migration_reconcile_ref_cnt = 0L;
                     assoc_entry.push_back(new_association);
                     obj_map.obj_num_assoc_entry = assoc_entry.size();
 
@@ -795,6 +803,300 @@ fds_bool_t ObjMetaData::isObjCorrupted() const {
     return (obj_map.obj_flags & OBJ_FLAG_CORRUPTED);
 }
 
+void
+ObjMetaData::setObjReconcileRequired()
+{
+    obj_map.obj_flags |= OBJ_FLAG_RECONCILE_REQUIRED;
+}
+void
+ObjMetaData::unsetObjReconcileRequired()
+{
+    obj_map.obj_flags &= ~OBJ_FLAG_RECONCILE_REQUIRED;
+}
+
+fds_bool_t
+ObjMetaData::isObjReconcileRequired() const
+{
+    return (obj_map.obj_flags & OBJ_FLAG_RECONCILE_REQUIRED);
+}
+
+
+void
+ObjMetaData::initializeDelReconcile(const ObjectID& objId, fds_volid_t volId)
+{
+    initialize(objId, 0);
+
+    obj_assoc_entry_t new_association;
+
+    new_association.vol_uuid = volId;
+    new_association.ref_cnt = 0;
+    new_association.vol_migration_reconcile_ref_cnt = -1;
+    obj_map.obj_refcnt = 0;
+    obj_map.obj_migration_reconcile_ref_cnt = -1;
+    assoc_entry.push_back(new_association);
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+
+    setObjReconcileRequired();
+}
+
+fds_bool_t
+ObjMetaData::isVolAssocReconciled(fds_uint64_t& totalVolRefCnt,
+                                  fds_int64_t& totalReconcileVolRefCnt)
+{
+    bool reconciled = false;
+    totalVolRefCnt = 0UL;
+    totalReconcileVolRefCnt = 0L;
+
+    std::vector<obj_assoc_entry_t>::iterator it;
+    for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
+        totalReconcileVolRefCnt += (*it).vol_migration_reconcile_ref_cnt;
+        totalVolRefCnt += (*it).ref_cnt;
+    }
+
+    // If all the reconcile ref cnt are 0, then there is nothing to reconcile.
+    if (totalReconcileVolRefCnt == 0L) {
+        reconciled = true;
+        // If all volumes are reconciled, then obj reconcile ref_cnt should
+        // also be reconciled.
+        fds_verify(obj_map.obj_migration_reconcile_ref_cnt == 0L);
+    }
+
+    return reconciled;
+}
+
+fds_bool_t
+ObjMetaData::reconcileDelObjMetaData(ObjectID objId,
+                                     fds_volid_t volId,
+                                     fds_uint64_t ts)
+{
+    // Since the meta is dealing with DELETE operation and already in
+    // ReconcileRequired state (i.e. DELETE deficit), it will continue
+    // to remain this state until PUT operation takes all the refcnt >=0.
+    fds_assert(isObjReconcileRequired());
+    fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+
+    LOGMIGRATE << "Reconcile DELETE (before):"
+               << " ObjID=" << objId
+               << " VolID=" << volId
+               << " MetaData=" << logString();
+
+    std::vector<obj_assoc_entry_t>::iterator it;
+    for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
+        if (volId == (*it).vol_uuid) {
+            break;
+        }
+    }
+
+    // While is Reconcile state, DELETE was called on this object.  We
+    if (it == assoc_entry.end()) {
+        obj_assoc_entry_t newAssociation;
+        newAssociation.vol_uuid = volId;
+        newAssociation.ref_cnt = 0;
+        newAssociation.vol_migration_reconcile_ref_cnt = -1L;
+        assoc_entry.push_back(newAssociation);
+    } else {
+        if ((*it).ref_cnt > 0) {
+            fds_assert((*it).vol_migration_reconcile_ref_cnt == 0L);
+            (*it).ref_cnt--;
+            if ((*it).ref_cnt == 0UL) {
+                assoc_entry.erase(it);
+            }
+        } else {
+            (*it).vol_migration_reconcile_ref_cnt--;
+        }
+    }
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+
+    // Now update, object ref cnt.
+    if (obj_map.obj_refcnt > 0) {
+        obj_map.obj_refcnt--;
+        fds_assert(obj_map.obj_migration_reconcile_ref_cnt == 0L);
+        if (obj_map.obj_refcnt == 0UL) {
+            obj_map.obj_del_time = ts;
+        }
+    } else {
+        obj_map.obj_migration_reconcile_ref_cnt--;
+    }
+
+#if DEBUG
+    {
+        fds_uint64_t totalVolRefCnt = 0UL;
+        fds_int64_t totalReconcileVolRefCnt = 0L;
+        fds_assert(!isVolAssocReconciled(totalVolRefCnt, totalReconcileVolRefCnt));
+    }
+
+#endif
+
+    LOGMIGRATE << "Reconcile DELETE (before):"
+               << " ObjID=" << objId
+               << " VolID=" << volId
+               << " MetaData=" << logString();
+
+    return true;
+}
+
+
+/*  This is called in the PUT path.  The method reconciles a metadata
+ *  with a PUT IO, and updates associated volume refcnt and object
+ *  refcnt.  If all ref_cnts are reconciled, then reset the
+ *  RECONCILE_REQUIRED flag.
+ */
+void
+ObjMetaData::reconcilePutObjMetaData(ObjectID objId, fds_volid_t volId)
+{
+    LOGMIGRATE << "Reconcile PUT (before):"
+               << " ObjID=" << objId
+               << " VolID=" << volId
+               << " MetaData=" << logString();
+
+    fds_assert(isObjReconcileRequired());
+    fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+    std::vector<obj_assoc_entry_t>::iterator it;
+    for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
+
+        // If the volume is found, then reconcile that particular volume.
+        if (volId == (*it).vol_uuid) {
+            break;
+        }
+    }
+
+    // New volume association.  Add a new entry.
+    if (it == assoc_entry.end()) {
+        obj_assoc_entry_t new_association;
+        new_association.vol_uuid = volId;
+        new_association.ref_cnt = 1L;
+        new_association.vol_migration_reconcile_ref_cnt = 0L;
+
+        assoc_entry.push_back(new_association);
+    } else {
+        // Have to check if the reconcile ref_cnt is < 0.
+        // If < 0, then the volume requires reconcile, and the rest of the metadata
+        // requires reconciliation.
+        if ((*it).vol_migration_reconcile_ref_cnt < 0L) {
+            // This is PUT operation, so reconcile the
+            (*it).vol_migration_reconcile_ref_cnt++;
+            // If the vol_miration_reconcile_ref_cnt ever reaches =, then
+            // remove the association entry.
+            if ((*it).vol_migration_reconcile_ref_cnt == 0L) {
+                fds_assert((*it).ref_cnt == 0L);
+                assoc_entry.erase(it);
+            }
+        } else {
+            // This volume doesn't require reconciliation, so add refcnt.
+            (*it).ref_cnt++;
+        }
+    }
+
+    // Set the new number of assoc entry to current assoc size.
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+
+    // If the object refcnt requires reconciliation, then adjust
+    // accordingly.
+    if (obj_map.obj_migration_reconcile_ref_cnt < 0L) {
+        obj_map.obj_migration_reconcile_ref_cnt++;
+        if (obj_map.obj_migration_reconcile_ref_cnt == 0L) {
+            fds_assert(obj_map.obj_refcnt == 0L);
+        }
+    } else {
+        // If ref_cnt requires no reconciliation, then adjust the object
+        // refcnt.
+        obj_map.obj_refcnt++;
+    }
+
+    // Check if the metadata is reconciled or not.
+    {
+        fds_uint64_t totalVolRefCnt = 0UL;
+        fds_int64_t totalReconcileVolRefCnt = 0L;
+        fds_bool_t volsReconciled = isVolAssocReconciled(totalVolRefCnt, totalReconcileVolRefCnt);
+
+        fds_verify(totalVolRefCnt == obj_map.obj_refcnt);
+        fds_verify(totalReconcileVolRefCnt == obj_map.obj_migration_reconcile_ref_cnt);
+
+        if (volsReconciled) {
+            unsetObjReconcileRequired();
+        }
+    }
+
+    LOGMIGRATE << "Reconcile PUT (after):"
+               << " Reconciled=" << !isObjReconcileRequired()
+               << " ObjID=" << objId
+               << " VolID=" << volId
+               << " MetaData=" << logString();
+}
+
+
+void
+ObjMetaData::reconcileDeltaObjMetaData(const fpi::CtrlObjectMetaDataPropagate& objMetaData)
+{
+    // ondisk metadata may have RECONCILE flag on or off.  But, propagate msg must
+    // have the reconcile flag on.
+    fds_assert(fpi::OBJ_METADATA_RECONCILE != objMetaData.objectReconcileFlag);
+
+    std::vector<obj_assoc_entry_t>::iterator it;
+    for (auto volAssoc : objMetaData.objectVolumeAssoc) {
+        it = getAssociationIt(volAssoc.volumeAssoc);
+
+        if (assoc_entry.end() == it) {
+            // new association.  no need to add.  Just add the association.
+            fds_verify(volAssoc.volumeRefCnt > 0);
+            obj_assoc_entry_t newAssociation;
+            newAssociation.vol_uuid = volAssoc.volumeAssoc;
+            newAssociation.ref_cnt = volAssoc.volumeRefCnt;
+            newAssociation.vol_migration_reconcile_ref_cnt = 0L;
+            assoc_entry.push_back(newAssociation);
+        } else {
+            // existing volume assoctiona.  Need to reconcile by merging
+#if DEBUG
+            if (it->ref_cnt > 0UL) {
+                fds_assert(it->vol_migration_reconcile_ref_cnt = 0L);
+            }
+            if (it->vol_migration_reconcile_ref_cnt < 0L) {
+                fds_assert(it->ref_cnt == 0UL);
+            }
+#endif
+            int64_t newRefCnt = it->ref_cnt +
+                                it->vol_migration_reconcile_ref_cnt +
+                                volAssoc.volumeRefCnt;
+            if (newRefCnt >= 0) {
+                it->ref_cnt = newRefCnt;
+                if (newRefCnt == 0) {
+                    assoc_entry.erase(it);
+                }
+            } else {
+                it->vol_migration_reconcile_ref_cnt = newRefCnt;
+                fds_verify(it->ref_cnt == 0UL);
+            }
+        }
+        obj_map.obj_num_assoc_entry = assoc_entry.size();
+    }
+
+    int64_t newObjRefCnt = obj_map.obj_refcnt +
+                           obj_map.obj_migration_reconcile_ref_cnt +
+                           objMetaData.objectRefCnt;
+
+    if (newObjRefCnt >= 0) {
+        obj_map.obj_refcnt = newObjRefCnt;
+    } else {
+        obj_map.obj_migration_reconcile_ref_cnt = newObjRefCnt;
+        fds_verify(obj_map.obj_refcnt == 0UL);
+    }
+
+    // Check if the metadata is reconciled or not.
+    {
+        fds_uint64_t totalVolRefCnt = 0UL;
+        fds_int64_t totalReconcileVolRefCnt = 0L;
+        fds_bool_t volsReconciled = isVolAssocReconciled(totalVolRefCnt, totalReconcileVolRefCnt);
+
+        fds_verify(totalVolRefCnt == obj_map.obj_refcnt);
+        fds_verify(totalReconcileVolRefCnt == obj_map.obj_migration_reconcile_ref_cnt);
+
+        if (volsReconciled) {
+            unsetObjReconcileRequired();
+        }
+    }
+
+}
+
 /**
  * This operator compares subset of the ObjectMetaData.  For now, we are only
  * comparing following fields in ObjectMetaData.
@@ -874,10 +1176,15 @@ std::string ObjMetaData::logString() const
         << " blk_len=" << obj_map.obj_blk_len
         << " len=" << obj_map.obj_size
         << " expire_time=" << obj_map.expire_time
+        << " obj_migration_reconcile_dlt_ver=" << obj_map.obj_migration_reconcile_dlt_ver
+        << " obj_migration_reconcile_ref_cnt=" << obj_map.obj_migration_reconcile_ref_cnt
         << " assoc_entry_cnt=" << assoc_entry.size()
         << " vol_id:refcnt=";
     for (auto entry : assoc_entry)  {
-        oss << "(" << std::hex << entry.vol_uuid << std::dec << ":" << entry.ref_cnt << "), ";
+        oss << "(" << std::hex << entry.vol_uuid << std::dec
+            << ":" << entry.ref_cnt
+            << ":" << entry.vol_migration_reconcile_ref_cnt
+            << "), ";
     }
     oss << std::endl;
     return oss.str();
