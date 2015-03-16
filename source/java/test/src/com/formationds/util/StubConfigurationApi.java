@@ -7,6 +7,7 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
@@ -17,6 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public class StubConfigurationApi implements ConfigurationApi {
+    // Local Domains
     // Tenants
     // Users (many-to-many relationship User <--> Tenant)
     // Snapshot policies (one-to-many relationship SnapshotPolicy <--> Volume)
@@ -24,6 +26,9 @@ public class StubConfigurationApi implements ConfigurationApi {
     // StreamingRegistrationMsg
     // SnapshotPolicy
     // Clones?
+    private List<LocalDomain> localDomains;
+    private AtomicLong localDomainId;
+
     private List<SnapshotPolicy> snapshotPolicies;
     private AtomicLong snapshotPolicyId;
 
@@ -43,6 +48,8 @@ public class StubConfigurationApi implements ConfigurationApi {
     public StubConfigurationApi() {
         configurationVersion = new AtomicLong(0);
 
+        localDomains = new CopyOnWriteArrayList<>();
+        localDomainId = new AtomicLong(0);
         snapshotPolicies = new CopyOnWriteArrayList<>();
         snapshotPolicyId = new AtomicLong(0);
         tenants = new CopyOnWriteArrayList<>();
@@ -54,6 +61,13 @@ public class StubConfigurationApi implements ConfigurationApi {
         volumeId = new AtomicLong();
     }
 
+    @Override
+    public long createLocalDomain(String domainName, long domainId) throws ApiException, TException {
+        configurationVersion.incrementAndGet();
+        LocalDomain domain = new LocalDomain(localDomainId.incrementAndGet(), domainName);
+        localDomains.add(domain);
+        return domain.getId();
+    }
     @Override
     public long createSnapshotPolicy(String name, String recurrence, long retention, long timelineTime) throws TException {
         configurationVersion.incrementAndGet();

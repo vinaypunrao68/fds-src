@@ -353,6 +353,12 @@ public class XdiConfigurationApi implements ConfigurationApi {
         return clonedVol.getVolId();
     }
 
+    @Override
+    public long createLocalDomain(String domainName, long domainId)
+            throws ApiException, TException {
+        long id = config.createLocalDomain(domainName, domainId);
+        return id;
+    }
     public CachedConfiguration getCache() {
         return fillCacheMaybe();
     }
