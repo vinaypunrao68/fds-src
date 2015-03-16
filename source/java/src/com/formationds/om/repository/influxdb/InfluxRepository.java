@@ -104,7 +104,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
      * @param properties the connection properties
      */
     @Override
-    synchronized protected void open( Properties properties ) {
+    synchronized public void open( Properties properties ) {
         this.connectionProperties = properties;
         this.connection = new InfluxDBConnection( url,
                                                   properties.getProperty( CP_USER ),

@@ -39,18 +39,6 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 	}
 
 	@Override
-	public Event findById(Long primaryKey) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public List<Event> findAll() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public long countAll() {
 		// TODO Auto-generated method stub
 		return 0;
@@ -131,13 +119,13 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 	}
 
 	@Override
-	protected Event doPersist(Event entity) {
+	protected <R extends Event> R doPersist(R entity) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	protected List<Event> doPersist(Collection<Event> entities) {
+	protected <R extends Event> List<R> doPersist(Collection<R> entities) {
 		// TODO Auto-generated method stub
 		return null;
 	}

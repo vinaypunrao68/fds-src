@@ -59,7 +59,30 @@ public class Volume
     super();
   }
 
-  @Override
+    public Volume( long tenantId, String id, String domain, String name ) {
+        this.id = id;
+        this.name = name;
+        this.tenantId = tenantId;
+        this.domain = domain;
+    }
+
+    public Volume( String domain, long tenantId, String name, Long limit, Long sla, String id, Integer priority,
+                   Connector data_connector, Usage current_usage, MediaPolicy mediaPolicy,
+                   Long commit_log_retention ) {
+        this.domain = domain;
+        this.tenantId = tenantId;
+        this.name = name;
+        this.limit = limit;
+        this.sla = sla;
+        this.id = id;
+        this.priority = priority;
+        this.data_connector = data_connector;
+        this.current_usage = current_usage;
+        this.mediaPolicy = mediaPolicy;
+        this.commit_log_retention = commit_log_retention;
+    }
+
+    @Override
   public boolean equals(Object o) {
     if( this == o ) {
 

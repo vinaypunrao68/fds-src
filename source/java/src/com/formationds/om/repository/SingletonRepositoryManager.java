@@ -7,11 +7,13 @@ package com.formationds.om.repository;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.repository.influxdb.InfluxMetricRepository;
+import com.formationds.om.repository.influxdb.InfluxRepository;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Factory to access to Metrics and Events repositories.
@@ -60,6 +62,13 @@ public enum SingletonRepositoryManager {
                 influxMetricRepository = new InfluxMetricRepository( "http://localhost:8086",
                                                                      "root",
                                                                      "root".toCharArray() );
+                // TODO: hide this in the repo interface (ie. just make it take the user/creds.  dbname is held by repo)
+                Properties props = new Properties( );
+                props.setProperty( InfluxRepository.CP_DBNAME, InfluxMetricRepository.DEFAULT_METRIC_DB.getName() );
+                props.setProperty( InfluxRepository.CP_USER, "root" );
+                props.setProperty( InfluxRepository.CP_CRED, "root" );
+
+                influxMetricRepository.open(props);
             }
 
             return (MetricRepository) Proxy.newProxyInstance( MetricRepository.class.getClassLoader(),

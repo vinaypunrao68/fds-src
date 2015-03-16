@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * @author ptinius
@@ -56,19 +57,6 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
     public void removeEntityPersistListener( EntityPersistListener<T> l );
 
     /**
-     * @param primaryKey the primary key
-     *
-     * @return the entity
-     */
-    //XXX no usages
-    T findById( final PrimaryKey primaryKey );
-
-    /**
-     * @return the list of entities
-     */
-    List<T> findAll();
-
-    /**
      * @return the number of entities
      */
     long countAll();
@@ -85,7 +73,7 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      *
      * @return Returns the saved entity
      */
-    T save( final T entity );
+    <R extends T> R save( final R entity );
 
     /**
      * Persist the specified entities.
@@ -99,7 +87,7 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    default List<T> save(final T... entities ) {
+    default <R extends T> List<R> save(final R... entities ) {
         return (entities != null ? save( Arrays.asList( entities )) : new ArrayList<>(0));
     }
 
@@ -116,13 +104,13 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    default List<T> save(final Collection<T> entities) {
-        List<T> persisted = new ArrayList<>( );
+    default <R extends T> List<R> save(final Collection<R> entities) {
+        List<R> persisted = new ArrayList<>( );
         if (entities == null) {
             return persisted;
         }
 
-        for (T e : entities) {
+        for (R e : entities) {
             persisted.add( save( e ) );
         }
         return persisted;
@@ -166,6 +154,12 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
             }
         }
     }
+
+    /**
+     *
+     * @param connectionProperties
+     */
+    default public void open(Properties connectionProperties) {}
 
     /**
      * close the repository
