@@ -565,7 +565,7 @@ class DomainEndpoint():
         res = self.rest.post(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
-            return int(res['id'])
+            return int(res['domainId'])
         else:
             return None
 

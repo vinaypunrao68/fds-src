@@ -5,6 +5,7 @@
 package com.formationds.om.webkit.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.ConfigurationService;
@@ -20,13 +21,18 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import com.formationds.web.toolkit.UsageException;
+
+import org.apache.commons.io.IOUtils;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.json.JSONException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -58,33 +64,35 @@ public class CreateLocalDomain
   public Resource handle( Request request, Map<String, String> routeParameters )
       throws Exception {
 
-      Domain domain;
+      String domainName = "";
       long domainId = -1;
-      final String domainName = "";
-
-      try( final Reader reader =
-               new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
-          domain =
-              ObjectModelHelper.toObject( reader, Domain.class );
-
-          // validate model object has all required fields.
-          if( ( domain == null ) ||
-              ( domain.getDomain() == null ) ||
-              ( domain.getUuid() == null ) ) {
-
-              return new JsonResource(
-                  new JSONObject().put( "message", "missing mandatory field" ),
+      
+      try {
+          domainName = requiredString(routeParameters, "local_domain");
+      } catch(UsageException e) {
+          return new JsonResource(
+                  new JSONObject().put( "message", "Missing new Local Domain name." ),
                   HttpServletResponse.SC_BAD_REQUEST );
-          }
       }
 
+      String source = IOUtils.toString(request.getInputStream());
+      JSONObject o = new JSONObject(source);
       try {
-          domainId = configApi.createLocalDomain(domain.getDomain(),
-                                 domain.getUuid());
+          domainId = o.getLong( "id" );
+      } catch(JSONException e) {
+          return new JsonResource(
+                  new JSONObject().put( "message", "Missing new Local Domain ID." ),
+                  HttpServletResponse.SC_BAD_REQUEST );
+      }
+
+      logger.debug( "Creating local domain {} with ID {}", domainName, domainId );
+
+      try {
+          domainId = configApi.createLocalDomain(domainName, domainId);
       } catch( ApiException e ) {
 
           if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
-              return new TextResource(domain.toJSON());
+              return new TextResource(domainName);
           }
 
           logger.error( "CREATE::FAILED::" + e.getMessage(), e );
@@ -99,9 +107,7 @@ public class CreateLocalDomain
       }
 
       if( domainId > 0 ) {
-          domain.setUuid(domainId);
-
-          return new TextResource( domain.toJSON() );
+          return new JsonResource(new JSONObject().put("domainId", domainId));
       }
 
       throw new Exception( "no domain id after createLocalDomain call!" );
