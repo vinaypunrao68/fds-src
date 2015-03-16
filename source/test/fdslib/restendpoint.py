@@ -244,11 +244,12 @@ class VolumeEndpoint:
         self.rest = rest
         self.rest_path = self.rest.base_path + '/api/config/volumes'
 
-    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit):
+    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
 
         volume_info = {
             'name' : volume_name,
             'priority' : int(priority),
+            'max_object_size': int(max_object_size),
             'sla': int(sla),
             'limit': int(limit),
             'data_connector': {
