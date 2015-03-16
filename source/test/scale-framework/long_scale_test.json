@@ -2,8 +2,43 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
+				"name" : "TestMixedBlocks",
+				"file" : "test_mixed_blocks.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
 				"name" : "TestDifferentBlobSizes",
 				"file" : "test_different_blob_sizes.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "Test100GBVolume",
+				"file" : "test_10gb_volume.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestAMProcessConsistency",
+				"file" : "test_am_process_consistency",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateMultipleBuckets",
+				"file" : "test_create_multiple_buckets",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateMultivolume",
+				"file" : "test_create_multivolume",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
@@ -34,6 +69,13 @@
 				"file" : "test_max_number_block_volumes.py",
 				"arguments" : [],
 				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestMultipleBlockMountPoints",
+				"file" : "test_multiple_block_mount_points.py",
+				"arguments" : [],
+				"depends" : ["TestMaxNumberBlockVolumes"],
 				"config" : ""
 			},
 			{
