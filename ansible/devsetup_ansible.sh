@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 ### README ###
 #   This is only a helper script to quell parallel executions of the devsetup Ansible playbook
@@ -31,7 +31,7 @@ case $? in
         # Construct the collection of ansible args
 
         ansible_args="--inventory ${script_dir}/inventory/devsetup-inventory.sh --connection local 
-                      ${script_dir}/playbooks/devsetup.yml -vvv"
+                      ${script_dir}/playbooks/devsetup.yml"
 
         [[ -d ~/.ansible ]] && sudo chmod -R a+w ~/.ansible
         sudo ansible-playbook ${ansible_args}
