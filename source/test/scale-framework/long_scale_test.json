@@ -2,8 +2,43 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
+				"name" : "TestMixedBlocks",
+				"file" : "test_mixed_blocks.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
 				"name" : "TestDifferentBlobSizes",
 				"file" : "test_different_blob_sizes.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "Test100GBVolume",
+				"file" : "test_100gb_volume.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestAMProcessConsistency",
+				"file" : "test_am_process_consistency.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateMultipleBuckets",
+				"file" : "test_create_multiple_buckets.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateMultivolume",
+				"file" : "test_create_multivolume.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
@@ -37,6 +72,13 @@
 				"config" : ""
 			},
 			{
+				"name" : "TestMultipleBlockMountPoints",
+				"file" : "test_multiple_block_mount_points.py",
+				"arguments" : [],
+				"depends" : ["TestMaxNumberBlockVolumes"],
+				"config" : ""
+			},
+			{
 				"name" : "TestCreateThreehundredObjectVolumes",
 				"file" : "Test300VolsObj.py",
 				"arguments" : [],
@@ -49,7 +91,7 @@
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
-			},
+			}
 		]
 	}
 }
