@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 ### README ###
 #   This is only a helper script to quell parallel executions of the devsetup Ansible playbook
