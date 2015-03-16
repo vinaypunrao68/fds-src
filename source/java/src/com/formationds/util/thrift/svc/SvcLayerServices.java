@@ -63,7 +63,7 @@ public class SvcLayerServices {
     public static void put( final Long domainId, final HostAndPort host ) {
 
         if( !by( domainId ).isPresent( ) ||
-            !by( domainId, host ).isPresent() ) {
+            !by( domainId, host ).isPresent( ) ) {
             
             logger.debug( "Adding service client {} to service cache.", host );
             SERVICES.put( domainId, new ArrayList<>() );
