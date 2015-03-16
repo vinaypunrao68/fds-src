@@ -245,12 +245,12 @@ namespace fds
         plf_net_sess   = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
 
         FdsConfigAccessor    conf(g_fdsprocess->get_conf_helper());
-        plf_my_node_port = conf.get_abs<int>("fds.plat.platform_port");
+        plf_my_node_port = conf.get_abs<int>("fds.pm.platform_port");
         plf_my_base_port = Platform::plf_svc_port_from_node(plf_my_node_port, plf_node_type);
 
-        plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
-        plf_om_ctrl_port = conf.get_abs<int>("fds.plat.om_port");
-        plf_om_svc_port  = conf.get_abs<int>("fds.plat.om_platform_port");
+        plf_om_ip_str    = conf.get_abs<std::string>("fds.pm.om_ip");
+        plf_om_ctrl_port = conf.get_abs<int>("fds.pm.om_port");
+        plf_om_svc_port  = conf.get_abs<int>("fds.pm.om_platform_port");
 
         LOGNOTIFY << "om_ip: " << plf_om_ip_str << " ctrl port: " << plf_om_ctrl_port <<
         " svc port: " << plf_om_svc_port;
@@ -259,7 +259,8 @@ namespace fds
 
     void Platform::mod_startup()
     {
-        gSvcRequestPool = new SvcRequestPool();
+        fpi::SvcUuid svcUuid;
+        gSvcRequestPool = new SvcRequestPool(nullptr, plf_my_svc_uuid.toSvcUuid(), nullptr);
         Module::mod_startup();
     }
 

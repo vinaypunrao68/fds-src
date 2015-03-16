@@ -156,7 +156,7 @@ def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time 
     for v, s in series.iteritems():
         values = np.asarray(s[0])
         time = np.asarray(s[1])
-        time -= time[0]
+        time = [x - time[0] for x in time]
         if latency == False:
             rate = np.diff(values) / np.diff(time)
             time = time[:-1]

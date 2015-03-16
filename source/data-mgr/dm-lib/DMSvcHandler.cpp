@@ -2,14 +2,14 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <DataMgr.h>
-#include <net/net-service-tmpl.hpp>
+#include <fdsp_utils.h>
 #include <DMSvcHandler.h>
-#include <dm-platform.h>
 #include <StatStreamAggregator.h>
 #include "fdsp/sm_api_types.h"
 
 namespace fds {
-DMSvcHandler::DMSvcHandler()
+DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider)
+    : PlatNetSvcHandler(provider)
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
@@ -218,6 +218,10 @@ void
 DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg) { //NOLINT
     StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
+    if (!statAggr) {
+        LOGWARN << "statStreamAggregator is not initialised";
+        return;
+    }
     fds_assert(statAggr);
     fds_assert(streamRegstrMsg);
 
@@ -293,6 +297,13 @@ DMSvcHandler::StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &
 {
     Error err(ERR_OK);
     LOGNOTIFY << "Will start meta migration";
+
+    // TODO(Anna) DM migration needs to be re-written, returning success right away
+    // without doing actual migration so DMT state machine can move forward
+    // IMPLEMENT DM MIGRATION
+    LOGWARN << "DM migration not implemented, not migrating meta!";
+    StartDMMetaMigrationCb(hdr, err);
+    return;
 
     // see if DM sync feature is enabled
     if (dataMgr->feature.isCatSyncEnabled()) {
@@ -409,7 +420,12 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 
     // revert to DMT version provided in abort message
     if (abortMsg->DMT_version > 0) {
-        dataMgr->omClient->getDmtManager()->commitDMT(dmtVersion);
+        err = dataMgr->omClient->getDmtManager()->commitDMT(dmtVersion);
+        if (err == ERR_NOT_FOUND) {
+            LOGNOTIFY << "We did not revert to previous DMT, because DM did not receive it."
+                      << " DM will not have any DMT, which is ok";
+            err = ERR_OK;
+        }
     }
 
     // Tell the DMT manager

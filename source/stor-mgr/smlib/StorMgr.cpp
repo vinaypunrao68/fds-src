@@ -15,11 +15,9 @@
 #include <StorMgr.h>
 #include <fds_timestamp.h>
 #include <net/net_utils.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
+#include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
-
-#include "platform/platform.h"
 
 using diskio::DataTier;
 
@@ -113,10 +111,23 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    /*
-     * Will setup OM comm during run()
-     */
     omClient = NULL;
+    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    if (testStandalone == false) {
+        std::string omIP;
+        fds_uint32_t omPort = 0;
+        MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
+        LOGNOTIFY << "om ip: " << omIP
+                  << " port: " << omPort;
+        omClient = new OMgrClient(FDSP_STOR_MGR,
+                                  omIP,
+                                  omPort,
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
+                                  GetLog(),
+                                  nullptr,
+                                  nullptr);
+    }
+
 
     return 0;
 }
@@ -132,22 +143,6 @@ void ObjectStorMgr::mod_startup()
 
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
-
-    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
-    if (testStandalone == false) {
-
-        /*
-         * Register this node with OM.
-         */
-        LOGNOTIFY << "om ip: " << *modProvider_->get_plf_manager()->plf_get_om_ip()
-                  << " port: " << modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
-        omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  *modProvider_->get_plf_manager()->plf_get_om_ip(),
-                                  modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),
-                                  "localhost-sm",
-                                  GetLog(),
-                                  nullptr, modProvider_->get_plf_manager());
-    }
 
     /*
      * Create local volume table. Create after omClient
@@ -190,14 +185,6 @@ void ObjectStorMgr::mod_startup()
         qosThrds = qosOutNum + 1;   // one is used for dispatcher
     }
 
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        /*
-         * Register/boostrap from OM
-         */
-        omClient->initialize();
-        omClient->registerNodeWithOM(modProvider_->get_plf_manager());
-    }
-
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
 }
@@ -210,18 +197,15 @@ void ObjectStorMgr::mod_startup()
 void ObjectStorMgr::mod_enable_service()
 {
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
-        NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
-        fpi::StorCapMsg stor_cap;
-        sm_node->init_stor_cap_msg(&stor_cap);
-
         // note that qos dispatcher in SM/DM uses total rate just to assign
         // guaranteed slots, it still will dispatch more IOs if there is more
         // perf capacity available (based on how fast IOs return). So setting
         // totalRate to disk_iops_min does not actually restrict the SM from
         // servicing more IO if there is more capacity (eg.. because we have
         // cache and SSDs)
-        totalRate = stor_cap.disk_iops_min;
+        auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+        totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
+                modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "disk_iops_min");
     }
 
     /*
@@ -333,10 +317,12 @@ ObjectStorMgr::getTotalNumTokens() const {
 
 NodeUuid
 ObjectStorMgr::getUuid() const {
-    return omClient->getUuid();
+    NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    return mySvcUuid;
 }
 
 const DLT* ObjectStorMgr::getDLT() {
+    if (!omClient) { return nullptr; }
     return omClient->getCurrentDLT();
 }
 
@@ -346,8 +332,7 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
     }
     DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
     fds_verify(nodes->getLength() > 0);
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-    return (*mySvcUuid == nodes->get(0));
+    return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
 }
 
 void ObjectStorMgr::handleDltUpdate() {

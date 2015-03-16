@@ -9,8 +9,6 @@
 #include <fds_timestamp.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
 #include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
 
@@ -99,7 +97,6 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     fds_uint64_t total_bytes = 0;
     fds_uint64_t total_blobs = 0;
     fds_uint64_t total_objects = 0;
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
 
     // find all volumes for which this DM is primary (we only need
     // to collect capacity stats from DMs that are primary).
@@ -791,7 +788,7 @@ int DataMgr::mod_init(SysParams const *const param)
     Error err(ERR_OK);
 
     omConfigPort = 0;
-    use_om = true;
+    standalone = false;
     numTestVols = 10;
     scheduleRate = 10000;
 
@@ -827,6 +824,23 @@ int DataMgr::mod_init(SysParams const *const param)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
+    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
+    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
+    if (!standalone) {
+        LOGDEBUG << " Initialising the OM client ";
+        /*
+         * Setup communication with OM.
+         */
+        omClient = new OMgrClient(FDSP_DATA_MGR,
+                                  omIpStr,
+                                  omConfigPort,
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
+                                  GetLog(),
+                                  nullptr,
+                                  nullptr);
+        omClient->setNoNetwork(false);
+    }
+
     return 0;
 }
 
@@ -856,10 +870,11 @@ int DataMgr::run()
 {
     // TODO(Rao): Move this into module init
     initHandlers();
-    
+
     while (true) {
         sleep(1);
     }
+
     return 0;
 }
 
@@ -873,44 +888,12 @@ void DataMgr::mod_startup()
 
     runMode = NORMAL_MODE;
 
-    // Get config values from that platform lib.
-    //
-    omConfigPort = modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
-    omIpStr      = *modProvider_->get_plf_manager()->plf_get_om_ip();
-
-    use_om = !(modProvider_->get_fds_config()->get<bool>("fds.dm.no_om", false));
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
     }
     LOGNORMAL << "Data Manager using control port "
-              << modProvider_->get_plf_manager()->plf_get_my_ctrl_port();
-
-    std::string node_name = "_DM_";
-
-    LOGNORMAL << "Data Manager using node name " << node_name;
-
-    if (use_om) {
-        LOGDEBUG << " Initialising the OM client ";
-        /*
-         * Setup communication with OM.
-         */
-        omClient = new OMgrClient(FDSP_DATA_MGR,
-                                  omIpStr,
-                                  omConfigPort,
-                                  node_name,
-                                  GetLog(),
-                                  nullptr,
-                                  modProvider_->get_plf_manager());
-        omClient->setNoNetwork(false);
-        omClient->initialize();
-
-        /*
-         * Registers the DM with the OM. Uses OM for bootstrapping
-         * on start. Requires the OM to be up and running prior.
-         */
-        omClient->registerNodeWithOM(modProvider_->get_plf_manager());
-    }
+              << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
 
     setup_metasync_service();
 
@@ -920,15 +903,10 @@ void DataMgr::mod_startup()
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    fpi::StorCapMsg stor_cap;
-    if (!feature.isTestMode()) {
-        const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
-        NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
-        my_agent->init_stor_cap_msg(&stor_cap);
-    } else {
-        stor_cap.disk_iops_min = 60*1000;  // for testing
-    }
-    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
+    auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+    fds_uint32_t diskIOPsMin = feature.isTestMode() ? 60*1000 :
+            svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
+                                                 "disk_iops_min");
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -936,7 +914,8 @@ void DataMgr::mod_enable_service() {
     // totalRate to disk_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
-    scheduleRate = 2*stor_cap.disk_iops_min;
+    scheduleRate = 2 * diskIOPsMin;
+    LOGNOTIFY << "Will set totalRate to " << scheduleRate;
 
     /*
      *  init Data Manager  QOS class.
@@ -1088,8 +1067,7 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
         fds_verify(nodes->getLength() > 0);
 
-        const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-        return (*mySvcUuid == nodes->get(0));
+        return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
     }
     return false;
 }
@@ -1170,7 +1148,8 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->src_id = FDSP_DATA_MGR;
     msgHdr->dst_id = FDSP_STOR_MGR;
 
-    msgHdr->src_node_name = *(modProvider_->get_plf_manager()->plf_get_my_name());
+    auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+    msgHdr->src_node_name = svcmgr->getSelfSvcName();
 
     msgHdr->origin_timestamp = fds::get_fds_timestamp_ms();
 

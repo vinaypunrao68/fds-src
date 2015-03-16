@@ -7,9 +7,9 @@
 #include <vector>
 #include <map>
 #include <thread>
+#include <condition_variable>
+
 #include <util/fds_stat.h>
-#include <am-platform.h>
-#include <net/net-service.h>
 #include <AccessMgr.h>
 #include "connector/xdi/AmAsyncXdi.h"
 #include "AmAsyncDataApi_impl.h"
@@ -26,6 +26,8 @@ namespace fds {
 namespace xdi_atp = apache::thrift::protocol;
 namespace xdi_ats = apache::thrift::server;
 namespace xdi_att = apache::thrift::transport;
+
+AccessMgr::unique_ptr am = nullptr;
 
 class AmProcessWrapper : public FdsProcess {
   public:

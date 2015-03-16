@@ -12,7 +12,6 @@
 
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
-#include <net/net-service-tmpl.hpp>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include "AsyncResponseHandlers.h"
@@ -67,7 +66,7 @@ AmDispatcher::mod_init(SysParams const *const param) {
 void
 AmDispatcher::mod_startup() {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    if (!conf.get<bool>("testing.toggleStandAlone")) {     
+    if (!conf.get<bool>("testing.standalone")) {     
         // Set the DLT manager in svc layer so that it knows to dispatch
         // requests on behalf of specific placement table versions.
         gSvcRequestPool->setDltManager(dltMgr);
@@ -103,7 +102,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
     GetVolumeMetaDataReq * volReq =
             static_cast<fds::GetVolumeMetaDataReq*>(amReq);
     GetVolumeMetaDataMsgPtr volMDMsg =
-        net::ep_deserialize<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
 
     if (ERR_OK == error)
         volReq->volumeMetadata = volMDMsg->volume_meta_data;
@@ -323,7 +322,7 @@ AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
     fpi::UpdateCatalogOnceRspMsgPtr updCatRsp =
-        net::ep_deserialize<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
 
     auto blobReq = static_cast<PutBlobReq *>(amReq);
     if (error != ERR_OK) {
@@ -347,7 +346,7 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
-        net::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << amReq->obj_id
@@ -405,7 +404,7 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
     fpi::PutObjectRspMsgPtr putObjRsp =
-            net::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
+            fds::deserializeFdspMsg<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << amReq->obj_id
@@ -483,27 +482,12 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
     dltMgr->decDLTRefcnt(dltVersion);
 
     fpi::GetObjectRespPtr getObjRsp =
-        net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
     if (error == ERR_OK) {
         LOGDEBUG << svcReq->logString() << logString(*getObjRsp)
                  << " DLT version " << dltVersion;
-        /* NOTE: we are currently supporting only getting the whole blob
-         * so the requester does not know about the blob length, 
-         * we get the blob length in response from SM;
-         * will need to revisit when we also support (don't ignore) byteCount in native api.
-         * For now, just verify the existing buffer is big enough to hold
-         * the data.
-         */
-        if (amReq->data_len >= (4 * 1024)) {
-            // Check that we didn't get too much data
-            // Since 4K is our min, it's OK to get more
-            // when less than 4K is requested
-            // TODO(Andrew): Revisit for unaligned IO
-            fds_verify(getObjRsp->data_obj.size() <= amReq->data_len);
-        }
-
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
         cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {
@@ -577,7 +561,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
 {
     fds_verify(amReq->magicInUse());
     fpi::QueryCatalogMsgPtr qryCatRsp =
-        net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
@@ -686,7 +670,7 @@ AmDispatcher::setBlobMetadataCb(AmRequest *amReq,
                                 boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     fpi::SetBlobMetaDataRspMsgPtr setMDRsp =
-        net::ep_deserialize<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
     if (error != ERR_OK) {
         LOGERROR << "Set metadata blob name: " << amReq->getBlobName() << " Error: " << error;
     } else {
@@ -754,7 +738,7 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
     fpi::CommitBlobTxRspMsgPtr response =
-        net::ep_deserialize<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
+        fds::deserializeFdspMsg<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
     LOGDEBUG << svcReq->logString();
     if (ERR_OK == error) {
         auto blobReq =  static_cast<CommitBlobTxReq *>(amReq);

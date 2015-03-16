@@ -4,14 +4,14 @@
 #define SOURCE_STOR_MGR_INCLUDE_MOCKSMCALLBACKS_H_
 
 #include <StorMgr.h>
-#include <sm-platform.h>
+#include <fdsp_utils.h>
 #include <SMSvcHandler.h>
 
 namespace fds {
 
 struct MockSMCallbacks : SMSvcHandler {
-    static void mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
-    static void mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
+    void mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
+    void mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
 };
 }  // namespace fds
 

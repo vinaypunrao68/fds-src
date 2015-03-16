@@ -39,7 +39,7 @@ TEST_F(DMApi, putBlobOnceTest)
 {
     std::string blobPrefix("testBlobOnce");
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     if (profile)
@@ -78,7 +78,7 @@ TEST_F(DMApi, putBlobTest)
     std::string blobName("testBlob");
 
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* Prepare start tx */
@@ -165,7 +165,7 @@ TEST_F(DMApi, qryCatTest)
     std::string blobName("testBlob");
     fpi::SvcUuid svcUuid;
     uint64_t blobOffset = 0;
-    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
 
@@ -198,7 +198,7 @@ TEST_F(DMApi, setBlobMeta)
     std::string blobName("testBlob");
     fpi::SvcUuid svcUuid;
     uint64_t blobOffset = 0;
-    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     // start transaction
@@ -279,7 +279,7 @@ TEST_F(DMApi, getBlobMetaTest)
 {
     std::string blobName("testBlob");
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetBlobMetaDataMsg> getMetaWaiter;
@@ -306,7 +306,7 @@ TEST_F(DMApi, getDmStats)
     std::string blobName("testBlob");
     fpi::SvcUuid svcUuid;
     uint64_t blobOffset = 0;
-    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetDmStatsMsg> getDmStatsWaiter;
@@ -331,7 +331,7 @@ TEST_F(DMApi, getBucket)
 {
     std::string blobName("testBlob");
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetBucketMsg> getBucketWaiter;
@@ -356,7 +356,7 @@ TEST_F(DMApi, deleteBlobTest)
 {
     std::string blobName("testBlob");
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(MODULEPROVIDER()->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     // start transaction

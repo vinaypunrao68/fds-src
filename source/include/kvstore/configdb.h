@@ -20,7 +20,7 @@ struct node_data;
 
 namespace kvstore {
 using PolicyInfo = fpi::FDSP_PolicyInfoType;
-
+using NodeInfoType = fpi::FDSP_RegisterNodeType;
 struct ConfigException : std::runtime_error {
     explicit ConfigException(const std::string& what_arg) : std::runtime_error(what_arg) {}
 };
@@ -68,13 +68,13 @@ struct ConfigDB : KVStore {
     bool getDmt(DMT& dmt, fds_uint64_t version, int localDomain = 0);
 
     // nodes
-    bool addNode(const struct node_data *node);
-    bool updateNode(const struct node_data *node);
+    bool addNode(const NodeInfoType& node);
+    bool updateNode(const NodeInfoType& node);
     bool removeNode(const NodeUuid& uuid);
-    bool getNode(const NodeUuid& uuid, struct node_data *node);
+    bool getNode(const NodeUuid& uuid, NodeInfoType& node); //NOLINT
     bool nodeExists(const NodeUuid& uuid);
     bool getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain = 0);
-    bool getAllNodes(std::vector<struct node_data>& nodes, int localDomain = 0);
+    bool getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain = 0);
     std::string getNodeName(const NodeUuid& uuid);
 
     bool getNodeServices(const NodeUuid& uuid, NodeServices& services);
@@ -124,7 +124,7 @@ struct ConfigDB : KVStore {
     bool deleteSnapshot(const int64_t volumeId, const int64_t snapshotId);
     bool setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state);
     bool setSnapshotState(const int64_t volumeId, const int64_t snapshotId, fpi::ResourceState state); //NOLINT
-    bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
+   bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
 
   protected:
     void setModified();

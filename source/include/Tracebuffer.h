@@ -81,8 +81,9 @@ enum TracebufferPolicy {
 * is to trace very small pieces (size in bytes) information.  Essentially we would
 * like a recent history of events in the system orderd by some context id.
 */
-struct Tracebuffer {
-    explicit Tracebuffer(TracebufferPolicy traceBufPolicy);
+struct Tracebuffer : HasModuleProvider {
+    Tracebuffer(CommonModuleProviderIf* moduleProvider,
+                TracebufferPolicy traceBufPolicy);
 
 
     /**

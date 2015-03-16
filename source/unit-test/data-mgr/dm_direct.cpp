@@ -12,8 +12,6 @@
 #include <thread>
 #include <google/profiler.h>
 
-#include "platform/platform_process.h"
-
 fds::DMTester* dmTester = NULL;
 fds::concurrency::TaskStatus taskCount(0);
 

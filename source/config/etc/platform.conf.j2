@@ -54,22 +54,28 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
+	om_port = 7004
+	om_uuid = 1028
     }
 
-    plat: {
+    pm: {
         /* process id */
-        id = "auto"
+        id = "pm"
 
         /* Log file */
-        logfile = "pltform"
+        logfile = "pm"
 
         /* Log severity */
         log_severity = "{{ pm_log_severity }}"
 
-        /* Control path port */
+        /* Platform uuid.  From this base uuid other service runnig on this node detrive their uuids */
+	platform_uuid = 1024
+        /* Platform port.  This is the node base port.  All services running on this node derive */
+	/* their port based on this port */
         platform_port = 7000
 
         /* Orchestration manager info */
+	/* TODO(Rao): Deprecate om_ip, om_port, om_platform_port.  We don't need them anymore */
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
@@ -98,6 +104,7 @@ fds: {
         }
         /* Internal testing related info */
         testing: {
+	    standalone = false
             /* overwrite node capabilities from this config */
             manual_nodecap = true
             disk_iops_max  = 100000
@@ -118,6 +125,17 @@ fds: {
     }
 
     dm: {
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
 
         qos: {
@@ -134,6 +152,7 @@ fds: {
         /* process id */
         id      = "dm"
         no_om   = false;
+	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -172,8 +191,7 @@ fds: {
 
         /* Internal testing related info */
         testing: {
-            /* General testing mode...should depricate */
-            test_mode = false
+            standalone = false
 
             /* Forces all DM APIs to immediately return success */
             uturn_all = false
@@ -197,11 +215,23 @@ fds: {
     }
 
     sm: {
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
 
         /* process id */
         id      = "sm"
         prefix  = ""
+	/* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
         om_ip   = "{{ om_ip }}"
         om_port = 8904
 
@@ -286,7 +316,7 @@ fds: {
         /* Migration related info */
         migration: {
             /* IP of the migration server */
-            /* DEPRECATED */
+	    /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
             ip = "{{ om_ip }}"
 
             /* Number of threads for doing migration work */
@@ -324,10 +354,25 @@ fds: {
     }
 
     am: {
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
         perf: { enable = {{ perf_tracing }} }
+
+        /* process id */
+	id = "am"
 
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"
+	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
 
@@ -367,7 +412,7 @@ fds: {
         /* Internal testing related info */
         testing: {
             /* Toggle stand alone mode */
-            toggleStandAlone = false
+            standalone = false
 
             /* Toggle to disable stats collection for metadata streaming */
             toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }}
@@ -416,11 +461,29 @@ fds: {
 
     om:
     {
+        /* Service layer stanza */
+        svc: {
+            lftp: {
+                /* Enable lockfree threadpool optimizations or not */
+                enable = {{ svc_plat_lftp_enable }}
+                io_thread_cnt = 2
+                worker_thread_cnt = 2
+            }
+            timeout: {
+                thrift_message = {{ svc_plat_thrift_message_timeout }}
+            }
+        }
+	/* Testing stanza */
+	testing: {
+            /* Toggle stand alone mode */
+            standalone = false
+	}
         id="om"
         prefix=""
         log_severity = "{{ om_log_severity }}"
         logfile="om"
         config_port=8903
+	/* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
         control_port=8904
         ip_address = "{{ om_ip }}"
         enable_graphite = {{ metrics_enabled }}
@@ -457,6 +520,7 @@ fds: {
         control_port = 6991
 
         /* Orchestration manager ip */
+	/* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
         om_ip = "{{ om_ip }}"
 
         /* Orchestration manager port */

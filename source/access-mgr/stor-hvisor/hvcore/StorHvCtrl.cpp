@@ -5,18 +5,17 @@
 #include <fds_process.h>
 #include <dlt.h>
 #include <ObjectId.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <net/net_utils.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
-#include <am-platform.h>
+#include <fdsp_utils.h>
 
 #include "requests/requests.h"
 
 #include "lib/StatsCollector.h"
 #include "AmCache.h"
+#include "AccessMgr.h"
 #include "AmDispatcher.h"
 #include "AmProcessor.h"
 #include "am-tx-mgr.h"
@@ -54,8 +53,8 @@ StorHvCtrl::StorHvCtrl(int argc,
      * some in ubd. We need to unify this.
      */
     if (mode == NORMAL) {
-        omIpStr = config.get_abs<string>("fds.plat.om_ip");
-        omConfigPort = config.get_abs<int>("fds.plat.om_port");
+        omIpStr = config.get_abs<string>("fds.pm.om_ip");
+        omConfigPort = config.get_abs<int>("fds.pm.om_port");
     }
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "--om_ip=", 8) == 0) {
@@ -100,8 +99,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                                  GetLog());
 
     // Check the AM standalone toggle
-    toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
-    if (toggleStandAlone) {
+    standalone = config.get_abs<bool>("fds.am.testing.standalone");
+    if (standalone) {
         LOGWARN << "Starting SH CTRL in stand alone mode";
     }
 
@@ -119,12 +118,11 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       node_name,
 			       GetLog(),
 			       nullptr,
-			       &gl_AmPlatform,
+			       nullptr,
 			       instanceId);
-    if (toggleStandAlone) {
+    if (standalone) {
 	om_client->setNoNetwork(true);
     } else {
-	om_client->initialize();
 
 	qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
 
@@ -141,7 +139,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     DMTManagerPtr dmtMgr;
     DLTManagerPtr dltMgr;
-    if (toggleStandAlone) {
+    if (standalone) {
         dmtMgr = boost::make_shared<DMTManager>(1);
         dltMgr = boost::make_shared<DLTManager>();
     } else {
@@ -182,7 +180,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
 
-    if (toggleStandAlone) {
+    if (standalone) {
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
                                                          NULL);
     } else {
@@ -221,15 +219,6 @@ SysParams* StorHvCtrl::getSysParams() {
 }
 
 void StorHvCtrl::StartOmClient() {
-    /*
-     * Start listening for OM control messages
-     * Appropriate callbacks were setup by data placement and volume table objects
-     */
-    if (om_client) {
-        LOGNOTIFY << "StorHvCtrl - Started accepting control messages from OM";
-        om_client->registerNodeWithOM(&gl_AmPlatform);
-    }
-
     // Call the dispatcher startup function here since this
     // legacy class doesn't actually extend from Module but
     // needs a member's startup to be called.
@@ -241,6 +230,7 @@ Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
                                         const std::string& secret_access_key) {
     Error err(ERR_OK);
     int om_err = 0;
+
     LOGNORMAL << "bucket: " << bucket_name;
 
     // send test bucket message to OM

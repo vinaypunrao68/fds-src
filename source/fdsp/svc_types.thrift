@@ -43,6 +43,13 @@ enum  FDSPMsgTypeId {
   NodeDownTypeId                            = 1011;
   NodeEventTypeId                           = 1012;
   NodeWorkItemTypeId                        = 1013;
+  PhaseSyncTypeId                           = 1014;
+  UpdateSvcMapMsgTypeId                     = 1015;
+  GetSvcMapMsgTypeId                        = 1016;
+  GetSvcMapRespMsgTypeId                    = 1017;
+  GetSvcStatusMsgTypeId                     = 1018;
+  GetSvcStatusRespMsgTypeId                 = 1019;
+  ActivateServicesMsgTypeId                 = 1020;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;
@@ -162,6 +169,15 @@ enum  FDSPMsgTypeId {
   ReloadVolumeRspMsgTypeId
 }
 
+/**
+ * Service status.
+ */
+enum ServiceStatus {
+    SVC_STATUS_INVALID      = 0x0000;
+    SVC_STATUS_ACTIVE       = 0x0001;
+    SVC_STATUS_INACTIVE     = 0x0002;
+}
+
 /* ------------------------------------------------------------
    SvcLayer Types
    ------------------------------------------------------------*/
@@ -209,15 +225,21 @@ struct FDSP_DLT_Data_Type {
 }
 
 /**
- * Bind service to Uuid.
+ * Service map info
  */
-struct UuidBindMsg {
+struct SvcInfo {
   1: required common.SvcID          svc_id;
-  2: required string                svc_addr;
-  3: required i32                   svc_port;
-  4: required common.SvcID          svc_node;
+  2: required i32                   svc_port;
+  3: required FDSP.FDSP_MgrIdType   svc_type;
+  4: required ServiceStatus         svc_status;
   5: required string                svc_auto_name;
-  6: required FDSP.FDSP_MgrIdType   svc_type;
+  // TODO(Rao): We should make these required.  They aren't made required as of this writing
+  // because it can break existing code.
+  6: string                         ip;
+  7: i32                            incarnationNo;
+  8: string                         name;
+  /* <key, value> properties */
+  9: map<string, string>            props;
 }
 
 /*
@@ -225,22 +247,24 @@ struct UuidBindMsg {
  * Node endpoint/service registration handshake
  * --------------------------------------------------------------------------------
  */
-enum ServiceStatus {
-    SVC_STATUS_INVALID      = 0x0000,
-    SVC_STATUS_ACTIVE       = 0x0001,
-    SVC_STATUS_INACTIVE     = 0x0002,
-    SVC_STATUS_IN_ERR       = 0x0004
+
+/**
+ * Activate Service
+ */
+struct ActivateServicesMsg {
+  1: FDSP.FDSP_ActivateNodeType info;
 }
 
 /**
- * Service map info
+ * Bind service to Uuid.
  */
-struct SvcInfo {
-    1: required common.SvcID            svc_id,
-    2: required i32                     svc_port,
-    3: required FDSP.FDSP_MgrIdType 	svc_type
-    4: required ServiceStatus           svc_status,
-    5: required string                  svc_auto_name,
+struct UuidBindMsg {
+    1: required common.SvcID          svc_id;
+    2: required string                svc_addr;
+    3: required i32                   svc_port;
+    4: required common.SvcID          svc_node;
+    5: required string                svc_auto_name;
+    6: required FDSP.FDSP_MgrIdType   svc_type;
 }
 
 /**
@@ -309,22 +333,22 @@ struct NodeEvent {
 }
 
 struct NodeFunctional {
-    1: required common.DomainID          	nd_dom_id,
-    2: required common.SvcUuid           	nd_uuid,
-    3: required FDSPMsgTypeId	            nd_op_code,
-    4: list<NodeWorkItem>                	nd_work_item,
+    1: required common.DomainID                 nd_dom_id,
+    2: required common.SvcUuid                  nd_uuid,
+    3: required FDSPMsgTypeId                   nd_op_code,
+    4: list<NodeWorkItem>                       nd_work_item,
 }
 
 /*
  * Node registration message format.
  */
 struct NodeInfoMsg {
-    1: required UuidBindMsg         node_loc,
-    2: required common.DomainID		node_domain,
-    3: StorCapMsg 			        node_stor,
-    4: required i32           		nd_base_port,
-    5: required i32           		nd_svc_mask,
-    6: required bool          		nd_bcast,
+    1: required UuidBindMsg node_loc,
+    2: required common.DomainID         node_domain,
+    3: StorCapMsg                       node_stor,
+    4: required i32                     nd_base_port,
+    5: required i32                     nd_svc_mask,
+    6: required bool                    nd_bcast,
 }
 
 struct NodeIntegrate {
@@ -362,10 +386,10 @@ struct NodeQualify {
  * Notify node to upgrade/rollback SW version.
  */
 struct NodeUpgrade {
-    1: required common.DomainID          	nd_dom_id,
-    2: required common.SvcUuid           	nd_uuid,
-    3: NodeVersion                       	nd_sw_ver,
-    4: required FDSPMsgTypeId	            nd_op_code,
-    5: required string                   	nd_md5_chksum,
-    6: string                            	nd_pkg_path,
+    1: required common.DomainID                 nd_dom_id,
+    2: required common.SvcUuid                  nd_uuid,
+    3: NodeVersion                              nd_sw_ver,
+    4: required FDSPMsgTypeId   nd_op_code,
+    5: required string                          nd_md5_chksum,
+    6: string                                   nd_pkg_path,
 }

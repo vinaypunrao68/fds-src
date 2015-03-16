@@ -103,17 +103,6 @@ class OMgrClient {
     dltclose_event_handler_t dltclose_evt_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
 
-    /**
-     * Session table for OM client
-     */
-    boost::shared_ptr<netSessionTbl> nst_;
-
-    /**
-     * client for sending messages to OM
-     */
-    netOMControlPathClientSession* omclient_prx_session_;
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_OMControlPathReqClient> om_client_prx;
-
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     /// Tracks local instances (only used for multi-AM at the moment)
@@ -132,7 +121,6 @@ class OMgrClient {
         this->fNoNetwork = fNoNetwork;
     }
     ~OMgrClient();
-    int initialize();
 
     NodeUuid getUuid() const;
     FDSP_MgrIdType getNodeType() const;
@@ -146,9 +134,6 @@ class OMgrClient {
     //
     fds_log        *omc_log;
 
-    // int subscribeToOmEvents(unsigned int om_ip_addr,
-    // int tennant_id, int domain_id, int omc_port_num= 0);
-    int registerNodeWithOM(Platform *plat);
     int sendMigrationStatusToOM(const Error& err);
 
     int getNodeInfo(fds_uint64_t node_id,
