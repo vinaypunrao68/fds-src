@@ -5,14 +5,13 @@
 package com.formationds.util.thrift.svc;
 
 import com.google.common.net.HostAndPort;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author ptinius
@@ -54,7 +53,7 @@ public class SvcLayerServices {
         }
 
         logger.warn(
-            "The specified PM service client {} doesn't exists within the " +
+            "The specified service client {} doesn't exists within the " +
             "service cache.",
             host );
 
@@ -66,7 +65,7 @@ public class SvcLayerServices {
         if( !by( domainId ).isPresent( ) ||
             !by( domainId, host ).isPresent() ) {
             
-            logger.debug( "Adding platform client {} to service cache.", host );
+            logger.debug( "Adding service client {} to service cache.", host );
             SERVICES.put( domainId, new ArrayList<>() );
             SERVICES.get( domainId ).add( new SvcLayerClient( host ) );
 
