@@ -844,17 +844,23 @@ ObjMetaData::isVolAssocReconciled(fds_uint64_t& totalVolRefCnt,
                                   fds_int64_t& totalReconcileVolRefCnt)
 {
     bool reconciled = false;
+    fds_uint64_t reconciledVols = 0UL;
+
     totalVolRefCnt = 0UL;
     totalReconcileVolRefCnt = 0L;
 
     std::vector<obj_assoc_entry_t>::iterator it;
     for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
+        fds_assert((*it).vol_migration_reconcile_ref_cnt <= 0);
+        if ((*it).vol_migration_reconcile_ref_cnt == 0) {
+            ++reconciledVols;
+        }
         totalReconcileVolRefCnt += (*it).vol_migration_reconcile_ref_cnt;
         totalVolRefCnt += (*it).ref_cnt;
     }
 
     // If all the reconcile ref cnt are 0, then there is nothing to reconcile.
-    if (totalReconcileVolRefCnt == 0L) {
+    if (reconciledVols == (fds_uint64_t)assoc_entry.size()) {
         reconciled = true;
         // If all volumes are reconciled, then obj reconcile ref_cnt should
         // also be reconciled.
@@ -972,6 +978,7 @@ ObjMetaData::reconcilePutObjMetaData(ObjectID objId, fds_volid_t volId)
         // Have to check if the reconcile ref_cnt is < 0.
         // If < 0, then the volume requires reconcile, and the rest of the metadata
         // requires reconciliation.
+        fds_assert((*it).vol_migration_reconcile_ref_cnt <= 0);
         if ((*it).vol_migration_reconcile_ref_cnt < 0L) {
             // This is PUT operation, so reconcile the
             (*it).vol_migration_reconcile_ref_cnt++;
@@ -1048,37 +1055,51 @@ ObjMetaData::reconcileDeltaObjMetaData(const fpi::CtrlObjectMetaDataPropagate& o
             // existing volume assoctiona.  Need to reconcile by merging
 #if DEBUG
             if (it->ref_cnt > 0UL) {
-                fds_assert(it->vol_migration_reconcile_ref_cnt = 0L);
+                fds_assert(0L == it->vol_migration_reconcile_ref_cnt);
             }
             if (it->vol_migration_reconcile_ref_cnt < 0L) {
-                fds_assert(it->ref_cnt == 0UL);
+                fds_assert(0UL == it->ref_cnt);
             }
 #endif
-            int64_t newRefCnt = it->ref_cnt +
-                                it->vol_migration_reconcile_ref_cnt +
-                                volAssoc.volumeRefCnt;
+            int64_t newRefCnt;
+            if (it->vol_migration_reconcile_ref_cnt < 0L) {
+            newRefCnt = it->vol_migration_reconcile_ref_cnt +
+                        volAssoc.volumeRefCnt;
+            } else {
+                newRefCnt = it->ref_cnt +
+                            volAssoc.volumeRefCnt;
+            }
+
             if (newRefCnt >= 0) {
                 it->ref_cnt = newRefCnt;
-                if (newRefCnt == 0) {
+                it->vol_migration_reconcile_ref_cnt = 0;
+                if (0L == newRefCnt) {
                     assoc_entry.erase(it);
                 }
             } else {
                 it->vol_migration_reconcile_ref_cnt = newRefCnt;
-                fds_verify(it->ref_cnt == 0UL);
+                fds_verify(0UL == it->ref_cnt);
             }
         }
         obj_map.obj_num_assoc_entry = assoc_entry.size();
     }
 
-    int64_t newObjRefCnt = obj_map.obj_refcnt +
-                           obj_map.obj_migration_reconcile_ref_cnt +
-                           objMetaData.objectRefCnt;
+    int64_t newObjRefCnt;
+    if (obj_map.obj_migration_reconcile_ref_cnt < 0L) {
+        newObjRefCnt = obj_map.obj_migration_reconcile_ref_cnt +
+                       objMetaData.objectRefCnt;
+
+    }  else {
+        newObjRefCnt = obj_map.obj_refcnt +
+                       objMetaData.objectRefCnt;
+    }
 
     if (newObjRefCnt >= 0) {
         obj_map.obj_refcnt = newObjRefCnt;
+        obj_map.obj_migration_reconcile_ref_cnt = 0;
     } else {
         obj_map.obj_migration_reconcile_ref_cnt = newObjRefCnt;
-        fds_verify(obj_map.obj_refcnt == 0UL);
+        fds_verify(0UL == obj_map.obj_refcnt);
     }
 
     // Check if the metadata is reconciled or not.
@@ -1087,10 +1108,9 @@ ObjMetaData::reconcileDeltaObjMetaData(const fpi::CtrlObjectMetaDataPropagate& o
         fds_int64_t totalReconcileVolRefCnt = 0L;
         fds_bool_t volsReconciled = isVolAssocReconciled(totalVolRefCnt, totalReconcileVolRefCnt);
 
-        fds_verify(totalVolRefCnt == obj_map.obj_refcnt);
-        fds_verify(totalReconcileVolRefCnt == obj_map.obj_migration_reconcile_ref_cnt);
-
         if (volsReconciled) {
+            fds_verify(totalVolRefCnt == obj_map.obj_refcnt);
+            fds_verify(totalReconcileVolRefCnt == obj_map.obj_migration_reconcile_ref_cnt);
             unsetObjReconcileRequired();
         }
     }

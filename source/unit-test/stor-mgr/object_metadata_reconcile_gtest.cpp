@@ -23,7 +23,7 @@
 namespace fds {
 
 void
-initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg)
+initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg, fds_volid_t volId)
 {
     // cleanup first
     msg.objectVolumeAssoc.clear();
@@ -32,7 +32,7 @@ initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg)
 
     // init
     fpi::MetaDataVolumeAssoc volAssoc;
-    volAssoc.volumeAssoc = 1;
+    volAssoc.volumeAssoc = volId;
     volAssoc.volumeRefCnt = 1;
     msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
     msg.objectVolumeAssoc.push_back(volAssoc);
@@ -44,14 +44,13 @@ initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg)
     msg.objectExpireTime = 0;
 }
 
-    // objMetaDataPtr->updateAssocEntry(oid, volId);
     // objMetaDataPtr->setObjReconcileRequired();
 
 TEST(ObjMetaData, test1)
 {
     // Test case 1:
     // Create reconcile MetaData.  Do Put on the same object.
-    // Expect results are:
+    // Expected results are:
     // 1) NO_RECONCILE flag
     // 2) # of vol assoc = 0;
     //
@@ -73,7 +72,7 @@ TEST(ObjMetaData, test1)
     std::cout << objMetaDataPtr->logString();
 
     fpi::CtrlObjectMetaDataPropagate msg;
-    initMetaDataPropagate(msg);
+    initMetaDataPropagate(msg, 1);
 
     objMetaDataPtr->reconcilePutObjMetaData(oid, 0);
 
@@ -91,6 +90,9 @@ TEST(ObjMetaData, test2)
     // Test case 2:
     // create metadata with 2 reconcile events.
     // Do 2 PUTS on the object.
+    // Expected results are:
+    // 1) NO_RECONCILE flag
+    // 2) # of vol assoc = 0;
     std::default_random_engine eng((std::random_device())());
     std::uniform_int_distribution<int64_t> randGen(0, std::numeric_limits<int64_t>::max());
     int64_t ranNum = randGen(eng);
@@ -149,6 +151,175 @@ TEST(ObjMetaData, test2)
     EXPECT_TRUE(!objMetaDataPtr->isObjReconcileRequired());
 
     std::cout << objMetaDataPtr->logString();
+}
+
+TEST(ObjMetaData, test3)
+{
+    // Test case 3:
+    // Simulate
+    // 1) forward PUT ObjectID in volume 0.
+    // 2) migrate PUT ObjectID in volume 1.
+    //
+    std::default_random_engine eng((std::random_device())());
+    std::uniform_int_distribution<int64_t> randGen(0, std::numeric_limits<int64_t>::max());
+    int64_t ranNum = randGen(eng);
+
+    std::vector<fds_volid_t> vols;
+
+    std::string objData = std::to_string(ranNum);
+    ObjectID oid = ObjIdGen::genObjectId(objData.c_str(), objData.size());
+
+    // Metadata
+    ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
+    objMetaDataPtr->initialize(oid, objData.size());
+    objMetaDataPtr->updateAssocEntry(oid, 0);
+    EXPECT_EQ(1, objMetaDataPtr->getRefCnt());
+
+    objMetaDataPtr->getAssociatedVolumes(vols);
+    EXPECT_EQ(1, vols.size());
+
+    EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
+
+    std::cout << objMetaDataPtr->logString();
+
+    fpi::CtrlObjectMetaDataPropagate msg;
+    initMetaDataPropagate(msg, 1);
+
+    objMetaDataPtr->reconcileDeltaObjMetaData(msg);
+    EXPECT_EQ(2, objMetaDataPtr->getRefCnt());
+    vols.clear();
+    objMetaDataPtr->getAssociatedVolumes(vols);
+    EXPECT_EQ(2, vols.size());
+    EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
+
+    std::cout << objMetaDataPtr->logString();
+}
+
+TEST(ObjMetaData, test4)
+{
+    // Test case 3:
+    // Simulate
+    // 1) forward PUT ObjectID in volume 1.
+    // 2) migrate PUT ObjectID in volume 1.
+    //
+    std::default_random_engine eng((std::random_device())());
+    std::uniform_int_distribution<int64_t> randGen(0, std::numeric_limits<int64_t>::max());
+    int64_t ranNum = randGen(eng);
+
+    std::vector<fds_volid_t> vols;
+
+    std::string objData = std::to_string(ranNum);
+    ObjectID oid = ObjIdGen::genObjectId(objData.c_str(), objData.size());
+
+    // Metadata
+    ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
+    objMetaDataPtr->initialize(oid, objData.size());
+    objMetaDataPtr->updateAssocEntry(oid, 1);
+    EXPECT_EQ(1, objMetaDataPtr->getRefCnt());
+
+    objMetaDataPtr->getAssociatedVolumes(vols);
+    EXPECT_EQ(1, vols.size());
+
+    EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
+
+    std::cout << objMetaDataPtr->logString();
+
+    fpi::CtrlObjectMetaDataPropagate msg;
+    initMetaDataPropagate(msg, 1);
+
+    objMetaDataPtr->reconcileDeltaObjMetaData(msg);
+    EXPECT_EQ(2, objMetaDataPtr->getRefCnt());
+    vols.clear();
+    objMetaDataPtr->getAssociatedVolumes(vols);
+    EXPECT_EQ(1, vols.size());
+    EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
+
+    std::cout << objMetaDataPtr->logString();
+}
+TEST(ObjMetaData, test5)
+{
+    // Test case 3:
+    // Simulate
+    // 1) forward DELETE ObjectID in volume 1.
+    // 2) migrate PUT ObjectID in volume 1.
+    //
+    std::default_random_engine eng((std::random_device())());
+    std::uniform_int_distribution<int64_t> randGen(0, std::numeric_limits<int64_t>::max());
+    int64_t ranNum = randGen(eng);
+
+    std::vector<fds_volid_t> vols;
+
+    std::string objData = std::to_string(ranNum);
+    ObjectID oid = ObjIdGen::genObjectId(objData.c_str(), objData.size());
+
+    // Metadata
+    ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
+    objMetaDataPtr->initializeDelReconcile(oid, 1);
+    EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
+
+    objMetaDataPtr->getAssociatedVolumes(vols);
+    EXPECT_EQ(1, vols.size());
+
+    EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
+
+    std::cout << objMetaDataPtr->logString();
+
+    fpi::CtrlObjectMetaDataPropagate msg;
+    initMetaDataPropagate(msg, 1);
+
+    objMetaDataPtr->reconcileDeltaObjMetaData(msg);
+    EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
+    vols.clear();
+    objMetaDataPtr->getAssociatedVolumes(vols);
+    EXPECT_EQ(0, vols.size());
+
+    EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
+
+    std::cout << objMetaDataPtr->logString();
+
+}
+
+TEST(ObjMetaData, test6)
+{
+    // Test case 3:
+    // Simulate
+    // 1) forward DELETE ObjectID in volume 0.
+    // 2) migrate PUT ObjectID in volume 1.
+    //
+    std::default_random_engine eng((std::random_device())());
+    std::uniform_int_distribution<int64_t> randGen(0, std::numeric_limits<int64_t>::max());
+    int64_t ranNum = randGen(eng);
+
+    std::vector<fds_volid_t> vols;
+
+    std::string objData = std::to_string(ranNum);
+    ObjectID oid = ObjIdGen::genObjectId(objData.c_str(), objData.size());
+
+    // Metadata
+    ObjMetaData::ptr objMetaDataPtr = ObjMetaData::ptr(new ObjMetaData());
+    objMetaDataPtr->initializeDelReconcile(oid, 0);
+    EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
+
+    objMetaDataPtr->getAssociatedVolumes(vols);
+    EXPECT_EQ(1, vols.size());
+
+    EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
+
+    std::cout << objMetaDataPtr->logString();
+
+    fpi::CtrlObjectMetaDataPropagate msg;
+    initMetaDataPropagate(msg, 1);
+
+    objMetaDataPtr->reconcileDeltaObjMetaData(msg);
+    EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
+    vols.clear();
+    objMetaDataPtr->getAssociatedVolumes(vols);
+    EXPECT_EQ(2, vols.size());
+
+    EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
+
+    std::cout << objMetaDataPtr->logString();
+
 
 }
 
