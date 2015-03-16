@@ -218,6 +218,10 @@ void
 DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg) { //NOLINT
     StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
+    if (!statAggr) {
+        LOGWARN << "statStreamAggregator is not initialised";
+        return;
+    }
     fds_assert(statAggr);
     fds_assert(streamRegstrMsg);
 
