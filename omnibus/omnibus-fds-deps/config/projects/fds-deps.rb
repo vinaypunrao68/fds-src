@@ -13,7 +13,7 @@ homepage "http://www.formationds.com"
 install_dir "#{default_root}/#{name}"
 
 #build_version Omnibus::BuildVersion.semver
-build_version '0.7.3'
+build_version '0.7.4'
 build_iteration 1
 
 # Creates required build directories

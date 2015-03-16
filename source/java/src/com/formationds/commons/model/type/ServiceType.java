@@ -9,7 +9,6 @@ import com.formationds.commons.model.OrchestrationManagerService;
 import com.formationds.commons.model.PlatformManagerService;
 import com.formationds.commons.model.Service;
 import com.formationds.commons.model.StorageManagerService;
-
 import java.util.Optional;
 
 public enum ServiceType {
@@ -50,8 +49,12 @@ public enum ServiceType {
         /**
          * Helper to build a service of a particular type
          * 
-         * @param serviceType
-         * @return
+         * @param serviceType the {@link com.formationds.commons.model.type.ServiceType}
+         * @param fdspNodeInfoType the {@link FDS_ProtocolInterface.FDSP_Node_Info_Type}
+         *
+         * @return Returns {@link java.util.Optional} with the
+         *         {@link com.formationds.commons.model.Service} set if found.
+         *         Otherwise, Optional.empty().
          */
         private static Optional<Service> buildService(
             final ServiceType serviceType,
@@ -63,25 +66,25 @@ public enum ServiceType {
                 case AM:
                     service = Optional.of( new AccessManagerService() );
                     break;
-        		case DM:
-        			service = Optional.of( new DataManagerService() );
-        			break;
+                case DM:
+                    service = Optional.of( new DataManagerService() );
+                    break;
                 case OM:
                     service = Optional.of( new OrchestrationManagerService() );
                     break;
-        		case PM:
-        			service = Optional.of( new PlatformManagerService() );
-        			break;
-        		case SM:
-        			service = Optional.of( new StorageManagerService() );
-        			break;
-        	}
+                case PM:
+                    service = Optional.of( new PlatformManagerService() );
+                    break;
+                case SM:
+                    service = Optional.of( new StorageManagerService() );
+                    break;
+             }
 
             if( service.isPresent() ) {
 
                 service.get().setAutoName( serviceType.name() );
                 service.get().setPort( fdspNodeInfoType.getControl_port() );
-                service.get().setUuid( fdspNodeInfoType.getNode_uuid() );
+                service.get().setUuid( fdspNodeInfoType.getService_uuid() );
                 service.get()
                        .setStatus(
                            getServiceState(

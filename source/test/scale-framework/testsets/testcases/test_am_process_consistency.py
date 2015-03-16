@@ -53,9 +53,9 @@ class TestAMProcessConsistency(testcase.FDSTestCase):
                                                    om_ip_address=om_ip_address)
 
         self.ip_addresses = config_parser.get_ips_from_inventory(
-                                           config.DEFAULT_INVENTORY_FILE)
+                                                            self.inventory_file)
         # will have to change that so the inventory file is passed to the cluster
-        self.engine = fds_engine.FdsEngine(config.DEFAULT_INVENTORY_FILE)
+        self.engine = fds_engine.FdsEngine(self.inventory_file)
         self.sample_file = samples.sample_mb_files[len(samples.sample_mb_files) // 2]
         self.s3conn = s3.S3Connection(
                     config.FDS_DEFAULT_ADMIN_USER,
