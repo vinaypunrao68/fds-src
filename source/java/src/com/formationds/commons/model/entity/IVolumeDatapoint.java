@@ -14,9 +14,13 @@ public interface IVolumeDatapoint {
 
     Long getTimestamp();
 
+    void setTimestamp(long timestamp);
+
     String getVolumeName();
 
     String getVolumeId();
+    
+    void setVolumeId( String anId );
 
     String getKey();
 }
