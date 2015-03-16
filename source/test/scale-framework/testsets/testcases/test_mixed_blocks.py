@@ -43,6 +43,9 @@ class TestMixedBlocks(testcase.FDSTestCase):
         self.log.info("hash table: %s" % self.hash_table)
         
     def runTest(self):
+        '''
+        Run the test
+        '''
         # establish a S3 connection
         s3conn = self.connect_s3()
         # create 500 s3 volumes
@@ -65,6 +68,14 @@ class TestMixedBlocks(testcase.FDSTestCase):
         return s3conn
 
     def create_s3_volumes(self, s3conn):
+        '''
+        This particular method is responsible for creating 500 S3 buckets.
+        They will represet the S3 part of the test.
+        
+        Arguments:
+        ----------
+        s3conn : the s3 connection instance
+        '''
         bucket_name = "s3_volume_%s"
         for i in xrange(0, 500):
             bucket = s3conn.conn.create_bucket(bucket_name % i)
@@ -95,6 +106,14 @@ class TestMixedBlocks(testcase.FDSTestCase):
             self.test_passed = True
     
     def download_files(self, bucket):
+        '''
+        Given a S3 bucket object, download all the contents presented in this
+        bucket. 
+        
+        Arguments:
+        ----------
+        bucket: the S3 bucket object.
+        '''
         utils.create_dir(config.DOWNLOAD_DIR)
         bucket_list = bucket.list()
         for l in bucket_list:
@@ -146,6 +165,11 @@ class TestMixedBlocks(testcase.FDSTestCase):
         self.buckets = []
     
     def create_block_volumes(self):
+        '''
+        Responsible for creating 500 block volumes, using the REST API.
+        Each block volume will be populated with 10MB of data, and this test
+        represent the Block volume half of the test.
+        '''
         test_passed = False
         r = None
         port = config.FDS_REST_PORT
@@ -191,16 +215,6 @@ class TestMixedBlocks(testcase.FDSTestCase):
         
                     #Check return code
                     self.assertTrue(200 == r.status_code)
-                    
-                        #Write to the volume
-        
-                        #Read from volume
-        
-                    #Get Volumes
-                    #r = requests.get(url, headers=header)
-                    #self.log.info("response = %s", r.json())
-                    #self.log.info("Status = %s", r.status_code)
-                    #Yay?
                     test_passed = True
 
 

@@ -17,28 +17,28 @@
 			},
 			{
 				"name" : "Test100GBVolume",
-				"file" : "test_10gb_volume.py",
+				"file" : "test_100gb_volume.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
 			},
 			{
 				"name" : "TestAMProcessConsistency",
-				"file" : "test_am_process_consistency",
+				"file" : "test_am_process_consistency.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
 			},
 			{
 				"name" : "TestCreateMultipleBuckets",
-				"file" : "test_create_multiple_buckets",
+				"file" : "test_create_multiple_buckets.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
 			},
 			{
 				"name" : "TestCreateMultivolume",
-				"file" : "test_create_multivolume",
+				"file" : "test_create_multivolume.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
