@@ -1,7 +1,6 @@
 package com.formationds.util;
 
 import com.formationds.apis.*;
-import com.formationds.commons.model.Tenant;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -19,7 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public class StubConfigurationApi implements ConfigurationApi {
-	// Local Domains
+    // Local Domains
     // Tenants
     // Users (many-to-many relationship User <--> Tenant)
     // Snapshot policies (one-to-many relationship SnapshotPolicy <--> Volume)
