@@ -17,6 +17,9 @@ namespace java com.formationds.apis
  * Configuration Service
  */
 service ConfigurationService {
+  /** Create a Local Domain. */
+  i64 createLocalDomain(1:string domainName, 2:i64 domainId)
+      throws (1: common.ApiException e);
   /** Create a new tenant. */
   i64 createTenant(1:string identifier)
       throws (1: common.ApiException e);

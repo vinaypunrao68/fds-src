@@ -59,6 +59,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     // stubs to keep cpp compiler happy - BEGIN
+    int64_t createLocalDomain(const std::string& domainName, const int64_t domainID) { return 0;}
     int64_t createTenant(const std::string& identifier) { return 0;}
     void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
     int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
@@ -90,6 +91,16 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
 
     // stubs to keep cpp compiler happy - END
+
+    int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<int64_t>& domainID) {
+        bool created = configDB->addLocalDomain(*domainName, *domainID);
+        if (!created) {
+            LOGERROR << "Some issue in local domain creation";
+            apiException("error creating local domain");
+        }
+
+        return *domainID;
+    }
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
         return configDB->createTenant(*identifier);
