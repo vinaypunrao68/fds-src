@@ -84,6 +84,10 @@ def test_file_generator():
     fgen = file_generator.FileGenerator('4', 100, 'K')
     fgen.generate_files()
 
+def test_ssh_file():
+    path = os.path.join(config.ANSIBLE_ROOT, "")
+    sshconn = ssh.SSHConn(hostname, "ubuntu", None, "ssh.config")
+
 def test_random_files():
     fgen = file_generator.FileGenerator('4', 100, 'K')
     print fgen.get_files()
