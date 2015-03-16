@@ -137,6 +137,9 @@ public class Volume
    * in the volume's underlying objects.
    */
   public int getMaxObjectSize() {
+    if (max_object_size == null) {
+	    return 0;
+    }
     return max_object_size;
   }
 
