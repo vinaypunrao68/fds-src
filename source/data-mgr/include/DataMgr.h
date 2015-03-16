@@ -130,7 +130,8 @@ struct DataMgr : Module, DmIoReqHandler {
     } feature;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
-    TimelineDB timeline;
+    fds_bool_t enableTimeline = false;
+    boost::shared_ptr<TimelineDB> timeline;
 
     /**
      * For timing out request forwarding in DM (to send DMT close ack)

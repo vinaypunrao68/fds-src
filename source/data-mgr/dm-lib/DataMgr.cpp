@@ -359,9 +359,11 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             err = timeVolCat_->copyVolume(*vdesc);
             if (err.ok()) {
                 // add it to timeline
-                timeline.addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
+                if (enableTimeline) {
+                    timeline->addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
+                }
             }
-        } else {
+        } else if (enableTimeline) {
             // clone
             // find the closest snapshot to clone the base from
             fds_volid_t srcVolumeId = vdesc->srcVolumeId;
@@ -376,7 +378,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                 err = timeVolCat_->copyVolume(*vdesc);
             } else {
                 fds_volid_t latestSnapshotId = 0;
-                timeline.getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
+                timeline->getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
                 util::TimeStamp snapshotTime = 0;
                 if (latestSnapshotId > 0) {
                     LOGDEBUG << "clone vol:" << vdesc->volUUID
@@ -384,7 +386,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                              << " will be based of snapshot:" << latestSnapshotId;
                     // set the src volume to be the snapshot
                     vdesc->srcVolumeId = latestSnapshotId;
-                    timeline.getSnapshotTime(srcVolumeId, latestSnapshotId, snapshotTime);
+                    timeline->getSnapshotTime(srcVolumeId, latestSnapshotId, snapshotTime);
                     LOGDEBUG << "about to copy :" << vdesc->srcVolumeId;
                     err = timeVolCat_->copyVolume(*vdesc, srcVolumeId);
                     // recopy the original srcVolumeId
@@ -818,6 +820,12 @@ int DataMgr::mod_init(SysParams const *const param)
     testUturnSetMeta   = modProvider_->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
+    // timeline feature toggle
+    enableTimeline = modProvider_->get_fds_config()->get<bool>("fds.dm.enable_timeline", true);
+    if (enableTimeline) {
+        timeline.reset(new TimelineDB());
+    }
+
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
     /*
@@ -963,7 +971,9 @@ void DataMgr::mod_enable_service() {
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
-    timeline.open();
+    if (enableTimeline) {
+        timeline->open();
+    }
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.

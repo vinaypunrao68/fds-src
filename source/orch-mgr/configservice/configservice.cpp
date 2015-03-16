@@ -296,8 +296,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
-        if (configDB->createSnapshotPolicy(*policy)) {
-            om->snapshotMgr.addPolicy(*policy);
+        if (om->enableSnapshot && configDB->createSnapshotPolicy(*policy)) {
+            om->snapshotMgr->addPolicy(*policy);
             return policy->id;
         }
         return -1;
@@ -309,8 +309,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
-        configDB->deleteSnapshotPolicy(*id);
-        om->snapshotMgr.removePolicy(*id);
+        if (om->enableSnapshot) {
+            configDB->deleteSnapshotPolicy(*id);
+            om->snapshotMgr->removePolicy(*id);
+        }
     }
 
     void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
@@ -405,7 +407,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             apiException("error creating volume");
         } else {
             // volume created successfully ,
-            // no create a base snapshot. [FS-471]
+            // now create a base snapshot. [FS-471]
             // we have to do this here because only OM can create a new
             // volume id
             boost::shared_ptr<int64_t> sp_volId(new int64_t(vol->rs_get_uuid().uuid_get_val()));
@@ -451,7 +453,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             apiException(err.GetErrstr());
         }
         // add this snapshot to the retention manager ...
-        om->snapshotMgr.deleteScheduler->addSnapshot(snapshot);
+        if (om->enableSnapshot) {
+            om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
+        }
     }
 };
 

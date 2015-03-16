@@ -189,6 +189,9 @@ fds: {
             num_threads = 10
         }
 
+        /* Timeline feature toggle */
+        enable_timeline = true
+
         /* Internal testing related info */
         testing: {
             standalone = false
@@ -503,6 +506,8 @@ fds: {
         threadpool: {
             num_threads = 10
         }
+
+        enable_snapshot = true
 
         snmp: {
             targetip = "{{ snmp_targetip }}"

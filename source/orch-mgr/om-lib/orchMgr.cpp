@@ -29,7 +29,8 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
       test_mode(false),
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
       cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
-      snapshotMgr(this), deleteScheduler(this)
+      deleteScheduler(this),
+      enableSnapshot(true)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
     fds::gl_orch_mgr = this;
@@ -49,6 +50,11 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
 
     init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
                                                  "fds.om.", "om.log", omVec);
+
+    enableSnapshot = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.om.enable_snapshot", true);
+    if (enableSnapshot) {
+        snapshotMgr.reset(new fds::snapshot::Manager(this));
+    }
 
     /*
      * Testing code for loading test info from disk.
@@ -174,7 +180,9 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    snapshotMgr.init();
+    if (enableSnapshot) {
+        snapshotMgr->init();
+    }
     fds_bool_t config_db_up = loadFromConfigDB();
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
@@ -399,9 +407,10 @@ bool OrchMgr::loadFromConfigDB() {
 
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
 
-
     // load the snapshot policies
-    snapshotMgr.loadFromConfigDB();
+    if (enableSnapshot) {
+        snapshotMgr->loadFromConfigDB();
+    }
 
     return true;
 }
