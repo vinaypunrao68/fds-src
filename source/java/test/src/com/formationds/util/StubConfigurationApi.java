@@ -62,9 +62,9 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public long createLocalDomain(String domainName, Long domainId) throws ApiException, TException {
+    public long createLocalDomain(String domainName, long domainId) throws ApiException, TException {
         configurationVersion.incrementAndGet();
-        LocalDomain domain = new LocalDomain(domainId.incrementAndGet(), domainName);
+        LocalDomain domain = new LocalDomain(localDomainId.incrementAndGet(), domainName);
         localDomains.add(domain);
         return domain.getId();
     }
