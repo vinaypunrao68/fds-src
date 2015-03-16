@@ -45,13 +45,9 @@ class ServiceContext(Context):
         'show the list of services in the system'
         try:
             services = self.restApi().listServices()
-            return tabulate(services,
-                            headers={
-                                'uuid':     'Node UUID',
-                                'service':  'Service Name',
-                                'ip':       'IP4 Address',
-                                'port':     'TCP Port',
-                                'status':   'Service Status'},
+
+            return tabulate(map(lambda x: [x['uuid'], x['service'], x['ip'], x['port'], x['status']], services),
+                            headers=['Node UUID', 'Service Name', 'IP4 Address', 'TCP Port', 'Service Status'],
                             tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
