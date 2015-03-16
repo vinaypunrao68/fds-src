@@ -3,6 +3,7 @@
 
 from oslo.config import cfg
 import traceback
+import uuid
 import paramiko
 
 from cinder import context
@@ -153,3 +154,15 @@ class FDSNBDDriver(driver.VolumeDriver):
 
     def copy_image_to_volume(self, context, volume, image_service, image_id):
         self.nbd.image_via_nbd(self.configuration.fds_nbd_server, context, volume, image_service, image_id)
+
+    def image_via_nbd(self, nbd_server, context, volume, image_service, image_id):
+        with self.nbd.use_nbd_local(nbd_server, volume["name"]) as dev:
+            LOG.warning('Copy image to volume: %s %s' % (dev, volume["size"]))
+            temp_filename="/tmp/fds_vol_" + str(uuid.uuid4())
+            image_utils.fetch_to_raw(
+                context,
+                image_service,
+                image_id,
+                temp_filename,
+                size=volume["size"])
+            self._execute('dd', 'if=' + temp_filename, 'of=' + dev, 'bs=4096', 'oflag=sync', run_as_root=True)

@@ -14,9 +14,9 @@
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 
-#include "StorHvCtrl.h"
 #include "requests/requests.h"
 #include "AsyncResponseHandlers.h"
+#include "AmProcessor.h"
 
 namespace fds {
 
@@ -29,8 +29,10 @@ create_async_handler(C&& c)
 { return boost::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
 
 template<typename H>
-AmAsyncDataApi<H>::AmAsyncDataApi(response_ptr response_api)
-: responseApi(response_api)
+AmAsyncDataApi<H>::AmAsyncDataApi(processor_type processor,
+                                  response_ptr response_api)
+:   amProcessor(processor),
+    responseApi(response_api)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     if (conf.get<fds_bool_t>("testing.uturn_amserv_all")) {
@@ -40,8 +42,9 @@ AmAsyncDataApi<H>::AmAsyncDataApi(response_ptr response_api)
 }
 
 template<typename H>
-AmAsyncDataApi<H>::AmAsyncDataApi(response_api_type* response_api)
-: AmAsyncDataApi(response_ptr(response_api))
+AmAsyncDataApi<H>::AmAsyncDataApi(processor_type processor,
+                                  response_api_type* response_api)
+: AmAsyncDataApi(processor, response_ptr(response_api))
 { }
 
 template<typename H>
@@ -55,8 +58,10 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
 
     auto callback = create_async_handler<AttachCallback>(std::move(closure));
 
-    storHvisor->enqueueAttachReq(*volumeName,
-                                 callback);
+    AmRequest *blobReq = new AttachVolBlobReq(invalid_vol_id,
+                                              *volumeName,
+                                              callback);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -79,7 +84,7 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
     AmRequest *blobReq = new StatVolumeReq(invalid_vol_id,
                                            *volumeName,
                                            callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -106,7 +111,7 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                                *orderBy,
                                                *descending,
                                                callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -125,7 +130,7 @@ void AmAsyncDataApi<H>::setVolumeMetadata(H& requestId,
                                                   *volumeName,
                                                   metadata,
                                                   callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -142,7 +147,7 @@ void AmAsyncDataApi<H>::getVolumeMetadata(H& requestId,
     AmRequest *blobReq = new GetVolumeMetadataReq(invalid_vol_id,
                                                   *volumeName,
                                                   callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -166,7 +171,7 @@ void AmAsyncDataApi<H>::statBlob(H& requestId,
                                          *volumeName,
                                          *blobName,
                                          callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -189,7 +194,7 @@ void AmAsyncDataApi<H>::startBlobTx(H& requestId,
                                             *blobName,
                                             *blobMode,
                                             callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -214,7 +219,7 @@ void AmAsyncDataApi<H>::commitBlobTx(H& requestId,
                                              *blobName,
                                              blobTxDesc,
                                              callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -239,7 +244,7 @@ void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
                                             *blobName,
                                             blobTxDesc,
                                             callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -265,7 +270,7 @@ void AmAsyncDataApi<H>::getBlob(H& requestId,
                                        callback,
                                        static_cast<fds_uint64_t>(objectOffset->value),
                                        *length);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -298,7 +303,7 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length);
     blobReq->get_metadata = true;
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -334,7 +339,7 @@ void AmAsyncDataApi<H>::updateMetadata(H& requestId,
                                                 blobTxDesc,
                                                 metaDataList,
                                                 callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -366,7 +371,7 @@ void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
                                         *blobMode,
                                         metadata,
                                         callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -403,7 +408,7 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                         blobTxDesc,
                                         *isLast,
                                         callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -426,7 +431,7 @@ void AmAsyncDataApi<H>::deleteBlob(H& requestId,
                                            *volumeName,
                                            blobTxId,
                                            callback);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 }
 
 }  // namespace fds

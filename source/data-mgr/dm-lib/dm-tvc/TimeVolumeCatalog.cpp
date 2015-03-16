@@ -477,7 +477,7 @@ void DmTimeVolCatalog::getDirChildren(const std::string & parent,
 
 void DmTimeVolCatalog::monitorLogs() {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    const std::string dmDir = root->dir_user_repo_dm();
+    const std::string dmDir = root->dir_sys_repo_dm();
     FdsRootDir::fds_mkdir(dmDir.c_str());
     FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
 
