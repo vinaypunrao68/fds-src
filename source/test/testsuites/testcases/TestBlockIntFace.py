@@ -38,7 +38,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         nodes = fdscfg.rt_obj.cfg_nodes
         fds_root = nodes[0].nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_sbin_dir(debug=False)
+        sbin_dir = fdscfg.rt_env.get_sbin_dir()
         global pwd
         cur_dir = os.getcwd()
         os.chdir(sbin_dir)
