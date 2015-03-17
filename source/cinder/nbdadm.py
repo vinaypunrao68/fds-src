@@ -116,8 +116,6 @@ def split_host(host_spec):
 def insmod_nbd():
     return os.system("modprobe nbd -q") == 0
 
-
-
 def attach(args):
     if os.geteuid() != 0:
         sys.stderr.write('you must be root to attach\n')
