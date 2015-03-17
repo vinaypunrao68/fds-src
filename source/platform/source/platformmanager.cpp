@@ -165,6 +165,10 @@ void PlatformManager::loadProperties() {
 void PlatformManager::determineDiskCapability() {
     diskCapability.disk_iops_max    = 10000;
     diskCapability.disk_iops_min    = 4000;
+    if (conf->get<bool>("testing.manual_nodecap",false)) {
+        diskCapability.disk_iops_max    = conf->get<int>("testing.disk_iops_max", 100000);
+        diskCapability.disk_iops_min    = conf->get<int>("testing.disk_iops_min", 6000);
+    }
     diskCapability.disk_capacity    = 0x7ffff;
     diskCapability.disk_latency_max = 1000000 / diskCapability.disk_iops_min;
     diskCapability.disk_latency_min = 1000000 / diskCapability.disk_iops_max;
