@@ -382,13 +382,13 @@ bool OrchMgr::loadFromConfigDB() {
 
     if (localDomains.empty())  {
         LOGWARN << "No Local Domains stored in the system. "
-                << "Setting a default Local Domain: local.";
-        int64_t id = configDB->createLocalDomain("local");
+                << "Setting a default Local Domain.";
+        int64_t id = configDB->createLocalDomain();
         if (id <= 0) {
             LOGERROR << "Some issue in Local Domain creation. ";
             return false;
         } else {
-            LOGNOTIFY << "Local Domain creation succeded. " << id << ": " << "local";
+            LOGNOTIFY << "Default Local Domain creation succeded. ID: " << id;
         }
         configDB->listLocalDomains(localDomains);
     }

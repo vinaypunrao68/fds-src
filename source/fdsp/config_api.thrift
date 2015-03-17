@@ -21,10 +21,19 @@ service ConfigurationService {
    * Create a new Local Domain.
    *
    * @param domainName - A string representing the name of the new Local Domain.
+   * @param domainSite - A string representing the site or location of the new Local Domain.
    *
    * @return Returns the Local Domain's ID.
    */
-  i64 createLocalDomain(1:string domainName)
+  i64 createLocalDomain(1:string domainName, 2:string domainSite)
+      throws (1: common.ApiException e);
+
+  /**
+   * Lists currently defined Local Domains.
+   *
+   * @return Returns the list of Local Domain.
+   */
+  list<config_types.LocalDomain> listLocalDomains(1:i32 ignore)
       throws (1: common.ApiException e);
 
   /**

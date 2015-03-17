@@ -17,16 +17,30 @@ class DomainContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('domain_name', help="Name of the new Local Domain. Must be unique within the Global Domain.")
-    def create(self, domain_name):
+    @arg('domain_site', help="Location of the new Local Domain.")
+    def create(self, domain_name, domain_site):
         """
         Create a new Local Domain.
         """
         try:
-            return self.restApi().createDomain(domain_name)
+            return self.restApi().createDomain(domain_name, domain_site)
         except Exception, e:
             print e
             log.exception(e)
             return 'Unable to create Local Domain: {}'.format(domain_name)
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    def list(self):
+        """
+        List currently defined Local Domains.
+        """
+        try:
+            return self.restApi().listDomains()
+        except Exception, e:
+            print e
+            log.exception(e)
+            return 'Unable to list Local Domains.'
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
