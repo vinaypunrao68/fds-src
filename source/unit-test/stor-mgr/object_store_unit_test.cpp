@@ -158,7 +158,7 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                 {
                     boost::shared_ptr<std::string> data =
                             (volume->testdata_).dataset_map_[oid].getObjectData();
-                    err = objectStore->putObject(volId, oid, data);
+                    err = objectStore->putObject(volId, oid, data, false);
                     EXPECT_TRUE(err.ok());
                 }
                 break;
@@ -172,7 +172,7 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                 }
                 break;
             case TestVolume::STORE_OP_DELETE:
-                err = objectStore->deleteObject(volId, oid);
+                err = objectStore->deleteObject(volId, oid, false);
                 EXPECT_TRUE(err.ok());
                 break;
             default:
@@ -222,7 +222,7 @@ TEST_F(SmObjectStoreTest, one_thread_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data);
+        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
     }
 }
@@ -249,7 +249,7 @@ TEST_F(SmObjectStoreTest, one_thread_dup_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data);
+        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
     }
 }

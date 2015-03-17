@@ -108,9 +108,10 @@ struct DMTester :  SvcProcess {
         dataMgr->omConfigPort = 8904;
         dataMgr->omIpStr = "localhost";
         dataMgr->vol_map_mtx = new fds_mutex("Volume map mutex");
-        dataMgr->feature.fQosEnabled= false;
-        dataMgr->feature.fTestMode= true;
-        dataMgr->feature.fCatSyncEnabled = false;
+        dataMgr->features.setQosEnabled(false);
+        dataMgr->features.setTestMode(true);
+        dataMgr->features.setCatSyncEnabled(false);
+        dataMgr->features.setTimelineEnabled(false);
         auto nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
         dataMgr->omClient = new TestOMgrClient(FDSP_DATA_MGR,
                                                dataMgr->omIpStr,

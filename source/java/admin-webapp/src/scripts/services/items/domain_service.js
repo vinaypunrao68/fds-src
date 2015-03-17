@@ -5,7 +5,7 @@ angular.module( 'user-management' ).factory( '$domain_service', ['$http', functi
     service.getDomains = function(){
 
         if ( !angular.isDefined( service.domains ) ){
-//            $http.get( '/api/config/domains' )
+//            $http.get( '/local_domains' )
 //                .success( function( data ){
 //                    service.domains = data;
 //                })

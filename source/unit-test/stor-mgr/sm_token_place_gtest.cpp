@@ -45,7 +45,7 @@ TEST(SmTokenPlacement, compute) {
     fds_uint32_t ssd_count = 2;
     fds_uint32_t hdd_count = 12;
 
-    for (fds_uint32_t test_id = 0; test_id < 3; test_id++) {
+    for (fds_uint32_t test_id = 0; test_id < 7; test_id++) {
         if (test_id == 0) {
             ssd_count = 0;
             hdd_count = 12;
@@ -55,6 +55,12 @@ TEST(SmTokenPlacement, compute) {
         } else if (test_id == 2) {
             ssd_count = 0;
             hdd_count = 0;
+        } else if ((test_id >= 3) && (test_id <= 5)) {
+            ssd_count = test_id - 2 + (test_id - 3)*6;
+            hdd_count = 0;
+        } else if (test_id == 6) {
+            ssd_count = 1;
+            hdd_count = 14;
         }
         GLOGNORMAL << hdd_count << " HDDs and "
                    << ssd_count << " SSDs";
@@ -78,10 +84,13 @@ TEST(SmTokenPlacement, compute) {
             }
         }
 
-        // if we have hdds, every cell in hdd tier must be valid for every token
-        if (hdd_count > 0) {
-            for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
-                fds_uint16_t diskId = olt.getDiskId(tok, diskio::diskTier);
+        // if hdd count == 0, olt must have invalid disk id on HDD row
+        // otherwise disk id must be valid for each SM token
+        for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+            fds_uint16_t diskId = olt.getDiskId(tok, diskio::diskTier);
+            if (hdd_count == 0) {
+                EXPECT_FALSE(olt.isDiskIdValid(diskId));
+            } else {
                 EXPECT_TRUE(olt.isDiskIdValid(diskId));
             }
         }

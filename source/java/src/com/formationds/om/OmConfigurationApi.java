@@ -167,7 +167,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     enum ConfigEvent implements EventDescriptor {
 
-        CREATE_LOCAL_DOMAIN(EventCategory.SYSTEM, "Created local domain {0}", "domainName"),
+        CREATE_LOCAL_DOMAIN(EventCategory.SYSTEM, "Created local domain {0}", "domainName", "domainSite"),
         CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {0}", "identifier"),
         CREATE_USER(EventCategory.SYSTEM, "Created user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
         UPDATE_USER(EventCategory.SYSTEM, "Updated user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
@@ -239,12 +239,35 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         return createSnapshotPolicy(apisPolicy);
     }
 
+    /**
+     * Create a Local Domain with the provided name.
+     * 
+     * @param domainName - String: The name of the new Local Domain. Must be unique within the Global Domain.
+     * @param domainSite - String: The location of the new Local Domain.
+     * 
+     * @return long: The ID generated for the new Local Domain.
+     * 
+     * @throws TException
+     */
     @Override
-    public long createLocalDomain(String domainName, long domainId)
+    public long createLocalDomain(String domainName, String domainSite)
         throws TException {
-        long id = getConfig().createLocalDomain(domainName, domainId);
-        EventManager.notifyEvent(ConfigEvent.CREATE_LOCAL_DOMAIN, domainName);
+        long id = getConfig().createLocalDomain(domainName, domainSite);
+        EventManager.notifyEvent(ConfigEvent.CREATE_LOCAL_DOMAIN, domainName, domainSite);
         return id;
+    }
+
+    /**
+     * List all currently defined Local Domains (within the context of the understood Global Domain).
+     * 
+     * @return List<com.formationds.apis.LocalDomain>: A list of the currently defined Local Domains and associated information.
+     * 
+     * @throws TException
+     */
+    @Override
+    public List<com.formationds.apis.LocalDomain> listLocalDomains(int ignore)
+        throws ApiException, org.apache.thrift.TException {
+        return getConfig().listLocalDomains(ignore);
     }
 
     @Override

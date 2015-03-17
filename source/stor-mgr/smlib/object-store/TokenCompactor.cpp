@@ -9,6 +9,8 @@
 
 namespace fds {
 
+// TODO(Sean):
+// Why is the offset 32bit?
 typedef std::map<fds_uint32_t, ObjectID> offset_oid_map_t;
 typedef std::map<fds_uint32_t, offset_oid_map_t> loc_oid_map_t;
 
@@ -407,6 +409,12 @@ fds_bool_t TokenCompactor::isDataGarbage(const ObjMetaData& md,
 
     // obj is garbage if we don't need to keep it in system anymore
     if (isGarbage(md)) {
+        return true;
+    }
+
+    if (md.isObjReconcileRequired()) {
+        LOGCRITICAL << "SM Token Migration incomplete reconciliation:  "
+                    << " This may not be a bug, but should be investigated:" << md;
         return true;
     }
 

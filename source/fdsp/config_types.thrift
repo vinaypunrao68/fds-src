@@ -76,6 +76,8 @@ struct LocalDomain {
   1: required i64 id;
   /** A string representing the name of the Local Domain, i.e. domain name */
   2: required string name;
+  /** A string representing the location of the Local Domain. */
+  3: required string site;
 }
 
 /**

@@ -55,7 +55,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     ObjMetaData omd;
 
     MigrationExecutorState expectState = ME_INIT;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_REBALANCE_START)) {
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_REBALANCE_START)) {
         LOGNOTIFY << "startObjectRebalance called in non- ME_INIT state " << state;
         return ERR_NOT_READY;
     }
@@ -138,15 +138,15 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // before sending rebalance msgs to source SM, move to next state, in case we
     // receive responses before finish sending all the messages...
     // we sent all the messages, go to next state
-    expectState = ME_REBALANCE_START;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_APPLYING_DELTA)) {
+    expectState = ME_FIRST_PHASE_REBALANCE_START;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_APPLYING_DELTA)) {
         // this must not happen
         LOGERROR << "Executor " << std::hex << executorId << std::dec
                  << ": Unexpected migration executor state";
         fds_panic("Unexpected migration executor state!");
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-               << " ME_REBALANCE_START --> ME_APPLYING_DELTA state";
+               << " ME_FIRST_PHASE_REBALANCE_START --> ME_FIRST_PHASE_APPLYING_DELTA state";
 
     // send rebalance set of objects to source SM
     for (auto tok : dltTokens) {
@@ -201,14 +201,14 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
 
     fds_verify((fds_uint64_t)deltaSet->executorID == executorId);
     MigrationExecutorState curState = atomic_load(&state);
-    fds_verify((curState == ME_APPLYING_DELTA) ||
-               (curState == ME_APPLYING_SECOND_DELTA));
+    fds_verify((curState == ME_FIRST_PHASE_APPLYING_DELTA) ||
+               (curState == ME_SECOND_PHASE_APPLYING_DELTA));
 
     LOGMIGRATE << "Sync Delta Object Set: " << deltaSet->objectToPropagate.size()
                << " objects, executor ID=" << deltaSet->executorID
                << " seqNum=" << deltaSet->seqNum
                << " lastSet=" << deltaSet->lastDeltaSet
-               << " first rebalance round=" << (curState == ME_APPLYING_DELTA);
+               << " first rebalance round=" << (curState == ME_FIRST_PHASE_APPLYING_DELTA);
 
     // if the obj data+meta list is empty, and lastDeltaSet == true,
     // nothing to apply, but have to check if we are done with migration
@@ -260,7 +260,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
                    << " qosSeq=" << applyReq->qosSeqNum
                    << " qosLastSet=" << applyReq->qosLastSet
                    << " size of qos set=" << applyReq->deltaSet.size()
-                   << " first rebalance round=" << (curState == ME_APPLYING_DELTA);
+                   << " first rebalance round=" << (curState == ME_FIRST_PHASE_APPLYING_DELTA);
 
         // enqueue to QoS queue
         err = dataStore->enqueueMsg(FdsSysTaskQueueId, applyReq);
@@ -296,8 +296,8 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 
     // here no error happened so far, so we must be in one of
     // the applying delta states
-    fds_verify((curState == ME_APPLYING_DELTA) ||
-               (curState == ME_APPLYING_SECOND_DELTA));
+    fds_verify((curState == ME_FIRST_PHASE_APPLYING_DELTA) ||
+               (curState == ME_SECOND_PHASE_APPLYING_DELTA));
 
     bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
                                                                    req->lastSet,
@@ -327,15 +327,15 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
 
     // move to the next state before sending the message, in case we get the reply
     // while still in this method
-    MigrationExecutorState expectState = ME_SECOND_REBALANCE_ROUND;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_APPLYING_SECOND_DELTA)) {
+    MigrationExecutorState expectState = ME_SECOND_PHASE_REBALANCE_START;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_SECOND_PHASE_APPLYING_DELTA)) {
         // this must not happen
         LOGERROR << "Executor " << std::hex << executorId << std::dec
                  << ": Unexpected migration executor state";
         fds_panic("Unexpected migration executor state!");
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-               << " ME_SECOND_REBALANCE_ROUND --> ME_APPLYING_SECOND_DELTA state";
+               << " ME_SECOND_PHASE_REBALANCE_START --> ME_SECOND_PHASE_APPLYING_DELTA state";
 
     // send msg to the source SM to start second phase of the delta set.
     if (!testMode) {
@@ -375,10 +375,12 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         // if no error, we must be in one of the apply delta states
 
         // if we were in first round of migration, go to second round
-        MigrationExecutorState expect = ME_APPLYING_DELTA;
-        if (!std::atomic_compare_exchange_strong(&state, &expect, ME_SECOND_REBALANCE_ROUND)) {
+        MigrationExecutorState expect = ME_FIRST_PHASE_APPLYING_DELTA;
+        if (!std::atomic_compare_exchange_strong(&state,
+                                                 &expect,
+                                                 ME_SECOND_PHASE_REBALANCE_START)) {
             // ok, see if we are in the second round of migration
-            expect = ME_APPLYING_SECOND_DELTA;
+            expect = ME_SECOND_PHASE_APPLYING_DELTA;
             if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
                 // must be a bug somewhere...
                 fds_panic("Unexpected migration executor state!");
