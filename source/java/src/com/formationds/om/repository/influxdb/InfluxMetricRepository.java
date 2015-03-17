@@ -220,8 +220,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         // do time range
         if ( queryCriteria.getRange() != null ) {
 
-            String time = " ( " + getTimestampColumnName() + " >= " + queryCriteria.getRange().getStart() + " " + AND +
-                          " " + getTimestampColumnName() + " <= " + queryCriteria.getRange().getEnd() + " ) ";
+            String time = " ( " + getTimestampColumnName() + " > " + queryCriteria.getRange().getStart() + "ms " + AND +
+                          " " + getTimestampColumnName() + " < " + queryCriteria.getRange().getEnd() + "ms ) ";
 
             sb.append( time );
         }
