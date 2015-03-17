@@ -143,6 +143,12 @@ class AmProcessor : public Module, public boost::noncopyable {
     void respond(AmRequest *amReq, const Error& error);
 
   private:
+
+    /**
+     * Return pointer to volume iff volume is not a snapshot
+     */
+    StorHvVolumeTable::volume_ptr_type getNoSnapshotVolume(AmRequest* amReq);
+
     /// Raw pointer to QoS controller
     // TODO(Andrew): Move this to unique once it's owned here.
     StorHvQosCtrl *qosCtrl;

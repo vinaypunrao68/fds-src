@@ -55,6 +55,21 @@ AmProcessor::respond(AmRequest *amReq, const Error& error) {
     }
 }
 
+StorHvVolumeTable::volume_ptr_type
+AmProcessor::getNoSnapshotVolume(AmRequest* amReq) {
+    // check if this is a snapshot
+    auto shVol = volTable->getVolume(amReq->io_vol_id);
+    if (!shVol) {
+        LOGCRITICAL << "unable to get volume info for vol: " << amReq->io_vol_id;
+        respond_and_delete(amReq, FDSN_StatusErrorUnknown);
+    } else if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "txn on a snapshot is not allowed.";
+        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
+        shVol = nullptr;
+    }
+    return shVol;
+}
+
 void
 AmProcessor::getVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.getVolMeta",
@@ -81,12 +96,8 @@ AmProcessor::abortBlobTx(AmRequest *amReq) {
 
 void
 AmProcessor::startBlobTx(AmRequest *amReq) {
-    // check if this is a snapshot
-    auto shVol = volTable->getVolume(amReq->io_vol_id);
-    if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "txn on a snapshot is not allowed.";
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-    }
+    auto shVol = getNoSnapshotVolume(amReq);
+    if (!shVol) return;
 
     fiu_do_on("am.uturn.processor.startBlobTx",
               respond_and_delete(amReq, ERR_OK); \
@@ -120,26 +131,13 @@ AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor::deleteBlob(AmRequest *amReq) {
-    fds_volid_t volId = amReq->io_vol_id;
-    auto shVol = volTable->getVolume(volId);
+    auto shVol = getNoSnapshotVolume(amReq);
+    if (!shVol) return;
 
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(amReq);
-    LOGDEBUG    << " volume:" << volId
+    LOGDEBUG    << " volume:" << amReq->io_vol_id
                 << " blob:" << amReq->getBlobName()
                 << " txn:" << blobReq->tx_desc;
-
-    if (!shVol) {
-        LOGCRITICAL << "unable to get volume info for vol: " << volId;
-        respond_and_delete(amReq, FDSN_StatusErrorUnknown);
-        return;
-    }
-
-    // check if this is a snapshot
-    if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "delete blob on a snapshot is not allowed.";
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-        return;
-    }
 
     // Update the tx manager with the delete op
     txMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
@@ -150,13 +148,8 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
 
 void
 AmProcessor::putBlob(AmRequest *amReq) {
-    // check if this is a snapshot
-    auto shVol = volTable->getVolume(amReq->io_vol_id);
-    if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "txn on a snapshot is not allowed.";
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-        return;
-    }
+    auto shVol = getNoSnapshotVolume(amReq);
+    if (!shVol) return;
 
     // TODO(Andrew): Here we're turning the offset aligned
     // blobOffset back into an absolute blob offset (i.e.,
