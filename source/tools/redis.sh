@@ -59,7 +59,7 @@ logwarn "unable to locate loghelper.sh"
 fi
 
 if [[ -n $(declare -F init_loghelper) ]]; then
-    init_loghelper /tmp/redis_tool.log
+    init_loghelper /tmp/redis_tool.${UID}.log
 fi
 
 versinfo=()

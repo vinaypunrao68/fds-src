@@ -27,12 +27,25 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- *
+ * Represent the metric repository in InfluxDB.
+ * <p/>
+ * The metrics database is named "om-metricdb", and the volume metrics table (series) is named
+ * volume+metrics.  Each row contains volume metadata, followed by the metrics sent from the
+ * formation server as represented by the {@link Metrics} enumeration.
+ * <p/>
+ * The volume metadata included is
+ * <ul>
+ *     <li>volume_id</li>
+ *     <li>volume_domain</li>
+ *     <li>volume_name</li>
+ * </ul>
  */
 public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, Long> implements MetricRepository {
 
     public static final String VOL_SERIES_NAME    = "volume_metrics";
     public static final String VOL_ID_COLUMN_NAME = "volume_id";
+    public static final String VOL_DOMAIN_COLUMN_NAME = "volume_domain";
+    public static final String VOL_NAME_COLUMN_NAME = "volume_name";
 
     /**
      * the static list of metric names store in the influxdb database.
@@ -54,6 +67,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
         List<String> volMetricNames = new ArrayList<>();
         volMetricNames.add( VOL_ID_COLUMN_NAME );
+        volMetricNames.add( VOL_DOMAIN_COLUMN_NAME );
+        volMetricNames.add( VOL_NAME_COLUMN_NAME );
         volMetricNames.addAll( metricNames );
 
         return volMetricNames;
@@ -72,7 +87,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      * @param properties the connection properties
      */
     @Override
-    synchronized protected void open( Properties properties ) {
+    synchronized public void open( Properties properties ) {
         // command is silently ignored if the database already exists.
         if ( !super.createDatabase( DEFAULT_METRIC_DB ) ) {
             logger.debug( "Database " + DEFAULT_METRIC_DB.getName() + " already exists." );
@@ -110,13 +125,13 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     @Override
-    protected List<IVolumeDatapoint> doPersist( Collection<IVolumeDatapoint> entities ) {
+    protected <R extends IVolumeDatapoint> List<R> doPersist( Collection<R> entities ) {
         Object[] metricValues = new Object[VOL_METRIC_NAMES.size()];
 
         // TODO: currently the collection of VolumeDatapoint objects is a list of individual data points
         // and may contain any number of volumes and timestamps.  Ironically, the AM receives the datapoints
         // exactly as we need  them here, but it then splits them in JsonStatisticsFormatter
-        List<IVolumeDatapoint> vdps = (entities instanceof List ? (List) entities : new ArrayList<>( entities ));
+        List<R> vdps = (entities instanceof List ? (List) entities : new ArrayList<>( entities ));
 
         // timestamp, map<volname, List<vdp>>>
         Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs;
@@ -130,18 +145,28 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
             for ( Map.Entry<String, List<IVolumeDatapoint>> e2 : volumeDatapoints.entrySet() ) {
                 String volid = e2.getKey();
+                String volDomain = "";
+
+                // volName is in the list of volume datapoints
+                String volName = null;
 
                 metricValues[0] = volid;
+                metricValues[1] = volDomain;
 
+                int v = 3;
                 for ( IVolumeDatapoint vdp : e2.getValue() ) {
                     // TODO: figure out what metric it maps to, then figure out its position in
                     // the values array.
+                    metricValues[2] = vdp.getVolumeName();
+                    metricValues[v++] = vdp.getValue();
                 }
 
                 Serie serie = new Serie.Builder( VOL_SERIES_NAME )
                                   .columns( VOL_METRIC_NAMES.toArray( new String[VOL_METRIC_NAMES.size()] ) )
-                                  .values()
+                                  .values(metricValues)
                                   .build();
+
+                getConnection().getDBWriter().write( TimeUnit.MILLISECONDS, serie );
             }
         }
         return vdps;
@@ -154,24 +179,17 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     @Override
-    public VolumeDatapoint findById( Long aLong ) {
-        // TODO: not sure how meaningful this is in the context of influxdb?
-        // there is a generated sequence and a timestamp that effectively indicate the id, but
-        // it seems pretty useless in this context.
-        return null;
-    }
-
-    @Override
-    public List<IVolumeDatapoint> findAll() {
-        QueryCriteria criteria = new QueryCriteria();
-        List<IVolumeDatapoint> results = query( criteria );
-
-        return results;
-    }
-
-    @Override
     public long countAll() {
-        return 0;
+        // execute the query
+        List<Serie> series = getConnection().getDBReader()
+                                            .query( "select count(PUTS) from " + getEntityName(),
+                                                    TimeUnit.MILLISECONDS );
+
+        Object o = series.get( 0 ).getRows().get(0).get( "count" ) ;
+        if (o instanceof Number)
+            return ((Number)o).longValue();
+        else
+            throw new IllegalStateException( "Invalid type returned from select count query" );
     }
 
     @Override

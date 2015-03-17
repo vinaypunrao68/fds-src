@@ -69,7 +69,7 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
     // if errors are not handled here.  There could also be some impact on performance of that operation, though it
     // is unlikely to be in the user data path and so impact should be minimal.
     @Override
-    public void postPersist( Collection<IVolumeDatapoint> vdp) {
+    public <R extends IVolumeDatapoint> void postPersist( Collection<R> vdp) {
         logger.trace( "postPersist handling of {} Volume data points.", vdp.size());
         try {
             doPostPersist(vdp);
@@ -88,7 +88,7 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
      * @param vdp list of volume datapoints
      * @throws TException
      */
-    protected void doPostPersist(Collection<IVolumeDatapoint> vdp) throws TException {
+    protected <R extends IVolumeDatapoint> void doPostPersist(Collection<R> vdp) throws TException {
         Map<String, EnumMap<FirebreakType,FirebreakHelper.VolumeDatapointPair>> fb =
             new FirebreakHelper().findFirebreakEvents( (vdp instanceof List ?
                                                         (List<IVolumeDatapoint>) vdp :

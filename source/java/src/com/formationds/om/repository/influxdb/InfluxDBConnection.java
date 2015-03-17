@@ -12,7 +12,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-class InfluxDBConnection
+public class InfluxDBConnection
 {
     private final String url;
     private final String user;

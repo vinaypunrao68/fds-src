@@ -57,7 +57,6 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
      *
      * @return the entity
      */
-    @Override
     public VolumeDatapoint findById( final Long id ) {
         final Query query = manager().newQuery( VolumeDatapoint.class,
                                                 "id == :id" );

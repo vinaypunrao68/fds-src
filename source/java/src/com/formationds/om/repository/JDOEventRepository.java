@@ -47,17 +47,6 @@ public class JDOEventRepository extends JDORepository<Event, Long> implements Ev
         initialize(dbName);
     }
 
-    @Override
-    public Event findById(Long id) {
-        final Query query = manager().newQuery(Event.class, "id == :id");
-        query.setUnique( true );
-        try {
-            return ( Event ) query.execute( id );
-        } finally {
-            query.closeAll();
-        }
-    }
-
     // TODO: what is this API asking for?  Count all events by what? non-null fields of the entity like JPA QueryByExample?
     @Override
     public long countAllBy(Event entity) {

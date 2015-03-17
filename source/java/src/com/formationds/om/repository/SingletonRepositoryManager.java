@@ -6,12 +6,18 @@ package com.formationds.om.repository;
 
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.repository.influxdb.InfluxDBConnection;
 import com.formationds.om.repository.influxdb.InfluxMetricRepository;
+import com.formationds.om.repository.influxdb.InfluxRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.Properties;
+import java.util.Random;
 
 /**
  * Factory to access to Metrics and Events repositories.
@@ -21,6 +27,8 @@ import java.util.List;
 public enum SingletonRepositoryManager {
 
     instance;
+
+    public static final Logger logger = LoggerFactory.getLogger( SingletonRepositoryManager.class );
 
     /**
      * singleton instance of SingletonMetricsRepository
@@ -56,10 +64,51 @@ public enum SingletonRepositoryManager {
             }
 
             if ( influxEnabled ) {
+                logger.info( "InfluxDB feature is enabled." );
                 // TODO: need values from config
                 influxMetricRepository = new InfluxMetricRepository( "http://localhost:8086",
                                                                      "root",
                                                                      "root".toCharArray() );
+
+                // TODO: hide this in the repo interface (ie. just make it take the user/creds.  dbname is held by repo)
+                Properties props = new Properties( );
+                props.setProperty( InfluxRepository.CP_DBNAME, InfluxMetricRepository.DEFAULT_METRIC_DB.getName() );
+                props.setProperty( InfluxRepository.CP_USER, "root" );
+                props.setProperty( InfluxRepository.CP_CRED, "root" );
+
+                // retry connection... influx might not be up yet
+                InfluxDBConnection connection = null;
+                Random rng = new Random( System.currentTimeMillis() );
+                int maxRetries = 100;
+                int minDelay = 500;
+                int maxDelay = 10000;
+                int cnt = 0;
+                while (connection == null && ++cnt <= maxRetries) {
+                    try {
+                        influxMetricRepository.open( props );
+                        connection = influxMetricRepository.getConnection();
+                    } catch (Throwable e) {
+                        try {
+                            if (cnt==1) {
+                                logger.trace( "Connection attempt failed.  InfluxDB is not ready.  Retrying" );
+                            }
+                            Thread.sleep( Math.max( minDelay, rng.nextInt( maxDelay ) ) );
+                        } catch ( InterruptedException ie ) {
+                            // reset interrupt
+                            Thread.currentThread().interrupt();
+                            throw new IllegalStateException( "InfluxDB connection retry interrupted." );
+                        }
+                    }
+                }
+
+                if (connection == null) {
+                    logger.warn( cnt + "Retry attempts to connect to InfluxDB have failed." );
+                    if (jdoMetricsRepository != null) {
+                        logger.warn( "InfluxDB will be disabled.  Please check the logs" );
+                    } else {
+                        throw new IllegalStateException( "Failed to connect to InfluxDB metrics database. " );
+                    }
+                }
             }
 
             return (MetricRepository) Proxy.newProxyInstance( MetricRepository.class.getClassLoader(),

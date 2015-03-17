@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOG_FILE=/tmp/loghelper.log
+LOG_FILE=/tmp/loghelper.${UID}.log
 COLOR_BEGIN="\e[0;"
 BOLD_BEGIN="\e[1;"
 COLOR_END="\e[0m"

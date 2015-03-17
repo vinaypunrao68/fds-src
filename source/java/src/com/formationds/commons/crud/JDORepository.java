@@ -81,21 +81,12 @@ public abstract class JDORepository<T, PK extends Serializable>
     }
 
     /**
-     * @return the list of entities
-     */
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<T> findAll() {
-        return (List<T>) manager().newQuery( getEntityClass() ).execute();
-    }
-
-    /**
      * @param entity the entity to save
      *
      * @return Returns the saved entity
      */
     @Override
-    synchronized protected T doPersist( final T entity ) {
+    synchronized protected <R extends T>  R doPersist( final R entity ) {
         try {
             if ( !manager().currentTransaction().isActive() ) {
                 manager().currentTransaction().begin();
@@ -126,8 +117,8 @@ public abstract class JDORepository<T, PK extends Serializable>
      * @throws RuntimeException if the save for any entity fails
      */
     @Override
-    synchronized protected List<T> doPersist( Collection<T> entities ) {
-        List<T> persisted = new ArrayList<>();
+    synchronized protected <R extends T> List<R> doPersist( Collection<R> entities ) {
+        List<R> persisted = new ArrayList<>();
         try {
             if ( entities != null ) {
 

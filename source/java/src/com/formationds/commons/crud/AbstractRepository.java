@@ -34,7 +34,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      * Open the repository and initialize any connection/entity management necessary for
      * interacting with the underlying repository.
      */
-    abstract protected void open(Properties properties);
+    abstract public void open(Properties properties);
 
     /**
      * No-op implementation of close.  Override in sub-class if it is necessary to
@@ -65,7 +65,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param entity the entity that is about to be saved
      */
-    protected void firePrePersist( T entity ) {
+    protected <R extends T> void firePrePersist( R entity ) {
         for ( EntityPersistListener<T> l : listeners ) {
             l.prePersist( entity );
         }
@@ -76,7 +76,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param entities the list of entities about to be persisted
      */
-    protected void firePrePersist( Collection<T> entities ) {
+    protected <R extends T> void firePrePersist( Collection<R> entities ) {
         for ( EntityPersistListener<T> l : listeners ) {
             l.prePersist( entities );
         }
@@ -87,7 +87,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param entity the entity that was just persisted
      */
-    protected void firePostPersist( T entity ) {
+    protected <R extends T> void firePostPersist( R entity ) {
         for ( EntityPersistListener<T> l : listeners ) {
             l.postPersist( entity );
         }
@@ -98,7 +98,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @param entities the list of entities
      */
-    protected void firePostPersist( Collection<T> entities ) {
+    protected <R extends T> void firePostPersist( Collection<R> entities ) {
         for ( EntityPersistListener<T> l : listeners ) {
             l.postPersist( entities );
         }
@@ -123,7 +123,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      * @return the persisted entity with any generated data updated in the entity.
      */
     @Override
-    synchronized public T save( T entity ) {
+    synchronized public <R extends T> R save( R entity ) {
         try {
             logger.trace( "ENTITY_SAVE: {}", entity );
 
@@ -149,8 +149,8 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    synchronized public List<T> save( Collection<T> entities ) {
-        List<T> persisted = new ArrayList<>();
+    synchronized public <R extends T> List<R> save( Collection<R> entities ) {
+        List<R> persisted = new ArrayList<>();
         try {
             logger.trace( "Saving {} entities",
                           entities != null ? entities.size() : 0 );
@@ -194,7 +194,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @return the persisted entity with generated data (ids etc) updated.
      */
-    abstract protected T doPersist( T entity );
+    abstract protected <R extends T> R doPersist( R entity );
 
     /**
      * Persist the specified entities to the underlying data store
@@ -203,7 +203,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @return the list of persisted entities, each with any generated data (ids etc) updated.
      */
-    abstract protected List<T> doPersist( Collection<T> entities );
+    abstract protected <R extends T> List<R> doPersist( Collection<R> entities );
 
     /**
      * Delete the specified entity
