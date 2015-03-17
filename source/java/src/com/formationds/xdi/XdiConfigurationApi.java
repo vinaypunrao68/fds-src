@@ -354,9 +354,9 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public long createLocalDomain(String domainName, long domainId)
+    public long createLocalDomain(String domainName)
             throws ApiException, TException {
-        long id = config.createLocalDomain(domainName, domainId);
+        long id = config.createLocalDomain(domainName);
         return id;
     }
     public CachedConfiguration getCache() {
