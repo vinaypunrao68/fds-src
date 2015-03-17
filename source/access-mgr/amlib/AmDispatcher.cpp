@@ -488,21 +488,6 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
     if (error == ERR_OK) {
         LOGDEBUG << svcReq->logString() << logString(*getObjRsp)
                  << " DLT version " << dltVersion;
-        /* NOTE: we are currently supporting only getting the whole blob
-         * so the requester does not know about the blob length, 
-         * we get the blob length in response from SM;
-         * will need to revisit when we also support (don't ignore) byteCount in native api.
-         * For now, just verify the existing buffer is big enough to hold
-         * the data.
-         */
-        if (amReq->data_len >= (4 * 1024)) {
-            // Check that we didn't get too much data
-            // Since 4K is our min, it's OK to get more
-            // when less than 4K is requested
-            // TODO(Andrew): Revisit for unaligned IO
-            fds_verify(getObjRsp->data_obj.size() <= amReq->data_len);
-        }
-
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
         cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {

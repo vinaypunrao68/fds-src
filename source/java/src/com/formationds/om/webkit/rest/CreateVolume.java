@@ -106,10 +106,14 @@ public class CreateVolume
                       HttpServletResponse.SC_BAD_REQUEST );
               }
 
+	      if (volume.getMaxObjectSize() == 0) {
+		      volume.setMaxObjectSize(DEF_BLOCK_SIZE);
+	      }
+
               final ConnectorAttributes attrs =
                   volume.getData_connector()
                         .getAttributes();
-              settings = new VolumeSettings( DEF_BLOCK_SIZE,
+              settings = new VolumeSettings( volume.getMaxObjectSize(),
                                              VolumeType.BLOCK,
                                              SizeUnit.valueOf(
                                                  attrs.getUnit()
@@ -120,7 +124,10 @@ public class CreateVolume
 
               break;
           case OBJECT:
-              settings = new VolumeSettings( DEF_OBJECT_SIZE,
+	      if (volume.getMaxObjectSize() == 0) {
+		      volume.setMaxObjectSize(DEF_OBJECT_SIZE);
+	      }
+              settings = new VolumeSettings( volume.getMaxObjectSize(),
                                              VolumeType.OBJECT,
                                              0 , 0, volume.getMediaPolicy() );
               break;

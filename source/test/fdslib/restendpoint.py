@@ -244,11 +244,12 @@ class VolumeEndpoint:
         self.rest = rest
         self.rest_path = self.rest.base_path + '/api/config/volumes'
 
-    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit):
+    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
 
         volume_info = {
             'name' : volume_name,
             'priority' : int(priority),
+            'max_object_size': int(max_object_size),
             'sla': int(sla),
             'limit': int(limit),
             'data_connector': {
@@ -557,12 +558,15 @@ class DomainEndpoint():
         Note: There is an expectation that at some point, only domain_name
         will be specified. domain_id will be generated and returned.
         '''
-        path = '{}/{}?domain_id={}'.format(self.rest_path, domain_name, domain_id)
+        path = '{}/{}'.format(self.rest_path, domain_name, domain_id)
+        domain_info = {
+            'id': domain_id
+        }
 
-        res = self.rest.post(path)
+        res = self.rest.post(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
-            return int(res['id'])
+            return int(res['domainId'])
         else:
             return None
 
