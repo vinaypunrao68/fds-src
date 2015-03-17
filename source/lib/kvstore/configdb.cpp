@@ -144,12 +144,11 @@ int64_t ConfigDB::createLocalDomain(const std::string& identifier) {
 }
 
 /**
- * Generate a map of Local Domains currently defined.
+ * Generate a vector of Local Domains currently defined.
  *
- * @param mapDomains: std::map<int, std::string> - First item in the map is the Local Domain ID. Second item is
- *                                                 the Local Domain name.
+ * @param localDomains: std::vector<fds::apis::LocalDomain> - Vector of Local Domain names.
  *
- * @return bool - True if the map is successfully produced. False otherwise.
+ * @return bool - True if the vector is successfully produced. False otherwise.
  */
 bool ConfigDB::listLocalDomains(std::vector<fds::apis::LocalDomain>& localDomains) {
     fds::apis::LocalDomain localDomain;
