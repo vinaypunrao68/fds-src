@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 # Unit tests for disk_format.py
 
@@ -12,30 +13,30 @@ class extendedFstabTest (unittest.TestCase):
 
     def testFstabAdd (self):
         fstab = disk_format.extendedFstab()
-        fstab.read ('tests/ExtendedFstabTest.unit')
+        fstab.read ('test_data/ExtendedFstabTest.unit')
         fstab.add_mount_point ('# This is a comment')
         self.assertTrue (fstab.altered)
 
     def testFstabBackupNotAltered (self):
         fstab = disk_format.extendedFstab()
-        fstab.read ('tests/ExtendedFstabTest.unit')
-        self.assertFalse (fstab.backup_if_altered('tests/ExtendedFstabTest.unit.updated'))
+        fstab.read ('test_data/ExtendedFstabTest.unit')
+        self.assertFalse (fstab.backup_if_altered('test_data/ExtendedFstabTest.unit.updated'))
 
     def testFstabBackupAltered (self):
         fstab = disk_format.extendedFstab()
-        fstab.read ('tests/ExtendedFstabTest.unit.altered')
+        fstab.read ('test_data/ExtendedFstabTest.unit.altered')
         fstab.add_mount_point ('# This is a comment')
-        self.assertTrue (fstab.backup_if_altered('tests/ExtendedFstabTest.unit.altered'))
+        self.assertTrue (fstab.backup_if_altered('test_data/ExtendedFstabTest.unit.altered'))
 
     def testFstabRemoveMountPointThatExists (self):
         fstab = disk_format.extendedFstab()
-        fstab.read ('tests/ExtendedFstabTest.unit')
+        fstab.read ('test_data/ExtendedFstabTest.unit')
         fstab.remove_mount_point_by_uuid ('e1b56c44-dddd-4e4f-9bd5-73ddddddd707')
         self.assertTrue (fstab.altered)
 
     def testFstabRemoveMountPointThatDoesNotExist (self):
         fstab = disk_format.extendedFstab()
-        fstab.read ('tests/ExtendedFstabTest.unit')
+        fstab.read ('test_data/ExtendedFstabTest.unit')
         fstab.remove_mount_point_by_uuid ('bbbbbbbb-dddd-4e4f-9bd5-73ddddddd707')
         self.assertFalse (fstab.altered)
 
