@@ -6,6 +6,8 @@
 #include <string>
 #include <ObjectId.h>
 #include <fds_process.h>
+#include "FdsRandom.h"
+#include <AmCache.h>
 #include <AmProcessor.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
@@ -22,14 +24,13 @@ AmProcessor::AmProcessor(const std::string &modName,
                          AmDispatcher::shared_ptr _amDispatcher,
                          StorHvQosCtrl     *_qosCtrl,
                          StorHvVolumeTable *_volTable,
-                         AmTxManager::shared_ptr _amTxMgr,
-                         AmCache::shared_ptr _amCache)
+                         AmTxManager::shared_ptr _amTxMgr)
         : Module(modName.c_str()),
           amDispatcher(_amDispatcher),
           qosCtrl(_qosCtrl),
           volTable(_volTable),
           txMgr(_amTxMgr),
-          amCache(_amCache) {
+          amCache(std::make_shared<AmCache>("AM Cache Manager Module")) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
@@ -70,6 +71,11 @@ AmProcessor::getNoSnapshotVolume(AmRequest* amReq) {
     return shVol;
 }
 
+Error
+AmProcessor::createCache(const VolumeDesc& volDesc) {
+    return amCache->createCache(volDesc);
+}
+
 void
 AmProcessor::getVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.getVolMeta",
@@ -92,6 +98,15 @@ void
 AmProcessor::abortBlobTx(AmRequest *amReq) {
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, amReq);
     amDispatcher->dispatchAbortBlobTx(amReq);
+}
+
+void
+AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
+    if (ERR_OK != txMgr->removeTx(*(blobReq->tx_desc)))
+        LOGWARN << "Transaction unknown";
+
+    respond_and_delete(amReq, error);
 }
 
 void
@@ -151,11 +166,6 @@ AmProcessor::putBlob(AmRequest *amReq) {
     auto shVol = getNoSnapshotVolume(amReq);
     if (!shVol) return;
 
-    // TODO(Andrew): Here we're turning the offset aligned
-    // blobOffset back into an absolute blob offset (i.e.,
-    // not aligned to the maximum object size). This allows
-    // the rest of the putBlob routines to still expect an
-    // absolute offset in case we need it
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
     amReq->blob_offset = (amReq->blob_offset * maxObjSize);
 
@@ -285,7 +295,6 @@ AmProcessor::getBlob(AmRequest *amReq) {
         blobReq->oid_cached = true;
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
-        // fds_verify(*objectId != NullObjectID);
         amReq->obj_id = *objectId;
 
         // Check cache for object data
@@ -312,10 +321,51 @@ AmProcessor::getBlob(AmRequest *amReq) {
             amDispatcher->dispatchGetObject(amReq);
         }
     } else {
-        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, amReq);
+        // We have to get the Object descriptor first, then we
+        // can retrieve the actual Object itself 
+        amReq->proc_cb = [amReq, this](Error const& error) -> void {
+            if (error == ERR_OK) {
+                amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
+                this->amDispatcher->dispatchGetObject(amReq);
+            } else {
+                this->respond_and_delete(amReq, error);
+            }
+        };
         amDispatcher->dispatchQueryCatalog(amReq);
     }
 }
+
+void
+AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
+    respond(amReq, error);
+
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    // Insert original Object into cache. Do not insert the truncated version
+    // since we really do have all the data. This is done after response to
+    // reduce latency.
+    if (ERR_OK == error && cb->returnBuffer) {
+        amCache->putObject(amReq->io_vol_id,
+                           amReq->obj_id,
+                           cb->returnBuffer);
+        auto blobReq = static_cast<GetBlobReq*>(amReq);
+        if (!blobReq->oid_cached) {
+            amCache->putOffset(amReq->io_vol_id,
+                               BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
+                               boost::make_shared<ObjectID>(amReq->obj_id));
+        }
+
+        if (!blobReq->metadata_cached && blobReq->get_metadata) {
+            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            if (cb->blobDesc)
+                amCache->putBlobDescriptor(amReq->io_vol_id,
+                                           amReq->getBlobName(),
+                                           cb->blobDesc);
+        }
+    }
+
+    delete amReq;
+}
+
 
 void
 AmProcessor::setBlobMetadata(AmRequest *amReq) {
@@ -355,62 +405,6 @@ AmProcessor::statBlob(AmRequest *amReq) {
 }
 
 void
-AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
-    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
-    if (ERR_OK != txMgr->removeTx(*(blobReq->tx_desc)))
-        LOGWARN << "Transaction unknown";
-
-    respond_and_delete(amReq, error);
-}
-
-void
-AmProcessor::volumeContents(AmRequest *amReq) {
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
-    amDispatcher->dispatchVolumeContents(amReq);
-}
-
-void
-AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
-    respond(amReq, error);
-
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-    // Insert original Object into cache. Do not insert the truncated version
-    // since we really do have all the data. This is done after response to
-    // reduce latency.
-    if (ERR_OK == error && cb->returnBuffer) {
-        amCache->putObject(amReq->io_vol_id,
-                           amReq->obj_id,
-                           cb->returnBuffer);
-        auto blobReq = static_cast<GetBlobReq*>(amReq);
-        if (!blobReq->oid_cached) {
-            amCache->putOffset(amReq->io_vol_id,
-                               BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
-                               boost::make_shared<ObjectID>(amReq->obj_id));
-        }
-
-        if (!blobReq->metadata_cached && blobReq->get_metadata) {
-            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
-            if (cb->blobDesc)
-                amCache->putBlobDescriptor(amReq->io_vol_id,
-                                           amReq->getBlobName(),
-                                           cb->blobDesc);
-        }
-    }
-
-    delete amReq;
-}
-
-void
-AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
-    if (error == ERR_OK) {
-        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
-        amDispatcher->dispatchGetObject(amReq);
-    } else {
-        respond_and_delete(amReq, error);
-    }
-}
-
-void
 AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
     respond(amReq, error);
 
@@ -422,6 +416,12 @@ AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
     }
 
     delete amReq;
+}
+
+void
+AmProcessor::volumeContents(AmRequest *amReq) {
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+    amDispatcher->dispatchVolumeContents(amReq);
 }
 
 void

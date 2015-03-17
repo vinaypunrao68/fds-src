@@ -14,7 +14,6 @@
 #include "requests/requests.h"
 
 #include "lib/StatsCollector.h"
-#include "AmCache.h"
 #include "AccessMgr.h"
 #include "AmDispatcher.h"
 #include "AmProcessor.h"
@@ -159,8 +158,6 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     // Init the AM transaction manager
     amTxMgr = std::make_shared<AmTxManager>("AM Transaction Manager Module");
-    // Init the AM cache manager
-    amCache = std::make_shared<AmCache>("AM Cache Manager Module");
 
     // Init the dispatcher layer
     // TODO(Andrew): Decide if AM or AmProcessor should own
@@ -175,8 +172,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                         amDispatcher,
                         qos_ctrl,
                         vol_table,
-                        amTxMgr,
-                        amCache));
+                        amTxMgr));
 
     LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
 
