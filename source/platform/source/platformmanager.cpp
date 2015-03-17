@@ -163,7 +163,7 @@ void PlatformManager::loadProperties() {
 
 
 void PlatformManager::determineDiskCapability() {
-    diskCapability.disk_iops_max    = 10000;
+    diskCapability.disk_iops_max    = 100000;
     diskCapability.disk_iops_min    = 4000;
     diskCapability.disk_capacity    = 0x7ffff;
     diskCapability.disk_latency_max = 1000000 / diskCapability.disk_iops_min;
