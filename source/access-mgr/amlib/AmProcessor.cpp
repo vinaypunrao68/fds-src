@@ -324,16 +324,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
             amDispatcher->dispatchGetObject(amReq);
         }
     } else {
-        // We have to get the Object descriptor first, then we
-        // can retrieve the actual Object itself 
-        amReq->proc_cb = [amReq, this](Error const& error) -> void {
-            if (error == ERR_OK) {
-                amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
-                this->amDispatcher->dispatchGetObject(amReq);
-            } else {
-                this->respond_and_delete(amReq, error);
-            }
-        };
+        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, amReq);
         amDispatcher->dispatchQueryCatalog(amReq);
     }
 }
@@ -405,6 +396,16 @@ AmProcessor::statBlob(AmRequest *amReq) {
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, amReq);
     amDispatcher->dispatchStatBlob(amReq);
+}
+
+void
+AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
+    if (error == ERR_OK) {
+        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
+        amDispatcher->dispatchGetObject(amReq);
+    } else {
+        respond_and_delete(amReq, error);
+    }
 }
 
 void

@@ -101,6 +101,11 @@ class AmProcessor : public Module, public boost::noncopyable {
     void getBlob(AmRequest *amReq);
 
     /**
+     * Callback for catalog query request
+     */
+    void queryCatalogCb(AmRequest *amReq, const Error& error);
+
+    /**
      * Callback for get blob request
      */
     void getBlobCb(AmRequest *amReq, const Error& error);
