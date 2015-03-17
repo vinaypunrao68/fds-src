@@ -167,6 +167,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     enum ConfigEvent implements EventDescriptor {
 
+        CREATE_LOCAL_DOMAIN(EventCategory.SYSTEM, "Created local domain {0}", "domainName"),
         CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {0}", "identifier"),
         CREATE_USER(EventCategory.SYSTEM, "Created user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
         UPDATE_USER(EventCategory.SYSTEM, "Updated user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
@@ -236,6 +237,14 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         apisPolicy.setTimelineTime(timelineTime);
 
         return createSnapshotPolicy(apisPolicy);
+    }
+
+    @Override
+    public long createLocalDomain(String domainName)
+        throws TException {
+        long id = getConfig().createLocalDomain(domainName);
+        EventManager.notifyEvent(ConfigEvent.CREATE_LOCAL_DOMAIN, domainName);
+        return id;
     }
 
     @Override

@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 
+from os.path import expanduser
+
 import config
 
 class Multinode(object):
@@ -87,7 +89,7 @@ class Multinode(object):
                     raise OSError, "Template %s must exist" % local_inventory
                     return False
                 shutil.copyfile(local_inventory, inventory_path)
-            vault = os.path.join(config.ROOT, config.VAULT_PASS)
+            vault = os.path.join(expanduser("~"), config.VAULT_PASS)
             if not os.path.exists(vault):
                 raise OSError, "Vault Pass file must exist before cluster is" \
                     " run."
