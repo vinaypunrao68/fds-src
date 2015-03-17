@@ -26,7 +26,7 @@ struct DmUnitTest : ::testing::Test {
 };
 
 TEST_F(DmUnitTest, Timelinedb) {
-    if (!dataMgr->enableTimeline) {
+    if (!dataMgr->features.isTimelineEnabled()) {
         return;
     }
 

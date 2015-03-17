@@ -35,7 +35,7 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
         err = timeVolCat_->activateVolume(volume_id);
         if (err.ok()) {
             // start processing forwarded updates
-            if (feature.isCatSyncEnabled()) {
+            if (features.isCatSyncEnabled()) {
                 catSyncRecv->startProcessFwdUpdates(volume_id);
             } else {
                 LOGWARN << "catalog sync feature - NOT enabled";
@@ -44,7 +44,7 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
     } else {
         LOGDEBUG << "Will queue DmIoMetaRecvd message "
                  << std::hex << volume_id << std::dec;
-        if (feature.isCatSyncEnabled()) {
+        if (features.isCatSyncEnabled()) {
             DmIoMetaRecvd* metaRecvdIo = new(std::nothrow) DmIoMetaRecvd(volume_id);
             err = enqueueMsg(catSyncRecv->shadowVolUuid(volume_id), metaRecvdIo);
             fds_verify(err.ok());
@@ -69,7 +69,7 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
 void DataMgr::handleForwardComplete(dmCatReq *io) {
     LOGNORMAL << "Will open up QoS queue for volume " << std::hex
               << io->volId << std::dec;
-    if (feature.isCatSyncEnabled()) {
+    if (features.isCatSyncEnabled()) {
         catSyncRecv->handleFwdDone(io->volId);
     } else {
         LOGWARN << "catalog sync feature - NOT enabled";
@@ -81,7 +81,7 @@ void DataMgr::handleForwardComplete(dmCatReq *io) {
     vol_meta->dmVolQueue->activate();
     vol_map_mtx->unlock();
 
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*io);
+    if (features.isQosEnabled()) qosCtrl->markIODone(*io);
     delete io;
 }
 
@@ -188,7 +188,7 @@ DataMgr::finishCloseDMT() {
          ++it) {
         // remove the volume from sync_volume list
         LOGNORMAL << "CleanUP: remove Volume " << std::hex << *it << std::dec;
-        if (feature.isCatSyncEnabled()) {
+        if (features.isCatSyncEnabled()) {
             if (catSyncMgr->finishedForwardVolmeta(*it)) {
                 all_finished = true;
             }
@@ -359,11 +359,11 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             err = timeVolCat_->copyVolume(*vdesc);
             if (err.ok()) {
                 // add it to timeline
-                if (enableTimeline) {
+                if (features.isTimelineEnabled()) {
                     timeline->addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
                 }
             }
-        } else if (enableTimeline) {
+        } else if (features.isTimelineEnabled()) {
             // clone
             // find the closest snapshot to clone the base from
             fds_volid_t srcVolumeId = vdesc->srcVolumeId;
@@ -701,7 +701,7 @@ Error DataMgr::notifyDMTClose() {
     Error err(ERR_OK);
     DmIoPushMetaDone* pushMetaDoneIo = NULL;
 
-    if (feature.isCatSyncEnabled()) {
+    if (features.isCatSyncEnabled()) {
         if (!catSyncMgr->isSyncInProgress()) {
             err = ERR_CATSYNC_NOT_PROGRESS;
             return err;
@@ -821,8 +821,9 @@ int DataMgr::mod_init(SysParams const *const param)
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    enableTimeline = modProvider_->get_fds_config()->get<bool>("fds.dm.enable_timeline", true);
-    if (enableTimeline) {
+    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.dm.enable_timeline", true));
+    if (features.isTimelineEnabled()) {
         timeline.reset(new TimelineDB());
     }
 
@@ -912,7 +913,7 @@ void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-    fds_uint32_t diskIOPsMin = feature.isTestMode() ? 60*1000 :
+    fds_uint32_t diskIOPsMin = features.isTestMode() ? 60*1000 :
             svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
                                                  "disk_iops_min");
 
@@ -952,7 +953,7 @@ void DataMgr::mod_enable_service() {
 
     // enable collection of local stats in DM
     StatsCollector::singleton()->registerOmClient(omClient);
-    if (!feature.isTestMode()) {
+    if (!features.isTestMode()) {
         // since aggregator is in the same module, for stats that need to go to
         // local aggregator, we just directly stream to aggregator (not over network)
         StatsCollector::singleton()->startStreaming(
@@ -971,13 +972,13 @@ void DataMgr::mod_enable_service() {
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
-    if (enableTimeline) {
+    if (features.isTimelineEnabled()) {
         timeline->open();
     }
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
-    if (!feature.isTestMode()) {
+    if (!features.isTestMode()) {
         gSvcRequestPool->setDltManager(omClient->getDltManager());
     }
 }
@@ -989,7 +990,7 @@ void DataMgr::mod_shutdown()
     LOGNORMAL;
     statStreamAggr_->mod_shutdown();
     timeVolCat_->mod_shutdown();
-    if (feature.isCatSyncEnabled()) {
+    if (features.isCatSyncEnabled()) {
         catSyncMgr->mod_shutdown();
     } else {
         LOGWARN << "catalog sync feature - NOT enabled";
@@ -1131,7 +1132,7 @@ DataMgr::snapVolCat(dmCatReq *io) {
     snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
 
     // mark this request as complete
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*snapReq);
+    if (features.isQosEnabled()) qosCtrl->markIODone(*snapReq);
     delete snapReq;
 }
 

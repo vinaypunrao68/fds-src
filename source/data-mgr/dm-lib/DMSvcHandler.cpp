@@ -302,7 +302,7 @@ DMSvcHandler::StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &
     return;
 
     // see if DM sync feature is enabled
-    if (dataMgr->feature.isCatSyncEnabled()) {
+    if (dataMgr->features.isCatSyncEnabled()) {
         err = dataMgr->catSyncMgr->startCatalogSync(migrMsg->metaVol,
                                                          std::bind(
                                                              &DMSvcHandler::StartDMMetaMigrationCb,
@@ -342,7 +342,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
 
     // see if DM sync feature is enabled
-    if (dataMgr->feature.isCatSyncEnabled()) {
+    if (dataMgr->features.isCatSyncEnabled()) {
         err = dataMgr->catSyncMgr->startCatalogSyncDelta(std::bind(
                                                              &DMSvcHandler::NotifyDMTUpdateCb,
                                                              this, hdr,

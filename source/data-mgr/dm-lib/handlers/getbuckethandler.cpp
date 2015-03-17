@@ -15,7 +15,7 @@ namespace fds {
 namespace dm {
 
 GetBucketHandler::GetBucketHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetBucketMsg, handleRequest);
     }
 }

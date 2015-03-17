@@ -50,7 +50,7 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
 {
     volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
 
-    if (dataMgr->enableTimeline) {
+    if (dataMgr->features.isTimelineEnabled()) {
         logMonitorThread_.reset(new std::thread(
                 std::bind(&DmTimeVolCatalog::monitorLogs, this)));
     }
@@ -744,7 +744,7 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
 }
 
 void DmTimeVolCatalog::cancelLogMonitoring() {
-    if (dataMgr->enableTimeline) {
+    if (dataMgr->features.isTimelineEnabled()) {
         stopLogMonitoring_ = true;
         logMonitorThread_->join();
     }
