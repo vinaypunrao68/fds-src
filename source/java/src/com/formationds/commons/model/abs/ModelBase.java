@@ -28,6 +28,8 @@ public abstract class ModelBase
   protected static final Long CAPACITY_MAX = 100L;  // percentage
   protected static final Long PRIORITY_MIN = 1L;
   protected static final Long PRIORITY_MAX = 10L;
+  protected static final Long OBJECT_SIZE_MIN = 512L;
+  protected static final Long OBJECT_SIZE_MAX = (2L * 1024L * 1024L);
 
   /**
    * @param field the {@link String} representing the field checking
