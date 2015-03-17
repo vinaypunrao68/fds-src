@@ -81,20 +81,16 @@ AmProcessor::abortBlobTx(AmRequest *amReq) {
 
 void
 AmProcessor::startBlobTx(AmRequest *amReq) {
+    // check if this is a snapshot
+    auto shVol = volTable->getVolume(amReq->io_vol_id);
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "txn on a snapshot is not allowed.";
+        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
+    }
+
     fiu_do_on("am.uturn.processor.startBlobTx",
               respond_and_delete(amReq, ERR_OK); \
               return;);
-
-    // check if this is a snapshot
-    // TODO(Andrew): Why not just let DM reject the IO?
-    StorHvVolume *shVol = volTable->getLockedVolume(amReq->io_vol_id);
-    if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "txn on a snapshot is not allowed.";
-        shVol->readUnlock();
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-        return;
-    }
-    shVol->readUnlock();
 
     // Generate a random transaction ID to use
     static_cast<StartBlobTxReq*>(amReq)->tx_desc =
@@ -125,17 +121,16 @@ AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
 void
 AmProcessor::deleteBlob(AmRequest *amReq) {
     fds_volid_t volId = amReq->io_vol_id;
-    StorHvVolume* shVol = volTable->getLockedVolume(volId);
+    auto shVol = volTable->getVolume(volId);
 
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(amReq);
     LOGDEBUG    << " volume:" << volId
                 << " blob:" << amReq->getBlobName()
                 << " txn:" << blobReq->tx_desc;
 
-    if ((shVol == NULL) || (!shVol->isValidLocked())) {
+    if (!shVol) {
         LOGCRITICAL << "unable to get volume info for vol: " << volId;
         respond_and_delete(amReq, FDSN_StatusErrorUnknown);
-        shVol->readUnlock();
         return;
     }
 
@@ -143,10 +138,8 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
     if (shVol->voldesc->isSnapshot()) {
         LOGWARN << "delete blob on a snapshot is not allowed.";
         respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-        shVol->readUnlock();
         return;
     }
-    shVol->readUnlock();
 
     // Update the tx manager with the delete op
     txMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
@@ -158,17 +151,12 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
 void
 AmProcessor::putBlob(AmRequest *amReq) {
     // check if this is a snapshot
-    // TODO(Andrew): Why not just let DM reject the IO?
-    StorHvVolume *shVol = volTable->getLockedVolume(amReq->io_vol_id);
+    auto shVol = volTable->getVolume(amReq->io_vol_id);
     if (shVol->voldesc->isSnapshot()) {
         LOGWARN << "txn on a snapshot is not allowed.";
-        shVol->readUnlock();
-        StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
-                                                      amReq->cb);
         respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
         return;
     }
-    shVol->readUnlock();
 
     // TODO(Andrew): Here we're turning the offset aligned
     // blobOffset back into an absolute blob offset (i.e.,
@@ -264,12 +252,8 @@ AmProcessor::getBlob(AmRequest *amReq) {
               return;);
 
     fds_volid_t volId = amReq->io_vol_id;
-    StorHvVolume *shVol = volTable->getVolume(volId);
-    // TODO(bszmyd): Friday, October 10th 2014
-    // This logic was copied directly from StorHvCtrl, but it's not
-    // quite clear how using the non-locking call above would still
-    // allow the following to function. Investigation needed.
-    if ((shVol == NULL) || (!shVol->isValidLocked())) {
+    auto shVol = volTable->getVolume(volId);
+    if (!shVol) {
         LOGCRITICAL << "getBlob failed to get volume for vol " << volId;
         getBlobCb(amReq, ERR_INVALID);
         return;

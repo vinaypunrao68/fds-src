@@ -34,116 +34,78 @@ namespace fds {
 
 /* Forward declarations */
 struct AmRequest;
-class StorHvQosCtrl;
 
-class StorHvVolume : public FDS_Volume , public HasLogger
+struct StorHvVolume : public FDS_Volume , public HasLogger
 {
-  public:
     StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log *parent_log);
+    StorHvVolume(StorHvVolume const& rhs) = delete;
+    StorHvVolume& operator=(StorHvVolume const& rhs) = delete;
+
     ~StorHvVolume();
 
-    /* safe destruction, after this, volume object is not valid */
-    void destroy();
-
-    bool isValidLocked() const;
-
-    /* read locks. Journal table and volume catalog cache have their own locks,
-     * so exposing read lock to protect against volume being destroyed
-     */
-    void readLock();
-    void readUnlock();
-
-  public:
-    int blkdev_minor;
     /* Reference to parent SH instance */
     StorHvCtrl *parent_sh;
 
     /*
      * per volume queue
      */
-    FDS_VolumeQueue*  volQueue;
-
-  private:
-    /* lock to prevent volume destruction while accessing volume data */
-    fds_rwlock rwlock;
-    bool is_valid;
+    std::unique_ptr<FDS_VolumeQueue> volQueue;
 };
 
 typedef std::vector<fds_volid_t> StorHvVolVec;
 
-class StorHvVolumeLock
-{
-  public:
-    /* Ok if vol == NULL, will not do anything */
-    explicit StorHvVolumeLock(StorHvVolume *vol);
-    ~StorHvVolumeLock();
-
-  private:
-    StorHvVolume *shvol;
-};
-
 class StorHvVolumeTable : public HasLogger {
-    static const fds_volid_t fds_default_vol_uuid = 1;
+    static constexpr fds_volid_t fds_default_vol_uuid { 1 };
 
   public:
-    /// A logger is created if not passed in
-    explicit StorHvVolumeTable(StorHvCtrl *sh_ctrl);
+    using volume_ptr_type = std::shared_ptr<StorHvVolume>;
+
     /// Use logger that passed in to the constructor
-    StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log);
-    ~StorHvVolumeTable();
+    explicit StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log = nullptr);
+    ~StorHvVolumeTable() {
+        map_rwlock.write_lock();
+        volume_map.clear();
+    }
 
     Error registerVolume(const VolumeDesc& vdesc);
     Error removeVolume(fds_volid_t vol_uuid);
 
     /**
-     * Returns the locked volume object. Guarantees that the
-     * returned volume object is valid (i.e., can safely access
-     * journal table and volume catalog cache)
-     * Must call StorHvVolume::readUnlock on returned volume object
-     * Returns NULL if volume does not exist
-     */
-    StorHvVolume* getLockedVolume(fds_volid_t vol_uuid);
-
-    /**
-     * Returns volume but not thread-safe
-     * Use StorHvVolumeLock to lock the volume and check if volume
-     * object is still valid via StorHvVolume::isValidLocked()
-     * before using the volume object
      * Returns NULL is volume does not exist
-<     */
-    StorHvVolume* getVolume(fds_volid_t vol_uuid);
+     */
+    volume_ptr_type getVolume(fds_volid_t vol_uuid);
 
     /**
      * Returns list of volume ids currently in the table
      */
-    StorHvVolVec getVolumeIds();
+    StorHvVolVec getVolumeIds() const;
 
     /**
      * Returns the volumes max object size
      */
-    fds_uint32_t getVolMaxObjSize(fds_volid_t volUuid);
+    fds_uint32_t getVolMaxObjSize(fds_volid_t volUuid) const;
 
     /**
      * Returns volume uuid if found in volume map.
      * if volume does not exist, returns 'invalid_vol_id'
      */
-    fds_volid_t getVolumeUUID(const std::string& vol_name);
+    fds_volid_t getVolumeUUID(const std::string& vol_name) const;
 
     /**
      * Returns the base volume id for DMT lookup.
      * for regular volumes , returns the same uuid
      * for snapshots, returns the parent uuid
      */
-    fds_volid_t getBaseVolumeId(fds_volid_t volId);
+    fds_volid_t getBaseVolumeId(fds_volid_t volId) const;
 
     /**
      * Returns volume name if found in volume map.
      * if volume does not exist, returns empty string
      */
-    std::string getVolumeName(fds_volid_t volId);
+    std::string getVolumeName(fds_volid_t volId) const;
 
     /** returns true if volume exists, otherwise retuns false */
-    fds_bool_t volumeExists(const std::string& vol_name);
+    fds_bool_t volumeExists(const std::string& vol_name) const;
 
     /**
      * Add blob request to wait queue -- those are blobs that
@@ -176,10 +138,10 @@ class StorHvVolumeTable : public HasLogger {
 
   private:
     /// volume uuid -> StorHvVolume map
-    std::unordered_map<fds_volid_t, StorHvVolume*> volume_map;
+    std::unordered_map<fds_volid_t, volume_ptr_type> volume_map;
 
     /// Protects volume_map
-    fds_rwlock map_rwlock;
+    mutable fds_rwlock map_rwlock;
 
     /**
      * list of blobs that are waiting for OM to attach appropriate

@@ -323,10 +323,8 @@ StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
     blobReq->io_req_id = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
     fds_volid_t volId = blobReq->io_vol_id;
 
-    StorHvVolume *shVol = vol_table->getLockedVolume(volId);
-    if ((shVol == NULL) || (shVol->volQueue == NULL)) {
-        if (shVol)
-            shVol->readUnlock();
+    auto shVol = vol_table->getVolume(volId);
+    if (!shVol) {
         LOGERROR << "Volume and queueus are NOT setup for volume " << volId;
         err = ERR_INVALID_ARG;
         PerfTracer::tracePointEnd(blobReq->qos_perf_ctx);
@@ -337,7 +335,6 @@ StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
      * TODO: We should handle some sort of success/failure here?
      */
     qos_ctrl->enqueueIO(volId, blobReq);
-    shVol->readUnlock();
 
     LOGDEBUG << "Queued IO for vol " << volId;
 
