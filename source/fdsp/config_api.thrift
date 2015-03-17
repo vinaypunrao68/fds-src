@@ -20,12 +20,11 @@ service ConfigurationService {
   /**
    * Create a new Local Domain.
    *
-   * @param domainName - A string represnting the name of the new Local Domain.
-   * @param domainId - The numeric ID of the new Local Domain. Presumably, at some point this will be system generated.
+   * @param domainName - A string representing the name of the new Local Domain.
    *
-   * @return Returns the Local Domain's ID - the one passed in.
+   * @return Returns the Local Domain's ID.
    */
-  i64 createLocalDomain(1:string domainName, 2:i64 domainId)
+  i64 createLocalDomain(1:string domainName)
       throws (1: common.ApiException e);
 
   /**
