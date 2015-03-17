@@ -35,8 +35,8 @@ class AmProcessor : public Module, public boost::noncopyable {
                 StorHvQosCtrl     *_qosCtrl,
                 StorHvVolumeTable *_volTable,
                 AmTxManager::shared_ptr _amTxMgr);
-                
-    ~AmProcessor() {}
+    ~AmProcessor();
+
     typedef std::unique_ptr<AmProcessor> unique_ptr;
 
     /**
@@ -169,8 +169,8 @@ class AmProcessor : public Module, public boost::noncopyable {
     // TODO(Andrew): Move to unique once owned here.
     AmTxManager::shared_ptr txMgr;
 
-    // Shared ptr to the data object cache
-    std::shared_ptr<AmCache> amCache;
+    // Unique ptr to the data object cache
+    std::unique_ptr<AmCache> amCache;
 
     /// Unique ptr to a random num generator for tx IDs
     std::unique_ptr<RandNumGenerator> randNumGen;

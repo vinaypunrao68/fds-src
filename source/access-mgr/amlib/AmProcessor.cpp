@@ -30,7 +30,7 @@ AmProcessor::AmProcessor(const std::string &modName,
           qosCtrl(_qosCtrl),
           volTable(_volTable),
           txMgr(_amTxMgr),
-          amCache(std::make_shared<AmCache>("AM Cache Manager Module")) {
+          amCache(new AmCache("AM Cache Manager Module")) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
@@ -38,6 +38,9 @@ AmProcessor::AmProcessor(const std::string &modName,
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
 }
+
+AmProcessor::~AmProcessor()
+{}
 
 void
 AmProcessor::respond(AmRequest *amReq, const Error& error) {
