@@ -18,6 +18,16 @@ namespace java com.formationds.apis
  */
 service ConfigurationService {
   /**
+   * Create a new Local Domain.
+   *
+   * @param domainName - A string representing the name of the new Local Domain.
+   *
+   * @return Returns the Local Domain's ID.
+   */
+  i64 createLocalDomain(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
    * Create a new tenant.
    *
    * @param identifier a string represnting the tenants identifier or name

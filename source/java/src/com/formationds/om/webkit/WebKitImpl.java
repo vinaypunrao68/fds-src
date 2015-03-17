@@ -199,6 +199,11 @@ public class WebKitImpl {
          */
         platform();
 
+        /*
+         * Provide Local Domain RESTful API endpoints
+         */
+        localDomain();
+
         webApp.start(
             new HttpConfiguration( httpPort ),
             new HttpsConfiguration( httpsPort,
@@ -262,6 +267,26 @@ public class WebKitImpl {
                       ( t ) -> new DeactivateNode( legacyConfig ),
                       authorizer );
         logger.trace( "registered platform endpoints" );
+
+    }
+
+    private void localDomain( ) {
+
+        final FDSP_ConfigPathReq.Iface legacyConfig =
+            SingletonLegacyConfig.instance().api();
+        final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
+
+        logger.trace( "Registering Local Domain endpoints." );
+        
+        fdsAdminOnly( HttpMethod.POST,
+                      "/local_domains/:local_domain",
+                      ( t ) -> new CreateLocalDomain( authorizer,
+                                                      legacyConfig,
+                                                      configAPI,
+                                                      t ),
+                      authorizer );
+
+        logger.trace( "Registered Local Domain endpoints" );
 
     }
 
