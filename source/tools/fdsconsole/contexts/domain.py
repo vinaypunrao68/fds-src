@@ -17,14 +17,12 @@ class DomainContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('domain_name', help="Name of the new Local Domain. Must be unique within the Global Domain.")
-    @arg('domain_id', help="An integer ID for the newly created Local Domain. (At some point, the product "
-                           "will start generating this value.)")
-    def create(self, domain_name, domain_id):
+    def create(self, domain_name):
         """
         Create a new Local Domain.
         """
         try:
-            return self.restApi().createDomain(domain_name, domain_id)
+            return self.restApi().createDomain(domain_name)
         except Exception, e:
             print e
             log.exception(e)

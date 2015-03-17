@@ -86,36 +86,89 @@ bool ConfigDB::setGlobalDomain(ConstString globalDomain) {
     return false;
 }
 
-bool ConfigDB::addLocalDomain(ConstString name, int localDomain, int globalDomain) {
+/**
+ * Create a new Local Domain provided it does not already exist. (Local Domain names
+ * are treated as case-insenative.)
+ *
+ * @param identifier: std::string - Name to use for the new Local Domain.
+ *
+ * @return int64_t - ID generated for the new Local Domain.
+ */
+int64_t ConfigDB::createLocalDomain(const std::string& identifier) {
     TRACKMOD();
     try {
-        Reply reply = r.sendCommand("sadd %d:domains %d", globalDomain, localDomain);
-        if (!reply.wasModified()) {
-            LOGWARN << "domain id: "<< localDomain <<" already exists for global :" <<globalDomain;
+        // Check if the Local Domain already exists.
+        std::string idLower = lower(identifier);
+
+        Reply reply = r.sendCommand("sismember local.domain:list %b", idLower.data(), idLower.length());
+        if (reply.getLong() == 1) {
+            // The Local Domain already exists.
+            std::vector<fds::apis::LocalDomain> localDomains;
+            if (listLocalDomains(localDomains)) {
+                for (const auto& localDomain : localDomains) {
+                    if (localDomain.name == identifier) {
+                        LOGWARN << "Trying to add an existing Local Domain : " << localDomain.id << ": " << localDomain.name;
+                        NOMOD();
+                        return localDomain.id;
+                    }
+                }
+                LOGCRITICAL << "ConfigDB inconsistency. Local Domain info missing : " << identifier;
+                NOMOD();
+                return 0;
+            } else {
+                LOGCRITICAL << "Unable to obtain Local Domain list.";
+                NOMOD();
+                return 0;
+            }
         }
-        return r.sendCommand("hmset domain:%d id %d name %s", localDomain, localDomain, name.c_str()).isOk(); //NOLINT
+
+        fds::apis::LocalDomain localDomain;
+        // get new id
+        reply = r.sendCommand("incr local.domain:nextid");
+        localDomain.id = reply.getLong();
+        localDomain.name = identifier;
+
+        r.sendCommand("sadd local.domain:list %b", idLower.data(), idLower.length());
+
+        // serialize
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(localDomain, serialized);
+
+        r.sendCommand("hset local.domains %ld %b", localDomain.id, serialized->data(), serialized->length()); //NOLINT
+        return localDomain.id;
     } catch(const RedisException& e) {
-        LOGERROR << e.what();
-        NOMOD();
+        LOGCRITICAL << "Error with redis " << e.what();
     }
-    return false;
+
+    return 0;
 }
 
-bool ConfigDB::getLocalDomains(std::map<int, std::string>& mapDomains, int globalDomain) {
-    try {
-        Reply reply = r.sendCommand("smembers %d:domains", globalDomain);
-        std::vector<long long> vec; //NOLINT
-        reply.toVector(vec);
+/**
+ * Generate a map of Local Domains currently defined.
+ *
+ * @param mapDomains: std::map<int, std::string> - First item in the map is the Local Domain ID. Second item is
+ *                                                 the Local Domain name.
+ *
+ * @return bool - True if the map is successfully produced. False otherwise.
+ */
+bool ConfigDB::listLocalDomains(std::vector<fds::apis::LocalDomain>& localDomains) {
+    fds::apis::LocalDomain localDomain;
 
-        for (uint i = 0; i < vec.size(); i++) {
-            reply = r.sendCommand("hget domain:%d name", static_cast<int>(vec[i]));
-            mapDomains[static_cast<int>(vec[i])] = reply.getString();
+    try {
+        Reply reply = r.sendCommand("hvals local.domains");
+        StringList strings;
+        reply.toVector(strings);
+
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, localDomain);
+            LOGDEBUG << "Read Local Domain " << localDomain.name;
+            localDomains.push_back(localDomain);
         }
-        return true;
     } catch(const RedisException& e) {
-        LOGERROR << e.what();
+        LOGCRITICAL << "Error with redis " << e.what();
+        return false;
     }
-    return false;
+    return true;
 }
 
 // volumes

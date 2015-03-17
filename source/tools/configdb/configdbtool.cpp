@@ -98,9 +98,9 @@ void ConfigDBTool::cmdInfo(std::vector <std::string>& args) {
 
     LINE << "global.domain   : " << db->getGlobalDomain() << "\n";
 
-    std::map<int, std::string> mapDomains;
-    db->getLocalDomains(mapDomains);
-    LINE << "localdomains    : " << mapDomains.size() << "\n";
+    std::vector<fds::apis::LocalDomain> localDomains;
+    db->listLocalDomains(localDomains);
+    LINE << "localdomains    : " << localDomains.size() << "\n";
 
     std::vector<VolumeDesc> volumes;
     db->getVolumes(volumes);

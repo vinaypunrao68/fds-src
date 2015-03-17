@@ -75,24 +75,18 @@ public class CreateLocalDomain
                   HttpServletResponse.SC_BAD_REQUEST );
       }
 
-      String source = IOUtils.toString(request.getInputStream());
-      JSONObject o = new JSONObject(source);
-      try {
-          domainId = o.getLong( "id" );
-      } catch(JSONException e) {
-          return new JsonResource(
-                  new JSONObject().put( "message", "Missing new Local Domain ID." ),
-                  HttpServletResponse.SC_BAD_REQUEST );
-      }
-
-      logger.debug( "Creating local domain {} with ID {}", domainName, domainId );
+      logger.debug( "Creating local domain {}.", domainName );
 
       try {
-          domainId = configApi.createLocalDomain(domainName, domainId);
+          domainId = configApi.createLocalDomain(domainName);
       } catch( ApiException e ) {
 
           if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
-              return new TextResource(domainName);
+              JSONObject o = new JSONObject();
+              o.put("status", "already_exists");
+              o.put("domainName", domainName);
+              o.put("domainId", domainId);
+              return new JsonResource(o);
           }
 
           logger.error( "CREATE::FAILED::" + e.getMessage(), e );
@@ -107,10 +101,14 @@ public class CreateLocalDomain
       }
 
       if( domainId > 0 ) {
-          return new JsonResource(new JSONObject().put("domainId", domainId));
+          JSONObject o = new JSONObject();
+          o.put("status", "success");
+          o.put("domainName", domainName);
+          o.put("domainId", domainId);
+          return new JsonResource(o);
       }
 
-      throw new Exception( "no domain id after createLocalDomain call!" );
+      throw new Exception( "No domain id after createLocalDomain call!" );
   }
 }
 
