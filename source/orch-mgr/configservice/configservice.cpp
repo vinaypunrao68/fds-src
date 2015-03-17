@@ -296,7 +296,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
-        if (om->enableSnapshot && configDB->createSnapshotPolicy(*policy)) {
+        if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
             om->snapshotMgr->addPolicy(*policy);
             return policy->id;
         }
@@ -309,7 +309,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
-        if (om->enableSnapshot) {
+        if (om->enableSnapshotSchedule) {
             configDB->deleteSnapshotPolicy(*id);
             om->snapshotMgr->removePolicy(*id);
         }
@@ -453,7 +453,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             apiException(err.GetErrstr());
         }
         // add this snapshot to the retention manager ...
-        if (om->enableSnapshot) {
+        if (om->enableSnapshotSchedule) {
             om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
         }
     }

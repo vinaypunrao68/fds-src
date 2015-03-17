@@ -30,7 +30,7 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
       cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
       deleteScheduler(this),
-      enableSnapshot(true)
+      enableSnapshotSchedule(true)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
     fds::gl_orch_mgr = this;
@@ -51,8 +51,9 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
                                                  "fds.om.", "om.log", omVec);
 
-    enableSnapshot = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.om.enable_snapshot", true);
-    if (enableSnapshot) {
+    enableSnapshotSchedule = MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.om.enable_snapshot_schedule", true);
+    if (enableSnapshotSchedule) {
         snapshotMgr.reset(new fds::snapshot::Manager(this));
     }
 
@@ -180,7 +181,7 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    if (enableSnapshot) {
+    if (enableSnapshotSchedule) {
         snapshotMgr->init();
     }
     fds_bool_t config_db_up = loadFromConfigDB();
@@ -408,7 +409,7 @@ bool OrchMgr::loadFromConfigDB() {
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
 
     // load the snapshot policies
-    if (enableSnapshot) {
+    if (enableSnapshotSchedule) {
         snapshotMgr->loadFromConfigDB();
     }
 

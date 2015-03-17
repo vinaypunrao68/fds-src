@@ -135,7 +135,7 @@ class OrchMgr: public SvcProcess {
 
     DeleteScheduler deleteScheduler;
 
-    fds_bool_t enableSnapshot;
+    fds_bool_t enableSnapshotSchedule;
     boost::shared_ptr<fds::snapshot::Manager> snapshotMgr;
 };
 

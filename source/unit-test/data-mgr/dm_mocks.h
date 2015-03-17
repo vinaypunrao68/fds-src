@@ -111,6 +111,7 @@ struct DMTester :  SvcProcess {
         dataMgr->features.setQosEnabled(false);
         dataMgr->features.setTestMode(true);
         dataMgr->features.setCatSyncEnabled(false);
+        dataMgr->features.setTimelineEnabled(false);
         auto nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
         dataMgr->omClient = new TestOMgrClient(FDSP_DATA_MGR,
                                                dataMgr->omIpStr,
