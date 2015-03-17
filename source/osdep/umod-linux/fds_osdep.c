@@ -53,6 +53,13 @@ fds_panic_abort(char *panic_string)
                             "%s",
                             symb[i]);
         symStrPos += written;
+        /* if the position is beyond the buffer, then terminate the loop
+         * and null terminate the string.
+         */
+        if (symStrPos >= symStrSize) {
+            symStr[symStrSize - 1] = '\0';
+            break;
+        }
     }
 
     /* Output to both log file and syslog */
