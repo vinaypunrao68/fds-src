@@ -106,8 +106,12 @@ public class Xdi {
     }
 
     private BlobDescriptor attemptBlobAccess(AuthenticationToken token, String domainName, String volumeName, String blobName, Intent intent) throws TException {
+        Map<String, String> metadata = new HashMap<>();
+
         BlobDescriptor blobDescriptor = am.statBlob(domainName, volumeName, blobName);
-        if (authorizer.hasBlobPermission(token, volumeName, intent, blobDescriptor.getMetadata())) {
+        metadata.putAll(blobDescriptor.getMetadata());
+
+        if (authorizer.hasBlobPermission(token, volumeName, intent, metadata)) {
             throw new SecurityException();
         }
         return blobDescriptor;
@@ -133,7 +137,7 @@ public class Xdi {
     }
 
     public byte[] writeStream(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
-        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.readWrite);
+        attemptVolumeAccess(token, volumeName, Intent.readWrite);
         VolumeDescriptor volume = config.statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
         metadata.putIfAbsent(LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
