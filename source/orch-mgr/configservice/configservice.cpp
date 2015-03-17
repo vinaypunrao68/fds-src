@@ -98,7 +98,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGERROR << "Some issue in Local Domain creation. ";
             apiException("Error creating Local Domain.");
         } else {
-            LOGNOTIFY << "Local Domain creation succeded. " << id << ": " << domainName;
+            LOGNOTIFY << "Local Domain creation succeded. " << id << ": " << *domainName;
         }
 
         return id;
