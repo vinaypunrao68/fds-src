@@ -7,6 +7,7 @@
 #include <fds_module_provider.h>
 #include <fds_counters.h>
 #include <fdsp_utils.h>
+#include <FdsRandom.h>
 #include <net/PlatNetSvcHandler.h>
 #include <net/SvcRequest.h>
 #include <net/SvcMgr.h>
@@ -41,7 +42,14 @@ SvcRequestPool::SvcRequestPool(CommonModuleProviderIf *moduleProvider,
     selfUuid_ = selfUuid;
     svcReqHandler_ = handler;
 
-    nextAsyncReqId_ = SVC_UNTRACKED_REQ_ID + 1;
+    /* Starting the service request id at a random offset with respect to
+     * During restart this will in most case help us drop responses to requests
+     * issued from previous incarnation of this serivce
+     */
+    RandNumGenerator rgen(RandNumGenerator::getRandSeed());
+    nextAsyncReqId_ = rgen.genNum();
+    nextAsyncReqId_ = getNextAsyncReqId_();
+    LOGNOTIFY << "Starting servrice request id at: " << nextAsyncReqId_;
 
     finishTrackingCb_ = std::bind(&SvcRequestTracker::popFromTracking,
             svcRequestTracker_, std::placeholders::_1);
@@ -146,7 +154,7 @@ void SvcRequestPool::asyncSvcRequestInitCommon_(SvcRequestIfPtr req)
 EPSvcRequestPtr
 SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version)
 {
-    auto reqId = ++nextAsyncReqId_;
+    auto reqId = getNextAsyncReqId_();
     
     // TODO(Rao): Kept here just for reference.  Once we totally decouple for platform
     // remove this code
@@ -169,7 +177,7 @@ SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version)
 FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(
     const EpIdProviderPtr epProvider)
 {
-    auto reqId = ++nextAsyncReqId_;
+    auto reqId = getNextAsyncReqId_();
 
     FailoverSvcRequestPtr req(new FailoverSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, epProvider));
     asyncSvcRequestInitCommon_(req);
@@ -179,7 +187,7 @@ FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(
 
 QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr epProvider)
 {
-    auto reqId = ++nextAsyncReqId_;
+    auto reqId = getNextAsyncReqId_();
 
     QuorumSvcRequestPtr req(new QuorumSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, epProvider));
     asyncSvcRequestInitCommon_(req);

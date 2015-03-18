@@ -67,6 +67,15 @@ class SvcRequestPool : HasModuleProvider {
     static uint64_t SVC_UNTRACKED_REQ_ID;
 
  protected:
+    inline uint64_t getNextAsyncReqId_() {
+        uint64_t id =  ++nextAsyncReqId_;
+        /* Ensure nextAsyncReqId_ isn't SVC_UNTRACKED_REQ_ID */
+        while (id == SVC_UNTRACKED_REQ_ID) {
+            id =  ++nextAsyncReqId_;
+        }
+        return id;
+    }
+
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);
 
     template<typename T>
