@@ -19,9 +19,29 @@
 #include <net/SvcMgr.h>
 
 namespace fds {
-
 std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
     return svcId.svc_uuid;
+}
+
+std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
+{
+    std::stringstream ss;
+    ss << "Svc handle svc_uuid: " << std::hex << info.svc_id.svc_uuid.svc_uuid
+        << std::dec << " ip: " << info.ip << " port: " << info.svc_port
+        << " type: " << SvcMgr::mapToSvcName(info.svc_type)
+        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
+    return ss.str();
+}
+
+std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
+{
+    std::stringstream ss;
+    ss << fds::logString(info) << "\n";
+    auto &props = info.props;
+    for (auto &kv : props) {
+        ss << kv.first << " : " << kv.second << std::endl;
+    }
+    return ss.str();
 }
 
 template<class T>
@@ -84,6 +104,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
 {
+    /* NOTE: Chagne to a map if this is invoked several times */
     if (svcName == "pm") {
         return fpi::FDSP_PLATFORM;
     } else if (svcName == "sm") {
@@ -101,6 +122,28 @@ fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
     } else {
         fds_panic("Unknown svcName");
         return fpi::FDSP_INVALID_SVC;
+    }
+}
+
+std::string SvcMgr::mapToSvcName(const fpi::FDSP_MgrIdType &svcType)
+{
+    switch (svcType) {
+    case fpi::FDSP_PLATFORM:
+        return "pm";
+    case fpi::FDSP_STOR_MGR:
+        return "sm";
+    case fpi::FDSP_DATA_MGR:
+        return "dm";
+    case fpi::FDSP_STOR_HVISOR:
+        return "am";
+    case fpi::FDSP_ORCH_MGR:
+        return "om";
+    case fpi::FDSP_CONSOLE:
+        return "console";
+    case fpi::FDSP_TEST_APP:
+        return "test";
+    default:
+        return "unknown";
     }
 }
 

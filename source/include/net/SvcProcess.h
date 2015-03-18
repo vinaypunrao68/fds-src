@@ -84,10 +84,7 @@ struct SvcProcess : FdsProcess {
                 handler, processor);
     }
 
-    /**
-    * @brief Here we register the service by invoking registerSvcProcess()
-    */
-    void proc_pre_startup() override;
+    virtual void start_modules() override;
 
     /**
     * @brief Registers the service.  Default implementation will register the service
