@@ -3,6 +3,7 @@
 for i in 1 2 3 4
 do
     pushd ../tools
+    ./fdsconsole.py accesslevel debug
     ./fdsconsole.py volume create  Volume$i --vol-type block --blk-dev-size 10485760
     sleep 1
     ./fdsconsole.py volume modify Volume$i  --minimum 0 --maximum 10000 --priority 1

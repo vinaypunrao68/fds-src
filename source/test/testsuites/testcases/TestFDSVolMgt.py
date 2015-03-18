@@ -74,7 +74,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             cur_dir = os.getcwd()
             os.chdir(sbin_dir)
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./fdsconsole.py %s > '
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py accesslevel debug && nohup ./fdsconsole.py %s > '
                                           '%s/cli.out 2>&1 &) \"' %
                                           (cmd, log_dir if om_node.nd_agent.env_install else "."))
 
@@ -189,7 +189,7 @@ class TestVolumeDelete(TestCase.FDSTestCase):
             cur_dir = os.getcwd()
             os.chdir(sbin_dir)
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > '
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py accesslevel debug && ./fdsconsole.py %s > '
                                           '%s/cli.out 2>&1) \"' %
                                           (cmd, log_dir if om_node.nd_agent.env_install else "."))
 

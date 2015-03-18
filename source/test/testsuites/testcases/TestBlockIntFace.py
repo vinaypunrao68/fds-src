@@ -45,7 +45,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
 
         # Block volume create command
         # TODO(Andrew): Don't hard code volume name
-        blkCrtCmd = "./fdsconsole.py volume create  volume1 --vol-type block --blk-dev-size 10485760"
+        blkCrtCmd = "./fdsconsole.py accesslevel debug && ./fdsconsole.py volume create  volume1 --vol-type block --blk-dev-size 10485760"
         result = subprocess.call(blkCrtCmd, shell=True)
         if result != 0:
             os.chdir(cur_dir)
