@@ -9,6 +9,7 @@
 
 #include <fdsp/svc_types_types.h>
 #include <net/SvcProcess.h>
+#include <net/SvcMgr.h>
 #include <platform/platformmanager.h>
 #include <platform/svchandler.h>
 #include <disk_plat_module.h>
@@ -41,7 +42,7 @@ class PlatformMain : public SvcProcess {
         
         const fpi::NodeInfo& nodeInfo = platform->getNodeInfo();
         svcInfo_.svc_id.svc_uuid.svc_uuid = nodeInfo.uuid;
-        
+        LOGNOTIFY << "Svc info overrriden to: " << fds::logString(svcInfo_);
     }
 
     virtual int run() {

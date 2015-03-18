@@ -63,7 +63,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void mockPutCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr);
 
     void deleteObject(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::DeleteObjectMsg> &expObjMsg);
+            boost::shared_ptr <fpi::DeleteObjectMsg> &deleteObjMsg);
 
     void deleteObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             const Error &err,
