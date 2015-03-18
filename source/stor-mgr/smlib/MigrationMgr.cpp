@@ -4,7 +4,7 @@
 
 #include <vector>
 #include <object-store/SmDiskMap.h>
-#include <TokenMigrationMgr.h>
+#include <MigrationMgr.h>
 #include <fds_process.h>
 
 namespace fds {
@@ -392,7 +392,7 @@ SmTokenMigrationMgr::startSecondRebalanceRound(fds_token_id smToken) {
     }
 }
 
-fds_uint64_t 
+fds_uint64_t
 SmTokenMigrationMgr::getTargetDltVersion() const {
     // this will be invalid if migration not in progress
     return targetDltVersion;

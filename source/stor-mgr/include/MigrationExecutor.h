@@ -40,10 +40,10 @@ class MigrationExecutor {
 
     enum MigrationExecutorState {
         ME_INIT,
-        ME_REBALANCE_START,
-        ME_APPLYING_DELTA,
-        ME_SECOND_REBALANCE_ROUND,
-        ME_APPLYING_SECOND_DELTA,
+        ME_FIRST_PHASE_REBALANCE_START,
+        ME_FIRST_PHASE_APPLYING_DELTA,
+        ME_SECOND_PHASE_REBALANCE_START,
+        ME_SECOND_PHASE_APPLYING_DELTA,
         ME_DONE,
         ME_ERROR
     };
@@ -56,7 +56,7 @@ class MigrationExecutor {
     }
     inline fds_bool_t isRoundDone(fds_bool_t isFirstRound) const {
         if (isFirstRound) {
-            return (std::atomic_load(&state) == ME_SECOND_REBALANCE_ROUND);
+            return (std::atomic_load(&state) == ME_SECOND_PHASE_REBALANCE_START);
         }
         return (std::atomic_load(&state) == ME_DONE);
     }

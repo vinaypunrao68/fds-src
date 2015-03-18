@@ -72,7 +72,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * files are archived, the thread will wake up and copy the file to timeline directory.
      * The timeline directory will hold all journal files for all volumes.
      */
-    std::thread logMonitorThread_;
+    boost::shared_ptr<std::thread> logMonitorThread_;
     std::atomic<bool> stopLogMonitoring_;
 
     void monitorLogs();
@@ -107,10 +107,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
 
-    inline void cancelLogMonitoring() {
-        stopLogMonitoring_ = true;
-        logMonitorThread_.join();
-    }
+    void cancelLogMonitoring();
 
     /**
      * Notification about new volume managed by this DM.

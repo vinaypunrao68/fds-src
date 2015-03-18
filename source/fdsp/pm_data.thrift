@@ -7,6 +7,7 @@
 
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol.pm.types
 
 struct NodeInfo {
   1: i64 uuid,
