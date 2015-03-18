@@ -48,6 +48,7 @@ script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 ansible_base_dir="$( cd "${script_dir}/.." && pwd -P)"
 playbooks="${ansible_base_dir}/playbooks"
 ansible_args="${playbooks}/deploy_fds.yml"
+inventory_filename=$(echo "${inventory}" | awk -F '/' '{ print $NF }')
 
 D "Inventory:           ${inventory}"
 D "Deploy Artifact:     ${deploy_source}"
@@ -124,7 +125,7 @@ check_sudo() {
 }
 
 run_deploy_playbook() {
-    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" --skip-tags check_sudo --vault-password-file ~/.vault_pass.txt
+    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" -e "fds_cluster_name=${inventory_filename}" --skip-tags check_sudo --vault-password-file ~/.vault_pass.txt
 }
 
 check_environment

@@ -13,13 +13,14 @@ globals {
   cleanup_threshold = 300 /*secs */
   gexec = no
   send_metadata_interval = 0
+  override_hostname = "{{ inventory_hostname }}"
 }
 
 /* If a cluster attribute is specified, then all gmond hosts are wrapped inside
  * of a <CLUSTER> tag.  If you do not specify a cluster tag, then all <HOSTS> will
  * NOT be wrapped inside of a <CLUSTER> tag. */
 cluster {
-  name = "unspecified"
+  name = "{{ fds_cluster_name if fds_cluster_name is defined else "unspecified" }}"
   owner = "unspecified"
   latlong = "unspecified"
   url = "unspecified"

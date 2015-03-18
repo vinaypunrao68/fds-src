@@ -54,6 +54,8 @@
         - git
         - libapr1-dev
         - libconfuse-dev
+        - libxml2-dev
+        - libxslt1-dev
         - linux-generic
         - linux-headers-generic
         - linux-image-generic

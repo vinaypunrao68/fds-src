@@ -12,6 +12,12 @@ function error_exit
   exit 1
 }
 
+echo "Setting up gmond..."
+ln -sf /opt/fds-deps/embedded/etc/init/gmond.conf /etc/init/gmond.conf || error_exit "Cannot link gmond upstart config"
+chown root:root /etc/init/gmond.conf || error_exit "Cannot set ownership of gmond upstart config"
+id -u ganglia > /dev/null || useradd -c "ganglia gmond user" -U -M -r -s /bin/false ganglia || error_exit "Cannot create ganglia user"
+initctl reload-configuration
+
 echo "Thank you for installing fds-deps!"
 
 exit 0
