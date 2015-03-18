@@ -295,14 +295,9 @@ fds_threadpool::~fds_threadpool()
  *
  * @param task (i) Nullary pointer to task function
  */
-template<class F, class... Args>
 void
-fds_threadpool::schedule(F&& f, Args&&... args)
+fds_threadpool::scheduleTask(thpool_req *task)
 {
-    if (use_lftp_instead) {
-        lfthreadpool->schedule(std::forward<F>(f), std::forward<Args>(args)...);
-    } else {
-        thpool_req *task = new thpool_req(std::forward<F>(f), std::forward<Args>(args)...);
     dlist_t *ptr;
     thpool_worker *worker;
 
