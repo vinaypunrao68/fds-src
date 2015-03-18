@@ -33,6 +33,12 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
     default public Optional<String> getVolumeNameColumnName() { return Optional.of( "volumeName" ); }
 
     /**
+    *
+    * @return the volume name column name
+    */
+   default public Optional<String> getVolumeDomainColumnName() { return Optional.of( "volumeDomain" ); }
+    
+    /**
      *
      * @return the volume id column name
      */
