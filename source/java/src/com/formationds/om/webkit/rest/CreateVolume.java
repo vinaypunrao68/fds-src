@@ -173,9 +173,9 @@ public class CreateVolume
           Thread.sleep( 200 );
           SetVolumeQosParams.setVolumeQos( legacyConfigPath,
                                            volume.getName(),
-                                           ( int ) volume.getSla(),
+                                           volume.getSla(),
                                            volume.getPriority(),
-                                           ( int ) volume.getLimit(),
+                                           volume.getLimit(),
                                            volume.getCommit_log_retention(),
                                            volume.getMediaPolicy() );
 

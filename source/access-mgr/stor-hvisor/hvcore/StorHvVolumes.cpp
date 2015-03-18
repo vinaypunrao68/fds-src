@@ -23,7 +23,10 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
     }
 
     if (!volQueue) {
-        volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
+        volQueue = new FDS_VolumeQueue(4096,
+                                       vdesc.iops_throttle,
+                                       vdesc.iops_assured,
+                                       vdesc.relativePrio);
     }
     volQueue->activate();
 
@@ -96,8 +99,8 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
      * such as 'get bucket stats' and 'get bucket' */
     {
         VolumeDesc admin_vdesc("admin_vol", admin_vol_id);
-        admin_vdesc.iops_min = 10;
-        admin_vdesc.iops_max = 500;
+        admin_vdesc.iops_assured = 10;
+        admin_vdesc.iops_throttle = 500;
         admin_vdesc.relativePrio = 9;
         admin_vdesc.capacity = 0; /* not really a volume, using volume struct to hold admin requests  */
         StorHvVolume *admin_vol = new StorHvVolume(admin_vdesc, parent_sh, GetLog());
@@ -112,8 +115,8 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
 
     if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) {
         VolumeDesc vdesc("default_vol", fds_default_vol_uuid);
-        vdesc.iops_min = 200;
-        vdesc.iops_max = 500;
+        vdesc.iops_assured = 200;
+        vdesc.iops_throttle = 500;
         vdesc.relativePrio = 8;
         vdesc.capacity = 10*1024;
         StorHvVolume *vol =
@@ -176,8 +179,8 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
 
     LOGNOTIFY << "StorHvVolumeTable - Register new volume " << vdesc.name << " "
               << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
-              << " (iops_min=" << vdesc.iops_min << ", iops_max="
-              << vdesc.iops_max <<", prio=" << vdesc.relativePrio << ")"
+              << " (iops_assured=" << vdesc.iops_assured << ", iops_throttle="
+              << vdesc.iops_throttle <<", prio=" << vdesc.relativePrio << ")"
               << " result: " << err.GetErrstr();
 
     /* check if any blobs are waiting for volume to be registered, and if so,
@@ -196,14 +199,14 @@ Error StorHvVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
     if (vol && vol->volQueue)
     {
         /* update volume descriptor */
-        (vol->voldesc)->modifyPolicyInfo(vdesc.iops_min,
-                                         vdesc.iops_max,
+        (vol->voldesc)->modifyPolicyInfo(vdesc.iops_assured,
+                                         vdesc.iops_throttle,
                                          vdesc.relativePrio);
 
         /* notify appropriate qos queue about the change in qos params*/
         err = storHvisor->qos_ctrl->modifyVolumeQosParams(vol_uuid,
-                                                          vdesc.iops_min,
-                                                          vdesc.iops_max,
+                                                          vdesc.iops_assured,
+                                                          vdesc.iops_throttle,
                                                           vdesc.relativePrio);
     }
     else {
@@ -213,8 +216,8 @@ Error StorHvVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
 
     LOGNOTIFY << "StorHvVolumeTable - modify policy info for volume "
               << vdesc.name
-              << " (iops_min=" << vdesc.iops_min
-              << ", iops_max=" << vdesc.iops_max
+              << " (iops_assured=" << vdesc.iops_assured
+              << ", iops_throttle=" << vdesc.iops_throttle
               << ", prio=" << vdesc.relativePrio << ")"
               << " RESULT " << err.GetErrstr();
 

@@ -172,8 +172,8 @@ struct VolumeDescriptor {
 			if( volInfo != null ) {
 				o.put( "id", Long.toString( volInfo.getVolUUID() ) );
 				o.put( "priority", volInfo.getRel_prio() );
-				o.put( "sla", volInfo.getIops_guarantee() );
-				o.put( "limit", volInfo.getIops_max() );
+				o.put( "sla", volInfo.getIops_assured() );
+				o.put( "limit", volInfo.getIops_throttle() );
 				
 				MediaPolicy policy = MediaPolicyConverter.convertToMediaPolicy( volInfo.getMediaPolicy() );
 				o.put( "mediaPolicy", policy.name() );

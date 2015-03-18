@@ -56,8 +56,8 @@ class FDS_QoSControl {
    Error   registerVolume(fds_volid_t voluuid, FDS_VolumeQueue *q);
    Error   deregisterVolume(fds_volid_t voluuid);
    Error modifyVolumeQosParams(fds_volid_t vol_uuid, 
-			       fds_uint64_t iops_min, 
-			       fds_uint64_t iops_max,
+			       fds_int64_t iops_assured,
+			       fds_int64_t iops_throttle,
 			       fds_uint32_t prio);
    
    void    setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);

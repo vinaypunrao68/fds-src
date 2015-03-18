@@ -24,7 +24,10 @@ class StorHvQosCtrl : public FDS_QoSControl {
   fds_uint32_t waitForWorkers();
   void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
   Error   registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq);
-  Error modifyVolumeQosParams(fds_volid_t vol_uuid, fds_uint64_t iops_min, fds_uint64_t iops_max, fds_uint32_t prio);
+  Error modifyVolumeQosParams(fds_volid_t vol_uuid,
+                              fds_int64_t iops_assured,
+                              fds_int64_t iops_throttle,
+                              fds_uint32_t prio);
   Error   deregisterVolume(fds_volid_t vol_uuid);
   Error enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
 };

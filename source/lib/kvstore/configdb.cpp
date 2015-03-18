@@ -217,8 +217,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " app.workload %d"
                               " media.policy %d"
                               " backup.vol.id %ld"
-                              " iops.min %.3f"
-                              " iops.max %.3f"
+                              " iops.assured %d"
+                              " iops.throttle %d"
                               " iops.guarantee %d"
                               " relative.priority %d"
                               " fsnapshot %d"
@@ -244,9 +244,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.appWorkload,
                               vol.mediaPolicy,
                               vol.backupVolume,
-                              vol.iops_min,
-                              vol.iops_max,
-                              vol.iops_guarantee,
+                              vol.iops_assured,
+                              vol.iops_throttle,
                               vol.relativePrio,
                               vol.fSnapshot,
                               vol.srcVolumeId,
@@ -394,9 +393,8 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "app.workload") {vol.appWorkload = (fpi::FDSP_AppWorkload)atoi(value.c_str());} //NOLINT
             else if (key == "media.policy") {vol.mediaPolicy = (fpi::FDSP_MediaPolicy)atoi(value.c_str());} //NOLINT
             else if (key == "backup.vol.id") {vol.backupVolume = atol(value.c_str());}
-            else if (key == "iops.min") {vol.iops_min = strtod (value.c_str(), NULL);}
-            else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(), NULL);}
-            else if (key == "iops.guarantee") {vol.iops_guarantee = atoi (value.c_str());}
+            else if (key == "iops.assured") {vol.iops_assured = strtod (value.c_str(), NULL);}
+            else if (key == "iops.throttle") {vol.iops_throttle = strtod (value.c_str(), NULL);}
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
             else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
             else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}

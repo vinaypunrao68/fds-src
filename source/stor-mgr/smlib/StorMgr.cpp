@@ -408,10 +408,12 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                          << "- Not supported yet! Not modifying media policy";
             }
 
-            vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+            vol->voldesc->modifyPolicyInfo(vdb->iops_assured,
+                                           vdb->iops_throttle,
+                                           vdb->relativePrio);
             err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
-                                                             vdb->iops_min,
-                                                             vdb->iops_max,
+                                                             vdb->iops_assured,
+                                                             vdb->iops_throttle,
                                                              vdb->relativePrio);
             if ( !err.ok() )  {
                 GLOGERROR << "Modify volume policy failed for vol " << vdb->getName()

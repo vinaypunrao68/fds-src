@@ -66,8 +66,8 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->mediaPolicy = pVol->mediaPolicy;
 
     v_desc->volPolicyId = pVol->volPolicyId;
-    v_desc->iops_max = pVol->iops_max;
-    v_desc->iops_min = pVol->iops_min;
+    v_desc->iops_throttle = pVol->iops_throttle;
+    v_desc->iops_assured = pVol->iops_assured;
     v_desc->relativePrio = pVol->relativePrio;
     v_desc->fSnapshot = pVol->fSnapshot;
     v_desc->srcVolumeId = pVol->srcVolumeId;

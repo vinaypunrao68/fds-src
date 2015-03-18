@@ -54,8 +54,8 @@ class NbdOpsProc : public NbdOperationsResponseIface {
             : volumeName(new std::string("Test Volume")) {
         // register and populate volumes
         VolumeDesc volDesc(*volumeName, 5);
-        volDesc.iops_min = 0;
-        volDesc.iops_max = 0;
+        volDesc.iops_assured = 0;
+        volDesc.iops_throttle = 0;
         volDesc.relativePrio = 1;
         fds_verify(am->registerVolume(volDesc) == ERR_OK);
 

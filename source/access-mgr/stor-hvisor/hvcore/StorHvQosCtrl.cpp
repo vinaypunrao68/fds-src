@@ -112,12 +112,12 @@ Error err(ERR_OK);
 }
 
 Error StorHvQosCtrl::modifyVolumeQosParams(fds_volid_t vol_uuid,
-					  fds_uint64_t iops_min,
-					  fds_uint64_t iops_max,
+					  fds_int64_t iops_assured,
+					  fds_int64_t iops_throttle,
 					  fds_uint32_t prio)
 {
   Error err(ERR_OK);
-  err = htb_dispatcher->modifyQueueQosParams(vol_uuid, iops_min, iops_max, prio);
+  err = htb_dispatcher->modifyQueueQosParams(vol_uuid, iops_assured, iops_throttle, prio);
   return err;
 }
 

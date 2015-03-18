@@ -41,12 +41,12 @@ class SmVolQueue : public FDS_VolumeQueue {
     public:
      SmVolQueue(fds_volid_t  _volUuid,
                 fds_uint32_t _q_cap,
-                fds_uint32_t _iops_max,
-                fds_uint32_t _iops_min,
+                fds_int64_t _iops_throttle,
+                fds_int64_t _iops_assured,
                 fds_uint32_t _priority) :
          FDS_VolumeQueue(_q_cap,
-                         _iops_max,
-                         _iops_min,
+                         _iops_throttle,
+                         _iops_assured,
                          _priority) {
              volUuid = _volUuid;
              /*
