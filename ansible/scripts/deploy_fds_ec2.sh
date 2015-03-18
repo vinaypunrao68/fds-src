@@ -49,6 +49,8 @@ deploy_source="${3}"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 ansible_base_dir="$( cd "${script_dir}/.." && pwd -P)"
 playbooks="${ansible_base_dir}/playbooks"
+
+# Passing in -e fds_cluster_name for the sake of getting an identifiable set of metrics out of gmond
 ansible_args="${playbooks}/deploy_fds_ec2.yml -i ${ansible_base_dir}/inventory/${inventory} -e "instance_name_tag=${inventory}" -e "instance_count=${instance_count}" -e "deploy_artifact=${deploy_source}" -e "fds_cluster_name=${inventory}""
 
 D "ansible_args :: ${ansible_args}"
