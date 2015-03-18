@@ -9,8 +9,7 @@ user_incl_dir     := \
 	$(topdir) \
 	$(topdir)/stor-mgr/include \
 	$(topdir)/stor-mgr/migrations \
-	$(topdir)/lib \
-	/opt/fds-deps/embedded/include/cryptopp
+	$(topdir)/lib
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
@@ -28,7 +27,6 @@ user_fds_ar_libs  := \
 user_non_fds_libs := \
     leveldb \
     ssl \
-    cryptopp \
     crypto \
     gmock
 

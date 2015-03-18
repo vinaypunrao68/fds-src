@@ -11,7 +11,7 @@ RequestHelper::RequestHelper(dmCatReq *dmRequest) : dmRequest(dmRequest) {
 }
 
 RequestHelper::~RequestHelper() {
-    if (dataMgr->feature.isQosEnabled()) {
+    if (dataMgr->features.isQosEnabled()) {
         Error err = dataMgr->qosCtrl->enqueueIO(dmRequest->getVolId(), dmRequest);
         if (err != ERR_OK) {
             LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
@@ -48,7 +48,7 @@ QueueHelper::~QueueHelper() {
 
 void QueueHelper::markIoDone() {
     if (!ioIsMarkedAsDone) {
-        if (dataMgr->feature.isQosEnabled()) dataMgr->qosCtrl->markIODone(*dmRequest);
+        if (dataMgr->features.isQosEnabled()) dataMgr->qosCtrl->markIODone(*dmRequest);
         ioIsMarkedAsDone = true;
     }
 }
@@ -61,7 +61,7 @@ void Handler::handleQueueItem(dmCatReq *dmRequest) {
 }
 
 void Handler::addToQueue(dmCatReq *dmRequest) {
-    if (!dataMgr->feature.isQosEnabled()) {
+    if (!dataMgr->features.isQosEnabled()) {
         LOGWARN << "qos disabled .. not queuing";
         return;
     }

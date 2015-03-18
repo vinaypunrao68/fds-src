@@ -10,9 +10,8 @@
 
 #include <fds_process.h>
 #include <fds_module.h>
-#include <dm-platform.h>
-#include <net/net-service.h>
 
+#include <net/SvcMgr.h>
 #include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace fds {
@@ -24,12 +23,16 @@ const Record OP_TIMESTAMP_REC(reinterpret_cast<const char *>(&OP_TIMESTAMP_KEY),
         sizeof(BlobObjKey));
 
 Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
-    std::string destIP;
-    if (NetMgr::ep_mgr_singleton()->ep_uuid_binding(dmUuid.toSvcUuid(), 0, 0, &destIP) < 0) {
+    const fpi::SvcUuid & dmSvcUuid = dmUuid.toSvcUuid();
+    auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+
+    fpi::SvcInfo dmSvcInfo;
+    if (!svcmgr->getSvcInfo(dmSvcUuid, dmSvcInfo)) {
         LOGERROR << "Failed to sync catalog: Failed to get IP address for destination DM "
-                << std::hex << dmUuid.uuid_get_val() << std::dec;
+                << std::hex << dmSvcUuid.svc_uuid << std::dec;
         return ERR_NOT_FOUND;
     }
+    std::string destIP = dmSvcInfo.ip;
 
     // Get rsync username and passwd
     FdsConfigAccessor migrationConf(g_fdsprocess->get_fds_config(), "fds.dm.migration.");   
@@ -52,9 +55,10 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     snapDir += "/";
     snapDir += getVolIdStr() + "_vcat.ldb";
 
-    NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(dmUuid);
-    DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
-    const std::string destDir = dm->get_node_root() + "user-repo/dm-names/" + getVolIdStr() + "/";
+    std::string nodeRoot = svcmgr->getSvcProperty<std::string>(
+        SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
+        "fds_root");
+    const std::string destDir = nodeRoot + "user-repo/dm-names/" + getVolIdStr() + "/";
     const std::string rsyncCmd = "sshpass -p " + rsyncPasswd + " rsync -r " + snapDir +
             " " + rsyncUser + "@" + destIP + ":" + destDir;
 

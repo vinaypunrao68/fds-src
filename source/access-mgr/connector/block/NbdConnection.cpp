@@ -228,7 +228,7 @@ bool NbdConnection::option_request(ev::io &watcher) {
                                                  attach.data.begin() + attach.header.length);
     apis::VolumeDescriptor volume_desc;
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-    if (config.get_abs<bool>("fds.am.testing.toggleStandAlone", false)) {
+    if (config.get_abs<bool>("fds.am.testing.standalone", false)) {
         object_size = 4 * Ki;
         volume_size = 1 * Gi;
     } else {

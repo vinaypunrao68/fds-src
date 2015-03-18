@@ -46,10 +46,14 @@ DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
 
 DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
         : Module(name.c_str()), opSynchronizer_(tp),
-          config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp), stopLogMonitoring_(false),
-          logMonitorThread_(std::bind(&DmTimeVolCatalog::monitorLogs, this))
+          config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp), stopLogMonitoring_(false)
 {
     volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
+
+    if (dataMgr->features.isTimelineEnabled()) {
+        logMonitorThread_.reset(new std::thread(
+                std::bind(&DmTimeVolCatalog::monitorLogs, this)));
+    }
 
     // TODO(Andrew): The module vector should be able to take smart pointers.
     // To get around this for now, we're extracting the raw pointer and
@@ -529,7 +533,7 @@ void DmTimeVolCatalog::monitorLogs() {
                             fds_volid_t volId = std::atoll(d.c_str());
                             TimeStamp startTime = 0;
                             dmGetCatJournalStartTime(volTLPath + f, &startTime);
-                            dataMgr->timeline.addJournalFile(volId, startTime, volTLPath + f);
+                            dataMgr->timeline->addJournalFile(volId, startTime, volTLPath + f);
                         } else {
                             LOGWARN << "Failed to run command '" << cpCmd << "', error: '"
                                     << rc << "'";
@@ -581,7 +585,7 @@ void DmTimeVolCatalog::monitorLogs() {
             // TODO(prem) : remove this soon
             bool fRemoveOldLogs = false;
             if (retention > 0 && fRemoveOldLogs) {
-                dataMgr->timeline.removeOldJournalFiles(volid, now-retention,
+                dataMgr->timeline->removeOldJournalFiles(volid, now-retention,
                                                         vecJournalFiles);
                 LOGDEBUG << "[" << vecJournalFiles.size() << "] files will be removed";
                 for (const auto& journal : vecJournalFiles) {
@@ -682,7 +686,8 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
     Error err(ERR_INVALID);
     std::vector<JournalFileInfo> vecJournalInfos;
     std::vector<std::string> journalFiles;
-    dataMgr->timeline.getJournalFiles(srcVolId, fromTime, toTime, vecJournalInfos);
+    dataMgr->timeline->getJournalFiles(srcVolId, fromTime, toTime, vecJournalInfos);
+
     journalFiles.reserve(vecJournalInfos.size());
     for (auto& item : vecJournalInfos) {
         journalFiles.push_back(std::move(item.journalFile));
@@ -737,4 +742,12 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
 
     return dmReplayCatJournalOps(catalog, journalFiles, fromTime, toTime);
 }
+
+void DmTimeVolCatalog::cancelLogMonitoring() {
+    if (dataMgr->features.isTimelineEnabled()) {
+        stopLogMonitoring_ = true;
+        logMonitorThread_->join();
+    }
+}
+
 }  // namespace fds

@@ -121,7 +121,20 @@ cc_assert(vio1, fds_offset_of(meta_vol_adr_t, vol_uuid) ==
  */
 #define MAX_PHY_LOC_MAP 3
 #define MAX_ASSOC_ENTRY 64
-#define OBJ_FLAG_CORRUPTED   0x40
+
+/*
+ *  Following bitmasks are use to indicate the status of a object.
+ *  NOTE:  Needs to be 32bit, since obj_flags is defined as uint32_t.
+ */
+/* object is corrupted. detected and set by scavenger */
+#define OBJ_FLAG_CORRUPTED          0x0001
+/* object metadata require reconcile. metadata may exist, but
+ * the user data object may not exist.  this flag is set during the
+ * SM token migration where forwarded IO is a metadata operation without
+ * the metadata and data not yet migrated to the destination SM.
+ */
+#define OBJ_FLAG_RECONCILE_REQUIRED  0x0002
+
 
 // magic value for meta_obj_map.  mainly used to assert that data address is correct.
 const fds_uint32_t meta_obj_map_magic_value = 0xdeadbeef;
@@ -154,14 +167,27 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     fds_uint32_t         obj_size;            /* var, size in bytes */
     fds_uint64_t         obj_refcnt;          /* de-dupe refcnt.             */
 
-    /* version of sm token migration for reconcile_ref_cnt.  This version
-     * determines whether the reconcile_ref_cnt is current or stale
+    /* DLT version when the metadata was created (or modified) during the SM token
+     * migration.
+     * TODO(Sean):  Currently, When GC runs, if migration_dlt_ver <= currentDLT() AND
+     *              have RECONCILE_REQUIRED flag still set, then there is an issue.
+     *              It requires GC to run quorum reconciliation to pull a "valid"
+     *              copy of the metadata and object from other nodes and resolve this
+     *              issue.
      */
-    fds_uint64_t         migration_ver;
-    /* ref_cnt reconciliation during the token migration + active IO */
-    fds_int64_t          migration_reconcile_ref_cnt;
+    fds_uint64_t         obj_migration_reconcile_dlt_ver;
+    /* ref_cnt reconciliation during the token migration + active IO.
+     * Note: this is a signed int64_t.  During the reconciliation, reconcile_ref_cnt
+     *       can be negative, which needs to be reconciled -- RECONCILE_REQUIRED flag
+     *       should be set, if reconcile_ref_cnt < 0.
+     */
+    fds_int64_t          obj_migration_reconcile_ref_cnt;
 
-    fds_uint32_t         obj_num_assoc_entry; /* Number association entries in the arr.*/
+    /* Number association entries in the arr.
+     * This should always match assoc_entry_map.size().
+     */
+    fds_uint32_t         obj_num_assoc_entry;
+
     fds_uint64_t         obj_create_time;     /* creation time.         */
     fds_uint64_t         obj_del_time;        /* deletion time.         */
     fds_uint64_t         assoc_mod_time;      /* Modification time.         */

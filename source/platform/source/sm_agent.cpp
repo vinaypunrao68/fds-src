@@ -17,13 +17,10 @@ namespace fds
     SmAgent::SmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
     {
         node_svc_type = fpi::FDSP_STOR_MGR;
-        sm_ep_svc     = Platform::platf_singleton()->plat_new_sm_svc(this, 0, 0);
-        NetMgr::ep_mgr_singleton()->ep_register(sm_ep_svc, false);
     }
 
     SmAgent::~SmAgent()
     {
-        /* TODO(Vy): shutdown netsession and cleanup stuffs here */
     }
 
     // agent_ep_plugin
@@ -31,7 +28,7 @@ namespace fds
     //
     EpEvtPlugin::pointer SmAgent::agent_ep_plugin()
     {
-        return sm_ep_svc->ep_evt_plugin();
+        return nullptr;
     }
 
     // agent_ep_svc
@@ -39,7 +36,7 @@ namespace fds
     //
     SmSvcEp::pointer SmAgent::agent_ep_svc()
     {
-        return sm_ep_svc;
+        return nullptr;
     }
 
     // agent_bind_ep
@@ -47,8 +44,6 @@ namespace fds
     //
     void SmAgent::agent_bind_ep()
     {
-        EpSvcImpl::pointer    ep = NetPlatform::nplat_singleton()->nplat_my_ep();
-        NodeAgent::agent_bind_ep(ep, sm_ep_svc);
     }
 
     SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id)

@@ -6,6 +6,7 @@
 
 #include "net/SvcRequestPool.h"
 #include <net/net-service-tmpl.hpp>
+#include <platform/platform.h>
 #include "platform/node_work_item.h"
 #include "platform/node_data.h"
 
@@ -62,7 +63,6 @@ namespace fds
     //
     void NodeAgent::agent_bind_ep(EpSvcImpl::pointer ep, EpSvc::pointer svc)
     {
-        ep->ep_bind_service(svc);
     }
 
     // agent_publish_ep
@@ -70,6 +70,7 @@ namespace fds
     //
     void NodeAgent::agent_publish_ep()
     {
+#if 0
         int             port;
         NodeUuid        uuid;
         std::string     ip;
@@ -81,6 +82,7 @@ namespace fds
         << ", obj " << this << ", svc type " << node_svc_type
         << ", idx " << node_ro_idx << ", rw idx " << node_rw_idx
         << ", ip " << ip << ":" << std::dec << port;
+#endif
     }
 
 // DJN
@@ -90,10 +92,6 @@ namespace fds
     //
     void NodeAgent::node_agent_up()
     {
-        if (nd_eph == NULL)
-        {
-            auto    rpc = node_svc_rpc(&nd_eph);
-        }
     }
 
     // node_agent_down
@@ -103,8 +101,6 @@ namespace fds
     void
     NodeAgent::node_agent_down()
     {
-        nd_eph      = NULL;
-        nd_ctrl_eph = NULL;
     }
 
     // agent_rpc
@@ -114,6 +110,8 @@ namespace fds
                                                                      int maj,
                                                                      int min)
     {
+        fds_panic(DEPRECATED_CODEPATH);
+
         NetMgr                 *net;
         fpi::SvcUuid            peer;
         EpSvcHandle::pointer    eph;
@@ -138,29 +136,6 @@ namespace fds
         }
         *handle = NULL;
         return NULL;
-    }
-
-
-    // node_om_request
-    // ---------------
-    //
-    boost::shared_ptr<EPSvcRequest> NodeAgent::node_om_request()
-    {
-        fpi::SvcUuid    om_uuid;
-
-        gl_OmUuid.uuid_assign(&om_uuid);
-        return gSvcRequestPool->newEPSvcRequest(om_uuid);
-    }
-
-    // node_msg_request
-    // ----------------
-    //
-    boost::shared_ptr<EPSvcRequest> NodeAgent::node_msg_request()
-    {
-        fpi::SvcUuid    uuid;
-
-        rs_uuid.uuid_assign(&uuid);
-        return gSvcRequestPool->newEPSvcRequest(uuid);
     }
 
     // Debug operator

@@ -15,7 +15,6 @@ user_fds_so_libs  +=
 user_fds_ar_libs  +=  \
     fds-test \
     fds-dm-lib \
-    fds-dm-plat \
     fds-dsk-mgnt \
     fds-net-svc \
     fds-fdsp \
@@ -24,7 +23,7 @@ user_fds_ar_libs  +=  \
 user_non_fds_libs +=  \
     boost_timer \
     crypt crypto \
-    z cryptopp \
+    z \
     ssl \
     gmock \
     leveldb \

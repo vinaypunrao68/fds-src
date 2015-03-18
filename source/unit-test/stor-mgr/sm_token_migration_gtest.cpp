@@ -16,7 +16,7 @@
 #include <odb.h>
 #include <ObjectId.h>
 #include <object-store/SmDiskMap.h>
-#include <TokenMigrationMgr.h>
+#include <MigrationMgr.h>
 
 #include <sm_ut_utils.h>
 #include <sm_dataset.h>

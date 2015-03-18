@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "platform/fds_service.h"
-
+#include <boost/program_options.hpp>
 namespace fds {
 
 /* Forward declarations */

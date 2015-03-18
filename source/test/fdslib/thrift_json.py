@@ -12,7 +12,7 @@ from svc_api.ttypes import *
 from svc_api.constants import *
 from sm_api import SMSvc
 from dm_api import DMSvc
-from pm_service import PlatNetSvc
+from svc_api import PlatNetSvc
 
 from FdsException import *
 

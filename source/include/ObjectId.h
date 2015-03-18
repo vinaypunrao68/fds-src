@@ -23,13 +23,6 @@ class ObjIdGen {
      */
     typedef fds::hash::Sha1 GeneratorHash;
     /**
-     * Returns the length in bytes of the
-     * object ID.
-     */
-    static fds_uint32_t getIdLength() {
-        return GeneratorHash::numDigestBytes;
-    }
-    /**
      * Computes the object ID for a buffer and length.
      * The object id should be preallocated to the
      * correct size and only set.

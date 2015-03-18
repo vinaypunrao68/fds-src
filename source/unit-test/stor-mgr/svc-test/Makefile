@@ -1,12 +1,11 @@
 test_topdir       := ../..
-user_incl_dir     := /opt/fds-deps/embedded/include/cryptopp
+user_incl_dir     :=
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-qos-lib \
     fds-am-engine \
-    fds-am-connectors \
-    fds-am-plat
+    fds-am-connectors
 
 user_cc           := ngx_modules.c
 user_cpp          := \

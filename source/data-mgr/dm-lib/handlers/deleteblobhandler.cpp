@@ -11,7 +11,7 @@ namespace fds {
 namespace dm {
 
 DeleteBlobHandler::DeleteBlobHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::DeleteBlobMsg, handleRequest);
     }
 }

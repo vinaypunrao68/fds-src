@@ -14,8 +14,8 @@ from thrift.protocol import TBinaryProtocol
 
 from common.ttypes import *
 from svc_api.ttypes import *
-from pm_service.ttypes import *
-from pm_service.constants import *
+from svc_types.ttypes import *
+from svc_types.constants import *
 
 from FdsException import *
 

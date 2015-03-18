@@ -29,6 +29,7 @@ package com.formationds.util;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.util.s3.S3SignatureGenerator;
 import org.apache.commons.cli.*;
 import org.apache.http.ConnectionReuseStrategy;
@@ -84,6 +85,7 @@ public class TrafficGen {
     static AtomicInteger issued = new AtomicInteger(0);
     static AtomicInteger successes = new AtomicInteger(0);
     static AtomicInteger failures = new AtomicInteger(0);
+    static AtomicInteger http_errors = new AtomicInteger(0);
     static AtomicInteger keepalive = new AtomicInteger(0);
     static AtomicLong total_latency = new AtomicLong(0);
 
@@ -395,6 +397,7 @@ public class TrafficGen {
                             latch.countDown();
                             int response_code = response.getStatusLine().getStatusCode();
                             if (response_code != 200) {
+                                http_errors.incrementAndGet();
                                 failures.incrementAndGet();
                             } else {
                                 successes.incrementAndGet();
@@ -425,14 +428,12 @@ public class TrafficGen {
                             semaphore.release();
                             failures.incrementAndGet();
                             latch.countDown();
-                            System.out.println(target + "->" + ex);
                         }
 
                         public void cancelled() {
                             semaphore.release();
                             failures.incrementAndGet();
                             latch.countDown();
-                            System.out.println(target + " cancelled");
                         }
                     });
         }
@@ -447,6 +448,8 @@ public class TrafficGen {
         System.out.println("IOPs: " + (double) n_reqs / total_time * 1e9);
         System.out.println("successes: " + successes);
         System.out.println("failures: " + failures);
+        System.out.println("Http errors: " + http_errors);
+
         System.out.println("keepalive: " + keepalive);
         System.out.println("Average latency [ns]: " + total_latency.doubleValue() / successes.doubleValue());
 
@@ -455,6 +458,10 @@ public class TrafficGen {
         System.out.println("Shutting down I/O reactor");
         ioReactor.shutdown();
         System.out.println("Done");
+        if (failures.get() > 0) {
+            System.exit(1);
+
+        }
     }
 
     private static HttpRequest sign(HttpRequest request) {

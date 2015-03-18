@@ -6,6 +6,7 @@ include "om_types.thrift"
 
 include "common.thrift"
 include "svc_types.thrift"
+include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om
@@ -70,4 +71,36 @@ struct CtrlSvcEvent {
   2: required i32               evt_code;
   /** Message causing the Error */
   3: svc_types.FDSPMsgTypeId  evt_msg_type_id;
+}
+
+/**
+ * OM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ * message passing provided by BaseAsyncSvc
+ */
+service OMSvc extends svc_api.PlatNetSvc {
+  /**
+  * @brief Use this rpc for registration
+  *
+  * @param svcInfo
+  * @throws If registration fails appropriate excpetion is thrown
+  */
+  void registerService(1: svc_types.SvcInfo svcInfo) throws (1: om_types.OmRegisterException e);
+
+  /**
+  * @brief Returns service map
+  *
+  * @param nullarg
+  *
+  * @return
+  */
+  list<svc_types.SvcInfo> getSvcMap(1: i64 nullarg);
+
+  /**
+  * @brief Returns service infomation identified by svcUuid
+  *
+  * @param svcUuid
+  *
+  * @return
+  */
+  svc_types.SvcInfo getSvcInfo(1: common.SvcUuid svcUuid) throws (1: om_types.SvcLookupException e);
 }

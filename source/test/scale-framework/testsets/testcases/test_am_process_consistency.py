@@ -53,9 +53,9 @@ class TestAMProcessConsistency(testcase.FDSTestCase):
                                                    om_ip_address=om_ip_address)
 
         self.ip_addresses = config_parser.get_ips_from_inventory(
-                                           config.DEFAULT_INVENTORY_FILE)
+                                                            self.inventory_file)
         # will have to change that so the inventory file is passed to the cluster
-        self.engine = fds_engine.FdsEngine(config.DEFAULT_INVENTORY_FILE)
+        self.engine = fds_engine.FdsEngine(self.inventory_file)
         self.sample_file = samples.sample_mb_files[len(samples.sample_mb_files) // 2]
         self.s3conn = s3.S3Connection(
                     config.FDS_DEFAULT_ADMIN_USER,
@@ -125,7 +125,7 @@ class TestAMProcessConsistency(testcase.FDSTestCase):
         if os.path.exists(path):
             # produce a random generated number so the same file has different
             # names
-            k.key = "%s_%s" % (self.sample_file, random.randint(0, 1000))
+            k.key = self.sample_file
             self.log.info("Uploading file %s" % k.key)
             k.set_contents_from_filename(path,
                                          cb=utils.percent_cb,

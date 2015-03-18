@@ -234,7 +234,7 @@ public class CriteriaQueryBuilder<T> {
     /**
      * @return Returns a {@link List} of the entities matching the query criteria
      */
-    public List<T> resultsList() {
+    public List<? extends T> resultsList() {
         if( firstResult != null && maxResults != null ) {
             return build().setFirstResult( firstResult )
                           .setMaxResults( maxResults )

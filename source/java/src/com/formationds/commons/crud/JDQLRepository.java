@@ -12,11 +12,8 @@ import java.lang.reflect.ParameterizedType;
 /**
  * @author ptinius
  */
-public abstract class JDQLRepository<T,
-  PrimaryKey extends Serializable,
-  QueryResults extends SearchResults,
-  QueryCriteria extends SearchCriteria>
-  implements CRUDRepository<T, PrimaryKey, QueryResults, QueryCriteria> {
+public abstract class JDQLRepository<T, PrimaryKey extends Serializable>
+  implements CRUDRepository<T, PrimaryKey> {
 
   private EntityManagerFactory factory;
   private EntityManager manager;

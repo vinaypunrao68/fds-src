@@ -15,7 +15,6 @@
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
-#include <dm-platform.h>
 #include <fds_timer.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
@@ -115,23 +114,45 @@ struct DataMgr : Module, DmIoReqHandler {
     } dmRunModes;
     dmRunModes    runMode;
 
-    struct Features {
+    class Features {
+      private:
         bool fQosEnabled = true;
         bool fCatSyncEnabled = true;
         bool fTestMode = false;
-        bool isTestMode() {
-            return fTestMode;
-        }
-        bool isQosEnabled() {
+        bool fTimelineEnabled = true;
+
+      public:
+        inline bool isQosEnabled() const {
             return fQosEnabled;
         }
-        bool isCatSyncEnabled() {
+        inline void setQosEnabled(bool val) {
+            fQosEnabled = val;
+        }
+
+        inline bool isCatSyncEnabled() const {
             return fCatSyncEnabled;
         }
-    } feature;
+        inline void setCatSyncEnabled(bool val) {
+            fCatSyncEnabled = val;
+        }
+
+        inline bool isTestMode() const {
+            return fTestMode;
+        }
+        inline void setTestMode(bool val) {
+            fTestMode = val;
+        }
+
+        inline bool isTimelineEnabled() const {
+            return fTimelineEnabled;
+        }
+        inline void setTimelineEnabled(bool val) {
+            fTimelineEnabled = val;
+        }
+    } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
-    TimelineDB timeline;
+    boost::shared_ptr<TimelineDB> timeline;
 
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
@@ -231,8 +252,6 @@ struct DataMgr : Module, DmIoReqHandler {
         }
     };
 
-    fds_rwlock respMapMtx;
-
     FDS_VolumeQueue*  sysTaskQueue;
     std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
 
@@ -241,7 +260,7 @@ struct DataMgr : Module, DmIoReqHandler {
      */
     std::string  stor_prefix;   /* String prefix to make file unique */
     fds_uint32_t  scheduleRate;
-    fds_bool_t   use_om;        /* Whether to bootstrap from OM */
+    fds_bool_t   standalone;    /* Whether to bootstrap from OM */
     std::string  omIpStr;       /* IP addr of the OM used to bootstrap */
     fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
 

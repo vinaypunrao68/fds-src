@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 #include <orchMgr.h>
-#include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
 #include <OmResources.h>
 #include <net/SvcRequest.h>
@@ -15,7 +14,9 @@
 #include <net/PlatNetSvcHandler.h>
 #include "platform/node_data.h"
 #include "platform/platform.h"
-
+#include <net/net_utils.h>
+#include <fds_module_provider.h>
+#include <net/SvcMgr.h>
 #undef LOGGERPTR
 #define LOGGERPTR orchMgr->GetLog()
 namespace fds {
@@ -578,25 +579,28 @@ void FDSP_ConfigPathReqHandler::ListServices(
 
 static void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
                           NodeAgent::pointer ptr) {
-    Platform     *plat;
-    node_data_t   ndata;
-    fds_uint32_t  base;
 
-    base = ptr->node_base_port();
-    plat = Platform::platf_singleton();
+    fpi::FDSP_RegisterNodeType nodeData;
 
-    ptr->node_info_frm_shm(&ndata);
-    NodeUuid uuid = ndata.nd_node_uuid;
+    fpi::SvcInfo svcInfo;
+    fpi::SvcUuid svcUuid;
+    svcUuid.svc_uuid = ptr->rs_get_uuid().uuid_get_val();
+    /* Getting from svc map.  Should be able to get it from config db as well */
+    if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
+        GLOGWARN << "could not fing svcinfo for uuid:" << svcUuid.svc_uuid;
+        return;
+    }
+
     fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
-    nodeInfo.node_uuid = ndata.nd_node_uuid;
-    nodeInfo.service_uuid = ndata.nd_service_uuid;
-    nodeInfo.node_name = ptr->get_node_name();
-    nodeInfo.node_type = ndata.nd_svc_type;
+    nodeInfo.node_uuid = SvcMgr::mapToSvcUuid(svcUuid, fpi::FDSP_PLATFORM).svc_uuid;
+    nodeInfo.service_uuid = svcUuid.svc_uuid;
+    nodeInfo.node_name = svcInfo.name;
+    nodeInfo.node_type = svcInfo.svc_type;
     nodeInfo.node_state = ptr->node_state();
-    nodeInfo.ip_lo_addr = netSession::ipString2Addr(ptr->get_ip_str());
-    nodeInfo.control_port = plat->plf_get_my_ctrl_port(base);
-    nodeInfo.data_port = plat->plf_get_my_data_port(base);
-    nodeInfo.migration_port = plat->plf_get_my_migration_port(base);
+    nodeInfo.ip_lo_addr =  net::ipString2Addr(svcInfo.ip);
+    nodeInfo.control_port = nodeData.control_port;
+    nodeInfo.data_port = svcInfo.svc_port;
+    nodeInfo.migration_port = nodeData.migration_port;
     vec.push_back(nodeInfo);
 }
 
@@ -646,7 +650,9 @@ void FDSP_ConfigPathReqHandler::ListVolumes(
 }
 
 FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
-    OrchMgr *oMgr) {
+    OrchMgr *oMgr)
+    : PlatNetSvcHandler(oMgr) 
+    {
     orchMgr = oMgr;
 
     // REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyMigrationStatus, migrationDone);

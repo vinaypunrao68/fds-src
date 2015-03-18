@@ -15,7 +15,7 @@ namespace fds {
 namespace dm {
 
 GetVolumeMetaDataHandler::GetVolumeMetaDataHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, handleRequest);
     }
 }

@@ -177,8 +177,7 @@ public class Main {
                 httpConfiguration).start(), "S3 service thread").start();
 
         startStreamingServer(8999 + amInstanceId, configCache);
-
-        int swiftPort = platformConfig.lookup("fds.am.swift_port").intValue();
+        int swiftPort = platformConfig.defaultInt("fds.am.swift_port", 9999);
         swiftPort += amInstanceId;
         new SwiftEndpoint(xdi, secretKey).start(swiftPort);
     }

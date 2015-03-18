@@ -71,7 +71,7 @@ void PolicyDispatcher::run() {
                     continue;
                 }
                 // add this snapshot to the retention manager ...
-                om->snapshotMgr.deleteScheduler->addSnapshot(snapshot);
+                om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
             }
 
             // clear the map

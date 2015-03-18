@@ -5,16 +5,94 @@
 #include <util/Log.h>
 #include <stdlib.h>
 #include <string>
-namespace fds { namespace kvstore {
+#include <algorithm>
+#include <fdsp_utils.h>
+namespace fds { 
+namespace kvstore {
 
-PlatformDB::PlatformDB(const std::string& host,
-                   uint port,
-                   uint poolsize) : KVStore(host, port, poolsize) {
-    LOGNORMAL << "instantiating platformdb";
+using redis::Reply;
+using redis::RedisException;
+
+PlatformDB::PlatformDB(const std::string& keyBase,
+                       const std::string& host,
+                       uint port,
+                       uint poolsize) : KVStore(host, port, poolsize) {
+    this->keyBase = keyBase;
+    std::replace(this->keyBase.begin(), this->keyBase.end(), '/', '.');
+    LOGNORMAL << "instantiating platformdb with key base: " << this->keyBase;
 }
 
 PlatformDB::~PlatformDB() {
     LOGNORMAL << "destroying platformdb";
+}
+
+bool PlatformDB::setNodeInfo(const fpi::NodeInfo& nodeInfo) {
+    try {
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(nodeInfo, serialized);
+        setInternal("node.info", *serialized);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool PlatformDB::getNodeInfo(fpi::NodeInfo& nodeInfo) {
+    try {
+        Reply reply = getInternal("node.info");
+        if (reply.isNil()) return false;
+        std::string value = reply.getString();
+        fds::deserializeFdspMsg(value, nodeInfo);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool PlatformDB::setNodeDiskCapability(const fpi::FDSP_AnnounceDiskCapability& diskCapability) {
+    try {
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(diskCapability, serialized);
+        setInternal("node.disk.capability", *serialized);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool PlatformDB::getNodeDiskCapability(fpi::FDSP_AnnounceDiskCapability& diskCapability) {
+    try {
+        Reply reply = getInternal("node.disk.capability");
+        if (reply.isNil()) return false;
+        std::string value = reply.getString();
+        fds::deserializeFdspMsg(value, diskCapability);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+
+}
+
+Reply PlatformDB::getInternal(const std::string &key) {
+   auto computedKey = computeKey(key); 
+   return r.get(computedKey);
+}
+
+void PlatformDB::setInternal(const std::string &key, const std::string &value) {
+   auto computedKey = computeKey(key); 
+   r.set(computedKey, value);
+}
+
+std::string PlatformDB::computeKey(const std::string &k)
+{
+    if (keyBase.size() == 0) {
+        return k;
+    }
+    return keyBase + k;
 }
 
 }  // namespace kvstore

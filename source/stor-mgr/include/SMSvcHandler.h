@@ -27,7 +27,9 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     uint64_t mockTimeoutUs = 200;
     bool mockTimeoutEnabled = false;
 
-    SMSvcHandler();
+    explicit SMSvcHandler(CommonModuleProviderIf *provider);
+
+    virtual int mod_init(SysParams const *const param) override;
 
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
@@ -61,7 +63,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void mockPutCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr);
 
     void deleteObject(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::DeleteObjectMsg> &expObjMsg);
+            boost::shared_ptr <fpi::DeleteObjectMsg> &deleteObjMsg);
 
     void deleteObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             const Error &err,

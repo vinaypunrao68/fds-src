@@ -22,6 +22,9 @@ namespace fds {
  */
 class SmDiskMap : public Module, public boost::noncopyable {
   public:
+   const std::string DISK_MAP_FILE = "/disk-map";
+
+  public:
     explicit SmDiskMap(const std::string& modName);
     ~SmDiskMap();
 

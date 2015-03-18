@@ -11,6 +11,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/program_options.hpp>
 #include <condition_variable>
 
 #include <google/profiler.h>
@@ -438,6 +439,7 @@ SmLoadProc::putSm(fds_volid_t volId,
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
     putReq->dltVersion = 1;
+    putReq->forwardedReq = false;
     putReq->setObjId(objId);
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;
@@ -571,10 +573,11 @@ SmLoadProc::removeSm(fds_volid_t volId,
 
     boost::shared_ptr<fpi::DeleteObjectMsg> expObjMsg(new fpi::DeleteObjectMsg());
     expObjMsg->volId = volId;
-    auto delReq = new SmIoDeleteObjectReq();
+    auto delReq = new SmIoDeleteObjectReq(expObjMsg);
     delReq->io_type = FDS_SM_DELETE_OBJECT;
     delReq->setVolId(expObjMsg->volId);
     delReq->dltVersion = 1;
+    delReq->forwardedReq = false;
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));
     delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);
     delReq->opReqFailedPerfEventType = SM_DELETE_OBJ_REQ_ERR;
