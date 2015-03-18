@@ -38,7 +38,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
         # Currently, all volumes are created using our one well-known OM.
         om_node = fdscfg.rt_om_node
         fds_dir = om_node.nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        sbin_dir = fdscfg.rt_env.get_tools_dir()
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
@@ -113,7 +113,7 @@ class TestVolumeAttach(TestCase.FDSTestCase):
         # Currently, all volumes are attached using our one well-known OM.
         om_node = fdscfg.rt_om_node
         fds_dir = om_node.nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        sbin_dir = fdscfg.rt_env.get_tools_dir()
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
@@ -171,7 +171,7 @@ class TestVolumeDelete(TestCase.FDSTestCase):
         # Currently, all volumes are attached using our one well-known OM.
         om_node = fdscfg.rt_om_node
         fds_dir = om_node.nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        sbin_dir = fdscfg.rt_env.get_tools_dir()
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')

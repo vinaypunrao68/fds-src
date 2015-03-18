@@ -38,7 +38,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         nodes = fdscfg.rt_obj.cfg_nodes
         fds_root = nodes[0].nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        sbin_dir = fdscfg.rt_env.get_tools_dir()
         global pwd
         cur_dir = os.getcwd()
         os.chdir(sbin_dir)
@@ -88,7 +88,7 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        volume = 'blockVolume'
+        volume = 'volume1'
 
         # Check if a volume was passed to us.
         if self.passedVolume is not None:
