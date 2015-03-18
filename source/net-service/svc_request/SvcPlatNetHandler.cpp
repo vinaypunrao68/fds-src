@@ -51,8 +51,9 @@ void PlatNetSvcHandler::mod_shutdown()
 
 void PlatNetSvcHandler::setHandlerState(PlatNetSvcHandler::State newState)
 {
-    /* NOTE: For now the supported deferring sequence is to start with 
-     * defer set to true and at a later point set defer to false.
+    /* NOTE: For now the supported  state sequest is
+     * DEFER_REQUESTS(During init)->ACCEPT_REQUESTS(After registration
+     * completes)->DROP_REQUESTS(preparing to shutdown)
      */
 
     auto oldState = std::atomic_exchange(&handlerState_, newState);
