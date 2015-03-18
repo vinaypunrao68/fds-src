@@ -49,26 +49,29 @@ ObjectStore::~ObjectStore() {
     metaStore.reset();
 }
 
-void
+Error
 ObjectStore::handleNewDlt(const DLT* dlt) {
     fds_uint32_t nbits = dlt->getNumBitsForToken();
     metaStore->setNumBitsPerToken(nbits);
 
     Error err = diskMap->handleNewDlt(dlt);
     if (err == ERR_DUPLICATE) {
-        return;  // everythin setup already
+        return ERR_OK;  // everythin setup already
     } else if (err == ERR_INVALID_DLT) {
-        return;  // we are ignoring this DLT
+        return ERR_OK;  // we are ignoring this DLT
     }
     fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
     // open metadata store for tokens owned by this SM
-    err = metaStore->openMetadataStore(diskMap);
-    fds_verify(err.ok());
+    Error openErr = metaStore->openMetadataStore(diskMap);
+    if (!openErr.ok()) {
+        LOGERROR << "Failed to open Metadata Store " << openErr;
+        return openErr;
+    }
 
     err = dataStore->openDataStore(diskMap,
                                    (err == ERR_SM_NOERR_PRISTINE_STATE));
-    fds_verify(err.ok());
+    return err;
 }
 
 Error

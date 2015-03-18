@@ -34,6 +34,12 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     Error err(ERR_OK);
     diskio::DataTier tier = diskio::diskTier;
     DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
+    DiskIdSet hddIds = diskMap->getDiskIds(diskio::diskTier);
+    if ((ssdIds.size() == 0) && (hddIds.size() == 0)) {
+        LOGCRITICAL << "No disks (no SSDs and no HDDs)";
+        return ERR_SM_EXCEEDED_DISK_CAPACITY;
+    }
+
     // if we have SSDs, use SSDs; however, there is currently no way
     // for SM to tell if discovered SSDs are real or simulated
     // so we are using config for that (use SSDs at your own risk, because
@@ -47,9 +53,7 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
         }
     } else {
         // if we don't have any HDDs, but have SSDs, still use SSDs for meta
-        DiskIdSet hddIds = diskMap->getDiskIds(diskio::diskTier);
         if (hddIds.size() == 0) {
-            fds_verify(ssdIds.size() > 0);
             tier = diskio::flashTier;
         }
     }

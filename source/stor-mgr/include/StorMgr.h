@@ -297,7 +297,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
      void readObjDeltaSet(SmIoReq* ioReq);
 
-     void handleDltUpdate();
+     Error handleDltUpdate();
 
      void storeCurrentDLT();
 
