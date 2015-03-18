@@ -45,19 +45,19 @@ This Admin App communicates with the FDS platform to create/manage volumes, as w
 ```JSON
 [
     {
-        "name": "Formation Data Systems",
         "id": 0
         "site": "Fremont",
+        "name": "Formation Data Systems",
     },
     {
-        "name": "Formation Data Systems",
         "id": 1
         "site": "San Francisco",
+        "name": "Formation Data Systems",
     },
     {
-        "name": "QuickLeft, Inc.",
         "id": 2
         "site": "Boulder",
+        "name": "QuickLeft, Inc.",
     }
 ]
 ```
