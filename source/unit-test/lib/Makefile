@@ -40,7 +40,8 @@ user_cpp          :=  \
     object_logger_test.cpp \
     HashedLocks_ut.cpp \
 	histogram_gtest.cpp \
-	qos_tokbucket_gtest.cpp
+	qos_tokbucket_gtest.cpp \
+	fds_panic
 
 
 user_cc           :=
@@ -72,7 +73,8 @@ user_bin_exe      := \
     Tracebuffer_ut \
     HashedLocks_ut \
 	histogram_gtest \
-	qos_tokbucket_gtest
+	qos_tokbucket_gtest \
+	fds_panic
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -91,5 +93,6 @@ Tracebuffer_ut		           := Tracebuffer_ut.cpp
 HashedLocks_ut		           := HashedLocks_ut.cpp
 histogram_gtest 			   := histogram_gtest.cpp
 qos_tokbucket_gtest            := qos_tokbucket_gtest.cpp
+fds_panic                      := fds_panic.cpp
 
 include $(topdir)/Makefile.incl
