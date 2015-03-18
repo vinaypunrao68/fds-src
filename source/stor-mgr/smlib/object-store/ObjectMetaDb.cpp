@@ -33,6 +33,7 @@ Error
 ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     Error err(ERR_OK);
     diskio::DataTier tier = diskio::diskTier;
+    DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
     // if we have SSDs, use SSDs; however, there is currently no way
     // for SM to tell if discovered SSDs are real or simulated
     // so we are using config for that (use SSDs at your own risk, because
@@ -41,8 +42,14 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     if (useSsd) {
         // currently, we always have SSDs (simulated if no SSDs), so below check
         // is redundant, but just in case platform changes
-        DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
         if (ssdIds.size() > 0) {
+            tier = diskio::flashTier;
+        }
+    } else {
+        // if we don't have any HDDs, but have SSDs, still use SSDs for meta
+        DiskIdSet hddIds = diskMap->getDiskIds(diskio::diskTier);
+        if (hddIds.size() == 0) {
+            fds_verify(ssdIds.size() > 0);
             tier = diskio::flashTier;
         }
     }

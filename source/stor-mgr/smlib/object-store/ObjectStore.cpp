@@ -175,14 +175,29 @@ ObjectStore::putObject(fds_volid_t volId,
         StorMgrVolume *vol = volumeTbl->getVolume(volId);
         fds_verify(vol);
         useTier = tierEngine->selectTier(objId, *vol->voldesc);
+        if (diskMap->getTotalDisks(useTier) == 0) {
+            // there is no requested tier, use existing tier
+            LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
+            if (useTier == diskio::flashTier) {
+                useTier = diskio::diskTier;
+            } else if (useTier == diskio::diskTier) {
+                useTier = diskio::flashTier;
+            }
+        }
 
         if (useTier == diskio::flashTier) {
             fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
                     objData->size(), tierEngine->getFlashFullThreshold());
 
             if (!ssdSuccess) {
+                LOGTRACE << "Exceeded SSD capacity, use disk tier";
                 useTier = diskio::diskTier;
             }
+        }
+
+        if (diskMap->getTotalDisks(useTier) == 0) {
+            LOGCRITICAL << "No disk capacity";
+            return ERR_SM_EXCEEDED_DISK_CAPACITY;
         }
 
         // put object to datastore
@@ -734,6 +749,15 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         // select tier to put object
         useTier = tierEngine->selectTier(objId, *selectVol->voldesc);
+        if (diskMap->getTotalDisks(useTier) == 0) {
+            // there is no requested tier, use existing tier
+            LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
+            if (useTier == diskio::flashTier) {
+                useTier = diskio::diskTier;
+            } else if (useTier == diskio::diskTier) {
+                useTier = diskio::flashTier;
+            }
+        }
 
         if (useTier == diskio::flashTier) {
             fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
@@ -742,6 +766,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             if (!ssdSuccess) {
                 useTier = diskio::diskTier;
             }
+        }
+
+        if (diskMap->getTotalDisks(useTier) == 0) {
+            LOGCRITICAL << "No disk capacity";
+            return ERR_SM_EXCEEDED_DISK_CAPACITY;
         }
 
         // put object to datastore
