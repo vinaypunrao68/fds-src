@@ -112,7 +112,8 @@ class TestTrafficGen(TestCase.FDSTestCase):
         # Change back?
         os.chdir(curr)
 
-        self.log.info(output)
+        # Suppressing the output for now as it spams our logs
+        #self.log.info(output)
 
         if output != 0:
             return False
@@ -218,6 +219,7 @@ class RunTrafficGen(TestCase.FDSTestCase):
         # Change back?
         os.chdir(curr)
 
-        self.log.info(output)
+        # Suppressing the output for now as it spams our logs
+        #self.log.info(output)
 
         return True
