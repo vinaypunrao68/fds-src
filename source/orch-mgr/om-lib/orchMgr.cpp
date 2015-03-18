@@ -377,18 +377,24 @@ bool OrchMgr::loadFromConfigDB() {
     }
 
     // get local domains
-    std::map<int, std::string> mapDomains;
-    configDB->getLocalDomains(mapDomains);
+    std::vector<fds::apis::LocalDomain> localDomains;
+    configDB->listLocalDomains(localDomains);
 
-    if (mapDomains.empty())  {
-        LOGWARN << "no local domains stored in the system .."
-                << "setting a default local domain";
-        configDB->addLocalDomain("local", 0);
-        configDB->getLocalDomains(mapDomains);
+    if (localDomains.empty())  {
+        LOGWARN << "No Local Domains stored in the system. "
+                << "Setting a default Local Domain: local.";
+        int64_t id = configDB->createLocalDomain("local");
+        if (id <= 0) {
+            LOGERROR << "Some issue in Local Domain creation. ";
+            return false;
+        } else {
+            LOGNOTIFY << "Local Domain creation succeded. " << id << ": " << "local";
+        }
+        configDB->listLocalDomains(localDomains);
     }
 
-    if (mapDomains.empty()) {
-        LOGCRITICAL << "something wrong with the configdb"
+    if (localDomains.empty()) {
+        LOGCRITICAL << "Something wrong with the configdb. "
                     << " -- not loading data.";
         return false;
     }

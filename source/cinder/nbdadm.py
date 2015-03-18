@@ -112,15 +112,24 @@ def split_host(host_spec):
 
     return (host, port)
 
+
+def insmod_nbd():
+    return os.system("modprobe nbd -q") == 0
+
 def attach(args):
     if os.geteuid() != 0:
         sys.stderr.write('you must be root to attach\n')
         return 1
 
-
     (host, port) = split_host(args.nbd_host)
 
-    devs = device_paths()
+    devs = list(device_paths())
+    if len(devs) == 0:
+        if not insmod_nbd():
+            sys.stderr.write("no nbd devices found and modprobe nbd failed")
+            return 5
+        devs = list(device_paths())
+
     for conn in nbd_connections():
         (p, dev, c_host, volume) = conn
         if args.volume_name == volume and split_host(c_host) == (host, port):

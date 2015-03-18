@@ -240,9 +240,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
-    public long createLocalDomain(String domainName, long domainId)
+    public long createLocalDomain(String domainName)
         throws TException {
-        long id = getConfig().createLocalDomain(domainName, domainId);
+        long id = getConfig().createLocalDomain(domainName);
         EventManager.notifyEvent(ConfigEvent.CREATE_LOCAL_DOMAIN, domainName);
         return id;
     }

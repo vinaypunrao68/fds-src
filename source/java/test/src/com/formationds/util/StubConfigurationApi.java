@@ -7,7 +7,6 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
@@ -62,7 +61,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public long createLocalDomain(String domainName, long domainId) throws ApiException, TException {
+    public long createLocalDomain(String domainName) throws ApiException, TException {
         configurationVersion.incrementAndGet();
         LocalDomain domain = new LocalDomain(localDomainId.incrementAndGet(), domainName);
         localDomains.add(domain);

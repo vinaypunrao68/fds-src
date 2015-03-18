@@ -277,6 +277,7 @@ public class WebKitImpl {
         final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
 
         logger.trace( "Registering Local Domain endpoints." );
+        
         fdsAdminOnly( HttpMethod.POST,
                       "/local_domains/:local_domain",
                       ( t ) -> new CreateLocalDomain( authorizer,
@@ -284,30 +285,8 @@ public class WebKitImpl {
                                                       configAPI,
                                                       t ),
                       authorizer );
-        /*
-        fdsAdminOnly( HttpMethod.GET, "/local_domains",
-                      ( t ) -> new ListLocalDomains( legacyConfig ),
-                      authorizer );
-        fdsAdminOnly( HttpMethod.GET, "/local_domains/:local_domain/services",
-                ( t ) -> new ListLocalDomainServices( legacyConfig ),
-                authorizer );
-        fdsAdminOnly( HttpMethod.PUT, "/local_domains/:old_domain_name",
-                      ( t ) -> new RenameLocalDomain( legacyConfig ),
-                      authorizer );
-        fdsAdminOnly( HttpMethod.PUT, "/local_domains/:domain_name",
-                ( t ) -> new ActivateLocalDomain( legacyConfig ),
-                authorizer );
-        fdsAdminOnly( HttpMethod.PUT, "/local_domains/:domain_name/throttle",
-                ( t ) -> new SetLocalDomainThrottle( legacyConfig ),
-                authorizer );
-        fdsAdminOnly( HttpMethod.PUT, "/local_domains/:domain_name",
-                ( t ) -> new ShutdownLocalDomain( legacyConfig ),
-                authorizer );
-        fdsAdminOnly( HttpMethod.DELETE, "/local_domains/:domain_name",
-                ( t ) -> new DeleteLocalDomain( legacyConfig ),
-                authorizer );
-        */
-        logger.trace( "Registered domain endpoints" );
+
+        logger.trace( "Registered Local Domain endpoints" );
 
     }
 
