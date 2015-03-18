@@ -219,40 +219,6 @@ thpool_worker::wk_loop(void)
 /** \fds_threadpool constructor
  * ----------------------------
  */
-fds_threadpool::fds_threadpool(int num_thr)
-    : thp_mutex("thpool mtx"),
-      thp_state(RUNNING),
-      thp_total_tasks(0),
-      thp_exec_direct(0),
-      thp_num_threads(num_thr),
-      thp_active_threads(0),
-      thp_tasks_pend(0),
-      use_lftp_instead(false)
-{
-    int            i;
-    // dlist_t       *iter;
-    thpool_worker *worker;
-
-    dlist_init(&thp_wk_idle);
-    dlist_init(&thp_tasks);
-
-    thp_workers = new thpool_worker * [thp_num_threads];
-    for (i = 0; i < thp_num_threads; ++i) {
-        thp_workers[i] = new thpool_worker(this, i);
-    }
-
-    /* Spawn threads when all objects have been constructed. */
-    for (i = 0; i < thp_num_threads; ++i) {
-        worker = thp_workers[i];
-        bool spawned = worker->wk_spawn_thread();
-        fds_verify(true == spawned);
-        ++thp_active_threads;
-    }
-}
-
-/** \fds_threadpool constructor
- * ----------------------------
- */
 fds_threadpool::fds_threadpool(int num_thr, bool use_lftp)
     : thp_mutex("thpool mtx"),
       thp_state(RUNNING),
@@ -329,10 +295,15 @@ fds_threadpool::~fds_threadpool()
  *
  * @param task (i) Nullary pointer to task function
  */
+template<class F, class... Args>
 void
-fds_threadpool::schedule(thpool_req *task)
+fds_threadpool::schedule(F&& f, Args&&... args)
 {
-    dlist_t       *ptr;
+    if (use_lftp_instead) {
+        lfthreadpool->schedule(std::forward<F>(f), std::forward<Args>(args)...);
+    } else {
+        thpool_req *task = new thpool_req(std::forward<F>(f), std::forward<Args>(args)...);
+    dlist_t *ptr;
     thpool_worker *worker;
 
     fds_assert(thp_state != TERM);

@@ -40,6 +40,11 @@ class thpool_req : public Task
      * These are all basically wrappers around boost::bind for varying
      * parameter combinations to make the interface a bit cleaner.
      */
+     template<class F, class... Args>
+     thpool_req(F&& f, Args&&... args) : Task(std::bind(f, args)) {
+        dlist_obj_init(&thp_link, this);
+     }
+/*
     template<typename F, typename A>
     thpool_req(F f, A a) : Task(boost::bind(f, a)) {
         dlist_obj_init(&thp_link, this);
@@ -61,6 +66,7 @@ class thpool_req : public Task
         : Task(boost::bind(f, a, b, c, d, e)) {
         dlist_obj_init(&thp_link, this);
     }
+*/
     /** \thp_chain_task
      * ----------------
      * Chain this task to a list.
@@ -129,15 +135,17 @@ class fds_threadpool : boost::noncopyable
     /*
      * Create the threadpool with specified number of thread.
      */
-    explicit fds_threadpool(int num_thr = 10);
+    fds_threadpool(int num_thr = 10, bool use_lftp = false);
 
-    explicit fds_threadpool(int, bool);
     /* Scheduling functions. */
-    void schedule(thpool_req *task);
+//    void schedule(thpool_req *task);
+    template <class F, class... Args>
+    void schedule(F&& f, Args&&... args);
 
     /* Worker notifies the pool owner when its thread exits. */
     void thp_worker_exit(thpool_worker *worker);
 
+/*
     template<typename F, typename A>
     void schedule(F f, A a) {
         if (use_lftp_instead) {
@@ -187,6 +195,7 @@ class fds_threadpool : boost::noncopyable
             schedule(new thpool_req(f, a, b, c, d, e, g));
         }
     }
+*/    
 };
 
 typedef boost::shared_ptr<fds_threadpool> fds_threadpoolPtr;
