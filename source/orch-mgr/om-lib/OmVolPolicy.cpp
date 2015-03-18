@@ -25,8 +25,8 @@ void VolPolicyMgr::copyPolInfoToFdsPolicy(
 {
     fdsPolicy.volPolicyId = pol_info.policy_id;
     fdsPolicy.volPolicyName = pol_info.policy_name;
-    fdsPolicy.iops_max = pol_info.iops_max;
-    fdsPolicy.iops_min = pol_info.iops_min;
+    fdsPolicy.iops_throttle = pol_info.iops_throttle;
+    fdsPolicy.iops_assured = pol_info.iops_assured;
     fdsPolicy.thruput = 0; /* are we still going to use this? */
     fdsPolicy.relativePrio = pol_info.rel_prio;
 }
@@ -129,8 +129,8 @@ Error VolPolicyMgr::fillVolumeDescPolicy(VolumeDesc* voldesc)
     assert(voldesc);
     err = queryPolicy(voldesc->volPolicyId, &policy);
     if (err.ok()) {
-        voldesc->iops_min = policy.iops_min;
-        voldesc->iops_max = policy.iops_max;
+        voldesc->iops_assured = policy.iops_assured;
+        voldesc->iops_throttle = policy.iops_throttle;
         voldesc->relativePrio = policy.relativePrio;
     }
 

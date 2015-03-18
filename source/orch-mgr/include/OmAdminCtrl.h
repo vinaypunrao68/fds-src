@@ -54,8 +54,8 @@ class FdsAdminCtrl {
     fds_uint64_t  avail_ssd_capacity;
 
     /*  per volume resouce  counter */
-    fds_uint64_t  total_vol_iops_min;
-    fds_uint64_t  total_vol_iops_max;
+    fds_int64_t  total_vol_iops_assured;
+    fds_int64_t  total_vol_iops_throttle;
     double        total_vol_disk_cap_GB;
 
     void addDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);

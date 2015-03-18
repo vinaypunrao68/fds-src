@@ -45,9 +45,9 @@ public class SetVolumeQosParams implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         long uuid = Long.parseLong(requiredString(routeParameters, "uuid"));
         JSONObject jsonObject = new JSONObject(IOUtils.toString(request.getInputStream()));
-        int minIops = jsonObject.getInt("sla");
+        long assuredIops = jsonObject.getLong("sla");
         int priority = jsonObject.getInt("priority");
-        int maxIops = jsonObject.getInt("limit");
+        long throttleIops = jsonObject.getLong("limit");
         long commit_log_retention = jsonObject.getLong( "commit_log_retention" );
         String mediaPolicyS = jsonObject.getString( "mediaPolicy" );
         MediaPolicy mediaPolicy = (mediaPolicyS != null && !mediaPolicyS.isEmpty() ?
@@ -65,7 +65,7 @@ public class SetVolumeQosParams implements RequestHandler {
             return new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
         }
 
-        FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, minIops, priority, maxIops, commit_log_retention, mediaPolicy );
+        FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, assuredIops, priority, throttleIops, commit_log_retention, mediaPolicy );
         VolumeDescriptor descriptor = configService.statVolume("", volumeName);
         
         JSONObject o =
@@ -77,15 +77,15 @@ public class SetVolumeQosParams implements RequestHandler {
         return new JsonResource(o);
     }
 
-    public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, int minIops, int priority, int maxIops, long logRetention, MediaPolicy mediaPolicy ) throws org.apache.thrift.TException {
+    public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, long assuredIops, int priority, long throttleIops, long logRetention, MediaPolicy mediaPolicy ) throws org.apache.thrift.TException {
         
     	// converting the com.formationds.api.MediaPolicy to the FDSP version
     	FDSP_MediaPolicy fdspMediaPolicy = MediaPolicyConverter.convertToFDSPMediaPolicy( mediaPolicy );
     	
     	FDSP_VolumeDescType volInfo = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeName, 0));
-        volInfo.setIops_guarantee(minIops);
+        volInfo.setIops_assured(assuredIops);
         volInfo.setRel_prio(priority);
-        volInfo.setIops_max(maxIops);
+        volInfo.setIops_throttle(throttleIops);
         volInfo.setVolPolicyId(0);
         volInfo.setMediaPolicy(fdspMediaPolicy);
         volInfo.setContCommitlogRetention( logRetention );

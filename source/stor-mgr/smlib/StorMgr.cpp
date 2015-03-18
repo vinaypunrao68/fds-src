@@ -380,28 +380,67 @@ ObjectStorMgr::registerVolume(fds_volid_t  volumeId,
     Error err(ERR_OK);
     fds_assert(vdb != NULL);
 
-    GLOGNOTIFY << "Received create for vol "
-               << "[" << std::hex << volumeId << std::dec << ", "
-               << vdb->getName() << "]";
-    /*
-     * Needs to reference the global SM object
-     * since this is a static function.
-     */
-    err = objStorMgr->regVol(*vdb);
-    if (err.ok()) {
-        vol = objStorMgr->getVol(volumeId);
-        fds_assert(vol != NULL);
-        err = objStorMgr->regVolQos(vdb->isSnapshot() ?
-                vdb->qosQueueId : vol->getVolId(),
-                static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
-        if (!err.ok()) {
-            // most likely axceeded min iops
-            objStorMgr->deregVol(volumeId);
-        }
-    }
-    if (!err.ok()) {
-        GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
-                  << std::dec << " error: " << err.GetErrstr();
+    switch (action) {
+        case FDS_VOL_ACTION_CREATE :
+            GLOGNOTIFY << "Received create for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+            /*
+             * Needs to reference the global SM object
+             * since this is a static function.
+             */
+            err = objStorMgr->volTbl->registerVolume(*vdb);
+            if (err.ok()) {
+                vol = objStorMgr->volTbl->getVolume(volumeId);
+                fds_assert(vol != NULL);
+                err = objStorMgr->qosCtrl->registerVolume(vdb->isSnapshot() ?
+                        vdb->qosQueueId : vol->getVolId(),
+                        static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
+                if (!err.ok()) {
+                    // most likely axceeded min iops
+                    objStorMgr->volTbl->deregisterVolume(volumeId);
+                }
+            }
+            if (!err.ok()) {
+                GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
+                          << std::dec << " error: " << err.GetErrstr();
+            }
+            break;
+        case FDS_VOL_ACTION_DELETE:
+            GLOGNOTIFY << "Received delete for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+            objStorMgr->qosCtrl->quieseceIOs(volumeId);
+            objStorMgr->qosCtrl->deregisterVolume(volumeId);
+            objStorMgr->volTbl->deregisterVolume(volumeId);
+            break;
+        case fds_notify_vol_mod:
+            GLOGNOTIFY << "Received modify for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb->getName() << "]";
+
+            vol = objStorMgr->volTbl->getVolume(volumeId);
+            fds_assert(vol != NULL);
+            if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
+                GLOGWARN << "Modify volume requested to modify media policy "
+                         << "- Not supported yet! Not modifying media policy";
+            }
+
+            vol->voldesc->modifyPolicyInfo(vdb->iops_assured,
+                                           vdb->iops_throttle,
+                                           vdb->relativePrio);
+            err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
+                                                             vdb->iops_assured,
+                                                             vdb->iops_throttle,
+                                                             vdb->relativePrio);
+            if ( !err.ok() )  {
+                GLOGERROR << "Modify volume policy failed for vol " << vdb->getName()
+                          << std::hex << volumeId << std::dec << " error: "
+                          << err.GetErrstr();
+            }
+            break;
+        default:
+            fds_panic("Unknown (corrupt?) volume event recieved!");
     }
 
     return err;

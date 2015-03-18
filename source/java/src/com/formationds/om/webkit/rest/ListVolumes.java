@@ -152,70 +152,72 @@ public class ListVolumes implements RequestHandler {
 
 		final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( volume );
 
-		o.put( "name", v.getName() );
-		o.put( "volId", v.getVolId() );
-		o.put( "state", v.getState() );
-		o.put( "dateCreated", v.getDateCreated() );
-		o.put( "tenantId", v.getTenantId() );
+		if( v != null ) {
+			o.put( "name", v.getName() );
+			o.put( "volId", v.getVolId() );
+			o.put( "state", v.getState() );
+			o.put( "dateCreated", v.getDateCreated() );
+			o.put( "tenantId", v.getTenantId() );
 
-		o.put( "id", Long.toString( volInfo.getVolUUID() ) );
-		o.put( "priority", volInfo.getRel_prio() );
-		o.put( "sla", volInfo.getIops_guarantee() );
-		o.put( "limit", volInfo.getIops_max() );
+			if( volInfo != null ) {
+				o.put( "id", Long.toString( volInfo.getVolUUID() ) );
+				o.put( "priority", volInfo.getRel_prio() );
+				o.put( "sla", volInfo.getIops_assured() );
+				o.put( "limit", volInfo.getIops_throttle() );
+				
+				MediaPolicy policy = MediaPolicyConverter.convertToMediaPolicy( volInfo.getMediaPolicy() );
+				o.put( "mediaPolicy", policy.name() );
+				
+				o.put( "commit_log_retention", volInfo.getContCommitlogRetention() );
+			}
 
-		MediaPolicy policy = MediaPolicyConverter.convertToMediaPolicy( volInfo.getMediaPolicy() );
-		o.put( "mediaPolicy", policy.name() );
+			if( v.getPolicy() != null ) {
 
-		o.put( "commit_log_retention", volInfo.getContCommitlogRetention() );
+				VolumeSettings p = v.getPolicy();
+				JSONObject policyObj = new JSONObject();
+				policyObj.put( "maxObjectSizeInBytes", p.getMaxObjectSizeInBytes() );
+				policyObj.put( "volumeType", p.getVolumeType() );
+				policyObj.put( "blockDeviceSizeInBytes", p.getBlockDeviceSizeInBytes() );
+				policyObj.put( "contCommitLogRetention", p.getContCommitlogRetention() );
+				policyObj.put( "mediaPolicy", p.getMediaPolicy() );
+				o.put( "policy", policyObj );
 
-		if( v.getPolicy() != null ) {
+				// NOTE: this duplicates some of the information included in the policy (VolumeSettings)
+				// attached to the JSON above, which was necessary for satisfying the VolumeDescriptor sent
+				// to the XDI/AM.  The UI currently uses this additional data in the display.
+				// TODO: update UI to use the policy object above and remove the duplicate data
+				if (v.getPolicy().getVolumeType() != null &&
+					v.getPolicy().getVolumeType().equals( VolumeType.OBJECT ) ) {
+					o.put( "data_connector",
+						   new JSONObject().put( "type", "object" )
+										   .put( "api", "S3, Swift" ) );
+				} else {
+					JSONObject connector = new JSONObject().put( "type", "block" );
+					Size size = Size.size( v.getPolicy()
+											.getBlockDeviceSizeInBytes() );
+                    JSONObject attributes = new JSONObject()
+                                                .put( "size", size.getCount() )
+                                                .put( "unit", size.getSizeUnit().toString() );
+					connector.put( "attributes", attributes );
+					o.put( "data_connector", connector );
+				}
 
-            VolumeSettings p = v.getPolicy();
-            JSONObject policyObj = new JSONObject();
-            policyObj.put( "maxObjectSizeInBytes", p.getMaxObjectSizeInBytes() );
-            policyObj.put( "volumeType", p.getVolumeType() );
-            policyObj.put( "blockDeviceSizeInBytes", p.getBlockDeviceSizeInBytes() );
-            policyObj.put( "contCommitLogRetention", p.getContCommitlogRetention() );
-            policyObj.put( "mediaPolicy", p.getMediaPolicy() );
-            o.put( "policy", policyObj );
+//				o.put( "mediaPolicy", v.getPolicy().getMediaPolicy().name() );
+			}
 
-            // NOTE: this duplicates some of the information included in the policy (VolumeSettings)
-            // attached to the JSON above, which was necessary for satisfying the VolumeDescriptor sent
-            // to the XDI/AM.  The UI currently uses this additional data in the display.
-            // TODO: update UI to use the policy object above and remove the duplicate data
-            if (v.getPolicy().getVolumeType() != null &&
-                v.getPolicy().getVolumeType().equals( VolumeType.OBJECT ) ) {
-                o.put( "data_connector",
-                       new JSONObject().put( "type", "object" )
-                                       .put( "api", "S3, Swift" ) );
-            } else {
-                JSONObject connector = new JSONObject().put( "type", "block" );
-                Size size = Size.size( v.getPolicy()
-                                        .getBlockDeviceSizeInBytes() );
-				JSONObject attributes = new JSONObject()
-				.put( "size", size.getCount() )
-				.put( "unit", size.getSizeUnit()
-								  .toString() );
-                connector.put( "attributes", attributes );
-                o.put( "data_connector", connector );
-            }
+			JSONObject fbObject = new JSONObject();
+			fbObject.put( FirebreakType.CAPACITY.name().toLowerCase(),  0.0D );
+			fbObject.put( FirebreakType.PERFORMANCE.name().toLowerCase(),  0.0D );
 
-        }
+			if ( fbResults != null ){
+				// put each firebreak event in the JSON object if it exists
+				fbResults.forEach( (type, pair) -> {
+					fbObject.put( type.name(), pair.getDatapoint().getY() );
+				});
+			}
 
-		JSONObject fbObject = new JSONObject();
-		fbObject.put( FirebreakType.CAPACITY.name().toLowerCase(),  0.0D );
-		fbObject.put( FirebreakType.PERFORMANCE.name().toLowerCase(),  0.0D );
-
-		if ( fbResults != null ) {
-
-            // put each firebreak event in the JSON object if it exists
-            fbResults.forEach( (type, pair) -> fbObject.put( type.name(),
-															 pair.getDatapoint()
-																 .getY() ) );
-
-        }
-
-		o.put( "firebreak", fbObject );
+			o.put( "firebreak", fbObject );
+		}
 
 		if( status != null ) {
 

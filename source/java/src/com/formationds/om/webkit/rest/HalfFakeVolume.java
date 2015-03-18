@@ -61,8 +61,8 @@ public class HalfFakeVolume {
                 "  \"status\": [\"\"],\n" +
                 "  \"priority\": " + volInfo.getRel_prio() + ",\n" +
                 "  \"performance\": 70,\n" +
-                "  \"sla\": " + volInfo.getIops_min() + ",\n" +
-                "  \"limit\": " + volInfo.getIops_max() + ",\n" +
+                "  \"sla\": " + volInfo.getIops_assured() + ",\n" +
+                "  \"limit\": " + volInfo.getIops_throttle() + ",\n" +
                 "  \"limiting\": 0,\n" +
                 "  \"data_connector\": {\n" +
                 "    \"type\": \"block\",\n" +
