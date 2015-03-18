@@ -249,8 +249,8 @@ struct VolumeDescriptor {
 
 		MetricQueryCriteria query = new MetricQueryCriteria();      
 		DateRange range = new DateRange();
-		range.setEnd( new Date().getTime() );
-		range.setStart( range.getEnd() - TimeUnit.DAYS.toMillis( 1 ) );
+		range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime() ) ) );
+		range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
 
 		query.setSeriesType( new ArrayList<Metrics>( Metrics.FIREBREAK ) );
 		query.setContexts( Arrays.asList(v) );

@@ -107,12 +107,17 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     @Override
     public Optional<String> getVolumeNameColumnName() {
-        return Optional.empty();
+        return Optional.of( VOL_NAME_COLUMN_NAME );
     }
 
     @Override
     public Optional<String> getVolumeIdColumnName() {
         return Optional.of( VOL_ID_COLUMN_NAME );
+    }
+    
+    @Override
+    public Optional<String> getVolumeDomainColumnName() {
+    	return Optional.of( VOL_DOMAIN_COLUMN_NAME );
     }
 
     /**
@@ -137,7 +142,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs;
         orderedVDPs = vdps.stream()
                           .collect( Collectors.groupingBy( IVolumeDatapoint::getTimestamp,
-                                                           Collectors.groupingBy( IVolumeDatapoint::getVolumeName ) ) );
+                                                           Collectors.groupingBy( IVolumeDatapoint::getVolumeId ) ) );
 
         for ( Map.Entry<Long, Map<String, List<IVolumeDatapoint>>> e : orderedVDPs.entrySet() ) {
             Long ts = e.getKey();
@@ -220,8 +225,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         // do time range
         if ( queryCriteria.getRange() != null ) {
 
-            String time = " ( " + getTimestampColumnName() + " > " + queryCriteria.getRange().getStart() + "ms " + AND +
-                          " " + getTimestampColumnName() + " < " + queryCriteria.getRange().getEnd() + "ms ) ";
+            String time = " ( " + getTimestampColumnName() + " > " + queryCriteria.getRange().getStart() + "s " + AND +
+                          " " + getTimestampColumnName() + " < " + queryCriteria.getRange().getEnd() + "s ) ";
 
             sb.append( time );
         }
@@ -236,7 +241,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
                 Volume volume = contextIt.next();
 
-                sb.append( getVolumeIdColumnName().get() + " = " + volume.getId() );
+                sb.append( getVolumeIdColumnName().get() + " = '" + volume.getId() + "'" );
 
                 if ( contextIt.hasNext() ) {
                     sb.append( " " + OR + " " );
@@ -289,7 +294,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     			continue;
     		}
     		
-    		Long timestamp = Long.parseLong(timestampO.toString() );
+    		Long timestamp = Double.doubleToLongBits( (Double)timestampO );
     		String volumeName = volumeIdO.toString();
     		String volumeId = volumeIdO.toString();
     		
@@ -301,6 +306,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 	    			if ( key.equals( getTimestampColumnName() ) ||
 	    				key.equals( getVolumeIdColumnName().get() ) || 
 	    				key.equals( getVolumeNameColumnName().get() ) ||
+	    				key.equals( getVolumeDomainColumnName().get() ) ||
 	    				value == null ) {
 	    				return;
 	    			}
