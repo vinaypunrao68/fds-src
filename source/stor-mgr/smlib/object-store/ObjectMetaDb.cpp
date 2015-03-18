@@ -33,9 +33,9 @@ Error
 ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     Error err(ERR_OK);
     diskio::DataTier tier = diskio::diskTier;
-    DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
-    DiskIdSet hddIds = diskMap->getDiskIds(diskio::diskTier);
-    if ((ssdIds.size() == 0) && (hddIds.size() == 0)) {
+    fds_uint32_t ssdCount = diskMap->getTotalDisks(diskio::flashTier);
+    fds_uint32_t hddCount = diskMap->getTotalDisks(diskio::diskTier);
+    if ((ssdCount == 0) && (hddCount == 0)) {
         LOGCRITICAL << "No disks (no SSDs and no HDDs)";
         return ERR_SM_EXCEEDED_DISK_CAPACITY;
     }
@@ -48,12 +48,12 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     if (useSsd) {
         // currently, we always have SSDs (simulated if no SSDs), so below check
         // is redundant, but just in case platform changes
-        if (ssdIds.size() > 0) {
+        if (ssdCount > 0) {
             tier = diskio::flashTier;
         }
     } else {
         // if we don't have any HDDs, but have SSDs, still use SSDs for meta
-        if (hddIds.size() == 0) {
+        if (hddCount == 0) {
             tier = diskio::flashTier;
         }
     }
