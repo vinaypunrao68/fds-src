@@ -108,11 +108,19 @@ class TestTrafficGen(TestCase.FDSTestCase):
         # We need to be in the ./Build/tools directory for trafficgen to work
         os.chdir(self.traffic_gen_dir)
 
-        output = subprocess.check_call(self.traffic_gen_cmd)
+        try:
+            output = subprocess.check_output(self.traffic_gen_cmd)
+        except subprocess.CalledProcessError:
+            return False
+        except OSError as e:
+            self.log.error(e.message)
+            return False
+
         # Change back?
         os.chdir(curr)
 
-        self.log.info(output)
+        # Suppressing the output for now as it spams our logs
+        #self.log.info(output)
 
         if output != 0:
             return False
@@ -214,10 +222,18 @@ class RunTrafficGen(TestCase.FDSTestCase):
         # We need to be in the ./Build/tools directory for trafficgen to work
         os.chdir(self.traffic_gen_dir)
 
-        output = subprocess.call(self.traffic_gen_cmd)
+        try:
+            output = subprocess.check_output(self.traffic_gen_cmd)
+        except subprocess.CalledProcessError:
+            self.log.info('TrafficGen returned non zero error code, but this was expected.')
+        except OSError as e:
+            self.log.error('TrafficGen didn\'t work! Something is very wrong: ' + e.message)
+            return False
+
         # Change back?
         os.chdir(curr)
 
-        self.log.info(output)
+        # Suppressing the output for now as it spams our logs
+        #self.log.info(output)
 
         return True
