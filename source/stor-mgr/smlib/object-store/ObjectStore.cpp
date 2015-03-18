@@ -49,26 +49,29 @@ ObjectStore::~ObjectStore() {
     metaStore.reset();
 }
 
-void
+Error
 ObjectStore::handleNewDlt(const DLT* dlt) {
     fds_uint32_t nbits = dlt->getNumBitsForToken();
     metaStore->setNumBitsPerToken(nbits);
 
     Error err = diskMap->handleNewDlt(dlt);
     if (err == ERR_DUPLICATE) {
-        return;  // everythin setup already
+        return ERR_OK;  // everythin setup already
     } else if (err == ERR_INVALID_DLT) {
-        return;  // we are ignoring this DLT
+        return ERR_OK;  // we are ignoring this DLT
     }
     fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
     // open metadata store for tokens owned by this SM
-    err = metaStore->openMetadataStore(diskMap);
-    fds_verify(err.ok());
+    Error openErr = metaStore->openMetadataStore(diskMap);
+    if (!openErr.ok()) {
+        LOGERROR << "Failed to open Metadata Store " << openErr;
+        return openErr;
+    }
 
     err = dataStore->openDataStore(diskMap,
                                    (err == ERR_SM_NOERR_PRISTINE_STATE));
-    fds_verify(err.ok());
+    return err;
 }
 
 Error
@@ -219,14 +222,29 @@ ObjectStore::putObject(fds_volid_t volId,
         StorMgrVolume *vol = volumeTbl->getVolume(volId);
         fds_verify(vol);
         useTier = tierEngine->selectTier(objId, *vol->voldesc);
+        if (diskMap->getTotalDisks(useTier) == 0) {
+            // there is no requested tier, use existing tier
+            LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
+            if (useTier == diskio::flashTier) {
+                useTier = diskio::diskTier;
+            } else if (useTier == diskio::diskTier) {
+                useTier = diskio::flashTier;
+            }
+        }
 
         if (useTier == diskio::flashTier) {
             fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
                     objData->size(), tierEngine->getFlashFullThreshold());
 
             if (!ssdSuccess) {
+                LOGTRACE << "Exceeded SSD capacity, use disk tier";
                 useTier = diskio::diskTier;
             }
+        }
+
+        if (diskMap->getTotalDisks(useTier) == 0) {
+            LOGCRITICAL << "No disk capacity";
+            return ERR_SM_EXCEEDED_DISK_CAPACITY;
         }
 
         // put object to datastore
@@ -929,6 +947,15 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         // select tier to put object
         useTier = tierEngine->selectTier(objId, *selectVol->voldesc);
+        if (diskMap->getTotalDisks(useTier) == 0) {
+            // there is no requested tier, use existing tier
+            LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
+            if (useTier == diskio::flashTier) {
+                useTier = diskio::diskTier;
+            } else if (useTier == diskio::diskTier) {
+                useTier = diskio::flashTier;
+            }
+        }
 
         if (useTier == diskio::flashTier) {
             fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
@@ -937,6 +964,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             if (!ssdSuccess) {
                 useTier = diskio::diskTier;
             }
+        }
+
+        if (diskMap->getTotalDisks(useTier) == 0) {
+            LOGCRITICAL << "No disk capacity";
+            return ERR_SM_EXCEEDED_DISK_CAPACITY;
         }
 
         // put object to datastore

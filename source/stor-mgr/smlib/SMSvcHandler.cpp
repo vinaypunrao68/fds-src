@@ -861,14 +861,13 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
               << dlt->dlt_data.dlt_type;
     err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
     if (err.ok()) {
-        objStorMgr->handleDltUpdate();
+        err = objStorMgr->handleDltUpdate();
     } else if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DLT, ignoring";
         err = ERR_OK;
     }
-    fds_assert(err.ok());
 
-    LOGNOTIFY << "Sending DLT commit response to OM";
+    LOGNOTIFY << "Sending DLT commit response to OM with result " << err;
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
