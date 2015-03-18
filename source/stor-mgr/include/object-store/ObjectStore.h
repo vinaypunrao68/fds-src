@@ -90,7 +90,8 @@ class ObjectStore : public Module, public boost::noncopyable {
      */
     Error putObject(fds_volid_t volId,
                     const ObjectID &objId,
-                    boost::shared_ptr<const std::string> objData);
+                    boost::shared_ptr<const std::string> objData,
+                    fds_bool_t forwardedIO);
 
     /**
      * Gets an specific object for a volume. The object's data
@@ -113,7 +114,8 @@ class ObjectStore : public Module, public boost::noncopyable {
      * but the actual data is deleted later by the garbage collector.
      */
     Error deleteObject(fds_volid_t volId,
-                       const ObjectID &objId);
+                       const ObjectID &objId,
+                       fds_bool_t forwardedIO);
 
     /**
      * Relocate/write back object from tier 'fromTier' to tier 'toTier'

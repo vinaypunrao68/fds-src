@@ -76,14 +76,21 @@ struct SvcHandle;
 using SvcHandlePtr = boost::shared_ptr<SvcHandle>;
 using StringPtr = boost::shared_ptr<std::string>;
 class PlatNetSvcHandler;
-using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 
+/*--------------- Floating functions --------------*/
+std::string logString(const FDS_ProtocolInterface::SvcInfo &info);
+std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info);
+template<class T>
+extern boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
+                                           const bool &blockOnConnect);
+
+/*--------------- Utility classes --------------*/
 struct SvcUuidHash {
     std::size_t operator()(const fpi::SvcUuid& svcId) const;
 };
 
 struct SvcKeyException : std::exception {
-    SvcKeyException(const std::string &desc)
+    explicit SvcKeyException(const std::string &desc)
     {
         desc_ = desc;
     }
@@ -92,13 +99,13 @@ struct SvcKeyException : std::exception {
     std::string desc_;
 };
 
+/*--------------- Typedefs --------------*/
+using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
 using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
 
-template<class T>
-extern boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
-                                           const bool &blockOnConnect);
 
+/*--------------- Primary classes --------------*/
 /**
 * @brief Overall manager class for service layer
 */
@@ -324,6 +331,15 @@ struct SvcMgr : HasModuleProvider, Module {
     * @return 
     */
     static fpi::FDSP_MgrIdType mapToSvcType(const std::string &svcName); 
+
+    /**
+    * @brief svcType -> svcName mapping
+    *
+    * @param svcType
+    *
+    * @return 
+    */
+    static std::string mapToSvcName(const fpi::FDSP_MgrIdType &svcType);
 
     /**
     * @brief Based on the svcType and platforPort (as the base) determines what the service

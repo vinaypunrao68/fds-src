@@ -90,7 +90,8 @@ ObjectStore::removeVolume(fds_volid_t volId) {
 Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
-                       boost::shared_ptr<const std::string> objData) {
+                       boost::shared_ptr<const std::string> objData,
+                       fds_bool_t forwardedIO) {
     fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
 
     PerfContext objWaitCtx(SM_PUT_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
@@ -106,19 +107,40 @@ ObjectStore::putObject(fds_volid_t volId,
     // New object metadata to update the refcnts
     ObjMetaData::ptr updatedMeta;
 
+    // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
+    //
+    // If the metadata exists at this point, following matrix of operation is possible:
+    //
+    //                                              Regular PUT or forwarded PUT
+    //                                  |  ObjData physically exists  | ObjData doesn't exist |
+    //              ---------------------------------------------------------------------------
+    //                NO_RECONCILE      |               1             |          *2*          |
+    //                or N/A            |                             |                       |
+    // OnDiskFlag   ---------------------------------------------------------------------------
+    //                RECONCILE         |               3             |           4           |
+    //                (DELETE deficit)  |                             |                       |
+    //              ---------------------------------------------------------------------------
+    //
+    // 1) Normal PUT operation
+    //
+    // 2) Cannot happen.  This condition is not possible with current operation.
+    //
+    // 3) Requires reconciliation.  The DISK(RECONCILE) and PUT must be reconciled, and end
+    //    result may lead to condition 4 or condition 1.  Metadata update only.
+    //
+    // 4) Requires reconciliation.  Similar to condition 3, but requires metadata update +
+    //    object write.
+    //
+
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
     if (err == ERR_OK) {
-        // While sync is going on we can have metadata but object could be missing
-        if (!objMeta->dataPhysicallyExists()) {
-            // fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
-            LOGNORMAL << "Got metadata but not data " << objId
-                      << " sync is in progress";
-            err = ERR_SM_OBJECT_DATA_MISSING;
-            // TODO(Anna) revisit this path when porting migration,
-            // in the existing implementation, we would write new data to data store
-            // and updating the existing metadata is this what we want?
-            fds_panic("Missing data in the persistent layer!");  // implement
+
+        // TokenMigration + Active IO: Condition 2).
+        // This should never happen, so panic if this condition is hit.
+        // If hit, there is a bug in token migration.
+        if (!objMeta->isObjReconcileRequired()) {
+            fds_verify(objMeta->dataPhysicallyExists());
         }
 
         // check if existing object corrupted
@@ -146,6 +168,20 @@ ObjectStore::putObject(fds_volid_t volId,
         // Create new object metadata to update the refcnts
         updatedMeta.reset(new ObjMetaData(objMeta));
 
+        // TokenMigration + Active IO: Condition 3) and 4).
+        // After reconciling, we have 4 possibilities:
+        //      1) ONDISK(RECONCILE) -
+        //          1.1) ObjData exists physically
+        //          1.2) ObjData does not exit physically
+        //      2) ONDISK(NO_RECONCILE)
+        //          1.1) ObjData exists physically
+        //          1.2) ObjData does not exit physically
+        //
+        // In any case, write out the metadata. And write out ObjData if data physically doesn't exist.
+        if (updatedMeta->isObjReconcileRequired()) {
+            updatedMeta->reconcilePutObjMetaData(objId, volId);
+        }
+
         PerfTracer::incr(SM_PUT_DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
@@ -158,21 +194,29 @@ ObjectStore::putObject(fds_volid_t volId,
 
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
 
-    // either new data or dup, update assoc entry
-    std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
-    updatedMeta->getVolsRefcnt(vols_refcnt);
-    updatedMeta->updateAssocEntry(objId, volId);
-    volumeTbl->updateDupObj(volId,
-                            objId,
-                            objData->size(),
-                            true,
-                            vols_refcnt);
+    // If the TokenMigration reconcile is still required, then treat the object as not valid.
+    if (!updatedMeta->isObjReconcileRequired()) {
+        // either new data or dup, update assoc entry
+        std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
+        updatedMeta->getVolsRefcnt(vols_refcnt);
+        updatedMeta->updateAssocEntry(objId, volId);
+        volumeTbl->updateDupObj(volId,
+                                objId,
+                                objData->size(),
+                                true,
+                                vols_refcnt);
+    }
 
-    // Put data in store if it's not a duplicate. We expect the data put to be atomic.
+    // Put data in store if it's not a duplicate.
+    // Or TokenMigration + Active IO handle:  if the ObjData doesn't physically exist, still write out
+    // the obj data.
+    //
+    // We expect the data put to be atomic.
     // If we crash after the writing the data but before writing
     // the metadata, the orphaned object data will get cleaned up
     // on a subsequent scavenger pass.
-    if (err.ok()) {
+    if (err.ok() ||
+        ((err == ERR_DUPLICATE) && !objMeta->dataPhysicallyExists())) {
         // object not duplicate
         // select tier to put object
         StorMgrVolume *vol = volumeTbl->getVolume(volId);
@@ -238,6 +282,25 @@ ObjectStore::getObject(fds_volid_t volId,
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
 
+    // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
+    //
+    // If the metadata exists when queried, following matrix of operations is possible:
+    //
+    //                                  |  ObjData physically exists  | ObjData doesn't exist |
+    //              ---------------------------------------------------------------------------
+    //                NO_RECONCILE      |              1              |          *2*          |
+    //                or N/A            |                             |                       |
+    // OnDiskFlag   ---------------------------------------------------------------------------
+    //                RECONCILE         |              3              |           3           |
+    //                (DELETE deficit)  |                             |                       |
+    //              ---------------------------------------------------------------------------
+    //
+    // 1) normal get operation.
+    // 2) cannot happen.  If DISK(NO_RECONCILE) is set, then migration reconciled issue, so
+    //    the object must exist.  Otherwise, an MetaData entered DELECT deficit state and never
+    //    recovered or reconciled.
+    // 3) If DISK(RECONCILE) flag is set, then return an error.
+
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
     if (!err.ok()) {
@@ -246,11 +309,20 @@ ObjectStore::getObject(fds_volid_t volId,
         return NULL;
     }
 
+
     // check if object corrupted
     if (objMeta->isObjCorrupted()) {
         LOGCRITICAL << "CORRUPTION: On-disk data corruption detected: " << objMeta->logString()
                     << " returning err=" << ERR_ONDISK_DATA_CORRUPT;
         err = ERR_ONDISK_DATA_CORRUPT;
+        return NULL;
+    }
+
+    // Check if the object is reconciled properly.
+    if (objMeta->isObjReconcileRequired()) {
+        LOGNOTIFY << "Requires Reconciliation: " << objMeta->logString()
+                  << " err=" << ERR_NOT_FOUND;
+        err = ERR_NOT_FOUND;
         return NULL;
     }
 
@@ -321,7 +393,8 @@ ObjectStore::getObjectData(fds_volid_t volId,
 
 Error
 ObjectStore::deleteObject(fds_volid_t volId,
-                          const ObjectID &objId) {
+                          const ObjectID &objId,
+                          fds_bool_t forwardedIO) {
     PerfContext objWaitCtx(SM_DELETE_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
@@ -332,14 +405,67 @@ ObjectStore::deleteObject(fds_volid_t volId,
     // New object metadata to update the refcnts
     ObjMetaData::ptr updatedMeta;
 
+    // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
+    //
+    // If the metadata exists at this point, following matrix of operation is possible:
+    //
+    //                                          Normal IO                  Forwarded IO
+    //                                          Mig not running  |         Mig running
+    //                                  |  MetaData  | !MetaData |  MetaData  | !MetaData |
+    //              -----------------------------------------------------------------------
+    //                NO_RECONCILE      |      1     |     2     |     3      |           |
+    //                or N/A            |            |           |            |     4     |
+    // OnDiskFlag   -----------------------------------------------------------------------
+    //                RECONCILE         |     *5*    |    n/a    |     6      |     n/a   |
+    //                (DELETE deficit)  |   special  |           |            |           |
+    //              -----------------------------------------------------------------------
+    //
+    // 1) Normal DELETE operation.
+    //
+    // 2) Normal failed DELETE operation.
+    //
+    // 3) Normal DELETE operation.
+    //    For this case, it should never reach DELETE Deficit case.  DELETE Deficit can happen
+    //    only if the MetaData is created with DELETE operation forwarded to the destination SM
+    //    before the MetaData+ObjData migrated successfully to the destination SM.
+    //
+    // 4) The MetaData doesn't exist.  This will create a MetaData object with ONDISK(RECONCILE) flag.
+    //
+    // 5) This is an interesting case.  This can happen if multiple DELETE requests are forwarded on
+    //    the same object (ObJX)  before ObjX is migrated.  However, if the refcnt on object X is N, but
+    //    N+M DELETE requests are forwarded, we can get into this issue.
+    //    For example DELETE(N+M) is forwarded and ObjX has refcnt P, where P is < (N+M).  Treat this
+    //    as deleted object.
+    //    In this case, GC should just reclaim this object.
+    //
+    // 6) Reconcile MetaData
+
     // Get metadata from metadata store
-    ObjMetaData::const_ptr objMeta =
-            metaStore->getObjectMetadata(volId, objId, err);
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
     if (!err.ok()) {
         fds_verify(err == ERR_NOT_FOUND);
-        LOGDEBUG << "Not able to read existing object locations, "
-                 << "assuming no prior entry existed " << objId;
-        return ERR_OK;
+
+        if (forwardedIO) {
+            // Migration + Active IO: condition 4) -- forwarded DELETE and no MetaData.
+            // Create a new metadata with ONDISK(RECONCILE) state.
+            // There is no ObjData physically associated with this object.
+            updatedMeta.reset(new ObjMetaData());
+            updatedMeta->initializeDelReconcile(objId, volId);
+            err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
+            if (err.ok()) {
+                LOGMIGRATE << "Forwarded DELETE success.  Created an empty MetaData: "
+                           << updatedMeta->logString();
+                return ERR_OK;
+            } else {
+                LOGMIGRATE << "Forwarded DELETE failed to store: "
+                           << updatedMeta->logString();
+                return err;
+            }
+        } else {
+            LOGDEBUG << "Not able to read existing object locations, "
+                     << "assuming no prior entry existed " << objId;
+            return ERR_OK;
+        }
     }
 
     // if object corrupted, no point of updating metadata
@@ -354,9 +480,20 @@ ObjectStore::deleteObject(fds_volid_t volId,
     std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     // remove volume assoc entry
-    fds_bool_t change = updatedMeta->deleteAssocEntry(objId,
-                                                      volId,
-                                                      fds::util::getTimeStampMillis());
+    fds_bool_t change;
+    // TODO(Sean):
+    // This is a tricky part.  What happens if the metadata is forever RequireReconcile state?
+    // The current approach is to have the GC clean it up, but is it the correct approach?
+    if (updatedMeta->isObjReconcileRequired() && forwardedIO) {
+        // Migration + Active IO: condition 6) -- forwarded DELETE and foundded MetaData require
+        // reconciliation.
+        // Since this is a DELETE operation, and the metadata is already require reconciliation,
+        // this metadata will continue to to be "ReconcileRequired" (i.e. DELETE deficit).
+        change = updatedMeta->reconcileDelObjMetaData(objId, volId, fds::util::getTimeStampMillis());
+    } else {
+        change = updatedMeta->deleteAssocEntry(objId, volId, fds::util::getTimeStampMillis());
+    }
+
     if (!change) {
         // the volume was not associated, ok
         LOGNORMAL << "Volume " << std::hex << volId << std::dec
@@ -639,6 +776,9 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // but we may do GC later while migrating, etc, so locking anyway
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
 
+    bool isDataPhysicallyExist = false;
+    bool metadataAlreadyReconciled = false;
+
     Error err(ERR_OK);
     diskio::DataTier useTier = diskio::maxTier;
     // since object can be associated with multiple volumes, we just
@@ -650,18 +790,43 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // We will update metadata with metadata sent to us from source SM
     ObjMetaData::ptr updatedMeta;
 
-    // Get metadata from metadata store
+    // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
+    //
+    // If the metadata exists at this point, following matrix of operation is possible:
+    //
+    //                                          MetadataPropagateMsg
+    //                               |  NO_RECONCILE |  RECONCILE   | OVERWRITE    |
+    //                               |  (equiv PUT)  |  (meta only) | (meta only)  |
+    //             -----------------------------------------------------------------
+    //             NO_RECONCILE      |               |              |              |
+    //             or N/A            |      1        |      2       |      *3*     |
+    // OnDiskFlag  -----------------------------------------------------------------
+    //             RECONCILE         |      4        |     *5*      |      *6*     |
+    //             (DELETE deficit)  |               |              |              |
+    //             -----------------------------------------------------------------
+    //
+    // 1) Object was forwarded, and a new object in the second snapshot is migrated.  Same ObjData and
+    //    requires aggregation/reconcile metadata.
+    //
+    // 2) On disk metadata and MetadataPropagateMsg metadat needs reconciliation.  Typical case.
+    //
+    // 3) This applies only to the first phase, where metadata is overwritten
+    //    if ObjectData already exists on the destination.
+    //
+    // 4) New object in the second snapshot from the Client SM.  However, at least one DELETE
+    //    operation was forwarded to the object, or the net result of forwarded DELETE and PUT yielded
+    //    DELETE deficit.  Need to reconcile MetaData and write out ObjectData if not data exists.
+    //
+    // 5) This cannot happen.  MSG(RECONCILE) in msg means that the Object was in both the first and
+    //    second snapshot.  ONDISK(RECONCILE) (i.e. DELETE deficit) means that the MetaData
+    //    operation was forwarded before a new Object in the second snapshot was migrated.
+    //    So, this cannot happen.
+    //
+    // 6) This cannot happen.  MSG(OVERWRITE) only happens on the first snapshot.
+
+    // Get metadata from metadata store to check if there is an existin metadata
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
     if (err == ERR_OK) {
-        // we must not have the case if metadata exists but object data is missing
-        // token migration always applies both data and metadata first, then updates metadata
-        fds_verify(objMeta->dataPhysicallyExists());
-
-        // If the metadata was found on the destination, then the object already exists.
-        // This means we either have to reconcile or overwrite existing metadata on
-        // destination SM.
-        fds_assert((msg.objectReconcileFlag == fpi::OBJ_METADATA_RECONCILE) ||
-                   (msg.objectReconcileFlag == fpi::OBJ_METADATA_OVERWRITE));
 
         // check if existing object corrupted
         if (objMeta->isObjCorrupted()) {
@@ -694,12 +859,39 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         // create new object metadata for update from source SM
         updatedMeta.reset(new ObjMetaData(objMeta));
+
+        isDataPhysicallyExist = updatedMeta->dataPhysicallyExists();
+
         // we temporary assign error duplicate to indicate that we already have metadata
         // and data for this object, to differentiate from the case when this is the
         // first time this SM sees this object
         err = ERR_DUPLICATE;
+
+        // Migration + Active IO:  condition 1) -- a case where MSG(NO_RECONCILE) and DISK(NO_RECONCILE).
+        //            This happens when a PUT IO was forwarded for a new object, in the second snapshot,
+        //            had a chance to migrate to the destination SM.
+        //            One possible example: PUT was forwarded for ObjX.  ObjX is migrated from
+        //            source SM to destination SM.
+        if (msg.objectReconcileFlag == fpi::OBJ_METADATA_NO_RECONCILE) {
+
+            metadataAlreadyReconciled = true;
+
+            LOGMIGRATE << "MSG(NO_RECONCILE): "
+                       << "Before PropagateMsg conversion: " << logString(msg);
+
+            updatedMeta->reconcileDeltaObjMetaData(msg);
+
+            LOGMIGRATE << "MSG(NO_RECONCILE): "
+                       << "After PropagateMsg conversion: " << logString(msg);
+            fds_verify(err == ERR_DUPLICATE);
+        }
+
     } else {  // if (getMetadata != OK)
+        // On the second phase, if the metadata is not found, then it's a new Object.
+        // can just write out object.
+
         // We didn't find any metadata, make sure it was just not there and reset
+        // This is a new object.  There should not be any reconciliation.
         fds_verify(err == ERR_NOT_FOUND);
 
         // If we didn't find the metadata on the destination SM, then there is
@@ -707,6 +899,9 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         fds_assert(msg.objectReconcileFlag == fpi::OBJ_METADATA_NO_RECONCILE);
 
         err = ERR_OK;
+
+        isDataPhysicallyExist = false;
+
         // make sure we got object data as well in this message
         if (msg.objectData.size() == 0) {
             LOGERROR << "Got zero-length objectData for object " << objId
@@ -722,7 +917,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // If we crash after the writing the data but before writing
     // the metadata, the orphaned object data will get cleaned up
     // on a subsequent scavenger pass.
-    if (err.ok()) {
+    if (false == isDataPhysicallyExist) {
 
         // new object in this SM, put object to data store
         boost::shared_ptr<const std::string> objData = boost::make_shared<std::string>(
@@ -806,9 +1001,12 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // update metadata
     // note that we are not updating assoc entry as with datapath put
     // we are copying assoc entries from the msg and also copying ref count
-    err = updatedMeta->updateFromRebalanceDelta(msg);
-    if (!err.ok()) {
-        LOGCRITICAL << "Failed to update metadata from delta from source SM " << err;
+
+    if (false == metadataAlreadyReconciled) {
+        err = updatedMeta->updateFromRebalanceDelta(msg);
+        if (!err.ok()) {
+            LOGCRITICAL << "Failed to update metadata from delta from source SM " << err;
+        }
     }
 
     // write metadata to metadata store

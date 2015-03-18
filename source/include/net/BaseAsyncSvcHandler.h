@@ -4,6 +4,8 @@
 #define SOURCE_INCLUDE_NET_BASEASYNCSVCHANDLER_H_
 
 #include <string>
+#include <list>
+#include <utility>
 #include <unordered_map>
 #include <fdsp/svc_api_types.h>
 #include <fdsp/BaseAsyncSvc.h>
@@ -75,6 +77,15 @@ class BaseAsyncSvcHandler : public HasModuleProvider,
     virtual void mod_startup() override;
     virtual void mod_shutdown() override;
 
+    /**
+    * @brief If true will defer the request.  If set to false, will drain any
+    * deferred requests
+    *
+    * @param defer
+    */
+    void deferRequests(bool defer);
+
+
     void setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  * taskExecutor);
 
     void asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
@@ -129,6 +140,15 @@ class BaseAsyncSvcHandler : public HasModuleProvider,
     }
 
     // protected:
+    /* Typically whether registration with OM is complete or not.  When
+     * registration isn't complete all incoming async requests get queued up
+     */
+    using AsyncReqPair = std::pair<fpi::AsyncHdrPtr, StringPtr>;
+    std::atomic<bool> deferRequests_;
+    fds_mutex lock_;
+    std::list<AsyncReqPair> deferredReqs_; 
+
+    /* Request handlers */
     std::unordered_map<fpi::FDSPMsgTypeId, FdspMsgHandler, std::hash<int>> asyncReqHandlers_;
     SynchronizedTaskExecutor<uint64_t>  * taskExecutor_;
 };

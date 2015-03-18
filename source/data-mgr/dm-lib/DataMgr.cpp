@@ -1176,6 +1176,7 @@ Error
 DataMgr::expungeObjectsIfPrimary(fds_volid_t volid,
                                  const std::vector<ObjectID>& oids) {
     Error err(ERR_OK);
+    if (features.isTimelineEnabled()) return err; // No immediate deletes
     if (runMode == TEST_MODE) return err;  // no SMs, no one to notify
     if (amIPrimary(volid) == false) return err;  // not primary
 
