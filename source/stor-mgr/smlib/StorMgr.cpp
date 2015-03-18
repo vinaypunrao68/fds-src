@@ -335,17 +335,18 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
     return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
 }
 
-void ObjectStorMgr::handleDltUpdate() {
+Error ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
     const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
-    objStorMgr->objectStore->handleNewDlt(curDlt);
+    Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
 
     if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
         LOGDEBUG << "Received DLT update that has removed this node.";
         // TODO(brian): Not sure if this is where we should kill scavenger or not
     }
+    return err;
 }
 
 /*

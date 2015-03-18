@@ -70,7 +70,7 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * Notification about DLT change
      */
-    void handleNewDlt(const DLT* dlt);
+    Error handleNewDlt(const DLT* dlt);
 
     /**
      * Adds a new volume to the object store. Some physical
