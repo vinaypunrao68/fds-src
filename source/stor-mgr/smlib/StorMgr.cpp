@@ -505,19 +505,24 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         // after the network message is freed.
         err = objectStore->putObject(volId,
                                      objId,
-                                     boost::make_shared<std::string>(
-                                         putReq->putObjectNetReq->data_obj));
+                                     boost::make_shared<std::string>(putReq->putObjectNetReq->data_obj),
+                                     putReq->forwardedReq);
         qosCtrl->markIODone(*putReq);
 
         // end of ObjectStore layer latency
         PerfTracer::tracePointEnd(putReq->opLatencyCtx);
 
         // forward this IO to destination SM if needed, but only if we succeeded locally
-        if (err.ok() &&
-            migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq)) {
-            // we forwarded request, however we will ack to AM right away, and if
-            // forwarded request fails, we will fail the migration
-            LOGMIGRATE << "Forwarded Put " << objId << " to destination SM ";
+        // and was not already a forwarded request.
+        // The assumption is that forward will not take a multiple hop.  It will be only from
+        // one source to one destionation SM.
+        if (err.ok() && (false == putReq->forwardedReq)) {
+            bool forwarded = migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq);
+            if (forwarded) {
+                // we forwarded request, however we will ack to AM right away, and if
+                // forwarded request fails, we will fail the migration
+                LOGMIGRATE << "Forwarded PUT " << objId << " to destination SM ";
+            }
         }
     }
 
@@ -544,7 +549,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
         // start of ObjectStore layer latency
         PerfTracer::tracePointBegin(delReq->opLatencyCtx);
 
-        err = objectStore->deleteObject(volId, objId);
+        err = objectStore->deleteObject(volId,
+                                        objId,
+                                        delReq->forwardedReq);
 
         qosCtrl->markIODone(*delReq);
 
@@ -552,11 +559,16 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
         PerfTracer::tracePointEnd(delReq->opLatencyCtx);
 
         // forward this IO to destination SM if needed, but only if we succeeded locally
-        if (err.ok() &&
-            migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq)) {
-            // we forwarded request, however we will ack to AM right away, and if
-            // forwarded request fails, we will fail the migration
-            LOGMIGRATE << "Forwarded Delete " << objId << " to destination SM ";
+        // and was not already a forwarded request.
+        // The assumption is that forward will not take a multiple hop.  It will be only from
+        // one source to one destionation SM.
+        if (err.ok() && (false == delReq->forwardedReq)) {
+            bool forwarded = migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq);
+            if (forwarded) {
+                // we forwarded request, however we will ack to AM right away, and if
+                // forwarded request fails, we will fail the migration
+                LOGMIGRATE << "Forwarded DELETE " << objId << " to destination SM ";
+            }
         }
     }
 
