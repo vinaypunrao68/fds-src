@@ -63,6 +63,11 @@ int SmDiskMap::mod_init(SysParams const *const param) {
 fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
         fds_uint64_t writeSize, fds_uint32_t fullThreshold) {
     fds_uint16_t diskId = getDiskId(oid, diskio::flashTier);
+    if (!ObjectLocationTable::isDiskIdValid(diskId)) {
+        LOGDEBUG << "No disks on flash tier";
+        return false;
+    }
+
     // Get the capacity information for this disk
     fds_uint8_t arrId = ssdIdxMap->at(diskId);
     // Check if we're over threshold now
@@ -290,6 +295,16 @@ SmDiskMap::getDiskIds(diskio::DataTier tier) const {
 fds_uint32_t
 SmDiskMap::getTotalDisks() const {
     return (hdd_ids.size() + ssd_ids.size());
+}
+
+fds_uint32_t
+SmDiskMap::getTotalDisks(diskio::DataTier tier) const {
+    if (tier == diskio::flashTier) {
+        return ssd_ids.size();
+    } else if (tier == diskio::diskTier) {
+        return hdd_ids.size();
+    }
+    return 0;
 }
 
 }  // namespace fds

@@ -1,3 +1,7 @@
+/*
+ * Copyright 2013 Formation Data Systems, Inc.
+ */
+
 #define _GNU_SOURCE
 #include <stdarg.h>
 #include <execinfo.h>
@@ -27,7 +31,7 @@ fds_panic_abort(char *panic_string)
     void     *stack[STACK_TRACE_SIZE];
     char    **symb;
     size_t    i, size;
-    char symStr[4096];
+    char symStr[16384];
     int symStrPos = 0;
     int written = 0;
     size_t symStrSize = sizeof(symStr);
@@ -49,6 +53,13 @@ fds_panic_abort(char *panic_string)
                             "%s",
                             symb[i]);
         symStrPos += written;
+        /* if the position is beyond the buffer, then terminate the loop
+         * and null terminate the string.
+         */
+        if (symStrPos >= symStrSize) {
+            symStr[symStrSize - 1] = '\0';
+            break;
+        }
     }
 
     /* Output to both log file and syslog */
@@ -68,7 +79,7 @@ void
 fds_panic(const char *fmt, ...)
 {
     va_list args;
-    char panic_str_buf[2048];
+    char panic_str_buf[4096];
     int ret;
 
     va_start(args, fmt);

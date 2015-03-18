@@ -75,7 +75,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         if (!testMode) {
             // Set the forwarded flag, so the destination can appropriately handle
             // forwarded request.
-            fds_assert(false == putReq->putObjectNetReq->forwardedReq)
+            fds_assert(false == putReq->putObjectNetReq->forwardedReq);
             putReq->putObjectNetReq->forwardedReq = true;
 
             auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
@@ -91,7 +91,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         if (!testMode) {
             // Set the forwarded flag, so the destination can appropriately handle
             // forwarded request.
-            fds_assert(false == delReq->delObjectNetReq->forwardedReq)
+            fds_assert(false == delReq->delObjectNetReq->forwardedReq);
             delReq->delObjectNetReq->forwardedReq = true;
 
             auto asyncDelReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
