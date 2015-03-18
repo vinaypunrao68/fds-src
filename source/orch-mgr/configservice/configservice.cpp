@@ -59,7 +59,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     // stubs to keep cpp compiler happy - BEGIN
-    int64_t createLocalDomain(const std::string& domainName) { return 0;}
+    int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
+    void listLocalDomains(std::vector<LocalDomain> & _return, const int32_t ignore) {}
     int64_t createTenant(const std::string& identifier) { return 0;}
     void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
     int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
@@ -92,16 +93,20 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     // stubs to keep cpp compiler happy - END
 
-    int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName) {
-        int64_t id = configDB->createLocalDomain(*domainName);
+    int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& domainSite) {
+        int64_t id = configDB->createLocalDomain(*domainName, *domainSite);
         if (id <= 0) {
-            LOGERROR << "Some issue in Local Domain creation. ";
+            LOGERROR << "Some issue in Local Domain creation: " << *domainName;
             apiException("Error creating Local Domain.");
         } else {
             LOGNOTIFY << "Local Domain creation succeded. " << id << ": " << *domainName;
         }
 
         return id;
+    }
+
+    void listLocalDomains(std::vector<LocalDomain>& _return, boost::shared_ptr<int32_t>& ignore) {
+        configDB->listLocalDomains(_return);
     }
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {

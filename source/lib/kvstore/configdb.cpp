@@ -91,10 +91,11 @@ bool ConfigDB::setGlobalDomain(ConstString globalDomain) {
  * are treated as case-insenative.)
  *
  * @param identifier: std::string - Name to use for the new Local Domain.
+ * @param site: std::string - Name of the location of the new Local Domain.
  *
  * @return int64_t - ID generated for the new Local Domain.
  */
-int64_t ConfigDB::createLocalDomain(const std::string& identifier) {
+int64_t ConfigDB::createLocalDomain(const std::string& identifier, const std::string& site) {
     TRACKMOD();
     try {
         // Check if the Local Domain already exists.
@@ -107,7 +108,8 @@ int64_t ConfigDB::createLocalDomain(const std::string& identifier) {
             if (listLocalDomains(localDomains)) {
                 for (const auto& localDomain : localDomains) {
                     if (localDomain.name == identifier) {
-                        LOGWARN << "Trying to add an existing Local Domain : " << localDomain.id << ": " << localDomain.name;
+                        LOGWARN << "Trying to add an existing Local Domain : " << localDomain.id << ": "
+                                        << localDomain.name << ": " << localDomain.site;
                         NOMOD();
                         return localDomain.id;
                     }
@@ -127,6 +129,7 @@ int64_t ConfigDB::createLocalDomain(const std::string& identifier) {
         reply = r.sendCommand("incr local.domain:nextid");
         localDomain.id = reply.getLong();
         localDomain.name = identifier;
+        localDomain.site = site;
 
         r.sendCommand("sadd local.domain:list %b", idLower.data(), idLower.length());
 
