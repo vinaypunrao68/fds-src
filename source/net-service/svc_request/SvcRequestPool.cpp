@@ -21,7 +21,7 @@ namespace fds {
 // Lot of code refers to gSvcRequestPool. This will be slowly migrated over
 SvcRequestPool *gSvcRequestPool;
 
-uint64_t SvcRequestPool::SVC_UNTRACKED_REQ_ID = 0;
+SvcRequestId SvcRequestPool::SVC_UNTRACKED_REQ_ID = 0;
 
 template<typename T>
 T SvcRequestPool::get_config(std::string const& option)
@@ -217,7 +217,7 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
         break;
     }
 
-    if (header->msg_src_id == static_cast<int64_t>(SVC_UNTRACKED_REQ_ID)) {
+    if (static_cast<SvcRequestId>(header->msg_src_id) == SVC_UNTRACKED_REQ_ID) {
         // TODO(Rao): For untracked requests invoke the error callback if one specified
         return;
     }
