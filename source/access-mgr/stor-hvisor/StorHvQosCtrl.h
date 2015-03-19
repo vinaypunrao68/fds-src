@@ -1,5 +1,10 @@
-#ifndef __STOR_HV_QOS_CTRL_H__
-#define  __STOR_HV_QOS_CTRL_H__
+/*
+ * Copyright 2014-2015 Formation Data Systems, Inc.
+ */
+
+#ifndef SOURCE_ACCESS_MGR_STOR_HVISOR_STORHVQOSCTRL_H_
+#define SOURCE_ACCESS_MGR_STOR_HVISOR_STORHVQOSCTRL_H_
+
 #include "qos_ctrl.h"
 #include "fds_qos.h"
 #include "../lib/qos_htb.h"
@@ -33,4 +38,4 @@ class StorHvQosCtrl : public FDS_QoSControl {
 };
 }
 
-#endif
+#endif  // SOURCE_ACCESS_MGR_STOR_HVISOR_STORHVQOSCTRL_H_

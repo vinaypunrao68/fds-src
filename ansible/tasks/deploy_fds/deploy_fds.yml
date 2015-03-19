@@ -8,9 +8,10 @@
 - include: clean_data.yml
   when: clean_fds is defined and clean_fds == "yes"
 
-- include: install_deps.yml
-
 - include: uninstall_fds.yml
+  when: skip_uninstall is not defined or (skip_uninstall is defined and skip_uninstall == False)
+
+- include: install_deps.yml
 
 - include: install_fds.yml
 

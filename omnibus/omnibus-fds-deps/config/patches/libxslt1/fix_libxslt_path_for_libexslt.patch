@@ -1,0 +1,13 @@
+--- libxslt-1.1.28/libexslt/Makefile.in-orig
++++ libxslt-1.1.28/libexslt/Makefile.in
+@@ -324,2 +324,2 @@
+-AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/libxslt -I$(top_srcdir)/libexslt \
+-	      -I$(top_builddir) -I$(top_builddir)/libxslt \
++AM_CPPFLAGS = -I$(top_srcdir) -I$(libdir)/libxslt -I$(top_srcdir)/libexslt \
++	      -I$(top_builddir) -I$(libdir)/libxslt \
+
+--- libxslt-1.1.28/libexslt/Makefile.in-orig
++++ libxslt-1.1.28/libexslt/Makefile.in
+@@ -349,1 +349,1 @@
+-libexslt_la_LIBADD = $(top_builddir)/libxslt/libxslt.la $(EXTRA_LIBS) $(LIBGCRYPT_LIBS)
++libexslt_la_LIBADD = $(includedir)/libxslt/libxslt.la $(EXTRA_LIBS) $(LIBGCRYPT_LIBS)

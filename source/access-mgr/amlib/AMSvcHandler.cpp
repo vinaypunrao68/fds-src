@@ -6,7 +6,7 @@
 
 #include <AMSvcHandler.h>
 
-#include "AmCache.h"
+#include "AmProcessor.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
@@ -170,7 +170,7 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
             // for crete bucket, if err not ok, it is most likely QOS admission control issue
             fds_verify(err.ok());
             // Create cache structures for volume
-            err = storHvisor->amCache->createCache(vdesc);
+            err = storHvisor->amProcessor->createCache(vdesc);
             fds_verify(err == ERR_OK);
         } else {
             /* complete all requests that are waiting on bucket to attach with error */
