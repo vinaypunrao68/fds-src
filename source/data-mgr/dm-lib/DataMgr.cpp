@@ -562,7 +562,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
         const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-        const std::string stat_dir = root->dir_user_repo_stats() + std::to_string(vol_uuid);
+        const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid);
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
 
