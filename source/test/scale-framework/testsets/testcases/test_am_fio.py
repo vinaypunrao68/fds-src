@@ -23,11 +23,11 @@ class TestAMFIO(testcase.FDSTestCase):
     def runTest(self):
         # execute the initial test
         try:
-            create_volume = "/fds/bin/fdscli --volume-create volume1 -i 1 -s 10240 -p 50 -y blk"
+            create_volume = "cd %s && ./fdsconsole.py accesslevel debug && ./fdsconsole.py volume create  volume1 --vol-type block --blk-dev-size 10485760" % (config.FDS_SBIN)
             stdin, stdout, stderr = self.my_ssh.ssh_conn.exec_command(create_volume)
             attach_volume = "python %s attach 10.2.10.200 volume1"  % config.NDBADM
             subprocess.call([attach_volume], shell=True)
-            modify_volume = "/fds/bin/fdscli --volume-modify volume1 -s 10240 -g 0 -m 0 -r 10"
+            modify_volume = "cd %s && ./fdsconsole.py volume modify volume1 --minimum 0 --maximum 10000 --priority 1" % (config.FDS_SBIN)
             stdin, stdout, stderr = self.my_ssh.ssh_conn.exec_command(modify_volume)
             self.test_datasets()
             self.my_ssh.ssh_conn.close()

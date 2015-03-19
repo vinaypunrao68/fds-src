@@ -6,11 +6,11 @@
 
 #include "fds_process.h"
 
-#include "AmCache.h"
 #include "AccessMgr.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
+#include "AmProcessor.h"
 
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/fdsn-server.h"
@@ -94,7 +94,7 @@ AccessMgr::registerVolume(const VolumeDesc& volDesc) {
     // TODO(Andrew): Create cache separately since
     // the volume data doesn't do it. We should converge
     // on a single volume add location.
-    storHvisor->amCache->createCache(volDesc);
+    storHvisor->amProcessor->createCache(volDesc);
     return storHvisor->vol_table->registerVolume(volDesc);
 }
 

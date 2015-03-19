@@ -18,7 +18,6 @@
 
 namespace fds
 {
-    class AmCache;
     class AmDispatcher;
     class AmProcessor;
     class AmRequest;
@@ -91,7 +90,6 @@ public:
     // TODO(Andrew): Move this to a unique_ptr and only into
     // AmProcessor once that's ready
     std::shared_ptr<fds::AmTxManager> amTxMgr;
-    std::shared_ptr<fds::AmCache> amCache;
 
     fds::Error sendTestBucketToOM(const std::string& bucket_name,
                              const std::string& access_key_id = "",
