@@ -112,3 +112,14 @@
     tags:
         - post-install
         - init
+
+-   name: render gmond config
+    template: src=../templates/deploy_fds/gmond.conf.j2
+        dest=/opt/fds-deps/embedded/etc/gmond.conf
+
+-   name: start gmond services
+    service: name={{item}}
+        state=running
+    with_items:
+        - gmond
+        - gmond-influxdb-bridge
