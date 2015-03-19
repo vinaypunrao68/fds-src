@@ -109,22 +109,10 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
     }
 
     LOGNOTIFY << "StorHvVolumeTable - Register new volume " << vdesc.name << " "
-<<<<<<< HEAD
               << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
               << " (iops_assured=" << vdesc.iops_assured << ", iops_throttle="
               << vdesc.iops_throttle <<", prio=" << vdesc.relativePrio << ")"
               << " result: " << err.GetErrstr();
-||||||| merged common ancestors
-              << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
-              << " (iops_min=" << vdesc.iops_min << ", iops_max="
-              << vdesc.iops_max <<", prio=" << vdesc.relativePrio << ")"
-              << " result: " << err.GetErrstr();
-=======
-        << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
-        << " (iops_min=" << vdesc.iops_min << ", iops_max="
-        << vdesc.iops_max <<", prio=" << vdesc.relativePrio << ")"
-        << " result: " << err.GetErrstr();
->>>>>>> davec-qos-blackbox-multivol
 
     /* check if any blobs are waiting for volume to be registered, and if so,
      * move them to appropriate qos queue  */
@@ -157,25 +145,11 @@ Error StorHvVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
     }
 
     LOGNOTIFY << "StorHvVolumeTable - modify policy info for volume "
-<<<<<<< HEAD
               << vdesc.name
               << " (iops_assured=" << vdesc.iops_assured
               << ", iops_throttle=" << vdesc.iops_throttle
               << ", prio=" << vdesc.relativePrio << ")"
               << " RESULT " << err.GetErrstr();
-||||||| merged common ancestors
-              << vdesc.name
-              << " (iops_min=" << vdesc.iops_min
-              << ", iops_max=" << vdesc.iops_max
-              << ", prio=" << vdesc.relativePrio << ")"
-              << " RESULT " << err.GetErrstr();
-=======
-        << vdesc.name
-        << " (iops_min=" << vdesc.iops_min
-        << ", iops_max=" << vdesc.iops_max
-        << ", prio=" << vdesc.relativePrio << ")"
-        << " RESULT " << err.GetErrstr();
->>>>>>> davec-qos-blackbox-multivol
 
     return err;
 }
