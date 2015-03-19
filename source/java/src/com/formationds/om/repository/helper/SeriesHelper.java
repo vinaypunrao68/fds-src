@@ -264,7 +264,7 @@ public class SeriesHelper {
         	// the value you desire.
         	Double d = bytesValues.stream()
                                         .filter( ( value ) -> {
-                                        	return value.getKey().equalsIgnoreCase( metrics.key() );
+                                        	return metrics.matches( value.getKey() );
                                         })
                                         .peek( ( l ) -> logger.trace( l.toString() ) )
                                         .mapToDouble( IVolumeDatapoint::getValue )

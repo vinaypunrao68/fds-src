@@ -40,8 +40,8 @@ public class TestInfluxRepository {
 		
 		String result = influxRepo.formulateQueryString( criteria );
 		
-		String expectation = "select * from volume_metrics where ( time > 0ms and time < 123456789ms ) " +
-			"and ( volume_id = 0123456 or volume_id = 7890 )";
+		String expectation = "select * from volume_metrics where ( time > 0s and time < 123456789s ) " +
+			"and ( volume_id = '0123456' or volume_id = '7890' )";
 		
 		System.out.println( "Expected: " + expectation );
 		System.out.println( "Actual: " + result );

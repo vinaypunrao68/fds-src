@@ -294,7 +294,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     			continue;
     		}
     		
-    		Long timestamp = Double.doubleToLongBits( (Double)timestampO );
+    		Long timestamp = ((Double)timestampO ).longValue();
     		String volumeName = volumeIdO.toString();
     		String volumeId = volumeIdO.toString();
     		
@@ -332,7 +332,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         String queryString = formulateQueryString( queryCriteria );
 
         // execute the query
-        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
+        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
 
         // convert from influxdb format to FDS model format
         List<IVolumeDatapoint> datapoints = convertSeriesToPoints( series );
