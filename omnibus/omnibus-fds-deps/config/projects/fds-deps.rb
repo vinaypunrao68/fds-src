@@ -17,7 +17,7 @@ install_dir "#{default_root}/#{name}"
 
 #build_version Omnibus::BuildVersion.semver
 build_version '0.7.4'
-build_iteration 1
+build_iteration 2
 
 # Creates required build directories
 dependency "preparation"
