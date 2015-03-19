@@ -31,7 +31,7 @@ class FdsAdminCtrl {
     ~FdsAdminCtrl();
 
     // Defines minimum object size in a volume in bytes
-    static const fds_uint32_t minVolObjSize = (4 * 1024);  // 4KB
+    static const fds_uint32_t minVolObjSize = 512;
 
     /* Per local domain  dynamic disk resource  counters */
     fds_uint64_t  total_disk_iops_max;

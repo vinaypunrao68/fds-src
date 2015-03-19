@@ -218,6 +218,10 @@ void
 DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg) { //NOLINT
     StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
+    if (!statAggr) {
+        LOGWARN << "statStreamAggregator is not initialised";
+        return;
+    }
     fds_assert(statAggr);
     fds_assert(streamRegstrMsg);
 
@@ -302,7 +306,7 @@ DMSvcHandler::StartDMMetaMigration(boost::shared_ptr<fpi::AsyncHdr>            &
     return;
 
     // see if DM sync feature is enabled
-    if (dataMgr->feature.isCatSyncEnabled()) {
+    if (dataMgr->features.isCatSyncEnabled()) {
         err = dataMgr->catSyncMgr->startCatalogSync(migrMsg->metaVol,
                                                          std::bind(
                                                              &DMSvcHandler::StartDMMetaMigrationCb,
@@ -342,7 +346,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
 
     // see if DM sync feature is enabled
-    if (dataMgr->feature.isCatSyncEnabled()) {
+    if (dataMgr->features.isCatSyncEnabled()) {
         err = dataMgr->catSyncMgr->startCatalogSyncDelta(std::bind(
                                                              &DMSvcHandler::NotifyDMTUpdateCb,
                                                              this, hdr,

@@ -14,7 +14,7 @@ namespace fds {
 namespace dm {
 
 StatStreamHandler::StatStreamHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::StatStreamMsg, handleRequest);
     }
 }

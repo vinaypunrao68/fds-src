@@ -196,6 +196,9 @@ fds: {
             use_lftp = true
         }
 
+        /* Timeline feature toggle */
+        enable_timeline = true
+
         /* Internal testing related info */
         testing: {
             standalone = false
@@ -519,6 +522,8 @@ fds: {
             /* Use lock free threadpool  */
             use_lftp = true
         }
+
+        enable_snapshot_schedule = true
 
         snmp: {
             targetip = "{{ snmp_targetip }}"

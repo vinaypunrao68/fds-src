@@ -133,8 +133,10 @@ class OrchMgr: public SvcProcess {
     void NotifyQueueFull(const fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                         const fpi::FDSP_NotifyQueueStateTypePtr& queue_state_req);
 
-    fds::snapshot::Manager snapshotMgr;
     DeleteScheduler deleteScheduler;
+
+    fds_bool_t enableSnapshotSchedule;
+    boost::shared_ptr<fds::snapshot::Manager> snapshotMgr;
 };
 
 /* config path: cli -> OM  */

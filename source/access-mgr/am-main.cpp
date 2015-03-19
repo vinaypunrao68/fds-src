@@ -15,7 +15,7 @@ class AMMain : public SvcProcess
     virtual ~AMMain() {}
     AMMain(int argc, char **argv) {
         am = AccessMgr::unique_ptr(new AccessMgr("AMMain AM Module", this));
-        fds::Module *modVec[] = {
+        static fds::Module *modVec[] = {
             am.get(),
             nullptr
         };

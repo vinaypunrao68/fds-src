@@ -40,24 +40,24 @@ This Admin App communicates with the FDS platform to create/manage volumes, as w
 {"name": "FDS"}
 ```
 
-### Domains(site and local) `#GET /api/config/domains` (this is probably going away)
+### Domains(site and local) `#GET /local_domains`
 
 ```JSON
 [
     {
-        "site": "Fremont",
-        "domain": "Formation Data Systems",
         "id": 0
+        "site": "Fremont",
+        "name": "Formation Data Systems",
     },
     {
-        "site": "San Francisco",
-        "domain": "Formation Data Systems",
         "id": 1
+        "site": "San Francisco",
+        "name": "Formation Data Systems",
     },
     {
-        "site": "Boulder",
-        "domain": "QuickLeft, Inc.",
         "id": 2
+        "site": "Boulder",
+        "name": "QuickLeft, Inc.",
     }
 ]
 ```

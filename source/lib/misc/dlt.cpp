@@ -821,8 +821,11 @@ Error DLTManager::setCurrent(fds_uint64_t version) {
     return ERR_NOT_FOUND;
 }
 
-void DLTManager::setCurrentDltClosed() {
-    fds_verify(curPtr != NULL);
+Error DLTManager::setCurrentDltClosed() {
+    if (curPtr == NULL) {
+        LOGWARN << "No current DLT";
+        return ERR_NOT_FOUND;
+    }
     fds_uint64_t curVersion = curPtr->getVersion();
 
     // because curPtr is const pointer, we are searching again...
@@ -838,6 +841,7 @@ void DLTManager::setCurrentDltClosed() {
             break;
         }
     }
+    return ERR_OK;
 }
 
 DltTokenGroupPtr DLTManager::getNodes(fds_token_id token) const {
