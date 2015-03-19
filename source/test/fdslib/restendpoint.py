@@ -246,6 +246,9 @@ class VolumeEndpoint:
 
     def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
 
+	vol_type = "object" if  vol_type == "s3"
+	vol_type = "block" if  vol_type == "blk"
+
         volume_info = {
             'name' : volume_name,
             'priority' : int(priority),
