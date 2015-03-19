@@ -10,10 +10,12 @@ import logging
 from FDS_ProtocolInterface.ttypes import *
 from svc_api.ttypes import *
 from svc_api.constants import *
+from svc_api import PlatNetSvc
 from sm_api import SMSvc
 from dm_api import DMSvc
 from config_api import ConfigurationService
-from pm_service import PlatNetSvc
+from om_api import OMSvc
+from svc_api import PlatNetSvc
 
 from thrift import Thrift
 from thrift.transport import TSocket
@@ -55,22 +57,15 @@ class SvcHandle(object):
             )
         return header
 
-class SvcInfo(object):
-    def __init__(self, node_id, svc_name, svc_enum, svc_type, ip, port):
-        self.node_id = node_id
-        self.svc_name = svc_name
-        self.svc_enum = svc_enum
-        self.svc_type = svc_type
-        self.ip = ip
-        self.port = port
-
 class SvcMap(object):
     # Mapping of service types (as strings) to thrift communication clients
     svc_type_map = {
         'sm' : [FDSP_MgrIdType.FDSP_STOR_MGR,       SMSvc],
         'dm' : [FDSP_MgrIdType.FDSP_DATA_MGR,       DMSvc],
         'am' : [FDSP_MgrIdType.FDSP_STOR_HVISOR,    PlatNetSvc],
-        'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       ConfigurationService],
+        #TODO(prem): add config service with different name
+        #'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       ConfigurationService],
+        'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       OMSvc],
         'pm' : [FDSP_MgrIdType.FDSP_PLATFORM,       PlatNetSvc]
     }
 
@@ -81,7 +76,7 @@ class SvcMap(object):
         """
         self.svc_cache = {}
         self.svc_tbl = {}
-        self.domain_nodes = None
+        self.services = None
         self.ip = ip
         self.port = int(port)
         self.refresh()
@@ -91,9 +86,10 @@ class SvcMap(object):
             return self.svc_cache[svc_uuid]
         except KeyError:
             # Create client connection and update cache
+            type_name = self.toSvcTypeStr(self.svc_tbl[svc_uuid].svc_type)
             self.svc_cache[svc_uuid] = SvcHandle(ip = self.svc_tbl[svc_uuid].ip,
-                                                 port = self.svc_tbl[svc_uuid].port,
-                                                 svc_type = self.svc_tbl[svc_uuid].svc_type)
+                                                 port = self.svc_tbl[svc_uuid].svc_port,
+                                                 svc_type = self.svc_type_map[type_name][1])
             return self.svc_cache[svc_uuid]
 
 
@@ -109,12 +105,11 @@ class SvcMap(object):
                 l.append(handle)
         return l
 
-    def client(self, nodeid, svc):
+    def client(self, svcid):
         """
         Returns thrift client for the service
         """
-        svc_uuid = self.svcUuid(nodeid, svc)
-        return self.clientBySvcId(svc_uuid)
+        return self.clientBySvcId(svcid)
 
     def clientBySvcId(self, svc_uuid):
         """
@@ -131,12 +126,12 @@ class SvcMap(object):
         return SvcHandle(self.ip, 9090, ConfigurationService).client
         #return self.svcHandle(None, 'om').client
 
-    def omPlat(self):
+    def omSvc(self):
         """
         Returns OM platform service handle
         """
         # TODO(Rao): Impl
-        return SvcHandle(self.ip, 7000, PlatNetSvc).client
+        return SvcHandle(self.ip, 7004, OMSvc).client
 
     def refresh(self):
         """
@@ -146,37 +141,20 @@ class SvcMap(object):
         """
         self.svc_cache.clear()
         self.svc_tbl.clear()
-        self.domain_nodes = self.omPlat().getDomainNodes(None)
-        for n in self.domain_nodes.dom_nodes:
-            nodeid = n.node_base_uuid.svc_uuid
-            for s in n.node_svc_list:
-                svc_uuid = s.svc_id.svc_uuid.svc_uuid
-                svc_name = self.toSvcTypeStr(s.svc_type)
-                svc_enum = None
-                svc_type = None
-                if svc_name:
-                    svc_enum = self.svc_type_map[svc_name][0]
-                    svc_type = self.svc_type_map[svc_name][1]
-                self.svc_tbl[svc_uuid] = SvcInfo(node_id = n.node_base_uuid.svc_uuid,
-                                                 svc_name = svc_name,
-                                                 svc_enum = svc_enum,
-                                                 svc_type = svc_type,
-                                                 ip = n.node_addr,
-                                                 port = s.svc_port)
+        self.services = self.omSvc().getSvcMap(None)
+        for s in self.services:
+            svc_uuid = s.svc_id.svc_uuid.svc_uuid;
+            self.svc_tbl[svc_uuid] = s;
 
-    def __node_status(self, val):
+    def __svc_status(self, val):
         if val == 0:
-            return 'Up'
+            return 'Invalid'
         elif val == 1:
-            return 'Down'
+            return 'Active'
         elif val == 2:
-            return 'Removed'
-        elif val == 3:
-            return 'Discovered'
-        elif val == 4:
-            return 'Starting Migration'
+            return 'Inactive'
         else:
-            'Error'
+            return 'Error'
 
 
     def list(self):
@@ -184,23 +162,10 @@ class SvcMap(object):
         Returns service list in format [nodeid:svctype, ip, port]
         """
         l = []
-        for n in self.domain_nodes.dom_nodes:
-            nodeid = n.node_base_uuid.svc_uuid
-            for s in n.node_svc_list:
-                svc = self.toSvcTypeStr(s.svc_type)
-                l.append([n.node_base_uuid.svc_uuid, svc, n.node_addr, s.svc_port, self.__node_status(n.node_state)])
+        for s in self.services:
+            svc = self.toSvcTypeStr(s.svc_type)
+            l.append([s.svc_id.svc_uuid.svc_uuid, svc, s.incarnationNo, s.ip, s.svc_port, self.__svc_status(s.svc_status)])
         return l
-
-    def svcUuid(self, nodeid, svc):
-        """
-        @nodeid: Node uuid
-        @svc: svc type string.  One of ['sm', 'dm', etc.]
-        @return svc uuid of svc residing on nodeid or None if not found
-        """
-        for k,v in self.svc_tbl.items():
-            if v.node_id == nodeid and v.svc_name == svc:
-                return k
-        return None
 
     def svcUuids(self, svc):
         """

@@ -41,6 +41,7 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
        log.warning("There is no write access to the specified log "
                          "directory %s  No log file will be created." %dir)
     else:
+        log_handle = None
         try:
             log_handle = logging.handlers.RotatingFileHandler(log_file, "w",
                                                               max_bytes,
@@ -50,10 +51,10 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
             if os.path.exists(log_file):
                 log_handle.doRollover()
         except:
-            log.warning("Failed to rollover the log file.  The "
-                             "results will not be recorded.")
+            log.error("Failed to rollover the log file. Perhaps a permissions problem on the log file %s." %
+                      log_file)
             logging.getLogger("").removeHandler(log_handle)
-    #log.log(100, " ".join(sys.argv))
+            sys.exit(1)
 
     return log
 

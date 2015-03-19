@@ -26,6 +26,7 @@ from filechunkio import FileChunkIO
 
 import config
 import s3
+import samples
 import testsets.testcase as testcase
 import utils
 
@@ -38,27 +39,25 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                                                     parameters=parameters,
                                                     config_file=config_file,
                                                     om_ip_address=om_ip_address)
-        # self.log.info("OM IP Address: %s", self.om_ip_address)
+        
         self.ip_addresses = config_parser.get_ips_from_inventory(
-                                           config.DEFAULT_INVENTORY_FILE)
+                                           self.inventory_file)
         self.hash_table = {}
         self.s3_connections_table = {}
         self.sample_files = []
         self.volumes_count = config.MAX_NUM_VOLUMES
-        # lets start with 10 connections for now ... 
-        f_sample = "sample_file_%s"
-        if not os.path.exists(config.SAMPLE_DIR):
-            os.makedirs(config.SAMPLE_DIR)
-        if not os.path.exists(config.DOWNLOAD_DIR):
-            os.makedirs(config.DOWNLOAD_DIR)
+        # lets start with 10 connections for now ..
+        utils.create_dir(config.TEST_DIR)
+        utils.create_dir(config.DOWNLOAD_DIR)
             
-        for i in xrange(0, 5):
-            current = f_sample % i
-            if utils.create_file_sample(current, 2):
+        # for this test, we will create 5 sample files, 2MB each
+        for current in samples.sample_mb_files[:3]:
+            path = os.path.join(config.TEST_DIR, current)
+            if os.path.exists(path):
                 self.sample_files.append(current)
-                path = os.path.join(config.SAMPLE_DIR, current)
                 encode = utils.hash_file_content(path)
                 self.hash_table[current] = encode
+        self.log.info("hash table: %s" % self.hash_table)   
 
     def create_s3_connection(self, ip):
         '''
@@ -78,7 +77,7 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
             None,
             ip,
             config.FDS_S3_PORT,
-            self.om_ip_address
+            self.om_ip_address,
         )
         s3conn.s3_connect()
         return s3conn
@@ -96,14 +95,8 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                 self.id_number += 1
 
         self.concurrently_volumes()
-
         self.log.info("Removing the sample files created.")
-        if os.path.exists(config.SAMPLE_DIR):
-            self.log.info("Removing %s" % config.SAMPLE_DIR)
-            shutil.rmtree(config.SAMPLE_DIR)
-        if os.path.exists(config.DOWNLOAD_DIR):
-            self.log.info("Removing %s" % config.DOWNLOAD_DIR)
-            shutil.rmtree(config.DOWNLOAD_DIR)
+        utils.remove_dir(config.DOWNLOAD_DIR)
         self.reportTestCaseResult(self.test_passed)
     
     def concurrently_volumes(self):
@@ -118,7 +111,6 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                                  bucket for s3conn, bucket in \
                                  self.s3_connections_table.iteritems() }
             for future in concurrent.futures.as_completed(future_volumes):
-                self.log.info(future)
                 try:
                     # self.delete_volume(s3conn, bucket)
                     self.test_passed = True
@@ -126,6 +118,9 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                     self.log.exception('generated an exception: %s' % exc)
                     self.test_passed = False
                     break
+        # clean up existing buckets
+        for s3conn, bucket in self.s3_connections_table.iteritems():
+            self.delete_volume(s3conn, bucket)
         self.reportTestCaseResult(self.test_passed)   
 
     def run_tasks(self, s3conn, bucket):
@@ -211,7 +206,7 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
         # add the data files to the bucket.
         k = Key(bucket)
         for sample in self.sample_files:
-            path = os.path.join(config.SAMPLE_DIR, sample)
+            path = os.path.join(config.TEST_DIR, sample)
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,
@@ -237,7 +232,4 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
                 bucket.delete_key(key)
             self.log.info("Deleting bucket: %s", bucket.name)
             s3conn.conn.delete_bucket(bucket.name)
-        
-        if self.s3_connections_table.has_key(s3conn):
-            del self.s3_connections_table[s3conn]
             s3conn.s3_disconnect()

@@ -8,6 +8,7 @@
 #include <fdsp/dm_types_types.h>
 #include <fdsp/sm_api_types.h>
 #include <fds_resource.h>
+#include <net/SvcMgr.h>
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -51,6 +52,13 @@ FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
 {
     lhs.svc_uuid = rhs.uuid_get_val();
+    return lhs;
+}
+
+FDS_ProtocolInterface::FDSP_Uuid&
+assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs)
+{
+    lhs.uuid = rhs.svc_uuid.svc_uuid;
     return lhs;
 }
 

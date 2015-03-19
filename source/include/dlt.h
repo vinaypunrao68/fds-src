@@ -260,7 +260,7 @@ namespace fds {
 
         // Make the specific version as the current
         Error setCurrent(fds_uint64_t version);
-        void setCurrentDltClosed();
+        Error setCurrentDltClosed();
 
         // get all the Nodes for a token/objid
         // NOTE:: from the current dlt!!!

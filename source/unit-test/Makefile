@@ -7,6 +7,7 @@ user_build_dir :=      \
     umod-lib           \
     util               \
     stor-mgr           \
-    data-mgr
+    data-mgr           \
+    restart
 
 include $(topdir)/Makefile.incl

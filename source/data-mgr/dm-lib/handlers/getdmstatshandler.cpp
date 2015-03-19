@@ -14,7 +14,7 @@ namespace fds {
 namespace dm {
 
 DmSysStatsHandler::DmSysStatsHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetDmStatsMsg, handleRequest);
     }
 }

@@ -34,7 +34,7 @@ namespace fds {
 namespace dm {
 
 ReloadVolumeHandler::ReloadVolumeHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(ReloadVolumeMsg, handleRequest);
     }
 }

@@ -5,7 +5,7 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLAT_UUID_BIND_UPDATE_H_
 #define SOURCE_PLATFORM_INCLUDE_PLAT_UUID_BIND_UPDATE_H_
 
-#include "net/RpcFunc.h"
+#include <net/SvcMgr.h>
 #include "fdsp/PlatNetSvc.h"
 #include "platform/node_agent_iter.h"
 #include "platform/domain_agent.h"

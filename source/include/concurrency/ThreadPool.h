@@ -14,11 +14,13 @@
 #include <fds_types.h>
 #include <concurrency/Mutex.h>
 #include <concurrency/Thread.h>
+#include <concurrency/LFThreadpool.h>
 
 namespace fds {
 class thpool_req;
 class thpool_worker;
 class fds_threadpool;
+
 enum thp_state_e { INIT, IDLE, TERM, WAKING_UP, RUNNING, SPAWNING, EXITING };
 
 /*
@@ -37,27 +39,12 @@ class thpool_req : public Task
      * These are all basically wrappers around boost::bind for varying
      * parameter combinations to make the interface a bit cleaner.
      */
-    template<typename F, typename A>
-    thpool_req(F f, A a) : Task(boost::bind(f, a)) {
+     template <class F, class... Args>
+     thpool_req(F&& f, Args&&... args): Task(std::bind(std::forward<F>(f), std::forward<Args>(args)...))
+     {
         dlist_obj_init(&thp_link, this);
-    }
-    template<typename F, typename A, typename B>
-    thpool_req(F f, A a, B b) : Task(boost::bind(f, a, b)) {
-        dlist_obj_init(&thp_link, this);
-    }
-    template<typename F, typename A, typename B, typename C>
-    thpool_req(F f, A a, B b, C c) : Task(boost::bind(f, a, b, c)) {
-        dlist_obj_init(&thp_link, this);
-    }
-    template<typename F, typename A, typename B, typename C, typename D>
-    thpool_req(F f, A a, B b, C c, D d) : Task(boost::bind(f, a, b, c, d)) {
-        dlist_obj_init(&thp_link, this);
-    }
-    template<typename F, typename A, typename B, typename C, typename D, typename E>
-    thpool_req(F f, A a, B b, C c, D d, E e)
-        : Task(boost::bind(f, a, b, c, d, e)) {
-        dlist_obj_init(&thp_link, this);
-    }
+     }
+
     /** \thp_chain_task
      * ----------------
      * Chain this task to a list.
@@ -111,7 +98,7 @@ class fds_threadpool : boost::noncopyable
     int                 thp_num_threads;
     int                 thp_active_threads;
     int                 thp_tasks_pend;
-
+    bool                use_lftp_instead;
     /* Thread pool stats. */
     fds_uint32_t        thp_total_tasks;
     fds_uint32_t        thp_exec_direct;
@@ -119,45 +106,41 @@ class fds_threadpool : boost::noncopyable
     /* Called by the worker thread to dequeue or put itself to idle state. */
     thpool_req *thp_dequeue_task_or_idle(thpool_worker *worker);
 
+    LFMQThreadpool *lfthreadpool;
+
   public:
     ~fds_threadpool();
     /*
      * Create the threadpool with specified number of thread.
      */
-    explicit fds_threadpool(int num_thr = 10);
+    fds_threadpool(int num_thr = 10, bool use_lftp = false);
 
     /* Scheduling functions. */
-    void schedule(thpool_req *task);
+    template <class F, class... Args>
+    void schedule(F&& f, Args&&... args);
+
+    void scheduleTask(thpool_req *task);
 
     /* Worker notifies the pool owner when its thread exits. */
     void thp_worker_exit(thpool_worker *worker);
 
-    template<typename F, typename A>
-    void schedule(F f, A a) {
-       schedule(new thpool_req(f, a));
-    }
-    template<typename F, typename A, typename B>
-    void schedule(F f, A a, B b) {
-       schedule(new thpool_req(f, a, b));
-    }
-    template<typename F, typename A, typename B, typename C>
-    void schedule(F f, A a, B b, C c) {
-       schedule(new thpool_req(f, a, b, c));
-    }
-    template<typename F, typename A, typename B, typename C, typename D>
-    void schedule(F f, A a, B b, C c, D d) {
-       schedule(new thpool_req(f, a, b, c, d));
-    }
-    template<typename F, typename A, typename B, typename C, typename D, typename E>
-    void schedule(F f, A a, B b, C c, D d, E e) {
-       schedule(new thpool_req(f, a, b, c, d, e));
-    }
-    template<typename F, typename A, typename B,
-             typename C, typename D, typename E, typename G>
-    void schedule(F f, A a, B b, C c, D d, E e, G g) {
-       schedule(new thpool_req(f, a, b, c, d, e, g));
-    }
 };
+
+/*
+ * Schedules a task to be run. Either picks up lfthreadpool to schedule the task
+ * if config file says use_lftp = true. If not, then a fds threadpool request is
+ * created and is scheduled on fds_threadpool.
+ */
+template<class F, class... Args>
+void fds_threadpool::schedule(F&& f, Args&&... args)
+{
+    if (use_lftp_instead) {
+        lfthreadpool->schedule(std::forward<F>(f), std::forward<Args>(args)...);
+    } else {
+        thpool_req *task = new thpool_req(std::forward<F>(f), std::forward<Args>(args)...);
+        scheduleTask(task);
+    }
+}
 
 typedef boost::shared_ptr<fds_threadpool> fds_threadpoolPtr;
 

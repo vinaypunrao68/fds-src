@@ -60,7 +60,7 @@ mockActivities = function(){
                 }
             }
             
-            callback( {events: events} );
+            callback( events );
         };
         
         var isActive = function( status ){

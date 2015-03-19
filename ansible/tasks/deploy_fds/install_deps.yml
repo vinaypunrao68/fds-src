@@ -31,7 +31,7 @@
         - install-deps
 
 -   name: add local mirrors to /etc/hosts
-    when: fds_deploy_local_deps is not defined or not fds_deploy_local_deps
+    when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false
     lineinfile: dest=/etc/hosts
         line="{{item}}"
     with_items:
@@ -40,13 +40,13 @@
         -   10.1.10.50 fre-apt.formationds.com fre-apt
 
 -   name: add artifactory repo key
-    when: fds_deploy_local_deps is not defined or not fds_deploy_local_deps
+    when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false
     apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
     tags:
         - install-deps
 
 -   name: add local fds nightly platform repo
-    when: cluster_location is defined and (fds_deploy_local_deps is not defined or not fds_deploy_local_deps)
+    when: cluster_location is defined and (fds_deploy_local_deps is not defined or fds_deploy_local_deps == false)
     apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform nightly"
         state=present
         update_cache=yes
@@ -54,7 +54,7 @@
       - install-deps
 
 -   name: add Artifactory fds nightly platform repo
-    when: cluster_location is not defined and (fds_deploy_local_deps is not defined or not fds_deploy_local_deps)
+    when: cluster_location is not defined and (fds_deploy_local_deps is not defined or fds_deploy_local_deps == false)
     apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
         state=present
         update_cache=yes
@@ -62,7 +62,7 @@
       - install-deps
 
 -   name: install fds-deps package from repo
-    when: fds_deploy_local_deps is not defined or not fds_deploy_local_deps
+    when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false
     apt: name=fds-deps
         force=yes
         state=latest
@@ -71,7 +71,7 @@
         - install-deps
 
 -   name: push local fds-deps deb to cluster nodes
-    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps) and this_is_an_ec2_node is not defined
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == true) and this_is_an_ec2_node is not defined
     copy: src={{ item }}
        dest=/root/fds-deps.deb
     with_fileglob:
@@ -79,14 +79,19 @@
     tags:
       - install-local
 
+-   pause: seconds=5
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == true) and this_is_an_ec2_node is not defined
+    tags:
+      - install-local
+
 -   name: install fds deps from local deb
-    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps) and this_is_an_ec2_node is not defined
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == true) and this_is_an_ec2_node is not defined
     apt: deb="/root/fds-deps.deb"
     tags:
       - install-local
 
 -   name: push local fds-deps deb from awo-bh-01 to cluster nodes
-    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps) and (this_is_an_ec2_node is defined and this_is_an_ec2_node)
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == true) and (this_is_an_ec2_node is defined and this_is_an_ec2_node)
     synchronize: src="/home/deploy/deb_staging/{{ instance_name_tag }}/fds-deps.deb"
         dest="/home/deploy/fds-deps.deb"
         rsync_timeout=3 mode=push private_key="/home/deploy/.ssh/fds-deploy_rsa"
@@ -95,7 +100,7 @@
       - install-local
 
 -   name: install fds deps from local deb (ec2)
-    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps) and (this_is_an_ec2_node is defined and this_is_an_ec2_node)
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == true) and (this_is_an_ec2_node is defined and this_is_an_ec2_node)
     apt: deb="/home/deploy/fds-deps.deb"
     tags:
       - install-local

@@ -15,6 +15,7 @@ VolumePlacement::VolumePlacement()
         : Module("Volume Placement Engine"),
           dmtMgr(new DMTManager(1)),
           prevDmtVersion(DMT_VER_INVALID),
+          startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex")
 {
@@ -96,13 +97,17 @@ void
 VolumePlacement::computeDMT(const ClusterMap* cmap)
 {
     Error err(ERR_OK);
-    fds_uint64_t next_version = DMT_VER_INVALID + 1;
+    fds_uint64_t next_version = startDmtVersion;
     fds_uint32_t depth = curDmtDepth;
     DMT *newDmt = NULL;
 
     // if we alreay have commited DMT, next version is inc 1
     if (dmtMgr->hasCommittedDMT()) {
         next_version = dmtMgr->getCommittedVersion() + 1;
+    } else {
+        // will use startDmtVersion, but increment startDmtVersion
+        // in case this DMT will be reverted (due to error)
+        ++startDmtVersion;
     }
     if (cmap->getNumMembers(fpi::FDSP_DATA_MGR) < curDmtDepth) {
         depth = cmap->getNumMembers(fpi::FDSP_DATA_MGR);
@@ -346,8 +351,8 @@ VolumePlacement::undoTargetDmtCommit() {
             prevDmtVersion = DMT_VER_INVALID;
         }
 
-        // forget about target DMT
-        dmtMgr->unsetTarget();
+        // forget about target DMT and remove it from DMT manager
+        dmtMgr->unsetTarget(true);
 
         // also forget target DMT in persistent store
         if (!configDB->setDmtType(0, "target")) {
@@ -397,7 +402,7 @@ VolumePlacement::persistCommitedTargetDmt() {
     LOGDEBUG << *dmtMgr;
 
     // unset target DMT in DMT Mgr
-    Error err = dmtMgr->unsetTarget();
+    Error err = dmtMgr->unsetTarget(false);
     if (!err.ok()) {
         LOGERROR << "Failed to unset DMT target " << err;
     }

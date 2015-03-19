@@ -10,8 +10,7 @@ user_incl_dir     := \
 	../include \
 	$(topdir)/stor-mgr/migrations \
 	$(topdir)/lib \
-	$(topdir)/persistent-layer/include \
-	/opt/fds-deps/embedded/include/cryptopp
+	$(topdir)/persistent-layer/include
 
 user_cpp_flags    := -DOBJCACHE_ENABLE
 user_cpp          :=                   \
@@ -26,7 +25,7 @@ user_cpp          :=                   \
     ObjMeta.cpp                        \
     SMSvcHandler.cpp                   \
     MockSMCallbacks.cpp                \
-    TokenMigrationMgr.cpp              \
+    MigrationMgr.cpp                   \
     MigrationExecutor.cpp              \
     MigrationClient.cpp                \
     MigrationUtility.cpp               \

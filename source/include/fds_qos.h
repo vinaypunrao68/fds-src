@@ -322,6 +322,8 @@ namespace fds {
             * if want to set both scheduler and ice threads (that repond to incoming packets) high prio */
             // setSchedThreadPriority();
 
+            LOGNOTIFY << "Starting qos dispatcher thread";
+
             while (!shuttingDown) {
                 parent_ctrlr->waitForWorkers();
 
@@ -338,6 +340,7 @@ namespace fds {
                     n_pios = num_pending_ios.load(std::memory_order_relaxed);
 
                     if (shuttingDown == true) {
+                        LOGNOTIFY << "Exiting qos dispatcher thread.  " << err;
                         return err;
                     } else if (n_pios > 0) {
                         break;
@@ -411,6 +414,8 @@ namespace fds {
 
                 parent_ctrlr->processIO(io);
             }
+
+            LOGNOTIFY << "Exiting qos dispatcher thread.  " << err;
 
             return err;
         }

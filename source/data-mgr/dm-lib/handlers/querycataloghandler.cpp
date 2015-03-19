@@ -14,7 +14,7 @@ namespace fds {
 namespace dm {
 
 QueryCatalogHandler::QueryCatalogHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::QueryCatalogMsg, handleRequest);
     }
 }
@@ -22,9 +22,6 @@ QueryCatalogHandler::QueryCatalogHandler() {
 void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::QueryCatalogMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
-
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_queries > 0));
 
     auto dmReq = new DmIoQueryCat(message);
     dmReq->cb = BIND_MSG_CALLBACK(QueryCatalogHandler::handleResponse, asyncHdr, message);

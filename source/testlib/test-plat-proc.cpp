@@ -14,14 +14,7 @@ namespace fds {
 
 FdsService::FdsService(int argc, char *argv[], const std::string &log, Module **vec)
 {
-    static Module *plat_vec[] = {
-        &gl_NodePlatform,
-        &gl_NetService,
-        &gl_PlatformdNetSvc,
-        NULL
-    };
-    svc_modules = Module::mod_cat(plat_vec, vec);
-    init(argc, argv, "fds.plat.", log, &gl_NodePlatform, svc_modules);
+    fds_panic("Port this code platform independent service layer");
 }
 
 FdsService::~FdsService()
@@ -38,11 +31,6 @@ FdsService::proc_pre_startup()
 void
 FdsService::proc_pre_service()
 {
-    /* TODO(Vy/Rao): Total hack.  Most of the code platform implementers owned base async receiver
-     * in the NodePlatform case that's not the case.  It's owned by PlatformdNetSvc.  We need to
-     * fix this make sure all platform implementers are consistent in the paradigms they follow
-     */
-    gl_NodePlatform.setBaseAsyncSvcHandler(gl_PlatformdNetSvc.getPlatNetSvcHandler());
 }
 
 void

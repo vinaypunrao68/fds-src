@@ -81,7 +81,7 @@ class VolumeContext(Context):
     @arg('--tenant-id', help='-id of tenant to create volume under', type=int)
     @arg('--commit-log-retention', help= " continuous commit log retention time in seconds", type=long)
     # @arg('--media-policy', help='-media policy for volume', choices=['ssd', 'hdd'])
-    def create(self, vol_name, domain='abc', max_obj_size=2097152,
+    def create(self, vol_name, domain='abc', max_obj_size=0,
                vol_type='object', blk_dev_size=21474836480, tenant_id=1, commit_log_retention=86400 ):
                # media_policy='hdd'):
         
@@ -94,9 +94,12 @@ class VolumeContext(Context):
 
         if vol_type == 'object':
             vol_type = ttypes.VolumeType.OBJECT
+            if max_obj_size == 0:
+                max_obj_size = 2097152
         elif vol_type == 'block':
             vol_type = ttypes.VolumeType.BLOCK
-            max_obj_size = 4096
+            if max_obj_size == 0:
+                max_obj_size = 4096
         elif vol_type not in (ttypes.VolumeType.OBJECT, ttypes.VolumeType.BLOCK):
             vol_type = ttypes.VolumeSettings.VolumeType.OBJECT
 

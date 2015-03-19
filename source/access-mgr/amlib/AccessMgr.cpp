@@ -6,19 +6,15 @@
 
 #include "fds_process.h"
 
-#include "am-platform.h"
-
-#include "AmCache.h"
 #include "AccessMgr.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
+#include "AmProcessor.h"
 
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/fdsn-server.h"
 #include "connector/block/NbdConnector.h"
-
-extern AmPlatform gl_AmPlatform;
 
 namespace fds {
 
@@ -61,15 +57,12 @@ AccessMgr::mod_init(SysParams const *const param) {
         new AsyncDataServer("AM Async Server", instanceId));
     asyncServer->init_server();
 
-    if (!conf.get<bool>("testing.toggleStandAlone")) {
+    if (!conf.get<bool>("testing.standalone")) {
         omConfigApi = boost::make_shared<OmConfigApi>();
     }
 
     blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(omConfigApi));
 
-    // Update the AM's platform with our instance ID so that
-    // common fields (e.g., ports) can be updated
-    gl_AmPlatform.setInstanceId(instanceId);
     return 0;
 }
 
@@ -82,12 +75,11 @@ AccessMgr::mod_shutdown() {
     delete storHvisor;
 }
 
-void
-AccessMgr::mod_lockstep_start_service() {
+void AccessMgr::mod_enable_service()
+{
+    LOGNOTIFY << "Enbaling services ";
     storHvisor->StartOmClient();
     storHvisor->qos_ctrl->runScheduler();
-
-    this->mod_lockstep_done();
 }
 
 void
@@ -102,7 +94,7 @@ AccessMgr::registerVolume(const VolumeDesc& volDesc) {
     // TODO(Andrew): Create cache separately since
     // the volume data doesn't do it. We should converge
     // on a single volume add location.
-    storHvisor->amCache->createCache(volDesc);
+    storHvisor->amProcessor->createCache(volDesc);
     return storHvisor->vol_table->registerVolume(volDesc);
 }
 

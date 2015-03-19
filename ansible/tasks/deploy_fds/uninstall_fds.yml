@@ -1,8 +1,19 @@
 ---
--   name: uninstall fds
-    apt: name=fds-platform*
+-   name: uninstall fds-platform-(dbg|rel)
+    apt: name={{item}}
         state=absent
         purge=yes
+    with_items:
+        - fds-platform-rel
+        - fds-platform-dbg
+    tags:
+        - uninstall
+
+-   name: uninstall fds-deps when installing local fds-deps package
+    apt: name=fds-deps
+        state=absent
+        purge=yes
+    when: fds_deploy_local_deps is defined and fds_deploy_local_deps == True
     tags:
         - uninstall
 

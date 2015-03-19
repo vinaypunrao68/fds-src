@@ -6,7 +6,6 @@ package com.formationds.om.repository.helper;
 
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.Events;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.Statistics;
@@ -19,6 +18,7 @@ import com.formationds.commons.model.calculated.capacity.*;
 import com.formationds.commons.model.calculated.performance.AverageIOPs;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.calculated.performance.PercentageConsumed;
+import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
@@ -250,7 +250,7 @@ public class QueryHelper {
      * @return the events matching the query criteria
      * @throws TException
      */
-    public Events executeEventQuery( final QueryCriteria query )
+    public List<? extends Event> executeEventQuery( final QueryCriteria query )
             throws TException {
         EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
 

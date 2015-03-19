@@ -6,7 +6,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <fds_config.hpp>
-
+#include <util/properties.h>
 namespace fds {
 
 /* Forward declarations */
@@ -18,6 +18,7 @@ class FdsRootDir;
 class fds_threadpool;
 class Platform;
 class TracebufferPool;
+struct SvcMgr;
 
 /* Interface for providing common process modules
  * NOTES
@@ -49,9 +50,36 @@ class CommonModuleProviderIf {
     virtual Platform* get_plf_manager() { return nullptr; }
 
     virtual TracebufferPool* getTracebufferPool() {return nullptr; }
+
+    virtual SvcMgr* getSvcMgr() {return nullptr;}
+
+    virtual util::Properties* getProperties() { return nullptr;}
 };
 
-extern CommonModuleProviderIf* gModuleProvider;
+#define MODULEPROVIDER() getModuleProvider()
+
+/**
+* @brief Derive from this class to have access to moduel provider.
+* IMPORTANT - FOR ANY NEW CODE, DON'T USE GLOBALS.  INSTEAD DERIVE THIS CLASS.
+*/
+struct HasModuleProvider {
+    explicit HasModuleProvider(CommonModuleProviderIf* provider) {
+        setModuleProvider(provider);
+    }
+    void setModuleProvider(CommonModuleProviderIf* provider) {
+        moduleProvider_ = provider;
+    }
+    CommonModuleProviderIf* getModuleProvider() const {
+        return moduleProvider_;
+    }
+    CommonModuleProviderIf* moduleProvider_;
+};
+
+/*
+ * IMPORTANT - Don't use getModuleProvider() directly.  Instead use the MODULEPROVIDER() macro
+ */
+extern CommonModuleProviderIf* getModuleProvider();
+
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_MODULE_PROVIDER_H_

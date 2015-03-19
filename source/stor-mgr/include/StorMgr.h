@@ -38,13 +38,11 @@
 #include "lib/OMgrClient.h"
 
 #include "fds_module.h"
-#include "platform/typedefs.h"
 
-// #include "NetSession.h"
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>
-#include <TokenMigrationMgr.h>
+#include <MigrationMgr.h>
 
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -299,7 +297,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
      void readObjDeltaSet(SmIoReq* ioReq);
 
-     void handleDltUpdate();
+     Error handleDltUpdate();
 
      void storeCurrentDLT();
 

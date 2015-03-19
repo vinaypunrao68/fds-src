@@ -9,6 +9,7 @@ from boto.s3.key import Key
 
 import config
 import s3
+import samples
 import users
 import utils
 import testsets.testcase as testcase
@@ -36,19 +37,18 @@ class TestGigabyteBlobSize(testcase.FDSTestCase):
         self.hash_table = {}
     
     def runTest(self):
-        if not os.path.exists(config.SAMPLE_DIR):
-            os.makedirs(config.SAMPLE_DIR)
-        if not os.path.exists(config.DOWNLOAD_DIR):
-            os.makedirs(config.DOWNLOAD_DIR)
+        utils.create_dir(config.DOWNLOAD_DIR)
+        utils.create_dir(config.TEST_DIR)
 
         s3conn = s3.S3Connection(
             config.FDS_DEFAULT_ADMIN_USER,
             None,
             self.om_ip_address,
             config.FDS_S3_PORT,
+            self.om_ip_address
         )
         s3conn.s3_connect()
-        bucket_name = "volume_blob_test"
+        bucket_name = "volume_blob_test_gb"
         bucket = s3conn.conn.create_bucket(bucket_name)
         if bucket == None:
             raise Exception("Invalid bucket.")
@@ -63,12 +63,8 @@ class TestGigabyteBlobSize(testcase.FDSTestCase):
         # Delete the bucket
         self.destroy_volume(bucket, s3conn)
         # remove the existing file
-        if os.path.exists(config.SAMPLE_DIR):
-            self.log.info("Removing %s" % config.SAMPLE_DIR)
-            shutil.rmtree(config.SAMPLE_DIR)
-        if os.path.exists(config.DOWNLOAD_DIR):
-            self.log.info("Removing %s" % config.DOWNLOAD_DIR)
-            shutil.rmtree(config.DOWNLOAD_DIR)
+        self.log.info("Removing: %" % config.DOWNLOAD_DIR)
+        utils.remove_dir(config.DOWNLOAD_DIR)
             
     def destroy_volume(self, bucket, s3conn):
         if bucket:
@@ -103,19 +99,14 @@ class TestGigabyteBlobSize(testcase.FDSTestCase):
 
     def create_random_size_files(self, bucket):
         # lets produce 1000 files for each volume
-        f_sample = "sample_file_%s"
-        # We wanted to do a 10gb test ... but it won't very far!
-        file_sizes = [1, 2, 3, 4, 5]
-        for file_size in file_sizes:
-            current = f_sample % file_size
-            # produce a number between 1 - 1000
-            if utils.create_file_sample(current, file_size, unit="G"):
+        for current in samples.sample_gb_files:
+            path = os.path.join(config.TEST_DIR, current)
+            if os.path.exists(path):
                 self.sample_files.append(current)
-                path = os.path.join(config.SAMPLE_DIR, current)
                 encode = utils.hash_file_content(path)
                 self.hash_table[current] = encode
                 
-                path = os.path.join(config.SAMPLE_DIR, current)
+                path = os.path.join(config.TEST_DIR, current)
                 # Upload the file immediately, and remove its copy from the
                 # repository
                 if os.path.exists(path):

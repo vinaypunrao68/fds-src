@@ -17,6 +17,9 @@
 
 namespace fds {
 
+/* Forward declarations */
+struct EPSvcRequest;
+
 const fds_token_id SMTokenInvalidID = 0xffffffff;
 /**
  * This is the client class for token migration.  This class is instantiated by the

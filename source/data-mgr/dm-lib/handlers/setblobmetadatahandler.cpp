@@ -15,7 +15,7 @@ namespace fds {
 namespace dm {
 
 SetBlobMetaDataHandler::SetBlobMetaDataHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::SetBlobMetaDataMsg, handleRequest);
     }
 }

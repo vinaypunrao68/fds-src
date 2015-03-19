@@ -16,7 +16,7 @@ namespace fds {
 namespace dm {
 
 ForwardCatalogUpdateHandler::ForwardCatalogUpdateHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::ForwardCatalogMsg, handleRequest);
     }
 }

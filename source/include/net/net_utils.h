@@ -11,6 +11,8 @@ namespace net {
 
 std::string get_my_hostname();
 std::string get_local_ip(std::string ifc);
+std::string ipAddr2String(int ipaddr);
+int ipString2Addr(std::string ipaddr_str);
 }  // namespace net
 }  // namespace fds
 

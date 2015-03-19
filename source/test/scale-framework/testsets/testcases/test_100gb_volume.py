@@ -108,6 +108,5 @@ class Test100GBVolume(testcase.FDSTestCase):
 
         except Exception, e:
             self.log.exception(e)
-            test_passed = False
-
-        super(self.__class__, self).reportTestCaseResult(test_passed)
+        finally:
+            super(self.__class__, self).reportTestCaseResult(test_passed)

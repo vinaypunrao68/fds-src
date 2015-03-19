@@ -2,17 +2,17 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <StorMgr.h>
-#include <net/net-service-tmpl.hpp>
+#include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
-// #include <platform/flags_map.h>
-#include <sm-platform.h>
 #include <string>
+#include <net/SvcMgr.h>
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
 #include <random>
 #include <chrono>
 #include <MockSMCallbacks.h>
+#include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
 #include <OMgrClient.h>
@@ -25,16 +25,9 @@ extern std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetObjectMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& msg);
 
-SMSvcHandler::SMSvcHandler()
+SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
+    : PlatNetSvcHandler(provider)
 {
-    mockTimeoutEnabled = gModuleProvider->get_fds_config()->\
-                         get<bool>("fds.sm.testing.enable_mocking");
-    mockTimeoutUs = gModuleProvider->get_fds_config()->\
-                    get<uint32_t>("fds.sm.testing.mocktimeout");
-    if (true == mockTimeoutEnabled) {
-        mockHandler.reset(new MockSvcHandler());
-    }
-
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
@@ -70,6 +63,17 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+}
+
+int SMSvcHandler::mod_init(SysParams const *const param) {
+    mockTimeoutEnabled = MODULEPROVIDER()->get_fds_config()->\
+                         get<bool>("fds.sm.testing.enable_mocking");
+    mockTimeoutUs = MODULEPROVIDER()->get_fds_config()->\
+                    get<uint32_t>("fds.sm.testing.mocktimeout");
+    if (true == mockTimeoutEnabled) {
+        mockHandler.reset(new MockSvcHandler());
+    }
+    return 0;
 }
 
 void
@@ -315,8 +319,6 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     DBG(GLOGDEBUG << logString(*asyncHdr) << fds::logString(*getObjMsg));
 
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
     fiu_do_on("svc.drop.getobject", return);
 #if 0
     fiu_do_on("svc.uturn.getobject",
@@ -325,11 +327,13 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
               getReq->getObjectNetResp = resp; \
               getObjectCb(asyncHdr, ERR_OK, getReq); return;);
 #endif
+#if 0
     fiu_do_on("svc.uturn.getobject", \
               mockHandler->schedule(mockTimeoutUs, \
-                                    std::bind(MockSMCallbacks::mockGetCb, \
+                                    std::bind(&MockSMCallbacks::mockGetCb, this,\
                                               asyncHdr)); \
               return;);
+#endif
 
     Error err(ERR_OK);
     auto getReq = new SmIoGetObjectReq(getObjMsg);
@@ -424,23 +428,24 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*putObjMsg));
 
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
     fiu_do_on("svc.drop.putobject", return);
     // fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
+#if 0
     fiu_do_on("svc.uturn.putobject", \
               mockHandler->schedule(mockTimeoutUs, \
-                                    std::bind(MockSMCallbacks::mockPutCb, \
+                                    std::bind(&MockSMCallbacks::mockPutCb, this,\
                                               asyncHdr)); \
               return;);
+#endif
 
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
     putReq->dltVersion = asyncHdr->dlt_version;
+    putReq->forwardedReq = putObjMsg->forwardedReq;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
-    putReq->putObjectNetReq = putObjMsg;
+
     // perf-trace related data
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;
@@ -546,29 +551,30 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 }
 
 void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                boost::shared_ptr<fpi::DeleteObjectMsg>& expObjMsg)
+                                boost::shared_ptr<fpi::DeleteObjectMsg>& deleteObjMsg)
 {
     if (objStorMgr->testUturnAll == true) {
         LOGDEBUG << "Uturn testing delete object "
-                 << fds::logString(*asyncHdr) << fds::logString(*expObjMsg);
+                 << fds::logString(*asyncHdr) << fds::logString(*deleteObjMsg);
         deleteObjectCb(asyncHdr, ERR_OK, NULL);
         return;
     }
 
-    DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*expObjMsg));
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*deleteObjMsg));
     Error err(ERR_OK);
 
-    auto delReq = new SmIoDeleteObjectReq();
+    auto delReq = new SmIoDeleteObjectReq(deleteObjMsg);
 
     // Set delReq stuffs
     delReq->io_type = FDS_SM_DELETE_OBJECT;
 
-    delReq->setVolId(expObjMsg->volId);
+    delReq->setVolId(deleteObjMsg->volId);
     delReq->dltVersion = asyncHdr->dlt_version;
-    delReq->setObjId(ObjectID(expObjMsg->objId.digest));
-    delReq->delObjectNetReq = expObjMsg;
+    delReq->setObjId(ObjectID(deleteObjMsg->objId.digest));
+    delReq->forwardedReq = deleteObjMsg->forwardedReq;
+
     // perf-trace related data
-    delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);
+    delReq->perfNameStr = "volume:" + std::to_string(deleteObjMsg->volId);
     delReq->opReqFailedPerfEventType = SM_DELETE_OBJ_REQ_ERR;
     delReq->opReqLatencyCtx.type = SM_E2E_DELETE_OBJ_REQ;
     delReq->opReqLatencyCtx.name = delReq->perfNameStr;
@@ -855,14 +861,13 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
               << dlt->dlt_data.dlt_type;
     err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
     if (err.ok()) {
-        objStorMgr->handleDltUpdate();
+        err = objStorMgr->handleDltUpdate();
     } else if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DLT, ignoring";
         err = ERR_OK;
     }
-    fds_assert(err.ok());
 
-    LOGNOTIFY << "Sending DLT commit response to OM";
+    LOGNOTIFY << "Sending DLT commit response to OM with result " << err;
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
@@ -874,11 +879,18 @@ void
 SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt)
 {
+    Error err(ERR_OK);
     LOGNOTIFY << "Receiving DLT Close";
     // Set closed flag for the DLT. We use it for garbage collecting
     // DLT tokens that are no longer belong to this SM. We want to make
     // sure we garbage collect only when DLT is closed
-    objStorMgr->omClient->setCurrentDLTClosed();
+    err = objStorMgr->omClient->getDltManager()->setCurrentDltClosed();
+    if (err == ERR_NOT_FOUND) {
+        LOGERROR << "SM received DLT close without receiving DLT, ok for now, but fix OM!!!";
+        // returning OK to OM
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        return;
+    }
 
     // Store the current DLT to the presistent storage to be used
     // by offline smcheck.
@@ -890,7 +902,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // will be a noop
     SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
                                  SM_CMD_INITIATOR_TOKEN_MIGRATION);
-    Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
     SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
     err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 
@@ -924,6 +936,10 @@ SMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     LOGNOTIFY << "OMClient received new DMT commit version  "
                 << dmt->dmt_data.dmt_type;
     err = objStorMgr->omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    if (err == ERR_DUPLICATE) {
+        LOGWARN << "Received duplicate DMT, ignoring";
+        err = ERR_OK;
+    }
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *dmt);
 }

@@ -1,6 +1,7 @@
 FROM registry.formationds.com:5000/fds_base
 MAINTAINER Aaron Nichols <aaron@formationds.com>
 #
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 # Download cosbench
 WORKDIR /opt
 RUN wget https://github.com/intel-cloud/cosbench/releases/download/v0.4.0.1/0.4.0.1.zip

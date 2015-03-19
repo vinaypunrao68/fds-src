@@ -6,9 +6,8 @@
 
 #include <string>
 #include <fds_module.h>
-#include <AmCache.h>
-#include <StorHvVolumes.h>
 #include <net/SvcRequest.h>
+#include "AmRequest.h"
 
 namespace fds {
 

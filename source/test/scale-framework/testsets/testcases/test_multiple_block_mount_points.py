@@ -40,13 +40,13 @@ class TestMultipleBlockMountPoints(testcase.FDSTestCase):
                 self.log.info("Mounting block volume: %s" % volume_name)
                 cmds = (
                     #'umount /fdsmount',
-                    #'rm -rf /fdsmount',
-                    #'rm -rf sample_file',
+                    'rm -rf /fdsmount*',
+                    'rm -rf sample_file',
                     'mkdir /fdsmount_%s' % i,
                     #'./nbdadm.py detach %s' % (volume_name),
                     './nbdadm.py attach %s %s' % (self.om_ip_address, volume_name),
-                    #'mkfs.ext4 /dev/nbd%s' % i,
-                    #'mount /dev/nbd15  /fdsmount_%s' % i,
+                    'mkfs.ext4 /dev/nbd%s' % i,
+                    'mount /dev/nbd15  /fdsmount_%s' % i,
                     'fallocate -l 20M sample_file',
                     'mv sample_file /fdsmount_%s' % i,
                 )

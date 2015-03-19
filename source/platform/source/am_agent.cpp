@@ -18,8 +18,10 @@ namespace fds
     AmAgent::AmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
     {
         node_svc_type = fpi::FDSP_STOR_HVISOR;
+#if 0
         am_ep_svc     = Platform::platf_singleton()->plat_new_am_svc(this, 0, 0);
         NetMgr::ep_mgr_singleton()->ep_register(am_ep_svc, false);
+#endif
     }
 
     // agent_ep_plugin
@@ -27,7 +29,7 @@ namespace fds
     //
     EpEvtPlugin::pointer AmAgent::agent_ep_plugin()
     {
-        return am_ep_svc->ep_evt_plugin();
+        return nullptr;
     }
 
     // agent_ep_svc
@@ -43,7 +45,9 @@ namespace fds
     //
     void AmAgent::agent_bind_ep()
     {
+#if 0
         EpSvcImpl::pointer    ep = NetPlatform::nplat_singleton()->nplat_my_ep();
         NodeAgent::agent_bind_ep(ep, am_ep_svc);
+#endif
     }
 }  // namespace fds

@@ -6,6 +6,8 @@
 #include <string>
 #include <ObjectId.h>
 #include <fds_process.h>
+#include "FdsRandom.h"
+#include <AmCache.h>
 #include <AmProcessor.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
@@ -22,14 +24,13 @@ AmProcessor::AmProcessor(const std::string &modName,
                          AmDispatcher::shared_ptr _amDispatcher,
                          StorHvQosCtrl     *_qosCtrl,
                          StorHvVolumeTable *_volTable,
-                         AmTxManager::shared_ptr _amTxMgr,
-                         AmCache::shared_ptr _amCache)
+                         AmTxManager::shared_ptr _amTxMgr)
         : Module(modName.c_str()),
           amDispatcher(_amDispatcher),
           qosCtrl(_qosCtrl),
           volTable(_volTable),
           txMgr(_amTxMgr),
-          amCache(_amCache) {
+          amCache(new AmCache("AM Cache Manager Module")) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
@@ -37,6 +38,9 @@ AmProcessor::AmProcessor(const std::string &modName,
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
 }
+
+AmProcessor::~AmProcessor()
+{}
 
 void
 AmProcessor::respond(AmRequest *amReq, const Error& error) {
@@ -53,6 +57,26 @@ AmProcessor::respond(AmRequest *amReq, const Error& error) {
     {
         am->stop();
     }
+}
+
+StorHvVolumeTable::volume_ptr_type
+AmProcessor::getNoSnapshotVolume(AmRequest* amReq) {
+    // check if this is a snapshot
+    auto shVol = volTable->getVolume(amReq->io_vol_id);
+    if (!shVol) {
+        LOGCRITICAL << "unable to get volume info for vol: " << amReq->io_vol_id;
+        respond_and_delete(amReq, FDSN_StatusErrorUnknown);
+    } else if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "txn on a snapshot is not allowed.";
+        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
+        shVol = nullptr;
+    }
+    return shVol;
+}
+
+Error
+AmProcessor::createCache(const VolumeDesc& volDesc) {
+    return amCache->createCache(volDesc);
 }
 
 void
@@ -80,21 +104,22 @@ AmProcessor::abortBlobTx(AmRequest *amReq) {
 }
 
 void
+AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
+    if (ERR_OK != txMgr->removeTx(*(blobReq->tx_desc)))
+        LOGWARN << "Transaction unknown";
+
+    respond_and_delete(amReq, error);
+}
+
+void
 AmProcessor::startBlobTx(AmRequest *amReq) {
+    auto shVol = getNoSnapshotVolume(amReq);
+    if (!shVol) return;
+
     fiu_do_on("am.uturn.processor.startBlobTx",
               respond_and_delete(amReq, ERR_OK); \
               return;);
-
-    // check if this is a snapshot
-    // TODO(Andrew): Why not just let DM reject the IO?
-    StorHvVolume *shVol = volTable->getLockedVolume(amReq->io_vol_id);
-    if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "txn on a snapshot is not allowed.";
-        shVol->readUnlock();
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-        return;
-    }
-    shVol->readUnlock();
 
     // Generate a random transaction ID to use
     static_cast<StartBlobTxReq*>(amReq)->tx_desc =
@@ -124,29 +149,13 @@ AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor::deleteBlob(AmRequest *amReq) {
-    fds_volid_t volId = amReq->io_vol_id;
-    StorHvVolume* shVol = volTable->getLockedVolume(volId);
+    auto shVol = getNoSnapshotVolume(amReq);
+    if (!shVol) return;
 
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(amReq);
-    LOGDEBUG    << " volume:" << volId
+    LOGDEBUG    << " volume:" << amReq->io_vol_id
                 << " blob:" << amReq->getBlobName()
                 << " txn:" << blobReq->tx_desc;
-
-    if ((shVol == NULL) || (!shVol->isValidLocked())) {
-        LOGCRITICAL << "unable to get volume info for vol: " << volId;
-        respond_and_delete(amReq, FDSN_StatusErrorUnknown);
-        shVol->readUnlock();
-        return;
-    }
-
-    // check if this is a snapshot
-    if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "delete blob on a snapshot is not allowed.";
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-        shVol->readUnlock();
-        return;
-    }
-    shVol->readUnlock();
 
     // Update the tx manager with the delete op
     txMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
@@ -157,24 +166,9 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
 
 void
 AmProcessor::putBlob(AmRequest *amReq) {
-    // check if this is a snapshot
-    // TODO(Andrew): Why not just let DM reject the IO?
-    StorHvVolume *shVol = volTable->getLockedVolume(amReq->io_vol_id);
-    if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "txn on a snapshot is not allowed.";
-        shVol->readUnlock();
-        StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
-                                                      amReq->cb);
-        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
-        return;
-    }
-    shVol->readUnlock();
+    auto shVol = getNoSnapshotVolume(amReq);
+    if (!shVol) return;
 
-    // TODO(Andrew): Here we're turning the offset aligned
-    // blobOffset back into an absolute blob offset (i.e.,
-    // not aligned to the maximum object size). This allows
-    // the rest of the putBlob routines to still expect an
-    // absolute offset in case we need it
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
     amReq->blob_offset = (amReq->blob_offset * maxObjSize);
 
@@ -264,12 +258,8 @@ AmProcessor::getBlob(AmRequest *amReq) {
               return;);
 
     fds_volid_t volId = amReq->io_vol_id;
-    StorHvVolume *shVol = volTable->getVolume(volId);
-    // TODO(bszmyd): Friday, October 10th 2014
-    // This logic was copied directly from StorHvCtrl, but it's not
-    // quite clear how using the non-locking call above would still
-    // allow the following to function. Investigation needed.
-    if ((shVol == NULL) || (!shVol->isValidLocked())) {
+    auto shVol = volTable->getVolume(volId);
+    if (!shVol) {
         LOGCRITICAL << "getBlob failed to get volume for vol " << volId;
         getBlobCb(amReq, ERR_INVALID);
         return;
@@ -308,7 +298,6 @@ AmProcessor::getBlob(AmRequest *amReq) {
         blobReq->oid_cached = true;
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
-        // fds_verify(*objectId != NullObjectID);
         amReq->obj_id = *objectId;
 
         // Check cache for object data
@@ -339,6 +328,38 @@ AmProcessor::getBlob(AmRequest *amReq) {
         amDispatcher->dispatchQueryCatalog(amReq);
     }
 }
+
+void
+AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
+    respond(amReq, error);
+
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    // Insert original Object into cache. Do not insert the truncated version
+    // since we really do have all the data. This is done after response to
+    // reduce latency.
+    if (ERR_OK == error && cb->returnBuffer) {
+        amCache->putObject(amReq->io_vol_id,
+                           amReq->obj_id,
+                           cb->returnBuffer);
+        auto blobReq = static_cast<GetBlobReq*>(amReq);
+        if (!blobReq->oid_cached) {
+            amCache->putOffset(amReq->io_vol_id,
+                               BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
+                               boost::make_shared<ObjectID>(amReq->obj_id));
+        }
+
+        if (!blobReq->metadata_cached && blobReq->get_metadata) {
+            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            if (cb->blobDesc)
+                amCache->putBlobDescriptor(amReq->io_vol_id,
+                                           amReq->getBlobName(),
+                                           cb->blobDesc);
+        }
+    }
+
+    delete amReq;
+}
+
 
 void
 AmProcessor::setBlobMetadata(AmRequest *amReq) {
@@ -378,52 +399,6 @@ AmProcessor::statBlob(AmRequest *amReq) {
 }
 
 void
-AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
-    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
-    if (ERR_OK != txMgr->removeTx(*(blobReq->tx_desc)))
-        LOGWARN << "Transaction unknown";
-
-    respond_and_delete(amReq, error);
-}
-
-void
-AmProcessor::volumeContents(AmRequest *amReq) {
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
-    amDispatcher->dispatchVolumeContents(amReq);
-}
-
-void
-AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
-    respond(amReq, error);
-
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-    // Insert original Object into cache. Do not insert the truncated version
-    // since we really do have all the data. This is done after response to
-    // reduce latency.
-    if (ERR_OK == error && cb->returnBuffer) {
-        amCache->putObject(amReq->io_vol_id,
-                           amReq->obj_id,
-                           cb->returnBuffer);
-        auto blobReq = static_cast<GetBlobReq*>(amReq);
-        if (!blobReq->oid_cached) {
-            amCache->putOffset(amReq->io_vol_id,
-                               BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
-                               boost::make_shared<ObjectID>(amReq->obj_id));
-        }
-
-        if (!blobReq->metadata_cached && blobReq->get_metadata) {
-            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
-            if (cb->blobDesc)
-                amCache->putBlobDescriptor(amReq->io_vol_id,
-                                           amReq->getBlobName(),
-                                           cb->blobDesc);
-        }
-    }
-
-    delete amReq;
-}
-
-void
 AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
     if (error == ERR_OK) {
         amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
@@ -445,6 +420,12 @@ AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
     }
 
     delete amReq;
+}
+
+void
+AmProcessor::volumeContents(AmRequest *amReq) {
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+    amDispatcher->dispatchVolumeContents(amReq);
 }
 
 void

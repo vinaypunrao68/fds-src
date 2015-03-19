@@ -20,7 +20,7 @@ namespace fds {
 namespace dm {
 
 CommitBlobTxHandler::CommitBlobTxHandler() {
-    if (!dataMgr->feature.isTestMode()) {
+    if (!dataMgr->features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::CommitBlobTxMsg, handleRequest);
     }
 }
@@ -146,7 +146,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     }
 
     // check if we can finish forwarding if volume still forwards cat commits
-    if (dataMgr->feature.isCatSyncEnabled() && dataMgr->catSyncMgr->isSyncInProgress()) {
+    if (dataMgr->features.isCatSyncEnabled() && dataMgr->catSyncMgr->isSyncInProgress()) {
         fds_bool_t is_finish_forward = false;
         VolumeMeta* vol_meta = nullptr;
         dataMgr->vol_map_mtx->lock();

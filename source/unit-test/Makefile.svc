@@ -14,12 +14,11 @@ user_fds_so_libs  +=
 user_fds_ar_libs  +=  \
     fds-test \
     fds-am-engine \
-    fds-am-plat \
     fds-dsk-io \
     fds-dsk-mgnt \
     fds-hash \
     fds-fdsp \
-    platform_core
+    fds-plat-lib
 
 local_nginx_libs   :=  \
     ngx-http-module \
@@ -36,7 +35,7 @@ user_non_fds_libs +=  \
 	parted \
     $(local_nginx_libs) \
     pthread crypt pcre crypto \
-	z cryptopp \
+	z \
     ssl \
     gmock \
     leveldb \
