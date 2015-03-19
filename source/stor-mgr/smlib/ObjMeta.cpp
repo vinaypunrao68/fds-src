@@ -1158,6 +1158,10 @@ bool ObjMetaData::operator==(const ObjMetaData &rhs) const
         (obj_map.obj_blk_len != rhs.obj_map.obj_blk_len) ||
         (obj_map.obj_size != rhs.obj_map.obj_size) ||
         (obj_map.expire_time != rhs.obj_map.expire_time)) {
+
+        LOGMIGRATE << "ObjectMetaData compare content failed: "
+                   << " THIS: " << logString()
+                   << " RHS: " << rhs.logString();
         return false;
     }
 
@@ -1165,12 +1169,18 @@ bool ObjMetaData::operator==(const ObjMetaData &rhs) const
      * metadata is different.
      */
     if (assoc_entry.size() != rhs.assoc_entry.size()) {
+        LOGMIGRATE << "ObjectMetaData assoc_entry size failed: "
+                   << " THIS: " << logString()
+                   << " RHS: " << rhs.logString();
         return false;
     } else {
         /* assoc_entry size is the same.  Just memcmp the vector data */
         if (0 != memcmp(assoc_entry.data(),
                         rhs.assoc_entry.data(),
                         sizeof(obj_assoc_entry_t) * assoc_entry.size())) {
+            LOGMIGRATE << "ObjectMetaData assoc_entry contente failed: "
+                       << " THIS: " << logString()
+                       << " RHS: " << rhs.logString();
             return false;
         }
     }

@@ -79,7 +79,7 @@ AmDispatcher::mod_shutdown() {
 
 void
 AmDispatcher::dispatchGetVolumeMetadata(AmRequest *amReq) {
-    GetVolumeMetaDataMsgPtr volMDMsg(new fpi::GetVolumeMetaDataMsg());
+    fpi::GetVolumeMetaDataMsgPtr volMDMsg = boost::make_shared<fpi::GetVolumeMetaDataMsg>();
     volMDMsg->volume_id = amReq->io_vol_id;
     FailoverSvcRequestRespCb respCb(
         RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb, amReq));
@@ -101,7 +101,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
     fds_verify(amReq->magicInUse());
     GetVolumeMetaDataReq * volReq =
             static_cast<fds::GetVolumeMetaDataReq*>(amReq);
-    GetVolumeMetaDataMsgPtr volMDMsg =
+    fpi::GetVolumeMetaDataMsgPtr volMDMsg =
         fds::deserializeFdspMsg<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
 
     if (ERR_OK == error)
@@ -116,7 +116,7 @@ AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
 
     fds_volid_t volId = amReq->io_vol_id;
 
-    AbortBlobTxMsgPtr stBlobTxMsg(new AbortBlobTxMsg());
+    fpi::AbortBlobTxMsgPtr stBlobTxMsg = boost::make_shared<fpi::AbortBlobTxMsg>();
     stBlobTxMsg->blob_name      = amReq->getBlobName();
     stBlobTxMsg->blob_version   = blob_version_invalid;
     stBlobTxMsg->txId           = static_cast<AbortBlobTxReq *>(amReq)->tx_desc->getValue();
@@ -157,7 +157,7 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
         RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb, amReq));
 
     // Create network message
-    StartBlobTxMsgPtr startBlobTxMsg(new StartBlobTxMsg());
+    fpi::StartBlobTxMsgPtr startBlobTxMsg = boost::make_shared<fpi::StartBlobTxMsg>();
     startBlobTxMsg->blob_name    = amReq->getBlobName();
     startBlobTxMsg->blob_version = blob_version_invalid;
     startBlobTxMsg->volume_id    = amReq->io_vol_id;
@@ -193,7 +193,7 @@ AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
-    DeleteBlobMsgPtr message = boost::make_shared<DeleteBlobMsg>();
+    fpi::DeleteBlobMsgPtr message = boost::make_shared<fpi::DeleteBlobMsg>();
     message->volume_id = amReq->io_vol_id;
     message->blob_name = amReq->getBlobName();
     message->blob_version = blob_version_invalid;
@@ -235,7 +235,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
               blobReq->notifyResponse(ERR_OK);  \
               return;);
 
-    UpdateCatalogMsgPtr updCatMsg(boost::make_shared<UpdateCatalogMsg>());
+    fpi::UpdateCatalogMsgPtr updCatMsg(boost::make_shared<fpi::UpdateCatalogMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
     updCatMsg->volume_id    = amReq->io_vol_id;
@@ -273,7 +273,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
               blobReq->notifyResponse(ERR_OK); \
               return;);
 
-    UpdateCatalogOnceMsgPtr updCatMsg(boost::make_shared<UpdateCatalogOnceMsg>());
+    fpi::UpdateCatalogOnceMsgPtr updCatMsg(boost::make_shared<fpi::UpdateCatalogOnceMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
     updCatMsg->volume_id    = amReq->io_vol_id;
@@ -368,7 +368,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
               static_cast<PutBlobReq*>(amReq)->notifyResponse(ERR_OK); \
               return;);
 
-    PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
+    fpi::PutObjectMsgPtr putObjMsg(boost::make_shared<fpi::PutObjectMsg>());
     putObjMsg->volume_id        = amReq->io_vol_id;
     putObjMsg->data_obj.assign(blobReq->dataPtr->c_str(), amReq->data_len);
     putObjMsg->data_obj_len     = amReq->data_len;
@@ -516,7 +516,7 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
      * TODO(Andrew): We should eventually specify the offset in the blob
      * we want...all objects won't work well for large blobs.
      */
-    fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
+    fpi::QueryCatalogMsgPtr queryMsg = boost::make_shared<fpi::QueryCatalogMsg>();
     queryMsg->volume_id    = volId;
     queryMsg->blob_name    = blobName;
     queryMsg->start_offset = blobOffset;
@@ -624,7 +624,7 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
               amReq->proc_cb(ERR_OK); \
               return;);
 
-    GetBlobMetaDataMsgPtr message = boost::make_shared<GetBlobMetaDataMsg>();
+    fpi::GetBlobMetaDataMsgPtr message = boost::make_shared<fpi::GetBlobMetaDataMsg>();
     message->volume_id = amReq->io_vol_id;
     message->blob_name = amReq->getBlobName();
 
@@ -643,7 +643,7 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
     fds_volid_t   vol_id = amReq->io_vol_id;
 
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
-    SetBlobMetaDataMsgPtr setMDMsg = boost::make_shared<SetBlobMetaDataMsg>();
+    fpi::SetBlobMetaDataMsgPtr setMDMsg = boost::make_shared<fpi::SetBlobMetaDataMsg>();
     setMDMsg->blob_name = amReq->getBlobName();
     setMDMsg->blob_version = blob_version_invalid;
     setMDMsg->volume_id = vol_id;
@@ -712,7 +712,7 @@ AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
         RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));
 
     // Create network message
-    CommitBlobTxMsgPtr commitBlobTxMsg = boost::make_shared<CommitBlobTxMsg>();
+    fpi::CommitBlobTxMsgPtr commitBlobTxMsg = boost::make_shared<fpi::CommitBlobTxMsg>();
     commitBlobTxMsg->blob_name    = amReq->getBlobName();
     commitBlobTxMsg->blob_version = blob_version_invalid;
     commitBlobTxMsg->volume_id    = amReq->io_vol_id;
@@ -758,7 +758,7 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
               amReq->proc_cb(ERR_OK); \
               return;);
 
-    GetBucketMsgPtr message = boost::make_shared<GetBucketMsg>();
+    fpi::GetBucketMsgPtr message = boost::make_shared<fpi::GetBucketMsg>();
     message->volume_id = amReq->io_vol_id;
     message->startPos  = static_cast<VolumeContentsReq *>(amReq)->offset;
     message->count   = static_cast<VolumeContentsReq *>(amReq)->count;
