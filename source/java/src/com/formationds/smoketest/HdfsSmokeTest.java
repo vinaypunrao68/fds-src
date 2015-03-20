@@ -343,7 +343,7 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-	String[] args = new String[]{"--fds-root=/fds"};
+	String[] args = new String[]{"--fds-root=./config"};
         final Configuration configuration = new Configuration("xdi", args);
         ParsedConfig platformConfig = configuration.getPlatformConfig();
 	Integer pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
