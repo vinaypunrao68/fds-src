@@ -5,6 +5,7 @@
 import socket
 import time
 import logging
+from commons.ttypes import *
 from FDS_ProtocolInterface.ttypes import *
 import struct
 

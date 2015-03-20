@@ -61,6 +61,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     // stubs to keep cpp compiler happy - BEGIN
     int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
     void listLocalDomains(std::vector<LocalDomain> & _return, const int32_t ignore) {}
+    void listServices(std::vector<FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
     int64_t createTenant(const std::string& identifier) { return 0;}
     void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
     int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
@@ -107,6 +108,22 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void listLocalDomains(std::vector<LocalDomain>& _return, boost::shared_ptr<int32_t>& ignore) {
         configDB->listLocalDomains(_return);
+    }
+
+    void listServices(std::vector<FDSP_Node_Info_Type>& _return, boost::shared_ptr<std::string>& domainName) {
+        // Currently (3/18/2015) only support for one Local Domain. So the specified name is ignored.
+        // The following from FDSP_ConfigPathReqHandler::ListServices;
+
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+        local->om_sm_nodes()->
+                agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
+        local->om_am_nodes()->
+                agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
+        local->om_dm_nodes()->
+                agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
+        local->om_pm_nodes()->
+                agent_foreach<std::vector<FDSP_Node_Info_Type> &>(_return, add_to_vector);
     }
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {

@@ -4,9 +4,11 @@ import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.xdi.FDSP_Node_Info_Type;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
@@ -71,6 +73,12 @@ public class StubConfigurationApi implements ConfigurationApi {
     @Override
     public List<LocalDomain> listLocalDomains(int ignore) throws TException {
         return localDomains;
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> listServices(String domainName)
+            throws TException {
+        return null;
     }
 
     @Override
