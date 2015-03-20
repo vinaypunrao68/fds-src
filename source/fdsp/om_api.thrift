@@ -19,7 +19,7 @@ namespace java com.formationds.protocol.om
  * Create Volume
  */
 struct CtrlCreateBucket {
-  /** Volume Specification */
+  /** Create Volume Specification */
   1: common.FDSP_CreateVolType  cv;
 }
 
@@ -27,7 +27,7 @@ struct CtrlCreateBucket {
  * Delete Volume
  */
 struct CtrlDeleteBucket {
-  /** Volume Specification */
+  /** Delete Volume Specification */
   1:  common.FDSP_DeleteVolType dv;
 }
 
@@ -35,7 +35,7 @@ struct CtrlDeleteBucket {
  * Modify Volume
  */
 struct CtrlModifyBucket {
-  /** Volume Specification */
+  /** Modify Volume Specification */
   1:  common.FDSP_ModifyVolType mv;
 }
 
@@ -43,7 +43,7 @@ struct CtrlModifyBucket {
  * Test for Volume
  */
 struct CtrlTestBucket {
-  /** Volume Specification */
+  /** Test Volume Specification */
   1: om_types.FDSP_TestBucket   tbmsg;
 }
 
@@ -73,15 +73,15 @@ struct CtrlSvcEvent {
   3: svc_types.FDSPMsgTypeId  evt_msg_type_id;
 }
 
-/**
- * OM Service.  Only put sync rpc calls in here.  Async RPC calls use
- * message passing provided by BaseAsyncSvc
- */
+
+ # OM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ # message passing provided by BaseAsyncSvc
 service OMSvc extends svc_api.PlatNetSvc {
   /**
   * @brief Use this rpc for registration
   *
   * @param svcInfo
+  *
   * @throws If registration fails appropriate excpetion is thrown
   */
   void registerService(1: svc_types.SvcInfo svcInfo) throws (1: om_types.OmRegisterException e);

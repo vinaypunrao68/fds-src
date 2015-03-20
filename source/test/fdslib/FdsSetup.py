@@ -134,6 +134,11 @@ class FdsEnv(object):
             return self.env_fdsRoot + 'sbin'
         return self.env_fdsSrc + 'test'
 
+    def get_tools_dir(self):
+        if self.env_install:
+            return self.env_fdsRoot + 'sbin'
+        return self.env_fdsSrc + 'tools'
+
     def get_config_dir(self):
         if self.env_install:
             return self.env_fdsRoot + 'etc'

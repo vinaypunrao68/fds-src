@@ -249,6 +249,8 @@ class VolumeEndpoint:
 
     def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
 
+	assert vol_type == "object" or vol_type == "block", "vol_type must be either 'block' or 'object'"
+
         volume_info = {
             'name' : volume_name,
             'priority' : int(priority),

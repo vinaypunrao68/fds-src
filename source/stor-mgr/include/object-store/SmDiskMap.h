@@ -79,6 +79,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Returns total number of disks: hdds + ssds
      */
     fds_uint32_t getTotalDisks() const;
+    fds_uint32_t getTotalDisks(diskio::DataTier tier) const;
 
     /**
     * Determines if a write to SSD will cause SSD usage to go beyond capacity threshold.

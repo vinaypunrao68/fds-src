@@ -1,0 +1,12 @@
+--- gmond-influxdb-bridge-0.2.2/gmond-influxdb-bridge.py-orig
++++ gmond-influxdb-bridge-0.2.2/gmond-influxdb-bridge.py
+@@ -1,1 +1,1 @@
+-#!/usr/bin/python
++#!/opt/fds-deps/embedded/bin/python
+
+--- gmond-influxdb-bridge-0.2.2/gmond-influxdb-bridge.py-orig
++++ gmond-influxdb-bridge-0.2.2/gmond-influxdb-bridge.py
+@@ -11,1 +11,3 @@
+ from telnetlib import Telnet
++import sys
++sys.path.append("/opt/fds-deps/embedded/lib/python2.7/site-packages")

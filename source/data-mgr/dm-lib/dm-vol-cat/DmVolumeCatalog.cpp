@@ -563,9 +563,8 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx): later that should become part of GC and done in background
-    // fds_verify(expungeCb_);
-    // return expungeCb_(volId, expungeList);
-    return rc;
+    fds_verify(expungeCb_);
+    return expungeCb_(volId, expungeList);
 }
 
 Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,

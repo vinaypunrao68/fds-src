@@ -443,8 +443,9 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
     putReq->dltVersion = asyncHdr->dlt_version;
+    putReq->forwardedReq = putObjMsg->forwardedReq;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
-    putReq->putObjectNetReq = putObjMsg;
+
     // perf-trace related data
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;
@@ -550,29 +551,30 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 }
 
 void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                boost::shared_ptr<fpi::DeleteObjectMsg>& expObjMsg)
+                                boost::shared_ptr<fpi::DeleteObjectMsg>& deleteObjMsg)
 {
     if (objStorMgr->testUturnAll == true) {
         LOGDEBUG << "Uturn testing delete object "
-                 << fds::logString(*asyncHdr) << fds::logString(*expObjMsg);
+                 << fds::logString(*asyncHdr) << fds::logString(*deleteObjMsg);
         deleteObjectCb(asyncHdr, ERR_OK, NULL);
         return;
     }
 
-    DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*expObjMsg));
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*deleteObjMsg));
     Error err(ERR_OK);
 
-    auto delReq = new SmIoDeleteObjectReq();
+    auto delReq = new SmIoDeleteObjectReq(deleteObjMsg);
 
     // Set delReq stuffs
     delReq->io_type = FDS_SM_DELETE_OBJECT;
 
-    delReq->setVolId(expObjMsg->volId);
+    delReq->setVolId(deleteObjMsg->volId);
     delReq->dltVersion = asyncHdr->dlt_version;
-    delReq->setObjId(ObjectID(expObjMsg->objId.digest));
-    delReq->delObjectNetReq = expObjMsg;
+    delReq->setObjId(ObjectID(deleteObjMsg->objId.digest));
+    delReq->forwardedReq = deleteObjMsg->forwardedReq;
+
     // perf-trace related data
-    delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);
+    delReq->perfNameStr = "volume:" + std::to_string(deleteObjMsg->volId);
     delReq->opReqFailedPerfEventType = SM_DELETE_OBJ_REQ_ERR;
     delReq->opReqLatencyCtx.type = SM_E2E_DELETE_OBJ_REQ;
     delReq->opReqLatencyCtx.name = delReq->perfNameStr;
@@ -859,14 +861,13 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
               << dlt->dlt_data.dlt_type;
     err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
     if (err.ok()) {
-        objStorMgr->handleDltUpdate();
+        err = objStorMgr->handleDltUpdate();
     } else if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DLT, ignoring";
         err = ERR_OK;
     }
-    fds_assert(err.ok());
 
-    LOGNOTIFY << "Sending DLT commit response to OM";
+    LOGNOTIFY << "Sending DLT commit response to OM with result " << err;
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }

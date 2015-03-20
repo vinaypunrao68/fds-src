@@ -8,6 +8,7 @@
 #include <fdsp/dm_types_types.h>
 #include <fdsp/sm_api_types.h>
 #include <fds_resource.h>
+#include <net/SvcMgr.h>
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -78,26 +79,6 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
         << std::dec
         << " error: " << header.msg_code;
     return oss.str();
-}
-
-std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
-{
-    std::stringstream ss;
-    ss << "Svc handle svc_uuid: " << std::hex << info.svc_id.svc_uuid.svc_uuid
-        << std::dec << " ip: " << info.ip << " port: " << info.svc_port
-        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
-    return ss.str();
-}
-
-std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
-{
-    std::stringstream ss;
-    ss << fds::logString(info) << "\n";
-    auto &props = info.props;
-    for (auto &kv : props) {
-        ss << kv.first << " : " << kv.second << std::endl;
-    }
-    return ss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj)

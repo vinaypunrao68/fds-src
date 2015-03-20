@@ -101,6 +101,9 @@ fds: {
         }
         threadpool: {
             num_threads = 10
+
+            /* Use lock free threadpool  */
+            use_lftp = true
         }
         /* Internal testing related info */
         testing: {
@@ -118,6 +121,7 @@ fds: {
                 io_thread_cnt = 2
                 worker_thread_cnt = 2
             }
+
             timeout: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
@@ -187,6 +191,9 @@ fds: {
 
         threadpool: {
             num_threads = 10
+
+            /* Use lock free threadpool  */
+            use_lftp = true
         }
 
         /* Timeline feature toggle */
@@ -315,6 +322,9 @@ fds: {
         }
         threadpool: {
             num_threads = 10
+
+            /* Use lock free threadpool  */
+            use_lftp = true
         }
         /* Migration related info */
         migration: {
@@ -402,6 +412,9 @@ fds: {
 
         threadpool: {
             num_threads = 10
+
+            /* Use lock free threadpool  */
+            use_lftp = true
         }
         cache: {
             /* Default max data entries in a volume's AM cache */
@@ -505,6 +518,9 @@ fds: {
         test_mode=false
         threadpool: {
             num_threads = 10
+
+            /* Use lock free threadpool  */
+            use_lftp = true
         }
 
         enable_snapshot_schedule = true

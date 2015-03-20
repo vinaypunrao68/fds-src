@@ -2,8 +2,8 @@
  * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_INCLUDE_TOKENMIGRATIONMGR_H_
-#define SOURCE_STOR_MGR_INCLUDE_TOKENMIGRATIONMGR_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_
+#define SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_
 
 #include <vector>
 #include <SmIo.h>
@@ -245,4 +245,4 @@ class SmTokenMigrationMgr {
 };
 
 }  // namespace fds
-#endif  // SOURCE_STOR_MGR_INCLUDE_TOKENMIGRATIONMGR_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_MIGRATIONMGR_H_
