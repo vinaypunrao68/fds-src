@@ -15,6 +15,9 @@ from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from boto.s3.bucket import Bucket
 import testsets.testcase as testcase
+import requests
+import ssh
+import sys
 
 import pdb
 
@@ -30,7 +33,7 @@ class TestLargeNumberBlobs(testcase.FDSTestCase):
     '''
     # max number of blobs in each bucket
     #MAX_NUMBER_BLOBS = 10000
-    MAX_NUMBER_BLOBS = 100 
+    MAX_NUMBER_BLOBS = 2 
     
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestLargeNumberBlobs, self).__init__(parameters=parameters,
@@ -48,19 +51,21 @@ class TestLargeNumberBlobs(testcase.FDSTestCase):
 	self.hash_table = {}
 	self.sample_files = {}
 	utils.create_dir(config.DOWNLOAD_DIR)
+	local_ssh = ssh.SSHConn(config.NDBADM_CLIENT, config.SSH_USER,
+                                config.SSH_PASSWORD)
 
     def runTest(self):
 	'''
 	This method starts the test
 	'''
 	#generate blob size files based on self.all_blob_sizes
-	self.generate_blob_size()
+	self.generate_blob_sizes()
 
 	#Get s3 connection
 	s3conn = self.connect_s3()
 	
 	#Create s3 volumes
-        self.create_volumes(s3conn)
+        self.create_s3_volumes(s3conn)
 
 	#compare downloaded hash files
 	self.check_files_hash()
@@ -68,12 +73,11 @@ class TestLargeNumberBlobs(testcase.FDSTestCase):
 	#clean up by deleting volumes
 	self.delete_volumes(s3conn)
 
-	#remove all test files
-	self.remove_all_test_files()
-
 	#remove directory where the downloaded files are kept
-	#utils.remove_dir(config.DOWNLOAD_DIR)
-	#remove 
+	utils.remove_dir(config.DOWNLOAD_DIR)
+
+	#close ssh connection to local host
+	local_ssh.client.close()
 
     def connect_s3(self):
         '''
@@ -91,20 +95,7 @@ class TestLargeNumberBlobs(testcase.FDSTestCase):
         s3conn.s3_connect()
         return s3conn
     
-    def remove_all_test_files(self):
-	'''
-	Remove all generated test files and downloaded test files
-	from the node to allow test to run successfully next time.
-	'''
-
-	cmds = ("rm -f ./test_files/*.img",
-		'rm -f ./downloads/*.img')
- 
-	for cmd in cmds: 
-		self.log.info("Cleanup:  %s" %cmd)
-		subprocess.call([cmd], shell=True)
-
-    def generate_blob_size(self):
+    def generate_blob_sizes(self):
 	'''
 	Create MAX_NUMBER_BLOBS of xK blob sizes to test on config.TEST_DIR directory
 	'''
@@ -147,7 +138,7 @@ class TestLargeNumberBlobs(testcase.FDSTestCase):
 
         self.test_passed = True
 
-    def create_volumes(self, s3conn):
+    def create_s3_volumes(self, s3conn):
 	'''
 	Create a volume for each blob size to test upload and download with bucket. 
 	'''
