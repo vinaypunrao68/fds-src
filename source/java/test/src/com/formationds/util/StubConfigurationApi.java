@@ -4,7 +4,7 @@ import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.xdi.FDSP_Node_Info_Type;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
