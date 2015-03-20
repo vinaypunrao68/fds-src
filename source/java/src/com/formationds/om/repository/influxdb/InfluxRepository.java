@@ -16,56 +16,6 @@ import java.util.Properties;
 
 abstract public class InfluxRepository<T,PK extends Serializable> extends AbstractRepository<T, PK> {
 
-//    public static void main( String... args ) {
-//        Random rng = new Random( System.currentTimeMillis() );
-//        InfluxRepository repository = new InfluxRepository( "http://localhost:8086", "root", "root".toCharArray() );
-//
-//        InfluxDatabase db = new Builder( "om-metricdb" )
-//                                .addShardSpace( "default", "30d", "1d", "/^[a-zA-Z].*/", 1, 1 )
-//                                .build();
-//        try {
-//            // command is silently ignored if the database already exists.
-//            if ( !repository.createDatabase( db ) ) {
-//                System.out.println( "Database " + db.getName() + " already exists." );
-//            }
-//            InfluxDB in = repository.adminConnect();
-//
-//            Metrics[] metrics = Metrics.values();
-//            List<String> metricNames = Arrays.stream( Metrics.values() )
-//                                             .map( Enum::name )
-//                                             .collect( Collectors.toList() );
-//            //                  .toArray( new String[metrics.length] );
-//
-//            List<String> volMetricNames = new ArrayList<>();
-//            volMetricNames.add( "domain" );
-//            volMetricNames.add( "volume_id" );
-//            volMetricNames.add( "volume_name" );
-//            volMetricNames.addAll( metricNames );
-//
-//            Object[] metricValues = new Object[volMetricNames.size()];
-//
-//            for ( int i = 0; i < 100000; i++ ) {
-//                for ( int v = 0; v < 10; v++ ) {
-//                    metricValues[0] = "";
-//                    metricValues[1] = Integer.toString( v );
-//                    metricValues[2] = "volume" + v;
-//
-//                    Arrays.fill( metricValues, 3, metricValues.length - 1, rng.nextFloat() );
-//
-//                    Serie serie = new Serie.Builder( "volume_stats" )
-//                                      .columns( volMetricNames.toArray( new String[volMetricNames.size()] ) )
-//                                      .values( metricValues )
-//                                      .build();
-//
-//                    in.write( "om-influx", TimeUnit.SECONDS, serie );
-//                }
-//                Thread.sleep( 1000 );
-//            }
-//        } catch ( Throwable t ) {
-//            t.printStackTrace();
-//        }
-//    }
-
     public static final String CP_USER = "om.repository.username";
     public static final String CP_CRED = "om.repository.cred";
     public static final String CP_DBNAME = "om.repository.db";
