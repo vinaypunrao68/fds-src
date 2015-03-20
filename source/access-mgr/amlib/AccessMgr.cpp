@@ -46,10 +46,12 @@ AccessMgr::mod_init(SysParams const *const param) {
                                 StorHvCtrl::NORMAL);
     dataApi = boost::make_shared<AmDataApi>();
 
-    fds_uint32_t pmPort = 7000;
+    fds_uint32_t pmPort = g_fdsprocess->get_fds_config()->get<int>(
+        "fds.pm.platform_port");
     if (!conf.get<bool>("testing.standalone")) {
         pmPort = modProvider_->getSvcMgr()->getMappedSelfPlatformPort();
     }
+    LOGTRACE << "Platform port " << pmPort;
 
     // Init the FDSN server to serve XDI data requests
     fdsnServer = FdsnServer::unique_ptr(

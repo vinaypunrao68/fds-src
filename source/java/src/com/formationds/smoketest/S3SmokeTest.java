@@ -106,7 +106,8 @@ public class S3SmokeTest {
 	final Configuration configuration = new Configuration("xdi", args);
 	ParsedConfig platformConfig = configuration.getPlatformConfig();
         Integer pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
-        config = new XdiClientFactory(pmPort).remoteOmService(host, 9090);
+        Integer amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 53);
+        config = new XdiClientFactory(pmPort + amResponsePortOffset).remoteOmService(host, 9090);
 
         testBucketExists(userBucket, false);
         testBucketExists(adminBucket, false);

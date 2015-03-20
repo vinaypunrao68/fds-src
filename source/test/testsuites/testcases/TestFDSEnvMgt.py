@@ -146,9 +146,9 @@ class TestFDSInstall(TestCase.FDSTestCase):
         status = node.nd_agent.exec_wait('rm %s/platform.conf ' % dest_config_dir)
 
         # Obtain these defaults from platform.conf.
-        s3_http_port = port + 26
-        s3_https_port = port + 27
-        swift_port = port + 29
+        s3_http_port = int(port) + 26
+        s3_https_port = int(port) + 27
+        swift_port = int(port) + 29
         nbd_server_port = 10809
         status = node.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = %s/g" '
                                       '-e "s/ s3_http_port=7026/ s3_http_port=%s/g" '

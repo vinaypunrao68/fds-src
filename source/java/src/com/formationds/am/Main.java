@@ -35,7 +35,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.util.function.Supplier;
 
 public class Main {
-    public static final int AM_BASE_RESPONSE_PORT_OFFSET = 53;
     private static Logger LOG = Logger.getLogger(Main.class);
 
     public static void main(String[] args) {
@@ -92,23 +91,26 @@ public class Main {
 
         }
 
-        int amResponsePort = pmPort + AM_BASE_RESPONSE_PORT_OFFSET;
+        int amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 53);
+        int amResponsePort = pmPort + amResponsePortOffset;
         LOG.debug("PM port " + pmPort +
                 " my port " + amResponsePort);
 
-        XdiClientFactory clientFactory = new XdiClientFactory(pmPort);
+        XdiClientFactory clientFactory = new XdiClientFactory(amResponsePort);
 
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
         boolean useFakeAm = platformConfig.defaultBoolean("fds.am.memory_backend", false);
         String omHost = platformConfig.defaultString("fds.am.om_ip", "localhost");
         Integer omHttpPort = platformConfig.defaultInt("fds.om.http_port", 7777);
         Integer omHttpsPort = platformConfig.defaultInt("fds.om.https_port", 7443);
+        int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 24);
+        int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 25);
+        int streamingPortOffset = platformConfig.defaultInt("fds.am.streaming_port_offset", 28);
 
         // TODO: this needs to be configurable in platform.conf
         int omConfigPort = 9090;
 
         // TODO: the base service port needs to configurable in platform.conf
-        int amServicePortOffset = 24;
         int amServicePort = pmPort + amServicePortOffset;
 
         XdiService.Iface am = useFakeAm ? new FakeAmService() :
@@ -148,7 +150,8 @@ public class Main {
 
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
-        AsyncXdiServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, pmPort + 25);
+        AsyncXdiServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost,
+                                                                             pmPort + xdiServicePortOffset);
         AsyncAm asyncAm = useFakeAm ?
                 new FakeAsyncAm() :
                 new RealAsyncAm(oneWayAm, amResponsePort);
@@ -176,7 +179,7 @@ public class Main {
                 httpsConfiguration,
                 httpConfiguration).start(), "S3 service thread").start();
 
-        startStreamingServer(pmPort + 28, configCache);
+        startStreamingServer(pmPort + streamingPortOffset, configCache);
         int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 29);
         swiftPort += pmPort;
         new SwiftEndpoint(xdi, secretKey).start(swiftPort);

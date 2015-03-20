@@ -347,8 +347,9 @@ public class HdfsSmokeTest {
         final Configuration configuration = new Configuration("xdi", args);
         ParsedConfig platformConfig = configuration.getPlatformConfig();
 	Integer pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
+	Integer amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 53);
 
-        XdiClientFactory xdiCf = new XdiClientFactory(pmPort);
+        XdiClientFactory xdiCf = new XdiClientFactory(pmPort + amResponsePortOffset);
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 

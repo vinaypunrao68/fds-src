@@ -84,11 +84,11 @@ public class AmTest {
 
     @BeforeClass
     public static void setUpOnce() throws Exception {
-        int pmPort = MY_AM_RESPONSE_PORT;
-        xdiCf = new XdiClientFactory(pmPort);
+        int pmPort = 7000;
+        xdiCf = new XdiClientFactory(MY_AM_RESPONSE_PORT);
         amService = xdiCf.remoteAmService("localhost", pmPort + 24);
         configService = xdiCf.remoteOmService("localhost", 9090);
-        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm("localhost", pmPort + 25), pmPort + 53, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(xdiCf.remoteOnewayAm("localhost", pmPort + 25), MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
         asyncAm.start();
     }
 

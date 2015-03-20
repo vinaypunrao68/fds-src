@@ -79,7 +79,7 @@ public class FdsFileSystem extends FileSystem {
         String cs = conf.get("fds.cs.endpoint");
 	Integer pmPort = 7000;
 
-        XdiClientFactory cf = new XdiClientFactory(pmPort);
+        XdiClientFactory cf = new XdiClientFactory(7053);
         XdiService.Iface amClient = null;
 
         this.uri = URI.create(getScheme() + "://" + uri.getAuthority());
