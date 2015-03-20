@@ -9,6 +9,8 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.protocol.Snapshot;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.S3SignatureGenerator;
+import com.formationds.util.Configuration;
+import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
@@ -99,7 +101,12 @@ public class S3SmokeTest {
         prefix = UUID.randomUUID()
                 .toString();
         count = 10;
-        config = new XdiClientFactory().remoteOmService(host, 9090);
+
+	String[] args = new String[]{"--fds-root=/fds"};
+	final Configuration configuration = new Configuration("xdi", args);
+	ParsedConfig platformConfig = configuration.getPlatformConfig();
+        Integer pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
+        config = new XdiClientFactory(pmPort).remoteOmService(host, 9090);
 
         testBucketExists(userBucket, false);
         testBucketExists(adminBucket, false);

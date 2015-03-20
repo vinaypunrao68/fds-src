@@ -57,14 +57,13 @@ public:
 
     StorHvCtrl(int argc, char *argv[], fds::SysParams *params);
     StorHvCtrl(int argc, char *argv[], fds::SysParams *params,
-               sh_comm_modes _mode, fds_uint32_t instanceId = 0);
+               sh_comm_modes _mode);
     StorHvCtrl(int argc,
                char *argv[],
                fds::SysParams *params,
                sh_comm_modes _mode,
                fds_uint32_t sm_port_num,
-               fds_uint32_t dm_port_num,
-               fds_uint32_t instanceId = 0);
+               fds_uint32_t dm_port_num);
     ~StorHvCtrl();
 
     // Data Members

@@ -186,12 +186,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
                                (n.nd_conf_dict['node-name'], status))
                 return False
 
-            # By handling AM separately in a multi-node environment,
-            # we avoid FS-879.
-            if len(nodes) > 1:
-                services = n.nd_services.replace('am', '')
-            else:
-                services = n.nd_services
+            services = n.nd_services
 
             if services != '':
                 self.log.info("Activate services %s for node %s." % (services, n.nd_conf_dict['node-name']))
@@ -200,16 +195,6 @@ class TestNodeActivate(TestCase.FDSTestCase):
                                                     '%s/cli.out 2>&1) \"' %
                                                     (fds_dir, int(n.nd_uuid, 16), services, log_dir),
                                                     fds_bin=True)
-
-            # By handling AM separately in a multi-node environment,
-            # we avoid FS-879.
-            if (n.nd_services.count('am') > 0) and (len(nodes) > 1):
-                # Boot instead of activate.
-                amBootTest = TestAMBringUp(node=n)
-                amBooted = amBootTest.test_AMBringUp()
-                if not amBooted:
-                    self.log.error("AM failed to boot on node %s." % n.nd_conf_dict['node-name'])
-                    return False
 
             if status != 0:
                 self.log.error("Service activation of node %s returned status %d." %

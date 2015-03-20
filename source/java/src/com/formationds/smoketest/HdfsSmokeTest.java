@@ -5,6 +5,8 @@ import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.hadoop.OwnerGroupInfo;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
+import com.formationds.util.Configuration;
+import com.formationds.util.libconfig.ParsedConfig;
 import org.apache.hadoop.fs.*;
 import org.junit.After;
 import org.junit.Before;
@@ -341,12 +343,17 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-        XdiClientFactory xdiCf = new XdiClientFactory();
+	String[] args = new String[]{"--fds-root=/fds"};
+        final Configuration configuration = new Configuration("xdi", args);
+        ParsedConfig platformConfig = configuration.getPlatformConfig();
+	Integer pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
+
+        XdiClientFactory xdiCf = new XdiClientFactory(pmPort);
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 
         ConfigurationService.Iface cs = xdiCf.remoteOmService(host, 9090);
-        XdiService.Iface am = xdiCf.remoteAmService(host, 9988);
+        XdiService.Iface am = xdiCf.remoteAmService(host, pmPort + 24);
 
         String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
         String userName = "hdfs-user-" + UUID.randomUUID().toString();

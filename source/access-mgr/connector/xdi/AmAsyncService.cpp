@@ -47,9 +47,9 @@ AsyncAmServiceRequestIfCloneFactory::releaseHandler(request_if* handler) {
     delete handler;
 }
 
-AsyncDataServer::AsyncDataServer(const std::string &name, fds_uint32_t instanceId)
+AsyncDataServer::AsyncDataServer(const std::string &name, fds_uint32_t pmPort)
 : Module(name.c_str()),
-    port(8899 + instanceId)
+    port(pmPort + 25)
 {
     serverTransport.reset(new xdi_att::TServerSocket(port));
     transportFactory.reset(new xdi_att::TFramedTransportFactory());

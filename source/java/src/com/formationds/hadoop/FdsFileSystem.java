@@ -77,15 +77,16 @@ public class FdsFileSystem extends FileSystem {
         setConf(conf);
         String am = conf.get("fds.am.endpoint");
         String cs = conf.get("fds.cs.endpoint");
+	Integer pmPort = 7000;
 
-        XdiClientFactory cf = new XdiClientFactory();
+        XdiClientFactory cf = new XdiClientFactory(pmPort);
         XdiService.Iface amClient = null;
 
         this.uri = URI.create(getScheme() + "://" + uri.getAuthority());
         workingDirectory = new Path(uri);
 
         if (am != null) {
-            HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, 9988);
+            HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, pmPort + 24);
             amClient = cf.remoteAmService(amConnectionData.getHost(), amConnectionData.getPort());
         } else if (this.am != null) {
             amClient = this.am;

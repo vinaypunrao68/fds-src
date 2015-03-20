@@ -63,9 +63,6 @@ class AccessMgr : public Module, public boost::noncopyable {
     /// Raw pointer to an external dependency manager
     CommonModuleProviderIf *modProvider_;
 
-    /// Unique instance ID of this AM
-    fds_uint32_t instanceId;
-
     /// OM config service API
     OmConfigApi::shared_ptr omConfigApi;
 

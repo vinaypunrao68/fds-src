@@ -18,9 +18,9 @@ namespace fds {
 
 FdsnServer::FdsnServer(const std::string &name,
                        AmDataApi::shared_ptr &_dataApi,
-                       fds_uint32_t instanceId)
+                       fds_uint32_t pmPort)
         : Module(name.c_str()),
-          port(9988 + instanceId),
+          port(pmPort + 24),
           dataApi(_dataApi),
           numFdsnThreads(10) {
     serverTransport.reset(new xdi_att::TServerSocket(port));

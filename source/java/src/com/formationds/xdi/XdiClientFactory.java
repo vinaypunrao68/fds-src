@@ -43,12 +43,11 @@ public class XdiClientFactory {
 
     private int amResponsePort;
 
-    public XdiClientFactory() {
-        this(Main.AM_BASE_RESPONSE_PORT);
-    }
-
-    public XdiClientFactory(int amResponsePort) {
-        this.amResponsePort = amResponsePort;
+    public XdiClientFactory(int pmPort) {
+        int amRespPort = pmPort + Main.AM_BASE_RESPONSE_PORT_OFFSET;
+        this.amResponsePort = amRespPort;
+        LOG.debug("PM port " + pmPort +
+                  " amResponsePort " + this.amResponsePort);
 
         configService = ConfigServiceClientFactory.newConfigService();
         legacyConfigService = ConfigServiceClientFactory.newLegacyConfigService();
@@ -59,7 +58,7 @@ public class XdiClientFactory {
             new ThriftClientConnectionFactory<>(proto -> {
                 AsyncXdiServiceRequest.Client client = new AsyncXdiServiceRequest.Client(proto);
                 try {
-                    client.handshakeStart(new RequestId(UUID.randomUUID().toString()), amResponsePort);
+                    client.handshakeStart(new RequestId(UUID.randomUUID().toString()), amRespPort);
                 } catch (TException e) {
                     LOG.error("Could not handshake remote AM!", e);
                     throw new RuntimeException(e);
