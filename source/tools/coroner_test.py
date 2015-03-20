@@ -208,6 +208,21 @@ class TestFDSCoroner(unittest.TestCase):
         mock_collect_paths.assert_called_once_with('cores', paths)
         mock_compress.assert_called_once_with('cores')
 
+    @mock.patch('coroner.FDSCoroner.collect_dir')
+    def test_collect_cli_dirs(self, mock_collect_dir):
+        dirlist = [ 'name:directory', 'name2:directory2' ]
+        self.bodybag.collect_cli_dirs(dirlist)
+        mock_collect_dir.assert_called_twice_with(
+                directory='name',
+                path='directory'
+        )
+
+    @mock.patch('coroner.FDSCoroner.collect_cmd')
+    def test_collect_cli_dirs(self, mock_collect_cmd):
+        cmdlist = [ 'command1', 'command_2' ]
+        self.bodybag.collect_cli_cmds(cmdlist)
+        mock_collect_cmd.assert_called_twice_with(command='command1')
+
     @mock.patch('coroner.subprocess.call')
     @mock.patch('coroner.logging')
     def test_close(self, mock_logging, mock_subproc_call):

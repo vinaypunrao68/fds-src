@@ -169,6 +169,17 @@ class FDSCoroner(object):
         self.collect_paths('cores', paths)
         self.compress_sparse_files('cores')
 
+    def collect_cli_dirs(self, dirlist):
+        """Collect directories passed on the command line"""
+        for entry in dirlist:
+            (name, path) = entry.split(':')
+            self.collect_dir(directory=name, path=path)
+
+    def collect_cli_cmds(self, cmdlist):
+        """Collect commands passed on the command line"""
+        for entry in cmdlist:
+            self.collect_cmd(command=entry)
+
     def close(self):
         """Tar & compress a bag and then remove original directory"""
         logging.info("Zipping up bag...")
@@ -237,6 +248,10 @@ def run_collect(opts):
        '%s/bin/core*' % bodybag.fdsroot
     ]
     bodybag.collect_cores(corepaths)
+    if opts['collect_dirs'] is not None:
+        bodybag.collect_cli_dirs(opts['collect_dirs'])
+    if opts['collect_cmds'] is not None:
+        bodybag.collect_cli_cmds(opts['collect_cmds'])
     # Close up the bag
     bodybag.close()
     bodybag.report()
@@ -261,6 +276,12 @@ def main():
     parser_collect.add_argument(
             '--include-fdsroot', action='store_true', default=False,
             help='Enable collection of actual /fds directory excluding some data')
+    parser_collect.add_argument(
+            '--collect-dirs', dest='collect_dirs', nargs='*', default=None,
+            help='Collect additional directory, form "name:directory"')
+    parser_collect.add_argument(
+            '--collect-cmds', dest='collect_cmds', nargs='*', default=None,
+            help='Collect additional command')
     parser_collect.set_defaults(func=run_collect)
 
     parser.add_argument(
