@@ -577,7 +577,7 @@ void FDSP_ConfigPathReqHandler::ListServices(
     // Do nothing
 }
 
-static void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
+void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
                           NodeAgent::pointer ptr) {
 
     fpi::FDSP_RegisterNodeType nodeData;

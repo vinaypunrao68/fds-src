@@ -37,9 +37,17 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
+   * Lists currently defined Services for the named Local Domain.
+   *
+   * @return Returns the list of FDSP_Node_Info_Type's.
+   */
+  list<common.FDSP_Node_Info_Type> listServices(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
    * Create a new tenant.
    *
-   * @param identifier a string represnting the tenants identifier or name
+   * @param identifier a string representing the tenants identifier or name
    *
    * @return Returns the tenants id
    */

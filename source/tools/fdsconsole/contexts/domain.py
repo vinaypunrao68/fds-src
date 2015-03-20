@@ -44,6 +44,21 @@ class DomainContext(Context):
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
+    @arg('domain_name', help="Name of the Local Domain whose Services are to be listed.")
+    def listServices(self, domain_name):
+        """
+        List currently defined Services for the named Local Domain.
+        """
+        try:
+            return self.restApi().listServices(domain_name)
+        except Exception, e:
+            print e
+            log.exception(e)
+            return 'Unable to list Services for Local Domain {}.'.format(domain_name)
+
+    #--------------------------------------------------------------------------------------
+
+    @cliadmincmd
     @arg('domain_name', help="Name of the Local Domain whose Throttle is to be set.")
     @arg('throttle_level', help="The new throttle level to which to set the Local Domain.")
     def setThrottle(self, domain_name, throttle_level):
