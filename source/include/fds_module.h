@@ -213,6 +213,7 @@ class FdsRootDir
     inline const std::string &dir_sys_repo_etc() const { return d_sys_repo_etc; }
     inline const std::string &dir_sys_repo_domain() const { return d_sys_repo_domain; }
     inline const std::string &dir_sys_repo_volume() const { return d_sys_repo_volume; }
+    inline const std::string &dir_sys_repo_stats() const { return d_sys_repo_stats; }
     inline const std::string &dir_sys_repo_inventory() const {
         return d_sys_repo_inventory;
     }
@@ -242,6 +243,7 @@ class FdsRootDir
     std::string              d_sys_repo_domain;
     std::string              d_sys_repo_volume;
     std::string              d_sys_repo_inventory;
+    std::string              d_sys_repo_stats;
     std::string              d_fds_repo;
 };
 

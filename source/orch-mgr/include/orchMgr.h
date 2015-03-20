@@ -27,6 +27,9 @@
 #include <deletescheduler.h>
 #include <net/SvcProcess.h>
 #include <net/PlatNetSvcHandler.h>
+#include "platform/node_agent.h"
+#include <net/SvcMgr.h>
+#include <net/net_utils.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -311,6 +314,8 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
   private:
         OrchMgr* orchMgr;
 };
+
+void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec, NodeAgent::pointer ptr);
 
 std::thread* runConfigService(OrchMgr* om);
 extern OrchMgr *gl_orch_mgr;

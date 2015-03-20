@@ -8,6 +8,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.StreamingRegistrationMsg;
 import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.events.*;
 import com.formationds.om.events.EventManager;
 import com.formationds.security.AuthenticationToken;
@@ -268,6 +269,21 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public List<com.formationds.apis.LocalDomain> listLocalDomains(int ignore)
         throws ApiException, org.apache.thrift.TException {
         return getConfig().listLocalDomains(ignore);
+    }
+    
+    /**
+     * List all currently defined Services for the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain whose services are to be listed.
+     * 
+     * @return List<com.formationds.apis.LocalDomain>: A list of the currently defined Local Domains and associated information.
+     * 
+     * @throws TException
+     */
+    @Override
+    public List<FDSP_Node_Info_Type> listServices(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        return getConfig().listServices(domainName);
     }
 
     @Override

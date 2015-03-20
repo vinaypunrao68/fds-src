@@ -351,6 +351,7 @@ NbdConnection::io_reply(ev::io &watcher) {
         if (!current_response->getError().ok()) {
             err = current_response->getError();
             response[1].iov_base = to_iovec(&error_bad);
+            LOGERROR << "Returning error: " << err;
         } else if (current_response->isRead()) {
             fds_uint32_t context = 0;
             boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
