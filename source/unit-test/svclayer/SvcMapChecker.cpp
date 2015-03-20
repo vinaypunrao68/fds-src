@@ -79,46 +79,55 @@ class SvcMapChecker : public SvcProcess
         std::string omIp;
         uint32_t port;
         std::vector<fpi::SvcInfo> omSvcMap;
-        bool ret;
+        bool checkRes = true;
         int retCode = 0;
 
         svcMgr_->getOmIPPort(omIp, port);
-        ret = getSvcMap(omIp, port, omSvcMap);
-        if (!ret) {
+        checkRes = getSvcMap(omIp, port, omSvcMap);
+        if (!checkRes) {
             LOGERROR << "Coudn't get svc map from om";
+            std::cout << "Failed to get service map from om.  Ensure om endpoint is correct and "
+                << " operational.\n";
             return -1;
         }
 
         for (auto &svcInfo : omSvcMap) {
             std::vector<fpi::SvcInfo> svcMap;
+            checkRes = true;
 
-            LOGNORMAL << "Comparing " << fds::logString(svcInfo);
+            LOGNORMAL << "Checking aginst " << fds::logString(svcInfo);
+            std::cout << "Checking: " << svcInfo.svc_id.svc_uuid.svc_uuid << std::endl;
 
             if (svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
                 /* Getting svcmap should fail */
-                ret = getSvcMap(svcInfo.ip, svcInfo.svc_port, svcMap);
-                if (ret == true) {
+                if (getSvcMap(svcInfo.ip, svcInfo.svc_port, svcMap) == true) {
                     LOGERROR << "Service is up.  OM thinks it's down.  OM view: "
                         << fds::logString(svcInfo);
-                    retCode = -1;
+                    checkRes = false;
                 }
             } else if (svcInfo.svc_status == fpi::SVC_STATUS_ACTIVE) {
-                ret = getSvcMap(svcInfo.ip, svcInfo.svc_port, svcMap);
-                if (ret) {
-                    ret = compareSvcMaps(omSvcMap, svcMap);
-                    if (!ret) {
-                        retCode = -1;
-                    }
+                checkRes = getSvcMap(svcInfo.ip, svcInfo.svc_port, svcMap);
+                if (checkRes) {
+                    checkRes = compareSvcMaps(omSvcMap, svcMap);
                 } else {
                     LOGERROR << "Service is down.  OM thinks it's up.  OM view: "
                         << fds::logString(svcInfo);
-                    retCode = -1;
                 }
             } else {
                 LOGERROR << "Invalid service state.  OM view: " << fds::logString(svcInfo);
+                checkRes = false;
+            }
+
+            if (checkRes) {
+                LOGNORMAL << "Checking result: success";
+                std::cout << "result: success\n";
+            } else {
+                LOGNORMAL << "Checking result: failed";
+                std::cout << "result: failed.  See the log\n";
                 retCode = -1;
             }
         }
+
         return retCode;
     }
 };
