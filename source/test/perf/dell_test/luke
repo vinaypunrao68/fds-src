@@ -2,6 +2,7 @@
 luke
 
 [luke:vars]
+fds_authentication=false
 ansible_ssh_user=root
 ansible_ssh_pass=passwd
 cluster_location=fre
