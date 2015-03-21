@@ -696,6 +696,70 @@ class TestVerifyRedisDown(TestCase.FDSTestCase):
 
         return True
 
+# This class contains the attributes and methods to test
+# restarting InfluxDB to a "clean" state.
+class TestRestartInfluxDBClean(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RestartInfluxDBClean,
+                                             "Restart InfluxDB clean")
+
+        self.passedNode = node
+
+    def test_RestartInfluxDBClean(self):
+        """
+        Test Case:
+        Attempt to restart InfluxDB to a "clean" state.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        self.log.info("Restart InfluxDB clean on %s." % n.nd_conf_dict['node-name'])
+
+# TODO: influx doesn't have a clean option.  have to stop, delete the data directories and restart.
+#        status = n.nd_agent.exec_wait("service influxdb restart")
+#        time.sleep(2)
+#
+#        if status != 0:
+#            self.log.error("Restart InfluxDB before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+#            return False
+#
+#        status = n.nd_agent.exec_wait("service influxdb clean")
+#        time.sleep(2)
+#
+#        if status != 0:
+#            self.log.error("Clean InluxDB on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+#            return False
+#
+        status = n.nd_agent.exec_wait("service influxdb restart")
+        time.sleep(2)
+
+        if status != 0:
+            self.log.error("Restart InfluxDB after clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
 
 # This class contains the attributes and methods to test
 # booting up InfluxDB.
