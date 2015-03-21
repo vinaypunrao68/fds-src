@@ -78,6 +78,9 @@ public class Main {
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
 
+        logger.trace( "Initializing the repository manager." );
+        SingletonRepositoryManager.instance().initializeRepositories();
+
         logger.trace( "Initializing repository event notifier." );
         EventManager.INSTANCE
                     .initEventNotifier(
