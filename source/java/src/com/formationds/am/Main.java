@@ -164,10 +164,10 @@ public class Main {
                 bbp,
                 configCache);
 
-        int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port_offset", 26);
-        int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port_offset", 27);
-        s3HttpPort += pmPort;
-        s3SslPort += pmPort;
+        int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port_offset", 1000);
+        int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port_offset", 1443);
+        s3HttpPort += pmPort;   // remains 8000 for default platform port
+        s3SslPort += pmPort;    // remains 8443 for default platform port
 
         HttpConfiguration httpConfiguration = new HttpConfiguration(s3HttpPort, "0.0.0.0");
         HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort,
@@ -180,8 +180,8 @@ public class Main {
                 httpConfiguration).start(), "S3 service thread").start();
 
         startStreamingServer(pmPort + streamingPortOffset, configCache);
-        int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 29);
-        swiftPort += pmPort;
+        int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 299);
+        swiftPort += pmPort;  // remains 9999 for default platform port
         new SwiftEndpoint(xdi, secretKey).start(swiftPort);
     }
 
