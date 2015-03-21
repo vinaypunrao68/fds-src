@@ -149,7 +149,7 @@ class TestFDSInstall(TestCase.FDSTestCase):
         s3_http_port = int(port) + 1000
         s3_https_port = int(port) + 1443
         swift_port = int(port) + 299
-        nbd_server_port = 10809
+        nbd_server_port = int(port) + 3809
         status = node.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = %s/g" '
                                       '-e "s/ s3_http_port=8000/ s3_http_port=%s/g" '
                                       '-e "s/ s3_https_port=8443/ s3_https_port=%s/g" '
