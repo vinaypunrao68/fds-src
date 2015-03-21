@@ -73,6 +73,12 @@ class ObjectStore : public Module, public boost::noncopyable {
     Error handleNewDlt(const DLT* dlt);
 
     /**
+     * Notification about DLT close
+     * This method handles losing ownership of SM tokens
+     */
+    Error handleDltClose(const DLT* dlt);
+
+    /**
      * Adds a new volume to the object store. Some physical
      * resources are allocated, but new volume creation is
      * thinly provisioned.

@@ -11,6 +11,9 @@
 
 namespace fds {
 
+static constexpr fds_uint32_t Ki { 1024 };
+static constexpr fds_uint32_t Mi { 1024 * Ki };
+
 AmTxManager::AmTxManager()
     : amCache(nullptr),
       volTable(nullptr)
@@ -22,6 +25,8 @@ AmTxManager::~AmTxManager() = default;
 void AmTxManager::init(processor_callback_type&& cb) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
+    // This is in terms of MiB
+    maxPerVolumeCacheSize = Mi * conf.get<fds_uint32_t>("cache.max_volume_data");
     qos_threads = conf.get<int>("qos_threads");
 
     amCache.reset(new AmCache());
@@ -184,8 +189,13 @@ Error
 AmTxManager::registerVolume(const VolumeDesc& volDesc,
                            boost::shared_ptr<AmVolumeAccessToken> access_token)
 {
+    // The cache size is controlled in terms of MiB, but the LRU
+    // knows only terms in # of elements. Do this conversion.
+    auto num_cached_objs = (0 < volDesc.maxObjSizeInBytes) ?
+        (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes) : 0;
+
     // A duplicate is ok, we're probably updating the access_token
-    auto err = amCache->registerVolume(volDesc.volUUID);
+    auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs);
     if ((ERR_OK == err) || (ERR_DUPLICATE == err)) {
         LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
         err = volTable->registerVolume(volDesc, access_token);

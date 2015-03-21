@@ -4,6 +4,7 @@ import random
 import shutil
 import sys
 import time
+import unittest
 
 from boto.s3.key import Key
 
@@ -36,6 +37,7 @@ class TestGigabyteBlobSize(testcase.FDSTestCase):
         self.sample_files = []
         self.hash_table = {}
     
+    @unittest.expectedFailure
     def runTest(self):
         utils.create_dir(config.DOWNLOAD_DIR)
         utils.create_dir(config.TEST_DIR)
