@@ -5,8 +5,6 @@ import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.hadoop.OwnerGroupInfo;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
-import com.formationds.util.Configuration;
-import com.formationds.util.libconfig.ParsedConfig;
 import org.apache.hadoop.fs.*;
 import org.junit.After;
 import org.junit.Before;
@@ -27,6 +25,8 @@ import static org.junit.Assert.*;
 @Ignore
 public class HdfsSmokeTest {
     private final int OBJECT_SIZE = 1024 * 1024 * 2;
+    private final int amResponsePortOffset = 53;
+    private final int amServicePortOffset = 24;
     private FdsFileSystem fileSystem;
 
     private static boolean isIntegrationTest() {
@@ -343,18 +343,14 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-	String[] args = new String[]{"--fds-root=./config"};
-        final Configuration configuration = new Configuration("xdi", args);
-        ParsedConfig platformConfig = configuration.getPlatformConfig();
-	Integer pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
-	Integer amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 53);
+	Integer pmPort = 7000;
 
         XdiClientFactory xdiCf = new XdiClientFactory(pmPort + amResponsePortOffset);
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 
         ConfigurationService.Iface cs = xdiCf.remoteOmService(host, 9090);
-        XdiService.Iface am = xdiCf.remoteAmService(host, pmPort + 24);
+        XdiService.Iface am = xdiCf.remoteAmService(host, pmPort + amServicePortOffset);
 
         String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
         String userName = "hdfs-user-" + UUID.randomUUID().toString();

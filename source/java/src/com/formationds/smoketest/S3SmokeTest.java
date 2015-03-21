@@ -9,8 +9,6 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.protocol.Snapshot;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.S3SignatureGenerator;
-import com.formationds.util.Configuration;
-import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
@@ -43,6 +41,7 @@ public class S3SmokeTest {
     private static final String FDS_AUTH_HEADER = "FDS-Auth";
     private final static String ADMIN_USERNAME = "admin";
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
+    private final int amResponsePortOffset = 53;
 
     public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
     private final String adminToken;
@@ -102,11 +101,7 @@ public class S3SmokeTest {
                 .toString();
         count = 10;
 
-	String[] args = new String[]{"--fds-root=/fds"};
-	final Configuration configuration = new Configuration("xdi", args);
-	ParsedConfig platformConfig = configuration.getPlatformConfig();
-        Integer pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
-        Integer amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 53);
+        Integer pmPort = 7000;
         config = new XdiClientFactory(pmPort + amResponsePortOffset).remoteOmService(host, 9090);
 
         testBucketExists(userBucket, false);
