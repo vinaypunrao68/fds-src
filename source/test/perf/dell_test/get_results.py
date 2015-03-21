@@ -3,6 +3,7 @@
 import os,re,sys
 import tabulate
 import operator
+import dataset
 
 
 def order_by(table, columns):

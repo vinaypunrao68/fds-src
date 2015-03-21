@@ -1,7 +1,7 @@
 #!/bin/bash
 
 outdir=$1
-size=16m
+size="16m"
 bsizes="4096"
 iodepths="128"
 workers="8"
