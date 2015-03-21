@@ -15,6 +15,9 @@ def order_by(table, columns):
 
 directory=sys.argv[1]
 
+# connect to temporary db
+db = dataset.connect('sqlite:////tmp/test.db')
+
 files = os.listdir(directory)
 table = []
 for f in files:
@@ -36,6 +39,9 @@ for f in files:
 	table.append({"numjobs" : numjobs, "workload" : workload, "bs" : bs, "iodepth" : iodepth, "disksize" : disksize, "iops" : iops})
 	
 	#if workload == "read" or workload == "randread":
+
+# add table to temporary db
+db["experiments"].insert(table)
 
 #table = sorted(table, key = lambda x : x["workload"])
 table = order_by(table, ["numjobs", "workload", "bs", "iodepth", "disksize"])
