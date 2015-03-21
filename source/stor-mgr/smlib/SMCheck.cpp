@@ -72,7 +72,9 @@ SMCheckOffline::SMCheckOffline(SmDiskMap::ptr smDiskMap,
     fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
     Error dltErr = smDiskMap->handleNewDlt(curDLT, smUuid);
-    fds_verify(dltErr.ok() || (dltErr == ERR_SM_NOERR_GAINED_SM_TOKENS));
+    fds_verify(dltErr.ok() ||
+               (dltErr == ERR_SM_NOERR_GAINED_SM_TOKENS) ||
+               (dltErr == ERR_SM_NOERR_NEED_RESYNC));
 
     // Open the data store
     smObjStore->openDataStore(smDiskMap,

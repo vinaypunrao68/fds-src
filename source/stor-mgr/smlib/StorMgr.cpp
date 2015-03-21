@@ -346,11 +346,15 @@ Error ObjectStorMgr::handleDltUpdate() {
     // to SM tokens
     const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
+    if (err == ERR_SM_NOERR_NEED_RESYNC) {
+        LOGNORMAL << "SM received first DLT after restart, which matched "
+                  << "its persistent state, will start full resync of DLT tokens";
+        // TODO(Anna) FS-1649 actually start the resync process
 
-    if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-        LOGDEBUG << "Received DLT update that has removed this node.";
-        // TODO(brian): Not sure if this is where we should kill scavenger or not
+        // for now pretend we successfully started resync, return success
+        err = ERR_OK;
     }
+
     return err;
 }
 

@@ -60,6 +60,24 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
         }
 
         err = dataStore->openDataStore(diskMap, false);
+    } else if (err == ERR_SM_NOERR_LOST_SM_TOKENS) {
+        // disk map already verified that this happend on our first DLT
+        // this is the case, where SM went down between DLT update and DLT close
+        // and we did not reflect losing SM token ownership in superblock;
+        // that's ok -- do it now by "simulating" DLT close
+        LOGDEBUG << "Looks like we lost SM tokens, will invalidate";
+        err = handleDltClose(dlt);
+
+        // we are now always doing full resync on restart (see above comment, this
+        // error happens only on first DLT update after restart
+        if (err.ok()) {
+            err = ERR_SM_NOERR_NEED_RESYNC;
+        }
+    } else if (err == ERR_SM_SUPERBLOCK_INCONSISTENT) {
+        LOGCRITICAL << "We got DLT version that superblock already knows about ["
+                    << dlt->getVersion() << "] but not all SM tokens are marked valid."
+                    << " We don't know how to handle this yet.. Failing DLT update!";
+        err = ERR_PERSIST_STATE_MISMATCH;
     }
 
     return err;

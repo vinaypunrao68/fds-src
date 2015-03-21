@@ -47,6 +47,7 @@ fds: {
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
 
+{# This block should be reinstated when FS-1697 is resolved ...
 {% if om_ip_count != empty_om_list %}
 {% set hosts = groups[group_names[0]] %}
 {% for i in range(om_ip_count|int) %}
@@ -55,6 +56,8 @@ fds: {
 {% else %}
          om_ip_list = "{{ empty_om_list }}"
 {% endif %}
+#}
+	om_ip_list = "{{ om_ip }}"
 	om_port = 7004
 	om_uuid = 1028
 
@@ -560,6 +563,7 @@ fds: {
             targetip = "{{ snmp_targetip }}"
             community = "{{ snmp_community }}"
         }
+        prevent_adding_dm_after_startup = true
     }
 
     checker: {
