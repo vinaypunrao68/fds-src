@@ -964,7 +964,8 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
         status, stdout = n.nd_agent.exec_wait("service influxdb status", return_stdin=True)
 
-        if status != 0:
+        # influxdb init script status returns 3 if the process is down.
+        if status != 3:
             self.log.error("Verify InfluxDB is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
