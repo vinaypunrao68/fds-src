@@ -8,6 +8,9 @@ import unittest
 import random
 import xml.etree.ElementTree as ET
 import time
+from tabulate import tabulate
+from collections import defaultdict
+
 try:
     import requests
     from requests import ConnectionError
@@ -584,7 +587,7 @@ class DomainEndpoint():
         res = self.rest.get(self.rest_path)
         res = self.rest.parse_result(res)
         if res is not None:
-            return res
+            return tabulate(res, headers="keys")
         else:
             return None
 
@@ -597,10 +600,26 @@ class DomainEndpoint():
            List of services that reside within the specified local domain, None on failure
         '''
         path = '{}/{}/services'.format(self.rest_path, domain_name)
-        res = self.rest.get(self.rest_path)
+        res = self.rest.get(path)
         res = self.rest.parse_result(res)
         if res is not None:
-            return res
+            new_res = defaultdict(list)
+            for row in res:
+                new_res["node_uuid"].append("0x"+hex(row["node_uuid"]).zfill(16))
+                new_res["node_root"].append(row["node_root"])
+                new_res["node_id"].append(row["node_id"])
+                new_res["ip_lo_addr"].append(row["ip_lo_addr"])
+                new_res["ip_hi_addr"].append(row["ip_hi_addr"])
+                new_res["service_name"].append(row["node_name"])
+                new_res["service_type"].append(row["node_type"])
+                new_res["service_uuid"].append("0x"+hex(row["service_uuid"]).zfill(16))
+                new_res["service_state"].append(row["node_state"])
+                new_res["control_port"].append(row["control_port"])
+                new_res["data_port"].append(row["data_port"])
+                new_res["migration_port"].append(row["migration_port"])
+                new_res["metasync_port"].append(row["metasync_port"])
+
+            return tabulate(new_res, headers="keys")
         else:
             return None
 

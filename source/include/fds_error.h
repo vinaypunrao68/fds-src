@@ -77,6 +77,10 @@ typedef enum {
     ERR_DM_INVALID_TX_ID      = 54,
     ERR_DLT_IO_PENDING        = 55,
 
+    ERR_ARCHIVE_SNAP_TAR_FAILED = 56,
+    ERR_ARCHIVE_PUT_FAILED = 57,
+    ERR_ARCHIVE_GET_FAILED = 58,
+
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
     ERR_IO_DMT_MISMATCH      = 101,

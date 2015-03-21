@@ -215,6 +215,27 @@ DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
     return ERR_OK;
 }
 
+std::string DataMgr::getSnapDirBase() const
+{
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    return root->dir_user_repo_dm();
+}
+
+std::string DataMgr::getSysVolumeName(const fds_volid_t &volId) const
+{
+    std::stringstream stream;
+    stream << "SYSTEM_VOLUME_" << getVolumeDesc(volId)->tennantId;
+    return stream.str();
+}
+
+std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
+                                    const int64_t snapId) const
+{
+    std::stringstream stream;
+    stream << getSnapDirBase() << "/" << volId << "/" << snapId;
+    return stream.str();
+}
+
 //
 // handle finish forward for volume 'volid'
 //
@@ -562,7 +583,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
         const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-        const std::string stat_dir = root->dir_user_repo_stats() + std::to_string(vol_uuid);
+        const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid);
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
 
