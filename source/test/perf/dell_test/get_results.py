@@ -42,7 +42,8 @@ for f in files:
 	#if workload == "read" or workload == "randread":
 
 # add table to temporary db
-db["experiments"].insert(table)
+for e in table:
+    db["experiments"].insert(e)
 
 #table = sorted(table, key = lambda x : x["workload"])
 table = order_by(table, ["numjobs", "workload", "bs", "iodepth", "disksize"])
