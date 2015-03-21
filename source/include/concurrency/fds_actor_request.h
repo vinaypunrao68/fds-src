@@ -84,6 +84,10 @@ enum FdsActorRequestType {
     /* Token sender pull data has been read */
     FAR_ENUM(TSDataReadEvt),
 
+    /*----------------- Archive client requests -----------------------------------------*/
+    FAR_ENUM(ArchiveClPutReq),
+    FAR_ENUM(ArchiveClGetReq),
+
     /*----------------- Last Request ------------------------------------------*/
     FAR_ENUM(Max)
 };

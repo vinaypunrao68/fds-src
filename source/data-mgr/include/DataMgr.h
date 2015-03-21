@@ -45,6 +45,7 @@
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <dm-tvc/TimelineDB.h>
 #include <StatStreamAggregator.h>
+#include <DataMgrIf.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -57,7 +58,7 @@ struct DataMgr;
 class DMSvcHandler;
 extern DataMgr *dataMgr;
 
-struct DataMgr : Module, DmIoReqHandler {
+struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     OMgrClient     *omClient;
@@ -97,7 +98,7 @@ struct DataMgr : Module, DmIoReqHandler {
         return vol_meta_map[volId]->vol_desc->name;
     }
 
-    inline const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
+    virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
         FDSGUARD(vol_map_mtx);
         std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
                 vol_meta_map.find(volId);
@@ -377,7 +378,14 @@ struct DataMgr : Module, DmIoReqHandler {
      */
     Error deleteSnapshot(const fds_uint64_t snapshotId);
 
+    virtual std::string getSnapDirBase() const override;
+
     Error deleteVolumeContents(fds_volid_t volId);
+
+    virtual std::string getSysVolumeName(const fds_volid_t &volId) const override;
+
+    virtual std::string getSnapDirName(const fds_volid_t &volId,
+                                       const int64_t snapId) const override;
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
