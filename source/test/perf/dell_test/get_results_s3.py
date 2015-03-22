@@ -23,9 +23,10 @@ files = os.listdir(directory)
 table = []
 for f in files:
 	# out.numjobs=4.workload=write.bs=512.iodepth=256.disksize=8g
-	m = re.match("out.numjobs=(\d+).workload=(\w+).bs=(\d+).iodepth=(\d+).disksize=(\w+)",f)
+	m = re.match("out.n_reqs=(\d+).n_file=(\d+).outstanding_reqs=(\d+).test_type=(\w+).object_size=(\d+).hostname=(\w+).n_conns=(\d+)",f)
 	assert m is not None
-	numjobs = int(m.group(1))
+	#numjobs = int(m.group(1))
+    outstanding = ...
 	workload = m.group(2)
 	bs = int(m.group(3))
 	iodepth = int(m.group(4))
