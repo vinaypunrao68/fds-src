@@ -77,16 +77,16 @@ class Test100GBVolume(testcase.FDSTestCase):
                                         config.SSH_PASSWORD)
                 
                 cmds = (
-                    #'umount /fdsmount',
-                    #'rm -rf /fdsmount',
-                    #'rm -rf sample_file',
                     'mkdir /fdsmount',
-                    #'./nbdadm.py detach %s' % (volume_name),
                     './nbdadm.py attach %s %s' % (self.om_ip_address, volume_name),
                     'mkfs.ext4 /dev/nbd15',
                     'mount /dev/nbd15  /fdsmount',
                     'fallocate -l 10G sample_file',
                     'mv sample_file /fdsmount',
+                    'umount /fdsmount',
+                    './nbdadm.py detach %s' % (volume_name),
+                    'rm -rf /fdsmount',
+                    'rm -rf sample_file',
                 )
                 
                 for cmd in cmds:
