@@ -13,7 +13,6 @@ user_build_dir :=                       \
     umod-lib                            \
     util                                \
     lib                                 \
-    nginx-driver                        \
     persistent-layer                    \
     platform                            \
     orch-mgr                            \

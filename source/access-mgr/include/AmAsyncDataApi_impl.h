@@ -342,7 +342,6 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                    shared_int_type& length,
                                    shared_offset_type& objectOffset,
                                    shared_bool_type& isLast) {
-    BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
@@ -366,9 +365,6 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                         bytes,
                                         blobTxDesc,
                                         *isLast,
-                                        &bucket_ctx,
-                                        NULL,
-                                        NULL,
                                         callback);
     storHvisor->enqueueBlobReq(blobReq);
 }
