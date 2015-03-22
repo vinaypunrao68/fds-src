@@ -10,8 +10,11 @@
 #include <unordered_map>
 #include <blob/BlobTypes.h>
 #include <concurrency/RwLock.h>
+#include "fds_volume.h"
 
 namespace fds {
+
+struct AmCache;
 
 /**
  * Descriptor for an AM blob transaction. Contains information
@@ -69,11 +72,14 @@ struct AmTxManager {
     /// Maximum number of entries to stage
     fds_uint32_t maxStagedEntries;
 
+    // Unique ptr to the data object cache
+    std::unique_ptr<AmCache> amCache;
+
   public:
     AmTxManager();
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
-    ~AmTxManager() = default;
+    ~AmTxManager();
     typedef std::unique_ptr<AmTxManager> unique_ptr;
     typedef std::shared_ptr<AmTxManager> shared_ptr;
 
@@ -132,6 +138,17 @@ struct AmTxManager {
      */
     Error updateStagedBlobDesc(const BlobTxId &txId,
                                fpi::FDSP_MetaDataList const& metaDataList);
+
+    // XXX(bszmyd): Sun 22 Mar 2015 06:54:26 AM PDT
+    // Remove these!
+    Error addVolume(const VolumeDesc& volDesc);
+    Error putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize);
+    BlobDescriptor::ptr getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error);
+    ObjectID::ptr getBlobOffsetObject(fds_volid_t volId, const std::string &blobName, fds_uint64_t blobOffset, Error &error);
+    Error putObject(fds_volid_t const volId, ObjectID const& objId, boost::shared_ptr<std::string> const obj);
+    boost::shared_ptr<std::string> getBlobObject(fds_volid_t volId, const ObjectID &objectId, Error &error);
+    Error putOffset(fds_volid_t const volId, BlobOffsetPair const& blobOff, boost::shared_ptr<ObjectID> const objId);
+    Error putBlobDescriptor(fds_volid_t const volId, std::string const& blobName, boost::shared_ptr<BlobDescriptor> const blobDesc);
 };
 
 }  // namespace fds

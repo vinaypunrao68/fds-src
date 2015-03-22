@@ -5,6 +5,7 @@
 #include <string>
 #include <fds_process.h>
 #include <am-tx-mgr.h>
+#include "AmCache.h"
 
 namespace fds {
 
@@ -31,10 +32,14 @@ AmTxDescriptor::AmTxDescriptor(fds_volid_t volUuid,
 AmTxDescriptor::~AmTxDescriptor() {
 }
 
-AmTxManager::AmTxManager() {
+AmTxManager::AmTxManager()
+    : amCache(new AmCache()) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
 }
+
+AmTxManager::~AmTxManager()
+{ }
 
 Error
 AmTxManager::addTx(fds_volid_t volId,
@@ -170,5 +175,37 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
     }
     return ERR_OK;
 }
+
+Error
+AmTxManager::addVolume(const VolumeDesc& volDesc)
+{ return amCache->addVolume(volDesc); }
+
+Error
+AmTxManager::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize)
+{ return amCache->putTxDescriptor(txDesc, blobSize); }
+
+BlobDescriptor::ptr
+AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)
+{ return amCache->getBlobDescriptor(volId, blobName, error); }
+
+ObjectID::ptr
+AmTxManager::getBlobOffsetObject(fds_volid_t volId, const std::string &blobName, fds_uint64_t blobOffset, Error &error)
+{ return amCache->getBlobOffsetObject(volId, blobName, blobOffset, error); }
+
+Error
+AmTxManager::putObject(fds_volid_t const volId, ObjectID const& objId, boost::shared_ptr<std::string> const obj)
+{ return amCache->putObject(volId, objId, obj); }
+
+boost::shared_ptr<std::string>
+AmTxManager::getBlobObject(fds_volid_t volId, const ObjectID &objectId, Error &error)
+{ return amCache->getBlobObject(volId, objectId, error); }
+
+Error
+AmTxManager::putOffset(fds_volid_t const volId, BlobOffsetPair const& blobOff, boost::shared_ptr<ObjectID> const objId)
+{ return amCache->putOffset(volId, blobOff, objId); }
+
+Error
+AmTxManager::putBlobDescriptor(fds_volid_t const volId, std::string const& blobName, boost::shared_ptr<BlobDescriptor> const blobDesc)
+{ return amCache->putBlobDescriptor(volId, blobName, blobDesc); }
 
 }  // namespace fds

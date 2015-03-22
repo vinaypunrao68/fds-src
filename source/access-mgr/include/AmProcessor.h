@@ -16,7 +16,6 @@ namespace fds {
 /**
  * Forward declarations
  */
-struct AmCache;
 struct AmTxManager;
 struct RandNumGenerator;
 
@@ -173,9 +172,6 @@ class AmProcessor : public Module {
 
     /// Shared ptr to the transaction manager
     std::unique_ptr<AmTxManager> txMgr;
-
-    // Unique ptr to the data object cache
-    std::unique_ptr<AmCache> amCache;
 
     /// Unique ptr to a random num generator for tx IDs
     std::unique_ptr<RandNumGenerator> randNumGen;
