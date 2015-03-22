@@ -137,8 +137,8 @@ enum  FDSPMsgTypeId {
   GetBlobMetaDataRspMsgTypeId;
   SetVolumeMetaDataMsgTypeId;
   SetVolumeMetaDataRspMsgTypeId;
-  GetVolumeMetaDataMsgTypeId;
-  GetVolumeMetaDataRspMsgTypeId;
+  StatVolumeMsgTypeId;
+  StatVolumeRspMsgTypeId;
   CommitBlobTxMsgTypeId;
   CommitBlobTxRspMsgTypeId;
   AbortBlobTxMsgTypeId;
@@ -230,7 +230,7 @@ struct FDSP_DLT_Data_Type {
 struct SvcInfo {
   1: required common.SvcID          svc_id;
   2: required i32                   svc_port;
-  3: required FDSP.FDSP_MgrIdType   svc_type;
+  3: required common.FDSP_MgrIdType   svc_type;
   4: required ServiceStatus         svc_status;
   5: required string                svc_auto_name;
   // TODO(Rao): We should make these required.  They aren't made required as of this writing
@@ -264,7 +264,7 @@ struct UuidBindMsg {
     3: required i32                   svc_port;
     4: required common.SvcID          svc_node;
     5: required string                svc_auto_name;
-    6: required FDSP.FDSP_MgrIdType   svc_type;
+    6: required common.FDSP_MgrIdType   svc_type;
 }
 
 /**
@@ -275,7 +275,7 @@ struct NodeSvcInfo {
     2: i32                               node_base_port,
     3: string                            node_addr,
     4: string                            node_auto_name,
-    5: FDSP.FDSP_NodeState               node_state;
+    5: common.FDSP_NodeState               node_state;
     6: i32                               node_svc_mask,
     7: list<SvcInfo>                     node_svc_list,
 }

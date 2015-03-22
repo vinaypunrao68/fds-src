@@ -8,21 +8,20 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import com.formationds.apis.*;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
-import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.MediaPolicyConverter;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.JsonArrayCollector;
@@ -250,19 +249,16 @@ struct VolumeDescriptor {
 
 		MetricQueryCriteria query = new MetricQueryCriteria();      
 		DateRange range = new DateRange();
-		range.setEnd( new Date().getTime() );
-		range.setStart( range.getEnd() - TimeUnit.DAYS.toMillis( 1 ) );
+		range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime() ) ) );
+		range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
 
 		query.setSeriesType( new ArrayList<Metrics>( Metrics.FIREBREAK ) );
 		query.setContexts( Arrays.asList(v) );
 		query.setRange( range );
 
-		MetricsRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+		MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
 
-		final List<VolumeDatapoint> queryResults =
-			new MetricCriteriaQueryBuilder( repo.newEntityManager() ) 
-				.searchFor( query )
-				.resultsList();
+		final List<? extends IVolumeDatapoint> queryResults = repo.query( query );
 
 		FirebreakHelper fbh = new FirebreakHelper();
 		EnumMap<FirebreakType, VolumeDatapointPair> map = null;

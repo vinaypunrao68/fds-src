@@ -5,10 +5,12 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -364,6 +366,12 @@ public class XdiConfigurationApi implements ConfigurationApi {
     public List<LocalDomain> listLocalDomains(int ignore)
             throws TException {
         return config.listLocalDomains(0);
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> listServices(String domainName)
+            throws TException {
+        return config.listServices(domainName);
     }
 
     public CachedConfiguration getCache() {

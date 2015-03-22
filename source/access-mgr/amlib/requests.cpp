@@ -7,15 +7,11 @@
 
 #include "requests/requests.h"
 
-#include "am-tx-mgr.h"
-#include "AmCache.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 
 namespace fds
 {
-
-class AmTxDescriptor;
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
@@ -58,16 +54,10 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        boost::shared_ptr<std::string> _data,
                        BlobTxId::ptr _txDesc,
                        fds_bool_t _last_buf,
-                       BucketContext* _bucket_ctxt,
-                       PutPropertiesPtr _put_props,
-                       void* _req_context,
                        CallbackPtr _cb) :
 AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
     AmTxReq(_txDesc),
     last_buf(_last_buf),
-    bucket_ctxt(_bucket_ctxt),
-    put_properties(_put_props),
-    req_context(_req_context),
     resp_acks(2),
     ret_status(ERR_OK),
     final_meta_data(),

@@ -6,7 +6,6 @@ user_build_dir := \
     fdsp \
     net \
     blob \
-    nginx-driver \
     concurrency \
     kvstore \
     hash \

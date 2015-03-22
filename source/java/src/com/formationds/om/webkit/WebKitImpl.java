@@ -290,6 +290,13 @@ public class WebKitImpl {
                                                      configAPI,
                                                      t ),
                       authorizer );
+        fdsAdminOnly( HttpMethod.GET,
+                "/local_domains/:local_domain/services",
+                ( t ) -> new ListServices( authorizer,
+                                               legacyConfig,
+                                               configAPI,
+                                               t ),
+                authorizer );
 
         logger.trace( "Registered Local Domain endpoints" );
 

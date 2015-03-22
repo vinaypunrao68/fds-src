@@ -38,6 +38,30 @@ if (status != ERR_OK) {                                             \
 
 namespace fds {
 
+void Callback::operator()(FDSN_Status status) {
+    call(status);
+}
+
+void Callback::call(FDSN_Status status) {
+    this->status = status;
+    this->error  = status;
+    call();
+}
+
+void Callback::call(Error err) {
+    this->error = err;
+    this->status = err.GetErrno();
+    call();
+}
+
+bool Callback::isStatusSet() {
+    return status != FDSN_StatusErrorUnknown;
+}
+
+bool Callback::isErrorSet() {
+    return error != ERR_MAX;
+}
+
 void ResponseHandler::call() {
     switch (type) {
         case HandlerType::WAITEDFOR:
@@ -121,22 +145,18 @@ BucketStatsResponseHandler::BucketStatsResponseHandler(
 void BucketStatsResponseHandler::process() {
     XCHECKSTATUS(status);
 
-    if (content_count == 0 || !contents) {
+    if (content_count == 0) {
         LOGWARN << "response has no bucket data";
         status = FDSN_StatusErrorBucketNotExists;
         XCHECKSTATUS(status);
     }
 
-    volumeDescriptor.name = contents[0].bucket_name;
     // volumeDescriptor.uuid = 10;
     volumeDescriptor.dateCreated = util::getTimeStampMillis();
     volumeDescriptor.policy.maxObjectSizeInBytes = 2097152;  // 2MB
 }
 
 BucketStatsResponseHandler::~BucketStatsResponseHandler() {
-    if (contents) {
-        delete[] contents;
-    }
 }
 
 StatBlobResponseHandler::StatBlobResponseHandler(
@@ -196,8 +216,8 @@ StatVolumeResponseHandler::StatVolumeResponseHandler(apis::VolumeStatus& volumeS
 
 void StatVolumeResponseHandler::process() {
     XCHECKSTATUS(status);
-    volumeStatus.blobCount = volumeMetaData.blobCount;
-    volumeStatus.currentUsageInBytes = volumeMetaData.size;
+    volumeStatus.blobCount = volStat.blobCount;
+    volumeStatus.currentUsageInBytes = volStat.size;
 }
 
 }  // namespace fds

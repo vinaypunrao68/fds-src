@@ -25,8 +25,8 @@ namespace fds {
  * for per-volume cache access.
  */
 template <class K, class V, class _Hash = std::hash<K>, class StrongAssociation = std::false_type>
-class VolumeSharedCacheManager : public Module, boost::noncopyable {
- public:
+struct VolumeSharedCacheManager
+{
     typedef K key_type;
     typedef V mapped_type;
     typedef _Hash hash_type;
@@ -42,23 +42,20 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
     fds_rwlock cacheMapRwlock;
 
  public:
-    explicit VolumeSharedCacheManager(const std::string &modName)
-        :   Module(modName.c_str()),
-            vol_cache_map()
-    { }
-
-    ~VolumeSharedCacheManager() { }
+    VolumeSharedCacheManager() = default;
+    VolumeSharedCacheManager(VolumeSharedCacheManager const&) = delete;
+    VolumeSharedCacheManager& operator=(VolumeSharedCacheManager const&) = delete;
+    ~VolumeSharedCacheManager() = default;
 
     /**
-     * Creates a new cache structure that the manager manages.
-     * Currently, the max number of entries and eviction type are
-     * the only policy parameters.
+     * Creates a new cache structure for the given volume.
+     * Currently, the max number of entries is the only policy parameter.
      * @param[in] volId        Volume ID associated with the cache
      * @param[in] maxEntries   Maximum number of entries in the cache
      *
      * @return Err if the volume already has an associated cache.
      */
-    Error createCache(fds_volid_t volId, typename cache_type::size_type maxEntries) {
+    Error addVolume(fds_volid_t volId, typename cache_type::size_type maxEntries) {
         static std::string const cacheModName("Cache module for ");
 
         SCOPEDWRITE(cacheMapRwlock);
@@ -79,7 +76,7 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
      *
      * @return Err if the volume has no associated cache
      */
-    Error deleteCache(fds_volid_t volId) {
+    Error removeVolume(fds_volid_t volId) {
         SCOPEDWRITE(cacheMapRwlock);
         auto mapIt = vol_cache_map.find(volId);
         if (mapIt == vol_cache_map.end()) {
@@ -142,17 +139,6 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
         // Remove from the cache structure
         mapIt->second->remove(key);
         return ERR_OK;
-    }
-
-    /// Init module
-    int  mod_init(SysParams const *const param) {
-        return 0;
-    }
-    /// Start module
-    void mod_startup() {
-    }
-    /// Shutdown module
-    void mod_shutdown() {
     }
 };
 

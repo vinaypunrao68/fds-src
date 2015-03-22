@@ -22,6 +22,7 @@ def suiteConstruction(self):
     # Build the necessary FDS installation infrastructure assuming a development environment.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSInstall())
     suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
+    suite.addTest(testcases.TestFDSEnvMgt.TestRestartInfluxDBClean())
 
     # Bring up each component of the node separately, waiting until
     # one is up before proceeding to the next.

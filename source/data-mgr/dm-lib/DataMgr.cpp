@@ -115,10 +115,10 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
 
     // collect capacity stats for volumes for which this DM is primary
     for (cit = prim_vols.cbegin(); cit != prim_vols.cend(); ++cit) {
-        err = timeVolCat_->queryIface()->getVolumeMeta(*cit,
-                                                       &total_bytes,
-                                                       &total_blobs,
-                                                       &total_objects);
+        err = timeVolCat_->queryIface()->statVolume(*cit,
+                                                    &total_bytes,
+                                                    &total_blobs,
+                                                    &total_objects);
         if (!err.ok()) {
             LOGERROR << "Failed to get volume meta for vol " << std::hex
                      << *cit << std::dec << " " << err;
@@ -213,6 +213,27 @@ Error
 DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
     // TODO(umesh): implement this
     return ERR_OK;
+}
+
+std::string DataMgr::getSnapDirBase() const
+{
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    return root->dir_user_repo_dm();
+}
+
+std::string DataMgr::getSysVolumeName(const fds_volid_t &volId) const
+{
+    std::stringstream stream;
+    stream << "SYSTEM_VOLUME_" << getVolumeDesc(volId)->tennantId;
+    return stream.str();
+}
+
+std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
+                                    const int64_t snapId) const
+{
+    std::stringstream stream;
+    stream << getSnapDirBase() << "/" << volId << "/" << snapId;
+    return stream.str();
 }
 
 //
@@ -562,7 +583,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
         const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-        const std::string stat_dir = root->dir_user_repo_stats() + std::to_string(vol_uuid);
+        const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid);
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
 
@@ -867,7 +888,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
-    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
+    handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
     new dm::ReloadVolumeHandler();
 }
 

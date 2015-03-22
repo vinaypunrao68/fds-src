@@ -14,18 +14,6 @@ fds_probe_gen        := $(fds_tool_bin)/probe-gen
 toolchain_lib        := $(topdir)/../Build/$(osdep_target)/lib
 toolchain_bin        := $(topdir)/../Build/$(osdep_target)/bin
 
-# NGINX settings.
-#
-toolchain_nginx      := $(topdir)/../nginx
-toolchain_nginx_incl := -I$(toolchain_nginx)/src/core
-toolchain_nginx_incl += -I$(toolchain_nginx)/src/event
-toolchain_nginx_incl += -I$(toolchain_nginx)/src/event/modules
-toolchain_nginx_incl += -I$(toolchain_nginx)/src/os/unix
-toolchain_nginx_incl += -I$(toolchain_nginx)/src/http
-toolchain_nginx_incl += -I$(toolchain_nginx)/src/http/modules
-toolchain_nginx_incl += -I$(toolchain_nginx)/src/mail
-toolchain_nginx_incl += -I$(toolchain_nginx)/objs
-
 # Thrift settings.
 #
 tool_thrift          := $(toolchain_bin)/thrift
@@ -84,7 +72,6 @@ endif
 #
 toolchain_incl_flags := -I$(toolchain_boost_incl)
 toolchain_incl_flags += -I$(toolchain_ldb_incl) -I$(toolchain_ldb)
-toolchain_incl_flags += $(toolchain_nginx_incl)
 toolchain_incl_flags += $(toolchain_thrf_incl)
 toolchain_incl_flags += $(toolchain_jansson_incl)
 toolchain_incl_flags += $(toolchain_hiredis_incl)

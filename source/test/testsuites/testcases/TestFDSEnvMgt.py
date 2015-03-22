@@ -696,6 +696,281 @@ class TestVerifyRedisDown(TestCase.FDSTestCase):
 
         return True
 
+# This class contains the attributes and methods to test
+# restarting InfluxDB to a "clean" state.
+class TestRestartInfluxDBClean(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RestartInfluxDBClean,
+                                             "Restart InfluxDB clean")
+
+        self.passedNode = node
+
+    def test_RestartInfluxDBClean(self):
+        """
+        Test Case:
+        Attempt to restart InfluxDB to a "clean" state.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        self.log.info("Restart InfluxDB clean on %s." % n.nd_conf_dict['node-name'])
+
+# TODO: influx doesn't have a clean option.  have to stop, delete the data directories and restart.
+#        status = n.nd_agent.exec_wait("service influxdb restart")
+#        time.sleep(2)
+#
+#        if status != 0:
+#            self.log.error("Restart InfluxDB before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+#            return False
+#
+#        status = n.nd_agent.exec_wait("service influxdb clean")
+#        time.sleep(2)
+#
+#        if status != 0:
+#            self.log.error("Clean InluxDB on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+#            return False
+#
+        status = n.nd_agent.exec_wait("service influxdb restart")
+        time.sleep(2)
+
+        if status != 0:
+            self.log.error("Restart InfluxDB after clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+# This class contains the attributes and methods to test
+# booting up InfluxDB.
+class TestBootInfluxDB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BootInfluxDB,
+                                             "Boot InfluxDB")
+
+        self.passedNode = node
+
+    def test_BootInfluxDB(self):
+        """
+        Test Case:
+        Attempt to boot InfluxDB.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
+
+        status = n.nd_agent.exec_wait("service influxdb start")
+        time.sleep(2)
+
+        if status != 0:
+            self.log.error("Boot InfluxDB on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# shutting down InfluxDB.
+class TestShutdownInfluxDB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_ShutdownInfluxDB,
+                                             "Shutdown InfluxDB",
+                                             True)  # Always execute.
+
+        self.passedNode = node
+
+    def test_ShutdownInfluxDB(self):
+        """
+        Test Case:
+        Attempt to shutdown InfluxDB.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        self.log.info("Shutdown InfluxDB on node %s." %n.nd_conf_dict['node-name'])
+
+        status = n.nd_agent.exec_wait("service influxdb stop")
+        time.sleep(2)
+
+        if status != 0:
+            self.log.error("Shutdown InfluxDB on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# verifying that InfluxDB is up.
+class TestVerifyInfluxDBUp(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifyInfluxDBUp,
+                                             "Verify InfluxDB is up")
+
+        self.passedNode = node
+
+    def test_VerifyInfluxDBUp(self):
+        """
+        Test Case:
+        Attempt to verify InfluxDB is up.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        self.log.info("Verify InfluxDB is up node %s." % n.nd_conf_dict['node-name'])
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = n.nd_agent.exec_wait("service influxdb status", return_stdin=True)
+
+        if status != 0:
+            self.log.error("Verify InfluxDB is up on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        self.log.info(stdout)
+
+        if stdout.count("NOT") > 0:
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# verifying that InfluxDB is down.
+class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifyInfluxDBDown,
+                                             "Verify InfluxDB is down")
+
+        self.passedNode = node
+
+    def test_VerifyInfluxDBDown(self):
+        """
+        Test Case:
+        Attempt to verify InfluxDB is Down.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        # Set the right execution directory depending up whether we are
+        # working with a development environment or a product deployment.
+        if n.nd_agent.env_install:
+            sbin_dir = n.nd_agent.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        self.log.info("Verify InfluxDB is down node %s." % n.nd_conf_dict['node-name'])
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status = n.nd_agent.exec_wait("service influxdb status 2>&1 >> /dev/null", return_stdin=False)
+
+        # influxdb init script status returns 3 if the process is down.
+        if status != 3:
+            self.log.error("Verify InfluxDB is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

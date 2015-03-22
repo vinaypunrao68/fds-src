@@ -41,6 +41,9 @@
         - libboost-thread1.54
         - libboost-regex1.54
 
+    - name: install latest fds-deps package
+      apt: name=fds-deps force=yes state=latest update_cache=yes cache_valid_time=600
+
     - name: install os packages
       apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
       with_items:
@@ -48,8 +51,11 @@
         - binutils-dev
         - cmake
         - cpanminus
-        - fds-deps
         - git
+        - libapr1-dev
+        - libconfuse-dev
+        - libxml2-dev
+        - libxslt1-dev
         - linux-generic
         - linux-headers-generic
         - linux-image-generic
@@ -95,6 +101,7 @@
         - google-perftools
         - libgoogle-perftools-dev
         - libconfig++-dev
+        - libcurl4-openssl-dev
         - oracle-java8-installer
         - npm
         - nodejs-legacy

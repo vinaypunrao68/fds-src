@@ -354,7 +354,7 @@ class FdsCluster():
         return output
 
     def _init_fio_once(self):
-        cmd = "/fds/bin/fdscli --volume-create volume1 -i 1 -s 10240 -p 50 -y blk"
+        cmd = 'bash -c "pushd /fds/sbin && ./fdsconsole.py accesslevel debug && ./fdsconsole.py volume create volume1 --vol-type block --blk-dev-size 10485760 && popd"'
         output = utils.loc_exec(cmd)
         time.sleep(5)
         if self.local_test == True:
@@ -367,7 +367,7 @@ class FdsCluster():
         time.sleep(5)
         self.nbdvolume = output.rstrip("\n")
         self.options.logger.debug("nbd: " + self.nbdvolume)
-        cmd = "/fds/bin/fdscli --volume-modify \"volume1\" -s 10240 -g 0 -m 0 -r 10"
+        cmd = 'bash -c "pushd /fds/sbin && ./fdsconsole.py volume modify volume1 --minimum 0 --maximum 0 --priority 1 && popd"'
         output = utils.loc_exec(cmd)
         time.sleep(5)
 

@@ -5,7 +5,7 @@ package com.formationds.om.webkit.rest.platform;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_Node_Info_Type;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.model.Domain;
 import com.formationds.commons.model.Node;
 import com.formationds.commons.model.Service;
@@ -45,7 +45,7 @@ public class ListNodes
                             final Map<String, String> routeParameters )
         throws Exception {
 
-        List<FDSP_Node_Info_Type> list =
+        List<com.formationds.protocol.FDSP_Node_Info_Type> list =
             configPathClient.ListServices( new FDSP_MsgHdrType() );
 
         /**
