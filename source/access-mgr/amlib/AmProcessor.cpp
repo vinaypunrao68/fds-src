@@ -11,6 +11,7 @@
 #include <AmProcessor.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include <am-tx-mgr.h>
 
 #include "requests/requests.h"
 #include "AsyncResponseHandlers.h"
@@ -23,14 +24,13 @@ namespace fds {
 AmProcessor::AmProcessor(const std::string &modName,
                          AmDispatcher::shared_ptr _amDispatcher,
                          StorHvQosCtrl     *_qosCtrl,
-                         StorHvVolumeTable *_volTable,
-                         AmTxManager::shared_ptr _amTxMgr)
+                         StorHvVolumeTable *_volTable)
         : Module(modName.c_str()),
           amDispatcher(_amDispatcher),
           qosCtrl(_qosCtrl),
           volTable(_volTable),
-          txMgr(_amTxMgr),
-          amCache(new AmCache("AM Cache Manager Module")) {
+          txMgr(new AmTxManager()),
+          amCache(new AmCache()) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
@@ -75,8 +75,8 @@ AmProcessor::getNoSnapshotVolume(AmRequest* amReq) {
 }
 
 Error
-AmProcessor::createCache(const VolumeDesc& volDesc) {
-    return amCache->createCache(volDesc);
+AmProcessor::addVolume(const VolumeDesc& volDesc) {
+    return amCache->addVolume(volDesc);
 }
 
 void
@@ -241,7 +241,7 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
         }
 
         if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
-            AmTxDescriptor::ptr txDescriptor;
+            AmTxManager::descriptor_ptr_type txDescriptor;
             fds_verify(txMgr->getTxDescriptor(*tx_desc, txDescriptor) == ERR_OK);
             fds_verify(amCache->putTxDescriptor(txDescriptor, blobReq->final_blob_size) == ERR_OK);
             fds_verify(txMgr->removeTx(*tx_desc) == ERR_OK);
@@ -443,7 +443,7 @@ AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
     // is true for S3/Swift and doesn't get used anyways for block (so
     // the actual cached descriptor for block will not be correct).
     if (ERR_OK == error) {
-        AmTxDescriptor::ptr txDesc;
+        AmTxManager::descriptor_ptr_type txDesc;
         CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(amReq);
         fds_verify(txMgr->getTxDescriptor(*(blobReq->tx_desc), txDesc) == ERR_OK);
         fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data));

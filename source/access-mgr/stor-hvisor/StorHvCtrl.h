@@ -21,7 +21,6 @@ namespace fds
     class AmDispatcher;
     class AmProcessor;
     class AmRequest;
-    class AmTxManager;
     class Callback;
     class OMgrClient;
     class SysParams;
@@ -87,9 +86,6 @@ public:
     std::unique_ptr<fds::AmProcessor> amProcessor;
 
     fds::RandNumGenerator::ptr randNumGen;
-    // TODO(Andrew): Move this to a unique_ptr and only into
-    // AmProcessor once that's ready
-    std::shared_ptr<fds::AmTxManager> amTxMgr;
 
     fds::Error sendTestBucketToOM(const std::string& bucket_name,
                              const std::string& access_key_id = "",

@@ -6,7 +6,6 @@
 
 #include <map>
 #include <string>
-#include <fds_module.h>
 #include <fds_error.h>
 #include <unordered_map>
 #include <blob/BlobTypes.h>
@@ -47,7 +46,6 @@ class AmTxDescriptor {
                    fds_uint64_t dmtVer,
                    const std::string &name);
     ~AmTxDescriptor();
-    typedef boost::shared_ptr<AmTxDescriptor> ptr;
 };
 
 /**
@@ -57,10 +55,12 @@ class AmTxDescriptor {
  * TODO(Andrew): Add volume and blob name associativity into the interface
  * and indexing.
  */
-class AmTxManager : public Module, public boost::noncopyable {
-  private:
+struct AmTxManager {
+    using descriptor_ptr_type = std::shared_ptr<AmTxDescriptor>;
+
+ private:
     /// Maps a TxId with its descriptor
-    typedef std::unordered_map<BlobTxId, AmTxDescriptor::ptr, BlobTxIdHash> TxMap;
+    typedef std::unordered_map<BlobTxId, descriptor_ptr_type, BlobTxIdHash> TxMap;
     TxMap txMap;
 
     /// RW lock to protect the map
@@ -70,16 +70,12 @@ class AmTxManager : public Module, public boost::noncopyable {
     fds_uint32_t maxStagedEntries;
 
   public:
-    explicit AmTxManager(const std::string &modName);
+    AmTxManager();
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
-    ~AmTxManager();
+    ~AmTxManager() = default;
     typedef std::unique_ptr<AmTxManager> unique_ptr;
     typedef std::shared_ptr<AmTxManager> shared_ptr;
-
-    int  mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
 
     /**
      * Adds a new transaction to the manager. An error is returned
@@ -103,7 +99,7 @@ class AmTxManager : public Module, public boost::noncopyable {
      * Note the memory returned is still owned by the manager
      * and may still be modified or removed.
      */
-    Error getTxDescriptor(const BlobTxId &txId, AmTxDescriptor::ptr &desc);
+    Error getTxDescriptor(const BlobTxId &txId, descriptor_ptr_type &desc);
 
     /**
      * Gets the DMT version for a given transaction ID. Returns an
