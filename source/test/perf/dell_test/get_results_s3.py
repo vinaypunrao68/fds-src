@@ -45,6 +45,7 @@ for f in files:
     key = pickle.dumps(params)
     if key != prev_key:
         iops = 0.0
+    prev_key = key
     with open(directory + "/" + f, "r") as _f:
         contents = _f.read()
     for l in contents.split("\n"):
