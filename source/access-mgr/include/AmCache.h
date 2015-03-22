@@ -27,7 +27,7 @@ class AmCache {
         object_cache_type;
 
   public:
-    explicit AmCache(const std::string &modName);
+    AmCache();
     AmCache(AmCache const&) = delete;
     AmCache& operator=(AmCache const&) = delete;
     ~AmCache() = default;

@@ -10,7 +10,7 @@
 
 namespace fds {
 
-AmCache::AmCache(const std::string &modName)
+AmCache::AmCache()
     : max_data_entries(0),
       max_metadata_entries(0)
 {

@@ -30,7 +30,7 @@ AmProcessor::AmProcessor(const std::string &modName,
           qosCtrl(_qosCtrl),
           volTable(_volTable),
           txMgr(new AmTxManager()),
-          amCache(new AmCache("AM Cache Manager Module")) {
+          amCache(new AmCache()) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
