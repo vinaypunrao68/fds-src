@@ -17,7 +17,7 @@ cmd="cd /root/tools; ./trafficgen --n_reqs 1000000 --n_files 1000 --outstanding_
 
 pids=""
 for j in 1 2 3 4 ; do
-    ssh han "$cmd"  | tee $outdir/out.n_reqs=1000000.n_file=1000.outstanding_reqs=100.test_type=GET.object_size=4096.hostname=luke.n_conns=100.job=$j &
+    ssh han "$cmd"  | tee $outdir/out.n_reqs=1000000.n_files=1000.outstanding_reqs=100.test_type=GET.object_size=4096.hostname=luke.n_conns=100.job=$j &
     pid="$pid $!"
     pids="$pids $!"
 done
