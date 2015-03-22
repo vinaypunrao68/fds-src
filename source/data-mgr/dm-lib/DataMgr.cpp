@@ -12,6 +12,23 @@
 #include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
 
+namespace {
+Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
+    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
+
+    boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
+    msg->volume_id = volId;
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ReloadVolumeMsg), msg);
+
+    SvcRequestCbTask<EPSvcRequest, fpi::ReloadVolumeRspMsg> waiter;
+    asyncReq->onResponseCb(waiter.cb);
+
+    asyncReq->invoke();
+    waiter.await();
+    return waiter.error;
+}
+} // namespace
+
 namespace fds {
 
 /**
@@ -463,7 +480,6 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     if (err.ok() && vdesc->isClone() && fPrimary) {
         // all actions were successful now rsync it to other DMs
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
-        Error err1;
         for (uint i = 1; i < nodes->getLength(); i++) {
             LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
                      << "to node:" << nodes->get(i);
@@ -472,7 +488,11 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             if (!err.ok()) {
                 LOGWARN << "catalog sync failed on clone, vol:" << vdesc->volUUID;
             } else {
-                // send message to reload DB
+                // send message to reload volume
+                err = sendReloadVolumeRequest((*nodes)[i], vdesc->volUUID);
+                if (!err.ok()) {
+                    LOGWARN << "catalog reload failed on clone, vol:" << vdesc->volUUID;
+                }
             }
         }
     }
@@ -902,6 +922,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler();
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler();
+    handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler();
 }
 
 DataMgr::~DataMgr()

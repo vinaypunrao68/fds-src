@@ -49,10 +49,11 @@ class DmPersistVolCat {
     DmPersistVolCat(fds_volid_t volId, fds_uint32_t objSize,
                     fds_bool_t snapshot,
                     fds_bool_t readOnly,
+                    fds_bool_t clone,
                     fpi::FDSP_VolType volType = fpi::FDSP_VOL_S3_TYPE,
                     fds_volid_t srcVolId = invalid_vol_id) : volId_(volId), objSize_(objSize),
             volType_(volType), srcVolId_(srcVolId), snapshot_(snapshot), readOnly_(readOnly),
-            initialized_(false), deleted_(false), activated_(false) {
+            clone_(clone), initialized_(false), deleted_(false), activated_(false) {
         fds_verify(objSize > 0);
         if (invalid_vol_id == srcVolId_) {
             srcVolId_ = volId;
@@ -95,6 +96,10 @@ class DmPersistVolCat {
 
     inline fds_bool_t isReadOnly() const {
         return readOnly_;
+    }
+
+    inline fds_bool_t isClone() const {
+        return clone_;
     }
 
     inline fds_bool_t isActivated() const {
@@ -180,6 +185,7 @@ class DmPersistVolCat {
     fds_volid_t srcVolId_;
     fds_bool_t snapshot_;
     fds_bool_t readOnly_;
+    fds_bool_t clone_;
 
     fds_bool_t initialized_;
     fds_bool_t deleted_;

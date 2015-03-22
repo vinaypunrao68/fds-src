@@ -70,7 +70,7 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc & voldesc) {
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
     */
         vol.reset(new DmPersistVolDB(voldesc.volUUID, voldesc.maxObjSizeInBytes,
-                    voldesc.isSnapshot(), voldesc.isSnapshot(),
+                    voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     /*
     } else {
@@ -133,7 +133,7 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
         */
             vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
-                    voldesc.isSnapshot(), voldesc.srcVolumeId));
+                    voldesc.isSnapshot(), voldesc.isClone(), voldesc.srcVolumeId));
         /*
         } else {
             vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
@@ -163,6 +163,18 @@ Error DmVolumeCatalog::activateCatalog(fds_volid_t volId) {
     return rc;
 }
 
+Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
+    LOGDEBUG << "Will reload catalog for volume " << std::hex << voldesc.volUUID << std::dec;
+    deleteEmptyCatalog(voldesc.volUUID, false);
+    Error rc = addCatalog(voldesc);
+    if (!rc.ok()) {
+        LOGWARN << "Failed to re-instantiate the volume '" << std::hex << voldesc.volUUID
+                << std::dec << "'";
+        return rc;
+    }
+    return activateCatalog(voldesc.volUUID);
+}
+
 void DmVolumeCatalog::registerExpungeObjectsCb(expunge_objs_cb_t cb) {
     expungeCb_ = cb;
 }
@@ -184,13 +196,13 @@ Error DmVolumeCatalog::markVolumeDeleted(fds_volid_t volId) {
     return rc;
 }
 
-Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId) {
+Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /* = true */) {
     LOGDEBUG << "Will delete catalog for volume '" << std::hex << volId << std::dec << "'";
 
     synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolCat::ptr>::iterator iter =
                 volMap_.find(volId);
-        if (volMap_.end() != iter && iter->second->isMarkedDeleted()) {
+        if (volMap_.end() != iter && (!checkDeleted || iter->second->isMarkedDeleted())) {
             volMap_.erase(iter);
         }
     }

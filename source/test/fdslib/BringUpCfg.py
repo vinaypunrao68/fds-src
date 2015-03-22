@@ -13,6 +13,8 @@ import os.path
 import FdsSetup as inst
 import socket
 import requests
+from requests.packages.urllib3.util import Retry
+from requests.adapters import HTTPAdapter
 
 ###
 # Base config class, which is key/value dictionary.
@@ -265,9 +267,6 @@ class FdsNodeConfig(FdsConfig):
     def nd_clean_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
 
-        fds_dir = self.nd_conf_dict['fds_root']
-        var_dir = fds_dir + '/var'
-
         status = 0
         if self.nd_run_om():
             log.info("Cleaning InfluxDB")
@@ -275,39 +274,77 @@ class FdsNodeConfig(FdsConfig):
             influxstat = self.nd_status_influxdb()
             if influxstat != 0:
                 log.info("Starting InfluxDB for clean on %s" % (self.nd_host_name()))
-                ## note: sleep appears to be necessary because the http request retries appear
-                ## to occur in a tight loop and complete before influx is fully started.
-                status = self.nd_agent.exec_wait('service influxdb start 2>&1 >> /dev/null && sleep 5', output=False)
+                status = self.nd_agent.exec_wait('service influxdb start 2>&1 >> /dev/null',
+                                                 output=False,
+                                                 wait_compl=False)
 
-            ## setup the http requests session with an adapter configured for retries.
-            ## 400 seems to be the max you can set for max_retries - any more than that
-            ## and it complains about recursion depth.  Really need something with a
-            ## timed backoff and/or a timeout
-            s = requests.session()
-            a = requests.adapters.HTTPAdapter(max_retries=400)
-            s.mount("http://", a)
             for db in [ 'om-metricdb', 'om-eventdb' ]:
-                log.info('Removing database ' + db)
-                try:
-                    response = s.delete("http://" + self.nd_host + ":8086/db/" + db + "?u=root&p=root")
-                    if response.status_code < 200 or response.status_code >= 300:
-                        # influx reported an unsuccessful error code.  Print the message output from the response.
-                        # we don't currently distinguish between errors and things like redirects.
-                        print('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
-
-                        # todo: attempted to use log.warning, but getting error message about no handlers.
-                        log.info('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
-                except Exception as e:
-                    print "Failed to drop influxDB database: %s: %s" % (db, e)
-                    # todo: attempted to use log.warning, but getting error message about no handlers.
-                    log.info("Failed to drop influxDB database: %s: %s" % (db, e))
-
-            ## close the http session
-            s.close()
+                status = self.dropInfluxDBDatabase(db)
 
             ## if influx was NOT running originally, stop it again.
             if influxstat != 0:
                 status = self.nd_agent.exec_wait('service influxdb stop 2>&1 >> /dev/null', output=False)
+
+        return status
+
+    ##
+    #
+    #
+    def dropInfluxDBDatabase(self, db, max_retries=6, backoff_factor=0.5):
+        """Drop the InfluxDB database
+
+        db -- the database name
+        max_retries -- max number of retries (default 6)
+        backoff_factor -- amount of time to factor the backoff time per retry (default 0.5)
+
+        The backoff factor is the amount of time added for each retry.  The default setting
+        amounts to a possible total wait time of 31.5 seconds.
+
+        For 10 retries at 0.1, its a total wait time of:
+           (0.1 + 0.2 + 0.4 + 0.8 + 1.6 + 3.2 + 6.4 + 12.8 + 25.6 + 51.2) = 102.3 Seconds
+        and 8 @ 0.4s = 102.0
+        and 5 retries at 0.5:
+           (0.5 + 1.0 + 2 + 4 + 8) = 15500  (and 6 is 31500)
+
+        """
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+
+        status = 0
+        ## setup the http requests session with an adapter configured for retries.
+        s = requests.session()
+        a = requests.adapters.HTTPAdapter(max_retries=Retry(total=max_retries,
+                                                            backoff_factor=backoff_factor))
+        s.mount("http://", a)
+
+        log.debug('Removing database %s with up to %d retries @ %s seconds backoff factor' %
+                  (db,max_retries,backoff_factor))
+        try:
+            response = s.delete("http://" + self.nd_host + ":8086/db/" + db + "?u=root&p=root")
+            log.debug("Remove database %s request completed [response code %d msg: %s]" %
+                      (db,response.status_code,response.text))
+            if response.status_code < 200 or response.status_code >= 300:
+                if response.status_code == 400:
+                    ## 400 indicates the database does not exist
+                    log.info("InfluxDB database %s does not exist. [OK]" % (db))
+                    status = 0
+                else:
+                    # influx reported an unsuccessful error code.  Print the message output from the response.
+                    # we don't currently distinguish between errors and things like redirects.
+                    print('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+
+                    # todo: attempted to use log.warning, but getting error message about no handlers.
+                    log.info('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+                    status = 1
+            else:
+                log.info("Successfully dropped InfluxDB database %s" % (db))
+        except Exception as e:
+            print "Failed to drop influxDB database: %s: %s" % (db, e)
+            # todo: attempted to use log.warn, but getting error message about no handlers.
+            log.info("Failed to drop influxDB database: %s: %s" % (db, e))
+            status = 1
+
+        ## close the http session
+        s.close()
 
         return status
 

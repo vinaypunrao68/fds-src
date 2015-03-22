@@ -13,16 +13,24 @@
 namespace fds
 {
 
-struct AmVolumeAccessToken : public FdsTimerTask
+struct AmVolumeAccessToken :
+    public FdsTimerTask
 {
     using token_type = fds_int64_t;
-    using callback_type = std::function<void(token_type const)>;
+    using callback_type = std::function<void()>;
 
     AmVolumeAccessToken(FdsTimer& _timer, token_type const _token, callback_type&& _cb);
-    ~AmVolumeAccessToken() = default;
+    AmVolumeAccessToken(AmVolumeAccessToken const&) = delete;
+    AmVolumeAccessToken& operator=(AmVolumeAccessToken const&) = delete;
+    ~AmVolumeAccessToken();
 
     void runTimerTask() override;
-    token_type getToken() const;
+
+    token_type getToken() const
+    { return token; }
+
+    void setToken(token_type const _token)
+    { token = _token; }
 
   private:
    token_type token;
