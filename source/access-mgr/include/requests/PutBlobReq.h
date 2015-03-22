@@ -23,7 +23,7 @@ struct PutBlobReq
     // Needed fields
     fds_uint64_t dmt_version;
 
-    /// Shared pointer to data. If this is used, the inherited raw pointer is NULL
+    /// Shared pointer to data.
     boost::shared_ptr<std::string> dataPtr;
 
     /// Used for putBlobOnce scenarios.
