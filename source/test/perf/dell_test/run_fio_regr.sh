@@ -3,7 +3,7 @@
 outdir=$1
 size="16m"
 bsizes="4096"
-iodepths="128"
+iodepths="50"
 workers="8"
 workloads="randread"
 
