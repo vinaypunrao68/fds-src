@@ -94,7 +94,7 @@ AccessMgr::registerVolume(const VolumeDesc& volDesc) {
     // TODO(Andrew): Create cache separately since
     // the volume data doesn't do it. We should converge
     // on a single volume add location.
-    storHvisor->amProcessor->createCache(volDesc);
+    storHvisor->amProcessor->addVolume(volDesc);
     return storHvisor->vol_table->registerVolume(volDesc);
 }
 

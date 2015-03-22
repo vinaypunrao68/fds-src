@@ -17,7 +17,6 @@
 #include "AccessMgr.h"
 #include "AmDispatcher.h"
 #include "AmProcessor.h"
-#include "am-tx-mgr.h"
 #include "StorHvCtrl.h"
 #include "StorHvDataPlace.h"
 #include "StorHvQosCtrl.h"
@@ -156,9 +155,6 @@ StorHvCtrl::StorHvCtrl(int argc,
     // and make AM extend from platform process
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
-    // Init the AM transaction manager
-    amTxMgr = std::make_shared<AmTxManager>("AM Transaction Manager Module");
-
     // Init the dispatcher layer
     // TODO(Andrew): Decide if AM or AmProcessor should own
     // this layer.
@@ -171,8 +167,7 @@ StorHvCtrl::StorHvCtrl(int argc,
         new AmProcessor("AM Processor Module",
                         amDispatcher,
                         qos_ctrl,
-                        vol_table,
-                        amTxMgr));
+                        vol_table));
 
     LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
 

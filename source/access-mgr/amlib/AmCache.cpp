@@ -6,16 +6,13 @@
 #include <fds_process.h>
 #include <PerfTrace.h>
 #include <climits>
+#include <am-tx-mgr.h>
 
 namespace fds {
 
 AmCache::AmCache(const std::string &modName)
-    :   Module(modName.c_str()),
-        descriptor_cache("AM blob descriptor cache manager"),
-        offset_cache("AM blob offset cache manager"),
-        object_cache("AM blob object cache manager"),
-        max_data_entries(500),
-        max_metadata_entries(500)
+    : max_data_entries(0),
+      max_metadata_entries(0)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     max_data_entries = conf.get<fds_uint32_t>("cache.max_data_entries");
@@ -23,30 +20,30 @@ AmCache::AmCache(const std::string &modName)
 }
 
 Error
-AmCache::createCache(const VolumeDesc& volDesc) {
-    Error err = descriptor_cache.createCache(volDesc.volUUID, max_metadata_entries);
+AmCache::addVolume(const VolumeDesc& volDesc) {
+    Error err = descriptor_cache.addVolume(volDesc.volUUID, max_metadata_entries);
     if (err != ERR_OK) {
         return err;
     }
-    err = offset_cache.createCache(volDesc.volUUID, max_metadata_entries);
+    err = offset_cache.addVolume(volDesc.volUUID, max_metadata_entries);
     if (err != ERR_OK) {
         return err;
     }
-    err = object_cache.createCache(volDesc.volUUID, max_data_entries);
+    err = object_cache.addVolume(volDesc.volUUID, max_data_entries);
     return err;
 }
 
 Error
-AmCache::removeCache(fds_volid_t volId) {
-    Error err = descriptor_cache.deleteCache(volId);
+AmCache::removeVolume(fds_volid_t volId) {
+    Error err = descriptor_cache.removeVolume(volId);
     if (err != ERR_OK) {
         return err;
     }
-    err = offset_cache.deleteCache(volId);
+    err = offset_cache.removeVolume(volId);
     if (err != ERR_OK) {
         return err;
     }
-    err = object_cache.deleteCache(volId);
+    err = object_cache.removeVolume(volId);
     return err;
 }
 
@@ -97,7 +94,7 @@ AmCache::getBlobObject(fds_volid_t volId,
 }
 
 Error
-AmCache::putTxDescriptor(const AmTxDescriptor::ptr txDesc, fds_uint64_t const blobSize) {
+AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize) {
     LOGTRACE << "Cache insert tx descriptor for volume " << std::hex
              << txDesc->volId << std::dec << " blob " << txDesc->blobName;
     Error err(ERR_OK);

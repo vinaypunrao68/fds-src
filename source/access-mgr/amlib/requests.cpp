@@ -7,14 +7,11 @@
 
 #include "requests/requests.h"
 
-#include "am-tx-mgr.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 
 namespace fds
 {
-
-class AmTxDescriptor;
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,

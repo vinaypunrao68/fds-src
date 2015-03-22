@@ -31,36 +31,9 @@ AmTxDescriptor::AmTxDescriptor(fds_volid_t volUuid,
 AmTxDescriptor::~AmTxDescriptor() {
 }
 
-AmTxManager::AmTxManager(const std::string &modName)
-        : Module(modName.c_str()) {
+AmTxManager::AmTxManager() {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
-}
-
-AmTxManager::~AmTxManager() {
-}
-
-/**
- * Module initialization
- */
-int
-AmTxManager::mod_init(SysParams const *const p) {
-    Module::mod_init(p);
-    return 0;
-}
-
-/**
- * Module startup
- */
-void
-AmTxManager::mod_startup() {
-}
-
-/**
- * Module shutdown
- */
-void
-AmTxManager::mod_shutdown() {
 }
 
 Error
@@ -72,7 +45,7 @@ AmTxManager::addTx(fds_volid_t volId,
     if (txMap.count(txId) > 0) {
         return ERR_DUPLICATE_UUID;
     }
-    txMap[txId] = AmTxDescriptor::ptr(new AmTxDescriptor(volId, txId, dmtVer, name));
+    txMap[txId] = std::make_shared<AmTxDescriptor>(volId, txId, dmtVer, name);
 
     return ERR_OK;
 }
@@ -90,7 +63,7 @@ AmTxManager::removeTx(const BlobTxId &txId) {
 }
 
 Error
-AmTxManager::getTxDescriptor(const BlobTxId &txId, AmTxDescriptor::ptr &desc) {
+AmTxManager::getTxDescriptor(const BlobTxId &txId, descriptor_ptr_type &desc) {
     SCOPEDWRITE(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {

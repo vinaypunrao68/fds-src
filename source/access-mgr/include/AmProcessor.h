@@ -8,33 +8,34 @@
 #include <fds_module.h>
 #include <StorHvVolumes.h>
 #include <StorHvQosCtrl.h>
-#include <am-tx-mgr.h>
 #include <AmDispatcher.h>
 #include "AmRequest.h"
 
 namespace fds {
 
+/**
+ * Forward declarations
+ */
 struct AmCache;
+struct AmTxManager;
 struct RandNumGenerator;
 
 /**
  * AM request processing layer. The processor handles state and
  * execution for AM requests.
  */
-class AmProcessor : public Module, public boost::noncopyable {
+class AmProcessor : public Module {
   public:
     /**
      * The processor takes a shared ptr to a tx manager.
-     * TODO(Andrew): Remove the tx from constructor
-     * and make it owned by the processor. It's only this way
-     * until we clean up the legacy path.
      * TODO(Andrew): Use a different structure than SHVolTable.
      */
     AmProcessor(const std::string &modName,
                 AmDispatcher::shared_ptr _amDispatcher,
                 StorHvQosCtrl     *_qosCtrl,
-                StorHvVolumeTable *_volTable,
-                AmTxManager::shared_ptr _amTxMgr);
+                StorHvVolumeTable *_volTable);
+    AmProcessor(AmProcessor const&) = delete;
+    AmProcessor& operator=(AmProcessor const&) = delete;
     ~AmProcessor();
 
     typedef std::unique_ptr<AmProcessor> unique_ptr;
@@ -50,7 +51,7 @@ class AmProcessor : public Module, public boost::noncopyable {
     /**
      * Create object/metadata/offset caches for the given volume
      */
-    Error createCache(const VolumeDesc& volDesc);
+    Error addVolume(const VolumeDesc& volDesc);
 
     /**
      * Processes a get volume metadata request
@@ -171,8 +172,7 @@ class AmProcessor : public Module, public boost::noncopyable {
     AmDispatcher::shared_ptr amDispatcher;
 
     /// Shared ptr to the transaction manager
-    // TODO(Andrew): Move to unique once owned here.
-    AmTxManager::shared_ptr txMgr;
+    std::unique_ptr<AmTxManager> txMgr;
 
     // Unique ptr to the data object cache
     std::unique_ptr<AmCache> amCache;
