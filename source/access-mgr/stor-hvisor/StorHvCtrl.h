@@ -38,8 +38,6 @@ namespace FDS_ProtocolInterface
 
 template<class T> using b_sp = boost::shared_ptr<T>;
 
-class StorHvDataPlacement;
-
 class StorHvCtrl : public fds::HasLogger {
 public:
     /*
@@ -66,15 +64,9 @@ public:
                fds_uint32_t instanceId = 0);
     ~StorHvCtrl();
 
-    // Data Members
-    StorHvDataPlacement*    dataPlacementTbl;
-    fds::StorHvVolumeTable* vol_table;  
-    fds::StorHvQosCtrl*     qos_ctrl; // Qos Controller object
+    std::shared_ptr<fds::StorHvVolumeTable> vol_table;
+    std::shared_ptr<fds::StorHvQosCtrl>     qos_ctrl; // Qos Controller object
     fds::OMgrClient*        om_client;
-
-    b_sp<fds_pi::FDSP_AnnounceDiskCapability> dInfo;
-
-    std::string                 my_node_name;
 
     /// Toggle AM standalone mode for testing
     fds_bool_t standalone;
@@ -97,7 +89,6 @@ public:
     void attachVolume(fds::AmRequest *amReq);
     void enqueueAttachReq(const std::string& volumeName,
                           b_sp<fds::Callback> cb);
-    fds::Error pushBlobReq(fds::AmRequest *blobReq);
     void enqueueBlobReq(fds::AmRequest *blobReq);
 
     fds::SysParams* getSysParams();

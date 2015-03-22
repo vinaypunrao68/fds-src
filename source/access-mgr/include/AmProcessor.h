@@ -31,8 +31,8 @@ class AmProcessor : public Module {
      */
     AmProcessor(const std::string &modName,
                 AmDispatcher::shared_ptr _amDispatcher,
-                StorHvQosCtrl     *_qosCtrl,
-                StorHvVolumeTable *_volTable);
+                std::shared_ptr<StorHvQosCtrl> _qosCtrl,
+                std::shared_ptr<StorHvVolumeTable> _volTable);
     AmProcessor(AmProcessor const&) = delete;
     AmProcessor& operator=(AmProcessor const&) = delete;
     ~AmProcessor();
@@ -158,12 +158,12 @@ class AmProcessor : public Module {
 
     /// Raw pointer to QoS controller
     // TODO(Andrew): Move this to unique once it's owned here.
-    StorHvQosCtrl *qosCtrl;
+    std::shared_ptr<StorHvQosCtrl> qosCtrl;
 
     /// Raw pointer to table of attached volumes
     // TODO(Andrew): Move this unique once it's owned here.
     // Also, probably want a simpler class structure
-    StorHvVolumeTable *volTable;
+    std::shared_ptr<StorHvVolumeTable> volTable;
 
     /// Shared ptr to the dispatcher layer
     // TODO(Andrew): Decide if AM or Process owns this and make unique.

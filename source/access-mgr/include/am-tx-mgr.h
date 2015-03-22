@@ -114,7 +114,7 @@ struct AmTxManager {
     Error getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const;
 
     /**
-     * Updates an existing transaction with a new ope
+     * Updates an existing transaction with a new operation
      */
     Error updateTxOpType(const BlobTxId &txId, fds_io_op_t op);
 

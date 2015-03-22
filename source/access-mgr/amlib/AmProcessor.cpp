@@ -21,8 +21,8 @@ namespace fds {
 
 AmProcessor::AmProcessor(const std::string &modName,
                          AmDispatcher::shared_ptr _amDispatcher,
-                         StorHvQosCtrl     *_qosCtrl,
-                         StorHvVolumeTable *_volTable)
+                         std::shared_ptr<StorHvQosCtrl> _qosCtrl,
+                         std::shared_ptr<StorHvVolumeTable> _volTable)
         : Module(modName.c_str()),
           amDispatcher(_amDispatcher),
           qosCtrl(_qosCtrl),
