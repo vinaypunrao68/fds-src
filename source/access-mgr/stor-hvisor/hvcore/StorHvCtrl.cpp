@@ -404,7 +404,7 @@ processBlobReq(AmRequest *amReq) {
             storHvisor->amProcessor->setBlobMetadata(amReq);
             break;
 
-        case fds::FDS_GET_VOLUME_METADATA:
+        case fds::FDS_STAT_VOLUME:
             storHvisor->amProcessor->getVolumeMetadata(amReq);
             break;
 
