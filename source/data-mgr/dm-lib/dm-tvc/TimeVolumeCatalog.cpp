@@ -105,7 +105,9 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
         commitLogs_[voldesc.volUUID]->mod_init(mod_params);
         commitLogs_[voldesc.volUUID]->mod_startup();
 
-        rc = volcat->addCatalog(voldesc);
+        if (!voldesc.isSnapshot() && !voldesc.isClone()) {
+            rc = volcat->addCatalog(voldesc);
+        }
     }
 
     return rc;
@@ -123,6 +125,13 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
     }
     LOGDEBUG << "copying into volume [" << voldesc.volUUID
              << "] from srcvol:" << voldesc.srcVolumeId;
+
+    if (voldesc.isClone()) {
+        rc = addVolume(voldesc);
+        if (!rc.ok()) {
+            LOGWARN << "Failed to create commit log for clone '" << voldesc.volUUID << "'";
+        }
+    }
 
     // Create snapshot of volume catalog
     rc = volcat->copyVolume(voldesc);
