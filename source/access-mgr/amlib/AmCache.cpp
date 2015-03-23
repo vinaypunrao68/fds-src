@@ -6,7 +6,7 @@
 #include <fds_process.h>
 #include <PerfTrace.h>
 #include <climits>
-#include <am-tx-mgr.h>
+#include "AmTxManager.h"
 #include "AmTxDescriptor.h"
 
 namespace fds {
@@ -19,6 +19,8 @@ AmCache::AmCache()
     max_data_entries = conf.get<fds_uint32_t>("cache.max_data_entries");
     max_metadata_entries = conf.get<fds_uint32_t>("cache.max_metadata_entries");
 }
+
+AmCache::~AmCache() = default;
 
 Error
 AmCache::addVolume(const VolumeDesc& volDesc) {

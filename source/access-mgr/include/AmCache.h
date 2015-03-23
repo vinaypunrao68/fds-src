@@ -30,7 +30,7 @@ class AmCache {
     AmCache();
     AmCache(AmCache const&) = delete;
     AmCache& operator=(AmCache const&) = delete;
-    ~AmCache() = default;
+    ~AmCache();
 
     /**
      * Creates cache structures for the volume described

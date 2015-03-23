@@ -4,7 +4,7 @@
 #include <map>
 #include <string>
 #include <fds_process.h>
-#include <am-tx-mgr.h>
+#include "AmTxManager.h"
 #include "AmCache.h"
 #include "AmTxDescriptor.h"
 
@@ -16,8 +16,7 @@ AmTxManager::AmTxManager()
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
 }
 
-AmTxManager::~AmTxManager()
-{ }
+AmTxManager::~AmTxManager() = default;
 
 Error
 AmTxManager::addTx(fds_volid_t volId,

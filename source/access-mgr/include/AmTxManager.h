@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_AM_TX_MGR_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_AM_TX_MGR_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
 
 #include <map>
 #include <string>
@@ -46,8 +46,6 @@ struct AmTxManager {
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
     ~AmTxManager();
-    typedef std::unique_ptr<AmTxManager> unique_ptr;
-    typedef std::shared_ptr<AmTxManager> shared_ptr;
 
     /**
      * Removes an existing transaction from the manager, destroying
@@ -144,4 +142,4 @@ struct AmTxManager {
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_AM_TX_MGR_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
