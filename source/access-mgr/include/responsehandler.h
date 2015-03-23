@@ -190,7 +190,7 @@ struct BucketStatsResponseHandler : ResponseHandler {
 
 struct GetVolumeMetaDataCallback {
     TYPE_SHAREDPTR(GetVolumeMetaDataCallback);
-    fpi::FDSP_VolumeMetaData volumeMetaData;
+    fpi::VolumeStatus volStat;
 };
 
 struct StatVolumeResponseHandler : ResponseHandler, GetVolumeMetaDataCallback {

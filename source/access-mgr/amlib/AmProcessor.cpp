@@ -90,7 +90,7 @@ void
 AmProcessor::getVolumeMetadataCb(AmRequest *amReq, const Error &error) {
     GetVolumeMetaDataCallback::ptr cb =
             SHARED_DYN_CAST(GetVolumeMetaDataCallback, amReq->cb);
-    cb->volumeMetaData = static_cast<GetVolumeMetaDataReq *>(amReq)->volumeMetadata;
+    cb->volStat = static_cast<GetVolumeMetaDataReq *>(amReq)->volumeStatus;
     respond_and_delete(amReq, error);
 }
 

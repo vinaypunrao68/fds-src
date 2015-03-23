@@ -68,8 +68,8 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
         typename response_api_type::shared_status_type volume_status;
         if (e.ok()) {
             volume_status = boost::make_shared<apis::VolumeStatus>();
-            volume_status->blobCount = cb->volumeMetaData.blobCount;
-            volume_status->currentUsageInBytes = cb->volumeMetaData.size;
+            volume_status->blobCount = cb->volStat.blobCount;
+            volume_status->currentUsageInBytes = cb->volStat.size;
         }
         p->volumeStatusResp(e, requestId, volume_status);
     };

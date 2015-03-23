@@ -8,9 +8,9 @@ namespace java com.formationds.protocol.dm.types
 include "common.thrift"
 
 /**
- * Metadata information for a volume.
+ * Volume status information.
  */
-struct FDSP_VolumeMetaData {
+struct VolumeStatus {
   /** The number of blobs in the volume */
   1: i64 blobCount;
   /** The total logical capacity consumed by all blobs the volume */
