@@ -337,10 +337,10 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
         std::swap(blobReq->obj_id, blobReq->last_obj_id);
         blobReq->retry = true;
         blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, amReq);
-        GLOGWARN << "Dispatching retry on [ " << blobReq->volume_name
-                 << ", " << blobReq->getBlobName()
-                 << ", 0x" << std::hex << blobReq->blob_offset << std::dec
-                 << "B ]";
+        GLOGDEBUG << "Dispatching retry on [ " << blobReq->volume_name
+                  << ", " << blobReq->getBlobName()
+                  << ", 0x" << std::hex << blobReq->blob_offset << std::dec
+                  << "B ]";
         amDispatcher->dispatchQueryCatalog(amReq);
         return;
     }

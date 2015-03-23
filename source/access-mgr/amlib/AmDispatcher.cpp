@@ -601,14 +601,12 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
             // This is the matching error scenario from the trickery
             // in AmProcessor::getBlobCb due to the write/read race
             // between DM/SM. If this is a retry then the object id should be
-            // anything but what it was
-            if (blobReq->retry && (blobReq->last_obj_id == objId)) {
-                amReq->proc_cb(ERR_BLOB_NOT_FOUND);
-            } else {
+            // anything but what it was...or we should be able to get the object
+            if (blobReq->retry && (blobReq->last_obj_id != objId)) {
                 blobReq->retry = false; // We've gotten a new Id we're not insane
-                amReq->obj_id = objId;
-                amReq->proc_cb(ERR_OK);
             }
+            amReq->obj_id = objId;
+            amReq->proc_cb(ERR_OK);
             return;
         }
     }
