@@ -111,7 +111,7 @@ public class Xdi {
         BlobDescriptor blobDescriptor = am.statBlob(domainName, volumeName, blobName);
         metadata.putAll(blobDescriptor.getMetadata());
 
-        if (authorizer.hasBlobPermission(token, volumeName, intent, metadata)) {
+        if (!authorizer.hasBlobPermission(token, volumeName, intent, metadata)) {
             throw new SecurityException();
         }
         return blobDescriptor;

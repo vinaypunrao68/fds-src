@@ -61,8 +61,12 @@ public class XdiAuthorizer {
             return true;
         }
 
-        XdiAcl.Value acl = XdiAcl.parse(blobMetadata);
-        return acl.allow(intent);
+        if (hasVolumePermission(token, bucket, intent)) {
+            return true;
+        }
+
+        XdiAcl.Value objectAcl = XdiAcl.parse(blobMetadata);
+        return objectAcl.allow(intent);
     }
 
     public boolean hasVolumePermission(AuthenticationToken token, String volume, Intent intent) {

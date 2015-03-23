@@ -21,7 +21,7 @@ public class PutBucketAcl implements SyncRequestHandler {
     public Resource handle(HttpContext ctx) throws Exception {
         String bucketName = ctx.getRouteParameter("bucket");
         String acl = ctx.getRequestHeader(XdiAcl.X_AMZ_ACL).toLowerCase();
-        xdi.getAuthorizer().updateBucketAcl(AuthenticationToken.ANONYMOUS, bucketName, XdiAcl.parse(acl));
+        xdi.getAuthorizer().updateBucketAcl(token, bucketName, XdiAcl.parse(acl));
         return new TextResource("");
     }
 }
