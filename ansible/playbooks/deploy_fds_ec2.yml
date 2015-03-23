@@ -68,7 +68,7 @@
           - install-local
 
     -   name: create staging directory on awo-bh-01 to house local fds_platform deb
-        when: deploy_artifact == "local"
+        when: deploy_artifact == "local" or (fds_deploy_local_deps is defined and fds_deploy_local_deps == True)
         file: path=/home/deploy/deb_staging/{{ instance_name_tag }}
                 state=directory
         tags:
