@@ -7,6 +7,7 @@
 #include <PerfTrace.h>
 #include <climits>
 #include <am-tx-mgr.h>
+#include "AmTxDescriptor.h"
 
 namespace fds {
 

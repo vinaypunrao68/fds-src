@@ -6,31 +6,9 @@
 #include <fds_process.h>
 #include <am-tx-mgr.h>
 #include "AmCache.h"
+#include "AmTxDescriptor.h"
 
 namespace fds {
-
-AmTxDescriptor::AmTxDescriptor(fds_volid_t volUuid,
-                               const BlobTxId &id,
-                               fds_uint64_t dmtVer,
-                               const std::string &name)
-        : volId(volUuid),
-          txId(id),
-          originDmtVersion(dmtVer),
-          blobName(name),
-          opType(FDS_PUT_BLOB),
-          stagedBlobDesc(new BlobDescriptor()) {
-    stagedBlobDesc->setVolId(volId);
-    stagedBlobDesc->setBlobName(blobName);
-    stagedBlobDesc->setBlobSize(0);
-    // TODO(Andrew): We're leaving the blob version unset
-    // We'll need to revist when we do versioning
-    // TODO(Andrew): We default the op type to PUT, but it's
-    // conceivable to PUT and DELETE in the same transaction,
-    // so we really want to mask the op type.
-}
-
-AmTxDescriptor::~AmTxDescriptor() {
-}
 
 AmTxManager::AmTxManager()
     : amCache(new AmCache()) {
@@ -55,28 +33,21 @@ AmTxManager::addTx(fds_volid_t volId,
     return ERR_OK;
 }
 
-Error
-AmTxManager::removeTx(const BlobTxId &txId) {
+AmTxManager::descriptor_ptr_type
+AmTxManager::pop_descriptor(const BlobTxId &txId) {
     SCOPEDWRITE(txMapLock);
+    descriptor_ptr_type ret_val = nullptr;
     TxMap::iterator txMapIt = txMap.find(txId);
-    if (txMapIt == txMap.end()) {
-        return ERR_NOT_FOUND;
+    if (txMapIt != txMap.end()) {
+        ret_val = txMapIt->second;
+        txMap.erase(txMapIt);
     }
-    fds_verify(txId == txMapIt->second->txId);
-    txMap.erase(txMapIt);
-    return ERR_OK;
+    return ret_val;
 }
 
 Error
-AmTxManager::getTxDescriptor(const BlobTxId &txId, descriptor_ptr_type &desc) {
-    SCOPEDWRITE(txMapLock);
-    TxMap::iterator txMapIt = txMap.find(txId);
-    if (txMapIt == txMap.end()) {
-        return ERR_NOT_FOUND;
-    }
-    fds_verify(txId == txMapIt->second->txId);
-    desc = txMapIt->second;
-    return ERR_OK;
+AmTxManager::abortTx(const BlobTxId &txId) {
+    return pop_descriptor(txId) ? ERR_OK : ERR_NOT_FOUND;
 }
 
 Error
@@ -181,8 +152,13 @@ AmTxManager::addVolume(const VolumeDesc& volDesc)
 { return amCache->addVolume(volDesc); }
 
 Error
-AmTxManager::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize)
-{ return amCache->putTxDescriptor(txDesc, blobSize); }
+AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
+{
+    if (auto descriptor = pop_descriptor(txId)) {
+        return amCache->putTxDescriptor(descriptor, blobSize);
+    }
+    return ERR_NOT_FOUND;
+}
 
 BlobDescriptor::ptr
 AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)

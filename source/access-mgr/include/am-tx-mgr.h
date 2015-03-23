@@ -15,41 +15,7 @@
 namespace fds {
 
 struct AmCache;
-
-/**
- * Descriptor for an AM blob transaction. Contains information
- * about the transaction and a staging area for the updates.
- */
-class AmTxDescriptor {
-  public:
-    /// Blob trans ID
-    BlobTxId txId;
-    /// DMT version when transaction started
-    fds_uint64_t originDmtVersion;
-    /// Blob being mutated
-    std::string blobName;
-    /// Volume context for the transaction
-    fds_volid_t volId;
-
-    /// Type of the staged transaction
-    fds_io_op_t opType;
-    /// Staged blob descriptor for the transaction
-    BlobDescriptor::ptr stagedBlobDesc;
-    /// Staged blob offsets updates
-    typedef std::unordered_map<BlobOffsetPair, ObjectID,
-                               BlobOffsetPairHash> BlobOffsetMap;
-    BlobOffsetMap stagedBlobOffsets;
-    /// Staged blob object updates for the transaction
-    typedef std::unordered_map<ObjectID, boost::shared_ptr<std::string>,
-                               ObjectHash> BlobObjectMap;
-    BlobObjectMap stagedBlobObjects;
-
-    AmTxDescriptor(fds_volid_t volUuid,
-                   const BlobTxId &id,
-                   fds_uint64_t dmtVer,
-                   const std::string &name);
-    ~AmTxDescriptor();
-};
+struct AmTxDescriptor;
 
 /**
  * Manages outstanding AM transactions. The transaction manager tracks which
@@ -84,6 +50,13 @@ struct AmTxManager {
     typedef std::shared_ptr<AmTxManager> shared_ptr;
 
     /**
+     * Removes an existing transaction from the manager, destroying
+     * any staged object updates. An error is returned if the transaction
+     * ID does not already exist.
+     */
+    Error abortTx(const BlobTxId &txId);
+
+    /**
      * Adds a new transaction to the manager. An error is returned
      * if the transaction ID exists already.
      * TODO(Andrew): Today we enforce transaction ID to be unique
@@ -95,17 +68,15 @@ struct AmTxManager {
                 const std::string &name);
 
     /**
-     * Removes an existing transaction from the manager. An error is
-     * returned if the transaction ID does not already exist.
+     * Notify that there is a newly attached volume, and build any
+     * necessary data structures.
      */
-    Error removeTx(const BlobTxId &txId);
+    Error addVolume(const VolumeDesc& volDesc);
 
     /**
-     * Returns the descriptor associated with the transaction.
-     * Note the memory returned is still owned by the manager
-     * and may still be modified or removed.
+     * Removes the transaction and pushes all updates into the cache.
      */
-    Error getTxDescriptor(const BlobTxId &txId, descriptor_ptr_type &desc);
+    Error commitTx(const BlobTxId& txId, fds_uint64_t const blobSize);
 
     /**
      * Gets the DMT version for a given transaction ID. Returns an
@@ -139,16 +110,36 @@ struct AmTxManager {
     Error updateStagedBlobDesc(const BlobTxId &txId,
                                fpi::FDSP_MetaDataList const& metaDataList);
 
-    // XXX(bszmyd): Sun 22 Mar 2015 06:54:26 AM PDT
-    // Remove these!
-    Error addVolume(const VolumeDesc& volDesc);
-    Error putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize);
-    BlobDescriptor::ptr getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error);
-    ObjectID::ptr getBlobOffsetObject(fds_volid_t volId, const std::string &blobName, fds_uint64_t blobOffset, Error &error);
-    Error putObject(fds_volid_t const volId, ObjectID const& objId, boost::shared_ptr<std::string> const obj);
-    boost::shared_ptr<std::string> getBlobObject(fds_volid_t volId, const ObjectID &objectId, Error &error);
-    Error putOffset(fds_volid_t const volId, BlobOffsetPair const& blobOff, boost::shared_ptr<ObjectID> const objId);
-    Error putBlobDescriptor(fds_volid_t const volId, std::string const& blobName, boost::shared_ptr<BlobDescriptor> const blobDesc);
+    /**
+     * Cache operations
+     * TODO(bszmyd): Sun 22 Mar 2015 07:13:59 PM PDT
+     * These are kinda ugly. When we do real transactions we should clean
+     * this up.
+     */
+    BlobDescriptor::ptr getBlobDescriptor(fds_volid_t volId,
+                                          std::string const& blobName,
+                                          Error &error);
+    Error putBlobDescriptor(fds_volid_t const volId,
+                            std::string const& blobName,
+                            boost::shared_ptr<BlobDescriptor> const blobDesc);
+
+    ObjectID::ptr getBlobOffsetObject(fds_volid_t volId,
+                                      std::string const& blobName,
+                                      fds_uint64_t blobOffset,
+                                      Error &error);
+    Error putOffset(fds_volid_t const volId,
+                    BlobOffsetPair const& blobOff,
+                    boost::shared_ptr<ObjectID> const objId);
+
+    Error putObject(fds_volid_t const volId,
+                    ObjectID const& objId,
+                    boost::shared_ptr<std::string> const obj);
+    boost::shared_ptr<std::string> getBlobObject(fds_volid_t volId,
+                                                 ObjectID const& objectId,
+                                                 Error &error);
+
+  private:
+    descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
 };
 
 }  // namespace fds
