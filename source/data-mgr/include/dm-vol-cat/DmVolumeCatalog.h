@@ -122,8 +122,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog
      */
-    Error getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize, fds_uint64_t* blobCount,
-            fds_uint64_t* objCount);
+    Error statVolume(fds_volid_t volId, fds_uint64_t* volSize,
+                     fds_uint64_t* blobCount, fds_uint64_t* objCount);
 
     /**
      * Get all objects for the volume
@@ -225,8 +225,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error getBlobMetaDesc(fds_volid_t volId, const std::string & blobName,
             BlobMetaDesc & blobMeta);
 
-    Error getVolumeMetaInternal(fds_volid_t volId, fds_uint64_t * volSize,
-            fds_uint64_t * blobCount, fds_uint64_t * objCount);
+    Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
+                             fds_uint64_t * blobCount, fds_uint64_t * objCount);
 
     inline void mergeMetaList(MetaDataList & lhs, const MetaDataList & rhs) {
         for (auto & it : rhs) {

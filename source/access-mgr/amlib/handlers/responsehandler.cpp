@@ -216,8 +216,8 @@ StatVolumeResponseHandler::StatVolumeResponseHandler(apis::VolumeStatus& volumeS
 
 void StatVolumeResponseHandler::process() {
     XCHECKSTATUS(status);
-    volumeStatus.blobCount = volumeMetaData.blobCount;
-    volumeStatus.currentUsageInBytes = volumeMetaData.size;
+    volumeStatus.blobCount = volStat.blobCount;
+    volumeStatus.currentUsageInBytes = volStat.size;
 }
 
 }  // namespace fds
