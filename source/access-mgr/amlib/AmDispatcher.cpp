@@ -597,12 +597,18 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
         if ((fds_uint64_t)(*it).offset == amReq->blob_offset) {
             // found offset!!!
             ObjectID objId((*it).data_obj_id.digest);
-            // TODO(Andrew): Consider adding this back when we revisit
-            // zero length objects
-            // fds_verify(objId != NullObjectID);
-
-            amReq->obj_id = objId;
-            amReq->proc_cb(ERR_OK);
+            // TODO(bszmyd): Mon 23 Mar 2015 02:49:01 AM PDT
+            // This is the matching error scenario from the trickery
+            // in AmProcessor::getBlobCb due to the write/read race
+            // between DM/SM. If this is a retry then the object id should be
+            // anything but what it was
+            if (blobReq->retry && (blobReq->last_obj_id == objId)) {
+                amReq->proc_cb(ERR_BLOB_NOT_FOUND);
+            } else {
+                blobReq->retry = false; // We've gotten a new Id we're not insane
+                amReq->obj_id = objId;
+                amReq->proc_cb(ERR_OK);
+            }
             return;
         }
     }

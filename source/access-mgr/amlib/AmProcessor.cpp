@@ -325,6 +325,26 @@ AmProcessor::getBlob(AmRequest *amReq) {
 
 void
 AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
+    auto blobReq = static_cast<GetBlobReq *>(amReq);
+    if (error == ERR_NOT_FOUND &&
+        (!blobReq->retry || (blobReq->obj_id != blobReq->last_obj_id))) {
+        // TODO(bszmyd): Mon 23 Mar 2015 02:40:25 AM PDT
+        // This is somewhat of a trick since we don't really support
+        // transactions. If we can't find the object, do an index lookup
+        // again. If we get back the same ObjectID, then fine...try SM again,
+        // but that's the end of it.
+        blobReq->oid_cached = false;
+        std::swap(blobReq->obj_id, blobReq->last_obj_id);
+        blobReq->retry = true;
+        blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, amReq);
+        GLOGWARN << "Dispatching retry on [ " << blobReq->volume_name
+                 << ", " << blobReq->getBlobName()
+                 << ", 0x" << std::hex << blobReq->blob_offset << std::dec
+                 << "B ]";
+        amDispatcher->dispatchQueryCatalog(amReq);
+        return;
+    }
+
     respond(amReq, error);
 
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
@@ -335,7 +355,6 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
         txMgr->putObject(amReq->io_vol_id,
                            amReq->obj_id,
                            cb->returnBuffer);
-        auto blobReq = static_cast<GetBlobReq*>(amReq);
         if (!blobReq->oid_cached) {
             txMgr->putOffset(amReq->io_vol_id,
                                BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
