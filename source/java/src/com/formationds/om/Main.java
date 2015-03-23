@@ -118,12 +118,12 @@ public class Main {
         // TODO: should there be an OM property for the am host?
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
 
-        // TODO: Should OM have a specific AM instance id configuration? how does OM handle multi-AM?
-        int amInstanceId = platformConfig.defaultInt( "fds.am.instanceId", 0 );
-
         // TODO: the base service port needs to configurable in platform.conf
-        int amServicePortBase = 9988;
-        int amServicePort = amServicePortBase + amInstanceId;
+	// TODO: we are going to AM on the same node as OM here; otherwise we need to get a platform
+	// port of another node (but this is the same functionality as was before with instanceID)
+	int pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
+	int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 24);
+        int amServicePort = pmPort + amServicePortOffset;
 
         // TODO: this needs to be configurable in platform.conf
         int omConfigPort = 9090;
