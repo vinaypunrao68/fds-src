@@ -13,17 +13,70 @@ import json
 import sys
 
 import ssh
+import os
+from boto.s3.key import Key
 import testsets.testcase as testcase
 
 
 class Test100GBVolume(testcase.FDSTestCase):
-    
+    '''
+    Create one block volume with 100GB capacity, and populate first with 100GB;
+    After that, add more 2GB of data, to ensure correctness.
+    '''
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(Test100GBVolume, self).__init__(parameters=parameters,
                                                config_file=config_file,
                                                om_ip_address=om_ip_address)
-        
+    
     def runTest(self):
+        self.upload_s3_volume()
+    
+    def upload_s3_volume(self):
+        utils.create_dir(config.TEST_DIR)
+        # utils.create_dir(config.DOWNLOAD_DIR)
+        s3conn = utils.create_s3_connection(self.om_ip_address, self.om_ip_address)
+        bucket_name = "volume_100gb"
+        bucket = s3conn.conn.create_bucket(bucket_name)
+        if bucket == None:
+            raise Exception("Invalid bucket.")
+            # We won't be waiting for it to complete, short circuit it.
+            self.test_passed = False
+            self.reportTestCaseResult(self.test_passed)
+        self.log.info("Volume %s created..." % bucket.name)
+        # Store all the files created to the bucket
+        self.store_file_to_volume(bucket)
+        # self.log.info("Trying to Download the blobs now.")
+        # self.download_files(bucket)
+        # self.check_files_hash()
+        # Delete the bucket
+        # self.destroy_volume(bucket, s3conn)
+        # remove the existing file
+        utils.remove_dir(config.DOWNLOAD_DIR)
+        
+    def store_file_to_volume(self, bucket):
+        '''
+        Given the list of files to be uploaded, presented in sample_files list,
+        upload them to the corresponding volume
+        
+        Attributes:
+        -----------
+        bucket : bucket
+            the S3 bucket (volume) where the data files will to uploaded to.
+        '''
+        # add the data files to the bucket.
+        k = Key(bucket)
+        sample = "test_sample_200M"
+        path = os.path.join(config.TEST_DIR, sample)
+        self.log.info("Uploading: %s" % path)
+        if os.path.exists(path):
+            k.key = sample
+            k.set_contents_from_filename(path,
+                                         cb=utils.percent_cb,
+                                         num_cb=10)
+            self.log.info("Uploaded file %s to bucket %s" % 
+                         (sample, bucket.name))
+                
+    def upload_block_volume(self):
         test_passed = False
         r = None
         port = config.FDS_REST_PORT
@@ -84,27 +137,17 @@ class Test100GBVolume(testcase.FDSTestCase):
                     'fallocate -l 10G sample_file',
                     'mv sample_file /fdsmount',
                     'umount /fdsmount',
-                    './nbdadm.py detach %s' % (volume_name),
                     'rm -rf /fdsmount',
-                    'rm -rf sample_file',
+                    './nbdadm.py detach %s' % (volume_name),
                 )
                 
                 for cmd in cmds:
+                    self.log.info("Executing %s" % cmd)
                     (stdin, stdout, stderr) = local_ssh.client.exec_command(cmd)
                     self.log.info(stdout.readlines())
     
                 local_ssh.client.close()
-                    #Write to the volume
-    
-                    #Read from volume
-    
-                #Get Volumes
-                #r = requests.get(url, headers=header)
-                #self.log.info("response = %s", r.json())
-                #self.log.info("Status = %s", r.status_code)
-                #Yay?
                 test_passed = True
-
 
         except Exception, e:
             self.log.exception(e)
