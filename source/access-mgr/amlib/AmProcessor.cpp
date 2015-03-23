@@ -270,8 +270,8 @@ AmProcessor::getBlob(AmRequest *amReq) {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
     if (blobReq->get_metadata) {
         BlobDescriptor::ptr cachedBlobDesc = txMgr->getBlobDescriptor(volId,
-                                                                        amReq->getBlobName(),
-                                                                        err);
+                                                                      amReq->getBlobName(),
+                                                                      err);
         if (ERR_OK == err) {
             LOGTRACE << "Found cached blob descriptor for " << std::hex
                      << volId << std::dec << " blob " << amReq->getBlobName();
