@@ -23,7 +23,7 @@ class DomainContext(Context):
         Create a new Local Domain.
         """
         try:
-            return self.restApi().createDomain(domain_name, domain_site)
+            return self.restApi().createLocalDomain(domain_name, domain_site)
         except Exception, e:
             print e
             log.exception(e)
@@ -36,7 +36,7 @@ class DomainContext(Context):
         List currently defined Local Domains.
         """
         try:
-            return self.restApi().listDomains()
+            return self.restApi().listLocalDomains()
         except Exception, e:
             print e
             log.exception(e)
@@ -44,20 +44,33 @@ class DomainContext(Context):
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('domain_name', help="Name of the Local Domain whose Services are to be listed.")
-    def listServices(self, domain_name):
+    @arg('old_domain_name', help="Current name of the Local Domain.")
+    @arg('new_domain_name', help="New name for the Local Domain.")
+    def updateName(self, old_domain_name, new_domain_name):
         """
-        List currently defined Services for the named Local Domain.
+        Change the name of the Local Domain.
         """
         try:
-            return self.restApi().listServices(domain_name)
+            return self.restApi().updateLocalDomainName(old_domain_name, new_domain_name)
         except Exception, e:
-            print e
             log.exception(e)
-            return 'Unable to list Services for Local Domain {}.'.format(domain_name)
+            return 'Unable to change the name of Local Domain {} to {}'.format(old_domain_name, new_domain_name)
 
     #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('domain_name', help="Name of the Local Domain whose site name is to be changed.")
+    @arg('new_site_name', help="New name for the Local Domain's site.")
+    def updateSite(self, domain_name, new_site_name):
+        """
+        Change the name of the Local Domain's site.
+        """
+        try:
+            return self.restApi().updateLocalDomainSite(domain_name, new_site_name)
+        except Exception, e:
+            log.exception(e)
+            return 'Unable to change the site name of Local Domain {} to {}'.format(domain_name, new_site_name)
 
+    #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('domain_name', help="Name of the Local Domain whose Throttle is to be set.")
     @arg('throttle_level', help="The new throttle level to which to set the Local Domain.")
@@ -69,33 +82,31 @@ class DomainContext(Context):
             return self.restApi().setThrottle(domain_name, throttle_level)
         except Exception, e:
             log.exception(e)
-            return 'Unable to set the throttle level in Local Domain: {}'.format(domain_name)
+            return 'Unable to set the throttle level in Local Domain {} to {}'.format(domain_name, throttle_level)
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('domain_name', help="Name of the Local Domain whose Services are to be activated.")
-    @arg('sm', help="True if Storage Manager services are to be activated on each node in the Local Domain.")
-    @arg('dm', help="True if Data Manager services are to be activated on each node in the Local Domain.")
-    @arg('am', help="True if Access Manager services are to be activated on each node in the Local Domain.")
-    def activate(self, domain_name, sm, dm, am):
+    @arg('domain_name', help="Name of the Local Domain whose Scavenger is to be set.")
+    @arg('scavenger_action', help="The Scavenger action to set: enable, disable, start, stop.")
+    def setScavenger(self, domain_name, scavenger_action):
         """
-        Activate the indicated Services on each node currently defined in the Local Domain.
+        Set the scavenger action in the Local Domain.
         """
         try:
-            return self.restApi().activateDomain(domain_name, sm, dm, am)
+            return self.restApi().setScavenger(domain_name, scavenger_action)
         except Exception, e:
             log.exception(e)
-            return 'Unable to activate Local Domain: {}'.format(domain_name)
+            return 'Unable to set the scavenger action in Local Domain {} to {}'.format(domain_name, scavenger_action)
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('domain_name', help="Name of the Local Domain to be shut down.")
+    @arg('domain_name', help="Name of the Local Domain to be shutdown.")
     def shutdown(self, domain_name):
         """
-        Shutdown a Local Domain.
+        Shutdown the Local Domain.
         """
         try:
-            return self.restApi().shutdownDomain(domain_name)
+            return self.restApi().shutdownLocalDomain(domain_name)
         except Exception, e:
             log.exception(e)
             return 'Unable to shutdown Local Domain: {}'.format(domain_name)
@@ -108,7 +119,49 @@ class DomainContext(Context):
         Delete a Local Domain.
         """
         try:
-            return self.restApi().deleteDomain(domain_name)
+            return self.restApi().deleteLocalDomain(domain_name)
         except Exception, e:
             log.exception(e)
             return 'Unable to delete Local Domain: {}'.format(domain_name)
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('domain_name', help="Name of the Local Domain whose Services are to be activated.")
+    def activateServices(self, domain_name):
+        """
+        Activate the pre-defined Services on each node currently defined in the Local Domain.
+        How Services are pre-defined for a given Node is currently (3/20/2015) a mystery.
+        """
+        try:
+            return self.restApi().activateLocalDomainServices(domain_name)
+        except Exception, e:
+            log.exception(e)
+            return 'Unable to activate Services on Local Domain: {}'.format(domain_name)
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('domain_name', help="Name of the Local Domain whose Services are to be listed.")
+    def listServices(self, domain_name):
+        """
+        List currently defined Services for the named Local Domain.
+        """
+        try:
+            return self.restApi().listLocalDomainServices(domain_name)
+        except Exception, e:
+            print e
+            log.exception(e)
+            return 'Unable to list Services for Local Domain {}.'.format(domain_name)
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('domain_name', help="Name of the Local Domain whose Services are to be removed.")
+    def removeServices(self, domain_name):
+        """
+        Remove the pre-defined Services on each node currently defined in the Local Domain.
+        How Services are pre-defined for a given Node is currently (3/20/2015) a mystery.
+        """
+        try:
+            return self.restApi().removeLocalDomainServices(domain_name)
+        except Exception, e:
+            log.exception(e)
+            return 'Unable to remove Services from Local Domain: {}'.format(domain_name)
