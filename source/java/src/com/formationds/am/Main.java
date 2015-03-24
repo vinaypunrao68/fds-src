@@ -180,7 +180,7 @@ public class Main {
                 httpConfiguration).start(), "S3 service thread").start();
 
         startStreamingServer(pmPort + streamingPortOffset, configCache);
-        int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 299);
+        int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 2999);
         swiftPort += pmPort;  // remains 9999 for default platform port
         new SwiftEndpoint(xdi, secretKey).start(swiftPort);
     }
