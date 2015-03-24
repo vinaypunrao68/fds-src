@@ -130,7 +130,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             return;
         }
         
-        if ( $scope.volumeVars.toClone === 'clone' ){
+        if ( angular.isDefined( $scope.volumeVars.toClone ) && $scope.volumeVars.toClone.value === 'clone' ){
             volume.timelineTime = $scope.volumeVars.cloneFromVolume.timelineTime;
             cloneVolume( volume );
         }
@@ -142,7 +142,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
 
     $scope.cancel = function(){
         $scope.volumeVars.creating = false;
-        $scope.volumeVars.toClone = false;
+        $scope.volumeVars.toClone = {value: false};
         $scope.volumeVars.back();
     };
     
@@ -159,7 +159,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
         
-        if ( $scope.volumeVars.toClone === 'new' ){
+        if ( !angular.isDefined( $scope.volumeVars.toClone) || $scope.volumeVars.toClone.value === 'new' ){
             return;
         }
         
@@ -172,7 +172,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     $scope.$watch( 'volumeVars.toClone', function( newVal ){
         
-        if ( newVal === 'new' ){
+        if ( !angular.isDefined( newVal ) || newVal.value === 'new' ){
             return;
         }
         
