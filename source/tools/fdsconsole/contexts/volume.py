@@ -99,7 +99,7 @@ class VolumeContext(Context):
         elif vol_type == 'block':
             vol_type = ttypes.VolumeType.BLOCK
             if max_obj_size == 0:
-                max_obj_size = 4096
+                max_obj_size = 131072
         elif vol_type not in (ttypes.VolumeType.OBJECT, ttypes.VolumeType.BLOCK):
             vol_type = ttypes.VolumeSettings.VolumeType.OBJECT
 
