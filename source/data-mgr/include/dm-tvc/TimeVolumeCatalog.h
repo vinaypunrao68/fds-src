@@ -87,6 +87,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                 util::TimeStamp toTime);
     Error dmGetCatJournalStartTime(const std::string &logfile, fds_uint64_t *journal_time);
 
+  protected:
+    void createCommitLog(const VolumeDesc& voldesc);
 
   public:
     /**
