@@ -78,10 +78,14 @@ class TestKillRandom(TestCase.FDSTestCase):
 
 
     def _get_pid(self, table, agent, node):
-        if agent in table and len(table[agent]) > 0:
-            p, n = random.choice(table[agent]) 
-            if n == node or node is None:
-                return p, n
+        if node == None:
+            if agent in table and len(table[agent]) > 0:
+                return random.choice(table[agent]) 
+        else:
+            if agent in table and len(table[agent]) > 0:
+                pair = filter(lambda x: x[1] == node, table[agent])[0]
+                if pair != None:
+                    return pair
         return -1, None
 
     def test_KillRandom(self):
