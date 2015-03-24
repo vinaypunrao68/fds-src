@@ -13,17 +13,25 @@ import json
 import sys
 
 import ssh
+import os
+from boto.s3.key import Key
 import testsets.testcase as testcase
 
 
-class Test100GBVolume(testcase.FDSTestCase):
-    
+class Test100GBBlockVolume(testcase.FDSTestCase):
+    '''
+    Create one block volume with 100GB capacity, and populate first with 100GB;
+    After that, add more 2GB of data, to ensure correctness.
+    '''
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
-        super(Test100GBVolume, self).__init__(parameters=parameters,
+        super(Test100GBBlockVolume, self).__init__(parameters=parameters,
                                                config_file=config_file,
                                                om_ip_address=om_ip_address)
-        
+    
     def runTest(self):
+        self.upload_block_volume()
+                
+    def upload_block_volume(self):
         test_passed = False
         r = None
         port = config.FDS_REST_PORT
@@ -46,7 +54,7 @@ class Test100GBVolume(testcase.FDSTestCase):
                 test_passed = False
     
             #Get number of volumes currently?
-            volume_name = "test-block-100GB"
+            volume_name = "test-block-100GB-block-volume"
             #prep data
             data = {"sla":0,"limit":0,"priority":10,"snapshotPolicies":[],
                     "timelinePolicies":[{"retention":604800,
@@ -84,27 +92,18 @@ class Test100GBVolume(testcase.FDSTestCase):
                     'fallocate -l 10G sample_file',
                     'mv sample_file /fdsmount',
                     'umount /fdsmount',
-                    './nbdadm.py detach %s' % (volume_name),
                     'rm -rf /fdsmount',
                     'rm -rf sample_file',
+                    './nbdadm.py detach %s' % (volume_name),
                 )
                 
                 for cmd in cmds:
+                    self.log.info("Executing %s" % cmd)
                     (stdin, stdout, stderr) = local_ssh.client.exec_command(cmd)
                     self.log.info(stdout.readlines())
     
                 local_ssh.client.close()
-                    #Write to the volume
-    
-                    #Read from volume
-    
-                #Get Volumes
-                #r = requests.get(url, headers=header)
-                #self.log.info("response = %s", r.json())
-                #self.log.info("Status = %s", r.status_code)
-                #Yay?
                 test_passed = True
-
 
         except Exception, e:
             self.log.exception(e)
