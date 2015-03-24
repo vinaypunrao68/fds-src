@@ -168,6 +168,11 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                                 if node.nd_conf_dict['redis'] == 'true':
                                     suite.addTest(TestFDSEnvMgt.TestRestartRedisClean(node=node))
 
+                            # Boot InfluxDB on the machine if requested.
+                            if 'influxdb' in node.nd_conf_dict:
+                                if node.nd_conf_dict['influxdb'] == 'true':
+                                    suite.addTest(TestFDSEnvMgt.TestRestartInfluxDBClean(node=node))
+
                         if (action.count("boot") > 0):
                             # Now bring up PM.
                             suite.addTest(TestFDSServiceMgt.TestPMBringUp(node=node))
@@ -224,6 +229,11 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                             if 'redis' in node.nd_conf_dict:
                                 if node.nd_conf_dict['redis'] == 'true':
                                     suite.addTest(TestFDSEnvMgt.TestShutdownRedis(node=node))
+
+                            # Shutdown InfluxDB on the machine if we started it.
+                            if 'influxdb' in node.nd_conf_dict:
+                                if node.nd_conf_dict['influxdb'] == 'true':
+                                    suite.addTest(TestFDSEnvMgt.TestShutdownInfluxDB(node=node))
 
                         break
 

@@ -78,6 +78,7 @@ class ConfigData:
         return self.__rest
 
     def getS3Api(self):
+        self.getRestApi()
         if self.__s3rest == None:
             if not self.__token:
                 print '[WARN] : unable to login as {}'.format(self.getUser())

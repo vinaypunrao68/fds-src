@@ -118,22 +118,29 @@ class BlobTxId {
 
   public:
     /// Creates a new blob transaction ID with invalid value
-    BlobTxId();
+    BlobTxId() : txId(txIdInvalid) {}
     /// Creates a new blob transaction with a specific value
-    explicit BlobTxId(fds_uint64_t givenId);
-    explicit BlobTxId(const BlobTxId &rhs);
-    ~BlobTxId();
+    explicit BlobTxId(fds_uint64_t givenId) : txId(givenId) {}
+    explicit BlobTxId(const BlobTxId &rhs) = default;
+    ~BlobTxId() = default;
     typedef boost::shared_ptr<BlobTxId> ptr;
     typedef boost::shared_ptr<const BlobTxId> const_ptr;
 
-    static const fds_uint64_t txIdInvalid = 0;
+    static constexpr fds_uint64_t txIdInvalid = 0;
 
-    BlobTxId& operator=(const BlobTxId& rhs);
-    fds_bool_t operator==(const BlobTxId& rhs) const;
-    fds_bool_t operator!=(const BlobTxId& rhs) const;
+    BlobTxId& operator=(const BlobTxId& rhs)
+    { txId = rhs.txId; return *this; }
+
+    fds_bool_t operator==(const BlobTxId& rhs) const
+    { return txId == rhs.txId; }
+
+    fds_bool_t operator!=(const BlobTxId& rhs) const
+    { return txId != rhs.txId; }
+
     friend std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);
 
-    fds_uint64_t getValue() const;
+    fds_uint64_t getValue() const
+    { return txId; }
 };
 
 /// Provides hashing function for trans id

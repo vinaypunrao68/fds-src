@@ -251,8 +251,8 @@ std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
     return "GetBlobMetaDataMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg) {
-    return "GetVolumeMetaDataMsg";
+std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg) {
+    return "StatVolumeMsg";
 }
 
 std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {

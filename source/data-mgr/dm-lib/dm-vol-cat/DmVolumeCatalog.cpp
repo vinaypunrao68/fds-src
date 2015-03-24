@@ -199,8 +199,10 @@ Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId) {
     return ERR_OK;
 }
 
-Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize,
-        fds_uint64_t* blobCount, fds_uint64_t* objCount) {
+Error DmVolumeCatalog::statVolume(fds_volid_t volId,
+                                  fds_uint64_t* volSize,
+                                  fds_uint64_t* blobCount,
+                                  fds_uint64_t* objCount) {
     Error rc(ERR_OK);
     synchronized(lockVolSummaryMap_) {
         DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
@@ -212,7 +214,7 @@ Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize,
         }
     }
 
-    rc = getVolumeMetaInternal(volId, volSize, blobCount, objCount);
+    rc = statVolumeInternal(volId, volSize, blobCount, objCount);
 
     if (rc.ok()) {
         FDSGUARD(lockVolSummaryMap_);
@@ -226,7 +228,7 @@ Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize,
     return rc;
 }
 
-Error DmVolumeCatalog::getVolumeMetaInternal(fds_volid_t volId, fds_uint64_t * volSize,
+Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
             fds_uint64_t * blobCount, fds_uint64_t * objCount) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
@@ -234,7 +236,7 @@ Error DmVolumeCatalog::getVolumeMetaInternal(fds_volid_t volId, fds_uint64_t * v
     std::vector<BlobMetaDesc> blobMetaList;
     Error rc = vol->getAllBlobMetaDesc(blobMetaList);
     if (!rc.ok()) {
-        LOGERROR << "Failed to retrieve volume metadata for volume: '" << std::hex
+        LOGERROR << "Failed to retrieve volume status for volume: '" << std::hex
                 << volId << std::dec << "' error: '" << rc << "'";
         return rc;
     }
