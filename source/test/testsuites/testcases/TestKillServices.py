@@ -78,9 +78,6 @@ class TestKillRandom(TestCase.FDSTestCase):
 
 
     def _get_pid(self, table, agent, node):
-        if agent == "pm" and self._get_pid(table, "om", None) < 0:
-            time.sleep(5)
-            return -1, None
         if agent in table and len(table[agent]) > 0:
             p, n = random.choice(table[agent]) 
             if n == node or node is None:
