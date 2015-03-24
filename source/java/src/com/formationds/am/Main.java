@@ -91,7 +91,7 @@ public class Main {
 
         }
 
-        int amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 53);
+        int amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 2876);
         int amResponsePort = pmPort + amResponsePortOffset;
         LOG.debug("PM port " + pmPort +
                 " my port " + amResponsePort);

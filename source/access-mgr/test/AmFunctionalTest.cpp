@@ -67,7 +67,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
               volumeName(new std::string("Test Volume")),
               serverIp("127.0.0.1"),
               serverPort(7025),
-              responsePort(7053) {
+              responsePort(9876) {
         // register and populate volumes
         VolumeDesc volDesc(*volumeName, 5);
         volDesc.iops_min = 0;

@@ -40,7 +40,7 @@ AmAsyncXdiResponse::client_map AmAsyncXdiResponse::clients;
 
 AmAsyncXdiResponse::AmAsyncXdiResponse(std::string const& server_ip)
         : serverIp(server_ip),
-          serverPort(7053) {
+          serverPort(9876) {
     // Set client to unitialized
     asyncRespClient.reset();
 }
