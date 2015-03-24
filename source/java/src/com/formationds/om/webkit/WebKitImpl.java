@@ -251,7 +251,7 @@ public class WebKitImpl {
         webApp.route( method, route, ( ) -> eh );
     }
 
-    private void capabilty() {
+    private void capability() {
 
         logger.trace( "registering system capabilities endpoints" );
         /**
