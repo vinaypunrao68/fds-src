@@ -48,8 +48,8 @@ public class FdsFileSystem extends FileSystem {
     public static final String LAST_MODIFIED_KEY = "last-modified";
     public static final String CREATED_BY_USER = "created-by-user";
     public static final String CREATED_BY_GROUP = "created-by-group";
-    public static final int amServicePortOffset = 24;
-    public static int amResponsePortOffset = 53;
+    public static final int amServicePortOffset = 2988;
+    public static int amResponsePortOffset = 2876;
 
     private XdiService.Iface am;
     private Path workingDirectory;

@@ -125,7 +125,7 @@ public class Main {
 	// TODO: we are going to AM on the same node as OM here; otherwise we need to get a platform
 	// port of another node (but this is the same functionality as was before with instanceID)
 	int pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
-	int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 24);
+	int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 2988);
         int amServicePort = pmPort + amServicePortOffset;
 
         // TODO: this needs to be configurable in platform.conf
