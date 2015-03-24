@@ -86,7 +86,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
     
     @Override
-    public void setThrottle(String domainName, Double throttleLevel) throws TException {
+    public void setThrottle(String domainName, double throttleLevel) throws TException {
         return;
     }
     
