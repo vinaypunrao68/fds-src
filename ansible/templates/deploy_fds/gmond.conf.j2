@@ -73,14 +73,6 @@ modules {
     name = "load_module"
     path = "/opt/fds-deps/embedded/lib64/ganglia/modload.so"
   }
-#  module {
-#    name = "mem_module"
-#    path = "/opt/fds-deps/embedded/lib64/ganglia/modmem.so"
-#  }
-#  module {
-#    name = "net_module"
-#    path = "/opt/fds-deps/embedded/lib64/ganglia/modnet.so"
-#  }
   module {
     name = "proc_module"
     path = "/opt/fds-deps/embedded/lib64/ganglia/modproc.so"
@@ -123,15 +115,6 @@ collection_group {
     name = "cpu_speed"
     title = "CPU Speed"
   }
-#  metric {
-#    name = "mem_total"
-#    title = "Memory Total"
-#  }
-#  /* Should this be here? Swap can be added/removed between reboots. */
-#  metric {
-#    name = "swap_total"
-#    title = "Swap Space Total"
-#  }
   metric {
     name = "boottime"
     title = "Last Boot Time"
@@ -257,60 +240,6 @@ collection_group {
 /* This collection group grabs the volatile memory metrics every 40 secs and
    sends them at least every 180 secs.  This time_threshold can be increased
    significantly to reduce unneeded network traffic. */
-#collection_group {
-#  collect_every = 15
-#  time_threshold = 15
-#  metric {
-#    name = "mem_free"
-#    value_threshold = "1024.0"
-#    title = "Free Memory"
-#  }
-#  metric {
-#    name = "mem_shared"
-#    value_threshold = "1024.0"
-#    title = "Shared Memory"
-#  }
-#  metric {
-#    name = "mem_buffers"
-#    value_threshold = "1024.0"
-#    title = "Memory Buffers"
-#  }
-#  metric {
-#    name = "mem_cached"
-#    value_threshold = "1024.0"
-#    title = "Cached Memory"
-#  }
-#  metric {
-#    name = "swap_free"
-#    value_threshold = "1024.0"
-#    title = "Free Swap Space"
-#  }
-#}
-#
-#collection_group {
-#  collect_every = 15
-#  time_threshold = 15
-#  metric {
-#    name = "bytes_out"
-#    value_threshold = 4096
-#    title = "Bytes Sent"
-#  }
-#  metric {
-#    name = "bytes_in"
-#    value_threshold = 4096
-#    title = "Bytes Received"
-#  }
-#  metric {
-#    name = "pkts_in"
-#    value_threshold = 256
-#    title = "Packets Received"
-#  }
-#  metric {
-#    name = "pkts_out"
-#    value_threshold = 256
-#    title = "Packets Sent"
-#  }
-#}
 
 /* Different than 2.5.x default since the old config made no sense */
 collection_group {
