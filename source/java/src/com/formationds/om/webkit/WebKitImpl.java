@@ -96,14 +96,12 @@ public class WebKitImpl {
         webApp.route( HttpMethod.GET, "", ( ) -> new LandingPage( webDir ) );
 
         webApp.route( HttpMethod.POST, "/api/auth/token",
-                      ( ) -> new GrantToken( SingletonConfigAPI.instance()
-                                                         .api(),
+                      ( ) -> new GrantToken( configAPI,
                                              authenticator,
                                              authorizer,
                                              secretKey ) );
         webApp.route( HttpMethod.GET, "/api/auth/token",
-                      ( ) -> new GrantToken( SingletonConfigAPI.instance()
-                                                         .api(),
+                      ( ) -> new GrantToken( configAPI,
                                              authenticator,
                                              authorizer,
                                              secretKey ) );
@@ -139,7 +137,7 @@ public class WebKitImpl {
 
         authenticate( HttpMethod.GET, "/api/config/volumes",
                       ( t ) -> new ListVolumes( authorizer,
-                                                SingletonConfigAPI.instance().api(),
+                                                configAPI,
                                                 SingletonAmAPI.instance()
                                                               .api(),
                                                 legacyConfig,
@@ -154,8 +152,7 @@ public class WebKitImpl {
                       ( t ) -> new CloneVolume( configAPI,
                                                 legacyConfig ) );
         authenticate( HttpMethod.DELETE, "/api/config/volumes/:name",
-                      ( t ) -> new DeleteVolume( authorizer, SingletonConfigAPI.instance()
-                                                             .api(),
+                      ( t ) -> new DeleteVolume( authorizer, configAPI,
                                                  t ) );
         authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
                       ( t ) -> new SetVolumeQosParams(
@@ -201,6 +198,11 @@ public class WebKitImpl {
          * Provide Local Domain RESTful API endpoints
          */
         localDomain();
+
+        /*
+         * Provides System Capabilities API endpoints
+         */
+        capabilty();
 
         webApp.start(
             new HttpConfiguration( httpPort ),
@@ -249,6 +251,21 @@ public class WebKitImpl {
         webApp.route( method, route, ( ) -> eh );
     }
 
+    private void capabilty() {
+
+        logger.trace( "registering system capabilities endpoints" );
+        /**
+         * Sprint 0.7.4 FS-1364 SSD Only Support
+         * 03/24/2015 10:00:00 AM
+         */
+        authenticate( HttpMethod.GET,
+                      "/api/config/system/capabilities",
+                      ( t ) -> new SystemCapabilities(
+                          SingletonConfiguration.instance()
+                                                .getConfig()
+                                                .getPlatformConfig() ) );
+        logger.trace( "registered system capabilities endpoints" );
+    }
     private void platform( ) {
 
         final FDSP_ConfigPathReq.Iface legacyConfig =
