@@ -103,9 +103,9 @@ public class Main {
         String omHost = platformConfig.defaultString("fds.am.om_ip", "localhost");
         Integer omHttpPort = platformConfig.defaultInt("fds.om.http_port", 7777);
         Integer omHttpsPort = platformConfig.defaultInt("fds.om.https_port", 7443);
-        int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 24);
-        int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 25);
-        int streamingPortOffset = platformConfig.defaultInt("fds.am.streaming_port_offset", 28);
+        int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 2988);
+        int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
+        int streamingPortOffset = platformConfig.defaultInt("fds.am.streaming_port_offset", 1999);
 
         // TODO: this needs to be configurable in platform.conf
         int omConfigPort = 9090;

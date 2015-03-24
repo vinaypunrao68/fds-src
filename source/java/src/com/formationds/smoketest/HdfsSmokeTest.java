@@ -25,8 +25,8 @@ import static org.junit.Assert.*;
 @Ignore
 public class HdfsSmokeTest {
     private final int OBJECT_SIZE = 1024 * 1024 * 2;
-    private final int amResponsePortOffset = 53;
-    private final int amServicePortOffset = 24;
+    private final int amResponsePortOffset = 2876;
+    private final int amServicePortOffset = 2988;
     private FdsFileSystem fileSystem;
 
     private static boolean isIntegrationTest() {

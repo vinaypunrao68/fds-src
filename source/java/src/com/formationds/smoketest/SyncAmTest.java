@@ -180,7 +180,7 @@ public class SyncAmTest extends BaseAmTest {
     public static void setUpOnce() throws Exception {
         int pmPort = 7000;
         xdiCf = new XdiClientFactory(MY_AM_RESPONSE_PORT);
-        amService = xdiCf.remoteAmService("localhost", pmPort + 24);
+        amService = xdiCf.remoteAmService("localhost", pmPort + 2988);
         configService = xdiCf.remoteOmService("localhost", 9090);
     }
 

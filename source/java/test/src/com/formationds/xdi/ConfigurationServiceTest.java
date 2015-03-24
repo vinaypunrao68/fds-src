@@ -17,7 +17,7 @@ import static org.junit.Assert.assertNotEquals;
 public class ConfigurationServiceTest {
     // @Test
     public void testIntegration() throws Exception {
-        ConfigurationService.Iface config = new XdiClientFactory(7053).remoteOmService("localhost", 9090);
+        ConfigurationService.Iface config = new XdiClientFactory(9876).remoteOmService("localhost", 9090);
         List<Long> versions = new ArrayList<>();
         versions.add(config.configurationVersion(0));
         long tenantId = config.createTenant("Goldman");
@@ -41,14 +41,14 @@ public class ConfigurationServiceTest {
 
     //@Test
     public void testVolumeTenant() throws Exception {
-        ConfigurationService.Iface config = new XdiClientFactory(7053).remoteOmService("localhost", 9090);
+        ConfigurationService.Iface config = new XdiClientFactory(9876).remoteOmService("localhost", 9090);
         config.listVolumes("")
                 .forEach(v -> System.out.println(v.getTenantId()));
     }
 
     //@Test
     public void testLegacyClient() throws Exception {
-        FDSP_ConfigPathReq.Iface client = new XdiClientFactory(7053).legacyConfig("localhost", 8903);
+        FDSP_ConfigPathReq.Iface client = new XdiClientFactory(9876).legacyConfig("localhost", 8903);
         List<FDSP_VolumeDescType> list = client.ListVolumes(new FDSP_MsgHdrType());
         System.out.println(list.size());
     }
