@@ -202,7 +202,7 @@ public class WebKitImpl {
         /*
          * Provides System Capabilities API endpoints
          */
-        capabilty();
+        capability();
 
         webApp.start(
             new HttpConfiguration( httpPort ),
