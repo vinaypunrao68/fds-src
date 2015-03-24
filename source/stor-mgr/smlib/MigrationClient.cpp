@@ -61,8 +61,37 @@ MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
 }
 
 fds_bool_t
+MigrationClient::forwardAddObjRefIfNeeded(fds_token_id dltToken,
+                                          fpi::AddObjectRefMsgPtr addObjRefReq)
+{
+    fds_bool_t forwarded = false;
+
+    if (!forwardingIO || (dltTokenIDs.count(dltToken) == 0)) {
+        // don't need to forward
+        return false;
+    }
+
+    if (!testMode) {
+        fds_assert(false == addObjRefReq->forwardedReq);
+        addObjRefReq->forwardedReq = true;
+
+        auto asyncAddObjRefReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
+        asyncAddObjRefReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg),
+                                      addObjRefReq);
+        // TODO(Sean):
+        // Should we wait for response?  Since this is do as much as possible, does it
+        // matter?  Will address it when this is re-written as part of DM work.
+        asyncAddObjRefReq->invoke();
+
+    }
+
+    return forwarded;
+}
+
+fds_bool_t
 MigrationClient::forwardIfNeeded(fds_token_id dltToken,
-                                 FDS_IOType* req) {
+                                 FDS_IOType* req)
+{
     if (!forwardingIO || (dltTokenIDs.count(dltToken) == 0)) {
         // don't need to forward
         return false;
