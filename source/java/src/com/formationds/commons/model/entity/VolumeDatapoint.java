@@ -18,7 +18,7 @@ import java.util.Objects;
  */
 @Entity
 public class VolumeDatapoint
-  extends ModelBase {
+  extends ModelBase implements IVolumeDatapoint {
   private static final long serialVersionUID = -528746171551767393L;
 
   @GeneratedValue
@@ -88,6 +88,7 @@ public class VolumeDatapoint
    * @return Returns the {@code double} representing the statistic value for
    * the {@code key}
    */
+  @Override
   public Double getValue() {
     return value;
   }
@@ -103,6 +104,7 @@ public class VolumeDatapoint
   /**
    * @return Returns the {@code Long} representing the timestamp
    */
+  @Override
   public Long getTimestamp() {
     return timestamp;
   }
@@ -117,6 +119,7 @@ public class VolumeDatapoint
   /**
    * @return Returns the {@link String} representing the volume name
    */
+  @Override
   public String getVolumeName() {
     return volumeName;
   }
@@ -131,6 +134,7 @@ public class VolumeDatapoint
   /**
    * @return Returns {@link String} representing the volume id
    */
+  @Override
   public String getVolumeId() {
     return volumeId;
   }
@@ -145,6 +149,7 @@ public class VolumeDatapoint
   /**
    * @return Returns the {@link String} representing the metadata key
    */
+  @Override
   public String getKey() {
     return key;
   }

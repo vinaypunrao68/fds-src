@@ -26,16 +26,6 @@ user_fds_ar_libs  :=  \
     fds-thread \
     fds-osdep
 
-user_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core \
-    pthread crypt pcre crypto z
-
 user_non_fds_libs :=  \
     boost_log \
     boost_system \
@@ -50,8 +40,7 @@ user_non_fds_libs :=  \
     crypto \
     hiredis \
     event \
-	rt \
-    $(user_nginx_libs) \
+    rt \
     fiu \
     dl \
     tcmalloc

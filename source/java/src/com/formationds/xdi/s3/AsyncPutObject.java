@@ -62,24 +62,19 @@ public class AsyncPutObject implements Function<HttpContext, CompletableFuture<V
     private CompletableFuture<Map<String, String>> filterAccess(HttpContext context, String bucket, String key) {
         return xdiAsync.statBlob(S3Endpoint.FDS_S3, bucket, key)
                 .thenApply(bd -> bd.getMetadata())
-                .exceptionally(t -> new HashMap<String, String>()) // This blob might not exist, so we use empty metadata as a filter
+                .exceptionally(t -> new HashMap<>()) // This blob might not exist, so we use empty metadata as a filter
                 .thenCompose(metadata -> {
                     CompletableFuture<Map<String, String>> cf = new CompletableFuture<Map<String, String>>();
+                    AuthenticationToken token = authenticator.authenticate(context);
 
-                    String acl = metadata.getOrDefault(PutObjectAcl.X_AMZ_ACL, PutObjectAcl.PRIVATE);
-
-                    if (acl.equals(PutObjectAcl.PUBLIC_READ_WRITE)) {
+                    if (authorizer.hasBlobPermission(token, bucket, Intent.readWrite, metadata)) {
                         cf.complete(metadata);
                     } else {
-                        AuthenticationToken token = authenticator.authenticate(context);
-                        if (authorizer.hasVolumePermission(token, bucket, Intent.readWrite)) {
-                            cf.complete(metadata);
-                        } else {
-                            cf.completeExceptionally(new SecurityException());
-                        }
+                        cf.completeExceptionally(new SecurityException());
                     }
 
                     return cf;
                 });
     }
+
 }

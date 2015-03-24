@@ -5,12 +5,11 @@
 #include <algorithm>
 #include <string>
 #include <ObjectId.h>
-#include <fds_process.h>
 #include "FdsRandom.h"
-#include <AmCache.h>
 #include <AmProcessor.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include "AmTxManager.h"
 
 #include "requests/requests.h"
 #include "AsyncResponseHandlers.h"
@@ -22,15 +21,13 @@ namespace fds {
 
 AmProcessor::AmProcessor(const std::string &modName,
                          AmDispatcher::shared_ptr _amDispatcher,
-                         StorHvQosCtrl     *_qosCtrl,
-                         StorHvVolumeTable *_volTable,
-                         AmTxManager::shared_ptr _amTxMgr)
+                         std::shared_ptr<StorHvQosCtrl> _qosCtrl,
+                         std::shared_ptr<StorHvVolumeTable> _volTable)
         : Module(modName.c_str()),
           amDispatcher(_amDispatcher),
           qosCtrl(_qosCtrl),
           volTable(_volTable),
-          txMgr(_amTxMgr),
-          amCache(new AmCache("AM Cache Manager Module")) {
+          txMgr(new AmTxManager()) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
@@ -75,8 +72,8 @@ AmProcessor::getNoSnapshotVolume(AmRequest* amReq) {
 }
 
 Error
-AmProcessor::createCache(const VolumeDesc& volDesc) {
-    return amCache->createCache(volDesc);
+AmProcessor::addVolume(const VolumeDesc& volDesc) {
+    return txMgr->addVolume(volDesc);
 }
 
 void
@@ -93,7 +90,7 @@ void
 AmProcessor::getVolumeMetadataCb(AmRequest *amReq, const Error &error) {
     GetVolumeMetaDataCallback::ptr cb =
             SHARED_DYN_CAST(GetVolumeMetaDataCallback, amReq->cb);
-    cb->volumeMetaData = static_cast<GetVolumeMetaDataReq *>(amReq)->volumeMetadata;
+    cb->volStat = static_cast<GetVolumeMetaDataReq *>(amReq)->volumeStatus;
     respond_and_delete(amReq, error);
 }
 
@@ -106,7 +103,7 @@ AmProcessor::abortBlobTx(AmRequest *amReq) {
 void
 AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
-    if (ERR_OK != txMgr->removeTx(*(blobReq->tx_desc)))
+    if (ERR_OK != txMgr->abortTx(*(blobReq->tx_desc)))
         LOGWARN << "Transaction unknown";
 
     respond_and_delete(amReq, error);
@@ -241,10 +238,7 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
         }
 
         if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
-            AmTxDescriptor::ptr txDescriptor;
-            fds_verify(txMgr->getTxDescriptor(*tx_desc, txDescriptor) == ERR_OK);
-            fds_verify(amCache->putTxDescriptor(txDescriptor, blobReq->final_blob_size) == ERR_OK);
-            fds_verify(txMgr->removeTx(*tx_desc) == ERR_OK);
+            fds_verify(txMgr->commitTx(*tx_desc, blobReq->final_blob_size) == ERR_OK);
         }
     }
 
@@ -275,9 +269,9 @@ AmProcessor::getBlob(AmRequest *amReq) {
     Error err = ERR_OK;
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
     if (blobReq->get_metadata) {
-        BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(volId,
-                                                                        amReq->getBlobName(),
-                                                                        err);
+        BlobDescriptor::ptr cachedBlobDesc = txMgr->getBlobDescriptor(volId,
+                                                                      amReq->getBlobName(),
+                                                                      err);
         if (ERR_OK == err) {
             LOGTRACE << "Found cached blob descriptor for " << std::hex
                      << volId << std::dec << " blob " << amReq->getBlobName();
@@ -289,7 +283,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
     }
 
     // Check cache for object ID
-    ObjectID::ptr objectId = amCache->getBlobOffsetObject(volId,
+    ObjectID::ptr objectId = txMgr->getBlobOffsetObject(volId,
                                                           amReq->getBlobName(),
                                                           amReq->blob_offset,
                                                           err);
@@ -301,7 +295,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
         amReq->obj_id = *objectId;
 
         // Check cache for object data
-        boost::shared_ptr<std::string> objectData = amCache->getBlobObject(volId,
+        boost::shared_ptr<std::string> objectData = txMgr->getBlobObject(volId,
                                                                            *objectId,
                                                                            err);
         if (err == ERR_OK) {
@@ -338,12 +332,12 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
     // since we really do have all the data. This is done after response to
     // reduce latency.
     if (ERR_OK == error && cb->returnBuffer) {
-        amCache->putObject(amReq->io_vol_id,
+        txMgr->putObject(amReq->io_vol_id,
                            amReq->obj_id,
                            cb->returnBuffer);
         auto blobReq = static_cast<GetBlobReq*>(amReq);
         if (!blobReq->oid_cached) {
-            amCache->putOffset(amReq->io_vol_id,
+            txMgr->putOffset(amReq->io_vol_id,
                                BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
                                boost::make_shared<ObjectID>(amReq->obj_id));
         }
@@ -351,7 +345,7 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
         if (!blobReq->metadata_cached && blobReq->get_metadata) {
             auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
             if (cb->blobDesc)
-                amCache->putBlobDescriptor(amReq->io_vol_id,
+                txMgr->putBlobDescriptor(amReq->io_vol_id,
                                            amReq->getBlobName(),
                                            cb->blobDesc);
         }
@@ -378,7 +372,7 @@ AmProcessor::statBlob(AmRequest *amReq) {
 
     // Check cache for blob descriptor
     Error err(ERR_OK);
-    BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(volId,
+    BlobDescriptor::ptr cachedBlobDesc = txMgr->getBlobDescriptor(volId,
                                                                     amReq->getBlobName(),
                                                                     err);
     if (ERR_OK == err) {
@@ -414,7 +408,7 @@ AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
 
     // Insert metadata into cache.
     if (ERR_OK == error) {
-        amCache->putBlobDescriptor(amReq->io_vol_id,
+        txMgr->putBlobDescriptor(amReq->io_vol_id,
                                    amReq->getBlobName(),
                                    SHARED_DYN_CAST(StatBlobCallback, amReq->cb)->blobDesc);
     }
@@ -443,12 +437,9 @@ AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
     // is true for S3/Swift and doesn't get used anyways for block (so
     // the actual cached descriptor for block will not be correct).
     if (ERR_OK == error) {
-        AmTxDescriptor::ptr txDesc;
         CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(amReq);
-        fds_verify(txMgr->getTxDescriptor(*(blobReq->tx_desc), txDesc) == ERR_OK);
         fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data));
-        fds_verify(amCache->putTxDescriptor(txDesc, blobReq->final_blob_size) == ERR_OK);
-        fds_verify(txMgr->removeTx(*(blobReq->tx_desc)) == ERR_OK);
+        fds_verify(txMgr->commitTx(*(blobReq->tx_desc), blobReq->final_blob_size) == ERR_OK);
     }
 
     respond_and_delete(amReq, error);

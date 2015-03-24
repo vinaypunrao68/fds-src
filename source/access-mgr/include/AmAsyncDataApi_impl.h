@@ -68,8 +68,8 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
         typename response_api_type::shared_status_type volume_status;
         if (e.ok()) {
             volume_status = boost::make_shared<apis::VolumeStatus>();
-            volume_status->blobCount = cb->volumeMetaData.blobCount;
-            volume_status->currentUsageInBytes = cb->volumeMetaData.size;
+            volume_status->blobCount = cb->volStat.blobCount;
+            volume_status->currentUsageInBytes = cb->volStat.size;
         }
         p->volumeStatusResp(e, requestId, volume_status);
     };
@@ -342,7 +342,6 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                    shared_int_type& length,
                                    shared_offset_type& objectOffset,
                                    shared_bool_type& isLast) {
-    BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
@@ -366,9 +365,6 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                         bytes,
                                         blobTxDesc,
                                         *isLast,
-                                        &bucket_ctx,
-                                        NULL,
-                                        NULL,
                                         callback);
     storHvisor->enqueueBlobReq(blobReq);
 }
