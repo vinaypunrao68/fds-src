@@ -2,7 +2,7 @@
  * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
 
-package com.formationds.om.webkit.rest;
+package com.formationds.om.webkit.rest.domain;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 
@@ -41,20 +41,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class ListLocalDomains
+public class GetLocalDomains
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( ListLocalDomains.class );
+    LoggerFactory.getLogger( GetLocalDomains.class );
 
   private final Authorizer authorizer;
   private final FDSP_ConfigPathReq.Iface legacyConfigPath;
   private final ConfigurationService.Iface configApi;
   private final AuthenticationToken token;
 
-  public ListLocalDomains( final Authorizer authorizer,
-                            final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                            final ConfigurationService.Iface configApi,
-                            final AuthenticationToken token ) {
+  public GetLocalDomains( final Authorizer authorizer,
+                          final FDSP_ConfigPathReq.Iface legacyConfigPath,
+                          final ConfigurationService.Iface configApi,
+                          final AuthenticationToken token ) {
     this.authorizer = authorizer;
     this.legacyConfigPath = legacyConfigPath;
     this.configApi = configApi;
@@ -72,7 +72,7 @@ public class ListLocalDomains
       try {
           localDomains = configApi.listLocalDomains(0);
       } catch( Exception e ) {
-          logger.error( "LIST::FAILED::" + e.getMessage(), e );
+          logger.error( "GET::FAILED::" + e.getMessage(), e );
 
           // allow dispatcher to handle
           throw e;

@@ -74,11 +74,54 @@ public class StubConfigurationApi implements ConfigurationApi {
     public List<LocalDomain> listLocalDomains(int ignore) throws TException {
         return localDomains;
     }
+    
+    @Override
+    public void updateLocalDomainName(String oldDomainName, String newDomainName) throws TException {
+        return;
+    }
+    
+    @Override
+    public void updateLocalDomainSite(String domainName, String newSiteName) throws TException {
+        return;
+    }
+    
+    @Override
+    public void setThrottle(String domainName, Double throttleLevel) throws TException {
+        return;
+    }
+    
+    @Override
+    public void setScavenger(String domainName, String scavengerAction) throws TException {
+        return;
+    }
 
     @Override
-    public List<FDSP_Node_Info_Type> listServices(String domainName)
+    public void shutdownLocalDomain(String domainName)
+            throws TException {
+        return;
+    }
+    
+    @Override
+    public void deleteLocalDomain(String domainName) throws TException {
+        return;
+    }
+
+    @Override
+    public void activateLocalDomainServices(String domainName)
+            throws TException {
+        return;
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
             throws TException {
         return null;
+    }
+
+    @Override
+    public void removeLocalDomainServices(String domainName)
+            throws TException {
+        return;
     }
 
     @Override
