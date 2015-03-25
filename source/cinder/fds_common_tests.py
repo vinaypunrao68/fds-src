@@ -1,9 +1,11 @@
 #!/usr/bin/python
 from contextlib import contextmanager
 import os
+import tempfile
 from time import sleep
 import unittest
 from subprocess import Popen, PIPE
+import shutil
 import fds_common
 import uuid
 
@@ -52,6 +54,15 @@ class TestFdsCommonOpenstack(unittest.TestCase):
     def randomName():
         return str(uuid.uuid4())
 
+    @contextmanager
+    def mount(self, dev):
+        tempdir = tempfile.mkdtemp()
+        print "mount {0} {1}".format(dev, tempdir)
+        self.executor("mount", dev, tempdir)
+        yield tempdir
+        self.executor("umount", tempdir)
+        shutil.rmtree(tempdir)
+
     def randomBits(self, length):
         with open("/dev/urandom") as random:
             return random.read(length)
@@ -80,6 +91,20 @@ class TestFdsCommonOpenstack(unittest.TestCase):
         with self.volume(1) as vol:
             with self.nbd_mgr.use_nbd_local(self.nbd_server, vol) as nbd_device:
                 self.executor("mkfs.ext3", nbd_device)
+                with self.mount(nbd_device) as mount_point:
+                    os.makedirs(os.path.join(mount_point, "world"))
+                    hello_file = os.path.join(mount_point, "world", "hello")
+                    hello_output = "hello world!"
+
+                    with open(hello_file, "w") as hello_handle:
+                        hello_handle.write(hello_output)
+
+                # remount device and verify write
+                with self.mount(nbd_device) as mount_point:
+                    hello_file = os.path.join(mount_point, "world", "hello")
+                    with open(hello_file) as hello_handle:
+                        read_line = hello_handle.readline()
+                        self.assertEqual(hello_output, read_line)
 
 if __name__ == '__main__':
     unittest.main()
