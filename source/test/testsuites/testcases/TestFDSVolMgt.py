@@ -170,8 +170,7 @@ class TestVolumeDelete(TestCase.FDSTestCase):
             self.log.info("Delete volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py accesslevel debug && ./fdsconsole.py %s > '
-                                                '%s/cli.out 2>&1) \"' %
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > %s/cli.out 2>&1) \"' %
                                                 (cmd, log_dir if om_node.nd_agent.env_install else "."),
                                                 fds_tools=True)
 
