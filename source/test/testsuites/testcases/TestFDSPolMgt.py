@@ -67,7 +67,7 @@ class TestPolicyCreate(TestCase.FDSTestCase):
             status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s %s > '
                                                 '%s/cli.out 2>&1 &) \"' %
                                                 (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."),
-                                                fds_tools=True)
+                                                fds_bin=True)
 
             if status != 0:
                 self.log.error("Policy %s creation on %s returned status %d." %
@@ -123,7 +123,7 @@ class TestPolicyDelete(TestCase.FDSTestCase):
             status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s %s > '
                                                 '%s/cli.out 2>&1) \"' %
                                                 (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."),
-                                                fds_tools=True)
+                                                fds_bin=True)
 
             if status != 0:
                 self.log.error("Policy %s deletion on %s returned status %d." %
