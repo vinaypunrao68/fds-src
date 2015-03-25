@@ -448,30 +448,23 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Restart Redis clean on %s." % n.nd_conf_dict['node-name'])
 
-        status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh restart", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
             self.log.error("Restart Redis before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        status = n.nd_agent.exec_wait("%s/redis.sh clean" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh clean", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
             self.log.error("Clean Redis on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh restart", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
@@ -513,16 +506,9 @@ class TestBootRedis(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Boot Redis on node %s." %n.nd_conf_dict['node-name'])
 
-        status = n.nd_agent.exec_wait("%s/redis.sh start" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh start", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
@@ -565,16 +551,9 @@ class TestShutdownRedis(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Shutdown Redis on node %s." %n.nd_conf_dict['node-name'])
 
-        status = n.nd_agent.exec_wait("%s/redis.sh stop" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh stop", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
@@ -616,17 +595,10 @@ class TestVerifyRedisUp(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Verify Redis is up node %s." % n.nd_conf_dict['node-name'])
 
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = n.nd_agent.exec_wait("%s/redis.sh status" % sbin_dir, return_stdin=True)
+        status, stdout = n.nd_agent.exec_wait("./redis.sh status", return_stdin=True, fds_tools=True)
 
         if status != 0:
             self.log.error("Verify Redis is up on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
@@ -672,17 +644,10 @@ class TestVerifyRedisDown(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Verify Redis is down node %s." % n.nd_conf_dict['node-name'])
 
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = n.nd_agent.exec_wait("%s/redis.sh status" % sbin_dir, return_stdin=True)
+        status, stdout = n.nd_agent.exec_wait("./redis.sh status", return_stdin=True, fds_tools=True)
 
         if status != 0:
             self.log.error("Verify Redis is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
@@ -726,13 +691,6 @@ class TestRestartInfluxDBClean(TestCase.FDSTestCase):
             n = self.passedNode
         else:
             n = fdscfg.rt_om_node
-
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
         self.log.info("Restart InfluxDB clean on %s." % n.nd_conf_dict['node-name'])
 
@@ -792,13 +750,6 @@ class TestBootInfluxDB(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
 
         status = n.nd_agent.exec_wait("service influxdb start")
@@ -844,13 +795,6 @@ class TestShutdownInfluxDB(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Shutdown InfluxDB on node %s." %n.nd_conf_dict['node-name'])
 
         status = n.nd_agent.exec_wait("service influxdb stop")
@@ -894,13 +838,6 @@ class TestVerifyInfluxDBUp(TestCase.FDSTestCase):
             n = self.passedNode
         else:
             n = fdscfg.rt_om_node
-
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
         self.log.info("Verify InfluxDB is up node %s." % n.nd_conf_dict['node-name'])
 
@@ -950,13 +887,6 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
             n = self.passedNode
         else:
             n = fdscfg.rt_om_node
-
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
         self.log.info("Verify InfluxDB is down node %s." % n.nd_conf_dict['node-name'])
 
