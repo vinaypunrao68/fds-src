@@ -34,7 +34,7 @@ class TestBlockVolumeLargeNumberBlobs(testcase.FDSTestCase):
     '''
     # max number of blobs in block volume
     #MAX_NUMBER_BLOBS = 10000
-    MAX_NUMBER_BLOBS = 10 #NOTE:  test can take a long time to complete if this value > 100
+    MAX_NUMBER_BLOBS = 100 #NOTE:  test can take a long time to complete if this value > 100
     
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestBlockVolumeLargeNumberBlobs, self).__init__(parameters=parameters,

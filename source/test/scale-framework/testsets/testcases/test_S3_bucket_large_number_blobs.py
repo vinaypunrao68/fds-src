@@ -33,7 +33,7 @@ class TestS3LargeNumberBlobs(testcase.FDSTestCase):
     '''
     # max number of blobs in each bucket
     #MAX_NUMBER_BLOBS = 10000 #NOTE:  change this back to 10000 when the system is stable enough to test
-    MAX_NUMBER_BLOBS = 2 
+    MAX_NUMBER_BLOBS = 100 
     
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestS3LargeNumberBlobs, self).__init__(parameters=parameters,
