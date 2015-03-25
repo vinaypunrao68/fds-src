@@ -178,7 +178,7 @@
         - python-mock
 
     - name: install pip packages
-      pip: name={{item}} state=present
+      pip: name={{item.name}} state={{ item.ver | default("present") }}
       with_items:
         - scp
         - PyYAML
