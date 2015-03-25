@@ -38,7 +38,6 @@ class TestPolicyCreate(TestCase.FDSTestCase):
         # Currently, all policies are created using our one well-known OM.
         om_node = fdscfg.rt_om_node
         fds_dir = om_node.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
         policies = fdscfg.rt_get_obj('cfg_vol_pol')
@@ -65,14 +64,10 @@ class TestPolicyCreate(TestCase.FDSTestCase):
             self.log.info("Create a policy %s on OM node %s." %
                           (policy.nd_conf_dict['pol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-
             status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s %s > '
-                                          '%s/cli.out 2>&1 &) \"' %
-                                          (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+                                                '%s/cli.out 2>&1 &) \"' %
+                                                (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Policy %s creation on %s returned status %d." %
@@ -125,14 +120,10 @@ class TestPolicyDelete(TestCase.FDSTestCase):
             self.log.info("Delete a policy %s on OM node %s." %
                           (policy.nd_conf_dict['pol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-
             status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s %s > '
-                                          '%s/cli.out 2>&1) \"' %
-                                          (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+                                                '%s/cli.out 2>&1) \"' %
+                                                (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Policy %s deletion on %s returned status %d." %
