@@ -32,8 +32,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                        SysParams *params,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
-                       fds_uint32_t dm_port_num,
-                       fds_uint32_t instanceId)
+                       fds_uint32_t dm_port_num)
     : mode(_mode),
     counters_("AM", g_fdsprocess->get_cntrs_mgr().get()),
     om_client(nullptr)
@@ -113,8 +112,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       node_name,
 			       GetLog(),
 			       nullptr,
-			       nullptr,
-			       instanceId);
+			       nullptr);
     if (standalone) {
 	om_client->setNoNetwork(true);
     } else {
@@ -176,9 +174,8 @@ StorHvCtrl::StorHvCtrl(int argc, char *argv[], SysParams *params)
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
                        SysParams *params,
-                       sh_comm_modes _mode,
-                       fds_uint32_t instanceId)
-        : StorHvCtrl(argc, argv, params, _mode, 0, 0, instanceId) {
+                       sh_comm_modes _mode)
+        : StorHvCtrl(argc, argv, params, _mode, 0, 0) {
 }
 
 StorHvCtrl::~StorHvCtrl()
