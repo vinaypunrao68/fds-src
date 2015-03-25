@@ -9,7 +9,6 @@
 #include "AccessMgr.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
-#include "StorHvVolumes.h"
 #include "AmProcessor.h"
 #include <net/SvcMgr.h>
 
@@ -96,12 +95,8 @@ AccessMgr::run() {
 }
 
 Error
-AccessMgr::registerVolume(const VolumeDesc& volDesc) {
-    // TODO(Andrew): Register the new volume to processing and storhv layers
-    // We should converge on a single volume add location.
-    storHvisor->amProcessor->addVolume(volDesc);
-    return storHvisor->vol_table->registerVolume(volDesc);
-}
+AccessMgr::registerVolume(const VolumeDesc& volDesc)
+{ return storHvisor->amProcessor->registerVolume(volDesc); }
 
 // Set AM in shutdown mode.
 void

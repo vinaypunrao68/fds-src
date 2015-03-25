@@ -10,6 +10,7 @@
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include "AmTxManager.h"
+#include "AmVolume.h"
 
 #include "requests/requests.h"
 #include "AsyncResponseHandlers.h"
@@ -20,13 +21,12 @@ namespace fds {
     std::bind(&func, this, ##__VA_ARGS__ , std::placeholders::_1)
 
 AmProcessor::AmProcessor(const std::string &modName,
-                         AmDispatcher::shared_ptr _amDispatcher,
                          std::shared_ptr<StorHvQosCtrl> _qosCtrl,
-                         std::shared_ptr<StorHvVolumeTable> _volTable)
+                         boost::shared_ptr<DLTManager> _dltMgr,
+                         boost::shared_ptr<DMTManager> _dmtMgr)
         : Module(modName.c_str()),
-          amDispatcher(_amDispatcher),
+          amDispatcher(new AmDispatcher("AM Dispatcher Module", _dltMgr, _dmtMgr)),
           qosCtrl(_qosCtrl),
-          volTable(_volTable),
           txMgr(new AmTxManager()) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
@@ -38,6 +38,13 @@ AmProcessor::AmProcessor(const std::string &modName,
 
 AmProcessor::~AmProcessor()
 {}
+
+void
+AmProcessor::mod_startup()
+{
+    amDispatcher->mod_startup();
+    txMgr->init();
+}
 
 void
 AmProcessor::respond(AmRequest *amReq, const Error& error) {
@@ -56,14 +63,18 @@ AmProcessor::respond(AmRequest *amReq, const Error& error) {
     }
 }
 
-StorHvVolumeTable::volume_ptr_type
-AmProcessor::getNoSnapshotVolume(AmRequest* amReq) {
+std::shared_ptr<AmVolume>
+AmProcessor::getVolume(fds_volid_t const vol_uuid) const
+{ return txMgr->getVolume(vol_uuid); }
+
+std::shared_ptr<AmVolume>
+AmProcessor::getVolume(AmRequest* amReq, bool const allow_snapshot) {
     // check if this is a snapshot
-    auto shVol = volTable->getVolume(amReq->io_vol_id);
+    auto shVol = getVolume(amReq->io_vol_id);
     if (!shVol) {
         LOGCRITICAL << "unable to get volume info for vol: " << amReq->io_vol_id;
         respond_and_delete(amReq, FDSN_StatusErrorUnknown);
-    } else if (shVol->voldesc->isSnapshot()) {
+    } else if (!allow_snapshot && shVol->voldesc->isSnapshot()) {
         LOGWARN << "txn on a snapshot is not allowed.";
         respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
         shVol = nullptr;
@@ -72,8 +83,18 @@ AmProcessor::getNoSnapshotVolume(AmRequest* amReq) {
 }
 
 Error
-AmProcessor::addVolume(const VolumeDesc& volDesc) {
-    return txMgr->addVolume(volDesc);
+AmProcessor::registerVolume(const VolumeDesc& volDesc) {
+    return txMgr->registerVolume(volDesc);
+}
+
+Error
+AmProcessor::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
+    return txMgr->modifyVolumePolicy(vol_uuid, vdesc);
+}
+
+Error
+AmProcessor::removeVolume(fds_volid_t const vol_uuid) {
+    return txMgr->removeVolume(vol_uuid);
 }
 
 void
@@ -111,7 +132,7 @@ AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor::startBlobTx(AmRequest *amReq) {
-    auto shVol = getNoSnapshotVolume(amReq);
+    auto shVol = getVolume(amReq, false);
     if (!shVol) return;
 
     fiu_do_on("am.uturn.processor.startBlobTx",
@@ -146,7 +167,7 @@ AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor::deleteBlob(AmRequest *amReq) {
-    auto shVol = getNoSnapshotVolume(amReq);
+    auto shVol = getVolume(amReq, false);
     if (!shVol) return;
 
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(amReq);
@@ -163,7 +184,7 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
 
 void
 AmProcessor::putBlob(AmRequest *amReq) {
-    auto shVol = getNoSnapshotVolume(amReq);
+    auto shVol = getVolume(amReq, false);
     if (!shVol) return;
 
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
@@ -252,7 +273,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
               return;);
 
     fds_volid_t volId = amReq->io_vol_id;
-    auto shVol = volTable->getVolume(volId);
+    auto shVol = txMgr->getVolume(volId);
     if (!shVol) {
         LOGCRITICAL << "getBlob failed to get volume for vol " << volId;
         getBlobCb(amReq, ERR_INVALID);
@@ -463,4 +484,10 @@ AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
 
     respond_and_delete(amReq, error);
 }
+
+fds_volid_t
+AmProcessor::getVolumeUUID(const std::string& vol_name) const {
+    return txMgr->getVolumeUUID(vol_name);
+}
+
 }  // namespace fds
