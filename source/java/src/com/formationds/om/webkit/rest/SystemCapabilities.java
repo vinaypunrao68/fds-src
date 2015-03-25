@@ -40,9 +40,9 @@ public class SystemCapabilities
         mediaPolicies.add( MediaPolicy.SSD_ONLY.name() );
         if( !parsedConfig.defaultBoolean( "fds.feature_toggle.common.all_ssd",
                                           false ) ) {
-
+        	
+        	mediaPolicies.add( MediaPolicy.HYBRID_ONLY.name() );
             mediaPolicies.add( MediaPolicy.HDD_ONLY.name() );
-            mediaPolicies.add( MediaPolicy.HYBRID_ONLY.name() );
 
         }
 

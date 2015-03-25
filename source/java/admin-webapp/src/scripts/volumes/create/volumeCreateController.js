@@ -220,6 +220,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
                 ]
             };;
             
+            $scope.$broadcast( 'fds::tiering-choice-refresh' );
             $scope.$broadcast('fds::fui-slider-refresh' );
             $scope.$broadcast( 'fds::qos-reinit' );
         }
