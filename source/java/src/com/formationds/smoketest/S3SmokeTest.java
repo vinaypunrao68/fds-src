@@ -300,7 +300,7 @@ public class S3SmokeTest {
         assertEquals(sourceEtag, destinationEtag);
     }
 
-    // @Test
+    @Test
     public void Snapshot() {
         putSomeData(userBucket, 0, 10, randomBytes);
         long volumeId = 0;
