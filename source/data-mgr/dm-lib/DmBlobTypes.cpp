@@ -355,4 +355,44 @@ std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list) {
     return out;
 }
 
+//---------   VolumeMetaDesc implementation   -----------//
+
+/**
+ * Constructs invalid version of a volume metadata object
+ * until someone else actually assigns valid data
+ */
+VolumeMetaDesc::VolumeMetaDesc(const fpi::FDSP_MetaDataList &metadataList)
+        : meta_list(metadataList) {    
+}
+
+VolumeMetaDesc::~VolumeMetaDesc() {
+}
+
+uint32_t VolumeMetaDesc::write(serialize::Serializer* s) const {
+    uint32_t bytes = 0;
+    // bytes += desc.write(s);
+    bytes += meta_list.write(s);
+    return bytes;
+}
+
+uint32_t VolumeMetaDesc::read(serialize::Deserializer* d) {
+    uint32_t bytes = 0;
+    // bytes += desc.read(d);
+    bytes += meta_list.read(d);
+    return bytes;
+}
+
+VolumeMetaDesc& VolumeMetaDesc::operator=(const VolumeMetaDesc &rhs) {
+    // desc      = rhs.desc;
+    meta_list = rhs.meta_list;
+    return *this;
+}
+
+std::ostream& operator<<(std::ostream& out, const VolumeMetaDesc& blobMetaDesc) {
+    out << "VolumeMeta: ";
+    // out << blobMetaDesc.desc;
+    out << blobMetaDesc.meta_list;
+    return out;
+}
+
 }  // namespace fds

@@ -84,12 +84,24 @@ Error DmPersistVolDB::activate() {
 
     catalog_->GetWriteOptions().sync = false;
 
+    // Write out the initial superblock descriptor into the volume
+    fpi::FDSP_MetaDataList emptyMetadataList;
+    VolumeMetaDesc volMetaDesc(emptyMetadataList);
+    if (ERR_OK != putVolumeMetaDesc(volMetaDesc)) {
+        return ERR_DM_VOL_NOT_ACTIVATED;
+    }
+
     activated_ = true;
     return ERR_OK;
 }
 
 Error DmPersistVolDB::copyVolDir(const std::string & destName) {
     return catalog_->DbSnap(destName);
+}
+
+Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
+    // TODO(Andrew): Fill in.
+    return ERR_OK;
 }
 
 Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
@@ -217,6 +229,28 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     delete dbIt;
 
     return ERR_OK;
+}
+
+Error DmPersistVolDB::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
+    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+
+    std::string value;
+    Error rc = volDesc.getSerialized(value);
+    if (rc.ok()) {
+        CatWriteBatch batch;
+        TIMESTAMP_OP(batch);
+        batch.Put(keyRec, value);
+        rc = catalog_->Update(&batch);
+        if (!rc.ok()) {
+            LOGERROR << "Failed to update metadata descriptor for volume: "
+                     << volDesc;
+        } else {
+            LOGNORMAL << "Successfully updated metadata descriptor for volume: "
+                      << volDesc;
+        }
+    }
+
+    return rc;
 }
 
 Error DmPersistVolDB::putBlobMetaDesc(const std::string & blobName,
