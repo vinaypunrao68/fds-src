@@ -24,9 +24,11 @@ const fds_uint64_t INVALID_BLOB_ID = 0;
 const fds_uint32_t BLOB_META_INDEX = std::numeric_limits<fds_uint32_t>::max();
 /**
  * Key that identifies a catalog entry as describing a volume's metadata.
- * The key follows a different format than blob entries, so shouldn't conflict.
+ * The key follows a different format than blob entries, so shouldn't conflict,
+ * but is just an arbitrary string so there's technically nothing preventing
+ * collision.
  */
-const std::string VOL_META_INDEX = "VolumeMetadataKey";
+const std::string VOL_META_INDEX = "ffffffffffff";
 
 const BlobObjKey OP_TIMESTAMP_KEY(INVALID_BLOB_ID, 0);
 const Record OP_TIMESTAMP_REC(reinterpret_cast<const char *>(&OP_TIMESTAMP_KEY),
