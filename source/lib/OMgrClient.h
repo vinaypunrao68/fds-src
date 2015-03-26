@@ -162,7 +162,6 @@ class OMgrClient {
     fds_uint64_t getDMTVersion() const;
     fds_bool_t hasCommittedDMT() const;
     int testBucket(const std::string& bucket_name,
-                   const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_info,
                    fds_bool_t attach_vol_reqd,
                    const std::string& accessKeyId,
                    const std::string& secretAccessKey);

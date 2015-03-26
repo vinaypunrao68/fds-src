@@ -77,9 +77,6 @@ public:
                              const std::string& access_key_id = "",
                              const std::string& secret_access_key = "");
 
-    void initVolInfo(b_sp<fds_pi::FDSP_VolumeDescType> vol_info,
-                     const std::string& bucket_name);
-
     void attachVolume(fds::AmRequest *amReq);
     void enqueueAttachReq(const std::string& volumeName,
                           b_sp<fds::Callback> cb);

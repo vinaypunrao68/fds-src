@@ -100,7 +100,6 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 }
 
 int OMgrClient::testBucket(const std::string& bucket_name,
-                           const fpi::FDSP_VolumeDescTypePtr& vol_info,
                            fds_bool_t attach_vol_reqd,
                            const std::string& accessKeyId,
                            const std::string& secretAccessKey)
@@ -111,7 +110,6 @@ int OMgrClient::testBucket(const std::string& bucket_name,
         fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
         fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
         test_buck_msg->bucket_name = bucket_name;
-        test_buck_msg->vol_info = *vol_info;
         test_buck_msg->attach_vol_reqd = attach_vol_reqd;
         test_buck_msg->accessKeyId = accessKeyId;
         test_buck_msg->secretAccessKey;

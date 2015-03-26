@@ -190,32 +190,14 @@ Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
     LOGNORMAL << "bucket: " << bucket_name;
 
     // send test bucket message to OM
-    FDSP_VolumeDescTypePtr vol_info(new FDSP_VolumeDescType());
-    initVolInfo(vol_info, bucket_name);
     om_err = om_client->testBucket(bucket_name,
-                                               vol_info,
-                                               true,
-                                               access_key_id,
-                                               secret_access_key);
+                                   true,
+                                   access_key_id,
+                                   secret_access_key);
     if (om_err != 0) {
         err = Error(ERR_INVALID_ARG);
     }
     return err;
-}
-
-void StorHvCtrl::initVolInfo(FDSP_VolumeDescTypePtr vol_info,
-                             const std::string& bucket_name) {
-    vol_info->vol_name = std::string(bucket_name);
-    vol_info->tennantId = 0;
-    vol_info->localDomainId = 0;
-
-    // Volume capacity is in MB
-    vol_info->capacity = (1024*10);  // for now presetting to 10GB
-    vol_info->volType = FDSP_VOL_S3_TYPE;
-
-    vol_info->volPolicyId = 50;  // default S3 policy desc ID
-    vol_info->placementPolicy = 0;
-    vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
 }
 
 /**
