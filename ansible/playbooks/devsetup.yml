@@ -38,6 +38,26 @@
             group=root
             mode=0644
 
+    - name: Copy sudoers for safety
+      command: cp -f /etc/sudoers /etc/sudoers.tmp
+
+    - name: Backup sudoers
+      command: cp -f /etc/sudoers /etc/sudoers.bak
+
+    - name: Make sure we retain BUILD_ID for Jenkins
+      lineinfile:
+        dest=/etc/sudoers.tmp
+        state=present
+        insertafter='^Defaults'
+        regexp='^Defaults env_keep\+\=BUILD_ID'
+        line='Defaults env_keep+=BUILD_ID'
+
+    - name: Sudoers syntax check && replace
+      shell: visudo -q -c -f /etc/sudoers.tmp && cp -f /etc/sudoers.tmp /etc/sudoers
+
+    - name: Cleanup tmp sudoers
+      command: rm -f /etc/sudoers.tmp
+
     - name: add JRE ppa
       apt_repository: repo=ppa:webupd8team/java state=present
 
