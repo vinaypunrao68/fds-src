@@ -130,3 +130,5 @@ ycm.flags
 /CMakeFiles/2.8.12.2/
 /CMakeFiles/
 /source/java/nb-configuration.xml
+ExtendedFstabTest.unit.altered.1*
+.coverage
