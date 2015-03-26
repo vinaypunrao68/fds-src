@@ -121,8 +121,8 @@ class TestBlockVolumeLargeNumberBlobs(testcase.FDSTestCase):
                     "recurrenceRule":{"FREQ":"MONTHLY"}},{"retention":31622400,
                     "recurrenceRule":{"FREQ":"YEARLY"}}],"commit_log_retention":86400,
                     "data_connector":{"type":"BLOCK","api":"Basic, Cinder",
-                    "options":{"max_size":"100","unit":["GB","TB","PB"]},
-                    "attributes":{"size":100,"unit":"GB"}},"name":volume_name}
+                    "options":{"max_size":"10","unit":["GB","TB","PB"]},
+                    "attributes":{"size":10,"unit":"GB"}},"name":volume_name}
 
             json_data = json.dumps(data)
 
@@ -143,6 +143,7 @@ class TestBlockVolumeLargeNumberBlobs(testcase.FDSTestCase):
 
 		#create mount point
 	        cmds = (
+			'./nbdadm.py detach /dev/nbd15',
 			'mkdir /fdsmount',
 			'./nbdadm.py attach %s %s' %(self.om_ip_address, volume_name),
 			'%s /dev/nbd15' %filesystem_type,
@@ -150,7 +151,6 @@ class TestBlockVolumeLargeNumberBlobs(testcase.FDSTestCase):
 
 			)
 
-		
 		for cmd in cmds:
 			self.log.info("Executing %s" %cmd)
 			(stdin, stdout, stderr) = self.local_ssh.client.exec_command(cmd)
