@@ -228,7 +228,7 @@ struct BlobMetaDesc: serialize::Serializable {
 /**
  * Metadata that describes the volume and catalog state.
  */
-struct VolumeMetaDesc: serialize::Serializable {
+struct VolumeMetaDesc : serialize::Serializable {
     /// Descriptor of the volume that the catalog is backing
     // TODO(Andrew): Add this back when we do restartability work.
     // VolumeDesc volDesc;

@@ -69,12 +69,6 @@ class AmProcessor : public Module {
     void setVolumeMetadata(AmRequest *amReq);
 
     /**
-     * Callback for a set volume metadata request
-     */
-    void setVolumeMetadataCb(AmRequest *amReq,
-                             const Error &error);
-
-    /**
      * Processes a abort blob transaction
      */
     void abortBlobTx(AmRequest *amReq);

@@ -365,8 +365,7 @@ VolumeMetaDesc::VolumeMetaDesc(const fpi::FDSP_MetaDataList &metadataList)
         : meta_list(metadataList) {    
 }
 
-VolumeMetaDesc::~VolumeMetaDesc() {
-}
+VolumeMetaDesc::~VolumeMetaDesc() = default;
 
 uint32_t VolumeMetaDesc::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
@@ -382,11 +381,7 @@ uint32_t VolumeMetaDesc::read(serialize::Deserializer* d) {
     return bytes;
 }
 
-VolumeMetaDesc& VolumeMetaDesc::operator=(const VolumeMetaDesc &rhs) {
-    // desc      = rhs.desc;
-    meta_list = rhs.meta_list;
-    return *this;
-}
+VolumeMetaDesc& VolumeMetaDesc::operator=(const VolumeMetaDesc &rhs) = default;
 
 std::ostream& operator<<(std::ostream& out, const VolumeMetaDesc& blobMetaDesc) {
     out << "VolumeMeta: ";
