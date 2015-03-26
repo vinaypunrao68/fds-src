@@ -146,7 +146,7 @@ TEST_F(DmVolumeCatalogTest, copy_volume) {
         fds_uint64_t size = 0;
         fds_uint64_t blobCount = 0;
         fds_uint64_t objCount = 0;
-        rc = volcat->getVolumeMeta(snapshots[i]->volUUID, &size, &blobCount, &objCount);
+        rc = volcat->statVolume(snapshots[i]->volUUID, &size, &blobCount, &objCount);
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(blobCount, 1);
         EXPECT_EQ(size, blobCount * BLOB_SIZE);
@@ -174,9 +174,18 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
     // get volume details
     for (auto vdesc : volumes) {
         fds_uint64_t size = 0, blobCount = 0, objCount = 0;
-        Error rc = volcat->getVolumeMeta(vdesc->volUUID, &size, &blobCount, &objCount);
+        Error rc = volcat->statVolume(vdesc->volUUID, &size, &blobCount, &objCount);
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(size, static_cast<fds_uint64_t>(blobCount) * BLOB_SIZE);
+
+        // Set some metadata for the volume
+        fpi::FDSP_MetaDataPair metadataPair;
+        metadataPair.key = "Volume Name";
+        metadataPair.value = vdesc->name;
+        fpi::FDSP_MetaDataList metadataList;
+        metadataList.push_back(metadataPair);
+        rc = volcat->setVolumeMetadata(vdesc->volUUID, metadataList);
+        EXPECT_TRUE(rc.ok());
 
         // get list of blobs for volume
         fpi::BlobDescriptorListType blobList;

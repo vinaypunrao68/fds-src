@@ -169,8 +169,8 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
             // TODO(Anna) remove this assert when we implement response handling in AM
             // for crete bucket, if err not ok, it is most likely QOS admission control issue
             fds_verify(err.ok());
-            // Create cache structures for volume
-            err = storHvisor->amProcessor->createCache(vdesc);
+            // Notify processing layer of new volume
+            err = storHvisor->amProcessor->addVolume(vdesc);
             fds_verify(err == ERR_OK);
         } else {
             /* complete all requests that are waiting on bucket to attach with error */

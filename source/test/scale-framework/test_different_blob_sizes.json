@@ -1,0 +1,13 @@
+{
+	"test_sets" : {
+		"multi_am_tests" : [
+			{
+				"name" : "TestDifferentBlobSizes",
+				"file" : "test_different_blob_sizes.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}
+		]
+	}
+}

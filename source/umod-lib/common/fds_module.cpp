@@ -557,6 +557,7 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_sys_repo_domain(d_sys_repo    + std::string("domain/")),
       d_sys_repo_volume(d_sys_repo    + std::string("volume/")),
       d_sys_repo_inventory(d_sys_repo + std::string("inventory/")),
+      d_sys_repo_stats(d_sys_repo   + std::string("vol-stats/")),
       d_fds_repo(root      + std::string("fds-repo/")) {}
 
 /*

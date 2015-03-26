@@ -3,6 +3,7 @@ package com.formationds.om.repository.helper;
 import com.formationds.apis.XdiService;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.events.FirebreakType;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.events.EventManagerTest;
@@ -154,7 +155,7 @@ public class FirebreakHelperTest {
         rawdatal.forEach((r) -> {
             // Assumptions here that the raw data from EventManagerTest only contains data for a
             // single volume at a time.  That is not necessarily true of data from the stats stream
-            List<VolumeDatapoint> vdps = new FirebreakHelper().extractFirebreakDatapoints(Arrays.asList(r));
+            List<IVolumeDatapoint> vdps = new FirebreakHelper().extractFirebreakDatapoints(Arrays.asList(r));
             Assert.assertTrue("test data has 4 firebreak points each", vdps.size() == 4);
 
             Assert.assertTrue(vdps.get(0).getKey().equals(Metrics.STC_SIGMA.key()));
@@ -171,7 +172,7 @@ public class FirebreakHelperTest {
                                                    .filter((v) -> !v.getKey().contains("Sigma"))
                                                    .collect(Collectors.toList());
 
-            List<VolumeDatapoint> fbdps = new FirebreakHelper().extractFirebreakDatapoints(stripped);
+            List<IVolumeDatapoint> fbdps = new FirebreakHelper().extractFirebreakDatapoints(stripped);
             Assert.assertTrue(fbdps.isEmpty());
         });
     }

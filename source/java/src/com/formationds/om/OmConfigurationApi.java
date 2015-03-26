@@ -8,6 +8,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.StreamingRegistrationMsg;
 import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.events.*;
 import com.formationds.om.events.EventManager;
 import com.formationds.security.AuthenticationToken;
@@ -268,6 +269,154 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public List<com.formationds.apis.LocalDomain> listLocalDomains(int ignore)
         throws ApiException, org.apache.thrift.TException {
         return getConfig().listLocalDomains(ignore);
+    }
+    
+    /**
+     * Rename the given Local Domain.
+     * 
+     * @param oldDomainName - String: The name of the Local Domain to be renamed.
+     * @param newDomainName - String: The new name of the Local Domain.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void updateLocalDomainName(String oldDomainName, String newDomainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().updateLocalDomainName(oldDomainName, newDomainName);
+        return;
+    }
+    
+    /**
+     * Rename the given Local Domain's site.
+     * 
+     * @param domainName - String: The name of the Local Domain whose site is to be renamed.
+     * @param newSiteName - String: The new name of the Local Domain's site.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void updateLocalDomainSite(String domainName, String newSiteName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().updateLocalDomainSite(domainName, newSiteName);
+        return;
+    }
+    
+    /**
+     * Set the Local Domain's throttle.
+     * 
+     * @param domainName - String: The name of the Local Domain whose throttle is to be set.
+     * @param throttleLevel - Double: The throttle level to set for the Local Domain.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void setThrottle(String domainName, double throttleLevel)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().setThrottle(domainName, throttleLevel);
+        return;
+    }
+    
+    /**
+     * Set the Local Domain's scavenger action.
+     * 
+     * @param domainName - String: The name of the Local Domain whose scavenger action is to be set.
+     * @param throttleLevel - String: The scavenger action to set for the Local Domain. One of
+     *                        "enable", "disable", "start", "stop".
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void setScavenger(String domainName, String scavengerAction)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().setScavenger(domainName, scavengerAction);
+        return;
+    }
+    
+    /**
+     * Shutdown the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain to be shutdown.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void shutdownLocalDomain(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().shutdownLocalDomain(domainName);
+        return;
+    }
+    
+    /**
+     * Delete the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain to be deleted.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void deleteLocalDomain(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().deleteLocalDomain(domainName);
+        return;
+    }
+    
+    /**
+     * Activate all currently defined Services on all currently defined Nodes the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain whose services are to be activated.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void activateLocalDomainServices(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().activateLocalDomainServices(domainName);
+        return;
+    }
+    
+    /**
+     * List all currently defined Services for the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain whose services are to be listed.
+     * 
+     * @return List<com.formationds.apis.LocalDomain>: A list of the currently defined Services for the given Local Domain.
+     * 
+     * @throws TException
+     */
+    @Override
+    public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        return getConfig().listLocalDomainServices(domainName);
+    }
+    
+    /**
+     * Remove all currently defined Services on all currently defined Nodes the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain whose services are to be removed.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void removeLocalDomainServices(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().removeLocalDomainServices(domainName);
+        return;
     }
 
     @Override

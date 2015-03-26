@@ -101,32 +101,20 @@ int64_t ConfigDB::createLocalDomain(const std::string& identifier, const std::st
         // Check if the Local Domain already exists.
         std::string idLower = lower(identifier);
 
-        Reply reply = r.sendCommand("sismember local.domain:list %b", idLower.data(), idLower.length());
-        if (reply.getLong() == 1) {
+        int64_t id = getIdOfLocalDomain(identifier);
+        if (id > 0) {
             // The Local Domain already exists.
-            std::vector<fds::apis::LocalDomain> localDomains;
-            if (listLocalDomains(localDomains)) {
-                for (const auto& localDomain : localDomains) {
-                    if (localDomain.name == identifier) {
-                        LOGWARN << "Trying to add an existing Local Domain : " << localDomain.id << ": "
-                                        << localDomain.name << ": " << localDomain.site;
-                        NOMOD();
-                        return localDomain.id;
-                    }
-                }
-                LOGCRITICAL << "ConfigDB inconsistency. Local Domain info missing : " << identifier;
-                NOMOD();
-                return 0;
-            } else {
-                LOGCRITICAL << "Unable to obtain Local Domain list.";
-                NOMOD();
-                return 0;
-            }
+            LOGWARN << "Trying to add an existing Local Domain : " << id << ": " << identifier;
+            NOMOD();
+            return id;
         }
 
         fds::apis::LocalDomain localDomain;
-        // get new id
-        reply = r.sendCommand("incr local.domain:nextid");
+
+        // Get new id
+        auto reply = r.sendCommand("incr local.domain:nextid");
+
+        // Build Local Domain object to store.
         localDomain.id = reply.getLong();
         localDomain.name = identifier;
         localDomain.site = site;
@@ -149,7 +137,7 @@ int64_t ConfigDB::createLocalDomain(const std::string& identifier, const std::st
 /**
  * Generate a vector of Local Domains currently defined.
  *
- * @param localDomains: std::vector<fds::apis::LocalDomain> - Vector of Local Domain names.
+ * @param localDomains: std::vector<fds::apis::LocalDomain> - Vector of returned Local Domain names.
  *
  * @return bool - True if the vector is successfully produced. False otherwise.
  */
@@ -172,6 +160,49 @@ bool ConfigDB::listLocalDomains(std::vector<fds::apis::LocalDomain>& localDomain
     }
     return true;
 }
+
+/**
+ * Return the Domain ID for the named Local Domain.
+ *
+ * @param identifier: std::string - Name of the Local Domain whose ID is to be returned.
+ *
+ * @return int64_t - ID of the named Local Domain. 0 otherwise.
+ */
+int64_t ConfigDB::getIdOfLocalDomain(const std::string& identifier) {
+    int64_t id = 0;
+
+    try {
+        // Check if the Local Domain exists.
+        std::string idLower = lower(identifier);
+
+        Reply reply = r.sendCommand("sismember local.domain:list %b", idLower.data(), idLower.length());
+        if (reply.getLong() == 1) {
+            // The Local Domain exists.
+            std::vector<fds::apis::LocalDomain> localDomains;
+            if (listLocalDomains(localDomains)) {
+                for (const auto &localDomain : localDomains) {
+                    if (localDomain.name == identifier) {
+                        id = localDomain.id;
+                        break;
+                    }
+                }
+
+                if (id == 0) {
+                    LOGCRITICAL << "ConfigDB inconsistency. Local Domain info missing : " << identifier;
+                }
+            } else {
+                LOGCRITICAL << "Unable to obtain Local Domain list.";
+                return id;
+            }
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Error with redis " << e.what();
+        throw e;
+    }
+
+    return id;
+}
+
 
 // volumes
 fds_uint64_t ConfigDB::getNewVolumeId() {

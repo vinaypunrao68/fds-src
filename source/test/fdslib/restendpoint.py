@@ -8,6 +8,10 @@ import unittest
 import random
 import xml.etree.ElementTree as ET
 import time
+from tabulate import tabulate
+from collections import OrderedDict
+import socket, struct
+
 try:
     import requests
     from requests import ConnectionError
@@ -547,7 +551,7 @@ class DomainEndpoint():
         self.rest = rest
         self.rest_path = self.rest.base_path + '/local_domains'
 
-    def createDomain(self, domain_name, domain_site):
+    def createLocalDomain(self, domain_name, domain_site):
 
         '''
         Create a new local domain in the system.
@@ -573,7 +577,7 @@ class DomainEndpoint():
         else:
             return None
 
-    def listDomains(self):
+    def listLocalDomains(self):
         '''
         List all local domains in the global domain.
         Params:
@@ -584,27 +588,21 @@ class DomainEndpoint():
         res = self.rest.get(self.rest_path)
         res = self.rest.parse_result(res)
         if res is not None:
-            return res
+            # Take the opportunity here to create the column headings
+            # and ordering that we want.
+            new_res = list()
+            for row in res:
+                new_row = OrderedDict([
+                    ("name", row["name"]),
+                    ("id", row["id"]),
+                    ("site", row["site"])])
+                new_res.append(new_row)
+
+            return tabulate(new_res, headers="keys")
         else:
             return None
 
-    def listServices(self, domain_name):
-        '''
-        List all services that reside within the local domain.
-        Params:
-           domain_name - str: Name of the local domain whose services are to be listed
-        Returns:
-           List of services that reside within the specified local domain, None on failure
-        '''
-        path = '{}/{}/services'.format(self.rest_path, domain_name)
-        res = self.rest.get(self.rest_path)
-        res = self.rest.parse_result(res)
-        if res is not None:
-            return res
-        else:
-            return None
-
-    def updateDomain(self, old_domain_name, new_domain_name):
+    def updateLocalDomainName(self, old_domain_name, new_domain_name):
         '''
         Change the domain_name of a particular local domain.
         Params:
@@ -613,8 +611,15 @@ class DomainEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}?action=rename&new_domain_name={}'.format(self.rest_path, old_domain_name, new_domain_name)
-        res = self.rest.put(path)
+
+        path = '{}/{}'.format(self.rest_path, old_domain_name)
+
+        domain_info = {
+            'action': 'rename',
+            'new_domain_name': new_domain_name,
+        }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -624,21 +629,24 @@ class DomainEndpoint():
         else:
             return False
 
-    def activateDomain(self, domain_name, sm=False, dm=False, am=False):
+    def updateLocalDomainSite(self, domain_name, new_site_name):
         '''
-        Activate the named services on all the nodes in the specified local domain.
+        Change the site_name of a particular local domain.
         Params:
-           domain_name - str: Name of the local domain whose node services are to be activated
-           sm, dm, am - bool: True if the service is to be activated on each node in the local domain.
+           domain_name - str: Name of the local domain whose site is to be changed
+           new_site_name - str: New name of the local domain site
         Returns:
            True success, False otherwise
         '''
 
-        if not sm and not dm and not am:
-            return True
+        path = '{}/{}'.format(self.rest_path, domain_name)
 
-        path = '{}/{}?action=activate&sm={}&dm={}&am={}'.format(self.rest_path, domain_name, sm, dm, am)
-        res = self.rest.put(path)
+        domain_info = {
+            'action': 'change_site',
+            'new_site_name': new_site_name,
+        }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -657,8 +665,14 @@ class DomainEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}/throttle?throttle_level={}'.format(self.rest_path, domain_name, throttle_level)
-        res = self.rest.put(path)
+
+        path = '{}/{}/throttle'.format(self.rest_path, domain_name)
+
+        throttle_info = {
+            'throttle_level': throttle_level,
+        }
+
+        res = self.rest.put(path, data=json.dumps(throttle_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -677,8 +691,14 @@ class DomainEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}/scavenger?action={}'.format(self.rest_path, domain_name, scavenger_action)
-        res = self.rest.put(path)
+
+        path = '{}/{}/scavenger'.format(self.rest_path, domain_name)
+
+        scavenger_info = {
+            'action': scavenger_action,
+        }
+
+        res = self.rest.put(path, data=json.dumps(scavenger_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -688,7 +708,7 @@ class DomainEndpoint():
         else:
             return False
 
-    def shutdownDomain(self, domain_name):
+    def shutdownLocalDomain(self, domain_name):
         '''
         Shutdown the specified local domain.
         Params:
@@ -696,8 +716,14 @@ class DomainEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}?action=shutdown'.format(self.rest_path, domain_name)
-        res = self.rest.put(path)
+
+        path = '{}/{}'.format(self.rest_path, domain_name)
+
+        domain_info = {
+            'action': 'shutdown',
+        }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -707,7 +733,7 @@ class DomainEndpoint():
         else:
             return False
 
-    def deleteDomain(self, domain_name):
+    def deleteLocalDomain(self, domain_name):
         '''
         Delete the specified local domain.
         Params:
@@ -717,6 +743,93 @@ class DomainEndpoint():
         '''
         path = '{}/{}'.format(self.rest_path, domain_name)
         res = self.rest.delete(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+
+    def activateLocalDomainServices(self, domain_name):
+        '''
+        Activate the pre-defined services on all the nodes in the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain whose node services are to be activated
+        Returns:
+           True success, False otherwise
+        '''
+
+        path = '{}/{}/services'.format(self.rest_path, domain_name)
+
+        service_info = {
+            'action': 'activate',
+        }
+
+        res = self.rest.put(path, data=json.dumps(service_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def listLocalDomainServices(self, domain_name):
+        '''
+        List all services that reside within the local domain.
+        Params:
+           domain_name - str: Name of the local domain whose services are to be listed
+        Returns:
+           List of services that reside within the specified local domain, None on failure
+        '''
+        path = '{}/{}/services'.format(self.rest_path, domain_name)
+        res = self.rest.get(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            # Take the opportunity here to create the column headings
+            # and ordering that we want.
+            new_res = list()
+            for row in res:
+                new_row = OrderedDict([
+                    ("node_uuid", "0x"+hex(row["node_uuid"])[2:].zfill(16)),
+                    ("node_root", row["node_root"]),
+                    ("node_id", row["node_id"]),
+                    ("IPv4", socket.inet_ntoa(struct.pack('!L', row["ip_lo_addr"]))),
+                    ("IPv6", socket.inet_ntoa(struct.pack('!L', row["ip_hi_addr"]))),
+                    ("service_name", row["node_name"]),
+                    ("service_type", row["node_type"]),
+                    ("service_uuid", "0x"+hex(row["service_uuid"])[2:].zfill(16)),
+                    ("service_state", row["node_state"]),
+                    ("control_port", row["control_port"]),
+                    ("data_port", row["data_port"]),
+                    ("migration_port", row["migration_port"]),
+                    ("metasync_port", row["metasync_port"])])
+                new_res.append(new_row)
+
+            return tabulate(new_res, headers="keys")
+        else:
+            return None
+
+    def removeLocalDomainServices(self, domain_name):
+        '''
+        Remove the pre-defined services on all the nodes in the specified local domain.
+        Params:
+           domain_name - str: Name of the local domain whose node services are to be activated
+        Returns:
+           True success, False otherwise
+        '''
+
+        path = '{}/{}/services'.format(self.rest_path, domain_name)
+
+        service_info = {
+            'action': 'remove',
+        }
+
+        res = self.rest.put(path, data=json.dumps(service_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':

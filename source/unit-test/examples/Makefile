@@ -27,20 +27,10 @@ user_fds_ar_libs  := \
     fds-sm-plat   \
     fds-smlib
 
-local_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core
-
 user_non_fds_libs :=  \
     jansson \
 	udev \
 	parted \
-    $(local_nginx_libs) \
     config++    \
     boost_timer \
     leveldb \

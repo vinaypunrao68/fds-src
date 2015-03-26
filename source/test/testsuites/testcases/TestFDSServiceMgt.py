@@ -1719,8 +1719,8 @@ class TestAMBringUp(TestCase.FDSTestCase):
             log_dir = n.nd_agent.get_log_dir()
 
             # The AMAgent script expected to be invoked from the bin directory in which it resides.
-            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> %s/am.%s.out &) \"' %
-                                          (fds_dir, n.nd_nodeID, log_dir, port),
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> %s/am.%s.out &) \"' %
+                                          (fds_dir, log_dir, port),
                                           fds_bin=True)
 
             if status != 0:

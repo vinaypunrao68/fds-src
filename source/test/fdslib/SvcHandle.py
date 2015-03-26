@@ -7,6 +7,7 @@ import struct
 import time
 import logging
 
+from common.ttypes import *
 from FDS_ProtocolInterface.ttypes import *
 from svc_api.ttypes import *
 from svc_api.constants import *

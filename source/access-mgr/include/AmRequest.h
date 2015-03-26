@@ -7,7 +7,8 @@
 
 #include <string>
 
-#include "native/types.h"
+#include "PerfTrace.h"
+#include "responsehandler.h"
 
 namespace fds
 {

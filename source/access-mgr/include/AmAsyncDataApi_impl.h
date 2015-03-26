@@ -64,21 +64,21 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
-    auto closure = [p = responseApi, requestId](GetVolumeMetaDataCallback* cb, Error const& e) mutable -> void {
+    auto closure = [p = responseApi, requestId](StatVolumeCallback* cb, Error const& e) mutable -> void {
         typename response_api_type::shared_status_type volume_status;
         if (e.ok()) {
             volume_status = boost::make_shared<apis::VolumeStatus>();
-            volume_status->blobCount = cb->volumeMetaData.blobCount;
-            volume_status->currentUsageInBytes = cb->volumeMetaData.size;
+            volume_status->blobCount = cb->volStat.blobCount;
+            volume_status->currentUsageInBytes = cb->volStat.size;
         }
         p->volumeStatusResp(e, requestId, volume_status);
     };
 
-    auto callback = create_async_handler<GetVolumeMetaDataCallback>(std::move(closure));
+    auto callback = create_async_handler<StatVolumeCallback>(std::move(closure));
 
-    AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
-                                                  *volumeName,
-                                                  callback);
+    AmRequest *blobReq = new StatVolumeReq(invalid_vol_id,
+                                           *volumeName,
+                                           callback);
     storHvisor->enqueueBlobReq(blobReq);
 }
 
@@ -108,6 +108,26 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                                callback);
     storHvisor->enqueueBlobReq(blobReq);
 }
+
+template<typename H>
+void AmAsyncDataApi<H>::setVolumeMetadata(H& requestId,
+                                          shared_string_type& domainName,
+                                          shared_string_type& volumeName,
+                                          shared_meta_type& metadata) {
+    // Closure for response call
+    auto closure = [p = responseApi, requestId](SetVolumeMetadataCallback* cb, Error const& e) mutable -> void {
+        p->setVolumeMetadataResp(e, requestId);
+    };
+
+    auto callback = create_async_handler<SetVolumeMetadataCallback>(std::move(closure));
+
+    AmRequest *blobReq = new SetVolumeMetadataReq(invalid_vol_id,
+                                                  *volumeName,
+                                                  metadata,
+                                                  callback);
+    storHvisor->enqueueBlobReq(blobReq);
+}
+
 template<typename H>
 void AmAsyncDataApi<H>::statBlob(H& requestId,
                                  shared_string_type& domainName,
@@ -342,7 +362,6 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                    shared_int_type& length,
                                    shared_offset_type& objectOffset,
                                    shared_bool_type& isLast) {
-    BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
@@ -366,9 +385,6 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                         bytes,
                                         blobTxDesc,
                                         *isLast,
-                                        &bucket_ctx,
-                                        NULL,
-                                        NULL,
                                         callback);
     storHvisor->enqueueBlobReq(blobReq);
 }

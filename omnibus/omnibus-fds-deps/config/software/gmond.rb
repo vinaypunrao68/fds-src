@@ -29,4 +29,5 @@ build do
   mkdir "#{install_dir}/embedded/etc/init"
   copy "#{fds_src_dir}/ansible/files/gmond/upstart_gmond.conf", "#{install_dir}/embedded/etc/init/gmond.conf"
   copy "#{fds_src_dir}/ansible/files/gmond/base_gmond.conf", "#{install_dir}/embedded/etc/gmond.conf"
+
 end

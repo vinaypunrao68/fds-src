@@ -25,7 +25,7 @@ public interface EntityPersistListener<T> {
      *
      * @throws RuntimeException if an error occurs.
      */
-    default void prePersist( T entity ) {}
+    default <R extends T> void prePersist( R entity ) {}
 
     /**
      * Notification that the entities are about to be saved.
@@ -36,7 +36,7 @@ public interface EntityPersistListener<T> {
      *
      * @throws RuntimeException if an error occurs.
      */
-    default void prePersist( Collection<T> entities ) {
+    default <R extends T> void prePersist( Collection<R> entities ) {
         entities.forEach( ( e ) -> prePersist( e ) );
     }
 
@@ -47,7 +47,7 @@ public interface EntityPersistListener<T> {
      *
      * @throws RuntimeException if an error occurs.
      */
-    default void postPersist( T entity ) {}
+    default <R extends T> void postPersist( R entity ) {}
 
     /**
      * Notification that the entity was just persisted.
@@ -56,7 +56,7 @@ public interface EntityPersistListener<T> {
      *
      * @throws RuntimeException if an error occurs.
      */
-    default void postPersist( Collection<T> entities ) {
+    default <R extends T> void postPersist( Collection<R> entities ) {
         entities.forEach( ( e ) -> postPersist( e ) );
     }
 }
