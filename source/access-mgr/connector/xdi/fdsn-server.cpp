@@ -18,17 +18,18 @@ namespace fds {
 
 FdsnServer::FdsnServer(const std::string &name,
                        AmDataApi::shared_ptr &_dataApi,
-                       fds_uint32_t instanceId)
+                       fds_uint32_t pmPort)
         : Module(name.c_str()),
-          port(9988 + instanceId),
           dataApi(_dataApi),
           numFdsnThreads(10) {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    numFdsnThreads = conf.get<fds_uint32_t>("fdsn_server_threads");
+    int amServicePortOffset = conf.get<int>("am_service_port_offset");
+    port = pmPort + amServicePortOffset;
+
     serverTransport.reset(new xdi_att::TServerSocket(port));
     transportFactory.reset(new xdi_att::TBufferedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
-
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    numFdsnThreads = conf.get<fds_uint32_t>("fdsn_server_threads");
 
     // server_->setServerEventHandler(event_handler_);
 }

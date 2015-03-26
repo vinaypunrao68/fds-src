@@ -2,13 +2,12 @@
  * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
 
-package com.formationds.om.webkit.rest;
+package com.formationds.om.webkit.rest.domain;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
-import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.model.ConnectorAttributes;
 import com.formationds.commons.model.Domain;
@@ -29,7 +28,6 @@ import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.json.JSONException;
-import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,17 +40,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class ListServices
+public class PostLocalDomain
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( ListServices.class );
+    LoggerFactory.getLogger( PostLocalDomain.class );
 
   private final Authorizer authorizer;
   private final FDSP_ConfigPathReq.Iface legacyConfigPath;
   private final ConfigurationService.Iface configApi;
   private final AuthenticationToken token;
 
-  public ListServices( final Authorizer authorizer,
+  public PostLocalDomain( final Authorizer authorizer,
                             final FDSP_ConfigPathReq.Iface legacyConfigPath,
                             final ConfigurationService.Iface configApi,
                             final AuthenticationToken token ) {
@@ -66,50 +64,63 @@ public class ListServices
   public Resource handle( Request request, Map<String, String> routeParameters )
       throws Exception {
 
-      List<FDSP_Node_Info_Type> Services;
-
       String domainName = "";
+      String domainSite = "";
+      long domainId = -1;
       
       try {
           domainName = requiredString(routeParameters, "local_domain");
       } catch(UsageException e) {
           return new JsonResource(
-                  new JSONObject().put( "message", "Missing Local Domain name." ),
+                  new JSONObject().put( "message", "Missing new Local Domain name." ),
                   HttpServletResponse.SC_BAD_REQUEST );
       }
-      
-      logger.debug( "Listing services for Local Domain {}.", domainName );
+
+      String source = IOUtils.toString(request.getInputStream());
+      try {
+          JSONObject o = new JSONObject(source);
+          domainSite = o.getString( "site" );
+      } catch(JSONException e) {
+          return new JsonResource(
+                  new JSONObject().put( "message", "Missing new Local Domain site." ),
+                  HttpServletResponse.SC_BAD_REQUEST );
+      }
+
+      logger.debug( "Creating local domain {} at site {}.", domainName, domainSite );
 
       try {
-          Services = configApi.listServices(domainName);
-      } catch( Exception e ) {
-          logger.error( "LIST::FAILED::" + e.getMessage(), e );
+          domainId = configApi.createLocalDomain(domainName, domainSite);
+      } catch( ApiException e ) {
+
+          if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
+              JSONObject o = new JSONObject();
+              o.put("status", "already_exists");
+              o.put("domainName", domainName);
+              o.put("domainId", domainId);
+              return new JsonResource(o);
+          }
+
+          logger.error( "POST::FAILED::" + e.getMessage(), e );
 
           // allow dispatcher to handle
           throw e;
-      }
-      
-      JSONArray array = new JSONArray();
+      } catch ( TException | SecurityException se ) {
+          logger.error( "POST::FAILED::" + se.getMessage(), se );
 
-      for (FDSP_Node_Info_Type service : Services) {
-          array.put(new JSONObject()
-                          .put("node_id", service.node_id)
-                          .put("node_state", service.node_state)
-                          .put("node_type", service.node_type)
-                          .put("node_name", service.node_name)
-                          .put("ip_hi_addr", service.ip_hi_addr)
-                          .put("ip_lo_addr", service.ip_lo_addr)
-                          .put("control_port", service.control_port)
-                          .put("data_port", service.data_port)
-                          .put("migration_port", service.migration_port)
-                          .put("node_uuid", service.node_uuid)
-                          .put("service_uuid", service.service_uuid)
-                          .put("node_root", service.node_root)
-                          .put("metasync_port", service.metasync_port)
-                          );
+          // allow dispatcher to handle
+          throw se;
       }
 
-      return new JsonResource(array);
+      if( domainId > 0 ) {
+          JSONObject o = new JSONObject();
+          o.put("status", "success");
+          o.put("domainName", domainName);
+          o.put("domainId", domainId);
+          o.put("domainSite", domainSite);
+          return new JsonResource(o);
+      }
+
+      throw new Exception( "No domain id after createLocalDomain call!" );
   }
 }
 
