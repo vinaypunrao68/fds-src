@@ -111,7 +111,7 @@ ObjectStoreLoadProc::put(fds_volid_t volId,
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (objectStore) {
-        err = objectStore->putObject(volId, objId, objData);
+        err = objectStore->putObject(volId, objId, objData, false);
     } else {
         fds_panic("no known modules are initialized for put operation!");
     }
@@ -127,7 +127,7 @@ ObjectStoreLoadProc::put(fds_volid_t volId,
 Error ObjectStoreLoadProc::remove(fds_volid_t volId,
                                   const ObjectID& objId) {
     if (objectStore) {
-        return objectStore->deleteObject(volId, objId);
+        return objectStore->deleteObject(volId, objId, false);
     } else {
         fds_panic("no known modules are initialized for put operation!");
     }

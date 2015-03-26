@@ -444,7 +444,6 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             cout << "Node UUID " << std::hex << vec[i].node_uuid << std::dec
                  << std::endl
                  << "\tState " << vec[i].node_state << std::endl
-                 << "\tType " << vec[i].node_type << std::endl
                  << "\tName " << vec[i].node_name << std::endl
                  << "\tUUID " << std::hex << vec[i].service_uuid << std::dec
                  << std::endl
@@ -457,6 +456,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
                  << "\tMigration Port " << vec[i].migration_port << std::endl
                  << "\tMetasync Port " << vec[i].metasync_port << std::endl
                  << "\tNode Root " << vec[i].node_root << std::endl
+                 << "\tType " << vec[i].node_type << std::endl
                  << std::endl;
         }
 

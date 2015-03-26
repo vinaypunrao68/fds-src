@@ -15,8 +15,7 @@
 #include <fds_process.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_OMControlPathReq.h>
-#include <fdsp/FDSP_ControlPathResp.h>
-#include <fdsp/sm_service_types.h>
+#include <fdsp/sm_types_types.h>
 #include <fds_typedefs.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
@@ -24,10 +23,13 @@
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
-#include "platform/platform_process.h"
 #include <snapshot/manager.h>
 #include <deletescheduler.h>
+#include <net/SvcProcess.h>
 #include <net/PlatNetSvcHandler.h>
+#include "platform/node_agent.h"
+#include <net/SvcMgr.h>
+#include <net/net_utils.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -36,14 +38,14 @@
 namespace fpi = FDS_ProtocolInterface;
 
 namespace FDS_ProtocolInterface {
-    class FDSP_OMControlPathReqProcessor;
-    class FDSP_OMControlPathReqIf;
-    class FDSP_OMControlPathRespClient;
-    class FDSP_OMControlPathReqIf;
-    class FDSP_ControlPathRespIf;
-    class FDSP_ConfigPathReqProcessor;
-    class FDSP_ConfigPathReqIf;
-    class FDSP_ConfigPathRespClient;
+    struct CtrlNotifyMigrationStatus;
+    struct FDSP_OMControlPathReqProcessor;
+    struct FDSP_OMControlPathReqIf;
+    struct FDSP_OMControlPathRespClient;
+    struct FDSP_OMControlPathReqIf;
+    struct FDSP_ConfigPathReqProcessor;
+    struct FDSP_ConfigPathReqIf;
+    struct FDSP_ConfigPathRespClient;
 }
 
 class netSessionTbl;
@@ -57,15 +59,17 @@ typedef netServerSessionEx<fpi::FDSP_ConfigPathReqProcessor,
 
 namespace fds {
 
-class OrchMgr: public PlatformProcess {
+class OM_Module;
+
+class OrchMgr: public SvcProcess {
   private:
     fds_log *om_log;
     SysParams *sysParams;
+
     /* net session tbl for OM control path*/
     boost::shared_ptr<netSessionTbl> omcp_session_tbl;
     netOMControlPathServerSession *omc_server_session;
     boost::shared_ptr<fpi::FDSP_OMControlPathReqIf> omcp_req_handler;
-    boost::shared_ptr<fpi::FDSP_ControlPathRespIf> cp_resp_handler;
     std::string my_node_name;
 
     /* net session tbl for OM config path server */
@@ -95,8 +99,11 @@ class OrchMgr: public PlatformProcess {
     kvstore::ConfigDB      *configDB;
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
+  protected:
+    virtual void setupSvcInfo_() override;
+
   public:
-    OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
+    OrchMgr(int argc, char *argv[], OM_Module *omModule);
     ~OrchMgr();
     void start_cfgpath_server();
 
@@ -109,6 +116,8 @@ class OrchMgr: public PlatformProcess {
      */
     virtual int  run() override;
     virtual void interrupt_cb(int signum) override;
+
+    virtual void registerSvcProcess() override;
 
     bool loadFromConfigDB();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
@@ -127,8 +136,10 @@ class OrchMgr: public PlatformProcess {
     void NotifyQueueFull(const fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                         const fpi::FDSP_NotifyQueueStateTypePtr& queue_state_req);
 
-    fds::snapshot::Manager snapshotMgr;
     DeleteScheduler deleteScheduler;
+
+    fds_bool_t enableSnapshotSchedule;
+    boost::shared_ptr<fds::snapshot::Manager> snapshotMgr;
 };
 
 /* config path: cli -> OM  */
@@ -304,14 +315,7 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
         OrchMgr* orchMgr;
 };
 
-/* control response handler*/
-class FDSP_ControlPathRespHandler : virtual public fpi::FDSP_ControlPathRespIf {
-  public:
-        explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
-
-  private:
-        OrchMgr* orchMgr;
-};
+void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec, NodeAgent::pointer ptr);
 
 std::thread* runConfigService(OrchMgr* om);
 extern OrchMgr *gl_orch_mgr;

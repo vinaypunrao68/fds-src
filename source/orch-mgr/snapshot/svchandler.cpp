@@ -6,9 +6,7 @@
 
 #include <fds_error.h>
 #include <fds_types.h>
-#include "fdsp/dm_service_types.h"
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
+#include "fdsp/dm_api_types.h"
 #include <net/SvcRequestPool.h>
 #include <snapshot/svchandler.h>
 #include <OmResources.h>

@@ -13,14 +13,11 @@
 #include <PerfTrace.h>
 #include <ObjMeta.h>
 #include <StorMgr.h>
-#include <NetSession.h>
 #include <fds_timestamp.h>
 #include <net/net_utils.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
+#include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
-
-#include "platform/platform.h"
 
 using diskio::DataTier;
 
@@ -33,17 +30,6 @@ fds_bool_t  stor_mgr_stopping = false;
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
 
 ObjectStorMgr *objStorMgr;
-
-/*
- * SM's FDSP interface member functions
- */
-ObjectStorMgrI::ObjectStorMgrI()
-{
-}
-
-ObjectStorMgrI::~ObjectStorMgrI()
-{
-}
 
 /**
  * Storage manager member functions
@@ -125,10 +111,23 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    /*
-     * Will setup OM comm during run()
-     */
     omClient = NULL;
+    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    if (testStandalone == false) {
+        std::string omIP;
+        fds_uint32_t omPort = 0;
+        MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
+        LOGNOTIFY << "om ip: " << omIP
+                  << " port: " << omPort;
+        omClient = new OMgrClient(FDSP_STOR_MGR,
+                                  omIP,
+                                  omPort,
+                                  MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
+                                  GetLog(),
+                                  nullptr,
+                                  nullptr);
+    }
+
 
     return 0;
 }
@@ -138,34 +137,12 @@ void ObjectStorMgr::mod_startup()
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
-    std::string     myIp;
-
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
 
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
-
-    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
-    if (testStandalone == false) {
-        /* Set up FDSP RPC endpoints */
-        nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-        myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-        setup_datapath_server(myIp);
-
-        /*
-         * Register this node with OM.
-         */
-        LOGNOTIFY << "om ip: " << *modProvider_->get_plf_manager()->plf_get_om_ip()
-                  << " port: " << modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
-        omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  *modProvider_->get_plf_manager()->plf_get_om_ip(),
-                                  modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),
-                                  "localhost-sm",
-                                  GetLog(),
-                                  nst_, modProvider_->get_plf_manager());
-    }
 
     /*
      * Create local volume table. Create after omClient
@@ -208,15 +185,6 @@ void ObjectStorMgr::mod_startup()
         qosThrds = qosOutNum + 1;   // one is used for dispatcher
     }
 
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        /*
-         * Register/boostrap from OM
-         */
-        omClient->initialize();
-        omClient->startAcceptingControlMessages();
-        omClient->registerNodeWithOM(modProvider_->get_plf_manager());
-    }
-
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
 }
@@ -229,18 +197,15 @@ void ObjectStorMgr::mod_startup()
 void ObjectStorMgr::mod_enable_service()
 {
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
-        const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
-        NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
-        fpi::StorCapMsg stor_cap;
-        sm_node->init_stor_cap_msg(&stor_cap);
-
         // note that qos dispatcher in SM/DM uses total rate just to assign
         // guaranteed slots, it still will dispatch more IOs if there is more
         // perf capacity available (based on how fast IOs return). So setting
         // totalRate to disk_iops_min does not actually restrict the SM from
         // servicing more IO if there is more capacity (eg.. because we have
         // cache and SSDs)
-        totalRate = stor_cap.disk_iops_min;
+        auto svcmgr = MODULEPROVIDER()->getSvcMgr();
+        totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
+                modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "disk_iops_min");
     }
 
     /*
@@ -321,41 +286,14 @@ void ObjectStorMgr::mod_enable_service()
 void ObjectStorMgr::mod_shutdown()
 {
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
-        return;  // no migration or netsession
-    }
-    nst_->endAllSessions();
-    nst_.reset();
-}
-
-void ObjectStorMgr::setup_datapath_server(const std::string &ip)
-{
-    ObjectStorMgrI *osmi = new ObjectStorMgrI();
-    datapath_handler_.reset(osmi);
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_SM";
-    // TODO(???): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(???): Figure out who cleans up datapath_session_
-    datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
-        myIpInt,
-        modProvider_->get_plf_manager()->plf_get_my_data_port(),
-        node_name,
-        FDSP_STOR_HVISOR,
-        datapath_handler_);
 }
 
 int ObjectStorMgr::run()
 {
-    nst_->listenServer(datapath_session_);
+    while (true) {
+        sleep(1);
+    }
     return 0;
-}
-
-DPRespClientPtr
-ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
-    return datapath_session_->getRespClient(session_uuid);
 }
 
 const TokenList&
@@ -379,10 +317,12 @@ ObjectStorMgr::getTotalNumTokens() const {
 
 NodeUuid
 ObjectStorMgr::getUuid() const {
-    return omClient->getUuid();
+    NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    return mySvcUuid;
 }
 
 const DLT* ObjectStorMgr::getDLT() {
+    if (!omClient) { return nullptr; }
     return omClient->getCurrentDLT();
 }
 
@@ -392,21 +332,21 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
     }
     DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
     fds_verify(nodes->getLength() > 0);
-    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-    return (*mySvcUuid == nodes->get(0));
+    return (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() == nodes->get(0).toSvcUuid());
 }
 
-void ObjectStorMgr::handleDltUpdate() {
+Error ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
     const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
-    objStorMgr->objectStore->handleNewDlt(curDlt);
+    Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
 
     if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
         LOGDEBUG << "Received DLT update that has removed this node.";
         // TODO(brian): Not sure if this is where we should kill scavenger or not
     }
+    return err;
 }
 
 /*
@@ -566,19 +506,24 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         // after the network message is freed.
         err = objectStore->putObject(volId,
                                      objId,
-                                     boost::make_shared<std::string>(
-                                         putReq->putObjectNetReq->data_obj));
+                                     boost::make_shared<std::string>(putReq->putObjectNetReq->data_obj),
+                                     putReq->forwardedReq);
         qosCtrl->markIODone(*putReq);
 
         // end of ObjectStore layer latency
         PerfTracer::tracePointEnd(putReq->opLatencyCtx);
 
         // forward this IO to destination SM if needed, but only if we succeeded locally
-        if (err.ok() &&
-            migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq)) {
-            // we forwarded request, however we will ack to AM right away, and if
-            // forwarded request fails, we will fail the migration
-            LOGMIGRATE << "Forwarded Put " << objId << " to destination SM ";
+        // and was not already a forwarded request.
+        // The assumption is that forward will not take a multiple hop.  It will be only from
+        // one source to one destionation SM.
+        if (err.ok() && (false == putReq->forwardedReq)) {
+            bool forwarded = migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq);
+            if (forwarded) {
+                // we forwarded request, however we will ack to AM right away, and if
+                // forwarded request fails, we will fail the migration
+                LOGMIGRATE << "Forwarded PUT " << objId << " to destination SM ";
+            }
         }
     }
 
@@ -605,7 +550,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
         // start of ObjectStore layer latency
         PerfTracer::tracePointBegin(delReq->opLatencyCtx);
 
-        err = objectStore->deleteObject(volId, objId);
+        err = objectStore->deleteObject(volId,
+                                        objId,
+                                        delReq->forwardedReq);
 
         qosCtrl->markIODone(*delReq);
 
@@ -613,11 +560,16 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
         PerfTracer::tracePointEnd(delReq->opLatencyCtx);
 
         // forward this IO to destination SM if needed, but only if we succeeded locally
-        if (err.ok() &&
-            migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq)) {
-            // we forwarded request, however we will ack to AM right away, and if
-            // forwarded request fails, we will fail the migration
-            LOGMIGRATE << "Forwarded Delete " << objId << " to destination SM ";
+        // and was not already a forwarded request.
+        // The assumption is that forward will not take a multiple hop.  It will be only from
+        // one source to one destionation SM.
+        if (err.ok() && (false == delReq->forwardedReq)) {
+            bool forwarded = migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq);
+            if (forwarded) {
+                // we forwarded request, however we will ack to AM right away, and if
+                // forwarded request fails, we will fail the migration
+                LOGMIGRATE << "Forwarded DELETE " << objId << " to destination SM ";
+            }
         }
     }
 
@@ -696,41 +648,6 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
 
     getReq->response_cb(err, getReq);
     return err;
-}
-
-NodeAgentDpClientPtr
-ObjectStorMgr::getProxyClient(ObjectID& oid,
-                              const FDSP_MsgHdrTypePtr& msg) {
-    const DLT* dlt = getDLT();
-    NodeUuid uuid = 0;
-
-    // TODO(Andrew): Why is it const if we const_cast it?
-    FDSP_MsgHdrTypePtr& fdsp_msg = const_cast<FDSP_MsgHdrTypePtr&> (msg);
-    // get the first Node that is not ME!!
-    DltTokenGroupPtr nodes = dlt->getNodes(oid);
-    for (uint i = 0; i < nodes->getLength(); i++) {
-        if (nodes->get(i) != getUuid()) {
-            uuid = nodes->get(i);
-            break;
-        }
-    }
-
-    fds_verify(uuid != getUuid());
-
-    LOGDEBUG << "obj " << oid << " not located here "
-             << getUuid() << " proxy_count " << fdsp_msg->proxy_count;
-    LOGDEBUG << "proxying request to " << uuid;
-    fds_int32_t node_state = -1;
-
-    NodeAgent::pointer node = modProvider_->get_plf_manager()->plf_node_inventory()->
-            dc_get_sm_nodes()->agent_info(uuid);
-    SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
-    NodeAgentDpClientPtr smClient = sm->get_sm_client();
-
-    // Increment the proxy count so the receiver knows
-    // this is a proxied request
-    fdsp_msg->proxy_count++;
-    return smClient;
 }
 
 /**
@@ -1064,7 +981,7 @@ ObjectStorMgr::storeCurrentDLT()
     // against DLT
     NodeUuid myUuid = getUuid();
     std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
-    ofstream uuidFile(uuidPath);
+    std::ofstream uuidFile(uuidPath);
     uuidFile <<  myUuid.uuid_get_val();
 }
 

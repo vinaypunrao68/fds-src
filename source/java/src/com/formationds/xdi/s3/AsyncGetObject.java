@@ -44,7 +44,7 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
                 S3UserMetadataUtility.extractUserMetadata(md).forEach((key, value) -> ctx.addResponseHeader(key, value));
 
                 OutputStream outputStream = ctx.getOutputStream();
-                return xdiAsync.getBlobToStream(blobInfo, outputStream);
+                return xdiAsync.writeBlobToStream(blobInfo, outputStream);
             });
         } catch (Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);
@@ -52,13 +52,7 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
     }
 
     private boolean hasAccess(HttpContext context, String bucket, Map<String, String> metadata) {
-        String acl = metadata.getOrDefault(PutObjectAcl.X_AMZ_ACL, PutObjectAcl.PRIVATE);
-
-        if (!acl.equals(PutObjectAcl.PRIVATE)) {
-            return true;
-        }
-
         AuthenticationToken token = authenticator.authenticate(context);
-        return authorizer.hasVolumePermission(token, bucket, Intent.read);
+        return authorizer.hasBlobPermission(token, bucket, Intent.read, metadata);
     }
 }

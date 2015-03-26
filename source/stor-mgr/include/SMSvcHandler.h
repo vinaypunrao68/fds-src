@@ -4,7 +4,7 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 #define SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/SMSvc.h>
 
@@ -27,7 +27,9 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     uint64_t mockTimeoutUs = 200;
     bool mockTimeoutEnabled = false;
 
-    SMSvcHandler();
+    explicit SMSvcHandler(CommonModuleProviderIf *provider);
+
+    virtual int mod_init(SysParams const *const param) override;
 
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
@@ -61,7 +63,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void mockPutCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr);
 
     void deleteObject(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-            boost::shared_ptr <fpi::DeleteObjectMsg> &expObjMsg);
+            boost::shared_ptr <fpi::DeleteObjectMsg> &deleteObjMsg);
 
     void deleteObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
             const Error &err,
@@ -154,6 +156,14 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     */
     void NotifyDMTUpdate(boost::shared_ptr <fpi::AsyncHdr> &hdr,
             boost::shared_ptr <fpi::CtrlNotifyDMTUpdate> &dmt);
+
+    /**
+     * Handlers for smcheck
+     */
+    void NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                       boost::shared_ptr<fpi::CtrlNotifySMCheck>& msg);
+    void querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                            boost::shared_ptr<fpi::CtrlNotifySMCheckStatus>& msg);
 };
 
 }  // namespace fds

@@ -13,7 +13,7 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fds_types.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <persistent-layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
 #include <util/fiu_util.h>
@@ -22,6 +22,10 @@
  * Maps FDSPMsg type to FDSPMsgTypeId enum
  */
 #define FDSP_MSG_TYPEID(FDSPMsgT) FDSPMsgT##TypeId
+
+#define MSG_DESERIALIZE(msgtype, error, payload) \
+    fds::deserializeFdspMsg<fpi::msgtype>(const_cast<Error&>(error), payload)
+
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -53,6 +57,9 @@ FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rh
 
 FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
+
+FDS_ProtocolInterface::FDSP_Uuid&
+assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs);
 
 void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header);
 
@@ -135,6 +142,7 @@ void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
         throw;
     }
 }
+
 template<class PayloadT>
 void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
                         bo::shared_ptr<PayloadT>& payload) {
@@ -144,6 +152,25 @@ void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
 
     payload = bo::make_shared<PayloadT>();
     deserializeFdspMsg(*payloadBuf, *payload);
+}
+
+template<class PayloadT> boost::shared_ptr<PayloadT>
+deserializeFdspMsg(Error &e, boost::shared_ptr<std::string> payloadBuf)
+{
+    DBG(GLOGDEBUG);
+
+    if (e != ERR_OK) {
+        return nullptr;
+    }
+    try {
+        boost::shared_ptr<PayloadT> payload(boost::make_shared<PayloadT>());
+        deserializeFdspMsg(payloadBuf, payload);
+        return payload;
+    } catch(std::exception& ex) {
+        GLOGWARN << "Failed to deserialize. Exception: " << ex.what();
+        e = ERR_SERIALIZE_FAILED;
+        return nullptr;
+    }
 }
 
 }  // namespace fds

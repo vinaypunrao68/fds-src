@@ -4,7 +4,7 @@ package com.formationds.om.webkit.rest;
  */
 
 import com.formationds.apis.ConfigurationService;
-import com.formationds.streaming.StreamingRegistrationMsg;
+import com.formationds.apis.StreamingRegistrationMsg;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;

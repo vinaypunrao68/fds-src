@@ -25,8 +25,6 @@ extern "C" {
 #include <utility>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_DataPathReq.h"
-#include "fdsp/FDSP_DataPathResp.h"
 #include "fds_volume.h"
 #include "fds_types.h"
 #include "odb.h"
@@ -117,14 +115,7 @@ class SmObjDb : public HasLogger {
      Error deleteObjectLocation(const ObjectID& objId);
 #endif
 
-     Error putSyncEntry(const ObjectID& objId,
-                        const FDSP_MigrateObjectMetadata& data,
-                        bool &dataExists);
      Error resolveEntry(const ObjectID& objId);
-     void  iterRetrieveObjects(const fds_token_id &token,
-                               const size_t &max_size,
-                               FDSP_MigrateObjectList &obj_list,
-                               SMTokenItr &itr);
 
      bool dataPhysicallyExists(const ObjectID& obj_id);
 

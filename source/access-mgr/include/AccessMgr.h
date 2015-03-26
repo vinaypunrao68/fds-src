@@ -32,7 +32,7 @@ class AccessMgr : public Module, public boost::noncopyable {
      */
     int mod_init(SysParams const *const param) override;
     void mod_startup() override;
-    void mod_lockstep_start_service() override;
+    virtual void mod_enable_service() override;
     void mod_shutdown() override;
 
     void run();
@@ -62,9 +62,6 @@ class AccessMgr : public Module, public boost::noncopyable {
   private:
     /// Raw pointer to an external dependency manager
     CommonModuleProviderIf *modProvider_;
-
-    /// Unique instance ID of this AM
-    fds_uint32_t instanceId;
 
     /// OM config service API
     OmConfigApi::shared_ptr omConfigApi;

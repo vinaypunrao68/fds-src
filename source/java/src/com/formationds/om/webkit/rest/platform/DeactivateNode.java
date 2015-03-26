@@ -7,15 +7,15 @@ package com.formationds.om.webkit.rest.platform;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_RemoveServicesType;
-import FDS_ProtocolInterface.FDSP_Uuid;
+import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventDescriptor;
 import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
 import com.formationds.commons.model.Node;
 import com.formationds.om.events.EventManager;
-import com.formationds.util.thrift.pm.PMServiceClient;
-import com.formationds.util.thrift.pm.PMServiceException;
+import com.formationds.util.thrift.svc.SvcLayerClient;
+import com.formationds.util.thrift.svc.SvcLayerException;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -116,7 +116,7 @@ public class DeactivateNode
 
         // refresh
         // connect to local PM to get all node uuid to node name
-        final PMServiceClient client = new PMServiceClient( );
+        final SvcLayerClient client = new SvcLayerClient( );
         try {
 
             for( final List<Node> nodes : client.getDomainNodes().values() ) {
@@ -130,7 +130,7 @@ public class DeactivateNode
 
             }
 
-        } catch( PMServiceException e ) {
+        } catch( SvcLayerException e ) {
 
             logger.error( e.getMessage(), e );
         }

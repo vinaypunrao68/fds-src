@@ -7,16 +7,28 @@ package com.formationds.om.repository.helper;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.events.FirebreakType;
+import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
+import com.formationds.commons.model.Statistics;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
+import com.formationds.commons.model.calculated.firebreak.FirebreakCount;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.repository.EventRepository;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.om.repository.query.FirebreakQueryCriteria;
+import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
+
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,21 +36,22 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.persistence.EntityManager;
+
 /**
  * @author ptinius
  */
-public class FirebreakHelper {
+public class FirebreakHelper extends QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( FirebreakHelper.class );
 
-    private static final String INDEX_OUT_BOUNDS =
-        "index is out-of-bounds %d, must between %d and %d.";
 
     // zero is not a value last occurred time
     public static final Double NEVER = 0.0;
@@ -47,7 +60,146 @@ public class FirebreakHelper {
      * default constructor
      */
     public FirebreakHelper() {
+        super();
+    }
+    
+    /**
+     * This is a speciality handler for firebreak queries which are by design
+     * different than regular stats queries.  
+     * 
+     * @param query
+     * @param authorizer
+     * @param token
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+	public Statistics execute( final FirebreakQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token ) {
+    
+    	final Statistics stats = new Statistics();
+    	
+    	// quick bail if somethings messed up
+    	if ( query == null ){
+    		return stats;
+    	}
+    	
+    	// the series type is always the 4 items that make up firebreak.  
+    	query.setSeriesType( new ArrayList<Metrics>( Metrics.FIREBREAK ) );
+    	
+    	final List<Series> series = new ArrayList<Series>();
+    	final List<Calculated> calculated = new ArrayList<Calculated>();
+    	
+    	query.setContexts( validateContextList( query, authorizer, token ) );
+    	
+    	MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
+        final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) repo.query( query );
+        
+        try
+        {
+        	Map<String, List<VolumeDatapointPair>> firebreaks = findAllFirebreaksByVolume( queryResults );
+        	final FirebreakCount fbCount = new FirebreakCount();
+        	fbCount.setCount( 0 );
+        	
+        	Iterator<Volume> volIt = query.getContexts().iterator();
+        	
+        	// create the series
+        	while( volIt.hasNext() ){
+        	
+        		Volume volume = volIt.next();
+        		
+        		String key = volume.getId();
+        		
+        		final Series seri = new Series();
+        		seri.setContext( volume );
+        		
+        		seri.setDatapoints( new ArrayList<Datapoint>() );
+        		
+        		// finding the volume usage
+        		// get the status using the key because its really the id
+        		Optional<VolumeStatus> opStatus = SingletonRepositoryManager.instance()
+                    .getMetricsRepository()
+                    .getLatestVolumeStatus( Long.parseLong( key ) );
+        		
+        		Double currentUsageInBytes = new Double( 0 );
+        		
+        		if ( opStatus.isPresent() ){
+        			currentUsageInBytes = new Double( opStatus.get().getCurrentUsageInBytes() );
+        		}
+        		
+        		List<VolumeDatapointPair> dpPairs = firebreaks.get( key );
 
+        		// if we requested this series, at least give a zero point back
+        		if ( dpPairs == null || dpPairs.isEmpty() ){
+
+        			seri.getDatapoints().add( buildDatapoint( query, 
+        													  new Double( NEVER ), 
+        													  new Double( 0 ), 
+        													  currentUsageInBytes ) );
+        		}
+        		else {
+	        		Iterator<VolumeDatapointPair> dpIt = firebreaks.get( key ).iterator();
+	        		
+	        		while( dpIt.hasNext() ){
+	        			
+	        			VolumeDatapointPair vdpp = dpIt.next();
+	        			
+	        			Datapoint dp = buildDatapoint( query, 
+	        					  				  	   new Double( vdpp.getShortTermSigma().getTimestamp() ), 
+	        					  				  	   new Double( vdpp.getFirebreakType().ordinal() ), 
+	        					  				  	   currentUsageInBytes );
+	        			
+	        			seri.getDatapoints().add( dp );
+	        			fbCount.setCount( fbCount.getCount() + 1 );
+	        		}// process each datapoint
+        		}
+        		
+        		// sort the points
+        		seri.getDatapoints().sort( ( thisDp, nextDp ) -> {
+        			return thisDp.getX().compareTo( nextDp.getX() );
+        		});
+        		
+        		// if a max was specified we need to potentially remove some
+        		while( query.getMostRecentResults() != null && seri.getDatapoints().size() > query.getMostRecentResults() ){
+        			seri.getDatapoints().remove( 0 );
+        		}// removing items for max count
+        		
+        		series.add( seri );
+        		
+        	}// for each key
+        	
+        	calculated.add( fbCount );
+        	
+        	stats.setSeries( series );
+        	stats.setCalculated( calculated );
+        	
+	    } catch (TException e) {
+			e.printStackTrace();
+		}
+    	
+    	return stats;
+    }
+    
+    /**
+     * Helper method to put the right values in X and Y just to save duplicate code 
+     * @param query
+     * @param time
+     * @param type
+     * @param size
+     * @return
+     */
+    private Datapoint buildDatapoint( FirebreakQueryCriteria query, Double time, Double type, Double size ){
+		
+    	final Datapoint dp = new Datapoint();
+		
+		if ( query.isUseSizeForValue() != null && query.isUseSizeForValue() ){
+			dp.setY( time );
+			dp.setX( size );
+		}
+		else {
+			dp.setX( new Double( time ) );
+			dp.setY( new Double( type ) );	
+		}
+		
+		return dp;
     }
 
     /**
@@ -57,7 +209,7 @@ public class FirebreakHelper {
      *
      * @throws org.apache.thrift.TException any unhandled thrift error
      */
-    public List<Series> processFirebreak( final List<VolumeDatapoint> queryResults )
+    public List<Series> processFirebreak( final List<IVolumeDatapoint> queryResults )
         throws TException {
         Map<String, VolumeDatapointPair> firebreakPointsVDP = findFirebreak( queryResults );
         Map<String, Datapoint> firebreakPoints = new HashMap<>();
@@ -109,6 +261,37 @@ public class FirebreakHelper {
 
         return series;
     }
+    
+    /**
+     * This method will get a list of all firebreak events from the datapoint list organized by volume ID
+     * @param datapoints
+     * @return
+     * @throws TException
+     */
+    public Map<String, List<VolumeDatapointPair>> findAllFirebreaksByVolume( final List<IVolumeDatapoint> datapoints ) throws TException {
+    
+    	final Map<String, List<VolumeDatapointPair>> results = new HashMap<String, List<VolumeDatapointPair>>();
+    	
+    	final List<VolumeDatapointPair> paired = extractPairs( datapoints );
+    	
+    	paired.stream().forEach( pair -> {
+    	
+    		String key = pair.getShortTermSigma().getVolumeId();
+    		
+    		if ( !results.containsKey( key ) ){
+    			
+    			List<VolumeDatapointPair> listOfEvents = new ArrayList<VolumeDatapointPair>();
+    			results.put( key, listOfEvents );
+    		}
+    		
+    		// if it is a firebreak, add it to the list
+    		if ( isFirebreak( pair ) ){
+    			results.get( key ).add( pair );
+    		}
+    	});
+    	
+    	return results;
+    }
 
     /**
      * Find firebreak related stats for display in the UI.  This is similar to {@link #findFirebreakEvents},
@@ -119,7 +302,7 @@ public class FirebreakHelper {
      * @return Returns {@link java.util.Map} of volume id to
      *  {@link com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair}
      */
-    protected Map<String, VolumeDatapointPair> findFirebreak(final List<VolumeDatapoint> datapoints) throws TException {
+    protected Map<String, VolumeDatapointPair> findFirebreak(final List<? extends IVolumeDatapoint> datapoints) throws TException {
         final Map<String, VolumeDatapointPair> results = new HashMap<>();
         final List<VolumeDatapointPair> paired = extractPairs(datapoints);
 
@@ -171,7 +354,7 @@ public class FirebreakHelper {
      */
     // NOTE: this is very similar to findFirebreak except that it distinguishes results by
     // volume id AND FirebreakType.  It also caches volume status outside of the loop
-    public Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> findFirebreakEvents(final List<VolumeDatapoint> datapoints)
+    public Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> findFirebreakEvents(final List<? extends IVolumeDatapoint> datapoints)
         throws TException {
         final Map<String, EnumMap<FirebreakType,VolumeDatapointPair>> results = new HashMap<>();
         final List<VolumeDatapointPair> paired = extractPairs(datapoints);
@@ -252,16 +435,16 @@ public class FirebreakHelper {
      *
      * @return a list of firebreak VolumeDatapoint pairs
      */
-    public List<VolumeDatapointPair> extractPairs(List<VolumeDatapoint> datapoints) {
+    public List<VolumeDatapointPair> extractPairs(List<? extends IVolumeDatapoint> datapoints) {
         // TODO: would it make more sense to return a Map of either Timestamp to Map of Volume -> VolumeDatapointPair or
         // a List/Set (ordered by timestamp) of Map Volume -> VolumeDatapointPair?
         final List<VolumeDatapointPair> paired = new ArrayList<>( );
-        final List<VolumeDatapoint> firebreakDP = extractFirebreakDatapoints(datapoints);
+        final List<IVolumeDatapoint> firebreakDP = extractFirebreakDatapoints(datapoints);
 
-        Map<Long, Map<String, List<VolumeDatapoint>>> orderedFBDPs;
+        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedFBDPs;
         orderedFBDPs = firebreakDP.stream()
-                                  .collect(Collectors.groupingBy(VolumeDatapoint::getTimestamp,
-                                                                 Collectors.groupingBy(VolumeDatapoint::getVolumeName)));
+                                  .collect(Collectors.groupingBy(IVolumeDatapoint::getTimestamp,
+                                                                 Collectors.groupingBy(IVolumeDatapoint::getVolumeName)));
 
         // TODO: we may be able to parallelize this with a Spliterator by splitting first on timestamp and second on volume.
         // (similar to the StreamHelper.consecutiveStream used previously)
@@ -291,8 +474,8 @@ public class FirebreakHelper {
      *
      * @return the optional first datapoint matching the metric if present in the specified list.
      */
-    private Optional<VolumeDatapoint> findMetric(Metrics m, List<VolumeDatapoint> dps) {
-        return dps.stream().filter((v) -> Metrics.byMetadataKey(v.getKey()).equals(m)).findFirst();
+    private <VDP extends IVolumeDatapoint> Optional<VDP> findMetric(Metrics m, List<? extends IVolumeDatapoint> dps) {
+        return (Optional<VDP>)dps.stream().filter((v) -> Metrics.byMetadataKey(v.getKey()).equals(m)).findFirst();
     }
 
     /**
@@ -302,8 +485,8 @@ public class FirebreakHelper {
      *
      * @return the list of datapoints that are firebreak datapoints.
      */
-    public List<VolumeDatapoint> extractFirebreakDatapoints(List<VolumeDatapoint> datapoints) {
-        final List<VolumeDatapoint> firebreakDP = new ArrayList<>();
+    public List<IVolumeDatapoint> extractFirebreakDatapoints(List<? extends IVolumeDatapoint> datapoints) {
+        final List<IVolumeDatapoint> firebreakDP = new ArrayList<>();
 
         /*
          * filter just the firebreak volume datapoints
@@ -327,7 +510,7 @@ public class FirebreakHelper {
      * @param s2 the long-term sigma
      * @return true if the datapoint pair represents a firebreak
      */
-    protected boolean isFirebreak(VolumeDatapoint s1, VolumeDatapoint s2) {
+    protected boolean isFirebreak(IVolumeDatapoint s1, IVolumeDatapoint s2) {
       return Calculation.isFirebreak(s1.getValue(),
                                      s2.getValue());
     }
@@ -336,7 +519,7 @@ public class FirebreakHelper {
      * @param vdp the volume datapoint
      * @return true if the volume datapoint represents a metric associated with a firebreak event
      */
-    private boolean isFirebreakType( final VolumeDatapoint vdp ) {
+    private boolean isFirebreakType( final IVolumeDatapoint vdp ) {
         try {
             return Metrics.FIREBREAK.contains( Metrics.byMetadataKey( vdp.getKey() ) );
         } catch( UnsupportedMetricException e ) {
@@ -352,8 +535,8 @@ public class FirebreakHelper {
      * return to the UI.  The datapoint is set separately during processing.
      */
     public static class VolumeDatapointPair {
-        private final VolumeDatapoint shortTermSigma;
-        private final VolumeDatapoint longTermSigma;
+        private final IVolumeDatapoint shortTermSigma;
+        private final IVolumeDatapoint longTermSigma;
 
         private final FirebreakType firebreakType;
 
@@ -372,7 +555,7 @@ public class FirebreakHelper {
          *       <li>Not the same firebreak data type</li>
          *   </ul>
          */
-        VolumeDatapointPair(VolumeDatapoint shortTerm, VolumeDatapoint longTerm) {
+        VolumeDatapointPair(IVolumeDatapoint shortTerm, IVolumeDatapoint longTerm) {
             // TODO: use ID once provided by backend
             if (!shortTerm.getVolumeName().equals(longTerm.getVolumeName()))
                 throw new IllegalArgumentException("Volume for short/long term datapoint pairs must match");
@@ -417,12 +600,12 @@ public class FirebreakHelper {
         /**
          * @return the short-term sigma
          */
-        public VolumeDatapoint getShortTermSigma() { return shortTermSigma; }
+        public IVolumeDatapoint getShortTermSigma() { return shortTermSigma; }
 
         /**
          * @return the long-term sigma
          */
-        public VolumeDatapoint getLongTermSigma() { return longTermSigma; }
+        public IVolumeDatapoint getLongTermSigma() { return longTermSigma; }
 
         /**
          * @return the firebreak type represented by this pair

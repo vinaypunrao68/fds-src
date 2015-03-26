@@ -15,22 +15,30 @@
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
+#include <fdsp/OMSvc.h>
+#include <om-svc-handler.h>
+#include <net/SvcMgr.h>
 
 namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
-    : PlatformProcess(argc, argv, "fds.om.", "om.log", platform, mod_vec),
-      conf_port_num(0),
+OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
+    : conf_port_num(0),
       ctrl_port_num(0),
       test_mode(false),
       omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-      cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
       cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
-      snapshotMgr(this), deleteScheduler(this)
+      deleteScheduler(this),
+      enableSnapshotSchedule(true)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
+    fds::gl_orch_mgr = this;
+
+    static fds::Module *omVec[] = {
+        omModule,
+        NULL
+    };
 
     for (int i = 0; i < MAX_OM_NODES; i++) {
         /*
@@ -38,6 +46,15 @@ OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
          * that statically allocated.
          */
         node_id_to_name[i] = "";
+    }
+
+    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
+                                                 "fds.om.", "om.log", omVec);
+
+    enableSnapshotSchedule = MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.om.enable_snapshot_schedule", true);
+    if (enableSnapshotSchedule) {
+        snapshotMgr.reset(new fds::snapshot::Manager(this));
     }
 
     /*
@@ -56,6 +73,7 @@ OrchMgr::~OrchMgr()
     if (policy_mgr) {
         delete policy_mgr;
     }
+    fds::gl_orch_mgr =  nullptr;
 }
 
 void OrchMgr::proc_pre_startup()
@@ -63,7 +81,8 @@ void OrchMgr::proc_pre_startup()
     int    argc;
     char **argv;
 
-    PlatformProcess::proc_pre_startup();
+    SvcProcess::proc_pre_startup();
+
     argv = mod_vectors_->mod_argv(&argc);
 
     /*
@@ -162,11 +181,34 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    snapshotMgr.init();
+    if (enableSnapshotSchedule) {
+        snapshotMgr->init();
+    }
     fds_bool_t config_db_up = loadFromConfigDB();
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
     local_domain->om_load_state(config_db_up ? configDB : NULL);
+}
+
+void OrchMgr::setupSvcInfo_()
+{
+    SvcProcess::setupSvcInfo_();
+
+    auto config = MODULEPROVIDER()->get_conf_helper();
+    svcInfo_.ip = config.get_abs<std::string>("fds.common.om_ip_list");
+    svcInfo_.svc_port = config.get_abs<int>("fds.common.om_port");
+    svcInfo_.svc_id.svc_uuid.svc_uuid = static_cast<int64_t>(
+        config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
+
+    LOGNOTIFY << "Service info(After overriding): " << fds::logString(svcInfo_);
+}
+
+void OrchMgr::registerSvcProcess()
+{
+    LOGNOTIFY << "register service process";
+
+    /* Add om information to service map */
+    svcMgr_->updateSvcMap({svcInfo_});
 }
 
 int OrchMgr::run()
@@ -344,18 +386,24 @@ bool OrchMgr::loadFromConfigDB() {
     }
 
     // get local domains
-    std::map<int, std::string> mapDomains;
-    configDB->getLocalDomains(mapDomains);
+    std::vector<fds::apis::LocalDomain> localDomains;
+    configDB->listLocalDomains(localDomains);
 
-    if (mapDomains.empty())  {
-        LOGWARN << "no local domains stored in the system .."
-                << "setting a default local domain";
-        configDB->addLocalDomain("local", 0);
-        configDB->getLocalDomains(mapDomains);
+    if (localDomains.empty())  {
+        LOGWARN << "No Local Domains stored in the system. "
+                << "Setting a default Local Domain.";
+        int64_t id = configDB->createLocalDomain();
+        if (id <= 0) {
+            LOGERROR << "Some issue in Local Domain creation. ";
+            return false;
+        } else {
+            LOGNOTIFY << "Default Local Domain creation succeded. ID: " << id;
+        }
+        configDB->listLocalDomains(localDomains);
     }
 
-    if (mapDomains.empty()) {
-        LOGCRITICAL << "something wrong with the configdb"
+    if (localDomains.empty()) {
+        LOGCRITICAL << "Something wrong with the configdb. "
                     << " -- not loading data.";
         return false;
     }
@@ -366,9 +414,10 @@ bool OrchMgr::loadFromConfigDB() {
 
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
 
-
     // load the snapshot policies
-    snapshotMgr.loadFromConfigDB();
+    if (enableSnapshotSchedule) {
+        snapshotMgr->loadFromConfigDB();
+    }
 
     return true;
 }

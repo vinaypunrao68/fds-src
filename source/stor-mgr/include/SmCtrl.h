@@ -6,7 +6,7 @@
 #define SOURCE_STOR_MGR_INCLUDE_SMCTRL_H_
 
 #include <fdsp/FDSP_types.h>
-#include <fdsp/sm_service_types.h>
+#include <fdsp/sm_api_types.h>
 
 namespace fds {
 
@@ -155,6 +155,43 @@ class SmTieringCmd {
     CommandType command;
 };
 
+class SmCheckCmd {
+  public:
+    enum CommandType {
+        SMCHECK_START,
+        SMCHECK_STOP,
+        SMCHECK_STATUS,
+        SMCHECK_CMD_NOT_SET
+    };
+    SmCheckCmd() : command(SMCHECK_CMD_NOT_SET) {}
+    explicit SmCheckCmd(CommandType cmd) : command(cmd) {}
+
+    CommandType command;
+};
+
+class SmCheckActionCmd: public SmCheckCmd {
+  public:
+    explicit SmCheckActionCmd(const fpi::SMCheckCmd &cmd) {
+        switch (cmd) {
+            case fpi::SMCHECK_START:
+                command = SMCHECK_START;
+                break;
+            case fpi::SMCHECK_STOP:
+                command = SMCHECK_STOP;
+                break;
+            default:
+                fds_panic("Unknown SmCheckCmd");
+        }
+    }
+};
+
+class SmCheckStatusCmd: public SmCheckCmd {
+  public:
+    explicit SmCheckStatusCmd(fpi::CtrlNotifySMCheckStatusRespPtr& status)
+        : SmCheckCmd(SMCHECK_STATUS), checkStatus(status) {}
+
+    fpi::CtrlNotifySMCheckStatusRespPtr checkStatus;
+};
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMCTRL_H_

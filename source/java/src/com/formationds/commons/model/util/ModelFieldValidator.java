@@ -14,7 +14,8 @@ public class ModelFieldValidator {
   public enum KeyFields {
     SLA,
     LIMIT,
-    PRIORITY;
+    PRIORITY,
+    MAX_OBJECT_SIZE;
   }
 
   private final KeyFields field;

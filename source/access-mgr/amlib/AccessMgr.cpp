@@ -6,19 +6,16 @@
 
 #include "fds_process.h"
 
-#include "am-platform.h"
-
-#include "AmCache.h"
 #include "AccessMgr.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
+#include "AmProcessor.h"
+#include <net/SvcMgr.h>
 
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/fdsn-server.h"
 #include "connector/block/NbdConnector.h"
-
-extern AmPlatform gl_AmPlatform;
 
 namespace fds {
 
@@ -41,35 +38,37 @@ AccessMgr::mod_init(SysParams const *const param) {
         nullptr
     };
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    instanceId = conf.get<fds_uint32_t>("instanceId");
-    LOGNOTIFY << "Initializing AM instance " << instanceId;
 
     int argc = 0;
     char **argv = NULL;
     fds::ModuleVector io_dm(argc, argv, io_dm_vec);
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
-                                StorHvCtrl::NORMAL, instanceId);
+                                StorHvCtrl::NORMAL);
     dataApi = boost::make_shared<AmDataApi>();
+
+    fds_uint32_t pmPort = g_fdsprocess->get_fds_config()->get<int>(
+        "fds.pm.platform_port");
+    if (!conf.get<bool>("testing.standalone")) {
+        pmPort = modProvider_->getSvcMgr()->getMappedSelfPlatformPort();
+    }
+    LOGTRACE << "Platform port " << pmPort;
 
     // Init the FDSN server to serve XDI data requests
     fdsnServer = FdsnServer::unique_ptr(
-        new FdsnServer("AM FDSN Server", dataApi, instanceId));
+        new FdsnServer("AM FDSN Server", dataApi, pmPort));
     fdsnServer->init_server();
 
     // Init the async server
     asyncServer = AsyncDataServer::unique_ptr(
-        new AsyncDataServer("AM Async Server", instanceId));
+        new AsyncDataServer("AM Async Server", pmPort));
     asyncServer->init_server();
 
-    if (!conf.get<bool>("testing.toggleStandAlone")) {
+    if (!conf.get<bool>("testing.standalone")) {
         omConfigApi = boost::make_shared<OmConfigApi>();
     }
 
     blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(omConfigApi));
 
-    // Update the AM's platform with our instance ID so that
-    // common fields (e.g., ports) can be updated
-    gl_AmPlatform.setInstanceId(instanceId);
     return 0;
 }
 
@@ -82,12 +81,11 @@ AccessMgr::mod_shutdown() {
     delete storHvisor;
 }
 
-void
-AccessMgr::mod_lockstep_start_service() {
+void AccessMgr::mod_enable_service()
+{
+    LOGNOTIFY << "Enbaling services ";
     storHvisor->StartOmClient();
     storHvisor->qos_ctrl->runScheduler();
-
-    this->mod_lockstep_done();
 }
 
 void
@@ -99,10 +97,9 @@ AccessMgr::run() {
 
 Error
 AccessMgr::registerVolume(const VolumeDesc& volDesc) {
-    // TODO(Andrew): Create cache separately since
-    // the volume data doesn't do it. We should converge
-    // on a single volume add location.
-    storHvisor->amCache->createCache(volDesc);
+    // TODO(Andrew): Register the new volume to processing and storhv layers
+    // We should converge on a single volume add location.
+    storHvisor->amProcessor->addVolume(volDesc);
     return storHvisor->vol_table->registerVolume(volDesc);
 }
 

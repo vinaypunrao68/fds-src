@@ -44,14 +44,36 @@ def suiteConstruction(self, action="installbootactivate"):
     # just boot Redis but don't mess with it's state.
     if action.count("install") > 0:
         # Build the necessary FDS infrastructure.
-        suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+        suite.addTest(testcases.TestFDSEnvMgt.TestFDSInstall())
         suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
+        suite.addTest(testcases.TestFDSEnvMgt.TestRestartInfluxDBClean())
+        suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
 
-    if action.count("boot") > 0:
+    if action.count("boot_noverify") > 0:
         if action.count("install") == 0:
             suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
+            suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
+
+        # Start the the OM's PM.
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())
+
+        # Now start OM.
+        suite.addTest(testcases.TestFDSServiceMgt.TestOMBringUp())
+
+        # Start the remaining PMs
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMBringUp())
+
+        # Give the nodes some time to initialize.
+        suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the nodes initialize"))
+    elif action.count("boot") > 0:
+        if action.count("install") == 0:
+            suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
+            suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
 
         # Start the the OM's PM.
         suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())
@@ -88,7 +110,7 @@ def suiteConstruction(self, action="installbootactivate"):
 
         suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the domain activate"))
 
-    if (action.count("boot") > 0) or (action.count("activate") > 0):
+    if ((action.count("boot") > 0) or (action.count("activate") > 0)) and (action.count("noverify") == 0):
         # Check that all nodes are up.
         nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
         suite.addTest(nodeUpSuite)

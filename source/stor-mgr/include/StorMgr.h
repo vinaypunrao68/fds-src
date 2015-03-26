@@ -12,7 +12,6 @@
 #include <utility>
 
 #include "fdsp/FDSP_types.h"
-#include "fdsp/FDSP_DataPathReq.h"
 #include "fds_types.h"
 #include "ObjectId.h"
 #include "util/Log.h"
@@ -39,13 +38,11 @@
 #include "lib/OMgrClient.h"
 
 #include "fds_module.h"
-#include "platform/typedefs.h"
 
-// #include "NetSession.h"
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>
-#include <TokenMigrationMgr.h>
+#include <MigrationMgr.h>
 
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -53,33 +50,16 @@
 #define FDS_MAX_WAITING_CONNS  10
 
 using namespace FDS_ProtocolInterface;  // NOLINT
-namespace FDS_ProtocolInterface {
-    class FDSP_DataPathReqProcessor;
-    class FDSP_DataPathReqIf;
-    class FDSP_DataPathRespClient;
-}
-typedef netServerSessionEx<FDSP_DataPathReqProcessor,
-                FDSP_DataPathReqIf,
-                FDSP_DataPathRespClient> netDataPathServerSession;
 
 namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
-
-using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
-using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
-
 
 /* File names for storing DLT and UUID.  Mainly used by smchk to
  * determine proper token ownership.
  */
 const std::string DLTFileName = "/currentDLT";
 const std::string UUIDFileName = "/uuidDLT";
-
-/*
- * Forward declarations
- */
-class ObjectStorMgrI;
 
 class ObjectStorMgr : public Module, public SmIoReqHandler {
     public:
@@ -106,19 +86,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      ObjectStore::unique_ptr objectStore;
      /// Manager of token migration
      SmTokenMigrationMgr::unique_ptr migrationMgr;
-
-     /*
-      * FDSP RPC members
-      * The map is used for sending back the response to the
-      * appropriate SH/DM
-      */
-     boost::shared_ptr<netSessionTbl> nst_;
-     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
-     netDataPathServerSession *datapath_session_;
-
-     /** Helper for accessing datapth response client */
-     DPRespClientPtr fdspDataPathClient(const std::string& session_uuid);
-     NodeAgentDpClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
 
      /*
       * TODO: this one should be the singleton by itself.  Need to make it
@@ -211,11 +178,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      inline fds_uint32_t getSysTaskPri() {
          return FdsSysTaskPri;
      }
-
-
-    protected:
-     void setup_datapath_server(const std::string &ip);
-     void setup_migration_svc(const std::string &obj_dir);
 
   public:
     SmQosCtrl  *qosCtrl;
@@ -335,7 +297,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void applyRebalanceDeltaSet(SmIoReq* ioReq);
      void readObjDeltaSet(SmIoReq* ioReq);
 
-     void handleDltUpdate();
+     Error handleDltUpdate();
 
      void storeCurrentDLT();
 
@@ -349,9 +311,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();
-
-     Error putTokenObjects(const fds_token_id &token,
-                           FDSP_MigrateObjectList &obj_list);
 
      const std::string getStorPrefix() {
          return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");
@@ -371,21 +330,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          ret << " ObjectStorMgr";
          return ret.str();
      }
-     /*
-      * Declare the FDSP interface class as a friend so it can access
-      * the internal request tracking members.
-      * TODO: Make this a nested class instead. No reason to make it
-      * a separate class.
-      */
-     friend ObjectStorMgrI;
+
      friend class SmLoadProc;
      friend class SMSvcHandler;
-};
-
-class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
-    public:
-     ObjectStorMgrI();
-     ~ObjectStorMgrI();
 };
 
 }  // namespace fds

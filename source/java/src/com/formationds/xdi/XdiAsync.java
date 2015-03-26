@@ -3,10 +3,10 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
@@ -76,7 +76,7 @@ public class XdiAsync {
         });
     }
 
-    public CompletableFuture<Void> getBlobToStream(BlobInfo blob, OutputStream str) {
+    public CompletableFuture<Void> writeBlobToStream(BlobInfo blob, OutputStream str) {
         return getBlobToConsumer(blob, bytes -> {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             CompletableFuture.runAsync(() -> {
@@ -93,8 +93,6 @@ public class XdiAsync {
     }
 
     public CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor) {
-        //CompletableFuture<BlobDescriptor> blobDescriptorFuture = statBlob(domain, volume, blob);
-
         int objectSize = blobInfo.volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
 
         // TODO: do we need to worry about limiting reads?
@@ -150,6 +148,7 @@ public class XdiAsync {
                         updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), condensedBuffer, condensedBuffer.remaining(), objectOffset, md)
                                 .whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
             } else {
+                // secondPut is called for the put requests equal to or larger than the objectSize.
                 return secondPut(putParameters, objectOffset + 1, condensedBuffer);
             }
         });
@@ -164,7 +163,7 @@ public class XdiAsync {
             final ByteBuffer condensedBuffer = condenseBuffer(readBuf);
             if (condensedBuffer.remaining() == 0) {
                 return putParameters.getFinalizedMetadata().thenCompose(md ->
-                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset, md).whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
+                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset - 1, md).whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
             } else {
                 CompletableFuture<Void> digestFuture = putParameters.digest.update(condensedBuffer);
                 return createTx(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue()).thenComposeAsync(tx -> {

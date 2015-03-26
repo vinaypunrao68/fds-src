@@ -7,6 +7,7 @@
 #include <ep-map.h>
 #include <fds_process.h>
 #include <net/net-service.h>
+#include <net/net-service-tmpl.hpp>
 
 // New includes
 #include "platform/platform.h"

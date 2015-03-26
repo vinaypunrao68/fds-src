@@ -41,6 +41,7 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
        log.warning("There is no write access to the specified log "
                          "directory %s  No log file will be created." %dir)
     else:
+        log_handle = None
         try:
             log_handle = logging.handlers.RotatingFileHandler(log_file, "w",
                                                               max_bytes,
@@ -50,10 +51,10 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
             if os.path.exists(log_file):
                 log_handle.doRollover()
         except:
-            log.warning("Failed to rollover the log file.  The "
-                             "results will not be recorded.")
+            log.error("Failed to rollover the log file. Perhaps a permissions problem on the log file %s." %
+                      log_file)
             logging.getLogger("").removeHandler(log_handle)
-    #log.log(100, " ".join(sys.argv))
+            sys.exit(1)
 
     return log
 
@@ -106,11 +107,11 @@ def get_options(pyUnit):
                       "the test run will be archived in the test database.")
     # FDS: Add a couple of FDS-specific options.
     parser.add_option('-v', '--verbose', action = 'store_true', dest = 'verbose',
-                      default = False, help = 'enable verbosity')
+                      help = 'enable verbosity')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
-                      default = False, help = 'dry run, print commands only')
+                      help = 'dry run, print commands only')
     parser.add_option('-i', '--install', action = 'store_true', dest = 'install',
-                      default = False, help = 'perform an install from an FDS package as opposed '
+                      help = 'perform an install from an FDS package as opposed '
                                               'to a development environment')
     parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
                       help = 'When the node is localhost, use this password for sudo access to the configured user. ')
@@ -300,21 +301,26 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
         sys.exit(1)
 
     # FDS: Check the passed options in case we are running from PyUnit
-    if params["verbose"] == False:
-        params["verbose"] = pyUnitVerbose
-    setattr(options, "verbose", params["verbose"])
+    if "verbose" in params:
+        if params["verbose"] == False:
+            params["verbose"] = pyUnitVerbose
+        setattr(options, "verbose", params["verbose"])
+    else:
+        setattr(options, "verbose", False)
 
-    if params["dryrun"] == False:
-        params["dryrun"] = pyUnitDryrun
-    setattr(options, "dryrun", params["dryrun"])
+    if "dryrun" in params:
+        if params["dryrun"] == False:
+            params["dryrun"] = pyUnitDryrun
+        setattr(options, "dryrun", params["dryrun"])
+    else:
+        setattr(options, "dryrun", False)
 
-    if params["install"] == False:
-        params["install"] = pyUnitInstall
-    setattr(options, "install", params["install"])
-
-    if params["sudo_password"] is None:
-        params["sudo_password"] = pyUnitSudoPw
-    setattr(options, "sudo_password", params["sudo_password"])
+    if "sudo_password" in params:
+        if params["sudo_password"] is None:
+            params["sudo_password"] = pyUnitSudoPw
+        setattr(options, "sudo_password", params["sudo_password"])
+    else:
+        setattr(options, "sudo_password", "dummy")
 
     global run_as_root
     if params["run_as_root"] == True:
@@ -350,6 +356,11 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
 
     # FDS: Now record whether we are being run by PyUnit.
     params["pyUnit"] = pyUnit
+
+    # Currently, 3/2/2015, if we do an Ansible package install,
+    # we only want to do it once as it will install the software
+    # on all identified nodes at once.
+    params["ansible_install_done"] = False
 
     return params
 

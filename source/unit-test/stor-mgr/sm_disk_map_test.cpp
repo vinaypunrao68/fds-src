@@ -77,11 +77,18 @@ boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
 void
 printSmTokens(const SmDiskMap::const_ptr& smDiskMap) {
     SmTokenSet smToks = smDiskMap->getSmTokens();
+    diskio::DataTier tier = diskio::diskTier;
+    // if there are no HDDs, tokens will be on SSDs only
+    DiskIdSet hddIds = smDiskMap->getDiskIds(diskio::diskTier);    
+    if (hddIds.size() == 0) {
+        tier = diskio::flashTier;
+    }
+    // in other cases, print HDD location
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
         GLOGDEBUG << "Token " << *cit << " disk path: "
-                  << smDiskMap->getDiskPath(*cit, diskio::diskTier);
+                  << smDiskMap->getDiskPath(*cit, tier);
     }
 }
 
@@ -133,7 +140,7 @@ TEST(SmDiskMap, basic) {
     SmUtUtils::cleanAllInDir(devPath);
 }
 
-TEST(SmDiskMap, no_ssds) {
+TEST(SmDiskMap, all_hdds) {
     Error err(ERR_OK);
     fds_uint32_t sm_count = 1;
     fds_uint32_t hdd_count = 10;
@@ -159,6 +166,36 @@ TEST(SmDiskMap, no_ssds) {
 
     // cleanup
     SmUtUtils::cleanAllInDir(devPath);
+}
+
+TEST(SmDiskMap, all_flash) {
+    Error err(ERR_OK);
+    fds_uint32_t sm_count = 1;
+    fds_uint32_t ssd_count = 1;
+
+    for (ssd_count = 1; ssd_count <= 16; ssd_count += 7) {
+        // start clean
+        const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+        const std::string devPath = dir->dir_dev();
+        SmUtUtils::cleanAllInDir(devPath);
+
+        // create our own disk map
+        SmUtUtils::setupDiskMap(dir, 0, ssd_count);
+
+        SmDiskMap::ptr smDiskMap = loadDiskMap(sm_count);
+        printSmTokens(smDiskMap);
+
+        // we should get ssd_count number of disk IDs for SSDs
+        DiskIdSet ssdIds = smDiskMap->getDiskIds(diskio::flashTier);
+        EXPECT_EQ(ssd_count, ssdIds.size());
+
+        // we should get empty disk set for HDDs
+        DiskIdSet hddIds = smDiskMap->getDiskIds(diskio::diskTier);
+        EXPECT_EQ(0, hddIds.size());
+
+        // cleanup
+        SmUtUtils::cleanAllInDir(devPath);
+    }
 }
 
 TEST(SmDiskMap, up_down) {

@@ -328,277 +328,13 @@ set(SOURCE_FILES
     leveldb-1.15.0/util/testharness.h
     leveldb-1.15.0/util/testutil.cc
     leveldb-1.15.0/util/testutil.h
-    nginx/auto/lib/zlib/patch.zlib.h
-    nginx/objs/ngx_auto_config.h
-    nginx/objs/ngx_auto_headers.h
-    nginx/objs/ngx_modules.c
-    nginx/src/core/nginx.c
-    nginx/src/core/nginx.h
-    nginx/src/core/ngx_array.c
-    nginx/src/core/ngx_array.h
-    nginx/src/core/ngx_buf.c
-    nginx/src/core/ngx_buf.h
-    nginx/src/core/ngx_conf_file.c
-    nginx/src/core/ngx_conf_file.h
-    nginx/src/core/ngx_config.h
-    nginx/src/core/ngx_connection.c
-    nginx/src/core/ngx_connection.h
-    nginx/src/core/ngx_core.h
-    nginx/src/core/ngx_cpuinfo.c
-    nginx/src/core/ngx_crc.h
-    nginx/src/core/ngx_crc32.c
-    nginx/src/core/ngx_crc32.h
-    nginx/src/core/ngx_crypt.c
-    nginx/src/core/ngx_crypt.h
-    nginx/src/core/ngx_cycle.c
-    nginx/src/core/ngx_cycle.h
-    nginx/src/core/ngx_file.c
-    nginx/src/core/ngx_file.h
-    nginx/src/core/ngx_hash.c
-    nginx/src/core/ngx_hash.h
-    nginx/src/core/ngx_inet.c
-    nginx/src/core/ngx_inet.h
-    nginx/src/core/ngx_list.c
-    nginx/src/core/ngx_list.h
-    nginx/src/core/ngx_log.c
-    nginx/src/core/ngx_log.h
-    nginx/src/core/ngx_md5.c
-    nginx/src/core/ngx_md5.h
-    nginx/src/core/ngx_murmurhash.c
-    nginx/src/core/ngx_murmurhash.h
-    nginx/src/core/ngx_open_file_cache.c
-    nginx/src/core/ngx_open_file_cache.h
-    nginx/src/core/ngx_output_chain.c
-    nginx/src/core/ngx_palloc.c
-    nginx/src/core/ngx_palloc.h
-    nginx/src/core/ngx_parse.c
-    nginx/src/core/ngx_parse.h
-    nginx/src/core/ngx_queue.c
-    nginx/src/core/ngx_queue.h
-    nginx/src/core/ngx_radix_tree.c
-    nginx/src/core/ngx_radix_tree.h
-    nginx/src/core/ngx_rbtree.c
-    nginx/src/core/ngx_rbtree.h
-    nginx/src/core/ngx_regex.c
-    nginx/src/core/ngx_regex.h
-    nginx/src/core/ngx_resolver.c
-    nginx/src/core/ngx_resolver.h
-    nginx/src/core/ngx_sha1.h
-    nginx/src/core/ngx_shmtx.c
-    nginx/src/core/ngx_shmtx.h
-    nginx/src/core/ngx_slab.c
-    nginx/src/core/ngx_slab.h
-    nginx/src/core/ngx_spinlock.c
-    nginx/src/core/ngx_string.c
-    nginx/src/core/ngx_string.h
-    nginx/src/core/ngx_times.c
-    nginx/src/core/ngx_times.h
-    nginx/src/event/modules/ngx_aio_module.c
-    nginx/src/event/modules/ngx_devpoll_module.c
-    nginx/src/event/modules/ngx_epoll_module.c
-    nginx/src/event/modules/ngx_eventport_module.c
-    nginx/src/event/modules/ngx_kqueue_module.c
-    nginx/src/event/modules/ngx_poll_module.c
-    nginx/src/event/modules/ngx_rtsig_module.c
-    nginx/src/event/modules/ngx_select_module.c
-    nginx/src/event/modules/ngx_win32_select_module.c
-    nginx/src/event/ngx_event.c
-    nginx/src/event/ngx_event.h
-    nginx/src/event/ngx_event_accept.c
-    nginx/src/event/ngx_event_busy_lock.c
-    nginx/src/event/ngx_event_busy_lock.h
-    nginx/src/event/ngx_event_connect.c
-    nginx/src/event/ngx_event_connect.h
-    nginx/src/event/ngx_event_mutex.c
-    nginx/src/event/ngx_event_openssl.c
-    nginx/src/event/ngx_event_openssl.h
-    nginx/src/event/ngx_event_openssl_stapling.c
-    nginx/src/event/ngx_event_pipe.c
-    nginx/src/event/ngx_event_pipe.h
-    nginx/src/event/ngx_event_posted.c
-    nginx/src/event/ngx_event_posted.h
-    nginx/src/event/ngx_event_timer.c
-    nginx/src/event/ngx_event_timer.h
-    nginx/src/http/modules/perl/ngx_http_perl_module.c
-    nginx/src/http/modules/perl/ngx_http_perl_module.h
-    nginx/src/http/modules/ngx_http_access_module.c
-    nginx/src/http/modules/ngx_http_addition_filter_module.c
-    nginx/src/http/modules/ngx_http_auth_basic_module.c
-    nginx/src/http/modules/ngx_http_auth_request_module.c
-    nginx/src/http/modules/ngx_http_autoindex_module.c
-    nginx/src/http/modules/ngx_http_browser_module.c
-    nginx/src/http/modules/ngx_http_charset_filter_module.c
-    nginx/src/http/modules/ngx_http_chunked_filter_module.c
-    nginx/src/http/modules/ngx_http_dav_module.c
-    nginx/src/http/modules/ngx_http_degradation_module.c
-    nginx/src/http/modules/ngx_http_empty_gif_module.c
-    nginx/src/http/modules/ngx_http_fastcgi_module.c
-    nginx/src/http/modules/ngx_http_flv_module.c
-    nginx/src/http/modules/ngx_http_geo_module.c
-    nginx/src/http/modules/ngx_http_geoip_module.c
-    nginx/src/http/modules/ngx_http_gunzip_filter_module.c
-    nginx/src/http/modules/ngx_http_gzip_filter_module.c
-    nginx/src/http/modules/ngx_http_gzip_static_module.c
-    nginx/src/http/modules/ngx_http_headers_filter_module.c
-    nginx/src/http/modules/ngx_http_image_filter_module.c
-    nginx/src/http/modules/ngx_http_index_module.c
-    nginx/src/http/modules/ngx_http_limit_conn_module.c
-    nginx/src/http/modules/ngx_http_limit_req_module.c
-    nginx/src/http/modules/ngx_http_log_module.c
-    nginx/src/http/modules/ngx_http_map_module.c
-    nginx/src/http/modules/ngx_http_memcached_module.c
-    nginx/src/http/modules/ngx_http_mp4_module.c
-    nginx/src/http/modules/ngx_http_not_modified_filter_module.c
-    nginx/src/http/modules/ngx_http_proxy_module.c
-    nginx/src/http/modules/ngx_http_random_index_module.c
-    nginx/src/http/modules/ngx_http_range_filter_module.c
-    nginx/src/http/modules/ngx_http_realip_module.c
-    nginx/src/http/modules/ngx_http_referer_module.c
-    nginx/src/http/modules/ngx_http_rewrite_module.c
-    nginx/src/http/modules/ngx_http_scgi_module.c
-    nginx/src/http/modules/ngx_http_secure_link_module.c
-    nginx/src/http/modules/ngx_http_split_clients_module.c
-    nginx/src/http/modules/ngx_http_ssi_filter_module.c
-    nginx/src/http/modules/ngx_http_ssi_filter_module.h
-    nginx/src/http/modules/ngx_http_ssl_module.c
-    nginx/src/http/modules/ngx_http_ssl_module.h
-    nginx/src/http/modules/ngx_http_static_module.c
-    nginx/src/http/modules/ngx_http_stub_status_module.c
-    nginx/src/http/modules/ngx_http_sub_filter_module.c
-    nginx/src/http/modules/ngx_http_upstream_ip_hash_module.c
-    nginx/src/http/modules/ngx_http_upstream_keepalive_module.c
-    nginx/src/http/modules/ngx_http_upstream_least_conn_module.c
-    nginx/src/http/modules/ngx_http_userid_filter_module.c
-    nginx/src/http/modules/ngx_http_uwsgi_module.c
-    nginx/src/http/modules/ngx_http_xslt_filter_module.c
-    nginx/src/http/ngx_http.c
-    nginx/src/http/ngx_http.h
-    nginx/src/http/ngx_http_busy_lock.c
-    nginx/src/http/ngx_http_busy_lock.h
-    nginx/src/http/ngx_http_cache.h
-    nginx/src/http/ngx_http_config.h
-    nginx/src/http/ngx_http_copy_filter_module.c
-    nginx/src/http/ngx_http_core_module.c
-    nginx/src/http/ngx_http_core_module.h
-    nginx/src/http/ngx_http_file_cache.c
-    nginx/src/http/ngx_http_header_filter_module.c
-    nginx/src/http/ngx_http_parse.c
-    nginx/src/http/ngx_http_parse_time.c
-    nginx/src/http/ngx_http_postpone_filter_module.c
-    nginx/src/http/ngx_http_request.c
-    nginx/src/http/ngx_http_request.h
-    nginx/src/http/ngx_http_request_body.c
-    nginx/src/http/ngx_http_script.c
-    nginx/src/http/ngx_http_script.h
-    nginx/src/http/ngx_http_spdy.c
-    nginx/src/http/ngx_http_spdy.h
-    nginx/src/http/ngx_http_spdy_filter_module.c
-    nginx/src/http/ngx_http_spdy_module.c
-    nginx/src/http/ngx_http_spdy_module.h
-    nginx/src/http/ngx_http_special_response.c
-    nginx/src/http/ngx_http_upstream.c
-    nginx/src/http/ngx_http_upstream.h
-    nginx/src/http/ngx_http_upstream_round_robin.c
-    nginx/src/http/ngx_http_upstream_round_robin.h
-    nginx/src/http/ngx_http_variables.c
-    nginx/src/http/ngx_http_variables.h
-    nginx/src/http/ngx_http_write_filter_module.c
-    nginx/src/mail/ngx_mail.c
-    nginx/src/mail/ngx_mail.h
-    nginx/src/mail/ngx_mail_auth_http_module.c
-    nginx/src/mail/ngx_mail_core_module.c
-    nginx/src/mail/ngx_mail_handler.c
-    nginx/src/mail/ngx_mail_imap_handler.c
-    nginx/src/mail/ngx_mail_imap_module.c
-    nginx/src/mail/ngx_mail_imap_module.h
-    nginx/src/mail/ngx_mail_parse.c
-    nginx/src/mail/ngx_mail_pop3_handler.c
-    nginx/src/mail/ngx_mail_pop3_module.c
-    nginx/src/mail/ngx_mail_pop3_module.h
-    nginx/src/mail/ngx_mail_proxy_module.c
-    nginx/src/mail/ngx_mail_smtp_handler.c
-    nginx/src/mail/ngx_mail_smtp_module.c
-    nginx/src/mail/ngx_mail_smtp_module.h
-    nginx/src/mail/ngx_mail_ssl_module.c
-    nginx/src/mail/ngx_mail_ssl_module.h
-    nginx/src/main/nginx_main.c
-    nginx/src/misc/ngx_cpp_test_module.cpp
-    nginx/src/misc/ngx_google_perftools_module.c
-    nginx/src/os/unix/ngx_aio_read.c
-    nginx/src/os/unix/ngx_aio_read_chain.c
-    nginx/src/os/unix/ngx_aio_write.c
-    nginx/src/os/unix/ngx_aio_write_chain.c
-    nginx/src/os/unix/ngx_alloc.c
-    nginx/src/os/unix/ngx_alloc.h
-    nginx/src/os/unix/ngx_atomic.h
-    nginx/src/os/unix/ngx_channel.c
-    nginx/src/os/unix/ngx_channel.h
-    nginx/src/os/unix/ngx_daemon.c
-    nginx/src/os/unix/ngx_darwin.h
-    nginx/src/os/unix/ngx_darwin_config.h
-    nginx/src/os/unix/ngx_darwin_init.c
-    nginx/src/os/unix/ngx_darwin_sendfile_chain.c
-    nginx/src/os/unix/ngx_errno.c
-    nginx/src/os/unix/ngx_errno.h
-    nginx/src/os/unix/ngx_file_aio_read.c
-    nginx/src/os/unix/ngx_files.c
-    nginx/src/os/unix/ngx_files.h
-    nginx/src/os/unix/ngx_freebsd.h
-    nginx/src/os/unix/ngx_freebsd_config.h
-    nginx/src/os/unix/ngx_freebsd_init.c
-    nginx/src/os/unix/ngx_freebsd_rfork_thread.c
-    nginx/src/os/unix/ngx_freebsd_rfork_thread.h
-    nginx/src/os/unix/ngx_freebsd_sendfile_chain.c
-    nginx/src/os/unix/ngx_gcc_atomic_amd64.h
-    nginx/src/os/unix/ngx_gcc_atomic_ppc.h
-    nginx/src/os/unix/ngx_gcc_atomic_sparc64.h
-    nginx/src/os/unix/ngx_gcc_atomic_x86.h
-    nginx/src/os/unix/ngx_linux.h
-    nginx/src/os/unix/ngx_linux_aio_read.c
-    nginx/src/os/unix/ngx_linux_config.h
-    nginx/src/os/unix/ngx_linux_init.c
-    nginx/src/os/unix/ngx_linux_sendfile_chain.c
-    nginx/src/os/unix/ngx_os.h
-    nginx/src/os/unix/ngx_posix_config.h
-    nginx/src/os/unix/ngx_posix_init.c
-    nginx/src/os/unix/ngx_process.c
-    nginx/src/os/unix/ngx_process.h
-    nginx/src/os/unix/ngx_process_cycle.c
-    nginx/src/os/unix/ngx_process_cycle.h
-    nginx/src/os/unix/ngx_pthread_thread.c
-    nginx/src/os/unix/ngx_readv_chain.c
-    nginx/src/os/unix/ngx_recv.c
-    nginx/src/os/unix/ngx_send.c
-    nginx/src/os/unix/ngx_setaffinity.c
-    nginx/src/os/unix/ngx_setaffinity.h
-    nginx/src/os/unix/ngx_setproctitle.c
-    nginx/src/os/unix/ngx_setproctitle.h
-    nginx/src/os/unix/ngx_shmem.c
-    nginx/src/os/unix/ngx_shmem.h
-    nginx/src/os/unix/ngx_socket.c
-    nginx/src/os/unix/ngx_socket.h
-    nginx/src/os/unix/ngx_solaris.h
-    nginx/src/os/unix/ngx_solaris_config.h
-    nginx/src/os/unix/ngx_solaris_init.c
-    nginx/src/os/unix/ngx_solaris_sendfilev_chain.c
-    nginx/src/os/unix/ngx_sunpro_atomic_sparc64.h
-    nginx/src/os/unix/ngx_thread.h
-    nginx/src/os/unix/ngx_time.c
-    nginx/src/os/unix/ngx_time.h
-    nginx/src/os/unix/ngx_udp_recv.c
-    nginx/src/os/unix/ngx_user.c
-    nginx/src/os/unix/ngx_user.h
-    nginx/src/os/unix/ngx_writev_chain.c
     source/access-mgr/amlib/handlers/responsehandler.cpp
     source/access-mgr/amlib/AccessMgr.cpp
     source/access-mgr/amlib/am-tx-mgr.cpp
-    source/access-mgr/amlib/AmAsyncResponseApi.cpp
-    source/access-mgr/amlib/AmAsyncService.cpp
     source/access-mgr/amlib/AmCache.cpp
     source/access-mgr/amlib/AmDataApi.cpp
     source/access-mgr/amlib/AmDispatcher.cpp
     source/access-mgr/amlib/AmProcessor.cpp
-    source/access-mgr/amlib/fdsn-server.cpp
     source/access-mgr/amlib/requests.cpp
     source/access-mgr/include/requests/AbortBlobTxReq.h
     source/access-mgr/include/requests/AttachVolBlobReq.h
@@ -618,14 +354,12 @@ set(SOURCE_FILES
     source/access-mgr/include/am-tx-mgr.h
     source/access-mgr/include/AmAsyncDataApi.h
     source/access-mgr/include/AmAsyncResponseApi.h
-    source/access-mgr/include/AmAsyncService.h
     source/access-mgr/include/AmCache.h
     source/access-mgr/include/AmDataApi.h
     source/access-mgr/include/AmDispatcher.h
     source/access-mgr/include/AmProcessor.h
     source/access-mgr/include/AmRequest.h
     source/access-mgr/include/AMSvcHandler.h
-    source/access-mgr/include/fdsn-server.h
     source/access-mgr/include/responsehandler.h
     source/access-mgr/include/StorHvVolumes.h
     source/access-mgr/platform/am-node-workflow.cpp
@@ -849,9 +583,6 @@ set(SOURCE_FILES
     source/include/net/SvcRequestPool.h
     source/include/net/SvcRequestTracker.h
     source/include/net-proxies/vol_policy.h
-    source/include/nginx-driver/atmos-connector.h
-    source/include/nginx-driver/http_utils.h
-    source/include/nginx-driver/s3connector.h
     source/include/orch-mgr/om-service.h
     source/include/persistent-layer/dm_io.h
     source/include/persistent-layer/dm_metadata.h
@@ -1025,10 +756,6 @@ set(SOURCE_FILES
     source/net-service/svc_request/SvcRequest.cpp
     source/net-service/svc_request/SvcRequestPool.cpp
     source/net-service/svc_request/SvcRequestTracker.cpp
-    source/nginx-driver/misc/atmos-connector.cpp
-    source/nginx-driver/misc/http_utils.cpp
-    source/nginx-driver/misc/s3connector.cpp
-    source/nginx-driver/am-plugin.h
     source/orch-mgr/configservice/configservice.cpp
     source/orch-mgr/configservice/convert.cpp
     source/orch-mgr/include/snapshot/deletedispatcher.h

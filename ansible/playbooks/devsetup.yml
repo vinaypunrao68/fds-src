@@ -2,14 +2,50 @@
 -   name: install needed packages for devsetup
     hosts: localhost
     sudo: yes
+    vars:
+        - influxdb_version: 0.8.8
 
     tasks:
+
+    - name: create /corefiles directory
+      file: path=/corefiles
+        state=directory
+        owner=root
+        group=root
+        mode=0777
+
+    - name: set sysctl config
+      sysctl: name={{item.key}} value={{item.value.value}} state={{item.value.state}}
+      with_dict:
+        kernel.core_pattern:
+            value: /corefiles
+            state: present
+        fs.file-max:
+            value: 400000
+            state: present
+        kernel.core_uses_pid:
+            value: 1
+            state: present
+        fs.suid_dumpable:
+            value: 1
+            state: present
+
+    -   name: install_limits_conf
+        template:
+            src=../templates/deploy_fds/fds_limits.conf
+            dest=/etc/security/limits.conf
+            owner=root
+            group=root
+            mode=0644
 
     - name: add JRE ppa
       apt_repository: repo=ppa:webupd8team/java state=present
 
     - name: add redis-server ppa
       apt_repository: repo=ppa:chris-lea/redis-server state=present
+
+    - name: add artifactory repo key
+      apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
 
     - name: add fds repo
       apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main" state=present
@@ -36,6 +72,9 @@
         - libboost-thread1.54
         - libboost-regex1.54
 
+    - name: install latest fds-deps package
+      apt: name=fds-deps force=yes state=latest update_cache=yes cache_valid_time=600
+
     - name: install os packages
       apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
       with_items:
@@ -43,8 +82,11 @@
         - binutils-dev
         - cmake
         - cpanminus
-        - fds-deps
         - git
+        - libapr1-dev
+        - libconfuse-dev
+        - libxml2-dev
+        - libxslt1-dev
         - linux-generic
         - linux-headers-generic
         - linux-image-generic
@@ -90,6 +132,7 @@
         - google-perftools
         - libgoogle-perftools-dev
         - libconfig++-dev
+        - libcurl4-openssl-dev
         - oracle-java8-installer
         - npm
         - nodejs-legacy
@@ -157,3 +200,21 @@
         owner=root
         mode=0777
         state=directory
+
+    - name: get InfluxDB package
+      get_url: url=https://s3.amazonaws.com/influxdb/influxdb_{{ influxdb_version }}_amd64.deb
+           dest=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+           validate_certs=no
+           sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
+
+    -   name: create influxdb user and group
+        group: name=influxdb
+
+    -   user: name=influxdb
+           createhome=no
+           group=influxdb
+
+    -   name: install InfluxDB
+        apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+        register: install
+

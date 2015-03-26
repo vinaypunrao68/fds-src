@@ -1,140 +1,115 @@
 package com.formationds.commons.model.type;
 
-import java.util.Optional;
-
-import FDS_ProtocolInterface.FDSP_Node_Info_Type;
-
+import com.formationds.protocol.FDSP_MgrIdType;
+import com.formationds.protocol.FDSP_NodeState;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.model.AccessManagerService;
 import com.formationds.commons.model.DataManagerService;
 import com.formationds.commons.model.OrchestrationManagerService;
 import com.formationds.commons.model.PlatformManagerService;
 import com.formationds.commons.model.Service;
 import com.formationds.commons.model.StorageManagerService;
+import java.util.Optional;
 
 public enum ServiceType {
 
-        PM {
-            @Override
-            public boolean is( final int controlPort ) {
-                return ( ( controlPort >= 7000 ) && ( controlPort < 7009 ) );
-            }
-
-            @Override
-            public ManagerType type( ) {
-                return ManagerType.FDSP_PLATFORM;
-            }
-        },
-        SM {
-            @Override
-            public boolean is( final int controlPort ) {
-                return ( ( controlPort >= 7020 ) && ( controlPort < 7029 ) );
-            }
-
-            @Override
-            public ManagerType type( ) {
-                return ManagerType.FDSP_STOR_MGR;
-            }
-        },
-        DM {
-            @Override
-            public boolean is( final int controlPort ) {
-                return ( ( controlPort >= 7030 ) && ( controlPort < 7039 ) );
-            }
-
-            @Override
-            public ManagerType type( ) {
-                return ManagerType.FDSP_DATA_MGR;
-            }
-        },
-        AM {
-            @Override
-            public boolean is( final int controlPort ) {
-                return ( ( controlPort >= 7040 ) && ( controlPort < 7049 ) );
-            }
-
-            @Override
-            public ManagerType type( ) {
-                return ManagerType.FDSP_STOR_HVISOR;
-            }
-        };
-
-        public ManagerType type( ) {
-            throw new AbstractMethodError();
-        }
-
-        public boolean is( final int controlPort ) {
-            throw new AbstractMethodError();
-        }
+        PM,
+        SM,
+        DM,
+        AM,
+        OM;
 
         public static Optional<Service> find( final FDSP_Node_Info_Type fdspNodeInfoType ) {
 
-            Service service = null;
+            Optional<Service> service = Optional.empty();
 
-            if( AM.is( fdspNodeInfoType.getControl_port() ) ) {
-
-            	service = buildService( AM, fdspNodeInfoType );
-
-            } else if( DM.is( fdspNodeInfoType.getControl_port() ) ) {
-
-                service = buildService( DM,  fdspNodeInfoType );
-                
-            } else if( PM.is( fdspNodeInfoType.getControl_port() ) ) {
-
-                service = buildService( PM, fdspNodeInfoType );
-                
-            } else if( SM.is( fdspNodeInfoType.getControl_port() ) ) {
-
-                service = buildService( SM,  fdspNodeInfoType );
+            final FDSP_MgrIdType type = fdspNodeInfoType.getNode_type();
+            switch( type ) {
+                case FDSP_STOR_HVISOR:
+                    service = buildService( AM, fdspNodeInfoType );
+                    break;
+                case FDSP_DATA_MGR:
+                    service = buildService( DM, fdspNodeInfoType );
+                    break;
+                case FDSP_PLATFORM:
+                    service = buildService( PM, fdspNodeInfoType );
+                    break;
+                case FDSP_STOR_MGR:
+                    service = buildService( SM, fdspNodeInfoType );
+                    break;
+                case FDSP_ORCH_MGR:
+                    service = buildService( OM, fdspNodeInfoType );
+                    break;
             }
 
 
-            return service == null ? Optional.<Service>empty() : Optional.of( service );
+            return service;
         }
         
         /**
          * Helper to build a service of a particular type
          * 
-         * @param serviceType
-         * @return
+         * @param serviceType the {@link com.formationds.commons.model.type.ServiceType}
+         * @param fdspNodeInfoType the {@link FDS_ProtocolInterface.FDSP_Node_Info_Type}
+         *
+         * @return Returns {@link java.util.Optional} with the
+         *         {@link com.formationds.commons.model.Service} set if found.
+         *         Otherwise, Optional.empty().
          */
-        private static Service buildService( final ServiceType serviceType, final FDSP_Node_Info_Type fdspNodeInfoType ){
+        private static Optional<Service> buildService(
+            final ServiceType serviceType,
+            final FDSP_Node_Info_Type fdspNodeInfoType ) {
         	
-        	Service service = null;
+        	Optional<Service> service = Optional.empty();
         	
-        	switch( serviceType ){
-        		case DM:
-        			service = new DataManagerService();
-        			break;
-        		case AM:
-        			service = new AccessManagerService();
-        			break;
-        		case PM:
-        			service = new PlatformManagerService();
-        			break;
-        		case SM:
-        			service = new StorageManagerService();
-        			break;
-        		default:
-        			service = new OrchestrationManagerService();
-        			break;
-        	}
-        	
-        	service.setAutoName( serviceType.name() );
-        	service.setPort( fdspNodeInfoType.getControl_port() );
-        	service.setUuid( fdspNodeInfoType.getNode_uuid() );
-        	service.setStatus( getServiceState() );
+        	switch( serviceType ) {
+                case AM:
+                    service = Optional.of( new AccessManagerService() );
+                    break;
+                case DM:
+                    service = Optional.of( new DataManagerService() );
+                    break;
+                case OM:
+                    service = Optional.of( new OrchestrationManagerService() );
+                    break;
+                case PM:
+                    service = Optional.of( new PlatformManagerService() );
+                    break;
+                case SM:
+                    service = Optional.of( new StorageManagerService() );
+                    break;
+             }
+
+            if( service.isPresent() ) {
+
+                service.get().setAutoName( serviceType.name() );
+                service.get().setPort( fdspNodeInfoType.getControl_port() );
+                service.get().setUuid( fdspNodeInfoType.getService_uuid() );
+                service.get()
+                       .setStatus(
+                           getServiceState(
+                               fdspNodeInfoType.getNode_state() ) );
+            }
         	
         	return service;
         }
 
-        private static ServiceStatus getServiceState( ) {
-            /*
-             * TODO (Tinius) get the correct state from the platformd
-             *
-             * Currently, the platformd doesn't provide real time
-             * monitoring of the processes it spawns ( forks ).
-             */
+        private static ServiceStatus getServiceState(
+            final FDSP_NodeState nodeState ) {
 
-            return ServiceStatus.ACTIVE;
+            switch( nodeState ) {
+                case FDS_Node_Discovered:
+                    return ServiceStatus.INACTIVE;
+                case FDS_Node_Down:
+                    return ServiceStatus.INACTIVE;
+                case FDS_Start_Migration:
+                    return ServiceStatus.INACTIVE;
+                case FDS_Node_Rmvd:
+                    return ServiceStatus.INVALID;
+                case FDS_Node_Up:
+                    return ServiceStatus.ACTIVE;
+            }
+
+            return ServiceStatus.INACTIVE;
         }
 }

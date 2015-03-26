@@ -17,7 +17,6 @@ user_fds_ar_libs  +=  \
     fds-smlib \
     fds-am-engine \
     fds-odb \
-    fds-sm-plat \
     fds-dsk-mgnt \
     fds-dsk-io \
     fds-hash \
@@ -31,11 +30,11 @@ user_non_fds_libs +=  \
 	pcre \
 	crypto \
 	z \
-	cryptopp \
     ssl \
     boost_timer \
     gmock \
     leveldb \
-    profiler
+    profiler \
+	pthread
 
 include $(topdir)/Makefile.incl

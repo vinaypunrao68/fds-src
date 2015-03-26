@@ -7,7 +7,7 @@
 #include <set>
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
-#include "fdsp/dm_service_types.h"
+#include "fdsp/dm_api_types.h"
 
 namespace fds {
 
@@ -15,6 +15,7 @@ VolumePlacement::VolumePlacement()
         : Module("Volume Placement Engine"),
           dmtMgr(new DMTManager(1)),
           prevDmtVersion(DMT_VER_INVALID),
+          startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex")
 {
@@ -96,13 +97,17 @@ void
 VolumePlacement::computeDMT(const ClusterMap* cmap)
 {
     Error err(ERR_OK);
-    fds_uint64_t next_version = DMT_VER_INVALID + 1;
+    fds_uint64_t next_version = startDmtVersion;
     fds_uint32_t depth = curDmtDepth;
     DMT *newDmt = NULL;
 
     // if we alreay have commited DMT, next version is inc 1
     if (dmtMgr->hasCommittedDMT()) {
         next_version = dmtMgr->getCommittedVersion() + 1;
+    } else {
+        // will use startDmtVersion, but increment startDmtVersion
+        // in case this DMT will be reverted (due to error)
+        ++startDmtVersion;
     }
     if (cmap->getNumMembers(fpi::FDSP_DATA_MGR) < curDmtDepth) {
         depth = cmap->getNumMembers(fpi::FDSP_DATA_MGR);
@@ -258,7 +263,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                  idx < ((push_meta_msgs[src_dm])->metaVol).size();
                  ++idx) {
                 fds_uint64_t uuid_val;
-                uuid_val = ((push_meta_msgs[src_dm])->metaVol)[idx].node_uuid.uuid;
+                uuid_val = ((push_meta_msgs[src_dm])->metaVol)[idx].node_uuid.svc_uuid;
                 if (uuid_val == (*cit).uuid_get_val()) {
                     ((push_meta_msgs[src_dm])->metaVol)[idx].volList.push_back(volid);
                     found = true;
@@ -267,7 +272,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
             }
             if (!found) {
                 fpi::FDSP_metaData meta;
-                meta.node_uuid.uuid = (*cit).uuid_get_val();
+                meta.node_uuid = (*cit).toSvcUuid();
                 meta.volList.push_back(volid);
                 ((push_meta_msgs[src_dm])->metaVol).push_back(meta);
             }
@@ -285,7 +290,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 volid_str.append(",");
             }
             LOGDEBUG << "Src node " << std::hex << it->first << ", Dst node "
-                     << metavol.node_uuid.uuid << std::dec << " volumes " << volid_str;
+                     << metavol.node_uuid.svc_uuid << std::dec << " volumes " << volid_str;
         }
         if (OM_NodeDomainMod::om_in_test_mode()) {
             LOGDEBUG << "IN TEST MODE: not sending push meta messages";
@@ -346,8 +351,8 @@ VolumePlacement::undoTargetDmtCommit() {
             prevDmtVersion = DMT_VER_INVALID;
         }
 
-        // forget about target DMT
-        dmtMgr->unsetTarget();
+        // forget about target DMT and remove it from DMT manager
+        dmtMgr->unsetTarget(true);
 
         // also forget target DMT in persistent store
         if (!configDB->setDmtType(0, "target")) {
@@ -397,7 +402,7 @@ VolumePlacement::persistCommitedTargetDmt() {
     LOGDEBUG << *dmtMgr;
 
     // unset target DMT in DMT Mgr
-    Error err = dmtMgr->unsetTarget();
+    Error err = dmtMgr->unsetTarget(false);
     if (!err.ok()) {
         LOGERROR << "Failed to unset DMT target " << err;
     }

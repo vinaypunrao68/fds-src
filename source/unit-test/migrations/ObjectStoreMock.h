@@ -16,8 +16,6 @@
 #include <util/Log.h>
 #include <fds_assert.h>
 #include <fdsp/FDSP_types.h>
-#include <fdsp/FDSP_DataPathReq.h>
-#include <fdsp/FDSP_DataPathResp.h>
 #include <concurrency/Mutex.h>
 #include <StorMgrVolumes.h>
 #include <dlt.h>

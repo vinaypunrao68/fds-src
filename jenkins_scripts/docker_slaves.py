@@ -89,6 +89,7 @@ def start_slave(name):
     print "Starting slave %s" % name
     ssh_port = get_slave_port(name)
     shm_dir = "/dev/shm/ccache-%s" % name
+    nbd_lock_dir = "/tmp/nbdadm/"
     conn = get_conn(name)
     if not exists(conn, name):
         container = create_container(conn, name)
@@ -96,7 +97,16 @@ def start_slave(name):
         container = get_container_by_name(conn, name)
 
     conn.start(container, port_bindings={22: ssh_port}, publish_all_ports=True,
-            privileged=True, binds={shm_dir: { 'bind': '/mnt/ccache', 'ro': False } })
+            privileged=True, binds={
+                shm_dir: {
+                    'bind': '/mnt/ccache',
+                    'ro': False
+                },
+                nbd_lock_dir: {
+                    'bind': '/tmp/nbdadm',
+                    'ro': False
+                }
+            })
 
 def restart_slave(name):
     print "Restarting slave %s" % name

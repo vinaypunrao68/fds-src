@@ -15,6 +15,7 @@ from tabulate import tabulate
 
 from contexts.svchelper import ServiceMap
 # import needed contexts
+from contexts import domain
 from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
@@ -450,7 +451,7 @@ class FDSConsole(cmd.Cmd):
             else:
                 ctx, pos, m = self.get_context_for_command(argv)
                 if ctx == None:
-                    print 'unable to determine correct context!!!'
+                    print 'unable to determine correct context or function!!!'
                     ctx = self.context
                     pos = 0
                 #print 'dispatching : %s' % (argv[pos:])            
@@ -468,6 +469,7 @@ class FDSConsole(cmd.Cmd):
         return ''
 
     def init(self):
+        self.root.add_sub_context(domain.DomainContext(self.config,'domain'))
         vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
         snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))

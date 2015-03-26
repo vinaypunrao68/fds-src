@@ -38,14 +38,14 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         nodes = fdscfg.rt_obj.cfg_nodes
         fds_root = nodes[0].nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        sbin_dir = fdscfg.rt_env.get_tools_dir()
         global pwd
         cur_dir = os.getcwd()
-        os.chdir(bin_dir)
+        os.chdir(sbin_dir)
 
         # Block volume create command
         # TODO(Andrew): Don't hard code volume name
-        blkCrtCmd = "./fdscli --fds-root=" + fds_root + " --volume-create blockVolume -i 1 -s 10240 -p 50 -y blk"
+        blkCrtCmd = "./fdsconsole.py accesslevel debug && ./fdsconsole.py volume create  volume1 --vol-type block --blk-dev-size 10485760"
         result = subprocess.call(blkCrtCmd, shell=True)
         if result != 0:
             os.chdir(cur_dir)
@@ -53,7 +53,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
             return False
         time.sleep(5)
 
-        blkModCmd = "./fdscli --fds-root=" + fds_root + " --volume-modify \"blockVolume\" -s 10240 -g 0 -m 0 -r 10"
+        blkModCmd = "./fdsconsole.py volume modify volume1 --minimum 0 --maximum 10000 --priority 1"
         result = subprocess.call(blkModCmd, shell=True)
         if result != 0:
             os.chdir(cur_dir)
@@ -88,7 +88,7 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        volume = 'blockVolume'
+        volume = 'volume1'
 
         # Check if a volume was passed to us.
         if self.passedVolume is not None:
@@ -241,7 +241,7 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=rand-readers --readwrite=readwrite --ioengine=libaio --direct=1 --bs=4k --iodepth=128 --numjobs=4 --size=10485760 --filename=%s" % (nbd_device)
+        fioCmd = "sudo fio --name=rand-readers --readwrite=readwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=4 --size=10485760 --filename=%s" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run read/write workload")
@@ -250,6 +250,31 @@ class TestBlockFioRW(TestCase.FDSTestCase):
 
         return True
 
+# This class contains the attributes and methods to test
+# reading/writing random block data
+#
+class TestBlockFioRandRW(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BlockFioReadWrite,
+                                             "Reading/writing a block volume")
+
+    def test_BlockFioReadWrite(self):
+        """
+        Test Case:
+        Attempt to random read/write to a block volume.
+        """
+
+        # TODO(Andrew): Don't hard code all of this stuff...
+        fioCmd = "sudo fio --name=rand-readers --readwrite=randrw --ioengine=libaio --direct=1 --bs=512-128k --iodepth=128 --numjobs=1 --size=10485760 --filename=%s" % (nbd_device)
+        result = subprocess.call(fioCmd, shell=True)
+        if result != 0:
+            self.log.error("Failed to run random read/write workload")
+            return False
+        time.sleep(5)
+
+        return True
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

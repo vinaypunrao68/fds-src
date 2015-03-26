@@ -84,6 +84,16 @@ public enum Metrics {
     public String key() {
         return this.key;
     }
+    
+    /**
+     * Takes a string and checks it against both the name and the 
+     * @param aValue
+     * @return
+     */
+    public boolean matches( String aValue ) {
+    	
+    	return ( aValue.equalsIgnoreCase( this.key() ) || aValue.equalsIgnoreCase( this.name() ) );
+    }
 
     /**
      * @param metadataKey the case sensitive {@link String} representing the

@@ -133,21 +133,24 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
                               SmIoSnapshotObjectDB* snapReq) {
     Error err(ERR_OK);
     std::string snapDir;
-
+    leveldb::CopyEnv *env = nullptr;
     /**
      * Snapshots will be stored in
-     * /fds/user-repo/sm-snapshots/<token_id><dlt_vers><snapshot# of SM token>
+     * /fds/user-repo/sm-snapshots/<token_id>_<dlt_vers>_executorID_<snapshot# of SM token>
      */
     snapDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot() + "user-repo/sm-snapshots/";
     FdsRootDir::fds_mkdir(snapDir.c_str());
     snapDir += boost::lexical_cast<std::string>(smTokId) +
                "_" +
                boost::lexical_cast<std::string>(snapReq->targetDltVersion) +
+               "_" +
+               boost::lexical_cast<std::string>(snapReq->executorId) +
+               "_" +
                snapReq->snapNum;
 
-    LOGDEBUG << "snapshot location " << snapDir << "snapNum" << snapReq->snapNum;
-    err = metaDb_->snapshot(smTokId, snapDir);
-    notifFn(err, snapReq, snapDir);
+    LOGDEBUG << "snapshot location " << snapDir << " snapNum" << snapReq->snapNum;
+    err = metaDb_->snapshot(smTokId, snapDir, &env);
+    notifFn(err, snapReq, snapDir, env);
 }
 
 }  // namespace fds

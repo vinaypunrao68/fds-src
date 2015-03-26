@@ -5,11 +5,12 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.ApiException;
-import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -325,7 +326,7 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId)
+    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId)
             throws ApiException, org.apache.thrift.TException {
         return config.listSnapshots(volumeId);
     }
@@ -352,6 +353,81 @@ public class XdiConfigurationApi implements ConfigurationApi {
         getCache().addVolume( clonedVol );
 
         return clonedVol.getVolId();
+    }
+
+    @Override
+    public long createLocalDomain(String domainName, String domainSite)
+            throws ApiException, TException {
+        long id = config.createLocalDomain(domainName, domainSite);
+        return id;
+    }
+
+    @Override
+    public List<LocalDomain> listLocalDomains(int ignore)
+            throws ApiException, TException {
+        return config.listLocalDomains(0);
+    }
+    
+    @Override
+    public void updateLocalDomainName(String oldDomainName, String newDomainName)
+        throws ApiException, TException {
+        config.updateLocalDomainName(oldDomainName, newDomainName);
+        return;
+    }
+    
+    @Override
+    public void updateLocalDomainSite(String domainName, String newSiteName)
+        throws ApiException, TException {
+        config.updateLocalDomainSite(domainName, newSiteName);
+        return;
+    }
+    
+    @Override
+    public void setThrottle(String domainName, double throttleLevel)
+        throws ApiException, TException {
+        config.setThrottle(domainName, throttleLevel);
+        return;
+    }
+    
+    @Override
+    public void setScavenger(String domainName, String scavengerAction)
+        throws ApiException, TException {
+        config.setScavenger(domainName, scavengerAction);
+        return;
+    }
+
+    @Override
+    public void shutdownLocalDomain(String domainName)
+            throws TException {
+        config.shutdownLocalDomain(domainName);
+        return;
+    }
+    
+    @Override
+    public void deleteLocalDomain(String domainName)
+        throws ApiException, TException {
+        config.deleteLocalDomain(domainName);
+        return;
+    }
+
+    @Override
+    public void activateLocalDomainServices(String domainName)
+            throws TException {
+        config.activateLocalDomainServices(domainName);
+        return;
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
+            throws TException {
+        return config.listLocalDomainServices(domainName);
+    }
+
+    @Override
+    public void removeLocalDomainServices(String domainName)
+            throws TException {
+        config.removeLocalDomainServices(domainName);
+        return;
     }
 
     public CachedConfiguration getCache() {

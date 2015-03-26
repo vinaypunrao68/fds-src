@@ -12,9 +12,6 @@ user_fds_ar_libs  :=  \
     fds-qos-lib \
     fds-am-engine \
     fds-am-connectors \
-    fds-am-plat \
-    fds-plat-lib \
-    fds-net-svc \
     fds-svc-request \
     fds-umod \
     fds-lib \
@@ -36,7 +33,7 @@ user_non_fds_libs :=  \
     thrift \
     jansson \
     config++ \
-    cryptopp \
+    crypto \
     gmock \
     hiredis \
     event \

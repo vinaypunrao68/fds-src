@@ -37,12 +37,31 @@ angular.module( 'charts' ).directive( 'treemap', function(){
                 
                 $scope.domain[0] = max;
                 
-                $colorScale = d3.scale.linear()
-//                    .domain( [max, 3600*12, 3600*6, 3600*3, 3600, 0] )
-                    .domain( $scope.domain )
-//                    .range( ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'] )
-                    .range( $scope.range )
-                    .clamp( $scope.clamp );
+//              Not feeling comfortable for removing this quite yet since it used to function
+//              appropriately.  The problem was making it a stepwise interpolation - the custom formula seems to work better            
+//                $colorScale = d3.scale.linear()
+////                    .domain( [max, 3600*12, 3600*6, 3600*3, 3600, 0] )
+//                    .domain( $scope.domain )
+////                    .range( ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'] )
+//                    .range( $scope.range );
+////                    .clamp( $scope.clamp );
+                
+                $colorScale = function( value ){
+                    var index = 0;
+                    
+                    for ( var i = 0; i < $scope.domain.length-1; i++ ){
+                        
+                        var dVal = $scope.domain[i+1];
+                        
+                        if ( value > dVal ){
+                            break;
+                        }
+                        
+                        index++;
+                    }
+                    
+                    return $scope.range[index];
+                };
             };
             
             var computeMap = function( c ){
@@ -126,7 +145,8 @@ angular.module( 'charts' ).directive( 'treemap', function(){
                                 val = $scope.transformValueFunction( val );
                             }
                             
-                            return $colorScale( val );
+                            var c = $colorScale( val );
+                            return c;
                         }
                         return $colorScale( 0 );
                     }})

@@ -28,14 +28,10 @@ for node in $hosts ; do
     ssh $node 'bash /tmp/redis.sh stop'
     echo "$node -> remove fds-platform-rel"
     ssh $node 'dpkg -P fds-platform-rel'
-    echo "$node -> clean up shared memory"
-    ssh $node 'rm -f /dev/shm/0x*-0'
     echo "$node -> unmount FDS disks"
     ssh $node 'umount /fds/dev/*'
     echo "$node -> remove /fds"
     ssh $node 'rm -fr /fds'
-    echo "fixing libcrypto"
-    ssh $node 'cp /usr/lib/libcryptopp.so /opt/fds-deps/embedded/lib/'
 done
 
 # deploy inventory file/confs
@@ -55,9 +51,9 @@ TEST_DIR=/regress/test-$RANDOM
 
 # run tests
 if [ "$TEST_NODE" = "local" ] ; then
-    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $CLUSTER -x
+    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -D $WORKSPACE --fds-nodes $CLUSTER -x
 else
-    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_NODE -D $WORKSPACE --fds-nodes $CLUSTER -x
+    ./run_experiment.py -m $OM_NODE -J $TEST_JSON -d $TEST_DIR -c 1 -t $TEST_NODE -D $WORKSPACE --fds-nodes $CLUSTER -x
 fi
 
 # stats processing

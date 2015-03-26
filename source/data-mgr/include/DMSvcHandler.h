@@ -4,7 +4,7 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/DMSvc.h>
 // TODO(Rao): Don't include DataMgr here.  The only reason we include now is
@@ -19,7 +19,7 @@ namespace fds {
 
 class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
  public:
-    DMSvcHandler();
+    explicit DMSvcHandler(CommonModuleProviderIf *provider);
 
     void startBlobTx(const fpi::AsyncHdr& asyncHdr,
                        const fpi::StartBlobTxMsg& startBlob) {

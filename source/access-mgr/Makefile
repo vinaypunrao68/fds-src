@@ -7,21 +7,16 @@ user_build_dir    := \
     amlib \
     stor-hvisor \
     connector \
-    platform \
     test
 
 user_incl_dir     := \
 	stor-hvisor \
-	include \
-	/usr/include/cryptopp
+	include
 
 user_fds_ar_libs  :=  \
     fds-qos-lib \
     fds-am-engine \
-    fds-am-plat \
     fds-am-connectors \
-    fds-plat-lib \
-    fds-net-svc \
     fds-svc-request \
     fds-umod \
     fds-lib \
@@ -30,16 +25,6 @@ user_fds_ar_libs  :=  \
     fds-hash \
     fds-thread \
     fds-osdep
-
-user_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core \
-    pthread crypt pcre crypto z
 
 user_non_fds_libs :=  \
     boost_log \
@@ -52,11 +37,10 @@ user_non_fds_libs :=  \
     thrift \
     jansson \
     config++ \
-    cryptopp \
+    crypto \
     hiredis \
     event \
-	rt \
-    $(user_nginx_libs) \
+    rt \
     fiu \
     dl \
     tcmalloc

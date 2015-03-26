@@ -15,22 +15,18 @@
 
 #include <net/net_utils.h>
 #include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
 #include "platform/platform_process.h"
 #include "platform/platform.h"
 #include <fds_typedefs.h>
-#include "fdsp/om_service_types.h"
+#include "fdsp/om_api_types.h"
 #include <thread>
 #include <string>
 using namespace std; // NOLINT
 using namespace fds; // NOLINT
 
 namespace fds {
-extern const NodeUuid gl_OmUuid;
 extern SvcRequestPool *gSvcRequestPool;
-
-OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
-    this->om_client = omc;
-}
 
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& _omIpStr,
@@ -38,11 +34,9 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& node_name,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
-                       Platform *plf,
-                       fds_uint32_t _instanceId)
+                       Platform *plf)
         : dltMgr(new DLTManager()),
-          dmtMgr(new DMTManager(1)),
-          instanceId(_instanceId) {
+          dmtMgr(new DMTManager(1)) {
     fds_verify(_omPort != 0);
     my_node_type = node_type;
     omIpStr      = _omIpStr;
@@ -56,23 +50,13 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
     } else {
         omc_log = new fds_log("omc", "logs");
     }
-    nst_ = nst;
 
-    clustMap = new LocalClusterMap();
-    plf_mgr  = plf;
     fNoNetwork = false;
 }
 
 OMgrClient::~OMgrClient()
 {
-    nst_->endSession(omrpc_handler_session_->getSessionTblKey());
-    omrpc_handler_thread_->join();
-
     delete clustMap;
-}
-
-int OMgrClient::initialize() {
-    return fds::ERR_OK;
 }
 
 int OMgrClient::registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr) {
@@ -88,47 +72,6 @@ int OMgrClient::registerEventHandlerForDltCloseEvents(dltclose_event_handler_t d
 int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr) {
     bucket_stats_cmd_hdlr = cmd_hdlr;
     return 0;
-}
-
-/**
- * @brief Starts OM RPC handling server.  This function is to be run on a
- * separate thread.  OMgrClient destructor does a join() on this thread
- */
-void OMgrClient::start_omrpc_handler()
-{
-    if (fNoNetwork) return;
-    try {
-        nst_->listenServer(omrpc_handler_session_);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "unable to listen at the given port - check the port";
-        LOGERROR << "error during network call : " << e.what();
-        fds_panic("Unable to listen on server...");
-    }
-}
-
-// Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
-int OMgrClient::startAcceptingControlMessages() {
-    if (fNoNetwork) return 0;
-    std::string myIp = fds::net::get_local_ip(
-        g_fdsprocess->get_fds_config()->get<std::string>("fds.nic_if"));
-    int myIpInt = netSession::ipString2Addr(myIp);
-    omrpc_handler_.reset(new OMgrClientRPCI(this));
-    // TODO(x): Ideally createServerSession should take a shared pointer
-    // for omrpc_handler_.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    fds_uint32_t ctrlPort = plf_mgr->plf_get_my_ctrl_port() + instanceId;
-    omrpc_handler_session_ =
-            nst_->createServerSession<netControlPathServerSession>(myIpInt,
-                                                                   ctrlPort,
-                                                                   my_node_name,
-                                                                   FDSP_ORCH_MGR,
-                                                                   omrpc_handler_);
-    omrpc_handler_thread_.reset(new boost::thread(&OMgrClient::start_omrpc_handler, this));
-
-    LOGNOTIFY << "OMClient accepting control requests at port "
-              << ctrlPort;
-
-    return (0);
 }
 
 void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
@@ -156,66 +99,6 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
     msg_hdr->result = FDSP_ERR_OK;
 }
 
-// Use this to register the local node with OM as a client.
-// Should be called after calling starting subscription endpoint and control path endpoint.
-int OMgrClient::registerNodeWithOM(Platform *plat)
-{
-    if (fNoNetwork) return 0;
-    try {
-        omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(
-            omIpStr, omConfigPort, FDSP_ORCH_MGR, 1, /* number of channels */
-            boost::shared_ptr<FDSP_OMControlPathRespIf>());
-        /* TODO:  pass in response path server pointer */
-        // Just return if the om ptr is NULL because
-        // FDS-net doesn't throw the exception we're
-        // trying to catch. We should probably return
-        // an error and let the caller decide what to do.
-        // fds_verify(omclient_prx_session_ != nullptr);
-        if (omclient_prx_session_ == NULL) {
-            LOGCRITICAL << "OMClient unable to register node with OrchMgr. "
-                    "Please check if OrchMgr is up and restart.";
-            return 0;
-        }
-        om_client_prx = omclient_prx_session_->getClient();  // NOLINT
-
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-
-        FDSP_RegisterNodeTypePtr reg_node_msg(new FDSP_RegisterNodeType);
-        reg_node_msg->node_type    = plat->plf_get_node_type();
-        reg_node_msg->node_name    = *plat->plf_get_my_name();
-        reg_node_msg->ip_hi_addr   = 0;
-        reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
-        reg_node_msg->control_port = plat->plf_get_my_ctrl_port();
-        reg_node_msg->data_port    = plat->plf_get_my_data_port();
-        reg_node_msg->node_root    = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
-
-        // TODO(Andrew): Move to SM specific
-        reg_node_msg->migration_port = plat->plf_get_my_migration_port();
-        reg_node_msg->metasync_port  = plat->plf_get_my_metasync_port();
-
-        // TODO(Vy): simple service uuid from node uuid.
-        reg_node_msg->node_uuid.uuid    = plat->plf_get_my_node_uuid()->uuid_get_val();
-        reg_node_msg->service_uuid.uuid = plat->plf_get_my_svc_uuid()->uuid_get_val();
-        myUuid.uuid_set_val(plat->plf_get_my_svc_uuid()->uuid_get_val());
-
-        LOGNOTIFY << "OMClient registering local node "
-                  << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
-                  << " control port:" << reg_node_msg->control_port
-                  << " data port:" << reg_node_msg->data_port
-                  << " with Orchaestration Manager at "
-                  << omIpStr << ":" << omConfigPort;
-
-        om_client_prx->RegisterNode(msg_hdr, reg_node_msg);
-        LOGDEBUG << "OMClient completed node registration with OM";
-    }
-    catch(...) {
-        LOGCRITICAL << "OMClient unable to register node with OrchMgr. "
-                "Please check if OrchMgr is up and restart.";
-    }
-    return (0);
-}
-
 int OMgrClient::testBucket(const std::string& bucket_name,
                            const fpi::FDSP_VolumeDescTypePtr& vol_info,
                            fds_bool_t attach_vol_reqd,
@@ -224,7 +107,7 @@ int OMgrClient::testBucket(const std::string& bucket_name,
 {
     if (fNoNetwork) return 0;
     try {
-        auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+        auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
         fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
         fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
         test_buck_msg->bucket_name = bucket_name;

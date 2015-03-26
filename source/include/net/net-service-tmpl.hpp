@@ -17,11 +17,11 @@
 #include <net/fdssocket.h>
 
 #include <util/Log.h>
+#include <fdsp_utils.h>
 #include <fds_resource.h>
 #include <net/net-service.h>
 #include <concurrency/ThreadPool.h>
 #include <fds_typedefs.h>
-#include <net/RpcFunc.h>
 
 
 namespace fds {
@@ -506,32 +506,10 @@ svc_get_handle(const std::string    &ip,
     endpoint_connect_server<SendIf>(port, ip, out, NULL, peer, evt, maj, min);
 }
 
-#define MSG_DESERIALIZE(msgtype, error, payload) \
-    net::ep_deserialize<fpi::msgtype>(const_cast<Error&>(error), payload)
-
 template<class PayloadT> boost::shared_ptr<PayloadT>
 ep_deserialize(Error &e, boost::shared_ptr<std::string> payload)
 {
-    DBG(GLOGDEBUG);
-
-    if (e != ERR_OK) {
-        return nullptr;
-    }
-    try {
-        bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
-                new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(
-                        const_cast<char*>(payload->c_str())), payload->size()));
-        bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
-
-        boost::shared_ptr<PayloadT> result(boost::make_shared<PayloadT>());
-        auto read = result->read(binary_buf.get());
-        fds_verify(read > 0);
-        return result;
-    } catch(std::exception& ex) {
-        GLOGWARN << "Failed to deserialize. Exception: " << ex.what();
-        e = ERR_SERIALIZE_FAILED;
-        return nullptr;
-    }
+    return fds::deserializeFdspMsg<PayloadT>(e, payload);
 }
 
 }  // namespace net

@@ -8,7 +8,7 @@
 #include <platform/fds_shmem.h>
 
 #include "platform/node_shm_ctrl.h"
-
+#include <util/process.h>
 namespace fds {
 
 /*
@@ -39,6 +39,7 @@ ShmObjRO::ShmObjRO(const FdsShmem *shm,
 int
 ShmObjRO::shm_lookup_rec(const void *key, void *rec, size_t rec_sz) const
 {
+    TRACEFUNC; util::printBackTrace();
     int         idx;
     size_t      off;
     const char *cur, *k;
@@ -65,6 +66,7 @@ ShmObjRO::shm_lookup_rec(const void *key, void *rec, size_t rec_sz) const
 int
 ShmObjRO::shm_lookup_rec(int idx, const void *key, void *rec, size_t rec_sz) const
 {
+    TRACEFUNC; util::printBackTrace();
     const char *cur, *k;
 
     fds_verify((0 <= idx) && (idx < shm_obj_cnt));
@@ -86,6 +88,7 @@ ShmObjRO::shm_lookup_rec(int idx, const void *key, void *rec, size_t rec_sz) con
 int
 ShmObjRO::shm_iter_objs(ShmObjIter *iter) const
 {
+    TRACEFUNC; util::printBackTrace();
     int         idx;
     size_t      off;
     const char *cur, *key;
@@ -109,6 +112,7 @@ ShmObjRO::shm_iter_objs(ShmObjIter *iter) const
 int
 ShmObjRO::obj_key_cmp(const char *a1, const char *a2, size_t size) const
 {
+    TRACEFUNC; util::printBackTrace();
     return memcmp(a1, a2, size);
 }
 
@@ -118,6 +122,7 @@ ShmObjRO::obj_key_cmp(const char *a1, const char *a2, size_t size) const
 bool
 ShmObjRO::obj_key_invalid(const char *key, size_t size) const
 {
+    TRACEFUNC; util::printBackTrace();
     const fds_uint32_t *k;
 
     k = reinterpret_cast<const fds_uint32_t *>(key);
@@ -130,6 +135,7 @@ ShmObjRO::obj_key_invalid(const char *key, size_t size) const
 int
 ShmObjROKeyUint64::obj_key_cmp(const char *a1, const char *a2, size_t size) const
 {
+    TRACEFUNC; util::printBackTrace();
     const fds_uint64_t *k1, *k2;
 
     k1 = reinterpret_cast<const fds_uint64_t *>(a1);
@@ -140,6 +146,7 @@ ShmObjROKeyUint64::obj_key_cmp(const char *a1, const char *a2, size_t size) cons
 int
 ShmObjRWKeyUint64::obj_key_cmp(const char *a1, const char *a2, size_t size) const
 {
+    TRACEFUNC; util::printBackTrace();
     const fds_uint64_t *k1, *k2;
 
     k1 = reinterpret_cast<const fds_uint64_t *>(a1);
@@ -170,6 +177,7 @@ ShmObjRW::ShmObjRW(const FdsShmem *shm,
 int
 ShmObjRW::shm_insert_rec(int idx, const void *data, size_t rec_sz)
 {
+    TRACEFUNC; util::printBackTrace();
     return 0;
 }
 
@@ -179,6 +187,7 @@ ShmObjRW::shm_insert_rec(int idx, const void *data, size_t rec_sz)
 int
 ShmObjRW::shm_insert_rec(const void *key, const void *data, size_t dat_siz)
 {
+    TRACEFUNC; util::printBackTrace();
     int         idx, empty;
     size_t      off;
     char       *cur;
@@ -222,6 +231,7 @@ ShmObjRW::shm_insert_rec(const void *key, const void *data, size_t dat_siz)
 int
 ShmObjRW::shm_remove_rec(const void *key, void *data, size_t rec_sz)
 {
+    TRACEFUNC; util::printBackTrace();
     int         idx;
     size_t      off;
     char       *cur;
@@ -289,6 +299,7 @@ fds_uint32_t ShmConPrdQueue::smq_reqID = 0;
 void
 ShmConPrdQueue::shm_track_request(ShmqReqOut *out, shmq_req_t *hdr, int caller)
 {
+    TRACEFUNC; util::printBackTrace();
     // Assign the unique tracking id and submit the 'out' request to this queue.
     // Map this id to the 'out' object so that we can retrieve it later.
     //
@@ -310,6 +321,7 @@ ShmConPrdQueue::shm_track_request(ShmqReqOut *out, shmq_req_t *hdr, int caller)
 /* static */ void
 ShmConPrdQueue::shm_swap_req_header(shmq_req_t *x, shmq_req_t *y)
 {
+    TRACEFUNC; util::printBackTrace();
     fds_assert((x != nullptr) && (y != nullptr));
     shmq_req_t temp;
     memcpy(static_cast<void *>(&temp), static_cast<void *>(x), sizeof(shmq_req_t));
@@ -320,6 +332,7 @@ ShmConPrdQueue::shm_swap_req_header(shmq_req_t *x, shmq_req_t *y)
 void
 ShmConPrdQueue::shm_register_handler(int smq_code, ShmqReqIn *cb)
 {
+    TRACEFUNC; util::printBackTrace();
     // XXX: Threadsafe? Don't think this one matters.
     // A new callback shouldn't be registered with an existing code?
     smq_cb_map[smq_code] = cb;
@@ -328,6 +341,7 @@ ShmConPrdQueue::shm_register_handler(int smq_code, ShmqReqIn *cb)
 void
 ShmConPrdQueue::shm_consume_loop(int consumer_idx)
 {
+    TRACEFUNC; util::printBackTrace();
     int          size = 128;     // take from parameter/constructor
     char         data[size];
     ShmqReqIn   *cb;
@@ -368,6 +382,7 @@ ShmConPrdQueue::shm_consume_loop(int consumer_idx)
 ShmqReqOut *
 ShmConPrdQueue::shm_get_saved_req(fds_uint32_t id)
 {
+    TRACEFUNC; util::printBackTrace();
     // Try to find the key in the map
     try {
         std::unordered_map<fds_uint32_t, ShmqReqOut*>::const_iterator found =
@@ -386,6 +401,7 @@ ShmConPrdQueue::shm_get_saved_req(fds_uint32_t id)
 ShmqReqIn *
 ShmConPrdQueue::shm_get_callback(fds_uint32_t code)
 {
+    TRACEFUNC; util::printBackTrace();
     try {
         std::unordered_map<fds_uint32_t, ShmqReqIn*>::const_iterator found =
                 smq_cb_map.find(code);
@@ -405,6 +421,7 @@ Shm_1Prd_nCon::Shm_1Prd_nCon(shm_con_prd_sync_t *sync,
 void
 Shm_1Prd_nCon::shm_init_consumer_queue()
 {
+    TRACEFUNC; util::printBackTrace();
     // XXX: Threadsafe? This probably shouldn't be called
     // if consumers are already initialized, and likely does not
     // need to be threadsafe
@@ -419,6 +436,7 @@ Shm_1Prd_nCon::shm_init_consumer_queue()
 void
 Shm_1Prd_nCon::shm_activate_consumer(int consumer)
 {
+    TRACEFUNC; util::printBackTrace();
     // Consumer index should be -1 to perform this operation
     // (smq_ctrl->shm_ncon_idx[consumer] == -1)
     // Mutex down
@@ -432,6 +450,7 @@ Shm_1Prd_nCon::shm_activate_consumer(int consumer)
 int
 Shm_1Prd_nCon::shm_calc_delta(int consumer)
 {
+    TRACEFUNC; util::printBackTrace();
     // Note: This should only be called while holding the mutex
     int delta = 0;
     // If cns < prd: prd - cns
@@ -448,6 +467,7 @@ Shm_1Prd_nCon::shm_calc_delta(int consumer)
 int
 Shm_1Prd_nCon::shm_calc_max_delta()
 {
+    TRACEFUNC; util::printBackTrace();
     // Get highest value delta
     int delta, high_delta = -1;
     // For each consumer
@@ -469,6 +489,7 @@ Shm_1Prd_nCon::shm_calc_max_delta()
 void
 Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
+    TRACEFUNC; util::printBackTrace();
     fds_assert(consumer >= 0);
     fds_assert(consumer < smq_ctrl->shm_ncon_cnt);
     fds_assert(data != nullptr);
@@ -512,6 +533,7 @@ Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 void
 Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 */)
 {
+    TRACEFUNC; util::printBackTrace();
     fds_assert(data != nullptr);
     fds_assert(size > 0);
 
@@ -559,6 +581,7 @@ Shm_nPrd_1Con::Shm_nPrd_1Con(shm_con_prd_sync_t *sync,
 void
 Shm_nPrd_1Con::shm_init_consumer_queue()
 {
+    TRACEFUNC; util::printBackTrace();
     // XXX: Threadsafe? This probably shouldn't be called
     // if consumers are already initialized, and likely does not
     // need to be threadsafe
@@ -569,6 +592,7 @@ Shm_nPrd_1Con::shm_init_consumer_queue()
 void
 Shm_nPrd_1Con::shm_activate_consumer(int cons)
 {
+    TRACEFUNC; util::printBackTrace();
     // con idx should be -1 to perform this operation
     // fds_assert(smq_ctrl->shm_1con_idx == -1);
 
@@ -586,6 +610,7 @@ Shm_nPrd_1Con::shm_activate_consumer(int cons)
 void
 Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
+    TRACEFUNC; util::printBackTrace();
     fds_assert(data != nullptr);
     fds_assert(size > 0);
 
@@ -621,6 +646,7 @@ Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 void
 Shm_nPrd_1Con::shm_producer(const void *data, size_t size, int producer /* = 0 */)
 {
+    TRACEFUNC; util::printBackTrace();
     int prod;
 
     fds_assert(data != nullptr);

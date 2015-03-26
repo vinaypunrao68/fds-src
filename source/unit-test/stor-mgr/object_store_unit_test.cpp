@@ -7,6 +7,7 @@
 #include <vector>
 #include <bitset>
 
+#include <boost/program_options.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -25,6 +26,8 @@ using ::testing::Return;
 
 namespace fds {
 
+static fds_uint32_t hddCount = 0;
+static fds_uint32_t ssdCount = 10;
 static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
 static TestVolume::ptr volume1;
@@ -76,9 +79,7 @@ class SmObjectStoreTest: public ::testing::Test {
 void SmObjectStoreTest::TearDown() {
 }
 
-void setupTests(fds_uint32_t hddCount,
-                fds_uint32_t ssdCount,
-                fds_uint32_t concurrency,
+void setupTests(fds_uint32_t concurrency,
                 fds_uint32_t datasetSize) {
     fds_volid_t volId = 98;
     fds_uint32_t sm_count = 1;
@@ -158,7 +159,7 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                 {
                     boost::shared_ptr<std::string> data =
                             (volume->testdata_).dataset_map_[oid].getObjectData();
-                    err = objectStore->putObject(volId, oid, data);
+                    err = objectStore->putObject(volId, oid, data, false);
                     EXPECT_TRUE(err.ok());
                 }
                 break;
@@ -172,7 +173,7 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                 }
                 break;
             case TestVolume::STORE_OP_DELETE:
-                err = objectStore->deleteObject(volId, oid);
+                err = objectStore->deleteObject(volId, oid, false);
                 EXPECT_TRUE(err.ok());
                 break;
             default:
@@ -222,7 +223,7 @@ TEST_F(SmObjectStoreTest, one_thread_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data);
+        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
     }
 }
@@ -249,13 +250,18 @@ TEST_F(SmObjectStoreTest, one_thread_dup_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data);
+        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
     }
 }
 
 TEST_F(SmObjectStoreTest, move_to_ssd) {
     Error err(ERR_OK);
+
+    // we only run this test when both HDDs and SSDs are present
+    if ((ssdCount == 0) || (hddCount == 0)) {
+        return;
+    }
 
     for (fds_uint32_t i = 0; i < (volume1->testdata_).dataset_.size(); ++i) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
@@ -498,12 +504,28 @@ main(int argc, char** argv) {
     fds::ObjectStoreTest objectStoreTest(argc, argv, NULL);
     ::testing::InitGoogleMock(&argc, argv);
 
-    fds_uint32_t hddCount = 10;
-    fds_uint32_t ssdCount = 2;
+    namespace po = boost::program_options;
+    po::options_description progDesc("SM Object Store Unit Test options");
+    progDesc.add_options()
+            ("help,h", "Help Message")
+            ("hdd-count",
+             po::value<fds_uint32_t>(&hddCount)->default_value(12),
+             "Number of HDDs")
+            ("ssd-count",
+             po::value<fds_uint32_t>(&ssdCount)->default_value(2),
+             "Number of SSDs");
+    po::variables_map varMap;
+    po::parsed_options parsedOpt =
+            po::command_line_parser(argc, argv).options(progDesc).allow_unregistered().run();                                                                               
+    po::store(parsedOpt, varMap);
+    po::notify(varMap);
+
+    std::cout << "Disk map config: " << hddCount << " HDDs, "
+              << ssdCount << " SSDs" << std::endl;
 
     // sets up dataset and object store
     volTbl = new StorMgrVolumeTable();
-    setupTests(hddCount, ssdCount, 30, 20);
+    setupTests(30, 20);
 
     int ret = RUN_ALL_TESTS();
 

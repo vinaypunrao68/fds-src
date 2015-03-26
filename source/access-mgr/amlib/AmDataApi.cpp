@@ -84,9 +84,9 @@ AmDataApi::volumeStatus(apis::VolumeStatus& _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
     StatVolumeResponseHandler::ptr handler(new StatVolumeResponseHandler(_return));
-    AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
-                                                   *volumeName,
-                                                   SHARED_DYN_CAST(Callback, handler));
+    AmRequest *blobReq = new StatVolumeReq(invalid_vol_id,
+                                           *volumeName,
+                                           SHARED_DYN_CAST(Callback, handler));
     storHvisor->enqueueBlobReq(blobReq);
 
     handler->wait();
@@ -300,9 +300,6 @@ AmDataApi::getBlob(std::string& _return,
         return;
     }
 
-    BucketContextPtr bucket_ctx(
-        new BucketContext("host", *volumeName, "accessid", "secretkey"));
-
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
@@ -478,8 +475,6 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
         return;
     }
 
-    BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
@@ -499,9 +494,6 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
                                         bytes,
                                         blobTxDesc,
                                         *isLast,
-                                        &bucket_ctx,
-                                        NULL,
-                                        NULL,
                                         putHandler);
     storHvisor->enqueueBlobReq(blobReq);
 

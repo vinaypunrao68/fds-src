@@ -7,5 +7,4 @@
 CLASSPATH=$CLASSPATH:../lib/java/fds-1.0-bin/fds-1.0/\*:../lib/java/classes
 
 java -classpath $CLASSPATH \
-     -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=4004 \
      com.formationds.om.Main $*

@@ -47,6 +47,56 @@
         - post-install
         - fdsconfig
 
+-   name: setup influxdb user and group
+    group: name=influxdb
+    tags:
+        - post-install
+        - influxdb
+
+-   user: name=influxdb
+        createhome=no
+        group=influxdb
+    tags:
+        - post-install
+        - influxdb
+
+-   name: render influxdb config
+    template:
+        src=../templates/deploy_fds/influxdb_config.toml.j2
+        dest=/fds/etc/influxdb_config.toml
+        owner=influxdb
+        group=influxdb
+        mode=0644
+    tags:
+        - post-install
+        - influxdb
+
+-   name: copy influxdb init script
+    copy:
+        src=../files/deploy_fds/influxdb_init.sh
+        dest=/etc/init.d/influxdb
+        owner=root
+        group=root
+        mode=0744
+    tags:
+        - post-install
+        - init
+        - influxdb
+
+-   name: create influxdb log and data dirs
+    file:
+        path=/fds/var/{{item}}/influxdb
+        state=directory
+        owner=influxdb
+        group=root
+        mode=0755
+    with_items:
+        - logs
+        - db
+    tags:
+        - post-install
+        - influxdb
+
 -   name: render_init_scripts
     template:
         src=../templates/deploy_fds/{{item}}-init.conf.j2
@@ -62,3 +112,14 @@
     tags:
         - post-install
         - init
+
+-   name: render gmond config
+    template: src=../templates/deploy_fds/gmond.conf.j2
+        dest=/opt/fds-deps/embedded/etc/gmond.conf
+
+-   name: start gmond services
+    service: name={{item}}
+        state=restarted
+    with_items:
+        - gmond
+        - gmond-influxdb-bridge

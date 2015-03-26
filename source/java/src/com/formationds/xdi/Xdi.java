@@ -4,11 +4,11 @@
 
 package com.formationds.xdi;
 
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
@@ -42,7 +42,7 @@ public class Xdi {
     }
 
     private void attemptToplevelAccess(AuthenticationToken token, Intent intent) throws SecurityException {
-        if (!authorizer.hasToplevelPermission(token, intent)) {
+        if (!authorizer.hasToplevelPermission(token)) {
             throw new SecurityException();
         }
     }
@@ -102,25 +102,36 @@ public class Xdi {
     }
 
     public BlobDescriptor statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
-        attemptVolumeAccess(token, volumeName, Intent.read);
-        return am.statBlob(domainName, volumeName, blobName);
+        return attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
+    }
+
+    private BlobDescriptor attemptBlobAccess(AuthenticationToken token, String domainName, String volumeName, String blobName, Intent intent) throws TException {
+        Map<String, String> metadata = new HashMap<>();
+
+        BlobDescriptor blobDescriptor = am.statBlob(domainName, volumeName, blobName);
+        metadata.putAll(blobDescriptor.getMetadata());
+
+        if (!authorizer.hasBlobPermission(token, volumeName, intent, metadata)) {
+            throw new SecurityException();
+        }
+        return blobDescriptor;
     }
 
     public void updateMetadata(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws ApiException, TException {
-        attemptVolumeAccess(token, volumeName, Intent.readWrite);
+        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.readWrite);
         TxDescriptor txDescriptor = am.startBlobTx(domainName, volumeName, blobName, 0);
         am.updateMetadata(domainName, volumeName, blobName, txDescriptor, metadata);
         am.commitBlobTx(domainName, volumeName, blobName, txDescriptor);
     }
 
     public InputStream readStream(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
-        attemptVolumeAccess(token, volumeName, Intent.read);
+        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
         Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName);
         return new FdsObjectStreamer(iterator);
     }
 
     public InputStream readStream(AuthenticationToken token, String domainName, String volumeName, String blobName, long requestOffset, long requestLength) throws Exception {
-        attemptVolumeAccess(token, volumeName, Intent.read);
+        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
         Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName, requestOffset, requestLength);
         return new FdsObjectStreamer(iterator);
     }
@@ -134,7 +145,7 @@ public class Xdi {
     }
 
     public void deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
-        attemptVolumeAccess(token, volumeName, Intent.delete);
+        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.delete);
         am.deleteBlob(domainName, volumeName, blobName);
     }
 
@@ -148,11 +159,10 @@ public class Xdi {
     }
 
     public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
-        attemptVolumeAccess(token, volume, Intent.readWrite);
+        attemptBlobAccess(token, domain, volume, blob, Intent.readWrite);
         TxDescriptor tx = am.startBlobTx(domain, volume, blob, 0);
         am.updateMetadata(domain, volume, blob, tx, metadataMap);
         am.commitBlobTx(domain, volume, blob, tx);
-
     }
 
     public AuthenticationToken authenticate(String login, String password) throws LoginException {

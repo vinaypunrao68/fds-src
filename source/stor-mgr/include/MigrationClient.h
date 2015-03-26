@@ -17,6 +17,9 @@
 
 namespace fds {
 
+/* Forward declarations */
+struct EPSvcRequest;
+
 const fds_token_id SMTokenInvalidID = 0xffffffff;
 /**
  * This is the client class for token migration.  This class is instantiated by the
@@ -65,11 +68,13 @@ class MigrationClient {
      */
     void migClientSnapshotFirstPhaseCb(const Error& error,
                                        SmIoSnapshotObjectDB* snapRequest,
-                                       std::string &snapDir);
+                                       std::string &snapDir,
+                                       leveldb::CopyEnv *env);
 
     void migClientSnapshotSecondPhaseCb(const Error& error,
                                         SmIoSnapshotObjectDB* snapRequest,
-                                        std::string &snapDir);
+                                        std::string &snapDir,
+                                        leveldb::CopyEnv *env);
 
     /**
      * Add initial set of DLT and Objects to the clients

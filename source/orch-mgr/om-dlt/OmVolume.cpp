@@ -10,7 +10,6 @@
 #include <OmResources.h>
 #include <OmVolumePlacement.h>
 #include <orchMgr.h>
-#include <om-discovery.h>
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
 #include <util/type.h>
@@ -909,13 +908,14 @@ VolumeInfo::vol_attach_node(const NodeUuid &node_uuid)
 {
     Error err(ERR_OK);
     OM_AmAgent::pointer  am_agent;
+    LOGNORMAL << "Received attach vol " << vol_name
+              << ", am node uuid " << std::hex << node_uuid << std::dec;
 
     am_agent = OM_AmAgent::agt_cast_ptr(vol_am_agent(node_uuid));
     if (am_agent == NULL) {
         // Provisioning vol before the AM is online.
         //
-        LOGNORMAL << "Received attach vol " << vol_name
-                  << ", am node uuid " << std::hex << node_uuid << std::dec;
+        LOGNORMAL << "AM agent not found for uuid " << std::hex << node_uuid << std::dec;
         return Error(ERR_NOT_FOUND);
     }
     // TODO(Vy): not thread safe here...

@@ -5,8 +5,7 @@ user_incl_dir     := \
     $(source_dir)/stor-mgr/include \
 	$(source_dir)/stor-mgr/migrations \
 	$(source_dir)/lib \
-	$(source_dir)/include/fdsp \
-	/usr/include/cryptopp
+	$(source_dir)/include/fdsp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
@@ -17,7 +16,7 @@ user_non_fds_libs := \
 	pthread \
     event
 
-user_cc           := ngx_modules.c
+user_cc           :=
 user_cpp          := \
     th_am.cpp \
     th_sm.cpp \
@@ -35,25 +34,21 @@ user_bin_exe      := \
     serializer_gtest
 
 th_am := \
-    th_am.cpp ngx_modules.c
+    th_am.cpp
 
 th_sm := \
-    th_sm.cpp \
-    ngx_modules.c
+    th_sm.cpp
 
 th_dm := \
-    th_dm.cpp \
-    ngx_modules.c
+    th_dm.cpp
 
 th_bare := \
-	th_bare.cpp \
-	ngx_modules.c
+	th_bare.cpp
 
 #th_am_server := \
-#    th_am_server.cpp \
-#    ngx_modules.c
+#    th_am_server.cpp
 
-threadpool_test := threadpool_test.cpp ngx_modules.c
-serializer_gtest := serializer_gtest.cpp ngx_modules.c
+threadpool_test := threadpool_test.cpp
+serializer_gtest := serializer_gtest.cpp
 
 include $(test_topdir)/Makefile.svc

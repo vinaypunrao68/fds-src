@@ -2,13 +2,13 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include "fdsp/dm_service_types.h"
-#include "fdsp/sm_service_types.h"
+#include "fdsp/dm_api_types.h"
 #include "platform_ep_handler.h"
 #include "node_shm_rw_ctrl.h"
 #include "node_platform.h"
 #include "node_info_iter.h"
 #include "node_update_iter.h"
+#include <net/SvcRequest.h>
 
 namespace fds
 {
@@ -21,7 +21,8 @@ namespace fds
     {
     }
 
-    PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc) : fpi::PlatNetSvcIf(), net_plat(svc)
+    PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
+        : PlatNetSvcHandler(nullptr), net_plat(svc)
     {
         REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
         REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);

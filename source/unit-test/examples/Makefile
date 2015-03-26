@@ -25,23 +25,12 @@ user_fds_ar_libs  := \
     fds-migrations \
     fds-odb       \
     fds-sm-plat   \
-    fds-smlib \
-    platform_core
-
-local_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core
+    fds-smlib
 
 user_non_fds_libs :=  \
     jansson \
 	udev \
 	parted \
-    $(local_nginx_libs) \
     config++    \
     boost_timer \
     leveldb \
@@ -50,7 +39,6 @@ user_non_fds_libs :=  \
     pcre \
     crypto \
     z \
-    cryptopp \
     leveldb \
     gmock \
     profiler \

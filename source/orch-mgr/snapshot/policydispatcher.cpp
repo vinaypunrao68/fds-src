@@ -71,7 +71,7 @@ void PolicyDispatcher::run() {
                     continue;
                 }
                 // add this snapshot to the retention manager ...
-                om->snapshotMgr.deleteScheduler->addSnapshot(snapshot);
+                om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
             }
 
             // clear the map
@@ -93,7 +93,7 @@ void PolicyDispatcher::run() {
         std::vector<int64_t> vecVolumes;
         om->getConfigDB()->listVolumesForSnapshotPolicy(vecVolumes, policyId);
 
-        fpi::SnapshotPolicy policy;
+        fds::apis::SnapshotPolicy policy;
         om->getConfigDB()->getSnapshotPolicy(policyId, policy);
 
         VolumeDesc volumeDesc("", 1);

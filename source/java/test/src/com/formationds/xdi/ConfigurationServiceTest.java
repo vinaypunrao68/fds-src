@@ -5,7 +5,7 @@ package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_VolumeDescType;
+import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.apis.ConfigurationService;
 
 import java.util.ArrayList;
@@ -17,7 +17,7 @@ import static org.junit.Assert.assertNotEquals;
 public class ConfigurationServiceTest {
     // @Test
     public void testIntegration() throws Exception {
-        ConfigurationService.Iface config = new XdiClientFactory().remoteOmService("localhost", 9090);
+        ConfigurationService.Iface config = new XdiClientFactory(9876).remoteOmService("localhost", 9090);
         List<Long> versions = new ArrayList<>();
         versions.add(config.configurationVersion(0));
         long tenantId = config.createTenant("Goldman");
@@ -41,14 +41,14 @@ public class ConfigurationServiceTest {
 
     //@Test
     public void testVolumeTenant() throws Exception {
-        ConfigurationService.Iface config = new XdiClientFactory().remoteOmService("localhost", 9090);
+        ConfigurationService.Iface config = new XdiClientFactory(9876).remoteOmService("localhost", 9090);
         config.listVolumes("")
                 .forEach(v -> System.out.println(v.getTenantId()));
     }
 
     //@Test
     public void testLegacyClient() throws Exception {
-        FDSP_ConfigPathReq.Iface client = new XdiClientFactory().legacyConfig("localhost", 8903);
+        FDSP_ConfigPathReq.Iface client = new XdiClientFactory(9876).legacyConfig("localhost", 8903);
         List<FDSP_VolumeDescType> list = client.ListVolumes(new FDSP_MsgHdrType());
         System.out.println(list.size());
     }

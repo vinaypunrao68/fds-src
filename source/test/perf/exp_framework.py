@@ -88,18 +88,19 @@ class CounterServerPull:
             try:
                 svc_map = SvcMap(ip, port)
             except:
-                self.options.logger.debug("Failed to get svc_map, sleeping")
+                # self.options.logger.debug("Failed to get svc_map, sleeping")
                 time.sleep(60)
                 return {}
             svclist = svc_map.list()
             for e in svclist:
-                nodeid, svc, ip = e[0], e[1], e[2]
-                nodeid = long(nodeid)
+                svcid = e[0]
+                svc = e[1]
+                ip = e[3]
                 if svc != "om" and svc != "None" and re.match("10\.\d+\.\d+\.\d+", ip):
                     try:
-                        cntrs = svc_map.client(nodeid, svc).getCounters('*')
+                        cntrs = svc_map.client(svcid).getCounters('*')
                     except:
-                        self.options.logger.debug("Cannot get counters for " + svc)
+                        # self.options.logger.debug("Cannot get counters for " + svc)
                         cntr = {}
                     for c, v in cntrs.iteritems():
                         line = node + " " + svc + " " + c + " " + str(v) + " " + str(tstamp)
@@ -116,7 +117,7 @@ class CounterServerPull:
             return "tstamp = "+ str(time.time()) + "\n"
 
     def _task(self, name, datafile, stop):
-        self.options.logger.debug("starting counter task " + name)
+        # self.options.logger.debug("starting counter task " + name)
         # pull counters
         time.sleep(2)
         while stop.isSet() == False:
@@ -353,7 +354,7 @@ class FdsCluster():
         return output
 
     def _init_fio_once(self):
-        cmd = "/fds/bin/fdscli --volume-create volume1 -i 1 -s 10240 -p 50 -y blk"
+        cmd = 'bash -c "pushd /fds/sbin && ./fdsconsole.py accesslevel debug && ./fdsconsole.py volume create volume1 --vol-type block --blk-dev-size 10485760 && popd"'
         output = utils.loc_exec(cmd)
         time.sleep(5)
         if self.local_test == True:
@@ -366,7 +367,7 @@ class FdsCluster():
         time.sleep(5)
         self.nbdvolume = output.rstrip("\n")
         self.options.logger.debug("nbd: " + self.nbdvolume)
-        cmd = "/fds/bin/fdscli --volume-modify \"volume1\" -s 10240 -g 0 -m 0 -r 10"
+        cmd = 'bash -c "pushd /fds/sbin && ./fdsconsole.py volume modify volume1 --minimum 0 --maximum 0 --priority 1 && popd"'
         output = utils.loc_exec(cmd)
         time.sleep(5)
 

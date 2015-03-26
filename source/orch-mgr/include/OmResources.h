@@ -18,30 +18,25 @@
 #include "platform/agent_container.h"
 #include "platform/domain_container.h"
 
-#include <fdsp/FDSP_ControlPathResp.h>
-#include "fdsp/sm_service_types.h"
+#include "fdsp/sm_types_types.h"
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
 
 namespace FDS_ProtocolInterface {
-    class FDSP_ControlPathReqClient;
-    class FDSP_ControlPathRespProcessor;
-    class FDSP_ControlPathRespIf;
-
     struct CtrlNotifyDMAbortMigration;
+    struct CtrlNotifySMAbortMigration;
     struct CtrlNotifyDMTClose;
+    struct CtrlNotifyDLTClose;
     struct CtrlNotifyDMTUpdate;
     struct CtrlDMMigrateMeta;
     using CtrlNotifyDMAbortMigrationPtr = boost::shared_ptr<CtrlNotifyDMAbortMigration>;
+    using CtrlNotifySMAbortMigrationPtr = boost::shared_ptr<CtrlNotifySMAbortMigration>;
     using CtrlNotifyDMTClosePtr = boost::shared_ptr<CtrlNotifyDMTClose>;
+    using CtrlNotifyDLTClosePtr = boost::shared_ptr<CtrlNotifyDLTClose>;
     using CtrlNotifyDMTUpdatePtr = boost::shared_ptr<CtrlNotifyDMTUpdate>;
     using CtrlDMMigrateMetaPtr = boost::shared_ptr<CtrlDMMigrateMeta>;
 }  // namespace FDS_ProtocolInterface
-
-typedef netClientSessionEx<fpi::FDSP_ControlPathReqClient,
-                fpi::FDSP_ControlPathRespProcessor,
-                fpi::FDSP_ControlPathRespIf> netControlPathClientSession;
 
 namespace fds {
 
@@ -51,8 +46,6 @@ class OM_NodeDomainMod;
 class OM_ControlRespHandler;
 struct NodeDomainFSM;
 
-typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
-typedef netControlPathClientSession *                     NodeAgentCpSessionPtr;
 typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
 
 /**
@@ -78,20 +71,12 @@ class OM_NodeAgent : public NodeAgent
     inline fpi::FDSP_MgrIdType om_agent_type() const {
         return ndMyServId;
     }
-    void setCpSession(NodeAgentCpSessionPtr session, fpi::FDSP_MgrIdType myId);
 
     /**
      * Returns uuid of the node running this service
      */
     inline NodeUuid get_parent_uuid() const {
         return parentUuid;
-    }
-    inline NodeAgentCpReqClientPtr getCpClient() const {
-        return ndCpClient;
-    }
-    inline NodeAgentCpReqClientPtr getCpClient(std::string *id) const {
-        *id = ndSessionId;
-        return ndCpClient;
     }
 
     /**
@@ -164,14 +149,12 @@ class OM_NodeAgent : public NodeAgent
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
-    void om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& reg,
+    void om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,
                                     const NodeUuid& stream_dest_uuid);
 
   protected:
-    NodeAgentCpSessionPtr   ndCpSession;
     std::string             ndSessionId;
     fpi::FDSP_MgrIdType     ndMyServId;
-    NodeAgentCpReqClientPtr ndCpClient;
     NodeUuid                parentUuid;  // Uuid of the node running the service
 
     virtual int node_calc_stor_weight();
@@ -219,6 +202,13 @@ class OM_PmAgent : public OM_NodeAgent
                                   NodeAgent::pointer svc_agent);
 
     /**
+     * Send 'remove services' message to Platform
+     */
+    Error send_remove_services(fds_bool_t activate_sm,
+                               fds_bool_t activate_dm,
+                               fds_bool_t activate_am);
+
+    /**
      * @return uuid of service that was unregistered
      */
     NodeUuid handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
@@ -238,6 +228,18 @@ class OM_PmAgent : public OM_NodeAgent
     inline OM_AmAgent::pointer get_am_service() {
         return activeAmAgent;
     }
+    inline void setNodeInfo(boost::shared_ptr<kvstore::NodeInfoType> nodeInfo) {
+        this->nodeInfo = nodeInfo;
+    }
+    inline boost::shared_ptr<kvstore::NodeInfoType> getNodeInfo() {
+        return nodeInfo;
+    }
+    inline fpi::FDSP_AnnounceDiskCapability* getDiskCapabilities() {
+        /* NOTE: We could get this info from configdb..for now returning from
+         * the cached nodinfo
+         */
+        return &(nodeInfo->disk_info);
+    }
 
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
@@ -245,6 +247,11 @@ class OM_PmAgent : public OM_NodeAgent
     OM_SmAgent::pointer     activeSmAgent;  // pointer to active SM service or NULL
     OM_DmAgent::pointer     activeDmAgent;  // pointer to active DM service or NULL
     OM_AmAgent::pointer     activeAmAgent;  // pointer to active AM service or NULL
+    /* Cached node information.  On activation this information is stored into config db */
+    boost::shared_ptr<kvstore::NodeInfoType> nodeInfo;
+
+  private:
+    fds_mutex               dbNodeInfoLock;
 };
 
 // -------------------------------------------------------------------------------------
@@ -273,8 +280,6 @@ class OM_AgentContainer : public AgentContainer
                               const NodeUuidSet& filter_nodes);
 
   protected:
-    boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
-
     NodeList                                 node_up_pend;
     NodeList                                 node_down_pend;
 
@@ -503,23 +508,30 @@ class OM_NodeContainer : public DomainContainer
      * activate SM and DM services on those nodes, but only
      * to those nodes which are in discovered state
      */
+    virtual void om_cond_bcast_activate_services(); // Activate the Services defined for each Node.
     virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
                                                  fds_bool_t activate_dm,
-                                                 fds_bool_t activate_am);
+                                                 fds_bool_t activate_am); // Activate these specific Services on each Node.
     virtual Error om_activate_node_services(const NodeUuid& node_uuid,
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
+    virtual void om_cond_bcast_remove_services(); // Remove the Services defined for each Node.
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
 
     virtual void om_send_me_qosinfo(NodeAgent::pointer me);
 
+    /**
+    * @brief Broadcasts svcmap around the domain
+    */
+    virtual void om_bcast_svcmap();
+
   private:
     friend class OM_NodeDomainMod;
 
-    virtual void om_update_capacity(NodeAgent::pointer node, fds_bool_t b_add);
+    virtual void om_update_capacity(OM_PmAgent::pointer pm_agent, fds_bool_t b_add);
     virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
     virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
 
@@ -701,6 +713,21 @@ class OM_NodeDomainMod : public Module
     virtual Error
     om_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
+    Error setupNewNode(const NodeUuid&      uuid,
+                       const FdspNodeRegPtr msg,
+                       NodeAgent::pointer   newNode,
+                       fds_uint32_t delayTime
+                       );
+
+    /**
+    * @brief Registers the service
+    *
+    * @param svcInfo
+    *
+    * @return 
+    */
+    virtual Error om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
+
 
     /**
      * Notification that service is down to DLT and DMT state machines
@@ -809,6 +836,9 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(ShutdownEvt const &evt);
 
   protected:
+    void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
+                fpi::FDSP_RegisterNodeTypePtr& reg_node_req);
+
     fds_bool_t                       om_test_mode;
     OM_NodeContainer                *om_locDomain;
     kvstore::ConfigDB               *configDB;
@@ -816,17 +846,6 @@ class OM_NodeDomainMod : public Module
     FSM_NodeDomain                  *domain_fsm;
     // to protect access to msm process_event
     fds_mutex                       fsm_lock;
-};
-
-/**
- * control response handler
- */
-class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
-  public:
-    OM_ControlRespHandler();
-
-  private:
-        // TODO(Andrew): Add ptr back to resource manager.
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;

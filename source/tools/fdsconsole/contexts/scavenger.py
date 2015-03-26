@@ -1,5 +1,5 @@
 from  svchelper import *
-from fds_service.ttypes import *
+from svc_api.ttypes import *
 import platformservice
 from platformservice import *
 import FdspUtils 
@@ -17,8 +17,6 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def enable(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             getScavMsg = FdspUtils.newEnableScavengerMsg()
             scavCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
@@ -32,8 +30,6 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def disable(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             getScavMsg = FdspUtils.newDisableScavengerMsg()
             scavCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
@@ -46,8 +42,6 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def start(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             getScavMsg = FdspUtils.newStartScavengerMsg()
             scavCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
@@ -60,8 +54,6 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def stop(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             getScavMsg = FdspUtils.newStopScavengerMsg()
             scavCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
@@ -76,8 +68,6 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def status(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             getStatusMsg = FdspUtils.newScavengerStatusMsg()
             scavCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, getStatusMsg, scavCB)
@@ -103,8 +93,6 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def progress(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             getStatusMsg = FdspUtils.newScavengerProgressMsg()
             scavCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, getStatusMsg, scavCB)
@@ -127,8 +115,6 @@ class ScrubberContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def enable(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             scrubEnableMsg = FdspUtils.newEnableScrubberMsg()
             scrubCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, scrubEnableMsg, None)
@@ -140,8 +126,6 @@ class ScrubberContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def disable(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             scrubDisableMsg = FdspUtils.newDisableScrubberMsg()
             scrubCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, scrubDisableMsg, scrubCB)
@@ -153,8 +137,6 @@ class ScrubberContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def status(self, sm):
         try:
-            sm = self.smClient().svcMap.svcUuid(sm, "sm")
-
             scrubStatusMsg = FdspUtils.newQueryScrubberStatusMsg()
             scrubCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, scrubStatusMsg, scrubCB)

@@ -6,7 +6,7 @@ fds_home = "/home/monchier/FDS/"
 sys.path.append(os.path.join(fds_home, 'source/test/fdslib'))
 sys.path.append(os.path.join(fds_home, 'source/test/fdslib/pyfdsp'))
 sys.path.append(os.path.join(fds_home, 'source/test/fdslib/pyfdsp'))
-sys.path.append(os.path.join(fds_home, 'source/test/fdslib/pyfdsp/fds_service'))
+sys.path.append(os.path.join(fds_home, 'source/test/fdslib/pyfdsp/svc_api'))
 print sys.path
 from SvcHandle import *
 from BaseAsyncSvc import *

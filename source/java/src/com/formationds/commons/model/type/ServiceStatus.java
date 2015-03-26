@@ -21,7 +21,7 @@ public enum ServiceStatus {
 
 
     public static Optional<ServiceStatus> fromThriftServiceStatus(
-        final com.formationds.protocol.ServiceStatus status ) {
+        final com.formationds.protocol.svc.types.ServiceStatus status ) {
 
         switch( status ) {
             case SVC_STATUS_INVALID:
@@ -30,8 +30,6 @@ public enum ServiceStatus {
                 return Optional.of( ACTIVE );
             case SVC_STATUS_INACTIVE:
                 return Optional.of( INACTIVE );
-            case SVC_STATUS_IN_ERR:
-                return Optional.of( ERROR );
         }
 
         return Optional.empty();

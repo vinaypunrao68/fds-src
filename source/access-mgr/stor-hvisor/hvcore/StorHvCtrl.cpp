@@ -3,26 +3,21 @@
  */
 #include <fds_config.hpp>
 #include <fds_process.h>
-#include "NetSession.h"
 #include <dlt.h>
 #include <ObjectId.h>
-#include <net/net-service.h>
-#include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <net/net_utils.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
-#include <am-platform.h>
+#include <fdsp_utils.h>
 
 #include "requests/requests.h"
 
 #include "lib/StatsCollector.h"
-#include "AmCache.h"
+#include "AccessMgr.h"
 #include "AmDispatcher.h"
 #include "AmProcessor.h"
-#include "am-tx-mgr.h"
 #include "StorHvCtrl.h"
-#include "StorHvDataPlace.h"
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
 
@@ -37,8 +32,7 @@ StorHvCtrl::StorHvCtrl(int argc,
                        SysParams *params,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
-                       fds_uint32_t dm_port_num,
-                       fds_uint32_t instanceId)
+                       fds_uint32_t dm_port_num)
     : mode(_mode),
     counters_("AM", g_fdsprocess->get_cntrs_mgr().get()),
     om_client(nullptr)
@@ -55,8 +49,8 @@ StorHvCtrl::StorHvCtrl(int argc,
      * some in ubd. We need to unify this.
      */
     if (mode == NORMAL) {
-        omIpStr = config.get_abs<string>("fds.plat.om_ip");
-        omConfigPort = config.get_abs<int>("fds.plat.om_port");
+        omIpStr = config.get_abs<string>("fds.pm.om_ip");
+        omConfigPort = config.get_abs<int>("fds.pm.om_port");
     }
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "--om_ip=", 8) == 0) {
@@ -80,8 +74,6 @@ StorHvCtrl::StorHvCtrl(int argc,
          */
     }
 
-    my_node_name = node_name;
-
     sysParams = params;
 
     disableVcc =  config.get_abs<bool>("fds.am.testing.disable_vcc");
@@ -92,19 +84,17 @@ StorHvCtrl::StorHvCtrl(int argc,
     struct ifaddrs *ifa          = NULL;
     void   *tmpAddrPtr           = NULL;
 
-    rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
-
     LOGNOTIFY << "StorHvCtrl - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
 
     /*  Create the QOS Controller object */
     fds_uint32_t qos_threads = config.get<int>("qos_threads");
-    qos_ctrl = new StorHvQosCtrl(qos_threads,
-				 fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET,
-                                 GetLog());
+    qos_ctrl = std::make_shared<StorHvQosCtrl>(qos_threads,
+                                               fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET,
+                                               GetLog());
 
     // Check the AM standalone toggle
-    toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
-    if (toggleStandAlone) {
+    standalone = config.get_abs<bool>("fds.am.testing.standalone");
+    if (standalone) {
         LOGWARN << "Starting SH CTRL in stand alone mode";
     }
 
@@ -121,16 +111,13 @@ StorHvCtrl::StorHvCtrl(int argc,
 			       omConfigPort,
 			       node_name,
 			       GetLog(),
-			       rpcSessionTbl,
-			       &gl_AmPlatform,
-			       instanceId);
-    if (toggleStandAlone) {
+			       nullptr,
+			       nullptr);
+    if (standalone) {
 	om_client->setNoNetwork(true);
     } else {
-	om_client->initialize();
 
 	qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-	om_client->startAcceptingControlMessages();
 
 	StatsCollector::singleton()->registerOmClient(om_client);
 	fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
@@ -145,7 +132,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     DMTManagerPtr dmtMgr;
     DLTManagerPtr dltMgr;
-    if (toggleStandAlone) {
+    if (standalone) {
         dmtMgr = boost::make_shared<DMTManager>(1);
         dltMgr = boost::make_shared<DLTManager>();
     } else {
@@ -153,20 +140,12 @@ StorHvCtrl::StorHvCtrl(int argc,
         dltMgr = om_client->getDltManager();
     }
 
-    /* TODO: for now StorHvVolumeTable constructor will create
-     * volume 1, revisit this soon when we add multi-volume support
-     * in other parts of the system */
-    vol_table = new StorHvVolumeTable(this, GetLog());
+    vol_table = std::make_shared<StorHvVolumeTable>(this, GetLog());
 
     // Init rand num generator
     // TODO(Andrew): Move this to platform process so everyone gets it
     // and make AM extend from platform process
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
-
-    // Init the AM transaction manager
-    amTxMgr = std::make_shared<AmTxManager>("AM Transaction Manager Module");
-    // Init the AM cache manager
-    amCache = std::make_shared<AmCache>("AM Cache Manager Module");
 
     // Init the dispatcher layer
     // TODO(Andrew): Decide if AM or AmProcessor should own
@@ -180,20 +159,9 @@ StorHvCtrl::StorHvCtrl(int argc,
         new AmProcessor("AM Processor Module",
                         amDispatcher,
                         qos_ctrl,
-                        vol_table,
-                        amTxMgr,
-                        amCache));
+                        vol_table));
 
     LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
-
-    if (toggleStandAlone) {
-        dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
-                                                         NULL);
-    } else {
-        LOGNORMAL <<"StorHvCtrl -  Entring Normal Data placement mode";
-        dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
-                                                         om_client);
-    }
 }
 
 /*
@@ -206,18 +174,14 @@ StorHvCtrl::StorHvCtrl(int argc, char *argv[], SysParams *params)
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
                        SysParams *params,
-                       sh_comm_modes _mode,
-                       fds_uint32_t instanceId)
-        : StorHvCtrl(argc, argv, params, _mode, 0, 0, instanceId) {
+                       sh_comm_modes _mode)
+        : StorHvCtrl(argc, argv, params, _mode, 0, 0) {
 }
 
 StorHvCtrl::~StorHvCtrl()
 {
-    delete vol_table;
-    delete dataPlacementTbl;
     if (om_client)
         delete om_client;
-    delete qos_ctrl;
 }
 
 SysParams* StorHvCtrl::getSysParams() {
@@ -225,15 +189,6 @@ SysParams* StorHvCtrl::getSysParams() {
 }
 
 void StorHvCtrl::StartOmClient() {
-    /*
-     * Start listening for OM control messages
-     * Appropriate callbacks were setup by data placement and volume table objects
-     */
-    if (om_client) {
-        LOGNOTIFY << "StorHvCtrl - Started accepting control messages from OM";
-        om_client->registerNodeWithOM(&gl_AmPlatform);
-    }
-
     // Call the dispatcher startup function here since this
     // legacy class doesn't actually extend from Module but
     // needs a member's startup to be called.
@@ -245,6 +200,7 @@ Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
                                         const std::string& secret_access_key) {
     Error err(ERR_OK);
     int om_err = 0;
+
     LOGNORMAL << "bucket: " << bucket_name;
 
     // send test bucket message to OM
@@ -326,38 +282,6 @@ StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
                                   "") == ERR_OK); // The secret key isn't used
 }
 
-Error
-StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
-    fds_verify(blobReq->magicInUse() == true);
-    Error err(ERR_OK);
-
-    PerfTracer::tracePointBegin(blobReq->e2e_req_perf_ctx);
-    PerfTracer::tracePointBegin(blobReq->qos_perf_ctx);
-
-    blobReq->io_req_id = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
-    fds_volid_t volId = blobReq->io_vol_id;
-
-    StorHvVolume *shVol = vol_table->getLockedVolume(volId);
-    if ((shVol == NULL) || (shVol->volQueue == NULL)) {
-        if (shVol)
-            shVol->readUnlock();
-        LOGERROR << "Volume and queueus are NOT setup for volume " << volId;
-        err = ERR_INVALID_ARG;
-        PerfTracer::tracePointEnd(blobReq->qos_perf_ctx);
-        delete blobReq;
-        return err;
-    }
-    /*
-     * TODO: We should handle some sort of success/failure here?
-     */
-    qos_ctrl->enqueueIO(volId, blobReq);
-    shVol->readUnlock();
-
-    LOGDEBUG << "Queued IO for vol " << volId;
-
-    return err;
-}
-
 void
 StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
     if (am->isShuttingDown()) {
@@ -430,8 +354,12 @@ processBlobReq(AmRequest *amReq) {
             storHvisor->amProcessor->setBlobMetadata(amReq);
             break;
 
-        case fds::FDS_GET_VOLUME_METADATA:
-            storHvisor->amProcessor->getVolumeMetadata(amReq);
+        case fds::FDS_STAT_VOLUME:
+            storHvisor->amProcessor->statVolume(amReq);
+            break;
+
+        case fds::FDS_SET_VOLUME_METADATA:
+            storHvisor->amProcessor->setVolumeMetadata(amReq);
             break;
 
         case fds::FDS_DELETE_BLOB:

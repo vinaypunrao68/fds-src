@@ -4,10 +4,11 @@
 
 #include <string>
 #include <fdsp_utils.h>
-#include <fdsp/am_service_types.h>
-#include <fdsp/dm_service_types.h>
-#include <fdsp/sm_service_types.h>
+#include <fdsp/am_types_types.h>
+#include <fdsp/dm_types_types.h>
+#include <fdsp/sm_api_types.h>
 #include <fds_resource.h>
+#include <net/SvcMgr.h>
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -51,6 +52,13 @@ FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
 {
     lhs.svc_uuid = rhs.uuid_get_val();
+    return lhs;
+}
+
+FDS_ProtocolInterface::FDSP_Uuid&
+assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs)
+{
+    lhs.uuid = rhs.svc_uuid.svc_uuid;
     return lhs;
 }
 
@@ -243,8 +251,12 @@ std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
     return "GetBlobMetaDataMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg) {
-    return "GetVolumeMetaDataMsg";
+std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg) {
+    return "SetVolumeMetadataMsg";
+}
+
+std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg) {
+    return "StatVolumeMsg";
 }
 
 std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {

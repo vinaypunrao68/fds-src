@@ -72,7 +72,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * files are archived, the thread will wake up and copy the file to timeline directory.
      * The timeline directory will hold all journal files for all volumes.
      */
-    std::thread logMonitorThread_;
+    boost::shared_ptr<std::thread> logMonitorThread_;
     std::atomic<bool> stopLogMonitoring_;
 
     void monitorLogs();
@@ -107,10 +107,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
 
-    inline void cancelLogMonitoring() {
-        stopLogMonitoring_ = true;
-        logMonitorThread_.join();
-    }
+    void cancelLogMonitoring();
 
     /**
      * Notification about new volume managed by this DM.
@@ -164,6 +161,17 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * as deleted
      */
     Error deleteEmptyVolume(fds_volid_t volId);
+
+    /**
+     * Sets the key-value metadata pairs for the volume. Any keys that already
+     * existed are overwritten and previously set keys are left unchanged.
+     * @param[in] volId The ID of the volume's catalog to update
+     * @param[in] metadataList A list of metadata key value pairs to set.
+     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
+     * to volume catalog.
+     */
+    Error setVolumeMetadata(fds_volid_t volId,
+                            const fpi::FDSP_MetaDataList &metadataList);
 
     /**
      * Starts a new transaction for blob

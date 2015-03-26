@@ -15,7 +15,6 @@
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
-#include <dm-platform.h>
 #include <fds_timer.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
@@ -33,7 +32,6 @@
 
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
-#include <NetSession.h>
 #include <DmIoReq.h>
 #include <dmhandler.h>
 #include <CatalogSync.h>
@@ -47,6 +45,7 @@
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <dm-tvc/TimelineDB.h>
 #include <StatStreamAggregator.h>
+#include <DataMgrIf.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -59,13 +58,8 @@ struct DataMgr;
 class DMSvcHandler;
 extern DataMgr *dataMgr;
 
-struct DataMgr : Module, DmIoReqHandler {
+struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
-
-    class ReqHandler;
-
-    typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
-    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
 
     OMgrClient     *omClient;
 
@@ -104,7 +98,7 @@ struct DataMgr : Module, DmIoReqHandler {
         return vol_meta_map[volId]->vol_desc->name;
     }
 
-    inline const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
+    virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
         FDSGUARD(vol_map_mtx);
         std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
                 vol_meta_map.find(volId);
@@ -121,23 +115,45 @@ struct DataMgr : Module, DmIoReqHandler {
     } dmRunModes;
     dmRunModes    runMode;
 
-    struct Features {
+    class Features {
+      private:
         bool fQosEnabled = true;
         bool fCatSyncEnabled = true;
         bool fTestMode = false;
-        bool isTestMode() {
-            return fTestMode;
-        }
-        bool isQosEnabled() {
+        bool fTimelineEnabled = true;
+
+      public:
+        inline bool isQosEnabled() const {
             return fQosEnabled;
         }
-        bool isCatSyncEnabled() {
+        inline void setQosEnabled(bool val) {
+            fQosEnabled = val;
+        }
+
+        inline bool isCatSyncEnabled() const {
             return fCatSyncEnabled;
         }
-    } feature;
+        inline void setCatSyncEnabled(bool val) {
+            fCatSyncEnabled = val;
+        }
+
+        inline bool isTestMode() const {
+            return fTestMode;
+        }
+        inline void setTestMode(bool val) {
+            fTestMode = val;
+        }
+
+        inline bool isTimelineEnabled() const {
+            return fTimelineEnabled;
+        }
+        inline void setTimelineEnabled(bool val) {
+            fTimelineEnabled = val;
+        }
+    } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
-    TimelineDB timeline;
+    boost::shared_ptr<TimelineDB> timeline;
 
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
@@ -211,7 +227,8 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
-                case FDS_GET_VOLUME_METADATA:
+                case FDS_STAT_VOLUME:
+                case FDS_SET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
@@ -237,16 +254,6 @@ struct DataMgr : Module, DmIoReqHandler {
         }
     };
 
-    /*
-     * RPC handlers and comm endpoints.
-     */
-    ReqHandlerPtr  metadatapath_handler;
-    boost::shared_ptr<netSessionTbl> nstable;
-    netMetaDataPathServerSession *metadatapath_session;
-    // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
-
-    fds_rwlock respMapMtx;
-
     FDS_VolumeQueue*  sysTaskQueue;
     std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
 
@@ -255,7 +262,7 @@ struct DataMgr : Module, DmIoReqHandler {
      */
     std::string  stor_prefix;   /* String prefix to make file unique */
     fds_uint32_t  scheduleRate;
-    fds_bool_t   use_om;        /* Whether to bootstrap from OM */
+    fds_bool_t   standalone;    /* Whether to bootstrap from OM */
     std::string  omIpStr;       /* IP addr of the OM used to bootstrap */
     fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
 
@@ -313,7 +320,6 @@ struct DataMgr : Module, DmIoReqHandler {
                                fds_volid_t volume_id,
                                const std::vector<StatSlot>& slots);
 
-    void setup_metadatapath_server(const std::string &ip);
     void setup_metasync_service();
 
     explicit DataMgr(CommonModuleProviderIf *modProvider);
@@ -344,10 +350,6 @@ struct DataMgr : Module, DmIoReqHandler {
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
 
-    inline RespHandlerPrx respHandleCli(const string& session_uuid) {
-        return metadatapath_session->getRespClient(session_uuid);
-    }
-
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void updateCatalog(dmCatReq *io);
     /* End of new refactored DM message handlers */
@@ -377,16 +379,14 @@ struct DataMgr : Module, DmIoReqHandler {
      */
     Error deleteSnapshot(const fds_uint64_t snapshotId);
 
+    virtual std::string getSnapDirBase() const override;
+
     Error deleteVolumeContents(fds_volid_t volId);
 
-    /*
-     * Nested class that manages the server interface.
-     */
-    class ReqHandler : public FDS_ProtocolInterface::FDSP_MetaDataPathReqIf {
-      public:
-        ReqHandler();
-        ~ReqHandler();
-    };
+    virtual std::string getSysVolumeName(const fds_volid_t &volId) const override;
+
+    virtual std::string getSnapDirName(const fds_volid_t &volId,
+                                       const int64_t snapId) const override;
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;

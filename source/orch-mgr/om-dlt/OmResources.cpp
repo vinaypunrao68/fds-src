@@ -16,7 +16,9 @@
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <fds_process.h>
-
+#include <net/net_utils.h>
+#include <net/SvcMgr.h>
+#include <unistd.h>
 #define OM_WAIT_NODES_UP_SECONDS   (5*60)
 #define OM_WAIT_START_SECONDS      1
 
@@ -788,6 +790,7 @@ void OM_NodeDomainMod::local_domain_event(ShutdownEvt const &evt) {
 Error
 OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
 {
+    TRACEFUNC;
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
@@ -866,6 +869,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
 Error
 OM_NodeDomainMod::om_load_volumes()
 {
+    TRACEFUNC;
     Error err(ERR_OK);
 
     // load volumes for this domain
@@ -916,6 +920,7 @@ OM_NodeDomainMod::om_load_volumes()
 fds_bool_t
 OM_NodeDomainMod::om_rm_sm_configDB(const NodeUuid& uuid)
 {
+    TRACEFUNC;
     fds_bool_t found = false;
     NodeUuid plat_uuid;
 
@@ -954,6 +959,94 @@ OM_NodeDomainMod::om_rm_sm_configDB(const NodeUuid& uuid)
     return true;
 }
 
+// om_register_service
+// ----------------
+//
+Error
+OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
+{
+    TRACEFUNC;
+    Error err;
+    /* TODO(OM team): This registration should be handled in synchronized manner (single thread
+     * handling is better) to avoid race conditions.
+     */
+
+    LOGNOTIFY << "Registering service: " << fds::logDetailedString(*svcInfo);
+
+    /* Convert new registration request to existing registration request */
+    fpi::FDSP_RegisterNodeTypePtr reg_node_req;
+    reg_node_req.reset(new FdspNodeReg());
+
+    fromTo(svcInfo, reg_node_req);
+
+    /* Update the service layer service map upfront so that any subsequent communitcation
+     * with that service will work.
+     */
+    MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+
+    /* Do the registration */
+    NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
+    err = om_reg_node_info(node_uuid, reg_node_req);
+
+    if (err.ok()) {
+        om_locDomain->om_bcast_svcmap();
+    } else {
+        /* We updated the svcmap before, undo it by setting svc status to invalid */
+        svcInfo->svc_status = SVC_STATUS_INVALID;
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+    }
+    return err;
+}
+
+void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
+                          fpi::FDSP_RegisterNodeTypePtr& reg_node_req)
+{
+    TRACEFUNC;
+       
+//    FDS_ProtocolInterface::FDSP_AnnounceDiskCapability& capacity;
+//    capacity = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
+//    reg_node_req->disk_info = capacity;
+//    reg_node_req->domain_id = 0;
+//    reg_node_req->ip_hi_addr = 0;
+//    reg_node_req->metasync_port = 0;
+//    reg_node_req->migration_port = 0;
+//    reg_node_req->node_root = new std::string();    
+//    reg_node_req->node_uuid = new FDSP_Uuid(); 
+    
+    reg_node_req->control_port = svcInfo->svc_port;
+    reg_node_req->data_port = svcInfo->svc_port;
+    reg_node_req->ip_lo_addr = fds::net::ipString2Addr(svcInfo->ip);  
+    reg_node_req->node_name = svcInfo->name;   
+    reg_node_req->node_type = svcInfo->svc_type;
+   
+    fds::assign(reg_node_req->service_uuid, svcInfo->svc_id);
+    
+    NodeUuid node_uuid;
+    node_uuid.uuid_set_type(reg_node_req->service_uuid.uuid, fpi::FDSP_PLATFORM);
+    reg_node_req->node_uuid.uuid  = static_cast<int64_t>(node_uuid.uuid_get_val());
+
+    fds_assert(reg_node_req->node_type != fpi::FDSP_PLATFORM ||
+               reg_node_req->service_uuid == reg_node_req->node_uuid);
+
+    if (reg_node_req->node_type == fpi::FDSP_PLATFORM) {
+        fpi::FDSP_AnnounceDiskCapability& diskInfo = reg_node_req->disk_info;
+
+        util::Properties props(&svcInfo->props);
+        diskInfo.disk_iops_max = props.getInt("disk_iops_max");
+        diskInfo.disk_iops_min = props.getInt("disk_iops_min");
+        diskInfo.disk_capacity = props.getDouble("disk_capacity");
+
+        diskInfo.disk_latency_max = props.getInt("disk_latency_max");
+        diskInfo.disk_latency_min = props.getInt("disk_latency_min");
+        diskInfo.ssd_iops_max = props.getInt("ssd_iops_max");
+        diskInfo.ssd_iops_min = props.getInt("ssd_iops_min");
+        diskInfo.ssd_capacity = props.getDouble("ssd_capacity");
+        diskInfo.ssd_latency_max = props.getInt("ssd_latency_max");
+        diskInfo.ssd_latency_min = props.getInt("ssd_latency_min");
+        diskInfo.disk_type = props.getInt("disk_type");
+    }
+}
+
 // om_reg_node_info
 // ----------------
 //
@@ -961,13 +1054,14 @@ Error
 OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                                    const FdspNodeRegPtr msg)
 {
+    TRACEFUNC;
     NodeAgent::pointer      newNode;
     OM_PmContainer::pointer pmNodes;
 
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
 
-    LOGNORMAL << "OM recv reg node uuid " << std::hex
+    LOGNORMAL << "OM recv reg node for platform uuid " << std::hex
         << msg->node_uuid.uuid << ", svc uuid " << msg->service_uuid.uuid
         << std::dec << ", type " << msg->node_type << ", ip "
         << netSession::ipAddr2String(msg->ip_lo_addr) << ", ctrl port "
@@ -979,14 +1073,46 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // registered with OM and node must be in active state
         if (!pmNodes->check_new_service((msg->node_uuid).uuid, msg->node_type)) {
             LOGERROR << "Error: cannot register service " << msg->node_name
-                    << " on node with uuid " << std::hex << (msg->node_uuid).uuid
+                    << " on platform with uuid " << std::hex << (msg->node_uuid).uuid
                     << std::dec << "; Check if Platform daemon is running";
             return Error(ERR_NODE_NOT_ACTIVE);
         }
     }
 
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+
+    /**
+     * Note this is a temporary hack to return the node registration call immediatley
+     * and wait for for 3s before broadcast...
+     */
+    
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
+        /**
+         * schedule the broadcast with a 1s delay.
+         */
+        MODULEPROVIDER()->proc_thrpool()->schedule(&OM_NodeDomainMod::setupNewNode,
+                                                  this, uuid, msg, newNode, 1000);
+        //*/
+    }
+    return err;
+}
+
+Error OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
+                                     const FdspNodeRegPtr msg,
+                                     NodeAgent::pointer   newNode,
+                                     fds_uint32_t delayTime
+                                     ) {
+
+    if (delayTime) {
+        usleep(delayTime * 1000);
+    }
+    
+    Error err(ERR_OK);
+    OM_PmContainer::pointer pmNodes;
+
+    pmNodes = om_locDomain->om_pm_nodes();
+    fds_assert(pmNodes != NULL);
+
         fds_verify(newNode != NULL);
 
         // tell parent PM Agent about its new service
@@ -1014,13 +1140,18 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 
         om_locDomain->om_bcast_new_node(newNode, msg);
 
+        if (fpi::FDSP_CONSOLE == msg->node_type || fpi::FDSP_TEST_APP == msg->node_type) {
+            return err;
+        }
+
         // Let this new node know about exisiting node list.
         // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
         if (msg->node_type == fpi::FDSP_STOR_MGR) {
             // Activate and account node capacity only when SM registers with OM.
             //
-            NodeAgent::pointer pm = pmNodes->agent_info(NodeUuid(msg->node_uuid.uuid));
+            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->\
+                                               agent_info(NodeUuid(msg->node_uuid.uuid)));
             if (pm != NULL) {
                 om_locDomain->om_update_capacity(pm, true);
             } else {
@@ -1070,7 +1201,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));
         }
-    }
     return err;
 }
 
@@ -1084,6 +1214,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
                                   fds_bool_t remove_dm,
                                   fds_bool_t remove_am)
 {
+    TRACEFUNC;
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
@@ -1099,7 +1230,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             OM_SmAgent::pointer smAgent = om_sm_agent(uuid);
 
             // remove this SM's capacity from total capacity
-            NodeAgent::pointer pm = pmNodes->agent_info(node_uuid);
+            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(node_uuid));
             if (pm != NULL) {
                 om_locDomain->om_update_capacity(pm, false);
             } else {
@@ -1196,6 +1327,7 @@ OM_NodeDomainMod::om_shutdown_domain()
 int
 OM_NodeDomainMod::om_create_domain(const FdspCrtDomPtr &crt_domain)
 {
+    TRACEFUNC;
     return 0;
 }
 
@@ -1264,6 +1396,7 @@ void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
                                   fpi::FDSP_MgrIdType svcType) {
+    TRACEFUNC;
     OM_Module *om = OM_Module::om_singleton();
     // notify DLT state machine if this is SM
     if (svcType == fpi::FDSP_STOR_MGR) {
@@ -1294,15 +1427,15 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
         return ERR_NOT_FOUND;
     }
 
-    // for now we shouldn't move to new dlt version until
-    // we are done with current cluster update, so
-    // expect to see migration done resp for current dlt version
-    fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
-    fds_verify(cur_dlt_ver == dlt_version);
-
     if (migrError.ok()) {
         // Set node's state to 'node_up'
         agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
+
+        // for now we shouldn't move to new dlt version until
+        // we are done with current cluster update, so
+        // expect to see migration done resp for current dlt version
+        fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
+        fds_verify(cur_dlt_ver == dlt_version);
 
         // update node's dlt version so we don't send this dlt again
         agent->set_node_dlt_version(dlt_version);
@@ -1366,16 +1499,25 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
         return ERR_NOT_FOUND;
     }
 
-    // if this is timeout and not DM, we should not stop migration,
-    // node is probably down... In current implementation, we will stop
+    // if this is Service Layer error and not DM, we should not stop migration,
+    // node is probably down... If this is AM, and it is still up, IO through that
+    // AM will start getting DMT mismatch errors; We will need to solve this better
+    // when implementing error handling
+    // In current implementation, we will stop
     // migration if DM is down, because this could be DM that is source
     // for migration.
     if (respError.ok() ||
-        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_DATA_MGR))) {
+        ((respError == ERR_SVC_REQUEST_TIMEOUT ||
+          respError == ERR_SVC_REQUEST_INVOCATION) && (node_type != fpi::FDSP_DATA_MGR))) {
         dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
     } else {
         dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid, respError));
     }
+
+    // in case dmt is in error mode, also send recover ack, since OM sends
+    // dmt commit for previously commited DMT as part of recovery
+    dmtMod->dmt_deploy_event(DmtRecoveryEvt(false, uuid, respError));
+
     return err;
 }
 
@@ -1435,7 +1577,8 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
     // migration if SM is down, because this could be SM that is source
     // for migration.
     if (respError.ok() ||
-        ((respError == ERR_SVC_REQUEST_TIMEOUT) && (node_type != fpi::FDSP_STOR_MGR))) {
+        ((respError == ERR_SVC_REQUEST_TIMEOUT ||
+          respError == ERR_SVC_REQUEST_INVOCATION) && (node_type != fpi::FDSP_STOR_MGR))) {
         // set node's confirmed dlt version to this version
         agent->set_node_dlt_version(dlt_version);
 
@@ -1443,6 +1586,7 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
         // when all 'up' nodes acked this dlt commit
         dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, uuid));
     } else {
+        LOGERROR << "Received " << respError << " with DLT commit; handling..";
         dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
     }
 
@@ -1478,6 +1622,7 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     if (respError.ok()) {
         dltMod->dlt_deploy_event(DltCloseOkEvt());
     } else {
+        LOGERROR << "Received " << respError << " with response, handling";
         dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
     }
 
@@ -1490,12 +1635,6 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
 void
 OM_NodeDomainMod::om_persist_node_info(fds_uint32_t idx)
 {
-}
-
-/**
- * Constructor for OM control path response handling
- */
-OM_ControlRespHandler::OM_ControlRespHandler() {
 }
 
 }  // namespace fds

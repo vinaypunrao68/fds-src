@@ -16,7 +16,7 @@
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
 #include "fdsp/ConfigurationService.h"
-#include "fdsp/sm_service_types.h"
+#include "fdsp/sm_api_types.h"
 #include <util/fiu_util.h>
 
 #include <gmock/gmock.h>
@@ -92,7 +92,8 @@ void invokeWork(SMApi *smapi,
         // respHdr.msg_code = ERR_SVC_REQUEST_INVOCATION;
         // smapi->putCb(opStartTs, nullptr, ERR_OK, nullptr);
         // gSvcRequestPool->postError(respHdr);
-        NetMgr::ep_mgr_thrpool()->schedule(&SMApi::putCb, smapi,opStartTs, nullptr, ERR_OK, nullptr);
+        MODULEPROVIDER()->proc_thrpool()->schedule(&SMApi::putCb, smapi,
+                                                  opStartTs, nullptr, ERR_OK, nullptr);
         // smapi->tp->enqueue(std::bind(&SMApi::putCb, smapi, opStartTs, nullptr, ERR_OK, nullptr));
     } catch (std::exception &e) {
     }

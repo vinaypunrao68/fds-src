@@ -37,8 +37,6 @@ class TestVolumeCreate(TestCase.FDSTestCase):
 
         # Currently, all volumes are created using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
@@ -47,38 +45,33 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             if self.passedVolume is not None:
                 volume = self.passedVolume
 
-            cmd = (' --volume-create %s' % volume.nd_conf_dict['vol-name'])
+            cmd = (' volume create %s' % volume.nd_conf_dict['vol-name'])
 
             if 'id' not in volume.nd_conf_dict:
                 raise Exception('Volume section %s must have "id" keyword.' % volume.nd_conf_dict['vol-name'])
-            cmd = cmd + (' -i %s' % volume.nd_conf_dict['id'])
+            cmd = cmd + (' --tenant-id %s' % volume.nd_conf_dict['id'])
 
             if 'size' not in volume.nd_conf_dict:
                 raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
-            cmd = cmd + (' -s %s' % volume.nd_conf_dict['size'])
+            cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
 
-            if 'policy' not in volume.nd_conf_dict:
-                raise Exception('Volume section %s must have "policy" keyword.' % volume.nd_conf_dict['vol-name'])
-            cmd = cmd + (' -p %s' % volume.nd_conf_dict['policy'])
+            # if 'policy' not in volume.nd_conf_dict:
+            #     raise Exception('Volume section %s must have "policy" keyword.' % volume.nd_conf_dict['vol-name'])
+            # cmd = cmd + (' -p %s' % volume.nd_conf_dict['policy'])
 
             if 'access' not in volume.nd_conf_dict:
-                access = 's3'
+                access = 'object'
             else:
                 access = volume.nd_conf_dict['access']
 
-            cmd = cmd + (' -y %s' % access)
+            cmd = cmd + (' --vol-type %s' % access)
 
             self.log.info("Create volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s %s > '
-                                          '%s/cli.out 2>&1 &) \"' %
-                                          (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > %s/cli.out 2>&1 &) \"' %
+                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Volume %s creation on %s returned status %d." %
@@ -112,8 +105,6 @@ class TestVolumeAttach(TestCase.FDSTestCase):
 
         # Currently, all volumes are attached using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
@@ -122,22 +113,16 @@ class TestVolumeAttach(TestCase.FDSTestCase):
             if self.passedVolume is not None:
                 volume = self.passedVolume
 
-            cmd = (' --volume-attach %s -i %s -n %s' %
+            cmd = (' attach %s %s' %
                (volume.nd_conf_dict['vol-name'],
-                volume.nd_conf_dict['id'],
                 volume.nd_am_node.nd_conf_dict['node-name']))
 
             self.log.info("Attach volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s %s > '
-                                          '%s/cli.out 2>&1 &) \"' %
-                                          (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./nbdadm.py  %s > %s/nbdadm.out 2>&1 &) \"' %
+                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Attach volume %s on %s returned status %d." %
@@ -171,8 +156,6 @@ class TestVolumeDelete(TestCase.FDSTestCase):
 
         # Currently, all volumes are attached using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
@@ -181,21 +164,15 @@ class TestVolumeDelete(TestCase.FDSTestCase):
             if self.passedVolume is not None:
                 volume = self.passedVolume
 
-            cmd = (' --volume-delete %s -i %s' %
-               (volume.nd_conf_dict['vol-name'],
-                volume.nd_conf_dict['id']))
+            cmd = (' volume delete %s' %
+               (volume.nd_conf_dict['vol-name']))
 
             self.log.info("Delete volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s %s > '
-                                          '%s/cli.out 2>&1) \"' %
-                                          (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > %s/cli.out 2>&1) \"' %
+                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Delete volume %s on %s returned status %d." %

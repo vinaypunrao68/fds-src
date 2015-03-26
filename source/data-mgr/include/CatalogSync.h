@@ -9,7 +9,6 @@
 #include <string>
 #include <set>
 
-#include <dm-platform.h>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_module.h>
@@ -17,10 +16,9 @@
 #include <fds_config.hpp>
 #include <fds_process.h>
 #include <concurrency/Mutex.h>
-#include <fdsp/FDSP_types.h>
 #include <DmIoReq.h>
 #include <DmBlobTypes.h>
-#include <fdsp/fds_service_types.h>
+#include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <net/SvcRequest.h>
 #include <fdsp/DMSvc.h>

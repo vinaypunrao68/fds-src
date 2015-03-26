@@ -50,6 +50,8 @@ def suiteConstruction(self, action="kill-uninst"):
         # Shutdown Redis.
         suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis())
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
+        suite.addTest(testcases.TestFDSEnvMgt.TestShutdownInfluxDB())
+        suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
 
     if action.count("uninst") > 0:
         # Cleanup FDS installation directory.

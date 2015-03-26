@@ -19,7 +19,7 @@ extern "C" {
 #include "connector/block/NbdConnection.h"
 #include "OmConfigService.h"
 #include "fds_process.h"
-#include "fdsp/configuration_service_types.h"
+#include "fdsp/config_types_types.h"
 
 
 /// These constants come from the Nbd Protocol
@@ -228,7 +228,7 @@ bool NbdConnection::option_request(ev::io &watcher) {
                                                  attach.data.begin() + attach.header.length);
     apis::VolumeDescriptor volume_desc;
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-    if (config.get_abs<bool>("fds.am.testing.toggleStandAlone", false)) {
+    if (config.get_abs<bool>("fds.am.testing.standalone", false)) {
         object_size = 4 * Ki;
         volume_size = 1 * Gi;
     } else {
@@ -351,6 +351,7 @@ NbdConnection::io_reply(ev::io &watcher) {
         if (!current_response->getError().ok()) {
             err = current_response->getError();
             response[1].iov_base = to_iovec(&error_bad);
+            LOGERROR << "Returning error: " << err;
         } else if (current_response->isRead()) {
             fds_uint32_t context = 0;
             boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);

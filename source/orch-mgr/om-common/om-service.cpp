@@ -7,8 +7,6 @@
 #include <OmDmtDeploy.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
-#include <om-discovery.h>
-#include <om-domain.h>
 
 namespace fds {
 
@@ -28,8 +26,6 @@ OM_Module::OM_Module(char const *const name)
         om_volume_place,
         &gl_OMDltMod,
         &gl_OMDmtMod,
-        &gl_OmDiscoveryMod,
-        &gl_OmNodeWorkMod,
         NULL
     };
     mod_intern     = om_mods;

@@ -9,10 +9,10 @@ import com.formationds.util.blob.Mode;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.XdiConfigurationApi;
-import com.formationds.xdi.s3.PutObjectAcl;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Maps;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -40,24 +40,47 @@ public class XdiAuthorizer {
         cache.start();
     }
 
+    public static BlobDescriptor withAcl(BlobDescriptor blobDescriptor, XdiAcl.Value acl) {
+        Map<String, String> metadata = blobDescriptor.getMetadata();
+        metadata.put(XdiAcl.X_AMZ_ACL, acl.getCommonName());
+        return blobDescriptor;
+    }
+
+    public void updateBlobAcl(AuthenticationToken token, String bucketName, String objectName, XdiAcl.Value newAcl) throws Exception {
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(S3Endpoint.FDS_S3, bucketName, objectName).get();
+        if (!hasBlobPermission(token, bucketName, Intent.changePermissions, blobDescriptor.getMetadata())) {
+            throw new SecurityException();
+        }
+        blobDescriptor = withAcl(blobDescriptor, newAcl);
+        TxDescriptor tx = asyncAm.startBlobTx(S3Endpoint.FDS_S3, bucketName, objectName, 1).get();
+        asyncAm.updateMetadata(S3Endpoint.FDS_S3, bucketName, objectName, tx, blobDescriptor.getMetadata()).get();
+        asyncAm.commitBlobTx(S3Endpoint.FDS_S3, bucketName, objectName, tx).get();
+    }
+
+    public boolean hasBlobPermission(AuthenticationToken token, String bucket, Intent intent, Map<String, String> blobMetadata) {
+        if (authorizer.ownsVolume(token, bucket)) {
+            return true;
+        }
+
+        if (hasVolumePermission(token, bucket, intent)) {
+            return true;
+        }
+
+        XdiAcl.Value objectAcl = XdiAcl.parse(blobMetadata);
+        return objectAcl.allow(intent);
+    }
+
     public boolean hasVolumePermission(AuthenticationToken token, String volume, Intent intent) {
         if (authorizer.ownsVolume(token, volume)) {
             return true;
         }
 
-        Map<String, String> map = cache.getMetadata(volume);
-        String acl = map.getOrDefault(PutObjectAcl.X_AMZ_ACL, PutObjectAcl.PRIVATE);
-
-        if (intent.equals(Intent.read)) {
-            return !PutObjectAcl.PRIVATE.equals(acl);
-        } else if (intent.equals(Intent.readWrite)) {
-            return PutObjectAcl.PUBLIC_READ_WRITE.equals(acl);
-        }
-
-        return false;
+        Map<String, String> volumeMetadata = cache.getMetadata(volume);
+        XdiAcl.Value acl = XdiAcl.parse(volumeMetadata);
+        return acl.allow(intent);
     }
 
-    public boolean hasToplevelPermission(AuthenticationToken token, Intent intent) {
+    public boolean hasToplevelPermission(AuthenticationToken token) {
         if (authenticator.allowAll()) {
             return true;
         } else {
@@ -85,12 +108,15 @@ public class XdiAuthorizer {
         return authenticator.parseToken(tokenHeader);
     }
 
-    public void updateBucketAcl(String bucketName, String aclName) throws Exception {
+    public void updateBucketAcl(AuthenticationToken token, String bucketName, XdiAcl.Value newAcl) throws Exception {
+        if (!hasVolumePermission(token, bucketName, Intent.changePermissions)) {
+            throw new SecurityException();
+        }
         VolumeDescriptor volumeDescriptor = config.statVolume(S3Endpoint.FDS_S3, bucketName);
         String systemVolume = XdiConfigurationApi.systemFolderName(volumeDescriptor.getTenantId());
         createVolumeIfNeeded(systemVolume, volumeDescriptor.getTenantId());
         Map<String, String> metadata = new HashMap<String, String>();
-        metadata.put(PutObjectAcl.X_AMZ_ACL, aclName);
+        metadata.put(XdiAcl.X_AMZ_ACL, newAcl.getCommonName());
         String blobName = makeBucketAclBlobName(volumeDescriptor.getVolId());
         asyncAm.updateBlobOnce(S3Endpoint.FDS_S3, systemVolume, blobName, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), metadata).get();
         cache.scheduleRefresh(false);
@@ -164,19 +190,20 @@ public class XdiAuthorizer {
                                     .exceptionally(e -> new BlobDescriptor(vd.getName(), 0, new HashMap<String, String>()));
                             CompletableFuture<Map<String, String>> cf = blobFuture.thenApply(bd -> bd.getMetadata());
                             cache.put(vd.getName(), cf);
+
+                            if (!deferrable) {
+                                try {
+                                    cf.get();
+                                } catch (Exception e) {
+                                    LOG.error("Error refreshing cache", e);
+                                    cache.put(vd.getName(), CompletableFuture.completedFuture(Maps.newHashMap()));
+                                }
+                            }
+
                         });
             } catch (TException e) {
                 throw new RuntimeException(e);
             }
-
-            if (!deferrable) cache.asMap().keySet().forEach(k -> {
-                try {
-                    cache.getIfPresent(k).get();
-                } catch (Exception e) {
-                    LOG.error("Error updating cache entry", e);
-                    cache.put(k, CompletableFuture.completedFuture(new HashMap<String, String>()));
-                }
-            });
         }
     }
 }

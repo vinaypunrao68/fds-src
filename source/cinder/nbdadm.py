@@ -15,10 +15,14 @@ lock_file = "/tmp/nbdadm_lock"
 def get_parser():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--lockfile", dest='lockfile', default='/tmp/nbdadm_lock', help='set the lockfile')
+
     subparsers = parser.add_subparsers(dest='command')
     attach_parser = subparsers.add_parser("attach", help='attach a volume to an nbd device - the attached device is printed to stdout')
     attach_parser.add_argument("nbd_host", help='the host to attach to in HOST:PORT notation (10809 assumed if PORT is omitted)')
     attach_parser.add_argument("volume_name", help='the name of the volume to attach')
+    attach_parser.add_argument("--use-c", dest="should_use_c", action="store_const", const=True, default=False,
+                               help='use nbd-client -c in addition to examining the running processes to determine if a device can be used')
 
     detach_parser = subparsers.add_parser("detach", help='detach a volume - nothing happens if the volume is not attached')
     detach_parser.add_argument("nbd_host", nargs='?', help='detach volume for a specific host - if omitted, detach all volumes with volume_name')
@@ -73,6 +77,7 @@ def nbd_connections():
                 consume_arg(args, '-block-size', True)
                 consume_arg(args, '-b', True)
                 consume_arg(args, '-timeout', True)
+                consume_arg(args, '-t', True)
                 consume_arg(args, 'nbd-client')
 
                 # this isn't an nbd invocation we care about
@@ -107,15 +112,24 @@ def split_host(host_spec):
 
     return (host, port)
 
+
+def insmod_nbd():
+    return os.system("modprobe nbd -q") == 0
+
 def attach(args):
     if os.geteuid() != 0:
         sys.stderr.write('you must be root to attach\n')
         return 1
 
-
     (host, port) = split_host(args.nbd_host)
 
-    devs = device_paths()
+    devs = list(device_paths())
+    if len(devs) == 0:
+        if not insmod_nbd():
+            sys.stderr.write("no nbd devices found and modprobe nbd failed")
+            return 5
+        devs = list(device_paths())
+
     for conn in nbd_connections():
         (p, dev, c_host, volume) = conn
         if args.volume_name == volume and split_host(c_host) == (host, port):
@@ -125,6 +139,18 @@ def attach(args):
     conns = set([d for (_, d, _, _) in nbd_connections()])
     for dev in devs:
         if dev not in conns:
+            if args.should_use_c:
+                try:
+                    with open(os.devnull, 'wb') as devnull:
+                        cproc = psutil.Popen('nbd-client -c %s' % dev, shell=True, stderr=devnull, stdout=devnull)
+                    exit = cproc.wait(3)
+                    if exit != 1:
+                        continue
+
+                except psutil.TimeoutExpired as e:
+                    continue
+
+
             if port == 10809:
                 nbd_args = ['nbd-client', '-N', args.volume_name, host, dev, '-b', '4096', '-t', '5']
             else:
@@ -200,10 +226,12 @@ def detach(args):
 
 
 def main(argv = sys.argv):
+    global lock_file
     args = list(argv)
     args.pop(0)
     parser = get_parser()
     result = parser.parse_args(args)
+    lock_file = result.lockfile
 
     try:
         if result.command == 'list':

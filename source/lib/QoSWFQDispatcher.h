@@ -4,8 +4,6 @@
 
 namespace fds {
 
-  const unsigned int MAX_PENDING_IOS_PER_VOLUME = 1024;
-
   const unsigned int io_dispatch_type_rate = 0;
   const unsigned int io_dispatch_type_credit = 1;
   const unsigned int io_dispatch_type_priority = 2;

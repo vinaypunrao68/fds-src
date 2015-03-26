@@ -17,7 +17,7 @@
 #include <fdsp/FDSP_types.h>
 #include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
-#include <fdsp/dm_service_types.h>
+#include <fdsp/dm_api_types.h>
 #include <fdsp/fds_stream_types.h>
 
 #define FdsDmSysTaskId      0x8fffffff
@@ -33,7 +33,8 @@ extern std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
-extern std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
 extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
@@ -596,8 +597,8 @@ class DmIoGetBlobMetaData: public dmCatReq {
 struct DmIoGetVolumeMetaData : dmCatReq {
     typedef std::function<void (const Error &e, DmIoGetVolumeMetaData *req)> CbType;
 
-    explicit DmIoGetVolumeMetaData(boost::shared_ptr<fpi::GetVolumeMetaDataMsg> message)
-            : dmCatReq(message->volume_id, "", "", 0, FDS_GET_VOLUME_METADATA), msg(message) {
+    explicit DmIoGetVolumeMetaData(boost::shared_ptr<fpi::StatVolumeMsg> message)
+            : dmCatReq(message->volume_id, "", "", 0, FDS_STAT_VOLUME), msg(message) {
         // perf-trace related data
         opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
 
@@ -614,9 +615,21 @@ struct DmIoGetVolumeMetaData : dmCatReq {
         opQoSWaitCtx.reset_volid(message->volume_id);
     }
 
-    boost::shared_ptr<fpi::GetVolumeMetaDataMsg> msg;
+    boost::shared_ptr<fpi::StatVolumeMsg> msg;
     // response callback
     CbType dmio_get_volmd_resp_cb;
+};
+
+struct DmIoSetVolumeMetaData : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoSetVolumeMetaData *req)> CbType;
+
+    explicit DmIoSetVolumeMetaData(boost::shared_ptr<fpi::SetVolumeMetadataMsg> message)
+            : dmCatReq(message->volumeId, "", "", 0, FDS_SET_VOLUME_METADATA), msg(message) {
+    }
+
+    boost::shared_ptr<fpi::SetVolumeMetadataMsg> msg;
+    // response callback
+    CbType dmio_set_volmd_resp_cb;
 };
 
 /**

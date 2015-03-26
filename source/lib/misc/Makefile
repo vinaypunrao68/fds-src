@@ -2,7 +2,8 @@ topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
 user_cpp         :=      \
-    dlt.cpp \
+    config.cpp           \
+    dlt.cpp              \
     FdsRandom.cpp        \
     NetSession.cpp       \
     Catalog.cpp          \
@@ -25,7 +26,8 @@ user_cpp         :=      \
     PerfHistory.cpp      \
     StatsCollector.cpp   \
     ObjectLogger.cpp 	 \
-	Histogram.cpp
+	Histogram.cpp 	\
+    S3Client.cpp
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \

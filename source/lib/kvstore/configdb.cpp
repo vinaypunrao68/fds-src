@@ -22,6 +22,10 @@ namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
 
+#define FDSP_SERIALIZE(type , varname) \
+    boost::shared_ptr<std::string> varname; \
+    fds::serializeFdspMsg(type, varname);
+
 ConfigDB::ConfigDB(const std::string& host,
                    uint port,
                    uint poolsize) : KVStore(host, port, poolsize) {
@@ -82,37 +86,123 @@ bool ConfigDB::setGlobalDomain(ConstString globalDomain) {
     return false;
 }
 
-bool ConfigDB::addLocalDomain(ConstString name, int localDomain, int globalDomain) {
+/**
+ * Create a new Local Domain provided it does not already exist. (Local Domain names
+ * are treated as case-insenative.)
+ *
+ * @param identifier: std::string - Name to use for the new Local Domain.
+ * @param site: std::string - Name of the location of the new Local Domain.
+ *
+ * @return int64_t - ID generated for the new Local Domain.
+ */
+int64_t ConfigDB::createLocalDomain(const std::string& identifier, const std::string& site) {
     TRACKMOD();
     try {
-        Reply reply = r.sendCommand("sadd %d:domains %d", globalDomain, localDomain);
-        if (!reply.wasModified()) {
-            LOGWARN << "domain id: "<< localDomain <<" already exists for global :" <<globalDomain;
+        // Check if the Local Domain already exists.
+        std::string idLower = lower(identifier);
+
+        int64_t id = getIdOfLocalDomain(identifier);
+        if (id > 0) {
+            // The Local Domain already exists.
+            LOGWARN << "Trying to add an existing Local Domain : " << id << ": " << identifier;
+            NOMOD();
+            return id;
         }
-        return r.sendCommand("hmset domain:%d id %d name %s", localDomain, localDomain, name.c_str()).isOk(); //NOLINT
+
+        fds::apis::LocalDomain localDomain;
+
+        // Get new id
+        auto reply = r.sendCommand("incr local.domain:nextid");
+
+        // Build Local Domain object to store.
+        localDomain.id = reply.getLong();
+        localDomain.name = identifier;
+        localDomain.site = site;
+
+        r.sendCommand("sadd local.domain:list %b", idLower.data(), idLower.length());
+
+        // serialize
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(localDomain, serialized);
+
+        r.sendCommand("hset local.domains %ld %b", localDomain.id, serialized->data(), serialized->length()); //NOLINT
+        return localDomain.id;
     } catch(const RedisException& e) {
-        LOGERROR << e.what();
-        NOMOD();
+        LOGCRITICAL << "Error with redis " << e.what();
     }
-    return false;
+
+    return 0;
 }
 
-bool ConfigDB::getLocalDomains(std::map<int, std::string>& mapDomains, int globalDomain) {
+/**
+ * Generate a vector of Local Domains currently defined.
+ *
+ * @param localDomains: std::vector<fds::apis::LocalDomain> - Vector of returned Local Domain names.
+ *
+ * @return bool - True if the vector is successfully produced. False otherwise.
+ */
+bool ConfigDB::listLocalDomains(std::vector<fds::apis::LocalDomain>& localDomains) {
+    fds::apis::LocalDomain localDomain;
+
     try {
-        Reply reply = r.sendCommand("smembers %d:domains", globalDomain);
-        std::vector<long long> vec; //NOLINT
-        reply.toVector(vec);
+        Reply reply = r.sendCommand("hvals local.domains");
+        StringList strings;
+        reply.toVector(strings);
 
-        for (uint i = 0; i < vec.size(); i++) {
-            reply = r.sendCommand("hget domain:%d name", static_cast<int>(vec[i]));
-            mapDomains[static_cast<int>(vec[i])] = reply.getString();
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, localDomain);
+            LOGDEBUG << "Read Local Domain " << localDomain.name;
+            localDomains.push_back(localDomain);
         }
-        return true;
     } catch(const RedisException& e) {
-        LOGERROR << e.what();
+        LOGCRITICAL << "Error with redis " << e.what();
+        return false;
     }
-    return false;
+    return true;
 }
+
+/**
+ * Return the Domain ID for the named Local Domain.
+ *
+ * @param identifier: std::string - Name of the Local Domain whose ID is to be returned.
+ *
+ * @return int64_t - ID of the named Local Domain. 0 otherwise.
+ */
+int64_t ConfigDB::getIdOfLocalDomain(const std::string& identifier) {
+    int64_t id = 0;
+
+    try {
+        // Check if the Local Domain exists.
+        std::string idLower = lower(identifier);
+
+        Reply reply = r.sendCommand("sismember local.domain:list %b", idLower.data(), idLower.length());
+        if (reply.getLong() == 1) {
+            // The Local Domain exists.
+            std::vector<fds::apis::LocalDomain> localDomains;
+            if (listLocalDomains(localDomains)) {
+                for (const auto &localDomain : localDomains) {
+                    if (localDomain.name == identifier) {
+                        id = localDomain.id;
+                        break;
+                    }
+                }
+
+                if (id == 0) {
+                    LOGCRITICAL << "ConfigDB inconsistency. Local Domain info missing : " << identifier;
+                }
+            } else {
+                LOGCRITICAL << "Unable to obtain Local Domain list.";
+                return id;
+            }
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Error with redis " << e.what();
+        throw e;
+    }
+
+    return id;
+}
+
 
 // volumes
 fds_uint64_t ConfigDB::getNewVolumeId() {
@@ -543,16 +633,16 @@ bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
 }
 
 // nodes
-bool ConfigDB::addNode(const node_data_t *node) {
+bool ConfigDB::addNode(const NodeInfoType& node) {
     TRACKMOD();
     // add the volume to the volume list for the domain
     int domainId = 0;  // TODO(prem)
     try {
         bool ret;
 
-        ret = r.sadd(format("%d:cluster:nodes", domainId), node->nd_node_uuid);
-        ret = r.set(format("node:%ld", node->nd_node_uuid),
-                    std::string(reinterpret_cast<const char *>(node), sizeof(node_data_t)));
+        FDSP_SERIALIZE(node, serialized);
+        ret = r.sadd(format("%d:cluster:nodes", domainId), node.node_uuid.uuid);
+        ret = r.set(format("node:%ld", node.node_uuid.uuid), *serialized);
 
         return ret;
     } catch(const RedisException& e) {
@@ -562,7 +652,7 @@ bool ConfigDB::addNode(const node_data_t *node) {
     return false;
 }
 
-bool ConfigDB::updateNode(const node_data_t *node) {
+bool ConfigDB::updateNode(const NodeInfoType& node) {
     try {
         return addNode(node);
     } catch(const RedisException& e) {
@@ -591,14 +681,13 @@ bool ConfigDB::removeNode(const NodeUuid& uuid) {
     return false;
 }
 
-bool ConfigDB::getNode(const NodeUuid& uuid, node_data_t *node) {
+bool ConfigDB::getNode(const NodeUuid& uuid, NodeInfoType& node) {
     try {
         Reply reply = r.get(format("node:%ld", uuid.uuid_get_val()));
         if (reply.isOk()) {
-            *node = *(reinterpret_cast<const node_data_t *>(reply.getString().c_str()));
+            fds::deserializeFdspMsg(reply.getString(), node);
             return true;
         }
-        return false;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
@@ -640,7 +729,7 @@ bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int loc
     return false;
 }
 
-bool ConfigDB::getAllNodes(std::vector<node_data_t>& nodes, int localDomain) {
+bool ConfigDB::getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain) {
     std::vector<long long> nodeIds; //NOLINT
 
     try {
@@ -651,10 +740,10 @@ bool ConfigDB::getAllNodes(std::vector<node_data_t>& nodes, int localDomain) {
             LOGWARN << "no nodes found for domain [" << localDomain << "]";
             return false;
         }
-
+        
+        NodeInfoType node;
         for (uint i = 0; i < nodeIds.size(); i++) {
-            node_data_t node;
-            getNode(nodeIds[i], &node);
+            getNode(nodeIds[i], node);
             nodes.push_back(node);
         }
         return true;
@@ -666,8 +755,10 @@ bool ConfigDB::getAllNodes(std::vector<node_data_t>& nodes, int localDomain) {
 
 std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
     try {
-        Reply reply = r.sendCommand("hget node:%ld name", uuid);
-        return reply.getString();
+        NodeInfoType node;
+        if (getNode(uuid, node)) {
+            return node.node_name;
+        }
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
@@ -801,7 +892,7 @@ int32_t ConfigDB::getNewStreamRegistrationId() {
     return -1;
 }
 
-bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
+bool ConfigDB::addStreamRegistration(apis::StreamingRegistrationMsg& streamReg) {
     TRACKMOD();
     try {
         boost::shared_ptr<std::string> serialized;
@@ -823,7 +914,7 @@ bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
     return false;
 }
 
-bool ConfigDB::getStreamRegistration(int regId, fpi::StreamingRegistrationMsg& streamReg) {
+bool ConfigDB::getStreamRegistration(int regId, apis::StreamingRegistrationMsg& streamReg) {
     try {
         Reply reply = r.sendCommand("get streamreg:%d", regId);
         if (reply.isNil()) return false;
@@ -856,7 +947,7 @@ bool ConfigDB::removeStreamRegistration(int regId) {
     return false;
 }
 
-bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>& vecReg) {
+bool ConfigDB::getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg>& vecReg) {
     try {
         std::vector<long long> regIds; //NOLINT
 
@@ -868,7 +959,7 @@ bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>
             return false;
         }
 
-        fpi::StreamingRegistrationMsg regMsg;
+        apis::StreamingRegistrationMsg regMsg;
         for (uint i = 0; i < regIds.size(); i++) {
             if (getStreamRegistration(regIds[i], regMsg)) {
                 vecReg.push_back(regMsg);
@@ -1140,14 +1231,14 @@ bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const 
     return true;
 }
 
-bool ConfigDB::createSnapshotPolicy(fpi::SnapshotPolicy& policy) {
+bool ConfigDB::createSnapshotPolicy(fds::apis::SnapshotPolicy& policy) {
     TRACKMOD();
     try {
         std::string idLower = lower(policy.policyName);
         bool fNew = true;
         // check if this is a modification
         if (policy.id > 0) {
-            fpi::SnapshotPolicy oldpolicy;
+            fds::apis::SnapshotPolicy oldpolicy;
             if (getSnapshotPolicy(policy.id, oldpolicy)) {
                 fNew = false;
                 LOGWARN << "modifying an existing policy:" << policy.id;
@@ -1177,7 +1268,8 @@ bool ConfigDB::createSnapshotPolicy(fpi::SnapshotPolicy& policy) {
     }
 }
 
-bool ConfigDB::getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy) {
+bool ConfigDB::getSnapshotPolicy(int64_t policyid,
+                                 fds::apis::SnapshotPolicy& policy) {
     try {
         Reply reply = r.hget("snapshot.policies", policyid);
         if (reply.isNil()) {
@@ -1192,12 +1284,12 @@ bool ConfigDB::getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy) 
     return true;
 }
 
-bool ConfigDB::listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy) {
+bool ConfigDB::listSnapshotPolicies(std::vector<fds::apis::SnapshotPolicy> & vecPolicy) {
     try {
         Reply reply = r.sendCommand("hvals snapshot.policies");
         StringList strings;
         reply.toVector(strings);
-        fpi::SnapshotPolicy policy;
+        fds::apis::SnapshotPolicy policy;
 
         for (const auto& value : strings) {
             fds::deserializeFdspMsg(value, policy);
@@ -1213,7 +1305,7 @@ bool ConfigDB::listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy
 bool ConfigDB::deleteSnapshotPolicy(const int64_t policyId) {
     try {
         // get the policy
-        fpi::SnapshotPolicy policy;
+        fds::apis::SnapshotPolicy policy;
 
         getSnapshotPolicy(policyId, policy);
         std::string nameLower = lower(policy.policyName);
@@ -1250,7 +1342,7 @@ bool ConfigDB::attachSnapshotPolicy(const int64_t volumeId, const int64_t policy
     return true;
 }
 
-bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & vecPolicies,
+bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fds::apis::SnapshotPolicy> & vecPolicies,
                                              const int64_t volumeId) {
     try {
         Reply reply = r.sendCommand("smembers volume:%ld:snapshot.policies", volumeId); //NOLINT
@@ -1269,7 +1361,7 @@ bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & 
         reply = r.sendCommand(policylist.c_str());
         strings.clear();
         reply.toVector(strings);
-        fpi::SnapshotPolicy policy;
+        fds::apis::SnapshotPolicy policy;
 
         for (const auto& value : strings) {
             fds::deserializeFdspMsg(value, policy);
@@ -1424,6 +1516,49 @@ bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId
     snapshot.snapshotId = snapshotId;
     return setSnapshotState(snapshot, state);
 }
+
+#if 0
+/* NOTE (March 3, 2015): Keeping this code commented here in hopes this code will get
+ * uncommented.  If this code isn't used in 2 months, it's safe to get rid of it
+ */
+bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
+    TRACKMOD();
+    try {
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(svcinfo, serialized);
+
+        r.hset("svcmap", svcinfo.svc_id.svc_uuid.svc_uuid, *serialized); //NOLINT
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
+{
+    try {
+        svcMap.clear();
+        Reply reply = r.sendCommand("hgetall svcmap");
+        StringList strings;
+        reply.toVector(strings);
+
+        for (uint i = 0; i < strings.size(); i+= 2) {
+            fpi::SvcInfo svcInfo;
+            std::string& value = strings[i+1];
+
+            fds::deserializeFdspMsg(value, svcInfo);
+            svcMap.push_back(svcInfo);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+
+}
+#endif
 
 }  // namespace kvstore
 }  // namespace fds

@@ -33,6 +33,13 @@ Error
 ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     Error err(ERR_OK);
     diskio::DataTier tier = diskio::diskTier;
+    fds_uint32_t ssdCount = diskMap->getTotalDisks(diskio::flashTier);
+    fds_uint32_t hddCount = diskMap->getTotalDisks(diskio::diskTier);
+    if ((ssdCount == 0) && (hddCount == 0)) {
+        LOGCRITICAL << "No disks (no SSDs and no HDDs)";
+        return ERR_SM_EXCEEDED_DISK_CAPACITY;
+    }
+
     // if we have SSDs, use SSDs; however, there is currently no way
     // for SM to tell if discovered SSDs are real or simulated
     // so we are using config for that (use SSDs at your own risk, because
@@ -41,8 +48,12 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     if (useSsd) {
         // currently, we always have SSDs (simulated if no SSDs), so below check
         // is redundant, but just in case platform changes
-        DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
-        if (ssdIds.size() > 0) {
+        if (ssdCount > 0) {
+            tier = diskio::flashTier;
+        }
+    } else {
+        // if we don't have any HDDs, but have SSDs, still use SSDs for meta
+        if (hddCount == 0) {
             tier = diskio::flashTier;
         }
     }
@@ -128,7 +139,8 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
 
 Error
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
-                           std::string &snapDir) {
+                           std::string &snapDir,
+                           leveldb::CopyEnv **env) {
     osm::ObjectDB *odb = nullptr;
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
@@ -139,7 +151,7 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
     if (odb == nullptr) {
         return ERR_NOT_FOUND;
     } else {
-        return odb->PersistentSnap(snapDir);
+        return odb->PersistentSnap(snapDir, env);
     }
 }
 
