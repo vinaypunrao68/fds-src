@@ -292,6 +292,7 @@ class NbdOperations
     void updateMetadataResp    (const resp_api_type::error_type &, handle_type&) {}
     void volumeContentsResp    (const resp_api_type::error_type &, handle_type&, shared_descriptor_vec_type&) {}  // NOLINT
     void volumeStatusResp      (const resp_api_type::error_type &, handle_type&, shared_status_type&) {}  // NOLINT
+    void setVolumeMetadataResp (const resp_api_type::error_type &, handle_type&) {}  // NOLINT
 };
 
 }  // namespace fds
