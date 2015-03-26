@@ -312,7 +312,7 @@ class TestRndSvcKill(TestCase.FDSTestCase):
                                                                                              selected_node.nd_conf_dict['node-name']))
 
         # Verify the service exists for the node, if not all bets are off, pick another random node/svc
-        while(selected_node.nd_services.count(selected_svc) == 0):
+        while(selected_node.nd_services.count(selected_svc) == 0 and selected_svc != 'pm'):
             self.log.warn("Service {} not configured for node {}."
                           "Selecting new random node/service".format(selected_svc,
                                                                      selected_node.nd_conf_dict['node-name']))
@@ -1150,8 +1150,6 @@ class TestPMWait(TestCase.FDSTestCase):
             # If we were passed a node, use it and get out. Otherwise,
             # we spin through all defined nodes setting them up.
             if self.passedNode is not None:
-                n = findNodeFromInv(nodes, self.passedNode)
-            else:
                 n = findNodeFromInv(nodes, self.passedNode)
 
             # Make sure it wasn't the target of a random kill
