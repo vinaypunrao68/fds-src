@@ -39,6 +39,9 @@ def suiteConstruction(self):
     # Run an fio read/write workload
     suite.addTest(testcases.TestBlockIntFace.TestBlockFioRW())
 
+    # Run an fio random read/write workload
+    suite.addTest(testcases.TestBlockIntFace.TestBlockFioRandRW())
+
     # Detach a block device
     suite.addTest(testcases.TestBlockIntFace.TestBlockDetachVolume())
 

@@ -30,7 +30,8 @@ NbdConnector::NbdConnector(OmConfigApi::shared_ptr omApi)
 
 void NbdConnector::initialize() {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.nbd.");
-    nbdPort = conf.get<uint32_t>("server_port", nbdPort);
+    int pmPort = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.pm.platform_port", 7000);
+    nbdPort = pmPort + conf.get<uint32_t>("server_port_offset", 3809);
 
     // Shutdown the socket if we are reinitializing
     if (0 > nbdSocket)

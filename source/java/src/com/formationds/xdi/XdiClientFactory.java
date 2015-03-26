@@ -43,10 +43,6 @@ public class XdiClientFactory {
 
     private int amResponsePort;
 
-    public XdiClientFactory() {
-        this(Main.AM_BASE_RESPONSE_PORT);
-    }
-
     public XdiClientFactory(int amResponsePort) {
         this.amResponsePort = amResponsePort;
 

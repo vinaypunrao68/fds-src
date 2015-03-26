@@ -41,6 +41,7 @@ public class S3SmokeTest {
     private static final String FDS_AUTH_HEADER = "FDS-Auth";
     private final static String ADMIN_USERNAME = "admin";
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
+    private final int amResponsePortOffset = 2876;
 
     public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
     private final String adminToken;
@@ -99,7 +100,9 @@ public class S3SmokeTest {
         prefix = UUID.randomUUID()
                 .toString();
         count = 10;
-        config = new XdiClientFactory().remoteOmService(host, 9090);
+
+        Integer pmPort = 7000;
+        config = new XdiClientFactory(pmPort + amResponsePortOffset).remoteOmService(host, 9090);
 
         testBucketExists(userBucket, false);
         testBucketExists(adminBucket, false);

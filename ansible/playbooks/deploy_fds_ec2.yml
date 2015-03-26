@@ -109,6 +109,7 @@
         this_is_an_ec2_node: true
     vars_files:
     -   ../vars_files/multi_om_setup.yml
+    -   ../vars_files/credentials/ssl_certs.yml
 
     handlers:
     -   name: restart ssh

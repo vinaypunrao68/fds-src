@@ -65,6 +65,9 @@ class AmAsyncResponseApi {
         handle_type& requestId,
         shared_descriptor_vec_type& volContents) = 0;
 
+    virtual void setVolumeMetadataResp(const error_type &error,
+                                       handle_type& requestId) = 0;
+
     virtual void getBlobResp(const error_type &error,
                              handle_type& requestId,
                              shared_buffer_type buf,

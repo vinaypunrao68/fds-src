@@ -62,6 +62,8 @@ NUMBER_USERS = 30
 MAX_NUM_VOLUMES = 1023
 SAMPLE_FILE = "test.txt"
 SAMPLE_DIR = "./samples/"
+RANDOM_DATA = "./random_data/"
+DD = "dd if=/dev/urandom of=%s bs=%s count=1"
 TEST_DIR = "./test_files/"
 BACKUP_DIR = "./backup/"
 REPOSITORY_URL = "http://coke.formationds.com/jenkins_tests/samples.tar.gz"

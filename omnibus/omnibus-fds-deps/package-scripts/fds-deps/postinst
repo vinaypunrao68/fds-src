@@ -22,6 +22,9 @@ ln -sf /opt/fds-deps/embedded/etc/init/gmond-influxdb-bridge.conf /etc/init/gmon
 chown root:root /etc/init/gmond-influxdb-bridge.conf || error_exit "Cannot set ownership of gmond-influxdb-bridge upstart config"
 initctl reload-configuration
 
+service gmond start || echo "Couldn't stop service gmond"
+service gmond-influxdb-bridge start || echo "Couldn't stop service gmond-influxdb-bridge"
+
 echo "Thank you for installing fds-deps!"
 
 exit 0

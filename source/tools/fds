@@ -431,7 +431,6 @@ function clean() {
                 rm -rf /${node}/hdd/sd?
                 rm -rf /${node}/ssd/sd?
                 rm -rf /${node}/sys-repo/*
-                rm -rf /${node}/nginx/logs/*
                 rm -rf /${node}/user-repo/*
                 rm -rf /${node}/dev/*
                 rm -rf /${node}/var/stats/*

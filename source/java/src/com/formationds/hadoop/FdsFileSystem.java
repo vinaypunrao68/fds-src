@@ -48,6 +48,8 @@ public class FdsFileSystem extends FileSystem {
     public static final String LAST_MODIFIED_KEY = "last-modified";
     public static final String CREATED_BY_USER = "created-by-user";
     public static final String CREATED_BY_GROUP = "created-by-group";
+    public static final int amServicePortOffset = 2988;
+    public static int amResponsePortOffset = 2876;
 
     private XdiService.Iface am;
     private Path workingDirectory;
@@ -77,15 +79,16 @@ public class FdsFileSystem extends FileSystem {
         setConf(conf);
         String am = conf.get("fds.am.endpoint");
         String cs = conf.get("fds.cs.endpoint");
+	Integer pmPort = 7000;
 
-        XdiClientFactory cf = new XdiClientFactory();
+        XdiClientFactory cf = new XdiClientFactory(pmPort + amResponsePortOffset);
         XdiService.Iface amClient = null;
 
         this.uri = URI.create(getScheme() + "://" + uri.getAuthority());
         workingDirectory = new Path(uri);
 
         if (am != null) {
-            HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, 9988);
+            HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, pmPort + amServicePortOffset);
             amClient = cf.remoteAmService(amConnectionData.getHost(), amConnectionData.getPort());
         } else if (this.am != null) {
             amClient = this.am;

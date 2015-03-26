@@ -58,7 +58,10 @@ angular.module( 'user-management' ).factory( '$authentication', ['$http', '$docu
         return {
             responseError: function( response, error, code ){
                 
-                if ( response.status === 401 && this.document.cookie !== '' ){
+                var userCookie = readCookie( 'user' );
+                var tokenCookie = readCookie( 'token' );
+                
+                if ( response.status === 401 && ( userCookie !== null || tokenCookie !== null ) ){
                     this.document.cookie = 'token=; expires=Thu, 01-Jan-70 00:00:01 GMT;';
                     this.document.cookie = 'user=; expires=Thu, 01-Jan-70 00:00:01 GMT;';
                     location.reload();

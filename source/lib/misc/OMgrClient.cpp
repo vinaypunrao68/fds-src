@@ -34,11 +34,9 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& node_name,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
-                       Platform *plf,
-                       fds_uint32_t _instanceId)
+                       Platform *plf)
         : dltMgr(new DLTManager()),
-          dmtMgr(new DMTManager(1)),
-          instanceId(_instanceId) {
+          dmtMgr(new DMTManager(1)) {
     fds_verify(_omPort != 0);
     my_node_type = node_type;
     omIpStr      = _omIpStr;

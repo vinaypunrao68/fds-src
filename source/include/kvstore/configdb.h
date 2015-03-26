@@ -36,6 +36,7 @@ struct ConfigDB : KVStore {
     bool setGlobalDomain(ConstString globalDomain= "fds");
     int64_t createLocalDomain (const std::string& identifier = "local", const std::string& site = "local");
     bool listLocalDomains(std::vector<fds::apis::LocalDomain>& localDomains);
+    int64_t getIdOfLocalDomain(const std::string& identifier);
 
     // volumes
     fds_uint64_t getNewVolumeId();

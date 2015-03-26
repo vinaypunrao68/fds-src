@@ -6,7 +6,6 @@ user_rtime_env    := user
 user_incl_dir     += \
 	$(topdir)/platform/include \
 	$(topdir)/access-mgr/include \
-    $(topdir)/nginx-driver \
     $(topdir)
 
 user_cpp_flags    +=
@@ -20,20 +19,10 @@ user_fds_ar_libs  +=  \
     fds-fdsp \
     fds-plat-lib
 
-local_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core
-
 user_non_fds_libs +=  \
     jansson \
 	udev \
 	parted \
-    $(local_nginx_libs) \
     pthread crypt pcre crypto \
 	z \
     ssl \
