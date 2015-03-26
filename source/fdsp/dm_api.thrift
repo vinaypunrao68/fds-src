@@ -72,7 +72,7 @@ struct GetVolumeMetadataMsgRsp {
  */
 struct SetVolumeMetadataMsg {
   1: i64                        volumeId;
-  2: dm_types.FDSP_MetaDataPair metadata;
+  2: dm_types.FDSP_MetaDataList metadataList;
 }
 /**
  * Returns success if metadata was updated.

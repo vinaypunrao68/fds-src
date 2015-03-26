@@ -66,15 +66,20 @@ class AmProcessor : public Module {
     Error removeVolume(fds_volid_t const vol_uuid);
 
     /**
-     * Processes a get volume metadata request
+     * Processes a stat volume request
      */
-    void getVolumeMetadata(AmRequest *amReq);
+    void statVolume(AmRequest *amReq);
 
     /**
-     * Callback for a get volume metadata request
+     * Callback for a stat volume request
      */
-    void getVolumeMetadataCb(AmRequest *amReq,
-                             const Error &error);
+    void statVolumeCb(AmRequest *amReq,
+                      const Error &error);
+
+    /**
+     * Processes a set volume metadata request
+     */
+    void setVolumeMetadata(AmRequest *amReq);
 
     /**
      * Processes a abort blob transaction
