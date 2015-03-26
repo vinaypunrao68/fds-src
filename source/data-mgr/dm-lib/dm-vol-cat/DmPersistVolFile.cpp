@@ -101,6 +101,10 @@ Error DmPersistVolFile::copyVolDir(const std::string & destName) {
     return ERR_OK;
 }
 
+Error DmPersistVolFile::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
+    return ERR_OK;
+}
+
 Error DmPersistVolFile::getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) {
     fds_scoped_spinlock sl(metaLock_);
     if (!blobMeta_) {
@@ -245,6 +249,10 @@ Error DmPersistVolFile::getObject(const std::string & blobName, fds_uint64_t sta
         objList.push_back(blobInfo);
     }
 
+    return ERR_OK;
+}
+
+Error DmPersistVolFile::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
     return ERR_OK;
 }
 
