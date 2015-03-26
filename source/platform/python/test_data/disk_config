@@ -1,0 +1,7 @@
+#path      os_use  index_use  type  interface  capacity (GB)
+/dev/os1   1       0          HDD         NA    32
+/dev/os2   1       0          HDD         NA    16
+/dev/idx1  0       1          HDD         NA    16
+/dev/idx2  0       1          HDD         NA    16
+/dev/idx3  0       0          HDD         NA    16
+/dev/data  0       0          HDD         NA    28
