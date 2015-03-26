@@ -24,6 +24,7 @@ namespace fds {
 
 extern const fds_uint64_t INVALID_BLOB_ID;
 extern const fds_uint32_t BLOB_META_INDEX;
+extern const std::string VOL_META_INDEX;
 
 struct __attribute__((packed)) BlobObjKey {
     fds_uint64_t blobId;
@@ -116,6 +117,8 @@ class DmPersistVolCat {
     }
 
     // gets
+    virtual Error getVolumeMetaDesc(VolumeMetaDesc & blobMeta) = 0;
+
     virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) = 0;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) = 0;
@@ -130,6 +133,8 @@ class DmPersistVolCat {
             fds_uint64_t endOffset, BlobObjList & objList) = 0;
 
     // puts
+    virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
+
     virtual Error putBlobMetaDesc(const std::string & blobName,
             const BlobMetaDesc & blobMeta) = 0;
 
@@ -159,6 +164,10 @@ class DmPersistVolCat {
 
   protected:
     // methods
+
+    // TODO(Andrew): We should use a collision free function if we're going
+    // to map the string names to an int. There's no point in the data being
+    // collision free if the metadata isn't.
     static inline fds_uint64_t getBlobIdFromName(const std::string & blobName) {
         return fds_get_uuid64(blobName);
     }

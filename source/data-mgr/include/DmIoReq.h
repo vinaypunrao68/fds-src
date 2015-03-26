@@ -34,6 +34,7 @@ extern std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& ms
 extern std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
 extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
@@ -617,6 +618,18 @@ struct DmIoGetVolumeMetaData : dmCatReq {
     boost::shared_ptr<fpi::StatVolumeMsg> msg;
     // response callback
     CbType dmio_get_volmd_resp_cb;
+};
+
+struct DmIoSetVolumeMetaData : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoSetVolumeMetaData *req)> CbType;
+
+    explicit DmIoSetVolumeMetaData(boost::shared_ptr<fpi::SetVolumeMetadataMsg> message)
+            : dmCatReq(message->volumeId, "", "", 0, FDS_SET_VOLUME_METADATA), msg(message) {
+    }
+
+    boost::shared_ptr<fpi::SetVolumeMetadataMsg> msg;
+    // response callback
+    CbType dmio_set_volmd_resp_cb;
 };
 
 /**

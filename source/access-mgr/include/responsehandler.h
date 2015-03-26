@@ -188,17 +188,19 @@ struct BucketStatsResponseHandler : ResponseHandler {
     virtual ~BucketStatsResponseHandler();
 };
 
-struct GetVolumeMetaDataCallback {
-    TYPE_SHAREDPTR(GetVolumeMetaDataCallback);
+struct StatVolumeCallback {
+    TYPE_SHAREDPTR(StatVolumeCallback);
     fpi::VolumeStatus volStat;
 };
 
-struct StatVolumeResponseHandler : ResponseHandler, GetVolumeMetaDataCallback {
+struct StatVolumeResponseHandler : ResponseHandler, StatVolumeCallback {
     TYPE_SHAREDPTR(StatVolumeResponseHandler);
     apis::VolumeStatus& volumeStatus;
     explicit StatVolumeResponseHandler(apis::VolumeStatus& volumeStatus);
     virtual void process();
 };
+
+struct SetVolumeMetadataCallback {};
 
 struct AttachCallback {};
 struct DeleteBlobCallback {};

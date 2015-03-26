@@ -44,15 +44,28 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void mod_shutdown();
 
     /**
-     * Dispatches a get volume metadata request.
+     * Dispatches a stat volume request.
      */
-    void dispatchGetVolumeMetadata(AmRequest *amReq);
+    void dispatchStatVolume(AmRequest *amReq);
 
     /**
-     * Callback for get volume metadata responses.
+     * Callback for stat volume responses.
      */
-    void getVolumeMetadataCb(AmRequest* amReq,
-                             FailoverSvcRequest* svcReq,
+    void statVolumeCb(AmRequest* amReq,
+                      FailoverSvcRequest* svcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
+
+    /**
+     * Dispatches a set volume metadata request.
+     */
+    void dispatchSetVolumeMetadata(AmRequest *amReq);
+
+    /**
+     * Callback for set volume metadata responses.
+     */
+    void setVolumeMetadataCb(AmRequest* amReq,
+                             QuorumSvcRequest* svcReq,
                              const Error& error,
                              boost::shared_ptr<std::string> payload);
 

@@ -63,6 +63,11 @@ class AmAsyncDataApi {
                         boost::shared_ptr<fpi::BlobListOrder>& orderBy,
                         shared_bool_type& descending);
 
+    void setVolumeMetadata(handle_type& requestId,
+                           shared_string_type& domainName,
+                           shared_string_type& volumeName,
+                           shared_meta_type& metadata);
+
     void statBlob(handle_type& requestId,
                   shared_string_type& domainName,
                   shared_string_type& volumeName,

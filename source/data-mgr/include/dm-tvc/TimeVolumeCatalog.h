@@ -163,6 +163,17 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error deleteEmptyVolume(fds_volid_t volId);
 
     /**
+     * Sets the key-value metadata pairs for the volume. Any keys that already
+     * existed are overwritten and previously set keys are left unchanged.
+     * @param[in] volId The ID of the volume's catalog to update
+     * @param[in] metadataList A list of metadata key value pairs to set.
+     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
+     * to volume catalog.
+     */
+    Error setVolumeMetadata(fds_volid_t volId,
+                            const fpi::FDSP_MetaDataList &metadataList);
+
+    /**
      * Starts a new transaction for blob
      * @param[in] volId volume ID
      * @param[in] blobName Name of blob
