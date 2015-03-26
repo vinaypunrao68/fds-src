@@ -685,6 +685,17 @@ class TestPMWait(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = self.passedNode
             else:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            # Make sure it wasn't the target of a random kill
+            if (n, "pm") in self.parameters.get('svc_killed', []):
+                self.log.warning("PM service for node {} previously"
+                                 "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
+                if self.passedNode is not None:
+                    break
+                else:
+                    continue
+
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMWait()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
                     self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
