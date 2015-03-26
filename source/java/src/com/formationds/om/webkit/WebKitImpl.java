@@ -12,6 +12,14 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.webkit.rest.*;
+import com.formationds.om.webkit.rest.domain.PostLocalDomain;
+import com.formationds.om.webkit.rest.domain.GetLocalDomains;
+import com.formationds.om.webkit.rest.domain.PutLocalDomain;
+import com.formationds.om.webkit.rest.domain.PutThrottle;
+import com.formationds.om.webkit.rest.domain.PutScavenger;
+import com.formationds.om.webkit.rest.domain.DeleteLocalDomain;
+import com.formationds.om.webkit.rest.domain.GetLocalDomainServices;
+import com.formationds.om.webkit.rest.domain.PutLocalDomainServices;
 import com.formationds.om.webkit.rest.events.IngestEvents;
 import com.formationds.om.webkit.rest.events.QueryEvents;
 import com.formationds.om.webkit.rest.metrics.IngestVolumeStats;
@@ -278,25 +286,61 @@ public class WebKitImpl {
         
         fdsAdminOnly( HttpMethod.POST,
                       "/local_domains/:local_domain",
-                      ( t ) -> new CreateLocalDomain( authorizer,
+                      ( t ) -> new PostLocalDomain( authorizer,
+                                                    legacyConfig,
+                                                    configAPI,
+                                                    t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.GET,
+                      "/local_domains",
+                      ( t ) -> new GetLocalDomains( authorizer,
+                                                    legacyConfig,
+                                                    configAPI,
+                                                    t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.PUT,
+                      "/local_domains/:local_domain",
+                      ( t ) -> new PutLocalDomain( authorizer,
+                                                   legacyConfig,
+                                                   configAPI,
+                                                   t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.PUT,
+                      "/local_domains/:local_domain/throttle",
+                      ( t ) -> new PutThrottle( authorizer,
+                                                legacyConfig,
+                                                configAPI,
+                                                t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.PUT,
+                      "/local_domains/:local_domain/scavenger",
+                      ( t ) -> new PutScavenger( authorizer,
+                                                 legacyConfig,
+                                                 configAPI,
+                                                 t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.DELETE,
+                      "/local_domains/:local_domain",
+                      ( t ) -> new DeleteLocalDomain( authorizer,
                                                       legacyConfig,
                                                       configAPI,
                                                       t ),
                       authorizer );
+
         fdsAdminOnly( HttpMethod.GET,
-                      "/local_domains",
-                      ( t ) -> new ListLocalDomains( authorizer,
-                                                     legacyConfig,
-                                                     configAPI,
-                                                     t ),
+                      "/local_domains/:local_domain/services",
+                      ( t ) -> new GetLocalDomainServices( authorizer,
+                                                           legacyConfig,
+                                                           configAPI,
+                                                           t ),
                       authorizer );
-        fdsAdminOnly( HttpMethod.GET,
-                "/local_domains/:local_domain/services",
-                ( t ) -> new ListServices( authorizer,
-                                               legacyConfig,
-                                               configAPI,
-                                               t ),
-                authorizer );
+        fdsAdminOnly( HttpMethod.PUT,
+                      "/local_domains/:local_domain/services",
+                      ( t ) -> new PutLocalDomainServices( authorizer,
+                                                           legacyConfig,
+                                                           configAPI,
+                                                           t ),
+                      authorizer );
 
         logger.trace( "Registered Local Domain endpoints" );
 

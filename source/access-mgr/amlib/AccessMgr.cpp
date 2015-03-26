@@ -11,6 +11,7 @@
 #include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
 #include "AmProcessor.h"
+#include <net/SvcMgr.h>
 
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/fdsn-server.h"
@@ -37,24 +38,29 @@ AccessMgr::mod_init(SysParams const *const param) {
         nullptr
     };
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    instanceId = conf.get<fds_uint32_t>("instanceId");
-    LOGNOTIFY << "Initializing AM instance " << instanceId;
 
     int argc = 0;
     char **argv = NULL;
     fds::ModuleVector io_dm(argc, argv, io_dm_vec);
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
-                                StorHvCtrl::NORMAL, instanceId);
+                                StorHvCtrl::NORMAL);
     dataApi = boost::make_shared<AmDataApi>();
+
+    fds_uint32_t pmPort = g_fdsprocess->get_fds_config()->get<int>(
+        "fds.pm.platform_port");
+    if (!conf.get<bool>("testing.standalone")) {
+        pmPort = modProvider_->getSvcMgr()->getMappedSelfPlatformPort();
+    }
+    LOGTRACE << "Platform port " << pmPort;
 
     // Init the FDSN server to serve XDI data requests
     fdsnServer = FdsnServer::unique_ptr(
-        new FdsnServer("AM FDSN Server", dataApi, instanceId));
+        new FdsnServer("AM FDSN Server", dataApi, pmPort));
     fdsnServer->init_server();
 
     // Init the async server
     asyncServer = AsyncDataServer::unique_ptr(
-        new AsyncDataServer("AM Async Server", instanceId));
+        new AsyncDataServer("AM Async Server", pmPort));
     asyncServer->init_server();
 
     if (!conf.get<bool>("testing.standalone")) {

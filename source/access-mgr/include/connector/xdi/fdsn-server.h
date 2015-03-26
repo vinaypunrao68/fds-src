@@ -60,7 +60,7 @@ class FdsnServer : public Module {
   public:
     FdsnServer(const std::string &name,
                AmDataApi::shared_ptr &_dataApi,
-               fds_uint32_t instanceId = 0);
+               fds_uint32_t pmPort);
     virtual ~FdsnServer() {
     }
     typedef std::unique_ptr<FdsnServer> unique_ptr;

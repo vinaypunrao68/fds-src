@@ -389,23 +389,24 @@ fds: {
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
 
-        /* ID for local AM instance */
-        instanceId = 0
-
         /* TODO(Rao): Get this from platform */
         om_config_port = 8903
         enable_graphite = {{ metrics_enabled }}
 
-        s3_http_port=8000
-        s3_https_port=8443
-        swift_port=9999
+        s3_http_port_offset=1000
+        s3_https_port_offset=1443
+        swift_port_offset=2999
+        am_base_response_port_offset=2876
+        am_service_port_offset=2988
+        xdi_service_port_offset=1899
+        streaming_port_offset=1911
         memory_backend=false
         fdsn_server_threads=30
         qos_threads=4
 
         connector: {
             nbd: {
-                server_port=10809
+                server_port_offset=3809
                 non_block_io=true
             }
         }

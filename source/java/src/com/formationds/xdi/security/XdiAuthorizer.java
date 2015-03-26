@@ -12,6 +12,7 @@ import com.formationds.xdi.XdiConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Maps;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -189,19 +190,20 @@ public class XdiAuthorizer {
                                     .exceptionally(e -> new BlobDescriptor(vd.getName(), 0, new HashMap<String, String>()));
                             CompletableFuture<Map<String, String>> cf = blobFuture.thenApply(bd -> bd.getMetadata());
                             cache.put(vd.getName(), cf);
+
+                            if (!deferrable) {
+                                try {
+                                    cf.get();
+                                } catch (Exception e) {
+                                    LOG.error("Error refreshing cache", e);
+                                    cache.put(vd.getName(), CompletableFuture.completedFuture(Maps.newHashMap()));
+                                }
+                            }
+
                         });
             } catch (TException e) {
                 throw new RuntimeException(e);
             }
-
-            if (!deferrable) cache.asMap().keySet().forEach(k -> {
-                try {
-                    cache.getIfPresent(k).get();
-                } catch (Exception e) {
-                    LOG.error("Error updating cache entry", e);
-                    cache.put(k, CompletableFuture.completedFuture(new HashMap<String, String>()));
-                }
-            });
         }
     }
 }

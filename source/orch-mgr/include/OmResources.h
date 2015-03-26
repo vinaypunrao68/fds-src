@@ -202,6 +202,13 @@ class OM_PmAgent : public OM_NodeAgent
                                   NodeAgent::pointer svc_agent);
 
     /**
+     * Send 'remove services' message to Platform
+     */
+    Error send_remove_services(fds_bool_t activate_sm,
+                               fds_bool_t activate_dm,
+                               fds_bool_t activate_am);
+
+    /**
      * @return uuid of service that was unregistered
      */
     NodeUuid handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
@@ -501,13 +508,15 @@ class OM_NodeContainer : public DomainContainer
      * activate SM and DM services on those nodes, but only
      * to those nodes which are in discovered state
      */
+    virtual void om_cond_bcast_activate_services(); // Activate the Services defined for each Node.
     virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
                                                  fds_bool_t activate_dm,
-                                                 fds_bool_t activate_am);
+                                                 fds_bool_t activate_am); // Activate these specific Services on each Node.
     virtual Error om_activate_node_services(const NodeUuid& node_uuid,
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
+    virtual void om_cond_bcast_remove_services(); // Remove the Services defined for each Node.
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);

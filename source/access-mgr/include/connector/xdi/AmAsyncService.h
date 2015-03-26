@@ -50,7 +50,7 @@ class AsyncDataServer : public Module, public boost::noncopyable {
 
   public:
     AsyncDataServer(const std::string &name,
-                    fds_uint32_t instanceId = 0);
+                    fds_uint32_t pmPort);
     virtual ~AsyncDataServer() {
         if (listen_thread) {
             ttServer->stop();

@@ -7,6 +7,37 @@
 
     tasks:
 
+    - name: create /corefiles directory
+      file: path=/corefiles
+        state=directory
+        owner=root
+        group=root
+        mode=0777
+
+    - name: set sysctl config
+      sysctl: name={{item.key}} value={{item.value.value}} state={{item.value.state}}
+      with_dict:
+        kernel.core_pattern:
+            value: /corefiles
+            state: present
+        fs.file-max:
+            value: 400000
+            state: present
+        kernel.core_uses_pid:
+            value: 1
+            state: present
+        fs.suid_dumpable:
+            value: 1
+            state: present
+
+    -   name: install_limits_conf
+        template:
+            src=../templates/deploy_fds/fds_limits.conf
+            dest=/etc/security/limits.conf
+            owner=root
+            group=root
+            mode=0644
+
     - name: add JRE ppa
       apt_repository: repo=ppa:webupd8team/java state=present
 

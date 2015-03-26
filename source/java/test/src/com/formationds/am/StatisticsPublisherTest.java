@@ -24,7 +24,9 @@ public class StatisticsPublisherTest {
 //        System.out.println(streamRegistrations.size());
 //        System.out.println(streamRegistrations.get(0));
 //
-        TSocket transport = new TSocket("localhost", 8999);
+        int pmPort = 7000;
+        int streamingPortOffset = 1911;    // can get from platform.conf: fds.am.streaming_port_offset
+        TSocket transport = new TSocket("localhost", pmPort + streamingPortOffset);
         transport.open();
         Streaming.Client client = new Streaming.Client(new TBinaryProtocol(new TFramedTransport(transport)));
         client.publishMetaStream(1, Lists.newArrayList(new volumeDataPoints("foo", 42, Lists.newArrayList(new DataPointPair("foo", 42)))));

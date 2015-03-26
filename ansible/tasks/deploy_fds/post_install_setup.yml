@@ -119,7 +119,7 @@
 
 -   name: start gmond services
     service: name={{item}}
-        state=running
+        state=restarted
     with_items:
         - gmond
         - gmond-influxdb-bridge
