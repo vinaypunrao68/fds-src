@@ -104,7 +104,7 @@ StorHvCtrl::StorHvCtrl(int argc,
      * Pass 0 as the data path port since the SH is not
      * listening on that port.
      */
-    om_client = new OMgrClient(FDSP_STOR_HVISOR,
+    om_client = new OMgrClient(FDSP_ACCESS_MGR,
 			       omIpStr,
 			       omConfigPort,
 			       node_name,

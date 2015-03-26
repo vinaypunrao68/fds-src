@@ -725,7 +725,7 @@ OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
             if (activeDmAgent != NULL)
                 return true;
             break;
-        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
             if (activeAmAgent != NULL)
                 return true;
             break;
@@ -776,7 +776,7 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
             services.dm = svc_agent->get_uuid();
             LOGDEBUG << " dm: " <<  std::hex << services.dm.uuid_get_val() << std::dec;
             break;
-        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
             activeAmAgent = OM_AmAgent::agt_cast_ptr(svc_agent);
             services.am = svc_agent->get_uuid();
             LOGDEBUG << " am: " <<  std::hex << services.am.uuid_get_val() << std::dec;
@@ -824,7 +824,7 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
             svc_uuid = services.dm;
             services.dm.uuid_set_val(0);
             break;
-        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
             activeAmAgent = NULL;
             svc_uuid = services.am;
             services.am.uuid_set_val(0);
@@ -852,7 +852,7 @@ OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
     } else if (activeDmAgent->get_uuid() == uuid) {
         handle_unregister_service(FDS_ProtocolInterface::FDSP_DATA_MGR);
     } else if (activeAmAgent->get_uuid() == uuid) {
-        handle_unregister_service(FDS_ProtocolInterface::FDSP_STOR_HVISOR);
+        handle_unregister_service(FDS_ProtocolInterface::FDSP_ACCESS_MGR);
     }
 }
 
@@ -895,7 +895,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                       << "not going to restart...";
             do_activate_dm = false;
         }
-        if (activate_am && service_exists(FDS_ProtocolInterface::FDSP_STOR_HVISOR)) {
+        if (activate_am && service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
             LOGNOTIFY << "OM_PmAgent: AM service already running. Allowing another "
                       << "AM instance...";
             // TODO(Andrew): Re-enable this if we want to prevent multiple AM
@@ -941,7 +941,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
 //        handle_register_service(FDS_ProtocolInterface::FDSP_DATA_MGR, this);
 //    }
 //    if (activate_am) {
-//        handle_register_service(FDS_ProtocolInterface::FDSP_STOR_HVISOR, this);
+//        handle_register_service(FDS_ProtocolInterface::FDSP_ACCESS_MGR, this);
 //    }
 
     fpi::ActivateServicesMsgPtr activateMsg = boost::make_shared<fpi::ActivateServicesMsg>();
@@ -1317,7 +1317,7 @@ OM_DmContainer::OM_DmContainer() : OM_AgentContainer(fpi::FDSP_DATA_MGR) {}
 // -------------------------------------------------------------------------------------
 // OM AM NodeAgent Container
 // -------------------------------------------------------------------------------------
-OM_AmContainer::OM_AmContainer() : OM_AgentContainer(fpi::FDSP_STOR_HVISOR) {}
+OM_AmContainer::OM_AmContainer() : OM_AgentContainer(fpi::FDSP_ACCESS_MGR) {}
 
 // --------------------------------------------------------------------------------------
 // OM Node Container
@@ -1400,7 +1400,7 @@ OM_NodeContainer::om_send_me_qosinfo(NodeAgent::pointer me) {
     OM_AmAgent::pointer agent = OM_AmAgent::agt_cast_ptr(me);
 
     // for now we are just sending total rate to AM
-    if (agent->node_get_svc_type() != fpi::FDSP_STOR_HVISOR) return;
+    if (agent->node_get_svc_type() != fpi::FDSP_ACCESS_MGR) return;
 
     fds_uint64_t max_iopc = om_admin_ctrl->getMaxIOPC();
     if (max_iopc != 0) {
@@ -1425,7 +1425,7 @@ void
 OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
     TRACEFUNC;
-    if (ref->node_type == fpi::FDSP_STOR_HVISOR) {
+    if (ref->node_type == fpi::FDSP_ACCESS_MGR) {
         return;
     }
     dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
@@ -1857,9 +1857,9 @@ OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
     } else if (svc_type == fpi::FDSP_STOR_MGR) {
         count += dc_sm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " SM services successfully";
-    } else if (svc_type == fpi::FDSP_STOR_HVISOR) {
+    } else if (svc_type == fpi::FDSP_ACCESS_MGR) {
         // this method must only be called for either DM, SM or AM!
-        fds_verify(svc_type == fpi::FDSP_STOR_HVISOR);
+        fds_verify(svc_type == fpi::FDSP_ACCESS_MGR);
         count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " AM services successfully";
     } else {
