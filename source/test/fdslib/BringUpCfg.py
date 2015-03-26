@@ -324,12 +324,6 @@ class FdsNodeConfig(FdsConfig):
 
         # From the --list-services output we can determine node name
         # and node UUID.
-<<<<<<< HEAD
-
-        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain listServices local) \"',
-                                                    return_stdin=True,
-                                                    fds_tools=True)
-
         # Figure out the platform uuid.  Platform has 'pm' as the name
         # port should match the read port from fdscli --list-services output
         # Group 0 = Entire matched expression
