@@ -228,6 +228,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
                 case FDS_STAT_VOLUME:
+                case FDS_SET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);

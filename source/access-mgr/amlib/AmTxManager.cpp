@@ -7,16 +7,27 @@
 #include "AmTxManager.h"
 #include "AmCache.h"
 #include "AmTxDescriptor.h"
+#include "AmVolumeTable.h"
 
 namespace fds {
 
 AmTxManager::AmTxManager()
-    : amCache(new AmCache()) {
+    : amCache(nullptr),
+      volTable(nullptr)
+{
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
 }
 
 AmTxManager::~AmTxManager() = default;
+
+void AmTxManager::init() {
+    // TODO(bszmyd): Wed 25 Mar 2015 02:57:34 PM PDT
+    // This is here just because AmVolumeTable uses storHvisor global
+    // once QoS is moved we can move these back to the constructor
+    amCache.reset(new AmCache());
+    volTable.reset(new AmVolumeTable(GetLog()));
+}
 
 Error
 AmTxManager::addTx(fds_volid_t volId,
@@ -147,8 +158,27 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::addVolume(const VolumeDesc& volDesc)
-{ return amCache->addVolume(volDesc); }
+AmTxManager::registerVolume(const VolumeDesc& volDesc)
+{
+    auto err = amCache->registerVolume(volDesc.volUUID);
+    if (ERR_OK == err) {
+        err = volTable->registerVolume(volDesc);
+        if (ERR_OK != err)
+            { amCache->removeVolume(volDesc.volUUID); }
+    }
+    return err;
+}
+
+Error
+AmTxManager::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
+{ return volTable->modifyVolumePolicy(vol_uuid, vdesc); }
+
+Error
+AmTxManager::removeVolume(fds_volid_t const vol_uuid)
+{
+    auto err = volTable->removeVolume(vol_uuid);
+    return ERR_OK == err ? amCache->removeVolume(vol_uuid) : err;
+}
 
 Error
 AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
@@ -158,6 +188,14 @@ AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
     }
     return ERR_NOT_FOUND;
 }
+
+fds_volid_t
+AmTxManager::getVolumeUUID(const std::string& vol_name) const
+{ return volTable->getVolumeUUID(vol_name); }
+
+AmVolumeTable::volume_ptr_type
+AmTxManager::getVolume(fds_volid_t vol_uuid) const
+{ return volTable->getVolume(vol_uuid); }
 
 BlobDescriptor::ptr
 AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)
