@@ -568,12 +568,12 @@ class DiskManager (Base):
             line = line.strip ('\r\n')
 
             # items vector contains
-            # [0] device path (/dev/sdm)
-            # [1] bool, used by the OS
-            # [2] bool, used for live meta data
-            # [3] device type (ssd/hdd)
-            # [4] define interface (sata/sas/na), doesn't matter for SSDs.
-            # [5] size (GB)
+            # [1] device path (/dev/sdm)
+            # [2] bool, used by the OS
+            # [3] bool, used for live meta data
+            # [4] device type (ssd/hdd)
+            # [5] define interface (sata/sas/na), doesn't matter for SSDs.
+            # [6] size (GB)
             items = validate_entry.match (line)
 
             if items is None:
