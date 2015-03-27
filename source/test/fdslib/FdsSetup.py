@@ -466,15 +466,6 @@ class FdsRmtEnv(FdsEnv):
         if self.env_test_harness:
             for line in stderr.read().splitlines():
                 # These are stderr "warnings" and "errors" we wish to ignore.
-                # sudo prompts show up in stderr.
-                if line.startswith("[sudo] password for "):
-                    # If the line does not extend past ':', ignore it.
-                    # Otherwise, there's more information there than just the prompt.
-                    if line.__len__() <= line.find(":")+2:
-                        continue
-                    else:
-                        prompt, colon, line = line.partition(":")
-
                 if 'log4j:WARN' in line:
                     continue
 
@@ -494,11 +485,14 @@ class FdsRmtEnv(FdsEnv):
 
             if output == True:
                 if status != 0:
-                    if len(stdout) > 0:
-                        log.warning("Non-zero status from shell command execution, {}, "
-                                    "or unrecognized stderr output.".format(status))
-                        log.warning("stdout contents as follows.")
-                    for line in stdout.splitlines():
+                    firstTime = True
+                    for line in stdout.read().splitlines():
+                        if firstTime:
+                            log.warning("Non-zero status from shell command execution, {}, "
+                                        "or unrecognized stderr output.".format(status))
+                            log.warning("stdout contents as follows.")
+                            firstTime = False
+
                         log.warning("[{} stdout] {}".format(self.env_host, line))
         else:
             if output == True:

@@ -242,12 +242,6 @@ class TestFDSInstall(TestCase.FDSTestCase):
             self.log.error("FDS package installation domain kill failed.")
             return False
 
-        cleanup = TestFDSSelectiveInstDirClean(parameters=self.parameters)
-        testCaseSuccess = cleanup.test_FDSSelectiveInstDirClean()
-        if not testCaseSuccess:
-            self.log.error("FDS package installation domain clean failed." % status)
-            return False
-
         return True
 
 
