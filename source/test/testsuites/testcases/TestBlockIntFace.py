@@ -42,7 +42,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         # Block volume create command
         # TODO(Andrew): Don't hard code volume name
         cmd = "volume create  volume1 --vol-type block --blk-dev-size 10485760"
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > ./fdsconsole.out 2>&1) \"' % cmd,
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
                                             fds_tools=True)
         if status != 0:
             self.log.error("Failed to create block volume")
@@ -50,7 +50,7 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         time.sleep(5)
 
         cmd = "volume modify volume1 --minimum 0 --maximum 10000 --priority 1"
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py %s > ./fdsconsole.out 2>&1) \"' % cmd,
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
                                             fds_tools=True)
         if status != 0:
             self.log.error("Failed to modify block volume")

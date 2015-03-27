@@ -280,8 +280,7 @@ class FdsLocalEnv(FdsEnv):
 
         if stderr is not None:
             for line in stderr.splitlines():
-                # These stderr are "warnings" and "errors" we wish to ignore.
-
+                # These are stderr "warnings" and "errors" we wish to ignore.
                 # sudo prompts show up in stderr.
                 if line.startswith("[sudo] password for "):
                     # If the line does not extend past ':', ignore it.
@@ -306,14 +305,15 @@ class FdsLocalEnv(FdsEnv):
                                 "contains unexpected output as follows. Forcing status to -1.")
                     status = -1
 
-                log.warning("[%s stderr] %s" % (self.env_host, line))
+                log.warning("[{} stderr] {}".format(self.env_host, line))
 
         if output and (stdout is not None):
             if status != 0:
-                log.warning("Non-zero status from shell command execution or unrecognized stderr output. "
-                            "stdout contents as follows.")
+                if len(stdout) > 0:
+                    log.warning("Non-zero status from shell command execution or unrecognized stderr output.")
+                    log.warning("stdout contents as follows.")
                 for line in stdout.splitlines():
-                    log.warning("[%s stdout] %s" % (self.env_host, line))
+                    log.warning("[{} stdout] {}".format(self.env_host, line))
 
         return_line = None
         if return_stdin and wait_compl and (stdout is not None):
@@ -464,14 +464,40 @@ class FdsRmtEnv(FdsEnv):
 
         if self.env_test_harness:
             for line in stderr.read().splitlines():
-                log.warn("[%s Error] %s" % (self.env_host, line))
+                # These are stderr "warnings" and "errors" we wish to ignore.
+                # sudo prompts show up in stderr.
+                if line.startswith("[sudo] password for "):
+                    # If the line does not extend past ':', ignore it.
+                    # Otherwise, there's more information there than just the prompt.
+                    if line.__len__() <= line.find(":")+2:
+                        continue
+                    else:
+                        prompt, colon, line = line.partition(":")
+
+                if 'log4j:WARN' in line:
+                    continue
+
+                if 'Content is not allowed in prolog.' in line:
+                    continue
+
+                # From fsdconsole.py
+                if 'InsecureRequestWarning' in line:
+                    continue
+
                 if status == 0:
+                    log.warning("Shell reported status 0 from command execution but stderr "
+                                "contains unexpected output as follows. Forcing status to -1.")
                     status = -1
+
+                log.warning("[{} stderr] {}".format(self.env_host, line))
 
             if output == True:
                 if status != 0:
-                    for line in stdout.read().splitlines():
-                        log.info("[%s] %s" % (self.env_host, line))
+                    if len(stdout) > 0:
+                        log.warning("Non-zero status from shell command execution or unrecognized stderr output.")
+                        log.warning("stdout contents as follows.")
+                    for line in stdout.splitlines():
+                        log.warning("[{} stdout] {}".format(self.env_host, line))
         else:
             if output == True:
                 for line in stdout.read().splitlines():

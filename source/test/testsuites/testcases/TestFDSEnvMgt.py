@@ -143,12 +143,11 @@ class TestFDSInstall(TestCase.FDSTestCase):
             self.log.error("FDS platform configuration file is missing 'platform_port = ' config")
             return False
 
-        node.nd_agent.exec_wait('rm %s/platform.conf ' % dest_config_dir)
+        node.nd_agent.exec_wait('rm {}/platform.conf '.format(dest_config_dir))
 
-        status = node.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = %s/g" '
-                                         '-e "1,$w %s/platform.conf" '
-                                         '%s/platform.conf ' %
-                                         (port, dest_config_dir, src_config_dir))
+        status = node.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = {}/g" '
+                                         '-e "1,$w {}/platform.conf" '
+                                         '{}/platform.conf '.format(port, dest_config_dir, src_config_dir))
 
         if status != 0:
             self.log.error("FDS platform configuration file modification failed.")
