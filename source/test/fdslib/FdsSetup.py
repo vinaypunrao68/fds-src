@@ -310,7 +310,8 @@ class FdsLocalEnv(FdsEnv):
         if output and (stdout is not None):
             if status != 0:
                 if len(stdout) > 0:
-                    log.warning("Non-zero status from shell command execution or unrecognized stderr output.")
+                    log.warning("Non-zero status from shell command execution, {}, "
+                                "or unrecognized stderr output.".format(status))
                     log.warning("stdout contents as follows.")
                 for line in stdout.splitlines():
                     log.warning("[{} stdout] {}".format(self.env_host, line))
@@ -494,7 +495,8 @@ class FdsRmtEnv(FdsEnv):
             if output == True:
                 if status != 0:
                     if len(stdout) > 0:
-                        log.warning("Non-zero status from shell command execution or unrecognized stderr output.")
+                        log.warning("Non-zero status from shell command execution, {}, "
+                                    "or unrecognized stderr output.".format(status))
                         log.warning("stdout contents as follows.")
                     for line in stdout.splitlines():
                         log.warning("[{} stdout] {}".format(self.env_host, line))
