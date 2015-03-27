@@ -1280,7 +1280,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
     }
     if (err.ok() && remove_am) {
         uuid = pmNodes->
-            handle_unregister_service(node_uuid, node_name, fpi::FDSP_STOR_HVISOR);
+            handle_unregister_service(node_uuid, node_name, fpi::FDSP_ACCESS_MGR);
         if (uuid.uuid_get_val() != 0) {
             OM_AmAgent::pointer amAgent = om_am_agent(uuid);
             err = om_locDomain->dc_unregister_node(uuid, amAgent->get_node_name());

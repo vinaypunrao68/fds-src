@@ -103,18 +103,18 @@ void TierEngine::startHybridTierCtrlr()
 diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
                                         const VolumeDesc& voldesc) {
     diskio::DataTier ret_tier = diskio::diskTier;
-    FDSP_MediaPolicy media_policy = voldesc.mediaPolicy;
+    fpi::FDSP_MediaPolicy media_policy = voldesc.mediaPolicy;
 
     // TODO(brian): Add check for whether or not this will exceed SSD capacity
-    if (media_policy == FDSP_MEDIA_POLICY_SSD) {
+    if (media_policy == fpi::FDSP_MEDIA_POLICY_SSD) {
         /* if 'all ssd', put to ssd */
         ret_tier = diskio::flashTier;
-    } else if ((media_policy == FDSP_MEDIA_POLICY_HDD) ||
-            (media_policy == FDSP_MEDIA_POLICY_HYBRID_PREFCAP)) {
+    } else if ((media_policy == fpi::FDSP_MEDIA_POLICY_HDD) ||
+            (media_policy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP)) {
         /* if 'all disk', put to disk
          * or if hybrid but first preference to capacity tier, put to disk  */
         ret_tier = diskio::diskTier;
-    } else if (media_policy == FDSP_MEDIA_POLICY_HYBRID) {
+    } else if (media_policy == fpi::FDSP_MEDIA_POLICY_HYBRID) {
         /* hybrid tier policy */
         // and return appropriate
         ret_tier = diskio::flashTier;

@@ -649,7 +649,7 @@ inline std::ostream& operator<<(std::ostream& out, const netSession& ep) {
     } else if (local_mgr_id == FDSP_ORCH_MGR) {
         out << "OM";
     } else {
-        assert(local_mgr_id == FDSP_STOR_HVISOR);
+        assert(local_mgr_id == FDSP_ACCESS_MGR);
         out << "SH";
     }
     out << " with IP " << ep.ip_addr

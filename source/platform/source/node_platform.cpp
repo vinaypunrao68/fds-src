@@ -31,8 +31,7 @@ namespace fds
                                             new DomainContainer("Node-Platform-NodeInv", NULL,
                                                                 new SmContainer(fpi::FDSP_STOR_MGR),
                                                                 new DmContainer(fpi::FDSP_DATA_MGR),
-                                                                new AmContainer(fpi::
-                                                                                FDSP_STOR_HVISOR),
+                                                                new AmContainer(fpi::FDSP_ACCESS_MGR),
                                                                 new PlatAgentContainer(),
                                                                 new OmContainer(fpi::FDSP_ORCH_MGR)),
                                             new DomainClusterMap("Node-Platform-ClusMap", NULL,
@@ -40,8 +39,7 @@ namespace fds
                                                                                  FDSP_STOR_MGR),
                                                                  new DmContainer(fpi::
                                                                                  FDSP_DATA_MGR),
-                                                                 new AmContainer(fpi::
-                                                                                 FDSP_STOR_HVISOR),
+                                                                 new AmContainer(fpi::FDSP_ACCESS_MGR),
                                                                  new PlatAgentContainer(),
                                                                  new OmContainer(fpi::
                                                                                  FDSP_ORCH_MGR)),

@@ -50,7 +50,7 @@ namespace fds
 
         agent_svc_fillin(out, &ninfo, fpi::FDSP_STOR_MGR);
         agent_svc_fillin(out, &ninfo, fpi::FDSP_DATA_MGR);
-        agent_svc_fillin(out, &ninfo, fpi::FDSP_STOR_HVISOR);
+        agent_svc_fillin(out, &ninfo, fpi::FDSP_ACCESS_MGR);
         agent_svc_fillin(out, &ninfo, fpi::FDSP_ORCH_MGR);
         agent_svc_fillin(out, &ninfo, fpi::FDSP_PLATFORM);
     }
