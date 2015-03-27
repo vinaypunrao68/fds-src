@@ -15,8 +15,7 @@ user_cpp_flags    :=
 
 StorHvisor_cpp    :=                   \
     StorHvCtrl.cpp                     \
-    StorHvQosCtrl.cpp                  \
-    StorHvVolumes.cpp
+    StorHvQosCtrl.cpp
 
 user_cpp       := \
     $(StorHvisor_cpp)
@@ -25,10 +24,8 @@ user_hpp       := $(wildcard *.h)
 
 user_no_style     := $(user_cc) \
     StorHvQosCtrl.h \
-    StorHvVolumes.h \
     StorHvCtrl.cpp    \
-    StorHvQosCtrl.cpp \
-    StorHvVolumes.cpp
+    StorHvQosCtrl.cpp
 
 #user_no_style     :=
 user_ar_libs      := fds-am-engine

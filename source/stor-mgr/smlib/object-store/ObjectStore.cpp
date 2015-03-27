@@ -664,8 +664,19 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
         return err;
     }
 
+    // TODO(Sean):
+    // Here, we have to careful about what it means to have forwarded copyAssociation()
+    // operation (i.e. AddObjectRef()) and not have the objMetaData not present.
+    // We will have to handle it similar to other data paths (i.e. PUT and DELETE), but
+    // not sure if doing it at this point makes too much sense, since DM side of
+    // it will be re-done.  For now, make a note and re-visit, once DM has the
+    // design.
+
     // copy association entry
     updatedMeta.reset(new ObjMetaData(objMeta));
+
+    // TODO(Sean):
+    // Why do we need to get volsrefcnt here?  What do we do with it?
     std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->copyAssocEntry(objId, srcVolId, destVolId);

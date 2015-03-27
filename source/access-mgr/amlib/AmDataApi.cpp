@@ -84,9 +84,9 @@ AmDataApi::volumeStatus(apis::VolumeStatus& _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
     StatVolumeResponseHandler::ptr handler(new StatVolumeResponseHandler(_return));
-    AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
-                                                   *volumeName,
-                                                   SHARED_DYN_CAST(Callback, handler));
+    AmRequest *blobReq = new StatVolumeReq(invalid_vol_id,
+                                           *volumeName,
+                                           SHARED_DYN_CAST(Callback, handler));
     storHvisor->enqueueBlobReq(blobReq);
 
     handler->wait();

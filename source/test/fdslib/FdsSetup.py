@@ -213,6 +213,7 @@ class FdsLocalEnv(FdsEnv):
                  cmd,
                  wait_compl = False,
                  fds_bin = False,
+                 fds_tools = False,
                  output = False,
                  return_stdin = False,
                  cmd_input=None):
@@ -242,10 +243,13 @@ class FdsLocalEnv(FdsEnv):
         # Split the command into a list of strings as prefered by subprocess.Popen()
         call_args = shlex.split(cmd_exec)
 
-        # For FDS binaries in a development environment, we need to switch to that directory for execution.
+        # For FDS binaries in a development environment or for "FDS tools", we need to switch to that
+        # directory for execution.
         cur_dir = os.getcwd()
         if fds_bin and not self.env_install:
             os.chdir(self.get_bin_dir(debug=True))
+        elif fds_tools:
+            os.chdir(self.get_tools_dir())
 
         p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -269,8 +273,9 @@ class FdsLocalEnv(FdsEnv):
 
         status = p.returncode
 
-        # For FDS binaries in a development environment, we need to switch back to our original directory.
-        if fds_bin and not self.env_install:
+        # For FDS binaries in a development environment or for "FDS tools", we need to switch back
+        # to our original directory.
+        if (fds_bin and not self.env_install) or fds_tools:
             os.chdir(cur_dir)
 
         if stderr is not None:
@@ -283,10 +288,15 @@ class FdsLocalEnv(FdsEnv):
                         continue
                     else:
                         prompt, colon, line = line.partition(":")
+
+                # These are "warnings" and "errors" we wish to ignore.
                 if 'log4j:WARN' in line:
                     continue
                 if 'Content is not allowed in prolog.' in line:
                     continue
+                if 'InsecureRequestWarning' in line:  # From fsdconsole.py
+                    continue
+
                 log.warn("[%s Error] %s" % (self.env_host, line))
                 if status == 0:
                     status = -1
@@ -315,8 +325,8 @@ class FdsLocalEnv(FdsEnv):
     # Execute command and wait for result. We'll also log
     # output in this case.
     #
-    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True, fds_bin=False, output=True):
-        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=output, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True, fds_bin=False, fds_tools=False, output=True):
+        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, fds_tools=fds_tools, output=output, return_stdin=return_stdin,
                                cmd_input=cmd_input)
 
     def local_close(self):
@@ -396,6 +406,7 @@ class FdsRmtEnv(FdsEnv):
                  cmd,
                  wait_compl = False,
                  fds_bin = False,
+                 fds_tools = False,
                  output = False,
                  return_stdin = False,
                  cmd_input = None):
@@ -408,6 +419,13 @@ class FdsRmtEnv(FdsEnv):
             else:
                 cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
                             'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
+        elif fds_tools:
+            if self.env_test_harness:
+                cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_tools_dir() +
+                            '; ulimit -c unlimited; ulimit -n 12800; ' + cmd)
+            else:
+                cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_tools_dir() +
+                            '; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
         else:
             cmd_exec = cmd
 
@@ -474,8 +492,8 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
-    def exec_wait(self, cmd, return_stdin = False, cmd_input=None, wait_compl=True, fds_bin=False, output=True):
-        return self.ssh_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=output, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin = False, cmd_input=None, wait_compl=True, fds_bin=False, fds_tools=False, output=True):
+        return self.ssh_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, fds_tools=fds_tools, output=output, return_stdin=return_stdin,
                              cmd_input=cmd_input)
 
     def ssh_close(self):
