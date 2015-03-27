@@ -376,10 +376,10 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
-    GLOGDEBUG << "VolumeFSM VACT_CrtDone";
     VolumeInfo* vol = evt.vol_ptr;
     VolumeDesc* volDesc = vol->vol_get_properties();
     volDesc->state = fpi::ResourceState::Active;
+    GLOGDEBUG << "VolumeFSM VACT_CrtDone for " << volDesc->name;
 
     // TODO(prem): store state even for volume.
     if (volDesc->isSnapshot()) {
@@ -1615,7 +1615,9 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
 
 
 void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
-        fpi::FDSPMsgTypeId cmd_type, const Error & resp_err, NodeUuid from_svc)
+                                      fpi::FDSPMsgTypeId cmd_type,
+                                      const Error & resp_err,
+                                      NodeUuid from_svc)
 {
     fds_volid_t vol_uuid = volinfo->vol_get_properties()->volUUID;
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
@@ -1668,7 +1670,13 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
 
     switch (type) {
         case om_notify_vol_add:
-            if (resp_err.ok()) {
+            // TODO(gurpreet) In addition to checking for timeout error
+            // code we should check for node_state as well, to make sure
+            // that the timeout error seen here is indeed because of the
+            // service being down.
+            if (resp_err.ok() ||
+                resp_err == ERR_SVC_REQUEST_TIMEOUT ||
+                resp_err == ERR_SVC_REQUEST_INVOCATION) {
                 vol->vol_event(VolCrtOkEvt(true, vol.get()));
                 dmtMod->dmt_deploy_event(DmtVolAckEvt(from_svc));
             } else {
