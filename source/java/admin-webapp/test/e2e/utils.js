@@ -5,6 +5,7 @@ require( './mockTenant' );
 require( './mockNode' );
 require( './mockStats' );
 require( './mockActivities' );
+require( './mockMediaPolicyHelper' );
 
 addModule = function( moduleName, module ){
 
@@ -19,6 +20,7 @@ addModule( 'qos', mockSnapshot );
 addModule( 'tenant-management', mockTenant );
 addModule( 'node-management', mockNode );
 addModule( 'statistics', mockStats );
+addModule( 'utility-directives', mockMedia );
 
 clean = function(){
     if ( browser.localStorage ){
