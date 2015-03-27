@@ -6,6 +6,7 @@
 #include <object-store/SmDiskMap.h>
 #include <MigrationMgr.h>
 #include <fds_process.h>
+#include <fdsp_utils.h>
 
 namespace fds {
 
@@ -416,6 +417,67 @@ SmTokenMigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok
     migrClients[executorId]->setForwardingFlagIfSecondPhase(smTok);
 }
 
+
+// This request has a set of objects that's not grouped by DLT tokens.  We have to group
+// it based on the DLT token and forward it.
+fds_bool_t
+SmTokenMigrationMgr::forwardAddObjRefIfNeeded(FDS_IOType* req)
+{
+    fds_bool_t forwarded = false;
+    std::map<fds_token_id, fpi::AddObjectRefMsgPtr> addObjRefMap;
+    SmIoAddObjRefReq* addObjRefReq = static_cast<SmIoAddObjRefReq *>(req);
+
+    for (auto objId : addObjRefReq->objIds()) {
+        ObjectID oid = ObjectID(objId.digest);
+
+        fds_verify(numBitsPerDltToken != 0);
+        fds_token_id dltTok = DLT::getToken(oid, numBitsPerDltToken);
+
+        // Check if the mapping already exists.
+        std::map<fds_token_id, fpi::AddObjectRefMsgPtr>::const_iterator it = addObjRefMap.find(dltTok);
+        if (addObjRefMap.end() == it) {
+            // Mapping doesn't exist.  Create a new mapping
+            fpi::AddObjectRefMsgPtr addObjRefMsgPtr(new fpi::AddObjectRefMsg());
+
+            addObjRefMsgPtr->srcVolId = addObjRefReq->getSrcVolId();
+            addObjRefMsgPtr->destVolId = addObjRefReq->getDestVolId();
+            fpi::FDS_ObjectIdType objectId;
+            assign(objectId, oid);
+            addObjRefMsgPtr->objIds.push_back(objectId);
+
+            addObjRefMap.emplace(dltTok, addObjRefMsgPtr);
+        } else {
+            // Mapping already exists.  Add object id to the map.
+            fpi::FDS_ObjectIdType objectId;
+            assign(objectId, oid);
+            fds_verify(it->first == dltTok);
+            it->second->objIds.push_back(objectId);
+        }
+    }
+
+    // TODO(Sean):
+    // This is really not optimal code, but since this code paths is likely (99.99%) to be
+    // re-written, not investing too much time/effort to optimize the loop.
+    // For every DLT=>{ObjIds}, we have to check with all migration clients to see
+    // if foward is needed.
+    // To optimized, we really need auxillary data struct to map the DLT to migration client,
+    // but since this will be revisited/re-written by the DM team, not investing too much time
+    // at this point.
+    for (std::map<fds_token_id, fpi::AddObjectRefMsgPtr>::iterator mapIter = addObjRefMap.begin();
+         mapIter != addObjRefMap.end();
+         ++mapIter)
+    {
+         for (MigrClientMap::iterator clientIter = migrClients.begin();
+              clientIter != migrClients.end();
+              ++clientIter) {
+            forwarded |= clientIter->second->forwardAddObjRefIfNeeded(mapIter->first,
+                                                                      mapIter->second);
+        }
+    }
+
+    return forwarded;
+}
+
 fds_bool_t
 SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
                                         fds_uint64_t reqDltVersion,
@@ -429,15 +491,24 @@ SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
             // since AM sending the request is already on new DLT version
             return forwarded;
         }
-        // in this state, we must know about bits per tok
-        fds_verify(numBitsPerDltToken != 0);
-        fds_token_id dltTok = DLT::getToken(objId, numBitsPerDltToken);
-        // tell each migration client reponsible for migrating this DLT
-        // token to forward the request to the destination
-        for (MigrClientMap::iterator it = migrClients.begin();
-             it != migrClients.end();
-             ++it) {
-            forwarded |= it->second->forwardIfNeeded(dltTok, req);
+
+        // This request has a set of object IDs that may belong to different
+        // DLT tokens.  We need to forward a set of object IDs to correct
+        // client by partitioning and grouping them before forwarding.
+        if (FDS_SM_ADD_OBJECT_REF == req->io_type) {
+            fds_verify(NullObjectID == objId);
+            forwarded = forwardAddObjRefIfNeeded(req);
+        } else {
+            // in this state, we must know about bits per tok
+            fds_verify(numBitsPerDltToken != 0);
+            fds_token_id dltTok = DLT::getToken(objId, numBitsPerDltToken);
+            // tell each migration client reponsible for migrating this DLT
+            // token to forward the request to the destination
+            for (MigrClientMap::iterator it = migrClients.begin();
+                 it != migrClients.end();
+                 ++it) {
+                forwarded |= it->second->forwardIfNeeded(dltTok, req);
+            }
         }
     }
     return forwarded;

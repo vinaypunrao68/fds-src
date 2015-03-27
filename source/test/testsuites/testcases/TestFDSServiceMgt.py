@@ -312,7 +312,7 @@ class TestRndSvcKill(TestCase.FDSTestCase):
                                                                                              selected_node.nd_conf_dict['node-name']))
 
         # Verify the service exists for the node, if not all bets are off, pick another random node/svc
-        while(selected_node.nd_services.count(selected_svc) == 0):
+        while(selected_node.nd_services.count(selected_svc) == 0 and selected_svc != 'pm'):
             self.log.warn("Service {} not configured for node {}."
                           "Selecting new random node/service".format(selected_svc,
                                                                      selected_node.nd_conf_dict['node-name']))
@@ -1151,16 +1151,15 @@ class TestPMWait(TestCase.FDSTestCase):
             # we spin through all defined nodes setting them up.
             if self.passedNode is not None:
                 n = findNodeFromInv(nodes, self.passedNode)
-            else:
 
-                # Make sure it wasn't the target of a random kill
-                if (n, "pm") in self.parameters.get('svc_killed', []):
-                    self.log.warning("PM service for node {} previously"
-                                     "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
-                    if self.passedNode is not None:
-                        break
-                    else:
-                        continue
+            # Make sure it wasn't the target of a random kill
+            if (n, "pm") in self.parameters.get('svc_killed', []):
+                self.log.warning("PM service for node {} previously"
+                                 "killed by random svc kill test.".format(n.nd_conf_dict['node-name']))
+                if self.passedNode is not None:
+                    break
+                else:
+                    continue
 
                 # Skip the PM for the OM's node. That one is handled by TestPMForOMWait()
                 if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
@@ -1719,8 +1718,8 @@ class TestAMBringUp(TestCase.FDSTestCase):
             log_dir = n.nd_agent.get_log_dir()
 
             # The AMAgent script expected to be invoked from the bin directory in which it resides.
-            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> %s/am.%s.out &) \"' %
-                                          (fds_dir, n.nd_nodeID, log_dir, port),
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> %s/am.%s.out &) \"' %
+                                          (fds_dir, log_dir, port),
                                           fds_bin=True)
 
             if status != 0:

@@ -814,6 +814,14 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltClose::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    DltCloseOkEvt closeOkEvt = (DltCloseOkEvt)evt;
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+    fds_verify(dp != NULL);
+    fds_uint64_t commited_dlt_ver = dp->getCommitedDltVersion();
+    // on success path we should not get DLT close for the old DLT version
+    fds_verify(commited_dlt_ver >= closeOkEvt.dlt_version);
+
     // for now assuming close is always a success
     fds_verify(src.acks_to_wait > 0);
     src.acks_to_wait--;

@@ -785,11 +785,15 @@ SMSvcHandler::startHybridTierCtrlr(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 }
 
 void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                boost::shared_ptr<fpi::AddObjectRefMsg>& addObjRefMsg) {
+                                boost::shared_ptr<fpi::AddObjectRefMsg>& addObjRefMsg)
+{
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << " " << fds::logString(*addObjRefMsg));
     Error err(ERR_OK);
 
     auto addObjRefReq = new SmIoAddObjRefReq(addObjRefMsg);
+
+    addObjRefReq->dltVersion = asyncHdr->dlt_version;
+    addObjRefReq->forwardedReq = addObjRefMsg->forwardedReq;
 
     // perf-trace related data
     addObjRefReq->perfNameStr = "volume:" + std::to_string(addObjRefMsg->srcVolId);
@@ -831,6 +835,34 @@ void SMSvcHandler::addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto resp = boost::make_shared<fpi::AddObjectRefRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+
+    // Independent of error happend, check if this request matches
+    // currently closed DLT version. This should not happen, but if
+    // it did, we may end up with incorrect object refcount.
+    // TODO(Anna) If we see this error happening, we will have to
+    // process DLT close by taking write lock on object store
+    // (i.e. object store must not process any IO)
+    //
+    // Requests to SM are relative to a DLT table that maps which
+    // SMs are responsible for which objects. If the DLT version
+    // being used by the sender is stale then this may not be the
+    // correct SM to contact. We know if other version are stale if
+    // our current version has been closed (see OM table propagation
+    // protocol). If we don't have a DLT version yet then have SM process
+    // the request.
+    const DLT *curDlt = objStorMgr->getDLT();
+    if ((curDlt) &&
+        (curDlt->isClosed()) &&
+        (curDlt->getVersion() > (fds_uint64_t)asyncHdr->dlt_version)) {
+        // Tell the sender that their DLT version is invalid.
+        LOGCRITICAL << "Returning DLT mismatch using version "
+                    << (fds_uint64_t)asyncHdr->dlt_version
+                    << " with current closed version "
+                    << curDlt->getVersion();
+
+        asyncHdr->msg_code = ERR_IO_DLT_MISMATCH;
+    }
+
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::AddObjectRefRspMsg), *resp);
 
     delete addObjRefReq;

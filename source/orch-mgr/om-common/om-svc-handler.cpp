@@ -80,15 +80,25 @@ void OmSvcHandler::init_svc_event_handlers() {
     struct cb {
        void operator()(NodeUuid svc, size_t events) const {
            auto domain = OM_NodeDomainMod::om_local_domain();
-           LOGERROR << std::hex << svc << " saw too many " << std::dec << error
-               << " events [" << events << "]";
            OM_NodeAgent::pointer agent = domain->om_all_agent(svc);
 
            if (agent) {
+
+               /*
+                * FS-1424 P. Tinius 03/24/2015
+                * No need to spam the log with the log errors, when the
+                * real issue
+                */
+               LOGERROR << std::hex << svc << " saw too many " << std::dec << error
+                        << " events [" << events << "]";
+
                agent->set_node_state(FDS_Node_Down);
                domain->om_service_down(error, svc, agent->om_agent_type());
+
            } else {
+
                LOGERROR << "unknown service: " << svc;
+
            }
        }
        Error               error;
@@ -190,8 +200,6 @@ void
 OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                        boost::shared_ptr<fpi::CtrlSvcEvent> &msg)
 {
-    LOGDEBUG << " received " << msg->evt_code
-             << " from:" << std::hex << msg->evt_src_svc_uuid.svc_uuid << std::dec;
 
     // XXX(bszmyd): Thu 22 Jan 2015 12:42:27 PM PST
     // Ignore timeouts from Om. These happen due to one-way messages
@@ -200,6 +208,14 @@ OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         ERR_SVC_REQUEST_TIMEOUT == msg->evt_code) {
         return;
     }
+
+    /*
+     * FS-1424 P. Tinius 03/24/2015
+     * Move this log message to after the filter out check, no need to spam
+     * the log for filtered out events.
+     */
+    LOGDEBUG << " received " << msg->evt_code
+             << " from:" << std::hex << msg->evt_src_svc_uuid.svc_uuid << std::dec;
     event_tracker.feed_event(msg->evt_code, msg->evt_src_svc_uuid.svc_uuid);
 }
 

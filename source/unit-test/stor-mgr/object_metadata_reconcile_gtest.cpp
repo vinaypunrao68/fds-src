@@ -69,14 +69,18 @@ TEST(ObjMetaData, test1)
     EXPECT_EQ(1, vols.size());
     EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     fpi::CtrlObjectMetaDataPropagate msg;
     initMetaDataPropagate(msg, 1);
 
     objMetaDataPtr->reconcilePutObjMetaData(oid, 0);
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
 
@@ -112,7 +116,9 @@ TEST(ObjMetaData, test2)
 
     EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     // second DELETE reconcile
     objMetaDataPtr->reconcileDelObjMetaData(oid, 1, fds::util::getTimeStampMillis());
@@ -125,7 +131,9 @@ TEST(ObjMetaData, test2)
     EXPECT_EQ(2, vols.size());
     EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     // first PUT reconcile
     objMetaDataPtr->reconcilePutObjMetaData(oid, 0);
@@ -137,7 +145,9 @@ TEST(ObjMetaData, test2)
 
     EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     // second PUT reconcile
     objMetaDataPtr->reconcilePutObjMetaData(oid, 1);
@@ -150,7 +160,9 @@ TEST(ObjMetaData, test2)
     EXPECT_EQ(0, vols.size());
     EXPECT_TRUE(!objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 }
 
 TEST(ObjMetaData, test3)
@@ -180,7 +192,9 @@ TEST(ObjMetaData, test3)
 
     EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     fpi::CtrlObjectMetaDataPropagate msg;
     initMetaDataPropagate(msg, 1);
@@ -192,7 +206,9 @@ TEST(ObjMetaData, test3)
     EXPECT_EQ(2, vols.size());
     EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 }
 
 TEST(ObjMetaData, test4)
@@ -222,7 +238,9 @@ TEST(ObjMetaData, test4)
 
     EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     fpi::CtrlObjectMetaDataPropagate msg;
     initMetaDataPropagate(msg, 1);
@@ -234,7 +252,9 @@ TEST(ObjMetaData, test4)
     EXPECT_EQ(1, vols.size());
     EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 }
 TEST(ObjMetaData, test5)
 {
@@ -262,7 +282,9 @@ TEST(ObjMetaData, test5)
 
     EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     fpi::CtrlObjectMetaDataPropagate msg;
     initMetaDataPropagate(msg, 1);
@@ -275,7 +297,9 @@ TEST(ObjMetaData, test5)
 
     EXPECT_FALSE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
 }
 
@@ -305,7 +329,9 @@ TEST(ObjMetaData, test6)
 
     EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
     fpi::CtrlObjectMetaDataPropagate msg;
     initMetaDataPropagate(msg, 1);
@@ -318,7 +344,9 @@ TEST(ObjMetaData, test6)
 
     EXPECT_TRUE(objMetaDataPtr->isObjReconcileRequired());
 
+#ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
+#endif  // TEST_VERBOSE
 
 
 }

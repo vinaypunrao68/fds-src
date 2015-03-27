@@ -35,7 +35,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.util.function.Supplier;
 
 public class Main {
-    public static final int AM_BASE_RESPONSE_PORT = 9876;
     private static Logger LOG = Logger.getLogger(Main.class);
 
     public static void main(String[] args) {
@@ -65,36 +64,37 @@ public class Main {
 
         SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
 
-        // Get the instance ID from either the config file or cmd line
-        final Assignment amInstance = platformConfig.lookup("fds.am.instanceId");
-        int amInstanceId;
-        if (!amInstance.getValue().isPresent()) {
+        // Get the platform from either the config file or cmd line
+        final Assignment platPort = platformConfig.lookup("fds.pm.platform_port");
+        int pmPort;
+        if (!platPort.getValue().isPresent()) {
 
             OptionParser parser = new OptionParser();
             parser.allowsUnrecognizedOptions();
-            parser.accepts("fds.am.instanceId")
+            parser.accepts("fds.pm.platform_port")
                     .withRequiredArg()
                     .ofType(Integer.class);
             OptionSet options = parser.parse(args);
-            if (options.has("fds.am.instanceId")) {
+            if (options.has("fds.pm.platform_port")) {
 
-                amInstanceId = (int) options.valueOf("fds.am.instanceId");
+                pmPort = (int) options.valueOf("fds.pm.platform_port");
 
             } else {
 
                 throw new RuntimeException(
-                        "The specified configuration key 'fds.am.instanceId' was not found.");
+                        "The specified configuration key 'fds.pm.platform_port' was not found.");
             }
 
         } else {
 
-            amInstanceId = amInstance.intValue();
+            pmPort = platPort.intValue();
 
         }
 
-        int amResponsePort = AM_BASE_RESPONSE_PORT + amInstanceId;
-        LOG.debug("My instance id " + amInstanceId +
-                " port " + amResponsePort);
+        int amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 2876);
+        int amResponsePort = pmPort + amResponsePortOffset;
+        LOG.debug("PM port " + pmPort +
+                " my port " + amResponsePort);
 
         XdiClientFactory clientFactory = new XdiClientFactory(amResponsePort);
 
@@ -103,13 +103,15 @@ public class Main {
         String omHost = platformConfig.defaultString("fds.am.om_ip", "localhost");
         Integer omHttpPort = platformConfig.defaultInt("fds.om.http_port", 7777);
         Integer omHttpsPort = platformConfig.defaultInt("fds.om.https_port", 7443);
+        int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 2988);
+        int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
+        int streamingPortOffset = platformConfig.defaultInt("fds.am.streaming_port_offset", 1911);
 
         // TODO: this needs to be configurable in platform.conf
         int omConfigPort = 9090;
 
         // TODO: the base service port needs to configurable in platform.conf
-        int amServicePortBase = 9988;
-        int amServicePort = amServicePortBase + amInstanceId;
+        int amServicePort = pmPort + amServicePortOffset;
 
         XdiService.Iface am = useFakeAm ? new FakeAmService() :
                 clientFactory.remoteAmService(amHost, amServicePort);
@@ -148,7 +150,8 @@ public class Main {
 
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
-        AsyncXdiServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
+        AsyncXdiServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost,
+                                                                             pmPort + xdiServicePortOffset);
         AsyncAm asyncAm = useFakeAm ?
                 new FakeAsyncAm() :
                 new RealAsyncAm(oneWayAm, amResponsePort);
@@ -161,10 +164,10 @@ public class Main {
                 bbp,
                 configCache);
 
-        int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port", 8000);
-        int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port", 8443);
-        s3HttpPort += amInstanceId;
-        s3SslPort += amInstanceId;
+        int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port_offset", 1000);
+        int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port_offset", 1443);
+        s3HttpPort += pmPort;   // remains 8000 for default platform port
+        s3SslPort += pmPort;    // remains 8443 for default platform port
 
         HttpConfiguration httpConfiguration = new HttpConfiguration(s3HttpPort, "0.0.0.0");
         HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort,
@@ -176,9 +179,9 @@ public class Main {
                 httpsConfiguration,
                 httpConfiguration).start(), "S3 service thread").start();
 
-        startStreamingServer(8999 + amInstanceId, configCache);
-        int swiftPort = platformConfig.defaultInt("fds.am.swift_port", 9999);
-        swiftPort += amInstanceId;
+        startStreamingServer(pmPort + streamingPortOffset, configCache);
+        int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 2999);
+        swiftPort += pmPort;  // remains 9999 for default platform port
         new SwiftEndpoint(xdi, secretKey).start(swiftPort);
     }
 

@@ -116,6 +116,13 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
     TRACEFUNC;
+
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send vol command to service we know is down"
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
+
     const char       *log;
     const VolumeDesc *desc;
 
@@ -918,10 +925,29 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         }
     }
 
+    /**
+    * Update or add Node Services accordingly.
+    *
+    * You might think we should do this at this point. I did. However,
+    * handle_register_service() at this point causes om_reg_node_info()
+    * to fail because it sets active[X]mAgent which is not expected. It must
+    * be the case that Services are expected to be activated and then
+    * registered, or something along those lines.
+    */
+//    if (activate_sm) {
+//        handle_register_service(FDS_ProtocolInterface::FDSP_STOR_MGR, this);
+//    }
+//    if (activate_dm) {
+//        handle_register_service(FDS_ProtocolInterface::FDSP_DATA_MGR, this);
+//    }
+//    if (activate_am) {
+//        handle_register_service(FDS_ProtocolInterface::FDSP_STOR_HVISOR, this);
+//    }
+
     fpi::ActivateServicesMsgPtr activateMsg = boost::make_shared<fpi::ActivateServicesMsg>();
     fpi::FDSP_ActivateNodeType& activateInfo = activateMsg->info;
 
-    (activateInfo.node_uuid).uuid = get_uuid().uuid_get_val();
+    (activateInfo.node_uuid).uuid = static_cast<int64_t>(get_uuid().uuid_get_val());
     activateInfo.node_name = get_node_name();
     activateInfo.has_sm_service = activate_sm;
     activateInfo.has_dm_service = activate_dm;
@@ -931,6 +957,57 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     req->setPayload(FDSP_MSG_TYPEID(fpi::ActivateServicesMsg), activateMsg);
     req->invoke();
+
+    return err;
+}
+
+/**
+ * Execute "remove services" message for all nodes in the Local Domain
+ * for the specified services.
+ *
+ * @param remove_XX - true or false indicating whether the Service is to be removed or not.
+ *
+ * @return Error
+ */
+Error
+OM_PmAgent::send_remove_services(fds_bool_t remove_sm,
+                                 fds_bool_t remove_dm,
+                                 fds_bool_t remove_am)
+{
+    TRACEFUNC;
+    Error err(ERR_OK);
+    try {
+        LOGNORMAL << "Received remove services for node" << get_node_name()
+                        << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+                        << " remove am ? " << remove_am
+                        << " remove sm ? " << remove_sm
+                        << " remove dm ? " << remove_dm;
+
+        /*
+         * Currently (3/21/2015) we only have support for one Local Domain.
+         * At some point we should be able to look up the DomainContainer based on this PM Agent.
+         */
+
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+        err = domain->om_del_services(get_uuid().uuid_get_val(),
+                                      get_node_name(),
+                                      remove_sm,
+                                      remove_dm,
+                                      remove_am);
+
+        if (!err.ok()) {
+            LOGERROR << "RemoveServices: Failed to remove services for node "
+                            << get_node_name() << ", uuid "
+                            << std::hex << get_uuid().uuid_get_val()
+                            << std::dec << ", result: " << err.GetErrstr();
+        }
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                        << "processing rmv node";
+        err = Error(ERR_NOT_FOUND);
+    }
 
     return err;
 }
@@ -1378,6 +1455,57 @@ OM_NodeContainer::om_update_node_list(NodeAgent::pointer node, const FdspNodeReg
     dc_am_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
 }
 
+/**
+ * Activate all defined Services on the specified Node.
+ */
+static void
+om_activate_services(NodeAgent::pointer node)
+{
+    TRACEFUNC;
+
+    /**
+    * Which services are defined for this Node?
+    */
+    NodeServices services;
+    fds_bool_t has_am = false;
+    fds_bool_t has_sm = false;
+    fds_bool_t has_dm = false;
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+
+    if (configDB->getNodeServices(node->get_uuid(), services)) {
+        if (services.am.uuid_get_val() != 0) {
+            has_am = true;
+        }
+        if (services.sm.uuid_get_val() != 0) {
+            has_sm = true;
+        }
+        if (services.dm.uuid_get_val() != 0) {
+            has_dm = true;
+        }
+    } else {
+        /**
+        * We interpret no Services information in ConfigDB
+        * as the Node is configured for all Services - default
+        * for a new Node.
+        */
+        has_am = true;
+        has_sm = true;
+        has_dm = true;
+    }
+
+    OM_PmAgent::agt_cast_ptr(node)->send_activate_services(has_sm, has_dm, has_am);
+}
+
+/**
+ * Activate all defined Services on all Nodes defined in the Local Domain.
+ */
+void
+OM_NodeContainer::om_cond_bcast_activate_services()
+{
+    TRACEFUNC;
+    dc_pm_nodes->agent_foreach(om_activate_services);
+}
+
 // om_activate_service
 // -------------------
 //
@@ -1426,6 +1554,53 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
     return agent->send_activate_services(activate_sm,
                                          activate_dm,
                                          activate_am);
+}
+
+/**
+ * Remove all defined Services on the specified Node.
+ */
+static void
+om_remove_services(NodeAgent::pointer node)
+{
+    TRACEFUNC;
+
+    /**
+    * Which services are defined for this Node?
+    */
+    NodeServices services;
+    fds_bool_t has_am = false;
+    fds_bool_t has_sm = false;
+    fds_bool_t has_dm = false;
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+
+    if (configDB->getNodeServices(node->get_uuid(), services)) {
+        if (services.am.uuid_get_val() != 0) {
+            has_am = true;
+        }
+        if (services.sm.uuid_get_val() != 0) {
+            has_sm = true;
+        }
+        if (services.dm.uuid_get_val() != 0) {
+            has_dm = true;
+        }
+    } else {
+        /**
+        * Nothing defined, so nothing to remove.
+        */
+        return;
+    }
+
+    OM_PmAgent::agt_cast_ptr(node)->send_remove_services(has_sm, has_dm, has_am);
+}
+
+/**
+ * Remove all defined Services on all Nodes defined in the Local Domain.
+ */
+void
+OM_NodeContainer::om_cond_bcast_remove_services()
+{
+    TRACEFUNC;
+    dc_pm_nodes->agent_foreach(om_remove_services);
 }
 
 // om_send_vol_info

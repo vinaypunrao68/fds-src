@@ -64,7 +64,6 @@ class TestS3GetConn(TestCase.FDSTestCase):
                                             aws_secret_access_key=om_node.auth_token,
                                             host=om_node.nd_conf_dict['ip'],
                                             port=8443,
-                                            # port=8000,
                                             calling_format=boto.s3.connection.OrdinaryCallingFormat())
 
             if not s3conn:
@@ -177,7 +176,6 @@ class TestS3LoadZBLOB(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
 
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
@@ -635,7 +633,6 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
 
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load an object.")
@@ -700,7 +697,6 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
 
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to get an object.")

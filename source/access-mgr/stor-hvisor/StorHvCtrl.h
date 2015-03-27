@@ -12,20 +12,19 @@
 #include "FdsRandom.h"
 #include "NetSession.h"
 #include "util/Log.h"
+#include "concurrency/RwLock.h"
 
 #include "AmCounters.h"
 
 
 namespace fds
 {
-    class AmDispatcher;
     class AmProcessor;
     class AmRequest;
     class Callback;
     class OMgrClient;
     class SysParams;
     class StorHvQosCtrl;
-    class StorHvVolumeTable;
 }  // namespace fds
 
 namespace fds_pi = FDS_ProtocolInterface;
@@ -54,25 +53,20 @@ public:
 
     StorHvCtrl(int argc, char *argv[], fds::SysParams *params);
     StorHvCtrl(int argc, char *argv[], fds::SysParams *params,
-               sh_comm_modes _mode, fds_uint32_t instanceId = 0);
+               sh_comm_modes _mode);
     StorHvCtrl(int argc,
                char *argv[],
                fds::SysParams *params,
                sh_comm_modes _mode,
                fds_uint32_t sm_port_num,
-               fds_uint32_t dm_port_num,
-               fds_uint32_t instanceId = 0);
+               fds_uint32_t dm_port_num);
     ~StorHvCtrl();
 
-    std::shared_ptr<fds::StorHvVolumeTable> vol_table;
     std::shared_ptr<fds::StorHvQosCtrl>     qos_ctrl; // Qos Controller object
     fds::OMgrClient*        om_client;
 
     /// Toggle AM standalone mode for testing
     fds_bool_t standalone;
-
-    /// Dispatcher layer module
-    b_sp<fds::AmDispatcher> amDispatcher;
 
     /// Processor layer module
     std::unique_ptr<fds::AmProcessor> amProcessor;
@@ -98,6 +92,19 @@ public:
     inline AMCounters& getCounters()
     { return counters_; }
 
+    /**
+     * Add blob request to wait queue -- those are blobs that
+     * are waiting for OM to attach buckets to AM; once
+     * vol table receives vol attach event, it will move
+     * all requests waiting in the queue for that bucket to
+     * appropriate qos queue
+     */
+    void addBlobToWaitQueue(const std::string& bucket_name,
+                            AmRequest* blob_req);
+    void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
+                                 const std::string& vol_name,
+                                 Error error);
+
 private:
     fds::SysParams *sysParams;
     sh_comm_modes mode;
@@ -106,6 +113,16 @@ private:
     fds_bool_t disableVcc;
     /** Counters */
     AMCounters counters_;
+
+    /**
+     * list of blobs that are waiting for OM to attach appropriate
+     * bucket to AM if it exists/ or return 'does not exist error
+     */
+    typedef std::vector<AmRequest*> bucket_wait_vec_t;
+    typedef std::map<std::string, bucket_wait_vec_t> wait_blobs_t;
+    typedef std::map<std::string, bucket_wait_vec_t>::iterator wait_blobs_it_t;
+    wait_blobs_t wait_blobs;
+    fds_rwlock wait_rwlock;
 };
 
 extern StorHvCtrl* storHvisor;

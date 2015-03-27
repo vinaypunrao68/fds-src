@@ -135,6 +135,8 @@ class SmTokenMigrationMgr {
     fds_bool_t forwardReqIfNeeded(const ObjectID& objId,
                                   fds_uint64_t reqDltVersion,
                                   FDS_IOType* req);
+    fds_bool_t forwardAddObjRefIfNeeded(FDS_IOType* req);
+
     fds_uint64_t getTargetDltVersion() const;
 
     /**
