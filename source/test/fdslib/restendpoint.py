@@ -249,7 +249,7 @@ class VolumeEndpoint:
         self.rest_path = self.rest.base_path + '/api/config/volumes'
 
     def createVolume(self, volume_name, priority, sla, limit, vol_type, size=10*1024, unit="MB", 
-                    media_policy='hdd', commit_log_retention=86400, max_object_size=0):
+                    media_policy='hdd', commit_log_retention=86400, max_object_size=2097152):
 
         if vol_type == "object":
             data_connector = {"api":"S3,Swift","type":"OBJECT"}
