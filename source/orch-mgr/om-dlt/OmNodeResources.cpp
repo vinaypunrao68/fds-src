@@ -116,6 +116,13 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
     TRACEFUNC;
+
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send vol command to service we know is down"
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
+
     const char       *log;
     const VolumeDesc *desc;
 
