@@ -563,6 +563,14 @@ class testDiskManager (unittest.TestCase):
         self.manager.process_command_line()
         pass
 
+    def testDiskManagerLoadDiskConfigInvalid (self):
+        self.manager.disk_config_file = 'test_data/disk_config.invalid'
+        with self.assertRaises (SystemExit) as cm:
+            self.manager.load_disk_config_file()
+
+        assert 4 == len (self.manager.disk_list)
+        self.assertEqual (cm.exception.code, 8)
+
 
     def testDiskManagerLoadDiskConfig (self):
         self.manager.disk_config_file = 'test_data/disk_config'
@@ -608,10 +616,10 @@ class testDiskManager (unittest.TestCase):
 
         self.manager.build_partition_lists()
 
-        assert ['/dev/idxa2'] == self.manager.dm_index_partition_list
-        assert ['/dev/idxb2', '/dev/idxc2'] == self.manager.sm_index_partition_list
-        assert ['/dev/idxa3', '/dev/idxb3', '/dev/idxc3', '/dev/data2'] == self.manager.data_partition_list
-        assert ['/dev/idxa3', '/dev/idxb3', '/dev/idxc3', '/dev/data2', '/dev/idxa2'] == self.manager.umount_list
+        assert ['/dev/sdzx2'] == self.manager.dm_index_partition_list
+        assert ['/dev/sdzw2', '/dev/sdzv2'] == self.manager.sm_index_partition_list
+        assert ['/dev/sdzx3', '/dev/sdzw3', '/dev/sdzv3', '/dev/sdzu2'] == self.manager.data_partition_list
+        assert ['/dev/sdzx3', '/dev/sdzw3', '/dev/sdzv3', '/dev/sdzu2', '/dev/sdzx2'] == self.manager.umount_list
 
 
     @mock.patch ('disk_format.Disk.format')
