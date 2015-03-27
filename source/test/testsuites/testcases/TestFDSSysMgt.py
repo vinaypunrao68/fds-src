@@ -278,15 +278,11 @@ class TestDomainShutdown(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
 
         self.log.info("Shutdown domain.")
 
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --domain-shutdown abc -k 1 > '
-                                            '%s/cli.out 2>&1) \"' %
-                                            (fds_dir, log_dir),
-                                            fds_bin=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain shutdown local) \"',
+                                            fds_tools=True)
 
         if status != 0:
             self.log.error("Domain shutdown returned status %d." % (status))
@@ -313,15 +309,11 @@ class TestDomainCreate(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
 
         self.log.info("Create domain.")
 
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --domain-create abc -k 1 > '
-                                            '%s/cli.out 2>&1) \"' %
-                                            (fds_dir, log_dir),
-                                            fds_bin=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain create my_domain Woodville,MS) \"',
+                                            fds_tools=True)
 
         if status != 0:
             self.log.error("Domain create returned status %d." % (status))

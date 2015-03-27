@@ -1369,7 +1369,7 @@ class TestPMForOMWait(TestCase.FDSTestCase):
             # Make sure it wasn't the target of a random kill
             if (om_node, "pm") in self.parameters.get('svc_killed', []):
                 self.log.warning("PM service for node {} previous"
-                                 "killed by random svc kill test. PASSING test.".format(n.nd_conf_dict['node-name']))
+                                 "killed by random svc kill test. PASSING test.".format(om_node.nd_conf_dict['node-name']))
                 return True
 
             self.log.info("Wait for PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
@@ -1556,7 +1556,7 @@ class TestOMWait(TestCase.FDSTestCase):
             # Make sure it wasn't the target of a random kill
             if (om_node, "om") in self.parameters.get('svc_killed', []):
                 self.log.warning("OM service for node {} previous"
-                                 "killed by random svc kill test. PASSING test!".format(n.nd_conf_dict['node-name']))
+                                 "killed by random svc kill test. PASSING test!".format(om_node.nd_conf_dict['node-name']))
                 return True
 
             self.log.info("Wait for OM on %s." % om_node.nd_conf_dict['node-name'])
@@ -1611,7 +1611,8 @@ class TestOMKill(TestCase.FDSTestCase):
 
             # Probably we get the -9 return because pkill for a java process will
             # not find it based on the class name alone. See getSvcPIDforNode().
-            if (status != -9) and (status != 0):
+            # For a remote install, a failed kill (because its already dead) returns 1.
+            if (status != -9) and (status != 0) and (om_node.nd_agent.env_install and status != 1):
                 self.log.error("OM (com.formationds.om.Main) kill on %s returned status %d." %
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
