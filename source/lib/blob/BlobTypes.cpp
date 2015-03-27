@@ -104,42 +104,6 @@ operator<<(std::ostream& out, const BlobOffsetPair& blobOffset) {
     return out;
 }
 
-BlobTxId::BlobTxId() {
-    txId = txIdInvalid;
-}
-
-BlobTxId::BlobTxId(fds_uint64_t givenId)
-        : txId(givenId) {
-}
-
-BlobTxId::BlobTxId(const BlobTxId &rhs)
-        : txId(rhs.txId) {
-}
-
-BlobTxId::~BlobTxId() {
-}
-
-fds_uint64_t
-BlobTxId::getValue() const {
-    return txId;
-}
-
-BlobTxId&
-BlobTxId::operator=(const BlobTxId& rhs) {
-    txId = rhs.txId;
-    return *this;
-}
-
-fds_bool_t
-BlobTxId::operator==(const BlobTxId& rhs) const {
-    return txId == rhs.txId;
-}
-
-fds_bool_t
-BlobTxId::operator!=(const BlobTxId& rhs) const {
-    return txId != rhs.txId;
-}
-
 std::ostream&
 operator<<(std::ostream& out, const BlobTxId& txId) {
     return out << "0x" << std::hex << txId.txId << std::dec;

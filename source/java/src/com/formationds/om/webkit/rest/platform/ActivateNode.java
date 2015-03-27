@@ -6,7 +6,7 @@ package com.formationds.om.webkit.rest.platform;
 import FDS_ProtocolInterface.FDSP_ActivateOneNodeType;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_Uuid;
+import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventDescriptor;
 import com.formationds.commons.events.EventSeverity;

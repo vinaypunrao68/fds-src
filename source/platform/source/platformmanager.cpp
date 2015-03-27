@@ -66,7 +66,6 @@ pid_t PlatformManager::startAM() {
                 conf->get_abs<std::string>("fds.common.om_ip_list").c_str()));
     args.push_back(util::strformat("--fds.pm.platform_uuid=%lld", getNodeUUID(fpi::FDSP_PLATFORM)));
     args.push_back(util::strformat("--fds.pm.platform_port=%d", conf->get<int>("platform_port")));
-    args.push_back(util::strformat("--fds.am.instanceId=%ld", 0));
     
     pid = fds_spawn_service("AMAgent", rootDir, args, true);
     if (pid > 0) {

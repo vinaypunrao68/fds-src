@@ -23,12 +23,13 @@ import java.util.Properties;
 /**
  * @author ptinius
  */
-public abstract class JDORepository<T,
-                                    PrimaryKey extends Serializable> extends AbstractRepository<T, PrimaryKey>
-    implements CRUDRepository<T, PrimaryKey> {
+public abstract class JDORepository<T, PK extends Serializable>
+    extends AbstractRepository<T, PK>
+    implements CRUDRepository<T, PK> {
 
+    private String                    dbName;
     private PersistenceManagerFactory factory;
-    private PersistenceManager manager;
+    private PersistenceManager        manager;
 
     private EntityManagerFactory entityManagerFactory;
 
@@ -36,7 +37,7 @@ public abstract class JDORepository<T,
     protected final Logger logger;
 
     protected JDORepository() {
-        logger = LoggerFactory.getLogger(this.getClass());
+        logger = LoggerFactory.getLogger( this.getClass() );
     }
 
     /**
@@ -48,7 +49,7 @@ public abstract class JDORepository<T,
         final Query query = manager().newQuery( getEntityClass() );
         try {
             query.compile();
-            count = ( (Collection) query.execute() ).size();
+            count = ((Collection) query.execute()).size();
         } finally {
             query.closeAll();
         }
@@ -69,9 +70,9 @@ public abstract class JDORepository<T,
             query = manager().newQuery( getEntityClass() );
             query.setFilter( paramName + " == '" + paramValue + "'" );
 
-            count = ( ( Collection ) query.execute() ).size();
+            count = ((Collection) query.execute()).size();
         } finally {
-            if( query != null ) {
+            if ( query != null ) {
                 query.closeAll();
             }
         }
@@ -80,38 +81,26 @@ public abstract class JDORepository<T,
     }
 
     /**
-     * @return the list of entities
-     */
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<T> findAll() {
-        return (List<T>) manager().newQuery(getEntityClass()).execute();
-    }
-
-    /**
      * @param entity the entity to save
      *
      * @return Returns the saved entity
      */
     @Override
-    synchronized protected T doPersist( final T entity ) {
+    synchronized protected <R extends T>  R doPersist( final R entity ) {
         try {
-            if( !manager().currentTransaction().isActive() ) {
+            if ( !manager().currentTransaction().isActive() ) {
                 manager().currentTransaction().begin();
             }
             manager().makePersistent( entity );
 
-            if( manager().currentTransaction().isActive() ) {
+            if ( manager().currentTransaction().isActive() ) {
                 manager().currentTransaction().commit();
             }
 
             return entity;
-        }
-        catch (RuntimeException re)
-        {
-            if (manager().currentTransaction().isActive() )
-            {
-                logger.warn("Rolling back failed transaction.");
+        } catch ( RuntimeException re ) {
+            if ( manager().currentTransaction().isActive() ) {
+                logger.warn( "Rolling back failed transaction." );
                 manager().currentTransaction().rollback();
             }
             throw re;
@@ -128,23 +117,23 @@ public abstract class JDORepository<T,
      * @throws RuntimeException if the save for any entity fails
      */
     @Override
-    synchronized protected List<T> doPersist(Collection<T> entities) {
-        List<T> persisted = new ArrayList<>( );
+    synchronized protected <R extends T> List<R> doPersist( Collection<R> entities ) {
+        List<R> persisted = new ArrayList<>();
         try {
-            if( entities != null ) {
+            if ( entities != null ) {
 
-                if( !manager().currentTransaction().isActive() ) {
+                if ( !manager().currentTransaction().isActive() ) {
                     manager().currentTransaction().begin();
                 }
                 persisted.addAll( manager().makePersistentAll( entities ) );
 
-                if( manager().currentTransaction().isActive() ){
+                if ( manager().currentTransaction().isActive() ) {
                     manager().currentTransaction().commit();
                 }
             }
-        } catch( RuntimeException re ) {
-            if (manager().currentTransaction().isActive()) {
-                logger.warn("SAVE Failed.  Rolling back transaction.");
+        } catch ( RuntimeException re ) {
+            if ( manager().currentTransaction().isActive() ) {
+                logger.warn( "SAVE Failed.  Rolling back transaction." );
                 manager().currentTransaction().rollback();
             }
             throw re;
@@ -154,16 +143,16 @@ public abstract class JDORepository<T,
     }
 
     @Override
-    synchronized protected void doDelete(T entity) {
+    synchronized protected void doDelete( T entity ) {
         try {
             manager().currentTransaction()
                      .begin();
             manager().deletePersistent( entity );
             manager().currentTransaction()
                      .commit();
-        } catch( RuntimeException re ) {
-            if( manager().currentTransaction()
-                         .isActive() ) {
+        } catch ( RuntimeException re ) {
+            if ( manager().currentTransaction()
+                          .isActive() ) {
                 logger.warn( "DELETE Failed.  Rolling back transaction." );
                 manager().currentTransaction()
                          .rollback();
@@ -181,9 +170,9 @@ public abstract class JDORepository<T,
         // ignoring errors on close.  Although this is likely to indicate either
         // a shutdown condition or a programming error such as calling close twice,
         // there is no real impact or recovery actions to take
-        try { entityManagerFactory.close(); } catch (Throwable t) { /* ignore on close */ }
-        try { manager.close(); } catch (Throwable t) { /* ignore on close */ }
-        try { factory.close(); } catch (Throwable t) { /* ignore on close */ }
+        try { entityManagerFactory.close(); } catch ( Throwable t ) { /* ignore on close */ }
+        try { manager.close(); } catch ( Throwable t ) { /* ignore on close */ }
+        try { factory.close(); } catch ( Throwable t ) { /* ignore on close */ }
     }
 
     /**
@@ -191,16 +180,31 @@ public abstract class JDORepository<T,
      *               repository
      */
     protected void initialize( final String dbName ) {
+        this.dbName = dbName;
         final Properties properties = new Properties();
         properties.setProperty( "javax.jdo.PersistenceManagerFactoryClass", "com.objectdb.jdo.PMF" );
         properties.setProperty( "javax.jdo.option.ConnectionURL", dbName );
 
-        factory( JDOHelper.getPersistenceManagerFactory(properties) );
+        open( properties );
+    }
+
+    /**
+     * Open the repository with the specified properties
+     *
+     * @param properties the set of properties to configure the repository manager
+     *
+     * @throws IllegalStateException if already open.  Make sure to close first.
+     */
+    public void open( Properties properties ) {
+        if ( manager != null ) {
+            throw new IllegalStateException( "Repository is already open." );
+        }
+        factory( JDOHelper.getPersistenceManagerFactory( properties ) );
         manager( factory().getPersistenceManager() );
 
-        final EntityManagerFactory emf = Persistence.createEntityManagerFactory(dbName);
+        final EntityManagerFactory emf = Persistence.createEntityManagerFactory( dbName );
 
-        entityManagerFactory(emf);
+        entityManagerFactory( emf );
 
         initShutdownHook();
     }
@@ -217,45 +221,44 @@ public abstract class JDORepository<T,
     }
 
     /**
-   * @return Returns the {@link PersistenceManagerFactory}
-   */
-  protected PersistenceManagerFactory factory() {
-    return factory;
-  }
+     * @return Returns the {@link PersistenceManagerFactory}
+     */
+    protected PersistenceManagerFactory factory() {
+        return factory;
+    }
 
-  /**
-   * @param factory the {@link PersistenceManagerFactory}
-   */
-  protected void factory( final PersistenceManagerFactory factory ) {
-    this.factory = factory;
-  }
+    /**
+     * @param factory the {@link PersistenceManagerFactory}
+     */
+    protected void factory( final PersistenceManagerFactory factory ) {
+        this.factory = factory;
+    }
 
-  /**
-   * @return Returns the {@link PersistenceManager}
-   */
-  protected PersistenceManager manager() {
-    return manager;
-  }
+    /**
+     * @return Returns the {@link PersistenceManager}
+     */
+    protected PersistenceManager manager() {
+        return manager;
+    }
 
-  /**
-   * @param manager the {@link PersistenceManager}
-   */
-  protected void manager( final PersistenceManager manager ) {
-    this.manager = manager;
-  }
+    /**
+     * @param manager the {@link PersistenceManager}
+     */
+    protected void manager( final PersistenceManager manager ) {
+        this.manager = manager;
+    }
 
-  /**
-   * @return Returns the {@link EntityManager}
-   */
-  public EntityManager newEntityManager() {
-    return entityManagerFactory.createEntityManager();
-  }
+    /**
+     * @return Returns the {@link EntityManager}
+     */
+    public EntityManager newEntityManager() {
+        return entityManagerFactory.createEntityManager();
+    }
 
-  /**
-   * @param entity the {@link javax.persistence.EntityManager}
-   */
-  protected void entityManagerFactory(final EntityManagerFactory entity) {
-    this.entityManagerFactory   = entity;
-  }
-
+    /**
+     * @param entity the {@link javax.persistence.EntityManager}
+     */
+    protected void entityManagerFactory( final EntityManagerFactory entity ) {
+        this.entityManagerFactory = entity;
+    }
 }

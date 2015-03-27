@@ -39,18 +39,45 @@ struct GetBucketRspMsg {
 }
 
 /**
- * Gets the metadata for a specific volume.
- * TODO(Andrew): Move the volume metadata to the
+ * Gets the dynamic status of a specific volume.
+ * TODO(Andrew): Move the volume status to the
  * response structure.
  */
-struct GetVolumeMetaDataMsg {
+struct StatVolumeMsg {
   1: i64                        volume_id;
-  2: dm_types.FDSP_VolumeMetaData        volume_meta_data;
+  2: dm_types.VolumeStatus      volumeStatus;
 }
 /**
- * Returns a volume metadata descriptor for the volume.
+ * Returns a status descriptor for the volume.
  */
-struct GetVolumeMetaDataRspMsg {
+struct StatVolumeRspMsg {
+}
+
+/**
+ * Gets metadata for a specific volume.
+ */
+struct GetVolumeMetadataMsg {
+  1: i64 volumeId;
+}
+/**
+ * Returns key-value metadata for the volume.
+ */
+struct GetVolumeMetadataMsgRsp {
+  1: dm_types.FDSP_MetaDataPair metadata;
+}
+
+/**
+ * Sets metadata for a specific volume. Any already existing
+ * metadata keys are overwritten.
+ */
+struct SetVolumeMetadataMsg {
+  1: i64                        volumeId;
+  2: dm_types.FDSP_MetaDataList metadataList;
+}
+/**
+ * Returns success if metadata was updated.
+ */
+struct SetVolumeMetadataMsgRsp {
 }
 
 /**

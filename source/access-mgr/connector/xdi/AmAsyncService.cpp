@@ -47,15 +47,16 @@ AsyncAmServiceRequestIfCloneFactory::releaseHandler(request_if* handler) {
     delete handler;
 }
 
-AsyncDataServer::AsyncDataServer(const std::string &name, fds_uint32_t instanceId)
-: Module(name.c_str()),
-    port(8899 + instanceId)
+AsyncDataServer::AsyncDataServer(const std::string &name, fds_uint32_t pmPort)
+: Module(name.c_str())
 {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    int xdiServicePortOffset = conf.get<int>("xdi_service_port_offset");
+    port = pmPort + xdiServicePortOffset;
+
     serverTransport.reset(new xdi_att::TServerSocket(port));
     transportFactory.reset(new xdi_att::TFramedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
-
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
 }
 
 /**

@@ -12,21 +12,19 @@
 #include "FdsRandom.h"
 #include "NetSession.h"
 #include "util/Log.h"
+#include "concurrency/RwLock.h"
 
 #include "AmCounters.h"
 
 
 namespace fds
 {
-    class AmDispatcher;
     class AmProcessor;
     class AmRequest;
-    class AmTxManager;
     class Callback;
     class OMgrClient;
     class SysParams;
     class StorHvQosCtrl;
-    class StorHvVolumeTable;
 }  // namespace fds
 
 namespace fds_pi = FDS_ProtocolInterface;
@@ -38,8 +36,6 @@ namespace FDS_ProtocolInterface
 }  // namespace FDS_ProtocolInterface
 
 template<class T> using b_sp = boost::shared_ptr<T>;
-
-class StorHvDataPlacement;
 
 class StorHvCtrl : public fds::HasLogger {
 public:
@@ -57,39 +53,25 @@ public:
 
     StorHvCtrl(int argc, char *argv[], fds::SysParams *params);
     StorHvCtrl(int argc, char *argv[], fds::SysParams *params,
-               sh_comm_modes _mode, fds_uint32_t instanceId = 0);
+               sh_comm_modes _mode);
     StorHvCtrl(int argc,
                char *argv[],
                fds::SysParams *params,
                sh_comm_modes _mode,
                fds_uint32_t sm_port_num,
-               fds_uint32_t dm_port_num,
-               fds_uint32_t instanceId = 0);
+               fds_uint32_t dm_port_num);
     ~StorHvCtrl();
 
-    // Data Members
-    StorHvDataPlacement*    dataPlacementTbl;
-    fds::StorHvVolumeTable* vol_table;  
-    fds::StorHvQosCtrl*     qos_ctrl; // Qos Controller object
+    std::shared_ptr<fds::StorHvQosCtrl>     qos_ctrl; // Qos Controller object
     fds::OMgrClient*        om_client;
-
-    b_sp<fds_pi::FDSP_AnnounceDiskCapability> dInfo;
-
-    std::string                 my_node_name;
 
     /// Toggle AM standalone mode for testing
     fds_bool_t standalone;
-
-    /// Dispatcher layer module
-    b_sp<fds::AmDispatcher> amDispatcher;
 
     /// Processor layer module
     std::unique_ptr<fds::AmProcessor> amProcessor;
 
     fds::RandNumGenerator::ptr randNumGen;
-    // TODO(Andrew): Move this to a unique_ptr and only into
-    // AmProcessor once that's ready
-    std::shared_ptr<fds::AmTxManager> amTxMgr;
 
     fds::Error sendTestBucketToOM(const std::string& bucket_name,
                              const std::string& access_key_id = "",
@@ -101,7 +83,6 @@ public:
     void attachVolume(fds::AmRequest *amReq);
     void enqueueAttachReq(const std::string& volumeName,
                           b_sp<fds::Callback> cb);
-    fds::Error pushBlobReq(fds::AmRequest *blobReq);
     void enqueueBlobReq(fds::AmRequest *blobReq);
 
     fds::SysParams* getSysParams();
@@ -111,6 +92,19 @@ public:
     inline AMCounters& getCounters()
     { return counters_; }
 
+    /**
+     * Add blob request to wait queue -- those are blobs that
+     * are waiting for OM to attach buckets to AM; once
+     * vol table receives vol attach event, it will move
+     * all requests waiting in the queue for that bucket to
+     * appropriate qos queue
+     */
+    void addBlobToWaitQueue(const std::string& bucket_name,
+                            AmRequest* blob_req);
+    void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
+                                 const std::string& vol_name,
+                                 Error error);
+
 private:
     fds::SysParams *sysParams;
     sh_comm_modes mode;
@@ -119,6 +113,16 @@ private:
     fds_bool_t disableVcc;
     /** Counters */
     AMCounters counters_;
+
+    /**
+     * list of blobs that are waiting for OM to attach appropriate
+     * bucket to AM if it exists/ or return 'does not exist error
+     */
+    typedef std::vector<AmRequest*> bucket_wait_vec_t;
+    typedef std::map<std::string, bucket_wait_vec_t> wait_blobs_t;
+    typedef std::map<std::string, bucket_wait_vec_t>::iterator wait_blobs_it_t;
+    wait_blobs_t wait_blobs;
+    fds_rwlock wait_rwlock;
 };
 
 extern StorHvCtrl* storHvisor;

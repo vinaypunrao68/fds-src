@@ -307,7 +307,7 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
         ENUMCASEOS(FDS_STAT_BLOB                 , os);
         ENUMCASEOS(FDS_GET_BLOB_METADATA, os);
         ENUMCASEOS(FDS_SET_BLOB_METADATA, os);
-        ENUMCASEOS(FDS_GET_VOLUME_METADATA, os);
+        ENUMCASEOS(FDS_STAT_VOLUME, os);
         ENUMCASEOS(FDS_DELETE_BLOB               , os);
         ENUMCASEOS(FDS_VOLUME_CONTENTS           , os);
         ENUMCASEOS(FDS_BUCKET_STATS              , os);

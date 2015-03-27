@@ -45,7 +45,7 @@ def do_work(function, params):
 
 def hostname_to_ip(hostname):
     return socket.gethostbyname(hostname)
-
+    
 def create_test_files_dir():
     create_dir(config.TEST_DIR)
     # data files aren't there, download them

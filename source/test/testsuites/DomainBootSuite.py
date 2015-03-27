@@ -47,11 +47,15 @@ def suiteConstruction(self, action="installbootactivate"):
         suite.addTest(testcases.TestFDSEnvMgt.TestFDSInstall())
         suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
+        suite.addTest(testcases.TestFDSEnvMgt.TestRestartInfluxDBClean())
+        suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
 
     if action.count("boot_noverify") > 0:
         if action.count("install") == 0:
             suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
+            suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
 
         # Start the the OM's PM.
         suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())
@@ -68,6 +72,8 @@ def suiteConstruction(self, action="installbootactivate"):
         if action.count("install") == 0:
             suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
+            suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
 
         # Start the the OM's PM.
         suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())

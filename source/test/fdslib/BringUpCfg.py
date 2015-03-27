@@ -304,9 +304,7 @@ class FdsNodeConfig(FdsConfig):
                                             (fds_dir, log_dir, port),
                                              fds_bin=True)
         else:
-            self.nd_agent.exec_wait('bash -c \"(rm -rf /dev/shm/0x*)\"')
-            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
-                                            ' > %s/pm.out' % log_dir)
+            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg + ' > %s/pm.out' % log_dir)
 
         if status == 0:
             time.sleep(4)
@@ -324,29 +322,51 @@ class FdsNodeConfig(FdsConfig):
         else:
             port = 7000  # PM default.
 
-        fds_dir = om_node.nd_conf_dict['fds_root']
-
         # From the --list-services output we can determine node name
         # and node UUID.
-        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root=%s --list-services) \"' % (fds_dir),
-                                                 return_stdin=True,
-                                                 fds_bin=True)
+        # Figure out the platform uuid.  Platform has 'pm' as the name
+        # port should match the read port from fdscli --list-services output
+        # Group 0 = Entire matched expression
+        # Group 1 = node UUID
+        # Group 2 = Node root (not showing up)
+        # Group 3 = Node ID
+        # Group 4 = IPv4
+        # Group 5 = IPv6
+        # Group 6 = Service name
+        # Group 8 = Service Type
+        # Group 9 = Service UUID
+        # Group 10 = Control port
+        # Group 11 = Data port
+        # Group 12 = Migration port
+        # TODO(brian): uncomment this regex when we start capturing node root correctly
+        #svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
+        #                    '\s*(\d.\d.\d.\d)\s*(\w{2})\s*(\w*)\s*(0x[a-f0-9]{16})\s*'
+        #                    '([A-Za-z0-9_]*)\s*(\d*)\s*(\d*)\s*(\d*)')
+        # Use this regex for now
+        svc_re = re.compile(r'(0x[a-f0-9]{16})(\s+)(\d{1})\s+(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
+                            '\s+(\d.\d.\d.\d)\s+(\w{2})\s+(\w*)\s+(0x[a-f0-9]{16})\s+'
+                            '([A-Za-z0-9_]*)\s+(\d+)\s+(\d+)\s+(\d+)')
+
+        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain listServices local) \"',
+                                                    return_stdin=True,
+                                                    fds_tools=True)
 
         # Figure out the platform uuid.  Platform has 'pm' as the name
         # port should match the read port from fdscli --list-services output
         if status == 0:
             for line in stdout.split('\n'):
-                if line.count("Node UUID") > 0:
-                    assigned_uuid = line.split()[2]
-                if line.count("IPv4") > 0:
-                    ipad = line.split()[1]
-                    hostName = socket.gethostbyaddr(ipad)[0]
-                    ourIP = (ipad == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
-                if line.count("Name") > 0:
-                    assigned_name = line.split()[1]
-                if line.count("Data") > 0:
-                    readPort = (int(line.split()[2]))
-                    if assigned_name == 'pm' and readPort == int(port):
+                res = svc_re.match(line)
+                if res is not None:
+                    # UUID
+                    assigned_uuid = res.group(1)
+                    # IP
+                    hostName = socket.gethostbyaddr(res.group(4))
+                    ourIP = (res.group(4) == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
+                    # Service name
+                    assigned_name = res.group(6)
+                    # Ports
+                    readPort = int(res.group(11))
+                    if assigned_name.lower() == 'pm' and readPort == int(port):
                         self.nd_assigned_name = assigned_name
                         self.nd_uuid = assigned_uuid
                         break

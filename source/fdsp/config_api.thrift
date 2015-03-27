@@ -37,9 +37,98 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
+   * Change the name of the given Local Domain.
+   *
+   * @param oldDomainName - A string representing the old name of the Local Domain.
+   * @param newDomainName - A string representing the new name of the Local Domain.
+   *
+   * @return void.
+   */
+  void updateLocalDomainName(1:string oldDomainName, 2:string newDomainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Change the name of the given Local Domain's site.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose site is to be changed.
+   * @param newSiteName - A string representing the new name of the Local Domain's site.
+   *
+   * @return void.
+   */
+  void updateLocalDomainSite(1:string domainName, 2:string newSiteName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Set the throttle of the given Local Domain.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose throttle is to be set.
+   * @param throttleLevel - A double representing the new throttle level for the Local Domain.
+   *
+   * @return void.
+   */
+  void setThrottle(1:string domainName, 2:double throttleLevel)
+      throws (1: common.ApiException e);
+
+  /**
+   * Set the scavenger actin for the given Local Domain.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose scavenger action is to be set.
+   * @param scavengerAction - A string representing the new scavenger action for the Local Domain. One of
+   *                          "enable", "disable", "start", "stop".
+   *
+   * @return void.
+   */
+  void setScavenger(1:string domainName, 2:string scavengerAction)
+      throws (1: common.ApiException e);
+
+  /**
+   * Shutdown currently the named Local Domain.
+   *
+   * @param domainName - A string representing the name of the Local Domain to be shutdown.
+   *
+   * @return void.
+   */
+  void shutdownLocalDomain(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Delete currently the named Local Domain.
+   *
+   * @param domainName - A string representing the name of the Local Domain to be deleted.
+   *
+   * @return void.
+   */
+  void deleteLocalDomain(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Activate currently defined Services for the named Local Domain.
+   *
+   * @return void.
+   */
+  void activateLocalDomainServices(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Lists currently defined Services for the named Local Domain.
+   *
+   * @return Returns the list of FDSP_Node_Info_Type's.
+   */
+  list<common.FDSP_Node_Info_Type> listLocalDomainServices(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Remove currently defined Services from the named Local Domain.
+   *
+   * @return void.
+   */
+  void removeLocalDomainServices(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
    * Create a new tenant.
    *
-   * @param identifier a string represnting the tenants identifier or name
+   * @param identifier a string representing the tenants identifier or name
    *
    * @return Returns the tenants id
    */

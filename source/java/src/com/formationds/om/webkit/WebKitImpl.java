@@ -12,6 +12,14 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.webkit.rest.*;
+import com.formationds.om.webkit.rest.domain.PostLocalDomain;
+import com.formationds.om.webkit.rest.domain.GetLocalDomains;
+import com.formationds.om.webkit.rest.domain.PutLocalDomain;
+import com.formationds.om.webkit.rest.domain.PutThrottle;
+import com.formationds.om.webkit.rest.domain.PutScavenger;
+import com.formationds.om.webkit.rest.domain.DeleteLocalDomain;
+import com.formationds.om.webkit.rest.domain.GetLocalDomainServices;
+import com.formationds.om.webkit.rest.domain.PutLocalDomainServices;
 import com.formationds.om.webkit.rest.events.IngestEvents;
 import com.formationds.om.webkit.rest.events.QueryEvents;
 import com.formationds.om.webkit.rest.metrics.IngestVolumeStats;
@@ -96,14 +104,12 @@ public class WebKitImpl {
         webApp.route( HttpMethod.GET, "", ( ) -> new LandingPage( webDir ) );
 
         webApp.route( HttpMethod.POST, "/api/auth/token",
-                      ( ) -> new GrantToken( SingletonConfigAPI.instance()
-                                                         .api(),
+                      ( ) -> new GrantToken( configAPI,
                                              authenticator,
                                              authorizer,
                                              secretKey ) );
         webApp.route( HttpMethod.GET, "/api/auth/token",
-                      ( ) -> new GrantToken( SingletonConfigAPI.instance()
-                                                         .api(),
+                      ( ) -> new GrantToken( configAPI,
                                              authenticator,
                                              authorizer,
                                              secretKey ) );
@@ -139,7 +145,7 @@ public class WebKitImpl {
 
         authenticate( HttpMethod.GET, "/api/config/volumes",
                       ( t ) -> new ListVolumes( authorizer,
-                                                SingletonConfigAPI.instance().api(),
+                                                configAPI,
                                                 SingletonAmAPI.instance()
                                                               .api(),
                                                 legacyConfig,
@@ -154,8 +160,7 @@ public class WebKitImpl {
                       ( t ) -> new CloneVolume( configAPI,
                                                 legacyConfig ) );
         authenticate( HttpMethod.DELETE, "/api/config/volumes/:name",
-                      ( t ) -> new DeleteVolume( authorizer, SingletonConfigAPI.instance()
-                                                             .api(),
+                      ( t ) -> new DeleteVolume( authorizer, configAPI,
                                                  t ) );
         authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
                       ( t ) -> new SetVolumeQosParams(
@@ -201,6 +206,11 @@ public class WebKitImpl {
          * Provide Local Domain RESTful API endpoints
          */
         localDomain();
+
+        /*
+         * Provides System Capabilities API endpoints
+         */
+        capability();
 
         webApp.start(
             new HttpConfiguration( httpPort ),
@@ -249,6 +259,21 @@ public class WebKitImpl {
         webApp.route( method, route, ( ) -> eh );
     }
 
+    private void capability() {
+
+        logger.trace( "registering system capabilities endpoints" );
+        /**
+         * Sprint 0.7.4 FS-1364 SSD Only Support
+         * 03/24/2015 10:00:00 AM
+         */
+        authenticate( HttpMethod.GET,
+                      "/api/config/system/capabilities",
+                      ( t ) -> new SystemCapabilities(
+                          SingletonConfiguration.instance()
+                                                .getConfig()
+                                                .getPlatformConfig() ) );
+        logger.trace( "registered system capabilities endpoints" );
+    }
     private void platform( ) {
 
         final FDSP_ConfigPathReq.Iface legacyConfig =
@@ -278,17 +303,60 @@ public class WebKitImpl {
         
         fdsAdminOnly( HttpMethod.POST,
                       "/local_domains/:local_domain",
-                      ( t ) -> new CreateLocalDomain( authorizer,
+                      ( t ) -> new PostLocalDomain( authorizer,
+                                                    legacyConfig,
+                                                    configAPI,
+                                                    t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.GET,
+                      "/local_domains",
+                      ( t ) -> new GetLocalDomains( authorizer,
+                                                    legacyConfig,
+                                                    configAPI,
+                                                    t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.PUT,
+                      "/local_domains/:local_domain",
+                      ( t ) -> new PutLocalDomain( authorizer,
+                                                   legacyConfig,
+                                                   configAPI,
+                                                   t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.PUT,
+                      "/local_domains/:local_domain/throttle",
+                      ( t ) -> new PutThrottle( authorizer,
+                                                legacyConfig,
+                                                configAPI,
+                                                t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.PUT,
+                      "/local_domains/:local_domain/scavenger",
+                      ( t ) -> new PutScavenger( authorizer,
+                                                 legacyConfig,
+                                                 configAPI,
+                                                 t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.DELETE,
+                      "/local_domains/:local_domain",
+                      ( t ) -> new DeleteLocalDomain( authorizer,
                                                       legacyConfig,
                                                       configAPI,
                                                       t ),
                       authorizer );
+
         fdsAdminOnly( HttpMethod.GET,
-                      "/local_domains",
-                      ( t ) -> new ListLocalDomains( authorizer,
-                                                     legacyConfig,
-                                                     configAPI,
-                                                     t ),
+                      "/local_domains/:local_domain/services",
+                      ( t ) -> new GetLocalDomainServices( authorizer,
+                                                           legacyConfig,
+                                                           configAPI,
+                                                           t ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.PUT,
+                      "/local_domains/:local_domain/services",
+                      ( t ) -> new PutLocalDomainServices( authorizer,
+                                                           legacyConfig,
+                                                           configAPI,
+                                                           t ),
                       authorizer );
 
         logger.trace( "Registered Local Domain endpoints" );

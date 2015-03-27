@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * @author ptinius
@@ -23,16 +24,37 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
     Class<T> getEntityClass();
 
     /**
-     * @param primaryKey the primary key
+     * Get the entity name.
      *
-     * @return the entity
+     * <p/>
+     * The default implementation here returns the fully-qualified name of the
+     * entity class, which is consistent with a JPA implementation default naming
+     * strategy (i.e., no Table annotation or override in the @Entity annotation)
+     * For a JPA implementation, which is assumed by the default implemnentation,
+     * this is the name of the entity class.
+     *
+     * @return the underlying entity name, for example the mapped table name in jpa land.
      */
-    T findById( final PrimaryKey primaryKey );
+    default String getEntityName() { return getEntityClass().getName(); }
+
+    // TODO: add list of column mappings?
+    //LinkedHashMap<String, ColumnDefinition> getColumnMap();
 
     /**
-     * @return the list of entities
+     * Add a Entity persist listener for pre/post persistence callbacks.
+     * <p/>
+     * These are passed-through to the underlying data store.
+     *
+     * @param l the listener
      */
-    List<T> findAll();
+    public void addEntityPersistListener( EntityPersistListener<T> l );
+
+    /**
+     * Remove the entity persist listener.
+     *
+     * @param l the listener to remove
+     */
+    public void removeEntityPersistListener( EntityPersistListener<T> l );
 
     /**
      * @return the number of entities
@@ -51,7 +73,7 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      *
      * @return Returns the saved entity
      */
-    T save( final T entity );
+    <R extends T> R save( final R entity );
 
     /**
      * Persist the specified entities.
@@ -65,7 +87,7 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    default List<T> save(final T... entities )     {
+    default <R extends T> List<R> save(final R... entities ) {
         return (entities != null ? save( Arrays.asList( entities )) : new ArrayList<>(0));
     }
 
@@ -82,13 +104,13 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    default List<T> save(final Collection<T> entities) {
-        List<T> persisted = new ArrayList<>( );
+    default <R extends T> List<R> save(final Collection<R> entities) {
+        List<R> persisted = new ArrayList<>( );
         if (entities == null) {
             return persisted;
         }
 
-        for (T e : entities) {
+        for (R e : entities) {
             persisted.add( save( e ) );
         }
         return persisted;
@@ -132,6 +154,12 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
             }
         }
     }
+
+    /**
+     *
+     * @param connectionProperties
+     */
+    default public void open(Properties connectionProperties) {}
 
     /**
      * close the repository

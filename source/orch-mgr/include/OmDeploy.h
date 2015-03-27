@@ -76,10 +76,13 @@ class DltCommitOkEvt
 class DltCloseOkEvt
 {
   public:
-    DltCloseOkEvt() {}
+    explicit DltCloseOkEvt(fds_uint64_t dlt_ver)
+            : dlt_version(dlt_ver) {}
     std::string logString() const {
         return "DltCloseOkEvt";
     }
+
+    fds_uint64_t    dlt_version;
 };
 
 struct DltErrorFoundEvt
