@@ -125,7 +125,7 @@ check_sudo() {
 }
 
 run_deploy_playbook() {
-    # passing -e fds_cluster_name for the sake of getting identifiable metrics out of gmond
+    # passing -e fds_cluster_name for the sake of getting identifiable metrics
     cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" -e "fds_cluster_name=${inventory_filename}" --skip-tags check_sudo --vault-password-file ~/.vault_pass.txt
 }
 

@@ -9,7 +9,7 @@
 #include "AmProcessor.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
-#include "StorHvVolumes.h"
+#include "lib/OMgrClient.h"
 
 extern StorHvCtrl * storHvisor;
 
@@ -120,7 +120,7 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
     auto vol_uuid = vol_msg->vol_desc.volUUID;
     VolumeDesc vdesc(vol_msg->vol_desc), * vdb = &vdesc;
-    GLOGNOTIFY << "StorHvVolumeTable - Received volume modify  event from OM"
+    GLOGNOTIFY << "Received volume modify  event from OM"
                << " for volume " << vdb->name << ":" << std::hex
                << vol_uuid << std::dec;
 
@@ -135,7 +135,7 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         // If this channel has threadpool on this we do not block though.
         // A real nonblocking could install callback upon read-lock acquiring...
         // and continue on next step...
-        err = storHvisor->vol_table->modifyVolumePolicy(vol_uuid, vdesc);
+        err = storHvisor->amProcessor->modifyVolumePolicy(vol_uuid, vdesc);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -152,7 +152,7 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     Error err(ERR_OK);
 
     auto vol_uuid = vol_msg->vol_desc.volUUID;
-    GLOGNOTIFY << "StorHvVolumeTable - Received volume attach event from OM"
+    GLOGNOTIFY << "Received volume attach event from OM"
                        << " for volume " << std::hex << vol_uuid << std::dec;
 
     if (am->isShuttingDown())
@@ -165,21 +165,17 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         VolumeDesc vdesc(vol_msg->vol_desc);
 
         if (vol_uuid != invalid_vol_id) {
-            err = storHvisor->vol_table->registerVolume(vdesc);
+            err = storHvisor->amProcessor->registerVolume(vdesc);
             // TODO(Anna) remove this assert when we implement response handling in AM
             // for crete bucket, if err not ok, it is most likely QOS admission control issue
             fds_verify(err.ok());
-            // Notify processing layer of new volume
-            err = storHvisor->amProcessor->addVolume(vdesc);
-            fds_verify(err == ERR_OK);
         } else {
             /* complete all requests that are waiting on bucket to attach with error */
             GLOGNOTIFY << "Requested volume "
                        << vdesc.name << " does not exist";
-            storHvisor->vol_table->
-                    moveWaitBlobsToQosQueue(vol_uuid,
-                                            vdesc.name,
-                                            ERR_NOT_FOUND);
+            storHvisor->moveWaitBlobsToQosQueue(vol_uuid,
+                                                vdesc.name,
+                                                ERR_NOT_FOUND);
         }
     }
 
@@ -198,7 +194,7 @@ AMSvcHandler::DetachVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
 
     auto vol_uuid = vol_msg->vol_desc.volUUID;
-    GLOGNOTIFY << "StorHvVolumeTable - Received volume detach event from OM"
+    GLOGNOTIFY << "Received volume detach event from OM"
                << " for volume " << std::hex << vol_uuid << std::dec;
 
     if (am->isShuttingDown())
@@ -208,7 +204,7 @@ AMSvcHandler::DetachVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
     else
     {
-        err = storHvisor->vol_table->removeVolume(vol_uuid);
+        err = storHvisor->amProcessor->removeVolume(vol_uuid);
     }
 
     hdr->msg_code = err.GetErrno();
