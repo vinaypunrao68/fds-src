@@ -135,31 +135,20 @@ class TestFDSInstall(TestCase.FDSTestCase):
                            (node.nd_conf_dict['node-name'], status))
             return False
 
-        # Make sure the platform config file specifies the correct PM port and
-        # AM instance ID and port configurations.
+        # Make sure the platform config file specifies the correct PM port given
+        # in the test config file.
         if 'fds_port' in node.nd_conf_dict:
             port = node.nd_conf_dict['fds_port']
         else:
             self.log.error("FDS platform configuration file is missing 'platform_port = ' config")
             return False
 
-        status = node.nd_agent.exec_wait('rm %s/platform.conf ' % dest_config_dir)
+        node.nd_agent.exec_wait('rm %s/platform.conf ' % dest_config_dir)
 
-        # Obtain these defaults from platform.conf.
-        s3_http_port = int(port) + 1000
-        s3_https_port = int(port) + 1443
-        swift_port = int(port) + 2999
-        nbd_server_port = int(port) + 3809
         status = node.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = %s/g" '
-                                      '-e "s/ s3_http_port=8000/ s3_http_port=%s/g" '
-                                      '-e "s/ s3_https_port=8443/ s3_https_port=%s/g" '
-                                      '-e "s/ swift_port=9999/ swift_port=%s/g" '
-                                              '-e "s/ server_port=10809/ server_port=%s/g" '
-                                      '-e "1,$w %s/platform.conf" '
-                                      '%s/platform.conf ' %
-                                      (port, s3_http_port, s3_https_port,
-                                       swift_port, nbd_server_port,
-                                       dest_config_dir, src_config_dir))
+                                         '-e "1,$w %s/platform.conf" '
+                                         '%s/platform.conf ' %
+                                         (port, dest_config_dir, src_config_dir))
 
         if status != 0:
             self.log.error("FDS platform configuration file modification failed.")
@@ -556,7 +545,8 @@ class TestShutdownRedis(TestCase.FDSTestCase):
         status = n.nd_agent.exec_wait("./redis.sh stop", fds_tools=True)
         time.sleep(2)
 
-        if status != 0:
+        # Status == 127 on a remote install if redis.sh does not exist.
+        if (status != 0) and (n.nd_agent.env_install and status != 127):
             self.log.error("Shutdown Redis on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
@@ -649,13 +639,15 @@ class TestVerifyRedisDown(TestCase.FDSTestCase):
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
         status, stdout = n.nd_agent.exec_wait("./redis.sh status", return_stdin=True, fds_tools=True)
 
-        if status != 0:
+        # Status == 127 on a remote install if redis.sh does not exist.
+        if (status != 0) and (n.nd_agent.env_install and status != 127):
             self.log.error("Verify Redis is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        self.log.info(stdout)
+        if len(stdout) > 0:
+            self.log.info(stdout)
 
-        if stdout.count("NOT") == 0:
+        if (stdout.count("NOT") == 0) and not (n.nd_agent.env_install and status == 127):
             return False
 
         return True
@@ -800,7 +792,8 @@ class TestShutdownInfluxDB(TestCase.FDSTestCase):
         status = n.nd_agent.exec_wait("service influxdb stop")
         time.sleep(2)
 
-        if status != 0:
+        # If we get a 1 from a remote (i.e. "install" or  over Paramiko connection) execution, we're good.
+        if (status != 0) and (n.nd_agent.env_install and status != 1):
             self.log.error("Shutdown InfluxDB on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
@@ -893,8 +886,8 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
         status = n.nd_agent.exec_wait("service influxdb status 2>&1 >> /dev/null", return_stdin=False)
 
-        # influxdb init script status returns 3 if the process is down.
-        if status != 3:
+        # influxdb init script status returns 3 if the process is down. 1 if remote.
+        if (status != 3) and (n.nd_agent.env_install and status != 1):
             self.log.error("Verify InfluxDB is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
