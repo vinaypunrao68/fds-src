@@ -77,21 +77,31 @@ AmProcessor::addVolume(const VolumeDesc& volDesc) {
 }
 
 void
-AmProcessor::getVolumeMetadata(AmRequest *amReq) {
-    fiu_do_on("am.uturn.processor.getVolMeta",
+AmProcessor::statVolume(AmRequest *amReq) {
+    fiu_do_on("am.uturn.processor.statVol",
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getVolumeMetadataCb, amReq);
-    amDispatcher->dispatchGetVolumeMetadata(amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::statVolumeCb, amReq);
+    amDispatcher->dispatchStatVolume(amReq);
 }
 
 void
-AmProcessor::getVolumeMetadataCb(AmRequest *amReq, const Error &error) {
-    GetVolumeMetaDataCallback::ptr cb =
-            SHARED_DYN_CAST(GetVolumeMetaDataCallback, amReq->cb);
-    cb->volStat = static_cast<GetVolumeMetaDataReq *>(amReq)->volumeStatus;
+AmProcessor::statVolumeCb(AmRequest *amReq, const Error &error) {
+    StatVolumeCallback::ptr cb =
+            SHARED_DYN_CAST(StatVolumeCallback, amReq->cb);
+    cb->volStat = static_cast<StatVolumeReq *>(amReq)->volumeStatus;
     respond_and_delete(amReq, error);
+}
+
+void
+AmProcessor::setVolumeMetadata(AmRequest *amReq) {
+    fiu_do_on("am.uturn.processor.setVolMetadata",
+              respond_and_delete(amReq, ERR_OK); \
+              return;);
+
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+    amDispatcher->dispatchSetVolumeMetadata(amReq);
 }
 
 void

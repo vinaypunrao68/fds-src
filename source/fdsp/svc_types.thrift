@@ -139,6 +139,8 @@ enum  FDSPMsgTypeId {
   SetVolumeMetaDataRspMsgTypeId;
   StatVolumeMsgTypeId;
   StatVolumeRspMsgTypeId;
+  SetVolumeMetadataMsgTypeId;
+  SetVolumeMetadataRspMsgTypeId;
   CommitBlobTxMsgTypeId;
   CommitBlobTxRspMsgTypeId;
   AbortBlobTxMsgTypeId;

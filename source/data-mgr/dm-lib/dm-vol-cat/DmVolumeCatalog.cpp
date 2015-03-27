@@ -257,6 +257,15 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
     return rc;
 }
 
+Error DmVolumeCatalog::setVolumeMetadata(fds_volid_t volId,
+                                         const fpi::FDSP_MetaDataList &metadataList) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    VolumeMetaDesc volMetaDesc(metadataList);
+    return vol->putVolumeMetaDesc(volMetaDesc);
+}
+
 Error DmVolumeCatalog::getVolumeObjects(fds_volid_t volId, std::set<ObjectID> & objIds) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
