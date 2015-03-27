@@ -15,11 +15,9 @@
 
 #include "lib/StatsCollector.h"
 #include "AccessMgr.h"
-#include "AmDispatcher.h"
 #include "AmProcessor.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
-#include "StorHvVolumes.h"
 
 using namespace std;
 using namespace FDS_ProtocolInterface;
@@ -140,26 +138,14 @@ StorHvCtrl::StorHvCtrl(int argc,
         dltMgr = om_client->getDltManager();
     }
 
-    vol_table = std::make_shared<StorHvVolumeTable>(this, GetLog());
-
     // Init rand num generator
     // TODO(Andrew): Move this to platform process so everyone gets it
     // and make AM extend from platform process
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
-    // Init the dispatcher layer
-    // TODO(Andrew): Decide if AM or AmProcessor should own
-    // this layer.
-    amDispatcher = AmDispatcher::shared_ptr(
-        new AmDispatcher("AM Dispatcher Module",
-                         dltMgr,
-                         dmtMgr));
     // Init the processor layer
     amProcessor = AmProcessor::unique_ptr(
-        new AmProcessor("AM Processor Module",
-                        amDispatcher,
-                        qos_ctrl,
-                        vol_table));
+        new AmProcessor("AM Processor Module", qos_ctrl, dltMgr, dmtMgr));
 
     LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
 }
@@ -192,7 +178,7 @@ void StorHvCtrl::StartOmClient() {
     // Call the dispatcher startup function here since this
     // legacy class doesn't actually extend from Module but
     // needs a member's startup to be called.
-    amDispatcher->mod_startup();
+    amProcessor->mod_startup();
 }
 
 Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
@@ -262,7 +248,7 @@ StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
 
     // check if volume is already attached
     fds_volid_t volId = invalid_vol_id;
-    if (invalid_vol_id != (volId = vol_table->getVolumeUUID(volumeName))) {
+    if (invalid_vol_id != (volId = amProcessor->getVolumeUUID(volumeName))) {
         LOGDEBUG << "Volume " << volumeName
                  << " with UUID " << volId
                  << " already attached";
@@ -275,7 +261,7 @@ StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
 
     // Enqueue this request to process the callback
     // when the attach is complete
-    vol_table->addBlobToWaitQueue(volumeName, blobReq);
+    addBlobToWaitQueue(volumeName, blobReq);
 
     fds_verify(sendTestBucketToOM(volumeName,
                                   "",  // The access key isn't used
@@ -291,8 +277,8 @@ StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
     fds_verify(blobReq->magicInUse() == true);
 
     // check if volume is attached to this AM
-    if (invalid_vol_id == (blobReq->io_vol_id = vol_table->getVolumeUUID(blobReq->volume_name))) {
-        vol_table->addBlobToWaitQueue(blobReq->volume_name, blobReq);
+    if (invalid_vol_id == (blobReq->io_vol_id = amProcessor->getVolumeUUID(blobReq->volume_name))) {
+        addBlobToWaitQueue(blobReq->volume_name, blobReq);
         fds_verify(sendTestBucketToOM(blobReq->volume_name,
                                       "",  // The access key isn't used
                                       "") == ERR_OK); // The secret key isn't used
@@ -305,6 +291,117 @@ StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
 
     fds_verify(qos_ctrl->enqueueIO(blobReq->io_vol_id, blobReq) == ERR_OK);
 }
+
+/*
+ * Add blob request to wait queue because a blob is waiting for OM
+ * to attach bucjets to AM; once vol table receives vol attach event,
+ * it will move all requests waiting in the queue for that bucket
+ * to appropriate qos queue
+ */
+void StorHvCtrl::addBlobToWaitQueue(const std::string& bucket_name,
+                                    AmRequest* blob_req)
+{
+    fds_verify(blob_req->magicInUse() == true);
+    LOGDEBUG << "VolumeTable -- adding blob to wait queue, waiting for "
+        << "bucket " << bucket_name;
+
+    /*
+     * Pack to qos req
+     * TODO: We're hard coding 885 as the request ID to
+     * pass to QoS. SHCtrl has a request counter but
+     * we can't see if from here...Let's fix that eventually.
+     */
+    blob_req->io_req_id = 885;
+
+    wait_rwlock.write_lock();
+    wait_blobs_it_t it = wait_blobs.find(bucket_name);
+    if (it != wait_blobs.end()) {
+        /* we already have vector of waiting blobs for this bucket name */
+        (it->second).push_back(blob_req);
+    } else {
+        /* we need to start a new vector */
+        wait_blobs[bucket_name].push_back(blob_req);
+    }
+    wait_rwlock.write_unlock();
+
+    // If the volume got attached in the meantime, we need
+    // to move the requests ourselves.
+    fds_volid_t volid = amProcessor->getVolumeUUID(bucket_name);
+    if (volid != invalid_vol_id) {
+        LOGDEBUG << " volid " << std::hex << volid << std::dec
+            << " bucket " << bucket_name << " got attached";
+        moveWaitBlobsToQosQueue(volid,
+                                bucket_name,
+                                ERR_OK);
+    }
+}
+
+void StorHvCtrl::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
+                                         const std::string& vol_name,
+                                         Error error)
+{
+    Error err = error;
+    bucket_wait_vec_t blobs;
+
+    wait_rwlock.read_lock();
+    wait_blobs_it_t it = wait_blobs.find(vol_name);
+    if (it != wait_blobs.end()) {
+        /* we have a wait queue of blobs for this volume name */
+        blobs.swap(it->second);
+        wait_blobs.erase(it);
+    }
+    wait_rwlock.read_unlock();
+
+    if (blobs.size() == 0) {
+        LOGDEBUG << "VolumeTable::moveWaitBlobsToQueue -- "
+            << "no blobs waiting for bucket " << vol_name;
+        return; // no blobs waiting
+    }
+
+    if ( err.ok() )
+    {
+        auto shVol = amProcessor->getVolume(vol_uuid);
+        if (!shVol) {
+            LOGERROR << "Volume and  Queueus are NOT setup :" << vol_uuid;
+            err = ERR_INVALID_ARG;
+        }
+        if (err.ok()) {
+            for (uint i = 0; i < blobs.size(); ++i) {
+                LOGDEBUG << "VolumeTable - moving blob to qos queue of vol  " << std::hex
+                    << vol_uuid << std::dec << " vol_name " << vol_name;
+                // since we did not know the volume id before, volid for this io is set to 0
+                // so set its volume id now to actual volume id
+                AmRequest* req = blobs[i];
+                fds_verify(req != NULL);
+                req->io_vol_id = vol_uuid;
+
+                fds::PerfTracer::tracePointBegin(req->qos_perf_ctx);
+                storHvisor->qos_ctrl->enqueueIO(vol_uuid, req);
+            }
+            blobs.clear();
+        }
+    }
+
+    if ( !err.ok()) {
+        /* we haven't pushed requests to qos queue either because we already
+         * got 'error' parameter with !err.ok() or we couldn't find volume
+         * so complete blobs in 'blobs' vector with error (if there are any) */
+        for (uint i = 0; i < blobs.size(); ++i) {
+            AmRequest* blobReq = blobs[i];
+            blobs[i] = nullptr;
+            // Hard coding a result!
+            LOGERROR << "some issue : " << err;
+            LOGWARN << "Calling back with error since request is waiting"
+                << " for volume " << blobReq->io_vol_id
+                << " that doesn't exist";
+            blobReq->cb->call(FDSN_StatusEntityDoesNotExist);
+            delete blobReq;
+        }
+        blobs.clear();
+    }
+}
+
+
 
 void
 processBlobReq(AmRequest *amReq) {

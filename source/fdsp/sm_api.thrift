@@ -24,6 +24,8 @@ struct AddObjectRefMsg {
   2: i64                            srcVolId;
   /** Destination volume */
   3: i64                            destVolId;
+  /** Msg was forwarded request */
+  4: bool                           forwardedReq = false;
 }
 
 /**
