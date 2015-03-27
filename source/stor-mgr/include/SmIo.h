@@ -230,7 +230,9 @@ class SmIoAddObjRefReq : public SmIoReq {
 
     // ctor and dtor
     explicit SmIoAddObjRefReq(fpi::AddObjectRefMsgPtr addObjRefReq_)
-            : addObjRefReq(addObjRefReq_) {
+            : addObjRefReq(addObjRefReq_),
+              forwardedReq(false)
+    {
         fds_assert(NULL != addObjRefReq.get());
 
         io_type = FDS_SM_ADD_OBJECT_REF;
@@ -246,7 +248,7 @@ class SmIoAddObjRefReq : public SmIoReq {
         return addObjRefReq->destVolId;
     }
 
-    const std::vector<fpi::FDS_ObjectIdType> & objIds() {
+    std::vector<fpi::FDS_ObjectIdType> & objIds() {
         return addObjRefReq->objIds;
     }
 
@@ -255,6 +257,12 @@ class SmIoAddObjRefReq : public SmIoReq {
     // member variables
     fpi::AddObjectRefMsgPtr addObjRefReq;
     CbType response_cb;
+
+    /// DLT version for the AddObjRef request
+    fds_uint64_t dltVersion;
+
+    /// If the AddObjRef requestes was forwarded by the SM token migration
+    bool forwardedReq;
 };
 
 /**
