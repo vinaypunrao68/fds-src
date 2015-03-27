@@ -114,6 +114,9 @@ class MigrationClient {
      */
     fds_bool_t forwardIfNeeded(fds_token_id dltToken,
                                FDS_IOType* req);
+    fds_bool_t forwardAddObjRefIfNeeded(fds_token_id dltToken,
+                                        fpi::AddObjectRefMsgPtr addObjRefReq);
+
 
   private:
     /* Verify that set of DLT tokens belong to the same SM token.
