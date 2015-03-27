@@ -17,7 +17,7 @@ install_dir "#{default_root}/#{name}"
 
 #build_version Omnibus::BuildVersion.semver
 build_version '0.7.4'
-build_iteration 5
+build_iteration 7
 
 # Creates required build directories
 dependency "preparation"
@@ -55,8 +55,6 @@ dependency "libcryptopp"
 dependency "server-jre"
 dependency "mdadm"
 dependency "influxdb"
-dependency "gmond"
-dependency "gmond-modules"
 
 # Version manifest file
 dependency "version-manifest"
