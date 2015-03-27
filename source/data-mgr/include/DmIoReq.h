@@ -35,6 +35,7 @@ extern std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetVolumeMetadataMsgRsp& msg);
 extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
 extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
@@ -594,10 +595,10 @@ class DmIoGetBlobMetaData: public dmCatReq {
     CbType dmio_getmd_resp_cb;
 };
 
-struct DmIoGetVolumeMetaData : dmCatReq {
-    typedef std::function<void (const Error &e, DmIoGetVolumeMetaData *req)> CbType;
+struct DmIoStatVolume : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoStatVolume *req)> CbType;
 
-    explicit DmIoGetVolumeMetaData(boost::shared_ptr<fpi::StatVolumeMsg> message)
+    explicit DmIoStatVolume(boost::shared_ptr<fpi::StatVolumeMsg> message)
             : dmCatReq(message->volume_id, "", "", 0, FDS_STAT_VOLUME), msg(message) {
         // perf-trace related data
         opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
@@ -630,6 +631,18 @@ struct DmIoSetVolumeMetaData : dmCatReq {
     boost::shared_ptr<fpi::SetVolumeMetadataMsg> msg;
     // response callback
     CbType dmio_set_volmd_resp_cb;
+};
+
+struct DmIoGetVolumeMetadata : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoGetVolumeMetadata *req)> CbType;
+
+    explicit DmIoGetVolumeMetadata(fds_volid_t volId, boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> message)
+            : dmCatReq(volId, "", "", 0, FDS_GET_VOLUME_METADATA), msg(message) {
+    }
+
+    boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> msg;
+    // response callback
+    CbType dmio_get_volmd_resp_cb;
 };
 
 /**
