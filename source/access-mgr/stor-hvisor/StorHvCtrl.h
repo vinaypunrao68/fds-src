@@ -65,9 +65,6 @@ public:
     std::shared_ptr<fds::StorHvQosCtrl>     qos_ctrl; // Qos Controller object
     fds::OMgrClient*        om_client;
 
-    /// Toggle AM standalone mode for testing
-    fds_bool_t standalone;
-
     /// Processor layer module
     std::unique_ptr<fds::AmProcessor> amProcessor;
 

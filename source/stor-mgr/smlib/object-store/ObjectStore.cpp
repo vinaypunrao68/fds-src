@@ -929,15 +929,15 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             fds_volid_t volId = volAssoc.volumeAssoc;
             StorMgrVolume* vol = volumeTbl->getVolume(volId);
             fds_assert(vol);  // SM must know about all volumes
-            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+            if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_SSD) {
                 selectVol = vol;
                 break;   // ssd-only is highest media policy
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID) {
                 // we didn't find ssd-only volume yet, so potential candidate
                 // but we may see ssd-only volumes, so continue search
                 selectVol = vol;
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
-                if (selectVol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
+                if (selectVol->voldesc->mediaPolicy != fpi::FDSP_MEDIA_POLICY_HYBRID) {
                     selectVol = vol;
                 }
             } else if (!selectVol) {

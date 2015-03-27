@@ -14,6 +14,7 @@
 #include "requests/requests.h"
 
 #include "lib/StatsCollector.h"
+#include "lib/OMgrClient.h"
 #include "AccessMgr.h"
 #include "AmProcessor.h"
 #include "StorHvCtrl.h"
@@ -35,42 +36,8 @@ StorHvCtrl::StorHvCtrl(int argc,
     counters_("AM", g_fdsprocess->get_cntrs_mgr().get()),
     om_client(nullptr)
 {
-    std::string  omIpStr;
-    fds_uint32_t omConfigPort;
     std::string node_name = "localhost-sh";
-    omConfigPort = 0;
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-
-    /*
-     * Parse out cmdline options here.
-     * TODO: We're parsing some options here and
-     * some in ubd. We need to unify this.
-     */
-    if (mode == NORMAL) {
-        omIpStr = config.get_abs<string>("fds.pm.om_ip");
-        omConfigPort = config.get_abs<int>("fds.pm.om_port");
-    }
-    for (int i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "--om_ip=", 8) == 0) {
-            if (mode == NORMAL) {
-                /*
-                 * Only use the OM's IP in the normal
-                 * mode. We don't need it in test modes.
-                 */
-                omIpStr = argv[i] + 8;
-            }
-        } else if (strncmp(argv[i], "--om_port=", 10) == 0) {
-            if (mode == NORMAL)
-                omConfigPort = strtoul(argv[i] + 10, NULL, 0);
-        }  else if (strncmp(argv[i], "--node_name=", 12) == 0) {
-            node_name = argv[i] + 12;
-        }
-        /*
-         * We don't complain here about other args because
-         * they may have been processed already but not
-         * removed from argc/argv
-         */
-    }
 
     sysParams = params;
 
@@ -91,32 +58,21 @@ StorHvCtrl::StorHvCtrl(int argc,
                                                GetLog());
 
     // Check the AM standalone toggle
-    standalone = config.get_abs<bool>("fds.am.testing.standalone");
+    auto standalone = config.get_abs<bool>("fds.am.testing.standalone");
     if (standalone) {
         LOGWARN << "Starting SH CTRL in stand alone mode";
     }
-
-    /* create OMgr client if in normal mode */
-
-    LOGNORMAL << "StorHvCtrl - Will create and initialize OMgrClient";
 
     /*
      * Pass 0 as the data path port since the SH is not
      * listening on that port.
      */
     om_client = new OMgrClient(FDSP_ACCESS_MGR,
-			       omIpStr,
-			       omConfigPort,
 			       node_name,
-			       GetLog(),
-			       nullptr,
-			       nullptr);
+			       GetLog());
     if (standalone) {
 	om_client->setNoNetwork(true);
     } else {
-
-	qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-
 	StatsCollector::singleton()->registerOmClient(om_client);
 	fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
 	fds_bool_t disableStreamingStats = config.get_abs<bool>("fds.am.testing.toggleDisableStreamingStats");

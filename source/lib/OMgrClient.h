@@ -14,7 +14,6 @@
 #include <concurrency/RwLock.h>
 #include <dlt.h>
 #include <fds_dmt.h>
-#include <LocalClusterMap.h>
 
 #include <string>
 using namespace FDS_ProtocolInterface; // NOLINT
@@ -90,12 +89,6 @@ class OMgrClient {
     DMTManagerPtr dmtMgr;
     float current_throttle_level;
 
-    /**
-     * Map of current cluster members
-     */
-    LocalClusterMap *clustMap;
-    Platform        *plf_mgr;
-
     fds_rwlock omc_lock;  // to protect node_map
 
     node_event_handler_t node_evt_hdlr;
@@ -107,12 +100,8 @@ class OMgrClient {
 
   public:
     OMgrClient(fpi::FDSP_MgrIdType node_type,
-               const std::string& _omIpStr,
-               fds_uint32_t _omPort,
                const std::string& node_name,
-               fds_log *parent_log,
-               boost::shared_ptr<netSessionTbl> nst,
-               Platform *plf_mgr);
+               fds_log *parent_log);
     void setNoNetwork(bool fNoNetwork) {
         this->fNoNetwork = fNoNetwork;
     }
@@ -132,12 +121,6 @@ class OMgrClient {
 
     int sendMigrationStatusToOM(const Error& err);
 
-    int getNodeInfo(fds_uint64_t node_id,
-                    unsigned int *node_ip_addr,
-                    fds_uint32_t *node_port,
-                    int *node_state);
-    NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
-
     fds_uint64_t getDltVersion();
     fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(const ObjectID &objId);
@@ -145,8 +128,6 @@ class OMgrClient {
     void setCurrentDLTClosed();
     const DLT* getPreviousDLT();
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
-    fds_uint32_t getNodeMigPort(NodeUuid uuid);
-    fds_uint32_t getNodeMetaSyncPort(NodeUuid uuid);
 
     DLTManagerPtr getDltManager() { return dltMgr; }
     DMTManagerPtr getDmtManager() { return dmtMgr; }
