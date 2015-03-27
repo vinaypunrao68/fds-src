@@ -310,7 +310,8 @@ class FdsLocalEnv(FdsEnv):
 
         if output and (stdout is not None):
             if status != 0:
-                log.warning("Non-zero status from shell command execution. stdout contents as follows.")
+                log.warning("Non-zero status from shell command execution or unrecognized stderr output. "
+                            "stdout contents as follows.")
                 for line in stdout.splitlines():
                     log.warning("[%s stdout] %s" % (self.env_host, line))
 
