@@ -4,6 +4,7 @@ import shutil
 import time
 import distutils.util
 import copy
+import re
 
 import fstab        # Installed via pypi or omnibus
 
@@ -547,10 +548,25 @@ class DiskManager (Base):
     def load_disk_config_file (self):
         ''' Loads the disk information stored in the disk-config.conf file (or CLI argument). '''
 
+        re_device = '^(/dev/sd[a-z]{1,2})\s+'
+        re_bool = '(0|1|true|false)\s+'
+        re_type = '(ssd|hdd)\s+'
+        re_interface = '(sata|sas|na)\s+'
+        re_capacity = '([0-9]+)\s*$'
+
+        validate_entry = re.compile (re_device + re_bool + re_bool + re_type + re_interface + re_capacity, flags=re.IGNORECASE)
+
+        fault_header = False         # Tracks if we have displayed the error message and that we have an error
+
         input_file = open (self.disk_config_file, 'r')
 
         # reach each line from the hints file and create a disk
         for line in input_file:
+            if '#' == line[0]:                 # skip lines beginning with '#'
+                continue
+
+            line = line.strip ('\r\n')
+
             # items vector contains
             # [0] device path (/dev/sdm)
             # [1] bool, used by the OS
@@ -558,12 +574,20 @@ class DiskManager (Base):
             # [3] device type (ssd/hdd)
             # [4] define interface (sata/sas/na), doesn't matter for SSDs.
             # [5] size (GB)
-            items = line.strip ('\r\n').split()
-            if '#' == items[0][0]:                 # skip lines beginning with '#'
+            items = validate_entry.match (line)
+
+            if items is None:
+                if not fault_header:
+                    print ("Can not parse the following line(s) from: " + self.disk_config_file)
+                    fault_header = True
+                print line
                 continue
 
-            disk = Disk (items[0], distutils.util.strtobool (items[1]), distutils.util.strtobool (items[2]), items[3], items[4], items[5])
+            disk = Disk (items.group(1), distutils.util.strtobool (items.group(2)), distutils.util.strtobool (items.group(3)), items.group(4), items.group(5), items.group(6))
             self.disk_list.append (disk)
+
+        if fault_header:
+            self.system_exit ("Invalid disk configuration detected.  Can not continue.")
 
         for disk in self.disk_list:
             disk.dump()
