@@ -4,7 +4,4 @@
 # before package is installed.
 #
 
-service gmond stop || echo "Couldn't stop gmond - might need to restart manually post-install."
-service gmond-influxdb-bridge stop || echo "Couldn't stop gmond-influxdb-bridge - might need to restart manually post-install."
-
 echo "You're about to install fds-deps!"

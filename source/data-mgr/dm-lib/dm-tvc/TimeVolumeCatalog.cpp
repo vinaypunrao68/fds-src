@@ -250,6 +250,12 @@ DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
 }
 
 Error
+DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
+                                    const fpi::FDSP_MetaDataList &metadataList) {
+    return volcat->setVolumeMetadata(volId, metadataList);
+}
+
+Error
 DmTimeVolCatalog::startBlobTx(fds_volid_t volId,
                               const std::string &blobName,
                               const fds_int32_t blobMode,

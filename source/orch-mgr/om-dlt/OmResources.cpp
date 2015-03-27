@@ -1616,11 +1616,10 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     if (cur_dlt_ver > dlt_version) {
         return err;
     }
-    fds_verify(cur_dlt_ver == dlt_version);
 
     // tell state machine that we received ack for close
     if (respError.ok()) {
-        dltMod->dlt_deploy_event(DltCloseOkEvt());
+        dltMod->dlt_deploy_event(DltCloseOkEvt(dlt_version));
     } else {
         LOGERROR << "Received " << respError << " with response, handling";
         dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
