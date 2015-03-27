@@ -13,6 +13,7 @@ namespace fds {
 
 /* Forward declaarations */
 class MockSvcHandler;
+class OMgrClient;
 
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
@@ -20,8 +21,7 @@ class MockSvcHandler;
  * the service layer. The layer is stateless and does not
  * internal locking.
  */
-class AmDispatcher : public Module, public boost::noncopyable {
-  public:
+struct AmDispatcher : public Module {
     /**
      * The dispatcher takes a shared ptr to the DMT manager
      * which it uses when deciding who to dispatch to. The
@@ -29,12 +29,12 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * TODO(Andrew): Make the dispatcher own this piece or
      * iterface with platform lib.
      */
-    AmDispatcher(const std::string &modName,
-                 DLTManagerPtr _dltMgr,
-                 DMTManagerPtr _dmtMgr);
+    explicit AmDispatcher(const std::string &modName);
+    AmDispatcher(AmDispatcher const&)               = delete;
+    AmDispatcher& operator=(AmDispatcher const&)    = delete;
+    AmDispatcher(AmDispatcher &&)                   = delete;
+    AmDispatcher& operator=(AmDispatcher &&)        = delete;
     ~AmDispatcher();
-    typedef std::unique_ptr<AmDispatcher> unique_ptr;
-    typedef boost::shared_ptr<AmDispatcher> shared_ptr;
 
     /**
      * Module methods
@@ -42,6 +42,18 @@ class AmDispatcher : public Module, public boost::noncopyable {
     int mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
+
+    /**
+     * Dlt/Dmt updates
+     */
+    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data);
+
+    /**
+     * Dispatches a stat volume request.
+     */
+    Error attachVolume(std::string const& volume_name);
+    void dispatchAttachVolume(AmRequest *amReq);
 
     /**
      * Dispatches a stat volume request.
@@ -146,10 +158,15 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void dispatchVolumeContents(AmRequest *amReq);
 
   private:
-    /// Shared ptrs to the DLT and DMT managers used
-    /// for deciding who to dispatch to
-    DLTManagerPtr dltMgr;
-    DMTManagerPtr dmtMgr;
+    /** OM Client to attach and manage the DLT/DMT */
+    std::unique_ptr<OMgrClient> om_client;
+
+    /**
+     * Shared ptrs to the DLT and DMT managers used
+     * for deciding who to dispatch to.
+     */
+    boost::shared_ptr<DLTManager> dltMgr;
+    boost::shared_ptr<DMTManager> dmtMgr;
 
     /**
      * Callback for delete blob responses.

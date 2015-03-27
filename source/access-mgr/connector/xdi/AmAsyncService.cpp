@@ -19,13 +19,19 @@
 
 namespace fds {
 
+struct AmProcessor;
 
 class AsyncAmServiceRequestIfCloneFactory
     : virtual public apis::AsyncXdiServiceRequestIfFactory
 {
     using request_if = apis::AsyncXdiServiceRequestIf;
+    std::weak_ptr<AmProcessor> processor;
  public:
-    AsyncAmServiceRequestIfCloneFactory() {}
+
+    explicit AsyncAmServiceRequestIfCloneFactory(std::weak_ptr<AmProcessor> _processor) :
+        processor(_processor)
+    { }
+
     ~AsyncAmServiceRequestIfCloneFactory() {}
 
     request_if* getHandler(const xdi_at::TConnectionInfo& connInfo);
@@ -34,12 +40,20 @@ class AsyncAmServiceRequestIfCloneFactory
 
 AsyncAmServiceRequestIfCloneFactory::request_if*
 AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& connInfo) {  // NOLINT
+    /** First see if we even have a processing layer */
+    auto amProcessor = processor.lock();
+    if (!amProcessor) {
+        LOGNORMAL << "No processing layer, shutdown.";
+        return nullptr;
+    }
+
     // Get the underlying transport's socket so we can see what the host IP
     // address was of the incoming client.
     boost::shared_ptr<xdi_att::TSocket> sock =
         boost::dynamic_pointer_cast<xdi_att::TSocket>(connInfo.transport);
     fds_assert(sock.get());
-    return new AmAsyncXdiRequest(boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress()));
+    return new AmAsyncXdiRequest(amProcessor,
+                                 boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress()));
 }
 
 void
@@ -86,10 +100,10 @@ AsyncDataServer::mod_shutdown() {
  * Initializes the server component
  */
 void
-AsyncDataServer::init_server() {
+AsyncDataServer::init_server(std::weak_ptr<AmProcessor> processor) {
     // Setup API processor
     processorFactory.reset(new apis::AsyncXdiServiceRequestProcessorFactory(
-            boost::make_shared<AsyncAmServiceRequestIfCloneFactory>() ));
+            boost::make_shared<AsyncAmServiceRequestIfCloneFactory>(processor) ));
 
     // processor, protocolFactory, port, threadManager));
     ttServer.reset(new xdi_ats::TThreadedServer(processorFactory,

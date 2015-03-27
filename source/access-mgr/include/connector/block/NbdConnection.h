@@ -19,6 +19,7 @@
 namespace fds
 {
 
+struct AmProcessor;
 struct OmConfigApi;
 
 #pragma pack(push)
@@ -51,7 +52,9 @@ struct message {
 };
 
 struct NbdConnection : public NbdOperationsResponseIface {
-    NbdConnection(boost::shared_ptr<OmConfigApi> omApi, int clientsd);
+    NbdConnection(boost::shared_ptr<OmConfigApi> omApi,
+                  int clientsd,
+                  std::shared_ptr<AmProcessor> processor);
     NbdConnection(NbdConnection const& rhs) = delete;
     NbdConnection(NbdConnection const&& rhs) = delete;
     NbdConnection operator=(NbdConnection const& rhs) = delete;
@@ -71,6 +74,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     size_t object_size;
 
     boost::shared_ptr<OmConfigApi> omConfigApi;
+    std::shared_ptr<AmProcessor> amProcessor;
     NbdOperations::shared_ptr nbdOps;
 
     size_t resp_needed;

@@ -110,8 +110,8 @@ struct AmAsyncXdiRequest
 {
     using api_type = AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>;
 
-    explicit AmAsyncXdiRequest(boost::shared_ptr<AmAsyncResponseApi<api_type::handle_type>> response_api):
-        api_type(response_api)
+    explicit AmAsyncXdiRequest(std::shared_ptr<AmProcessor> processor, boost::shared_ptr<AmAsyncResponseApi<api_type::handle_type>> response_api):
+        api_type(processor, response_api)
     {}
 
     // This is only a Thrift interface, not a generic AmAsyncData one just to

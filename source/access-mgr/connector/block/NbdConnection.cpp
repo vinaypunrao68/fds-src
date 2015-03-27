@@ -77,8 +77,10 @@ template<typename M>
 bool get_message_payload(int fd, M& message);
 
 NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
-                             int clientsd)
+                             int clientsd,
+                             std::shared_ptr<AmProcessor> processor)
         : omConfigApi(omApi),
+          amProcessor(processor),
           nbdOps(boost::make_shared<NbdOperations>(this)),
           clientSocket(clientsd),
           nbd_state(NbdProtoState::PREINIT),
@@ -235,8 +237,10 @@ bool NbdConnection::option_request(ev::io &watcher) {
         LOGNORMAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volume_desc);
         omConfigApi.reset(); // No need for this reference anymore
-        if (ERR_OK != err || apis::BLOCK != volume_desc.policy.volumeType)
+        if (ERR_OK != err || apis::BLOCK != volume_desc.policy.volumeType) {
+            LOGERROR << "Cannot connect to volume: " << (ERR_OK == err ? ERR_INVALID : err);
             throw NbdError::connection_closed;
+        }
         object_size = volume_desc.policy.maxObjectSizeInBytes;
         volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
     }
@@ -244,7 +248,7 @@ bool NbdConnection::option_request(ev::io &watcher) {
     LOGNORMAL << "Attaching volume name " << *volumeName
               << " of size " << volume_size
               << " object size " << object_size;
-    nbdOps->init(volumeName, object_size);
+    nbdOps->init(volumeName, object_size, amProcessor);
 
     return true;
 }

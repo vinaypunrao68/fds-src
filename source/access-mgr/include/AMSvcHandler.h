@@ -7,7 +7,6 @@
 #include <net/PlatNetSvcHandler.h>
 #include <fds_typedefs.h>
 #include <fdsp/AMSvc.h>
-#include <AccessMgr.h>  /* For references to "am" */
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -18,10 +17,13 @@ class AMSvcProcessor;
 
 namespace fds {
 
+class AmProcessor;
+
 class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHandler
 {
+    std::shared_ptr<AmProcessor> amProcessor;
   public:
-    explicit AMSvcHandler(CommonModuleProviderIf *provider);
+    AMSvcHandler(CommonModuleProviderIf *provider, std::shared_ptr<AmProcessor> processor);
     virtual ~AMSvcHandler();
 
     /**

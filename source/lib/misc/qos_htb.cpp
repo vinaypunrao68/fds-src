@@ -140,7 +140,8 @@ QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
               << "; max_iops=" << queue->iops_max
               << "; prio=" << queue->priority
               << "; total_min_rate " << new_total_min_rate
-              << ", total_avail_rate " << new_total_avail_rate;
+              << ", total_avail_rate " << new_total_avail_rate
+              << " result: " << err.GetErrstr();
 
     return err;
 }

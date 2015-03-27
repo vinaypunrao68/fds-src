@@ -17,6 +17,7 @@ struct thread;
 
 namespace fds {
 
+struct AmProcessor;
 struct OmConfigApi;
 
 class NbdConnector {
@@ -26,6 +27,7 @@ class NbdConnector {
     std::unique_ptr<ev::io> evIoWatcher;
     std::unique_ptr<std::thread> runThread;
     boost::shared_ptr<OmConfigApi> omConfigApi;
+    std::weak_ptr<AmProcessor> amProcessor;
 
     int createNbdSocket();
     void initialize();
@@ -34,7 +36,8 @@ class NbdConnector {
     void nbdAcceptCb(ev::io &watcher, int revents);
 
   public:
-    explicit NbdConnector(boost::shared_ptr<OmConfigApi> omApi);
+    NbdConnector(boost::shared_ptr<OmConfigApi> omApi,
+                 std::weak_ptr<AmProcessor> processor);
     ~NbdConnector();
     typedef boost::shared_ptr<NbdConnector> shared_ptr;
 };

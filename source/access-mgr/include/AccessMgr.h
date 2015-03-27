@@ -8,14 +8,16 @@
 #include <fds_types.h>
 #include <fds_module_provider.h>
 #include <fds_volume.h>
-#include <AmDataApi.h>
-#include <OmConfigService.h>
+#include <fds_module.h>
 
 namespace fds {
 
+struct AmDataApi;
+struct AmProcessor;
 struct AsyncDataServer;
 struct FdsnServer;
 struct NbdConnector;
+struct OmConfigApi;
 
 /**
  * AM module class.
@@ -36,16 +38,27 @@ class AccessMgr : public Module, public boost::noncopyable {
     void mod_shutdown() override;
 
     void run();
-    /// Interface to directly register a volume. Only
-    /// used for testing today.
-    Error registerVolume(const VolumeDesc& volDesc);
 
-    // Set AM in shutdown mode.
-    void setShutDown();
     void stop();
 
-    // Check whether AM is in shutdown mode.
-    bool isShuttingDown();
+    /// Shared ptr to AM's data API. It's public so that
+    /// other components (e.g., unit tests, perf tests) can
+    /// directly call it. It may be shared by this and the
+    /// fdsn server.
+    boost::shared_ptr<AmDataApi> dataApi;
+
+    std::shared_ptr<AmProcessor> getProcessor()
+    { return amProcessor; }
+
+  private:
+    /// Raw pointer to an external dependency manager
+    CommonModuleProviderIf *modProvider_;
+
+    /// OM config service API
+    boost::shared_ptr<OmConfigApi> omConfigApi;
+
+    /// Block connector
+    std::unique_ptr<NbdConnector> blkConnector;
 
     /// Unique ptr to the fdsn server that communicates with XDI
     std::unique_ptr<FdsnServer> fdsnServer;
@@ -53,26 +66,11 @@ class AccessMgr : public Module, public boost::noncopyable {
     /// Unique ptr to the async server that communicates with XDI
     std::unique_ptr<AsyncDataServer> asyncServer;
 
-    /// Shared ptr to AM's data API. It's public so that
-    /// other components (e.g., unit tests, perf tests) can
-    /// directly call it. It may be shared by this and the
-    /// fdsn server.
-    AmDataApi::shared_ptr dataApi;
-
-  private:
-    /// Raw pointer to an external dependency manager
-    CommonModuleProviderIf *modProvider_;
-
-    /// OM config service API
-    OmConfigApi::shared_ptr omConfigApi;
-
-    /// Block connector
-    std::unique_ptr<NbdConnector> blkConnector;
+    /// Processing Layer
+    std::shared_ptr<AmProcessor> amProcessor;
 
     std::atomic_bool  shuttingDown;
 };
-
-extern AccessMgr::unique_ptr am;
 
 }  // namespace fds
 
