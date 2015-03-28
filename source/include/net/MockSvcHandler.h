@@ -45,6 +45,7 @@ struct MockSvcHandler {
         tp_ = nullptr;
         aborted_ = false;
         t_.reset(new std::thread(&MockSvcHandler::run, this));
+        t_->detach();
         sleepTime_ = 200;
         nextTask_ = nullptr;
     }
