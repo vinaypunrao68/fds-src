@@ -106,21 +106,19 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
             diskScavTbl[*cit] = diskScav;
             LOGNORMAL << "Added scavenger for HDD " << *cit;
         }
-        // create scavengers got SSDs
-        // TODO(Anna) commenting out SSD scavenger, until we put back tiering
-        /*
+        // create scavengers for SSDs
         for (DiskIdSet::const_iterator cit = ssdIds.cbegin();
              cit != ssdIds.cend();
              ++cit) {
             DiskScavenger *diskScav = new DiskScavenger(*cit, diskio::flashTier,
                                                         dataStoreReqHandler,
                                                         persistStoreGcHandler,
-                                                        diskMap);
+                                                        diskMap,
+                                                        noPersistScavStats);
             fds_verify(diskScavTbl.count(*cit) == 0);
             diskScavTbl[*cit] = diskScav;
             LOGNORMAL << "Added scavenger for SSD " << *cit;
         }
-        */
     }
     noPersistScavStats = false;
     return ERR_OK;
