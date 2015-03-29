@@ -94,7 +94,8 @@ AmProcessor::processBlobReq(AmRequest *amReq) {
             break;
 
         case fds::FDS_ATTACH_VOL:
-            attachVolume(amReq);
+            /** If we're processing this, then we must be attached. Return success */
+            respond_and_delete(amReq, ERR_OK);
             break;
 
         case fds::FDS_IO_READ:
@@ -216,15 +217,6 @@ AmProcessor::removeVolume(const VolumeDesc& volDesc) {
     }
     return err;
 }
-
-void
-AmProcessor::attachVolume(AmRequest *amReq) {
-    LOGDEBUG << "Attach for volume " << amReq->volume_name << " complete. Notifying waiters";
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
-
-    amDispatcher->dispatchAttachVolume(amReq);
-}
-
 
 void
 AmProcessor::statVolume(AmRequest *amReq) {

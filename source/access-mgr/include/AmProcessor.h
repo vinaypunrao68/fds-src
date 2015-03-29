@@ -90,10 +90,6 @@ class AmProcessor : public Module {
     std::shared_ptr<AmVolume> getVolume(AmRequest* amReq, bool const allow_snapshot=true);
 
     /**
-     * Attach a volume request
-     */
-    void attachVolume(AmRequest *amReq);
-    /**
      * Processes a abort blob transaction
      */
     void abortBlobTx(AmRequest *amReq);
