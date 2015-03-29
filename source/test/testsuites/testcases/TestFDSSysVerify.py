@@ -628,7 +628,6 @@ class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
                                              self.__class__.__name__,
                                              self.test_CheckSSDTokenFiles,
                                              "Checking SSD token files")
-
         self.passedNode = node
 
     def test_CheckSSDTokenFiles(self):
@@ -652,14 +651,12 @@ class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
 
 
 #This class checks for updates in the token files of hard disk drives attached to the cluster
-class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
 class TestCheckHDDTokenFiles(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_CheckHDDTokenFiles,
                                              "Checking HDD token files")
-
         self.passedNode = node
 
     def test_CheckHDDTokenFiles(self):
@@ -683,14 +680,12 @@ class TestCheckHDDTokenFiles(TestCase.FDSTestCase):
 
 
 #This class checks for updates in the token files of both ssd and hard disk drives attached to the cluster
-class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
 class TestCheckHybridTokenFiles(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_CheckHybridTokenFiles,
                                              "Checking token files for SSDs and HDDs")
-
         self.passedNode = node
 
     def test_CheckHybridTokenFiles(self):
