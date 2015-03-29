@@ -67,7 +67,7 @@ void
 AmProcessor::processBlobReq(AmRequest *amReq) {
     fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
 
-    fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
+    fds_verify(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
     fds_verify(amReq->magicInUse() == true);
 
     /*

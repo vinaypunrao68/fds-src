@@ -264,7 +264,7 @@ class FDS_IOType {
     virtual ~FDS_IOType() {}
 
     typedef enum {
-        STOR_HV_IO,
+        ACCESS_MGR_IO,
         STOR_MGR_IO,
         DATA_MGR_IO
     } ioModule;

@@ -32,7 +32,7 @@ class WaitQueue {
 
     template<typename Cb>
     void drain(std::string const&, Cb&&);
-    void delay(AmRequest*);
+    Error delay(AmRequest*);
     bool empty() const;
     void pop(AmRequest*);
 };
@@ -48,13 +48,15 @@ void WaitQueue::drain(std::string const& vol_name, Cb&& cb) {
     }
 }
 
-void WaitQueue::delay(AmRequest* amReq) {
+Error WaitQueue::delay(AmRequest* amReq) {
     std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(amReq->volume_name);
     if (queue.end() != wait_it) {
         wait_it->second.push_back(amReq);
+        return ERR_OK;
     } else {
         queue[amReq->volume_name].push_back(amReq);
+        return ERR_VOL_NOT_FOUND;
     }
 }
 
@@ -284,8 +286,7 @@ AmVolumeTable::enqueueRequest(AmRequest* amReq) {
             amReq->io_vol_id = it->first;
         } else {
             GLOGDEBUG << "Delaying request: " << amReq;
-            wait_queue->delay(amReq);
-            return ERR_VOL_NOT_FOUND;
+            return wait_queue->delay(amReq);
         }
     }
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);

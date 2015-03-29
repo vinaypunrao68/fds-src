@@ -27,7 +27,7 @@ FDS_VolumeQueue* AmQoSCtrl::getQueue(fds_volid_t queueId) {
 }
 
 Error AmQoSCtrl::processIO(FDS_IOType *io) {
-    fds_verify(io->io_module == FDS_IOType::STOR_HV_IO);
+    fds_verify(io->io_module == FDS_IOType::ACCESS_MGR_IO);
     threadPool->schedule(vol_callback, static_cast<AmRequest*>(io));
     return ERR_OK;
 }
