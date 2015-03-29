@@ -76,11 +76,9 @@ bool get_message_header(int fd, M& message);
 template<typename M>
 bool get_message_payload(int fd, M& message);
 
-NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
-                             int clientsd,
+NbdConnection::NbdConnection(int clientsd,
                              std::shared_ptr<AmProcessor> processor)
-        : omConfigApi(omApi),
-          amProcessor(processor),
+        : amProcessor(processor),
           nbdOps(boost::make_shared<NbdOperations>(this)),
           clientSocket(clientsd),
           nbd_state(NbdProtoState::PREINIT),
@@ -94,6 +92,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
           readyResponses(4000),
           current_response(nullptr) {
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
+    standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
     if (config.get_abs<bool>("fds.am.connector.nbd.non_block_io", true)) {
         fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
     } else {
@@ -229,14 +228,16 @@ bool NbdConnection::option_request(ev::io &watcher) {
     auto volumeName = boost::make_shared<std::string>(attach.data.begin(),
                                                  attach.data.begin() + attach.header.length);
     apis::VolumeDescriptor volume_desc;
-    FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-    if (config.get_abs<bool>("fds.am.testing.standalone", false)) {
+    if (standalone_mode) {
         object_size = 4 * Ki;
         volume_size = 1 * Gi;
     } else {
+        // TODO(bszmyd): Sun 29 Mar 2015 10:10:27 AM PDT
+        // Probably should not be making om calls from a connector, ideally
+        // we'd attach through the processor and get back a descriptor
         LOGNORMAL << "Will stat volume " << *volumeName;
-        Error err = omConfigApi->statVolume(volumeName, volume_desc);
-        omConfigApi.reset(); // No need for this reference anymore
+        OmConfigApi omConfigApi;
+        Error err = omConfigApi.statVolume(volumeName, volume_desc);
         if (ERR_OK != err || apis::BLOCK != volume_desc.policy.volumeType) {
             LOGERROR << "Cannot connect to volume: " << (ERR_OK == err ? ERR_INVALID : err);
             throw NbdError::connection_closed;

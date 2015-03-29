@@ -10,7 +10,6 @@
 #include "AmProcessor.h"
 #include <net/SvcMgr.h>
 #include <AmDataApi.h>
-#include <OmConfigService.h>
 
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/fdsn-server.h"
@@ -60,14 +59,10 @@ AccessMgr::mod_init(SysParams const *const param) {
     asyncServer = AsyncDataServer::unique_ptr(new AsyncDataServer("AM Async Server", pmPort));
     asyncServer->init_server(weakProcessor);
 
-    if (!standalone_mode) {
-        omConfigApi = boost::make_shared<OmConfigApi>();
-    }
-
     /**
      * Initialize the block connector
      */
-    blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(omConfigApi, weakProcessor));
+    blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(weakProcessor));
 
     return 0;
 }

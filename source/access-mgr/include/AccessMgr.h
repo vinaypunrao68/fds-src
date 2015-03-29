@@ -17,7 +17,6 @@ struct AmProcessor;
 struct AsyncDataServer;
 struct FdsnServer;
 struct NbdConnector;
-struct OmConfigApi;
 
 /**
  * AM module class.
@@ -53,9 +52,6 @@ class AccessMgr : public Module, public boost::noncopyable {
   private:
     /// Raw pointer to an external dependency manager
     CommonModuleProviderIf *modProvider_;
-
-    /// OM config service API
-    boost::shared_ptr<OmConfigApi> omConfigApi;
 
     /// Block connector
     std::unique_ptr<NbdConnector> blkConnector;

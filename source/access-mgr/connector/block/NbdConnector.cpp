@@ -17,14 +17,12 @@ extern "C" {
 
 #include "connector/block/NbdConnector.h"
 #include "connector/block/NbdConnection.h"
-#include "OmConfigService.h"
 #include "fds_process.h"
 
 namespace fds {
 
-NbdConnector::NbdConnector(OmConfigApi::shared_ptr omApi, std::weak_ptr<AmProcessor> processor)
-        : omConfigApi(omApi),
-          nbdPort(10809),
+NbdConnector::NbdConnector(std::weak_ptr<AmProcessor> processor)
+        : nbdPort(10809),
           amProcessor(processor) {
     initialize();
 }
@@ -97,7 +95,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
         if (0 <= clientsd) {
             // Create a handler for this NBD connection
             // Will delete itself when connection dies
-            NbdConnection *client = new NbdConnection(omConfigApi, clientsd, processor);
+            NbdConnection *client = new NbdConnection(clientsd, processor);
             LOGNORMAL << "Created client connection...";
         } else {
             switch (errno) {

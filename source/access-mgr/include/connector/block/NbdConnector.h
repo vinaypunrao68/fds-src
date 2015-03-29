@@ -5,20 +5,17 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
 
 #include <memory>
-#include <thread>
-#include <boost/shared_ptr.hpp>
 
 #include "connector/block/common.h"
 
 namespace std
 {
 struct thread;
-}  // namespace boost
+}  // namespace std
 
 namespace fds {
 
 struct AmProcessor;
-struct OmConfigApi;
 
 class NbdConnector {
     uint32_t nbdPort;
@@ -26,7 +23,6 @@ class NbdConnector {
 
     std::unique_ptr<ev::io> evIoWatcher;
     std::unique_ptr<std::thread> runThread;
-    boost::shared_ptr<OmConfigApi> omConfigApi;
     std::weak_ptr<AmProcessor> amProcessor;
 
     int createNbdSocket();
@@ -36,10 +32,8 @@ class NbdConnector {
     void nbdAcceptCb(ev::io &watcher, int revents);
 
   public:
-    NbdConnector(boost::shared_ptr<OmConfigApi> omApi,
-                 std::weak_ptr<AmProcessor> processor);
+    explicit NbdConnector(std::weak_ptr<AmProcessor> processor);
     ~NbdConnector();
-    typedef boost::shared_ptr<NbdConnector> shared_ptr;
 };
 
 }  // namespace fds
