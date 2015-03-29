@@ -9,6 +9,7 @@
 #include "AmProcessor.h"
 #include "StorHvCtrl.h"
 #include "StorHvQosCtrl.h"
+#include "lib/OMgrClient.h"
 
 extern StorHvCtrl * storHvisor;
 

@@ -65,9 +65,6 @@ public:
     std::shared_ptr<fds::StorHvQosCtrl>     qos_ctrl; // Qos Controller object
     fds::OMgrClient*        om_client;
 
-    /// Toggle AM standalone mode for testing
-    fds_bool_t standalone;
-
     /// Processor layer module
     std::unique_ptr<fds::AmProcessor> amProcessor;
 
@@ -76,9 +73,6 @@ public:
     fds::Error sendTestBucketToOM(const std::string& bucket_name,
                              const std::string& access_key_id = "",
                              const std::string& secret_access_key = "");
-
-    void initVolInfo(b_sp<fds_pi::FDSP_VolumeDescType> vol_info,
-                     const std::string& bucket_name);
 
     void attachVolume(fds::AmRequest *amReq);
     void enqueueAttachReq(const std::string& volumeName,

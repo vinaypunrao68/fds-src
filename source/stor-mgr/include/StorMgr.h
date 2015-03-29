@@ -34,9 +34,6 @@
 #include "lib/qos_min_prio.h"
 #include "lib/QoSWFQDispatcher.h"
 
-/* TODO: avoid include across module, put API header file to include dir */
-#include "lib/OMgrClient.h"
-
 #include "fds_module.h"
 
 #include "fdsp/SMSvc.h"
@@ -52,6 +49,7 @@
 using namespace FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
+struct OMgrClient;
 
 extern ObjectStorMgr *objStorMgr;
 

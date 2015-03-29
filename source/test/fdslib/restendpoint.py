@@ -760,11 +760,19 @@ class DomainEndpoint():
             return False
 
 
-    def activateLocalDomainServices(self, domain_name):
+    def activateLocalDomainServices(self, domain_name, sm, dm, am):
         '''
-        Activate the pre-defined services on all the nodes in the specified local domain.
+        Activate the specified or pre-defined services on all the nodes in the specified local domain. If
+        all Service switches are false, we interpret it as meaning to activate all defined
+        Services for each node. If in that case there are no Services defined for the Node, we interpret
+        it to mean activate all Services (SM, DM,and AM) for the Node.
+
         Params:
            domain_name - str: Name of the local domain whose node services are to be activated
+           sm - bool: Activate the SM Service (True)
+           dm - bool: Activate the DM Service (True)
+           am - bool: Activate the AM Service (True)
+
         Returns:
            True success, False otherwise
         '''
@@ -773,6 +781,9 @@ class DomainEndpoint():
 
         service_info = {
             'action': 'activate',
+            'sm': sm,
+            'dm': dm,
+            'am': am,
         }
 
         res = self.rest.put(path, data=json.dumps(service_info))
@@ -821,11 +832,22 @@ class DomainEndpoint():
         else:
             return None
 
-    def removeLocalDomainServices(self, domain_name):
+    def removeLocalDomainServices(self, domain_name, sm, dm, am):
         '''
-        Remove the pre-defined services on all the nodes in the specified local domain.
+        Remove the specified or pre-defined services on all the nodes in the specified local domain. If
+        all Service switches are false, we interpret it as meaning to remove all defined
+        Services for each node. If in that case there are no Services defined for the Node, we
+        do nothing.
+
+        Note that Service removal means to unregister the Service from the Local Domain and
+        stop the processes associated with the Service.
+
         Params:
-           domain_name - str: Name of the local domain whose node services are to be activated
+           domain_name - str: Name of the local domain whose node services are to be removed
+           sm - bool: Remove the SM Service (True)
+           dm - bool: Remove the DM Service (True)
+           am - bool: Remove the AM Service (True)
+
         Returns:
            True success, False otherwise
         '''
@@ -834,6 +856,9 @@ class DomainEndpoint():
 
         service_info = {
             'action': 'remove',
+            'sm': sm,
+            'dm': dm,
+            'am': am,
         }
 
         res = self.rest.put(path, data=json.dumps(service_info))

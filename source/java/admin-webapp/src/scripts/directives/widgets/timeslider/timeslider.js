@@ -295,7 +295,11 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
             });
             
             $scope.$on( 'fds::timeslider-refresh', function(){
-                $timeout( function(){ init(); }, 50 );
+                $timeout( function(){ 
+                    init(); 
+                    var details = $scope.snapToValidPointByValue( $scope.selectedValue );
+                    $scope.sliderPosition = details.position;
+                }, 50 );
             });
             
             $scope.$watch( 'domainLabels', init );

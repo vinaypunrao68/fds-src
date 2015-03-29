@@ -63,8 +63,8 @@ angular.module( 'form-directives' ).directive( 'dateTimeTyper', function(){
                 
                 
                 if ( $scope.mode == 12 ){
-                    if ( date.getHours > 11 ){
-                        s += 'PM';
+                    if ( date.getHours() > 11 ){
+                        s += ' PM';
                     }
                     else {
                         s +=' AM';
@@ -187,6 +187,7 @@ angular.module( 'form-directives' ).directive( 'dateTimeTyper', function(){
                 
                 //hour
                 var h = fixBadField( $scope.rawvalue.substr( $scope.rawvalue.indexOf( ' ' ) + 1, 2 ) );
+                h = parseInt( h );
                 var ampm;
                 
                 if ( h < 0 ){
@@ -228,7 +229,7 @@ angular.module( 'form-directives' ).directive( 'dateTimeTyper', function(){
                 // ampm
                 var a = $scope.rawvalue.substr( $scope.rawvalue.length - 2 ).trim();
                 
-                if ( !angular.isDefined( ampm ) || a.length === 1 ){
+                if ( !angular.isDefined( ampm ) || a.length > 0 ){
                     
                     if ( a.charAt( 0 ).toLowerCase() === 'a' ){
                         ampm = 'AM';

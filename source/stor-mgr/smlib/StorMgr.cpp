@@ -18,6 +18,7 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
+#include "lib/OMgrClient.h"
 
 using diskio::DataTier;
 
@@ -114,20 +115,10 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     omClient = NULL;
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
-        std::string omIP;
-        fds_uint32_t omPort = 0;
-        MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
-        LOGNOTIFY << "om ip: " << omIP
-                  << " port: " << omPort;
         omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  omIP,
-                                  omPort,
                                   MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog(),
-                                  nullptr,
-                                  nullptr);
+                                  GetLog());
     }
-
 
     return 0;
 }

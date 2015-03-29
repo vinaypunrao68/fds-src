@@ -16,6 +16,7 @@
 #include "fds_error.h"
 #include "fds_types.h"
 #include "fds_volume.h"
+#include "fdsp/common_types.h"
 #include "qos_ctrl.h"
 #include "util/Log.h"
 #include "concurrency/RwLock.h"
@@ -30,6 +31,8 @@
  * Forward declaration of SM control class
  */
 namespace fds {
+
+namespace fpi = FDS_ProtocolInterface;
 
 class ObjectStorMgr;
 
@@ -116,11 +119,11 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
      ~StorMgrVolume();
      Error createVolIndexEntry(fds_volid_t vol_uuid,
                                fds_uint64_t vol_offset,
-                               FDS_ObjectIdType objId,
+                               fpi::FDS_ObjectIdType objId,
                                fds_uint32_t data_obj_len);
      Error deleteVolIndexEntry(fds_volid_t vol_uuid,
                                fds_uint64_t vol_offset,
-                               FDS_ObjectIdType objId);
+                               fpi::FDS_ObjectIdType objId);
 
      void updateDedupBytes(double dedup_bytes_added) {
          dedupBytes_ += dedup_bytes_added;
@@ -169,11 +172,11 @@ class StorMgrVolumeTable : public HasLogger {
 
      Error createVolIndexEntry(fds_volid_t      vol_uuid,
                                fds_uint64_t     vol_offset,
-                               FDS_ObjectIdType objId,
+                               fpi::FDS_ObjectIdType objId,
                                fds_uint32_t     data_obj_len);
      Error deleteVolIndexEntry(fds_volid_t vol_uuid,
                                fds_uint64_t vol_offset,
-                               FDS_ObjectIdType objId);
+                               fpi::FDS_ObjectIdType objId);
 
      std::list<fds_volid_t> getVolList() {
          std::list<fds_volid_t> volIds;

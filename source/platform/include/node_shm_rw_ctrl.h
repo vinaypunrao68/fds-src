@@ -45,7 +45,7 @@ namespace fds
 
             static ShmObjRWKeyUint64 *shm_node_rw_inv(FdspNodeType type)
             {
-                if (type == fpi::FDSP_STOR_HVISOR)
+                if (type == fpi::FDSP_ACCESS_MGR)
                 {
                     return gl_NodeShmRWCtrl.shm_am_rw;
                 }

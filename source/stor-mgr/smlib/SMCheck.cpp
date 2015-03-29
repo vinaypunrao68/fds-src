@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <fds_assert.h>
 #include <fds_process.h>
+#include "platform/platform_consts.h"
+#include "platform/platform.h"
+
 #include <dlt.h>
 #include <ObjectId.h>
 #include <StorMgr.h>
@@ -18,9 +21,6 @@
 #include <boost/program_options.hpp>
 #include <persistent-layer/dm_io.h>
 
-
-#include "platform/platform_consts.h"
-#include "platform/platform.h"
 
 #include <SMCheck.h>
 

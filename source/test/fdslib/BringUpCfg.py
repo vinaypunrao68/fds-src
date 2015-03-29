@@ -233,8 +233,8 @@ class FdsNodeConfig(FdsConfig):
         print "\nStart influxdb on", self.nd_host_name()
 
         ## check if influx is running on the node.  If not, start it
-        pidstat = self.nd_agent.exec_wait('pgrep -f influxdb', output=False)
-        if pidstat == 1:
+        influxstat = self.nd_status_influxdb()
+        if influxstat != 0:
             status = self.nd_agent.exec_wait('service influxdb start')
         else:
             print "\nInfluxDB is already running."

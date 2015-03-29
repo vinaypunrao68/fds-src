@@ -67,9 +67,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void setScavenger(const std::string& domainName, const std::string& scavengerAction) {}
     void shutdownLocalDomain(const std::string& domainName) {}
     void deleteLocalDomain(const std::string& domainName) {}
-    void activateLocalDomainServices(const std::string& domainName) {}
+    void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     void listLocalDomainServices(std::vector<FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
-    void removeLocalDomainServices(const std::string& domainName) {}
+    void removeLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int64_t createTenant(const std::string& identifier) { return 0;}
     void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
     int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
@@ -267,11 +267,22 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     /**
     * Activate all defined Services for all Nodes defined for the named Local Domain.
     *
+    * If all Service flags are set to False, it will
+    * be interpreted to mean activate all Services currently defined for the Node. If there are
+    * no Services currently defined for the node, it will be interpreted to mean activate all
+    * Services on the Node (SM, DM, and AM), and define all Services for the Node.
+    *
     * @param domainName - Name of the Local Domain whose services are to be activated.
+    * @param sm - An fds_bool_t indicating whether the SM Service should be activated (True) or not (False)
+    * @param dm - An fds_bool_t indicating whether the DM Service should be activated (True) or not (False)
+    * @param am - An fds_bool_t indicating whether the AM Service should be activated (True) or not (False)
     *
     * @return void.
     */
-    void activateLocalDomainServices(boost::shared_ptr<std::string>& domainName) {
+    void activateLocalDomainServices(boost::shared_ptr<std::string>& domainName,
+                                     boost::shared_ptr<fds_bool_t>& sm,
+                                     boost::shared_ptr<fds_bool_t>& dm,
+                                     boost::shared_ptr<fds_bool_t>& am) {
         int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
 
         if (domainID <= 0) {
@@ -288,8 +299,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         try {
             LOGNORMAL << "Received activate services for Local Domain " << domainName;
+            LOGNORMAL << "SM: " << *sm << "; DM: " << *dm << "; AM: " << *am;
 
-            localDomain->om_cond_bcast_activate_services();
+            localDomain->om_cond_bcast_activate_services(*sm, *dm, *am);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
@@ -326,11 +338,21 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     /**
     * Remove all defined Services from all Nodes defined for the named Local Domain.
     *
+    * If all Service flags are set to False, it will
+    * be interpreted to mean remove all Services currently defined for the Node.
+    * Removal means that the Service is unregistered from the Domain and shutdown.
+    *
     * @param domainName - Name of the Local Domain whose services are to be removed.
+    * @param sm - An fds_bool_t indicating whether the SM Service should be removed (True) or not (False)
+    * @param dm - An fds_bool_t indicating whether the DM Service should be removed (True) or not (False)
+    * @param am - An fds_bool_t indicating whether the AM Service should be removed (True) or not (False)
     *
     * @return void.
     */
-    void removeLocalDomainServices(boost::shared_ptr<std::string>& domainName) {
+    void removeLocalDomainServices(boost::shared_ptr<std::string>& domainName,
+                                   boost::shared_ptr<fds_bool_t>& sm,
+                                   boost::shared_ptr<fds_bool_t>& dm,
+                                   boost::shared_ptr<fds_bool_t>& am) {
         int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
 
         if (domainID <= 0) {
@@ -347,8 +369,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         try {
             LOGNORMAL << "Received remove services for Local Domain " << domainName;
+            LOGNORMAL << "SM: " << *sm << "; DM: " << *dm << "; AM: " << *am;
 
-            localDomain->om_cond_bcast_remove_services();
+            localDomain->om_cond_bcast_remove_services(*sm, *dm, *am);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
