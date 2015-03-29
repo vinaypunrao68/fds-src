@@ -254,31 +254,6 @@ void SvcRequestIf::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
                                   boost::shared_ptr<std::string>& payload)
 {
     this->handleResponseImpl(header, payload);
-
-    // Don't cause a feedback loop if Om is down.
-    if (fpi::CtrlSvcEventTypeId == header->msg_type_id) {
-        return;
-    }
-    switch (header->msg_code) {
-        case ERR_DISK_WRITE_FAILED:
-        case ERR_DISK_READ_FAILED:
-        case ERR_SVC_REQUEST_TIMEOUT:
-            {
-            // The who, what and result of the event
-            fpi::CtrlSvcEventPtr pkt(new fpi::CtrlSvcEvent());
-            pkt->evt_src_svc_uuid = header->msg_src_uuid;
-            pkt->evt_code = header->msg_code;
-            pkt->evt_msg_type_id  = header->msg_type_id;
-
-            auto req = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(
-                MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-            req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlSvcEvent), pkt);
-            req->invoke();
-            }
-            break;
-        default:
-            break;
-    }
 }
 
 EPSvcRequest::EPSvcRequest()

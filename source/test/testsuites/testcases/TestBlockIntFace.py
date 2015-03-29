@@ -34,33 +34,27 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): We should call OM's REST endpoint with an auth
-        # token. Using fdscli is just me being lazy...
+        # token.
         fdscfg = self.parameters["fdscfg"]
-        nodes = fdscfg.rt_obj.cfg_nodes
-        fds_root = nodes[0].nd_conf_dict['fds_root']
-        sbin_dir = fdscfg.rt_env.get_tools_dir()
+        om_node = fdscfg.rt_om_node
         global pwd
-        cur_dir = os.getcwd()
-        os.chdir(sbin_dir)
 
         # Block volume create command
         # TODO(Andrew): Don't hard code volume name
-        blkCrtCmd = "./fdsconsole.py accesslevel debug && ./fdsconsole.py volume create  volume1 --vol-type block --blk-dev-size 10485760"
-        result = subprocess.call(blkCrtCmd, shell=True)
-        if result != 0:
-            os.chdir(cur_dir)
+        cmd = "volume create  volume1 --vol-type block --blk-dev-size 10485760"
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
+                                            fds_tools=True)
+        if status != 0:
             self.log.error("Failed to create block volume")
             return False
         time.sleep(5)
 
-        blkModCmd = "./fdsconsole.py volume modify volume1 --minimum 0 --maximum 10000 --priority 1"
-        result = subprocess.call(blkModCmd, shell=True)
-        if result != 0:
-            os.chdir(cur_dir)
+        cmd = "volume modify volume1 --minimum 0 --maximum 10000 --priority 1"
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py {} > ./fdsconsole.out 2>&1) \"'.format(cmd),
+                                            fds_tools=True)
+        if status != 0:
             self.log.error("Failed to modify block volume")
             return False
-
-        os.chdir(cur_dir)
 
         time.sleep(5)
 

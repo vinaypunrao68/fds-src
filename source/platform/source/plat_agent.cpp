@@ -109,7 +109,7 @@ namespace fds
         }else {
             agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_MGR);
             agent_bind_svc(ep_map, &ninfo, fpi::FDSP_DATA_MGR);
-            agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_HVISOR);
+            agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ACCESS_MGR);
             agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ORCH_MGR);
         }
     }
@@ -148,7 +148,7 @@ namespace fds
 
             rec.rmp_minor = Platform::plat_svc_types[i];
 
-            if ((t == fpi::FDSP_STOR_HVISOR) && (rec.rmp_minor == NET_SVC_CONFIG))
+            if ((t == fpi::FDSP_ACCESS_MGR) && (rec.rmp_minor == NET_SVC_CONFIG))
             {
                 /* Hard-coded to bind to Java endpoint in AM. */
                 ep_map_set_port_info(&rec, 8999);

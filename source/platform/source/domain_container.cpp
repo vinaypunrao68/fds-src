@@ -54,7 +54,7 @@ namespace fds
                 nodes = dc_dm_nodes;
                 break;
 
-            case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+            case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
                 nodes = dc_am_nodes;
                 break;
 
@@ -157,7 +157,7 @@ namespace fds
         {
             fpi::FDSP_STOR_MGR,
             fpi::FDSP_DATA_MGR,
-            fpi::FDSP_STOR_HVISOR,
+            fpi::FDSP_ACCESS_MGR,
             fpi::FDSP_ORCH_MGR
         };
 

@@ -1,10 +1,13 @@
 package com.formationds.hadoop;
 
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.XdiService;
 import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
-import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.blob.Mode;
 import com.formationds.xdi.XdiClientFactory;
@@ -18,10 +21,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -165,6 +165,19 @@ public class FdsFileSystem extends FileSystem {
         }
         ensureWritingPossible(absolutePath);
         return new FSDataOutputStream(FdsOutputStream.openNew(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize(), OwnerGroupInfo.current()));
+    }
+
+    @Override
+    public FSDataOutputStream createNonRecursive(Path f, FsPermission permission,
+                                                 EnumSet<CreateFlag> flags, int bufferSize, short replication, long blockSize,
+                                                 Progressable progress) throws IOException {
+        Path absolutePath = getAbsolutePath(f);
+        if (!exists(absolutePath.getParent())) {
+            throw new IOException("Parent does not exist!");
+        }
+        ensureWritingPossible(absolutePath);
+        return new FSDataOutputStream(FdsOutputStream.openNew(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize(), OwnerGroupInfo.current()));
+
     }
 
     private void ensureWritingPossible(Path absolutePath) throws IOException {

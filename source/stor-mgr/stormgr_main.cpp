@@ -3,8 +3,9 @@
  */
 
 #include <StorMgr.h>
-#include <net/SvcProcess.h>
+
 #include <SMSvcHandler.h>
+#include <net/SvcProcess.h>
 
 class SMMain : public SvcProcess
 {
@@ -29,7 +30,7 @@ class SMMain : public SvcProcess
         closeAllFDs();
 
         /* Init platform process */
-        init<fds::SMSvcHandler, fpi::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.",
+        init<fds::SMSvcHandler, FDS_ProtocolInterface::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.",
                 "sm.log", smVec);
 
         /* setup signal handler */

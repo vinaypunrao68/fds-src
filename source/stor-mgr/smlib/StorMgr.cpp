@@ -18,6 +18,7 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
+#include "lib/OMgrClient.h"
 
 using diskio::DataTier;
 
@@ -114,20 +115,10 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     omClient = NULL;
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
-        std::string omIP;
-        fds_uint32_t omPort = 0;
-        MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
-        LOGNOTIFY << "om ip: " << omIP
-                  << " port: " << omPort;
         omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  omIP,
-                                  omPort,
                                   MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog(),
-                                  nullptr,
-                                  nullptr);
+                                  GetLog());
     }
-
 
     return 0;
 }
@@ -515,7 +506,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
 
         // forward this IO to destination SM if needed, but only if we succeeded locally
         // and was not already a forwarded request.
-        // The assumption is that forward will not take a multiple hop.  It will be only from
+        // The assumption is that forward will not take  multiple hops.  It will be only from
         // one source to one destionation SM.
         if (err.ok() && (false == putReq->forwardedReq)) {
             bool forwarded = migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq);
@@ -561,7 +552,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 
         // forward this IO to destination SM if needed, but only if we succeeded locally
         // and was not already a forwarded request.
-        // The assumption is that forward will not take a multiple hop.  It will be only from
+        // The assumption is that forward will not take multiple hops.  It will be only from
         // one source to one destionation SM.
         if (err.ok() && (false == delReq->forwardedReq)) {
             bool forwarded = migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq);
@@ -578,7 +569,8 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 }
 
 Error
-ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq) {
+ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
+{
     fds_assert(0 != addObjRefReq);
     fds_assert(0 != addObjRefReq->getSrcVolId());
     fds_assert(0 != addObjRefReq->getDestVolId());
@@ -589,23 +581,63 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq) {
         return rc;
     }
 
+    uint64_t origNumObjIds = addObjRefReq->objIds().size();
+
     // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(addObjRefReq->opLatencyCtx);
 
-    for (auto objId : addObjRefReq->objIds()) {
-        ObjectID oid = ObjectID(objId.digest);
+    for (std::vector<fpi::FDS_ObjectIdType>::iterator it = addObjRefReq->objIds().begin();
+         it != addObjRefReq->objIds().end();
+         ++it) {
+        ObjectID oid = ObjectID(it->digest);
+
+        // token lock
+        auto token_lock = getTokenLock(oid);
+
         rc = objectStore->copyAssociation(addObjRefReq->getSrcVolId(),
-                addObjRefReq->getDestVolId(), oid);
+                                          addObjRefReq->getDestVolId(),
+                                          oid);
         if (!rc.ok()) {
             LOGERROR << "Failed to add association entry for object " << oid
                      << "in to odb with err " << rc;
-            break;
+            // Remove from the list before forwarding, if failed.
+            // Will forward only the successfully applied volume association.
+            // Also, only remove, if it's going to be forwarded, since we only
+            // forward successful request.
+            if (false == addObjRefReq->forwardedReq) {
+                addObjRefReq->objIds().erase(it);
+            }
         }
+
     }
 
     qosCtrl->markIODone(*addObjRefReq);
     // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(addObjRefReq->opLatencyCtx);
+
+    // TODO(Sean): not sure how to handle the error case above, since there is no
+    // roll back mechsnim.  It's hard to tell what it means if there is an error
+    // for this operation.  Who ever designed this need to think about this one.
+    // For now, just dealing
+
+
+    // forward this IO to destination SM if needed, but only if we succeeded locally
+    // and was not already a forwarded request.
+    // The assumption is that forward will not take multiple hops.  It will be only from
+    // one source to one destionation SM.
+    if ((addObjRefReq->objIds().size() > 0) && (false == addObjRefReq->forwardedReq)) {
+        bool forwarded = migrationMgr->forwardReqIfNeeded(NullObjectID,
+                                                          addObjRefReq->dltVersion,
+                                                          addObjRefReq);
+        if (forwarded) {
+            // we forwarded request, however we will ack to AM right away, and if
+            // forwarded request fails, we will fail the migration
+            LOGMIGRATE << "Forwarded addObjRefReq: "
+                       << " Original ObjIds=" << origNumObjIds
+                       << " number of Objects=" << addObjRefReq->objIds().size()
+                       << " to destination SM ";
+        }
+    }
 
     addObjRefReq->response_cb(rc, addObjRefReq);
 

@@ -17,7 +17,7 @@ const fds_uint32_t RsType::rs_func_mask[UUID_TYPE_MAX] =
     /* fpi::FDSD_PLATFORM    */ RS_IN_NODE_INV,
     /* fpi::FDSP_STOR_MGR    */ RS_IN_NODE_INV,
     /* fpi::FDSP_DATA_MGR    */ RS_IN_NODE_INV,
-    /* fpi::FDSP_STOR_HVISOR */ RS_IN_NODE_INV,
+    /* fpi::FDSP_ACCESS_MGR */  RS_IN_NODE_INV,
     /* fpi::FDSP_ORCH_MGR    */ RS_IN_NODE_INV,
     0
 };

@@ -25,7 +25,7 @@ public class StatisticsPublisherTest {
 //        System.out.println(streamRegistrations.get(0));
 //
         int pmPort = 7000;
-        int streamingPortOffset = 1999;    // can get from platform.conf: fds.am.streaming_port_offset
+        int streamingPortOffset = 1911;    // can get from platform.conf: fds.am.streaming_port_offset
         TSocket transport = new TSocket("localhost", pmPort + streamingPortOffset);
         transport.open();
         Streaming.Client client = new Streaming.Client(new TBinaryProtocol(new TFramedTransport(transport)));
