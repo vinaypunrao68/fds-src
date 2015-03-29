@@ -44,10 +44,6 @@ AmProcessor::enqueueRequest(AmRequest* amReq) {
     } else {
         fds_verify(amReq->magicInUse() == true);
 
-        /** Make sure we're attached to the volume first */
-        if (invalid_vol_id == amReq->io_vol_id) {
-            amReq->io_vol_id = txMgr->getVolumeUUID(amReq->volume_name);
-        }
         amReq->io_req_id = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
         err = txMgr->enqueueRequest(amReq);
 
@@ -176,7 +172,7 @@ AmProcessor::respond_and_delete(AmRequest *amReq, const Error& error)
 
 bool AmProcessor::stop() {
     shut_down = true;
-    if (false) {
+    if (txMgr->drained()) {
         shutdown_cb();
         return true;
     }

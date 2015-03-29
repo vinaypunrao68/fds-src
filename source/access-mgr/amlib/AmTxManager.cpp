@@ -217,10 +217,6 @@ AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
     return ERR_NOT_FOUND;
 }
 
-fds_volid_t
-AmTxManager::getVolumeUUID(const std::string& vol_name) const
-{ return volTable->getVolumeUUID(vol_name); }
-
 AmVolumeTable::volume_ptr_type
 AmTxManager::getVolume(fds_volid_t vol_uuid) const
 { return volTable->getVolume(vol_uuid); }

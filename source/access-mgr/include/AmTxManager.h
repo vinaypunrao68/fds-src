@@ -149,14 +149,6 @@ struct AmTxManager {
                                fpi::FDSP_MetaDataList const& metaDataList);
 
     /**
-     * Volume table operations
-     * TODO(bszmyd): Sun 22 Mar 2015 07:13:59 PM PDT
-     * These are kinda ugly. When we do real transactions we should clean
-     * this up.
-     */
-    fds_volid_t getVolumeUUID(const std::string& vol_name) const;
-
-    /**
      * Cache operations
      * TODO(bszmyd): Sun 22 Mar 2015 07:13:59 PM PDT
      * These are kinda ugly. When we do real transactions we should clean

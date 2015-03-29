@@ -32,7 +32,7 @@ class WaitQueue {
 
     template<typename Cb>
     void drain(std::string const&, Cb&&);
-    Error delay(AmRequest*);
+    void delay(AmRequest*);
     bool empty() const;
     void pop(AmRequest*);
 };
@@ -48,15 +48,13 @@ void WaitQueue::drain(std::string const& vol_name, Cb&& cb) {
     }
 }
 
-Error WaitQueue::delay(AmRequest* amReq) {
+void WaitQueue::delay(AmRequest* amReq) {
     std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(amReq->volume_name);
     if (queue.end() != wait_it) {
         wait_it->second.push_back(amReq);
-        return ERR_OK;
     } else {
         queue[amReq->volume_name].push_back(amReq);
-        return ERR_VOL_NOT_FOUND;
     }
 }
 
@@ -261,9 +259,8 @@ AmVolumeTable::getVolumeUUID(const std::string& vol_name) const {
      * map, but we would need to synchronize it with volume_map, etc, can revisit this later) */
     for (auto& it: volume_map) {
         if (vol_name.compare((it.second)->voldesc->name) == 0) {
-            /* we found the volume, however if we found it second time, not good  */
-            fds_verify(ret_id == invalid_vol_id);
             ret_id = it.first;
+            break;
         }
     }
     return ret_id;
@@ -277,6 +274,9 @@ AmVolumeTable::enqueueRequest(AmRequest* amReq) {
      * TODO(bszmyd):
      * Time these out if we don't get the attach
      */
+    amReq->io_vol_id = (invalid_vol_id == amReq->io_vol_id) ?
+        getVolumeUUID(amReq->volume_name) : amReq->io_vol_id;
+
     if (invalid_vol_id == amReq->io_vol_id) {
         ReadGuard rg(map_rwlock);
         auto it = volume_map.find(amReq->io_vol_id);
@@ -284,7 +284,8 @@ AmVolumeTable::enqueueRequest(AmRequest* amReq) {
             amReq->io_vol_id = it->first;
         } else {
             GLOGDEBUG << "Delaying request: " << amReq;
-            return wait_queue->delay(amReq);
+            wait_queue->delay(amReq);
+            return ERR_VOL_NOT_FOUND;
         }
     }
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
