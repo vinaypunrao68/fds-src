@@ -235,7 +235,7 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=rand-readers --readwrite=readwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=4 --fill_device=1 --filename=%s" % (nbd_device)
+        fioCmd = "sudo fio --name=rw --readwrite=readwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=128 --numjobs=4 --size=50M --filename=%s" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run read/write workload")
@@ -261,7 +261,7 @@ class TestBlockFioRandRW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=rand-readers --readwrite=randrw --ioengine=libaio --direct=1 --bs=512-128k --iodepth=128 --numjobs=1 --fill_device=1 --filename=%s" % (nbd_device)
+        fioCmd = "sudo fio --name=rand-rw --readwrite=randrw --ioengine=libaio --direct=1 --bs=512-128k --iodepth=128 --numjobs=1 --size=50M --filename=%s" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run random read/write workload")
