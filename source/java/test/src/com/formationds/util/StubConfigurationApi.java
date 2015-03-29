@@ -107,7 +107,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public void activateLocalDomainServices(String domainName, boolean sm, boolean dm, boolean, am)
+    public void activateLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
             throws TException {
         return;
     }
@@ -119,7 +119,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean, am)
+    public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
             throws TException {
         return;
     }
