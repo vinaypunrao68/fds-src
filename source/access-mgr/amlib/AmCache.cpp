@@ -6,7 +6,6 @@
 #include <fds_process.h>
 #include <PerfTrace.h>
 #include <climits>
-#include "AmTxManager.h"
 #include "AmTxDescriptor.h"
 
 namespace fds {

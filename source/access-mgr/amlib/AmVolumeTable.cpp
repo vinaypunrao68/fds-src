@@ -151,7 +151,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc)
                 wait_queue->drain(vdesc.name,
                                   [this, vol_uuid] (AmRequest* amReq) mutable -> void {
                                       amReq->io_vol_id = vol_uuid;
-                                      this->qos_ctrl->enqueueIO(amReq->io_vol_id, amReq);
+                                      this->enqueueRequest(amReq);
                                   });
                 volume_map[vol_uuid] = std::move(new_vol);
             } else {
@@ -287,6 +287,7 @@ AmVolumeTable::enqueueRequest(AmRequest* amReq) {
             return wait_queue->delay(amReq);
         }
     }
+    PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
     return qos_ctrl->enqueueIO(amReq->io_vol_id, amReq);
 }
 

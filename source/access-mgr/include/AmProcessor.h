@@ -9,8 +9,6 @@
 #include <fds_module.h>
 #include "fds_volume.h"
 #include "fds_process.h"
-#include "AmDispatcher.h"
-#include "AmRequest.h"
 
 namespace fds {
 
@@ -18,10 +16,9 @@ namespace fds {
  * Forward declarations
  */
 struct AmDispatcher;
+struct AmRequest;
 struct AmTxManager;
 struct AmVolume;
-struct DLTManager;
-struct DMTManager;
 struct RandNumGenerator;
 
 /**
@@ -66,7 +63,7 @@ class AmProcessor : public Module {
     /**
      * DMT/DLT update notifications
      */
-    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
+    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
 
     bool isShuttingDown() const

@@ -9,6 +9,7 @@
 #include <AmProcessor.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include "AmDispatcher.h"
 #include "AmTxManager.h"
 #include "AmVolume.h"
 
@@ -42,7 +43,6 @@ AmProcessor::enqueueRequest(AmRequest* amReq) {
         err = ERR_SHUTTING_DOWN;
     } else {
         fds_verify(amReq->magicInUse() == true);
-        PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
 
         /** Make sure we're attached to the volume first */
         if (invalid_vol_id == amReq->io_vol_id) {
@@ -617,7 +617,7 @@ AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
 }
 
 Error
-AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb)
+AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb)
 { return amDispatcher->updateDlt(dlt_type, dlt_data, cb); }
 
 Error

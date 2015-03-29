@@ -4,6 +4,7 @@
 
 #include <AMSvcHandler.h>
 
+#include "net/SvcRequest.h"
 #include "AmProcessor.h"
 
 namespace fds {
