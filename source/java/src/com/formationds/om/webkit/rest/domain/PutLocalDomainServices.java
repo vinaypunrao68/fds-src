@@ -67,6 +67,9 @@ public class PutLocalDomainServices
       throws Exception {
 
       String domainName = "";
+      boolean sm = false;
+      boolean dm = false;
+      boolean am = false;
       String action = "";
       
       try {
@@ -84,19 +87,33 @@ public class PutLocalDomainServices
       try {
           JSONObject o = new JSONObject(source);
           action = o.getString( "action" );
+          sm = o.getBoolean( "sm" );
+          dm = o.getBoolean( "dm" );
+          am = o.getBoolean( "am" );
       } catch(JSONException e) {
           return new JsonResource(
                   new JSONObject().put( "message", "Missing Local Domain action to PUT." ),
                   HttpServletResponse.SC_BAD_REQUEST );
       }
       
-      logger.debug( "{} services for Local Domain {}.", action, domainName );
+      try {
+          JSONObject o = new JSONObject(source);
+          sm = o.getBoolean( "sm" );
+          dm = o.getBoolean( "dm" );
+          am = o.getBoolean( "am" );
+      } catch(JSONException e) {
+          return new JsonResource(
+                  new JSONObject().put( "message", "Missing Local Domain Services to PUT." ),
+                  HttpServletResponse.SC_BAD_REQUEST );
+      }
+      
+      logger.debug( "{} services for Local Domain {}. SM: {}; DM: {}; AM: {}.", action, domainName, sm, dm, am );
 
       try {
           if (action.equals("activate")) {
-              configApi.activateLocalDomainServices(domainName);
+              configApi.activateLocalDomainServices(domainName, sm, dm, am);
           } else if (action.equals("remove")) {
-              configApi.removeLocalDomainServices(domainName);
+              configApi.removeLocalDomainServices(domainName, sm, dm, am);
           }
       } catch( Exception e ) {
           logger.error( "PUT::{}::FAILED::" + e.getMessage(), action, e );

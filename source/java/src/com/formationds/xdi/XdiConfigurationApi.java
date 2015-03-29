@@ -411,9 +411,9 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public void activateLocalDomainServices(String domainName)
+    public void activateLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
             throws TException {
-        config.activateLocalDomainServices(domainName);
+        config.activateLocalDomainServices(domainName, sm, dm, am);
         return;
     }
 
@@ -424,9 +424,9 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public void removeLocalDomainServices(String domainName)
+    public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
             throws TException {
-        config.removeLocalDomainServices(domainName);
+        config.removeLocalDomainServices(domainName, sm, dm, am);
         return;
     }
 
