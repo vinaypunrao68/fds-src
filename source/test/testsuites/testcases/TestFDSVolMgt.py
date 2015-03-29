@@ -71,7 +71,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             else:
                 media = volume.nd_conf_dict['media']
 
-            cmd = cmd + (' --media-policy %s' % volume.nd_conf_dict['media'])
+            cmd = cmd + (' --media-policy %s' % media)
 
             self.log.info("Create volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
