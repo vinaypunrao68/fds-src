@@ -77,7 +77,7 @@ function system_tests
 root_dir=$(pwd)
 
 python_unit_tests
-#unit_tests
-#system_tests
+unit_tests
+system_tests
 
 exit 0
