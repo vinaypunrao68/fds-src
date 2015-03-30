@@ -63,7 +63,7 @@ struct GetVolumeMetadataMsg {
  * Returns key-value metadata for the volume.
  */
 struct GetVolumeMetadataMsgRsp {
-  1: dm_types.FDSP_MetaDataPair metadata;
+  1: dm_types.FDSP_MetaDataList metadataList;
 }
 
 /**

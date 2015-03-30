@@ -82,6 +82,11 @@ class AmProcessor : public Module {
     void setVolumeMetadata(AmRequest *amReq);
 
     /**
+     * Processes a get volume metadata request
+     */
+    void getVolumeMetadata(AmRequest *amReq);
+
+    /**
      * Processes a abort blob transaction
      */
     void abortBlobTx(AmRequest *amReq);

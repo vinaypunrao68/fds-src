@@ -100,8 +100,16 @@ Error DmPersistVolDB::copyVolDir(const std::string & destName) {
 }
 
 Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
-    // TODO(Andrew): Fill in.
-    return ERR_OK;
+    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+
+    std::string value;
+    Error rc = catalog_->Query(keyRec, &value);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to get metadata volume: " << std::hex << volId_
+                 << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+    return volDesc.loadSerialized(value);
 }
 
 Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,

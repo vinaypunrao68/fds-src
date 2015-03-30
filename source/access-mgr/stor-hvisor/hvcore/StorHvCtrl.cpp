@@ -397,6 +397,10 @@ processBlobReq(AmRequest *amReq) {
             storHvisor->amProcessor->setVolumeMetadata(amReq);
             break;
 
+        case fds::FDS_GET_VOLUME_METADATA:
+            storHvisor->amProcessor->getVolumeMetadata(amReq);
+            break;
+
         case fds::FDS_DELETE_BLOB:
             storHvisor->amProcessor->deleteBlob(amReq);
             break;
