@@ -175,6 +175,7 @@
         - nbd-client
         - fio
         - python-coverage-test-runner
+        - python-mock
 
     - name: install pip packages
       pip: name={{item}} state=present
