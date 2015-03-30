@@ -136,7 +136,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc)
             /** Create queue and register with QoS */
             FDS_VolumeQueue* queue {nullptr};
             if (vdesc.isSnapshot()) {
-                LOGDEBUG << "Volume is a snapshot";
+                LOGDEBUG << "Volume is a snapshot : [0x" << std::hex << vol_uuid << "]";
                 queue = qos_ctrl->getQueue(vdesc.qosQueueId);
             }
             if (!queue) {
@@ -154,17 +154,22 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc)
                                       this->enqueueRequest(amReq);
                                   });
                 volume_map[vol_uuid] = std::move(new_vol);
+
+                LOGNOTIFY << "AmVolumeTable - Register new volume " << vdesc.name << " "
+                          << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
+                          << " (iops_min=" << vdesc.iops_min << ", iops_max="
+                          << vdesc.iops_max <<", prio=" << vdesc.relativePrio << ")"
+                          << " result: " << err.GetErrstr();
             } else {
-                LOGERROR << "Volume failed to register: " << err;
+                LOGERROR << "Volume failed to register : [0x"
+                         << std::hex << vol_uuid << "]"
+                         << " because: " << err;
             }
+        } else {
+            LOGNOTIFY << "Volume already registered: [0x" << std::hex << vol_uuid << "]";
         }
     }
 
-    LOGNOTIFY << "AmVolumeTable - Register new volume " << vdesc.name << " "
-              << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
-              << " (iops_min=" << vdesc.iops_min << ", iops_max="
-              << vdesc.iops_max <<", prio=" << vdesc.relativePrio << ")"
-              << " result: " << err.GetErrstr();
     return err;
 }
 
