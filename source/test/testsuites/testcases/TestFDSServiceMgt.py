@@ -495,10 +495,9 @@ class TestDMActivate(TestCase.FDSTestCase):
         if self.passedNode is None:
             self.log.info("Activate domain DMs from OM node %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e dm > '
-                                                '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, log_dir),
-                                                fds_bin=True)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local dm > '
+                                                '{}/fdsconsole.out 2>&1) \"'.format(log_dir),
+                                                fds_tools=True)
         else:
             node = self.passedNode
 
@@ -855,10 +854,9 @@ class TestSMActivate(TestCase.FDSTestCase):
         if self.passedNode is None:
             self.log.info("Activate domain SMs from OM node %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e sm > '
-                                                '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, log_dir),
-                                                fds_bin=True)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local sm > '
+                                                '{}/fdsconsole.out 2>&1) \"'.format(log_dir),
+                                                fds_tools=True)
         else:
             node = self.passedNode
 
@@ -1766,10 +1764,9 @@ class TestAMActivate(TestCase.FDSTestCase):
         if self.passedNode is None:
             self.log.info("Activate domain AMs from OM node %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e am > '
-                                                '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, log_dir),
-                                                fds_bin=True)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local am > '
+                                                '{}/cli.out 2>&1) \"'.format(log_dir),
+                                                fds_tools=True)
         else:
             node = self.passedNode
 

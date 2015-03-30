@@ -377,7 +377,7 @@ class FdsNodeConfig(FdsConfig):
                 log.error("Results from service list:\n%s." % stdout)
                 status = -1
             else:
-                log.debug("Node %s has assigned name %s and UUID 0x%s." %
+                log.debug("Node %s has assigned name %s and UUID %s." %
                           (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
         else:
             log.error("status = %s" % status)
