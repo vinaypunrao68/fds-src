@@ -300,7 +300,6 @@ public class S3SmokeTest {
         assertEquals(sourceEtag, destinationEtag);
     }
 
-    @Ignore("unblocking master build")
     @Test
     public void Snapshot() {
         putSomeData(userBucket, 0, 10, randomBytes);
