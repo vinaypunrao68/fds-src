@@ -14,7 +14,7 @@ public enum ManagerType
   FDSP_PLATFORM( ModelResource.getString( "fdsp.platform.manager.displayable" ) ),
   FDSP_STOR_MGR( ModelResource.getString( "fdsp.storage.manager.displayable" ) ),
   FDSP_DATA_MGR( ModelResource.getString( "fdsp.data.manager.displayable" ) ),
-  FDSP_STOR_HVISOR( ModelResource.getString( "fdsp.storage.hypervisor.displayable" ) ),
+  FDSP_ACCESS_MGR( ModelResource.getString( "fdsp.storage.hypervisor.displayable" ) ),
   FDSP_ORCH_MGR( ModelResource.getString( "fdsp.orchestrator.manager.displayable" ) ),
   FDSP_CLI_MGR( ModelResource.getString( "fdsp.cli.manager.displayable" ) ),
   FDSP_OMCLIENT_MGR( ModelResource.getString( "fdsp.om.client.manager.displayable" ) ),

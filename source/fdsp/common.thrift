@@ -97,7 +97,7 @@ enum FDSP_MgrIdType {
     FDSP_PLATFORM       = 0x0,
     FDSP_STOR_MGR       = 0x1,
     FDSP_DATA_MGR       = 0x2,
-    FDSP_STOR_HVISOR    = 0x3, /* AM */
+    FDSP_ACCESS_MGR     = 0x3,
     FDSP_ORCH_MGR       = 0x4,
     FDSP_CLI_MGR        = 0x5,
     FDSP_OMCLIENT_MGR   = 0x6,

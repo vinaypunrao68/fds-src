@@ -88,6 +88,11 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
         const api_type::error_type &error,
         api_type::handle_type& requestId);
 
+    void getVolumeMetadataResp(
+        const api_type::error_type &error,
+        api_type::handle_type& requestId,
+        api_type::shared_meta_type& metadata);
+
     void getBlobResp(const api_type::error_type &error,
                      api_type::handle_type& requestId,
                      api_type::shared_buffer_type buf,
@@ -173,6 +178,8 @@ struct AmAsyncXdiRequest
     { api_type::volumeStatus(requestId, domainName, volumeName); }
     void setVolumeMetadata(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_meta_type& metadata)  // NOLINT
     { api_type::setVolumeMetadata(requestId, domainName, volumeName, metadata); }
+    void getVolumeMetadata(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
+    { api_type::getVolumeMetadata(requestId, domainName, volumeName); }
 
     // TODO(bszmyd): Tue 13 Jan 2015 04:00:24 PM PST
     // Delete these when we can. These are the synchronous forwarding.
@@ -207,6 +214,8 @@ struct AmAsyncXdiRequest
     void volumeStatus(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName)  // NOLINT
     { you_should_not_be_here(); }
     void setVolumeMetadata(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::map<std::string, std::string>& metadata)  // NOLINT
+    { you_should_not_be_here(); }
+    void getVolumeMetadata(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName)  // NOLINT
     { you_should_not_be_here(); }
 };
 

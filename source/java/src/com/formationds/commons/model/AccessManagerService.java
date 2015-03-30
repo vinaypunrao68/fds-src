@@ -19,6 +19,6 @@ public class AccessManagerService extends Service {
 
 	public AccessManagerService(){
 		
-		super( ManagerType.FDSP_STOR_HVISOR );
+		super( ManagerType.FDSP_ACCESS_MGR );
 	}
 }

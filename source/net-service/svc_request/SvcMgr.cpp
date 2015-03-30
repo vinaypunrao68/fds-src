@@ -112,7 +112,7 @@ fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
     } else if (svcName == "dm") {
         return fpi::FDSP_DATA_MGR;
     } else if (svcName == "am") {
-        return fpi::FDSP_STOR_HVISOR;
+        return fpi::FDSP_ACCESS_MGR;
     } else if (svcName == "om") {
         return fpi::FDSP_ORCH_MGR;
     } else if (svcName == "console") {
@@ -134,7 +134,7 @@ std::string SvcMgr::mapToSvcName(const fpi::FDSP_MgrIdType &svcType)
         return "sm";
     case fpi::FDSP_DATA_MGR:
         return "dm";
-    case fpi::FDSP_STOR_HVISOR:
+    case fpi::FDSP_ACCESS_MGR:
         return "am";
     case fpi::FDSP_ORCH_MGR:
         return "om";

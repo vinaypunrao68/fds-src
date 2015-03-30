@@ -70,6 +70,19 @@ class AmDispatcher : public Module, public boost::noncopyable {
                              boost::shared_ptr<std::string> payload);
 
     /**
+     * Dispatches a get volume metadata request.
+     */
+    void dispatchGetVolumeMetadata(AmRequest *amReq);
+
+    /**
+     * Callback for get volume metadata responses.
+     */
+    void getVolumeMetadataCb(AmRequest* amReq,
+                             FailoverSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload);
+
+    /**
      * Aborts a blob transaction request.
      */
     void dispatchAbortBlobTx(AmRequest *amReq);

@@ -157,7 +157,7 @@ namespace fds
 
             static inline int plf_get_my_am_svc_uuid(fpi::SvcUuid *uuid)
             {
-                return plf_get_my_node_svc_uuid(uuid, fpi::FDSP_STOR_HVISOR);
+                return plf_get_my_node_svc_uuid(uuid, fpi::FDSP_ACCESS_MGR);
             }
 
             static inline int plf_get_my_sm_svc_uuid(fpi::SvcUuid *uuid)

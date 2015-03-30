@@ -99,9 +99,7 @@ def suiteConstruction(self, action="installbootactivate"):
                 specifiedServices = True
                 break
 
-        # Not doing TestDomainActivate for a multi-node
-        # domain allows us to avoid FS-879.
-        if specifiedServices or (len(fdscfg.rt_obj.cfg_nodes) > 1):
+        if specifiedServices:
             # Activate the domain one node at a time with configured services.
             suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
         else:
