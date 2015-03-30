@@ -32,9 +32,23 @@ function performance_report
    fi
 }
 
+function python_unit_tests
+{
+   message "RUNNING PYTHON UNIT TESTS"
+
+   # Run Unit Test
+   cd ${root_dir}/jenkins_scripts
+   start_time=$(date +%s)
+   ./run-python-unit-tests.sh
+   [[ $? -ne 0 ]] && echo "PYTHON UNIT TESTS:  FAILED" && exit 98
+   end_time=$(date +%s)
+   performance_report PYTHON_UNIT_TESTS $(( ${end_time} - ${start_time} ))
+   cd -
+}
+
 function unit_tests
 {
-   message "RUNNING UNIT TEST"
+   message "RUNNING UNIT TESTS"
 
    # Run Unit Test
    cd ${root_dir}/jenkins_scripts
@@ -62,7 +76,8 @@ function system_tests
 
 root_dir=$(pwd)
 
-unit_tests
-system_tests
+python_unit_tests
+#unit_tests
+#system_tests
 
 exit 0
