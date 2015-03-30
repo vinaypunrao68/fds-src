@@ -73,6 +73,12 @@ fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
     // Check if we're over threshold now
     fds_uint64_t newConsumed = consumedSSDCapacity[arrId] + writeSize;
     fds_uint64_t capThresh = maxSSDCapacity[arrId] * (fullThreshold / 100.);
+    // we use fullThreshold to keep some space on SSD for tiering engine
+    // to move hot data there. However, if this is an all-SSD config, there is
+    // no tiering and we want to use full SSD capacity
+    if (getTotalDisks(diskio::diskTier) == 0) {
+        capThresh = maxSSDCapacity[arrId];
+    }
     if (newConsumed > capThresh) {
         LOGDEBUG << "SSD write would exceed full threshold: Threshold: "
                     << capThresh << " current usage: " << consumedSSDCapacity[arrId]

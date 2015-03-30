@@ -253,6 +253,9 @@ TEST_F(SmObjectStoreTest, one_thread_dup_puts) {
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
         err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
+        if (!err.ok()) {
+            std::cout << oid << " putObject returned " << err << std::endl;
+        }
     }
 }
 
