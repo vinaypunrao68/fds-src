@@ -187,6 +187,7 @@
         - httplib2
         - docker-py
         - psutil
+        - fstab
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
