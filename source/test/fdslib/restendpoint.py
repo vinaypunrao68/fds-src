@@ -248,34 +248,43 @@ class VolumeEndpoint:
         self.rest = rest
         self.rest_path = self.rest.base_path + '/api/config/volumes'
 
-    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
+    def createVolume(self, volume_name, priority, sla, limit, vol_type, size=10*1024, unit="MB", 
+                    media_policy='hdd', commit_log_retention=86400, max_object_size=0):
 
-	assert vol_type == "object" or vol_type == "block", "vol_type must be either 'block' or 'object'"
+        if vol_type == "object":
+            data_connector = {"api":"S3,Swift","type":"OBJECT"}
+        elif vol_type == "block":
+            data_connector = { "api":"Basic,Cinder",
+                               "type":"BLOCK",
+                               "attributes":{
+                                    "size": str(size),
+                                    "unit": unit
+                                    }
+                             }
+        else:
+            raise Exception("This vol_type is not defined: " + vol_type)
 
-        volume_info = {
-            'name' : volume_name,
-            'priority' : int(priority),
-            'max_object_size': int(max_object_size),
-            'sla': int(sla),
-            'limit': int(limit),
-            'data_connector': {
-                'type': vol_type,
-                'attributes': {
-                    'size': size,
-                    'unit': unit
-                }
-            }
+        if media_policy == "hdd":
+            media_policy = "HDD_ONLY"
+        elif media_policy == "ssd":
+            media_policy = "SSD_ONLY"
+        elif media_policy == "hybrid":
+            media_policy = "HYBRID_ONLY"
+        else:
+            raise Exception("This media_policy is not defined: " + media_policy)
+
+        request= {
+             'name' : volume_name,
+             'priority' : int(priority),
+             'sla': int(sla),
+             'limit': int(limit),
+             'data_connector': data_connector,
+            'mediaPolicy': media_policy,
+            'commit_log_retention': commit_log_retention,
+            'max_object_size' : max_object_size,
         }
-#new rest api
-#             'name' : volume_name,
-#             'priority' : int(priority),
-#             'sla': int(sla),
-#             'limit': int(limit),
-#             'data_connector': data_connector,
-#            'media_policy': 'HDD_ONLY',
-#            'commit_log_retention': 86400
-#        }
-        res = self.rest.post(self.rest_path, data=json.dumps(volume_info))
+
+        res = self.rest.post(self.rest_path, data=json.dumps(request))
         res = self.rest.parse_result(res)
 
         if type(res) != dict or 'status' not in res:
