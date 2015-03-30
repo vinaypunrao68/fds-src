@@ -126,6 +126,16 @@ AmProcessor::setVolumeMetadata(AmRequest *amReq) {
 }
 
 void
+AmProcessor::getVolumeMetadata(AmRequest *amReq) {
+    fiu_do_on("am.uturn.processor.getVolMetadata",
+              respond_and_delete(amReq, ERR_OK); \
+              return;);
+
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+    amDispatcher->dispatchGetVolumeMetadata(amReq);
+}
+
+void
 AmProcessor::abortBlobTx(AmRequest *amReq) {
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, amReq);
     amDispatcher->dispatchAbortBlobTx(amReq);
