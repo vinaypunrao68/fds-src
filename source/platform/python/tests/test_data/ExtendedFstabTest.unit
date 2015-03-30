@@ -1,2 +1,4 @@
 #  Test fstab
 UUID=e1b56c44-dddd-4e4f-9bd5-73ddddddd707 /               ext4    errors=remount-ro 0       1
+UUID=cazzoomar   /fds/sys-repo/sm   xfs   noauto   0 2
+UUID=cazzoomar   /fds/sys-repo/dm   xfs   noauto   0 2

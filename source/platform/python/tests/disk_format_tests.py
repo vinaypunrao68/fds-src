@@ -560,8 +560,8 @@ class testDiskManager (unittest.TestCase):
     def setUp (self, mock_os):
         mock_os.getuid.return_value = 0
         self.manager = disk_format.DiskManager()
-        self.manager.process_command_line()
-        pass
+        self.manager.process_command_line(['--map', 'test_data/disk-config.conf'])
+
 
     def testDiskManagerLoadDiskConfigInvalid (self):
         self.manager.disk_config_file = 'test_data/disk_config.invalid'
@@ -570,6 +570,15 @@ class testDiskManager (unittest.TestCase):
 
         assert 4 == len (self.manager.disk_list)
         self.assertEqual (cm.exception.code, 8)
+
+
+    @mock.patch ('disk_format.os')
+    def testDiskManagerNoCliArgs (self, mock_os):
+        mock_os.getuid.return_value = 0
+        self.manager.process_command_line()      # override the setUp version of the command line
+        self.manager.load_disk_config_file()
+
+        assert 5 == len (self.manager.disk_list)
 
 
     def testDiskManagerLoadDiskConfig (self):
@@ -799,7 +808,7 @@ class testDiskManager (unittest.TestCase):
         mock_os.getuid.return_value = 0
 
         with self.assertRaises (SystemExit) as cm:
-            self.manager.process_command_line (['--fds-root', '/foo', '--map', '/fds/disk-config.conf'])
+            self.manager.process_command_line (['--fds-root', '/foo', '--map', 'test_data/disk-config.conf'])
         self.assertEqual (cm.exception.code, 8)
 
 
@@ -811,7 +820,7 @@ class testDiskManager (unittest.TestCase):
 
         mock_os.getuid.return_value = 0
 
-        disk_map = '/fds/disk-config.conf'
+        disk_map = 'test_data/disk-config.conf'
 
         self.manager.process_command_line (['--map', disk_map])
 
