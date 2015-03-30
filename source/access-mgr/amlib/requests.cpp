@@ -6,12 +6,17 @@
 #include <string>
 
 #include "requests/requests.h"
-
-#include "StorHvCtrl.h"
-#include "StorHvQosCtrl.h"
+#include "AmCounters.h"
+#include "fds_process.h"
 
 namespace fds
 {
+
+std::unique_ptr<AMCounters> counters { nullptr };
+std::once_flag counter_flag;
+
+void init_counters()
+{ counters.reset(new AMCounters("AM", g_fdsprocess->get_cntrs_mgr().get())); }
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
@@ -43,7 +48,8 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
 
 GetBlobReq::~GetBlobReq()
 {
-    storHvisor->getCounters().gets_latency.update(stopwatch.getElapsedNanos());
+    std::call_once(counter_flag, &init_counters);
+    counters->gets_latency.update(stopwatch.getElapsedNanos());
 }
 
 PutBlobReq::PutBlobReq(fds_volid_t _volid,
@@ -125,7 +131,8 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
 
 PutBlobReq::~PutBlobReq()
 {
-    storHvisor->getCounters().puts_latency.update(stopwatch.getElapsedNanos());
+    std::call_once(counter_flag, &init_counters);
+    counters->puts_latency.update(stopwatch.getElapsedNanos());
 }
 
 void

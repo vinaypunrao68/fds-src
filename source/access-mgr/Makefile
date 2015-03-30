@@ -5,13 +5,10 @@ speedup           = -j $(threads)
 user_build_dir    := \
     include \
     amlib \
-    stor-hvisor \
     connector \
     test
 
-user_incl_dir     := \
-	stor-hvisor \
-	include
+user_incl_dir     := include
 
 user_fds_ar_libs  :=  \
     fds-qos-lib \
