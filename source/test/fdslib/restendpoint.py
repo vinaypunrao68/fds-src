@@ -281,7 +281,9 @@ class VolumeEndpoint:
              'data_connector': data_connector,
             'mediaPolicy': media_policy,
             'commit_log_retention': commit_log_retention,
+            'max_object_size' : max_object_size,
         }
+        print "request:", json.dumps(request)
         res = self.rest.post(self.rest_path, data=json.dumps(request))
         res = self.rest.parse_result(res)
 

@@ -85,7 +85,7 @@ class VolumeContext(Context):
     @arg('--commit-log-retention', help= " continuous commit log retention time in seconds", type=long)
     @arg('--media-policy', help='-media policy for volume', choices=['ssd', 'hdd', 'hybrid'])
     def create(self, vol_name, domain='abc', priority=10, minimum=0, maximum=0, max_obj_size=0,
-               vol_type='object', blk_dev_size=21474836480, tenant_id=1, commit_log_retention=86400, media_policy='HDD_ONLY'):
+               vol_type='object', blk_dev_size=21474836480, tenant_id=1, commit_log_retention=86400, media_policy='hdd'):
         
         try:
             res = self.volEp.createVolume(vol_name,
