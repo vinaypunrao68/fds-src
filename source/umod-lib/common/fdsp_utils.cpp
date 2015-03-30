@@ -255,6 +255,10 @@ std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg) {
     return "SetVolumeMetadataMsg";
 }
 
+std::string logString(const FDS_ProtocolInterface::GetVolumeMetadataMsgRsp& msg) {
+    return "GetVolumeMetadataMsgRsp";
+}
+
 std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg) {
     return "StatVolumeMsg";
 }

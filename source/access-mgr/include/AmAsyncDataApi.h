@@ -73,6 +73,10 @@ class AmAsyncDataApi {
                            shared_string_type& volumeName,
                            shared_meta_type& metadata);
 
+    void getVolumeMetadata(handle_type& requestId,
+                           shared_string_type& domainName,
+                           shared_string_type& volumeName);
+
     void statBlob(handle_type& requestId,
                   shared_string_type& domainName,
                   shared_string_type& volumeName,

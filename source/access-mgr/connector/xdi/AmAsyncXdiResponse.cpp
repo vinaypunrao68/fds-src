@@ -314,6 +314,27 @@ AmAsyncXdiResponse::setVolumeMetadataResp(const Error &error,
 }
 
 void
+AmAsyncXdiResponse::getVolumeMetadataResp(const Error &error,
+                                          boost::shared_ptr<apis::RequestId>& requestId,
+                                          api_type::shared_meta_type& metadata) {
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<fpi::ErrorCode> errorCode(
+            boost::make_shared<fpi::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        if (ERR_CAT_ENTRY_NOT_FOUND == error) {
+            *errorCode = fpi::MISSING_RESOURCE;
+        }
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+        XDICLIENTCALL(asyncRespClient, getVolumeMetadataResponse(requestId, metadata));
+    }
+}
+
+void
 AmAsyncXdiResponse::getBlobResp(const Error &error,
                                 boost::shared_ptr<apis::RequestId>& requestId,
                                 boost::shared_ptr<std::string> buf,

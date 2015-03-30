@@ -134,6 +134,23 @@ void AmAsyncDataApi<H>::setVolumeMetadata(H& requestId,
 }
 
 template<typename H>
+void AmAsyncDataApi<H>::getVolumeMetadata(H& requestId,
+                                          shared_string_type& domainName,
+                                          shared_string_type& volumeName) {
+    // Closure for response call
+    auto closure = [p = responseApi, requestId](GetVolumeMetadataCallback* cb, Error const& e) mutable -> void {
+        p->getVolumeMetadataResp(e, requestId, cb->metadata);
+    };
+
+    auto callback = create_async_handler<GetVolumeMetadataCallback>(std::move(closure));
+
+    AmRequest *blobReq = new GetVolumeMetadataReq(invalid_vol_id,
+                                                  *volumeName,
+                                                  callback);
+    amProcessor->enqueueRequest(blobReq);
+}
+
+template<typename H>
 void AmAsyncDataApi<H>::statBlob(H& requestId,
                                  shared_string_type& domainName,
                                  shared_string_type& volumeName,
