@@ -43,7 +43,7 @@
 {% set sm_cache_default_data_entries = fds_sm_cache_default_data_entries if fds_sm_cache_default_data_entries is defined else '0' %}
 {% set sm_tiering_hybrid_batchsz = fds_sm_tiering_hybrid_batchsz if fds_sm_tiering_hybrid_batchsz is defined else '1024' %}
 {% set sm_tiering_hybrid_frequency = fds_sm_tiering_hybrid_frequency if fds_sm_tiering_hybrid_frequency is defined else '172800' %}
-{% set sm_tiering_hybrid_enable = fds_sm_tiering_hybrid_enable if fds_sm_tiering_hybrid_enable is defined else 'false' %}
+{% set sm_tiering_hybrid_enable = fds_sm_tiering_hybrid_enable if fds_sm_tiering_hybrid_enable is defined else 'true' %}
 {#
    fds.am. specific entries
 #}
