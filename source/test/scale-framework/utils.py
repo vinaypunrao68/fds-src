@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
 
-def create_s3_connection(om_ip, am_ip):
+def create_s3_connection(om_ip, am_ip, auth=None):
     '''
     Given the two ip addresses (OM and AM nodes), establish a S3 connection to
     the FDS cluster
@@ -44,7 +44,7 @@ def create_s3_connection(om_ip, am_ip):
     '''
     s3conn = s3.S3Connection(
             config.FDS_DEFAULT_ADMIN_USER,
-            None,
+            auth,
             om_ip,
             config.FDS_S3_PORT,
             am_ip
