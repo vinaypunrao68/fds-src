@@ -560,8 +560,8 @@ class testDiskManager (unittest.TestCase):
     def setUp (self, mock_os):
         mock_os.getuid.return_value = 0
         self.manager = disk_format.DiskManager()
-        self.manager.process_command_line()
-        pass
+        self.manager.process_command_line(['--map', 'test_data/disk-config.conf'])
+
 
     def testDiskManagerLoadDiskConfigInvalid (self):
         self.manager.disk_config_file = 'test_data/disk_config.invalid'
@@ -570,6 +570,14 @@ class testDiskManager (unittest.TestCase):
 
         assert 4 == len (self.manager.disk_list)
         self.assertEqual (cm.exception.code, 8)
+
+
+    @mock.patch ('disk_format.os')
+    def testDiskManagerNoCliArgs (self, mock_os):
+        mock_os.getuid.return_value = 0
+        self.manager.process_command_line()      # override the setUp version of the command line
+
+        assert 20 == len (self.manager.options.disk_config_file)
 
 
     def testDiskManagerLoadDiskConfig (self):
@@ -759,7 +767,7 @@ class testDiskManager (unittest.TestCase):
         popen_mock.stdout = ['/dev/idxa2', '/dev/idxb2']
         mock_popen.return_value = popen_mock
 
-        self.manager.process_command_line(['--format'])
+        self.manager.process_command_line(['--format', '--map', 'test_data/disk-config.conf'])
 
         with self.assertRaises (SystemExit) as cm:
             self.manager.process()
@@ -774,7 +782,7 @@ class testDiskManager (unittest.TestCase):
         mock_os.getuid.return_value = 0
 
         with self.assertRaises (SystemExit) as cm:
-            self.manager.process_command_line(['--device', '/dev/foo'])
+            self.manager.process_command_line(['--device', '/dev/foo', '--map', 'test_data/disk-config.conf'])
         self.assertEqual (cm.exception.code, 8)
 
 
@@ -799,7 +807,7 @@ class testDiskManager (unittest.TestCase):
         mock_os.getuid.return_value = 0
 
         with self.assertRaises (SystemExit) as cm:
-            self.manager.process_command_line (['--fds-root', '/foo', '--map', '/fds/disk-config.conf'])
+            self.manager.process_command_line (['--fds-root', '/foo', '--map', 'test_data/disk-config.conf'])
         self.assertEqual (cm.exception.code, 8)
 
 
@@ -811,7 +819,7 @@ class testDiskManager (unittest.TestCase):
 
         mock_os.getuid.return_value = 0
 
-        disk_map = '/fds/disk-config.conf'
+        disk_map = 'test_data/disk-config.conf'
 
         self.manager.process_command_line (['--map', disk_map])
 
@@ -838,7 +846,7 @@ class testDiskManager (unittest.TestCase):
         popen_mock.stdout = ['/dev/idxa2', '/dev/idxb2']
         mock_popen.return_value = popen_mock
 
-        self.manager.process_command_line(['--format', '--reset', '--fstab', 'test_data/ExtendedFstabTest.unit'])
+        self.manager.process_command_line(['--format', '--reset', '--fstab', 'test_data/ExtendedFstabTest.unit', '--map', 'test_data/disk-config.conf'])
 
         self.manager.process()
 

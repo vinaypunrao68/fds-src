@@ -1,26 +1,71 @@
 ---
 -   name: Provision 4-node FDS cluster in EC2
     connection: local
+    vars:
+       ec2_hosts:
+          node1:
+             address: 10.3.20.80
+             hostname: "node1"
+          node2:
+             address: 10.3.20.81
+             hostname: "node2"
+          node3:
+             address: 10.3.20.82
+             hostname: "node3"
+          node4:
+             address: 10.3.20.83
+             hostname: "node4"
+          node5:
+             address: 10.3.20.84
+             hostname: "node5"
+          node6:
+             address: 10.3.20.85
+             hostname: "node6"
+          node7:
+             address: 10.3.20.86
+             hostname: "node7"
+          node8:
+             address: 10.3.20.87
+             hostname: "node8"
+          node9:
+             address: 10.3.20.88
+             hostname: "node9"
+          node10:
+             address: 10.3.20.89
+             hostname: "node10"
+          node11:
+             address: 10.3.20.90
+             hostname: "node11"
+          node12:
+             address: 10.3.20.91
+             hostname: "node12"
+          node13:
+             address: 10.3.20.92
+             hostname: "node13"
+          node14:
+             address: 10.3.20.93
+             hostname: "node14"
+          node15:
+             address: 10.3.20.94
+             hostname: "node15"
+          node16:
+             address: 10.3.20.95
+             hostname: "node16"
     hosts: localhost
     gather_facts: False
     vars_files:
     -   ../vars_files/credentials/aws_fds_testing.yml
     -   ../vars_files/credentials/fds-deploy_rsa.yml
-    vars:
-    -   instance_type: "{% if ec2_instance_type is defined %}{{ ec2_instance_type }}{% else %}t2.medium{% endif %}"
-    -   root_volume_size_GB: "{% if ec2_root_volume_size_GB is defined %}{{ ec2_root_volume_size_GB }}{% else %}30{% endif %}"
-    -   vpc_subnet_id: "{% if ec2_vpc_subnet_id is defined %}{{ ec2_vpc_subnet_id }}{% else %}subnet-195bac40{% endif %}"
-    -   image: "{% if ec2_image is defined %}{{ ec2_image }}{% else %}ami-0f114a3f{% endif %}"
 
     tasks:
 
-    -   name: check for required variables
-        fail: 
-            msg: "You must supply a value for {{ item }}"
-        when: "{{ item }} is not defined"
-        with_items:
-            - instance_count
-            - instance_name_tag
+    -   name: check for instance_name_tag
+        fail: msg="You must supply a value for instance_name_tag"
+        when: instance_name_tag is not defined
+
+    # -   name: check for instance_count
+    #     fail: msg="You must supply a value for instance_count"
+    #     when: instance_count is not defined
 
     -   name: copy FDS deploy key locally
         include: ../tasks/deploy_fds/copy_fds_deploy_key.yml
@@ -32,30 +77,32 @@
             instance_tags:
                 Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
-            exact_count: "{{ instance_count }}"
+            private_ip: "{{ item.value.address }}"
             count_tag:
                 Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
             key_name: fds-ie
             group_id: sg-43b9c126
-            instance_type:  "{{ instance_type }}"
-            image: "{{ image }}"
+            instance_type: t2.medium
+            image: ami-0f114a3f
             volumes:
                 -   device_name: /dev/sda1
-                    volume_size: "{{ root_volume_size_GB }}"
+                    volume_size: 30
                     delete_on_termination: true
-            vpc_subnet_id: "{{ vpc_subnet_id }}"
+            vpc_subnet_id: subnet-195bac40
             monitoring: no
             region: us-west-2
             zone: us-west-2c
-            wait: yes
+            wait: no
         register: ec2
         tags: provision
+        with_dict: ec2_hosts
+        ignore_errors: True
 
-    -   name: Add all instance public IPs to host group
-        add_host: hostname={{ item.private_ip }} groupname={{ fds_cluster_name }} 
-        with_items: ec2.tagged_instances
-        tags: provision
+    # -   name: Add all instance public IPs to host group
+    #     add_host: hostname={{ item.private_ip }} groupname={{ fds_cluster_name }}
+    #     with_items: ec2.tagged_instances
+    #     tags: provision
 
 -   hosts: awo-bh-01
     name: stage debs on awo-bh-01 and wait for cluster to be available for deployment
@@ -65,7 +112,7 @@
     tags: wait
 
     tasks:
- 
+
     -   name: set variable build defined in inventory file (release or debug)
         set_fact:
             build: "{% if fds_build is defined and fds_build == 'debug' %}dbg{% else %}rel{% endif %}"
@@ -73,6 +120,13 @@
           - install-local
 
     -   name: create staging directory on awo-bh-01 to house local fds_platform deb
+        when: deploy_artifact == "local"
+        file: path=/home/deploy/deb_staging/{{ instance_name_tag }}
+                state=directory
+        tags:
+          - install-local
+
+    -   name: stage local fds-platform deb on awo-bh-01
         when: deploy_artifact == "local"
         file: path=/home/deploy/deb_staging/{{ instance_name_tag }}
                 state=directory
@@ -101,14 +155,13 @@
         wait_for: host={{ item }} port=22 delay=1 timeout=300 state=started
         with_items: groups.{{ fds_cluster_name }}
 
-
 -   name: Deploy FDS
     hosts: "{{ fds_cluster_name }}"
     remote_user: deploy
     gather_facts: true
     sudo: true
     vars:
-        this_is_an_ec2_node: true
+       this_is_an_ec2_node: true
     vars_files:
     -   ../vars_files/multi_om_setup.yml
     -   ../vars_files/credentials/ssl_certs.yml
