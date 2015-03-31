@@ -24,7 +24,3 @@ for p in $policies ; do
     sleep 5
 done
 
-echo "Results"
-for p in $policies ; do
-    echo $outdir $p `grep iops $outdir/out.$p | sed -e 's/[ ,=:]/ /g' | awk '{e+=$7}END{print e}'`
-done

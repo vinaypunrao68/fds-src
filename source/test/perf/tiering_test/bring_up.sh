@@ -22,7 +22,7 @@ cp .tmp $WORKSPACE/ansible/inventory/$config
 # bring up fds
 echo "Bring up FDS"
 pushd $WORKSPACE/ansible
-./scripts/deploy_fds.sh $config local
+./scripts/deploy_fds.sh $config nightly
 echo "Sleep for one minute more..."
 sleep 60
 popd
