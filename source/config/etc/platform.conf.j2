@@ -349,7 +349,7 @@ fds: {
         }
 	tiering: {
 	    hybrid: {
-	        enable 		= false
+	        enable 		= {{ sm_tiering_hybrid_enable }}
 		/* Number of objects to move at a time */
 		batchSz 	= {{ sm_tiering_hybrid_batchsz }}
 		/* In seconds to make testing easier (default 172800s = 2days) */

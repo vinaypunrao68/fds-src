@@ -1,8 +1,8 @@
 #!/bin/bash
 outdir=$1
 tools=/fds/sbin
-policies="hdd ssd hybrid"
-# policies="hybrid"
+# policies="hdd ssd hybrid"
+policies="hybrid"
 
 machines="luke han c3po chewie"
 
@@ -26,5 +26,5 @@ done
 
 echo "Results"
 for p in $policies ; do
-    echo $p `grep iops results/out.$p | sed -e 's/[ ,=:]/ /g' | awk '{e+=$7}END{print e}'`
+    echo $outdir $p `grep iops $outdir/out.$p | sed -e 's/[ ,=:]/ /g' | awk '{e+=$7}END{print e}'`
 done
