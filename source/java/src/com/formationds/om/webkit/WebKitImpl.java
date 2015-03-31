@@ -5,21 +5,19 @@
 package com.formationds.om.webkit;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.webkit.rest.*;
-import com.formationds.om.webkit.rest.domain.PostLocalDomain;
-import com.formationds.om.webkit.rest.domain.GetLocalDomains;
-import com.formationds.om.webkit.rest.domain.PutLocalDomain;
-import com.formationds.om.webkit.rest.domain.PutThrottle;
-import com.formationds.om.webkit.rest.domain.PutScavenger;
 import com.formationds.om.webkit.rest.domain.DeleteLocalDomain;
 import com.formationds.om.webkit.rest.domain.GetLocalDomainServices;
+import com.formationds.om.webkit.rest.domain.GetLocalDomains;
+import com.formationds.om.webkit.rest.domain.PostLocalDomain;
+import com.formationds.om.webkit.rest.domain.PutLocalDomain;
 import com.formationds.om.webkit.rest.domain.PutLocalDomainServices;
+import com.formationds.om.webkit.rest.domain.PutScavenger;
+import com.formationds.om.webkit.rest.domain.PutThrottle;
 import com.formationds.om.webkit.rest.events.IngestEvents;
 import com.formationds.om.webkit.rest.events.QueryEvents;
 import com.formationds.om.webkit.rest.metrics.IngestVolumeStats;
@@ -51,14 +49,12 @@ import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
-
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.servlet.http.HttpServletResponse;
-
 import java.util.function.Function;
 
 /**
@@ -364,9 +360,6 @@ public class WebKitImpl {
     }
 
     private void metrics( ) {
-        if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
-            return;
-        }
 
         logger.trace( "registering metrics endpoints" );
         metricsGets();
@@ -390,7 +383,6 @@ public class WebKitImpl {
     }
 
     private void tenants( SecretKey secretKey, Authorizer authorizer ) {
-        //TODO: Add feature toggle
 
         fdsAdminOnly( HttpMethod.POST, "/api/system/tenants/:tenant",
                       ( t ) -> new CreateTenant(
@@ -420,9 +412,6 @@ public class WebKitImpl {
 
     private void snapshot( final ConfigurationApi config,
                            final FDSP_ConfigPathReq.Iface legacyConfigPath ) {
-        if( !FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive() ) {
-            return;
-        }
 
         /**
          * logical grouping for each HTTP method.
@@ -493,10 +482,6 @@ public class WebKitImpl {
     }
 
     private void events( ) {
-
-        if( !FdsFeatureToggles.ACTIVITIES_ENDPOINT.isActive() ) {
-            return;
-        }
 
         logger.trace( "registering activities endpoints" );
 
