@@ -99,20 +99,6 @@ public class ListVolumes implements RequestHandler {
 
 		return new JsonResource(jsonArray);
 	}
-	/*
-struct VolumeSettings {
-       1: required i32 maxObjectSizeInBytes,
-       2: required VolumeType volumeType,
-       3: required i64 blockDeviceSizeInBytes
-}
-
-struct VolumeDescriptor {
-       1: required string name,
-       2: required i64 dateCreated,
-       3: required VolumeSettings policy,
-       4: required i64 tenantId    // Added for multi-tenancy
-}
-	 */
 
 	private JSONObject toJsonObject( VolumeDescriptor v ) throws TException {
 		VolumeStatus status = null;
@@ -134,17 +120,17 @@ struct VolumeDescriptor {
 				status = optionalStatus.get();
 			}
 
-			// if the status is null, or empty, we check the values through the AM
-			// to make sure it's not just the absence of statistical reporting
+			/*
+			 * So there isn't any physical or blobs showing up in the
+			 * stat stream.
+			 */
 			if ( status == null || ( status.getCurrentUsageInBytes() == 0 ) ) {
 
 				/*
-				 * So there isn't any physical or number of blobs stored,
-				 *
 				 * Don't call the AM or the DM for volume status, current
 				 * implementation of statVolume is VERY EXPENSIVE!
 				 *
-				 * So just return
+				 * setting status to zero
 				 */
 				status = new VolumeStatus( 0, 0 );
 
