@@ -22,6 +22,7 @@ from subprocess import list2cmdline
 
 import config
 import config_parser
+import s3
 import samples
 
 
@@ -30,6 +31,26 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
+
+def create_s3_connection(om_ip, am_ip):
+    '''
+    Given the two ip addresses (OM and AM nodes), establish a S3 connection to
+    the FDS cluster
+
+    Attributes:
+    -----------
+    om_ip: The OM Node IP address
+    am_ip: the AM node IP address
+    '''
+    s3conn = s3.S3Connection(
+            config.FDS_DEFAULT_ADMIN_USER,
+            None,
+            om_ip,
+            config.FDS_S3_PORT,
+            am_ip
+    )
+    s3conn.s3_connect()
+    return s3conn
 
 def do_work(function, params):
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
