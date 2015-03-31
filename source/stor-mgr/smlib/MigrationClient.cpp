@@ -99,7 +99,8 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
     // forward to destination SM
     if (req->io_type == FDS_SM_PUT_OBJECT) {
         SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req);
-        LOGMIGRATE << "Forwarding " << *putReq;
+        LOGMIGRATE << "Forwarding " << *putReq
+                   << " to Uuid " << std::hex << destSMNodeID << std::dec;
         if (!testMode) {
             // Set the forwarded flag, so the destination can appropriately handle
             // forwarded request.
@@ -114,7 +115,8 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         }
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {
         SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
-        LOGMIGRATE << "Forwarding " << *delReq;
+        LOGMIGRATE << "Forwarding " << *delReq
+                   << " to Uuid " << std::hex << destSMNodeID << std::dec;
         if (!testMode) {
             // Set the forwarded flag, so the destination can appropriately handle
             // forwarded request.
