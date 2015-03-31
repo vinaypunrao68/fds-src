@@ -21,22 +21,7 @@
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
-			},
-			{
-				"name" : "TestBlockVolumeLargeNumberBlobs",
-				"file" : "test_block_volume_large_number_blobs.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestS3LargeNumberBlobs",
-				"file" : "test_S3_bucket_large_number_blobs.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
 			}
-			
 		]
 	}
 }
