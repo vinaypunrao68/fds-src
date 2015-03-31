@@ -1,28 +1,21 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
- #include <net/SvcRequest.h>
-#include <net/BaseAsyncSvcHandler.h>
 
 #include <AMSvcHandler.h>
 
+#include "net/SvcRequest.h"
 #include "AmProcessor.h"
-#include "StorHvCtrl.h"
-#include "StorHvQosCtrl.h"
-
-extern StorHvCtrl * storHvisor;
 
 namespace fds {
 
-extern StorHvQosCtrl *storHvQosCtrl;
-
-AccessMgr::unique_ptr am;
-
 AMSvcHandler::~AMSvcHandler() {}
-AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider)
+AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider,
+                           std::shared_ptr<AmProcessor> processor)
 // NOTE: SMSvcHandler should take fds_module_provider as a param so that we don't need
 // any globals
-    : PlatNetSvcHandler(provider)
+    : PlatNetSvcHandler(provider),
+      amProcessor(processor)
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyThrottle, SetThrottleLevel);
@@ -67,14 +60,13 @@ AMSvcHandler::QoSControl(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
 
     LOGNORMAL << "qos ctrl set total rate " << msg->qosctrl.total_rate;
 
-    if (am->isShuttingDown())
+    if (amProcessor->isShuttingDown())
     {
         LOGDEBUG << "Request rejected due to shutdown in progress.";
         err = ERR_SHUTTING_DOWN;
-    }
-    else
-    {
-        err = storHvQosCtrl->htb_dispatcher->modifyTotalRate(msg->qosctrl.total_rate);
+    } else {
+        auto rate = msg->qosctrl.total_rate;
+        err = amProcessor->updateQoS(&rate, nullptr);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -92,16 +84,12 @@ AMSvcHandler::SetThrottleLevel(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
 
     LOGNORMAL << " set throttle as " << msg->throttle.throttle_level;
 
-    if (am->isShuttingDown())
-    {
+    if (amProcessor->isShuttingDown()) {
         LOGDEBUG << "Request rejected due to shutdown in progress.";
         err = ERR_SHUTTING_DOWN;
-    }
-    else
-    {
-        // XXX ignore domain_id right now?
-        float  throttle_level = msg->throttle.throttle_level;
-        storHvQosCtrl->htb_dispatcher->setThrottleLevel(throttle_level);
+    } else {
+        float throttle_level = msg->throttle.throttle_level;
+        err = amProcessor->updateQoS(nullptr, &throttle_level);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -123,7 +111,7 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                << " for volume " << vdb->name << ":" << std::hex
                << vol_uuid << std::dec;
 
-    if (am->isShuttingDown())
+    if (amProcessor->isShuttingDown())
     {
         LOGDEBUG << "Request rejected due to shutdown in progress.";
         err = ERR_SHUTTING_DOWN;
@@ -134,7 +122,7 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         // If this channel has threadpool on this we do not block though.
         // A real nonblocking could install callback upon read-lock acquiring...
         // and continue on next step...
-        err = storHvisor->amProcessor->modifyVolumePolicy(vol_uuid, vdesc);
+        err = amProcessor->modifyVolumePolicy(vol_uuid, vdesc);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -154,7 +142,7 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     GLOGNOTIFY << "Received volume attach event from OM"
                        << " for volume " << std::hex << vol_uuid << std::dec;
 
-    if (am->isShuttingDown())
+    if (amProcessor->isShuttingDown())
     {
         LOGDEBUG << "Request rejected due to shutdown in progress.";
         err = ERR_SHUTTING_DOWN;
@@ -164,17 +152,11 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         VolumeDesc vdesc(vol_msg->vol_desc);
 
         if (vol_uuid != invalid_vol_id) {
-            err = storHvisor->amProcessor->registerVolume(vdesc);
-            // TODO(Anna) remove this assert when we implement response handling in AM
-            // for crete bucket, if err not ok, it is most likely QOS admission control issue
-            fds_verify(err.ok());
+            err = amProcessor->registerVolume(vdesc);
         } else {
             /* complete all requests that are waiting on bucket to attach with error */
-            GLOGNOTIFY << "Requested volume "
-                       << vdesc.name << " does not exist";
-            storHvisor->moveWaitBlobsToQosQueue(vol_uuid,
-                                                vdesc.name,
-                                                ERR_NOT_FOUND);
+            GLOGNOTIFY << "Requested volume " << vdesc.name << " does not exist";
+            amProcessor->removeVolume(vdesc);
         }
     }
 
@@ -196,14 +178,14 @@ AMSvcHandler::DetachVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     GLOGNOTIFY << "Received volume detach event from OM"
                << " for volume " << std::hex << vol_uuid << std::dec;
 
-    if (am->isShuttingDown())
+    if (amProcessor->isShuttingDown())
     {
         LOGDEBUG << "Request rejected due to shutdown in progress.";
         err = ERR_SHUTTING_DOWN;
     }
     else
     {
-        err = storHvisor->amProcessor->removeVolume(vol_uuid);
+        err = amProcessor->removeVolume(vol_msg->vol_desc);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -218,18 +200,14 @@ AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     LOGNOTIFY << "OMClient received notify DMT update " << hdr->msg_code;
 
-    if (am->isShuttingDown())
+    if (amProcessor->isShuttingDown())
     {
         LOGDEBUG << "Request rejected due to shutdown in progress.";
         err = ERR_SHUTTING_DOWN;
     }
     else
     {
-        err = storHvisor->om_client->updateDmt(msg->dmt_data.dmt_type, msg->dmt_data.dmt_data);
-        if (err == ERR_DUPLICATE) {
-            LOGWARN << "Received duplicate DMT version, ignoring";
-            err = ERR_OK;
-        }
+        err = amProcessor->updateDmt(msg->dmt_data.dmt_type, msg->dmt_data.dmt_data);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -248,29 +226,20 @@ AMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     LOGNOTIFY << "OMClient received new DLT commit version  "
             << dlt->dlt_data.dlt_type;
 
-    if (am->isShuttingDown())
+    if (amProcessor->isShuttingDown())
     {
         LOGDEBUG << "Request rejected due to shutdown in progress.";
         err = ERR_SHUTTING_DOWN;
     }
     else
     {
-        DLTManagerPtr dltMgr = storHvisor->om_client->getDltManager();
-        err = dltMgr->addSerializedDLT(dlt->dlt_data.dlt_data,
-                                       std::bind(
-                                           &AMSvcHandler::NotifyDLTUpdateCb,
-                                           this, hdr, dlt,
-                                           std::placeholders::_1),
-                                       dlt->dlt_data.dlt_type);
-        if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
-            // added DLT
-            dltMgr->dump();
-        } else if (err == ERR_DUPLICATE) {
-            LOGWARN << "Received duplicate DLT version, ignoring";
-            err = ERR_OK;
-        } else {
-            LOGERROR << "Failed to update DLT! Check dlt_data was set " << err;
-        }
+        err = amProcessor->updateDlt(dlt->dlt_data.dlt_type,
+                                                 dlt->dlt_data.dlt_data,
+                                                 std::bind(&AMSvcHandler::NotifyDLTUpdateCb,
+                                                           this,
+                                                           hdr,
+                                                           dlt,
+                                                           std::placeholders::_1));
     }
 
     // send response right away on error or if there is no IO pending for
@@ -307,7 +276,7 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       * Block any more requests.
       * Drain queues and allow outstanding requests to complete.
       */
-     am->setShutDown();
+     amProcessor->stop();
 
      /*
       * It's an async shutdown as we cleanup. So acknowledge the message now.

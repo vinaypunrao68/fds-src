@@ -12,6 +12,7 @@ import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -84,6 +85,11 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
     @Override
     public void setVolumeMetadataResponse(RequestId requestId) throws TException {
         complete(requestId, null);
+    }
+
+    @Override
+    public void getVolumeMetadataResponse(RequestId requestId, Map<String,String> metadata) throws TException {
+        complete(requestId, metadata);
     }
 
     @Override

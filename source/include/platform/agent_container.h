@@ -38,19 +38,6 @@ namespace fds
                 }
             }
 
-            void agent_foreach(void (*fn)(NodeAgent::pointer elm))
-            {
-                for (fds_uint32_t i = 0; i < rs_cur_idx; i++)
-                {
-                    NodeAgent::pointer    cur = agt_cast_ptr<NodeAgent>(rs_array[i]);
-
-                    if (rs_array[i] != NULL)
-                    {
-                        (*fn)(cur);
-                    }
-                }
-            }
-
             template <typename T1, typename T2>
             void agent_foreach(T1 a1, T2 a2, void (*fn)(T1, T2, NodeAgent::pointer elm))
             {

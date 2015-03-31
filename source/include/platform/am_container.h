@@ -17,7 +17,7 @@ namespace fds
 
             explicit AmContainer(FdspNodeType id) : AgentContainer(id)
             {
-                ac_id = fpi::FDSP_STOR_HVISOR;
+                ac_id = fpi::FDSP_ACCESS_MGR;
             }
 
         protected:

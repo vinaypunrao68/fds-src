@@ -2,87 +2,10 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
-				"name" : "TestMixedBlocks",
-				"file" : "test_mixed_blocks.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestDifferentBlobSizes",
-				"file" : "test_different_blob_sizes.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "Test100GBBlockVolume",
-				"file" : "test_100gb_block_volume.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "Test100GBS3Bucket",
-				"file" : "test_100gb_s3_bucket.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestAMProcessConsistency",
-				"file" : "test_am_process_consistency.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestCreateMultipleBuckets",
-				"file" : "test_create_multiple_buckets.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestCreateMultivolume",
-				"file" : "test_create_multivolume.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestGigabyteBlobSize",
-				"file" : "test_gigabyte_blob_size.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestMultiConnToMultiVolume",
-				"file" : "test_multiconn_to_multivolumes.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
 				"name" : "TestMultiConnections",
 				"file" : "test_multiconnections.py",
 				"arguments" : [],
 				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestMaxNumberBlockVolumes",
-				"file" : "test_max_number_block_volumes.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestMultipleBlockMountPoints",
-				"file" : "test_multiple_block_mount_points.py",
-				"arguments" : [],
-				"depends" : ["TestMaxNumberBlockVolumes"],
 				"config" : ""
 			},
 			{
@@ -98,7 +21,22 @@
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
+			},
+			{
+				"name" : "TestBlockVolumeLargeNumberBlobs",
+				"file" : "test_block_volume_large_number_blobs.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestS3LargeNumberBlobs",
+				"file" : "test_S3_bucket_large_number_blobs.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
 			}
+			
 		]
 	}
 }

@@ -25,7 +25,7 @@ public enum ServiceType {
 
             final FDSP_MgrIdType type = fdspNodeInfoType.getNode_type();
             switch( type ) {
-                case FDSP_STOR_HVISOR:
+                case FDSP_ACCESS_MGR:
                     service = buildService( AM, fdspNodeInfoType );
                     break;
                 case FDSP_DATA_MGR:

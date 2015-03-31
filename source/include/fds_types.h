@@ -225,6 +225,7 @@ typedef enum {
     FDS_GET_BLOB_METADATA,
     FDS_SET_BLOB_METADATA,
     FDS_STAT_VOLUME,
+    FDS_GET_VOLUME_METADATA,
     FDS_SET_VOLUME_METADATA,
     FDS_DELETE_BLOB,
     FDS_DELETE_BLOB_SVC,
@@ -264,7 +265,7 @@ class FDS_IOType {
     virtual ~FDS_IOType() {}
 
     typedef enum {
-        STOR_HV_IO,
+        ACCESS_MGR_IO,
         STOR_MGR_IO,
         DATA_MGR_IO
     } ioModule;

@@ -13,14 +13,12 @@ namespace java com.formationds.protocol.om.types
 struct FDSP_TestBucket {
   /** Volume name */
   1: string                 	bucket_name;
-  /** Volume specification */
-  2: common.FDSP_VolumeDescType	vol_info;
   /** Automatically attach if available */
-  3: bool                   	attach_vol_reqd;
+  2: bool                   	attach_vol_reqd;
   /** Access Key */
-  4: string                 	accessKeyId;
+  3: string                 	accessKeyId;
   /** Access Secret */
-  5: string                 	secretAccessKey;
+  4: string                 	secretAccessKey;
 }
 
 exception OmRegisterException {

@@ -12,6 +12,8 @@
 
 namespace fds {
 
+struct AmProcessor;
+
 /**
  * AM's data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to.
@@ -37,9 +39,10 @@ class AmDataApi : public apis::XdiServiceIf {
 
     std::atomic_ullong      io_log_counter;
     fds_uint64_t            io_log_interval;
+    std::shared_ptr<AmProcessor> amProcessor;
 
   public:
-    AmDataApi();
+    explicit AmDataApi(std::shared_ptr<AmProcessor> processor);
     ~AmDataApi();
     typedef boost::shared_ptr<AmDataApi> shared_ptr;
 

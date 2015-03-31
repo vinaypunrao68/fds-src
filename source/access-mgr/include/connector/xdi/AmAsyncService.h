@@ -24,6 +24,8 @@
 
 namespace fds {
 
+struct AmProcessor;
+
 namespace xdi_at  = apache::thrift;
 namespace xdi_att = apache::thrift::transport;
 namespace xdi_atc = apache::thrift::concurrency;
@@ -63,7 +65,7 @@ class AsyncDataServer : public Module, public boost::noncopyable {
     void mod_startup();
     void mod_shutdown();
 
-    virtual void init_server();
+    virtual void init_server(std::weak_ptr<AmProcessor> processor);
     virtual void deinit_server();
 
     boost::shared_ptr<xdi_ats::TThreadedServer> getTTServer() {

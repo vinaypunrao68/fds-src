@@ -248,34 +248,43 @@ class VolumeEndpoint:
         self.rest = rest
         self.rest_path = self.rest.base_path + '/api/config/volumes'
 
-    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
+    def createVolume(self, volume_name, priority, sla, limit, vol_type, size=10*1024, unit="MB", 
+                    media_policy='hdd', commit_log_retention=86400, max_object_size=0):
 
-	assert vol_type == "object" or vol_type == "block", "vol_type must be either 'block' or 'object'"
+        if vol_type == "object":
+            data_connector = {"api":"S3,Swift","type":"OBJECT"}
+        elif vol_type == "block":
+            data_connector = { "api":"Basic,Cinder",
+                               "type":"BLOCK",
+                               "attributes":{
+                                    "size": str(size),
+                                    "unit": unit
+                                    }
+                             }
+        else:
+            raise Exception("This vol_type is not defined: " + vol_type)
 
-        volume_info = {
-            'name' : volume_name,
-            'priority' : int(priority),
-            'max_object_size': int(max_object_size),
-            'sla': int(sla),
-            'limit': int(limit),
-            'data_connector': {
-                'type': vol_type,
-                'attributes': {
-                    'size': size,
-                    'unit': unit
-                }
-            }
+        if media_policy == "hdd":
+            media_policy = "HDD_ONLY"
+        elif media_policy == "ssd":
+            media_policy = "SSD_ONLY"
+        elif media_policy == "hybrid":
+            media_policy = "HYBRID_ONLY"
+        else:
+            raise Exception("This media_policy is not defined: " + media_policy)
+
+        request= {
+             'name' : volume_name,
+             'priority' : int(priority),
+             'sla': int(sla),
+             'limit': int(limit),
+             'data_connector': data_connector,
+            'mediaPolicy': media_policy,
+            'commit_log_retention': commit_log_retention,
+            'max_object_size' : max_object_size,
         }
-#new rest api
-#             'name' : volume_name,
-#             'priority' : int(priority),
-#             'sla': int(sla),
-#             'limit': int(limit),
-#             'data_connector': data_connector,
-#            'media_policy': 'HDD_ONLY',
-#            'commit_log_retention': 86400
-#        }
-        res = self.rest.post(self.rest_path, data=json.dumps(volume_info))
+
+        res = self.rest.post(self.rest_path, data=json.dumps(request))
         res = self.rest.parse_result(res)
 
         if type(res) != dict or 'status' not in res:
@@ -753,11 +762,19 @@ class DomainEndpoint():
             return False
 
 
-    def activateLocalDomainServices(self, domain_name):
+    def activateLocalDomainServices(self, domain_name, sm, dm, am):
         '''
-        Activate the pre-defined services on all the nodes in the specified local domain.
+        Activate the specified or pre-defined services on all the nodes in the specified local domain. If
+        all Service switches are false, we interpret it as meaning to activate all defined
+        Services for each node. If in that case there are no Services defined for the Node, we interpret
+        it to mean activate all Services (SM, DM,and AM) for the Node.
+
         Params:
            domain_name - str: Name of the local domain whose node services are to be activated
+           sm - bool: Activate the SM Service (True)
+           dm - bool: Activate the DM Service (True)
+           am - bool: Activate the AM Service (True)
+
         Returns:
            True success, False otherwise
         '''
@@ -766,6 +783,9 @@ class DomainEndpoint():
 
         service_info = {
             'action': 'activate',
+            'sm': sm,
+            'dm': dm,
+            'am': am,
         }
 
         res = self.rest.put(path, data=json.dumps(service_info))
@@ -814,11 +834,22 @@ class DomainEndpoint():
         else:
             return None
 
-    def removeLocalDomainServices(self, domain_name):
+    def removeLocalDomainServices(self, domain_name, sm, dm, am):
         '''
-        Remove the pre-defined services on all the nodes in the specified local domain.
+        Remove the specified or pre-defined services on all the nodes in the specified local domain. If
+        all Service switches are false, we interpret it as meaning to remove all defined
+        Services for each node. If in that case there are no Services defined for the Node, we
+        do nothing.
+
+        Note that Service removal means to unregister the Service from the Local Domain and
+        stop the processes associated with the Service.
+
         Params:
-           domain_name - str: Name of the local domain whose node services are to be activated
+           domain_name - str: Name of the local domain whose node services are to be removed
+           sm - bool: Remove the SM Service (True)
+           dm - bool: Remove the DM Service (True)
+           am - bool: Remove the AM Service (True)
+
         Returns:
            True success, False otherwise
         '''
@@ -827,6 +858,9 @@ class DomainEndpoint():
 
         service_info = {
             'action': 'remove',
+            'sm': sm,
+            'dm': dm,
+            'am': am,
         }
 
         res = self.rest.put(path, data=json.dumps(service_info))

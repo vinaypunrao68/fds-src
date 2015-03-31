@@ -601,7 +601,7 @@ NetMgr::alloc_rpc_client(const fpi::SvcUuid   &peer,
         case fpi::FDSP_DATA_MGR:
             fds_verify(maj == 0 && min == 0);
             return bo::make_shared<fpi::DMSvcClient>(protocol);
-        case fpi::FDSP_STOR_HVISOR:
+        case fpi::FDSP_ACCESS_MGR:
             fds_verify(maj == 0 && (min == 0 || min ==2));
             if (min == 2) {
                 return bo::make_shared<fpi::StreamingClient>(protocol);

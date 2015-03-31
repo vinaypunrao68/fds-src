@@ -51,7 +51,7 @@ class TestLargeNumberBlobs(testcase.FDSTestCase):
 	self.hash_table = {}
 	self.sample_files = {}
 	utils.create_dir(config.DOWNLOAD_DIR)
-	local_ssh = ssh.SSHConn(config.NDBADM_CLIENT, config.SSH_USER,
+	self.local_ssh = ssh.SSHConn(config.NDBADM_CLIENT, config.SSH_USER,
                                 config.SSH_PASSWORD)
 
     def runTest(self):
@@ -77,7 +77,7 @@ class TestLargeNumberBlobs(testcase.FDSTestCase):
 	utils.remove_dir(config.DOWNLOAD_DIR)
 
 	#close ssh connection to local host
-	local_ssh.client.close()
+	self.local_ssh.client.close()
 
     def connect_s3(self):
         '''
@@ -179,6 +179,23 @@ class TestLargeNumberBlobs(testcase.FDSTestCase):
 
 	    	    #Need hash class method to compare local hashes with remote hashes on s3 
 		    
+    def create_block_volumes(self):
+
+        volume_name = 'ts1373-block'
+        self.log.info('Mounting block volume: %s' %volume_name)
+
+        cmds = (
+                'rm -rf /fdsmount'
+                'rm -rf /sample_file',
+                'mkdir /fdsmount_%s' %volume_name,
+                '%s attach %s %s' %(config.NDBADMN, self.om_ip_address, volume_name),
+                'mkfs.ext4 /dev/nbd15'
+        )
+
+        for cmd in cmds:
+                (stdin, stdout, stderr) = local_ssh.client.exec_command(cmd)
+                self.log.info(stdout.readlines())
+
             
     def download_files(self, bucket, filename):
 	'''

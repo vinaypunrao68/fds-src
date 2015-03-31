@@ -50,7 +50,7 @@ mockNode = function(){
                     "autoName": "AM",
                     "port": 7041,
                     "status": "ACTIVE",
-                    "type": "FDSP_STOR_HVISOR"
+                    "type": "FDSP_ACCESS_MGR"
                   }
                 ],
                 "SM": [
@@ -159,7 +159,7 @@ mockNode = function(){
                             "autoName": "AM",
                             "port": 7041,
                             "status": "ACTIVE",
-                            "type": "FDSP_STOR_HVISOR"
+                            "type": "FDSP_ACCESS_MGR"
                         }
                     ],
                     "SM": [
