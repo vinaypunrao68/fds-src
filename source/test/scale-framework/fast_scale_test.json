@@ -2,6 +2,48 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
+				"name" : "TestDifferentBlobSizes",
+				"file" : "test_different_blob_sizes.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestAMProcessConsistency",
+				"file" : "test_am_process_consistency.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateMultipleBuckets",
+				"file" : "test_create_multiple_buckets.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestCreateMultivolume",
+				"file" : "test_create_multivolume.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestGigabyteBlobSize",
+				"file" : "test_gigabyte_blob_size.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestMultiConnToMultiVolume",
+				"file" : "test_multiconn_to_multivolumes.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
 				"name" : "TestMultiConnections",
 				"file" : "test_multiconnections.py",
 				"arguments" : [],
