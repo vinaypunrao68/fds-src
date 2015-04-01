@@ -54,7 +54,7 @@ class FDSDocker():
 
     def get_conn(self, url):
         """Return docker client object"""
-        return Client(base_url=url)
+        return Client(base_url=url, version='auto')
 
     def parse_stream(self, stream, tag='stream'):
         """Parse docker stream json output into raw messages"""
