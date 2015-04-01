@@ -38,7 +38,10 @@ void NbdConnector::initialize() {
 
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
-    fds_verify(nbdSocket > 0);
+    if (nbdSocket < 0) {
+        LOGERROR << "Could not bind to NBD port. No Nbd attachments can be made.";
+        return;
+    }
 
     // Setup event loop
     if (!evIoWatcher) {
@@ -135,11 +138,14 @@ NbdConnector::createNbdSocket() {
         LOGWARN << "Failed to set REUSEADDR on NBD socket";
     }
 
-    fds_verify(bind(listenfd,
-                    (sockaddr*)&serv_addr,
-                    sizeof(serv_addr)) == 0);
-    fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
-    listen(listenfd, 10);
+    if (bind(listenfd,
+             (sockaddr*)&serv_addr,
+             sizeof(serv_addr)) == 0) {
+        fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
+        listen(listenfd, 10);
+    } else {
+        listenfd = -1;
+    }
 
     return listenfd;
 }
