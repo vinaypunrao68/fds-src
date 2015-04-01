@@ -481,14 +481,31 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
+struct FDSP_CreateVolType {
+  1: string                  vol_name,
+  2: common.FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+}
+
+struct FDSP_DeleteVolType {
+  1: string 		 vol_name,  /* Name of the volume */
+  // i64    		 vol_uuid,
+  2: i32			 domain_id,
+}
+
+struct FDSP_ModifyVolType {
+  1: string 		 vol_name,  /* Name of the volume */
+  2: i64		 vol_uuid,
+  3: common.FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
+}
+
 /*
  * From fdscli to OM (sync messages)
  */
 service FDSP_ConfigPathReq {
-  i32 CreateVol(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_CreateVolType crt_vol_req),
-  i32 DeleteVol(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_DeleteVolType del_vol_req),
-  i32 ModifyVol(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_ModifyVolType mod_vol_req),
-  i32 SnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_CreateVolType snap_vol_req),
+  i32 CreateVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_vol_req),
+  i32 DeleteVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_vol_req),
+  i32 ModifyVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_vol_req),
+  i32 SnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType snap_vol_req),
   i32 CreatePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreatePolicyType crt_pol_req),
   i32 DeletePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeletePolicyType del_pol_req),
   i32 ModifyPolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyPolicyType mod_pol_req),

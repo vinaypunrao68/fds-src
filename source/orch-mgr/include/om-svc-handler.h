@@ -66,18 +66,6 @@ class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
                  boost::shared_ptr<fpi::CtrlTestBucket> &msg);
 
     virtual void
-    CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlCreateBucket> &msg);
-
-    virtual void
-    DeleteBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlDeleteBucket> &msg);
-
-    virtual void
-    ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlModifyBucket> &msg);
-
-    virtual void
     SvcEvent(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlSvcEvent> &msg);
 
