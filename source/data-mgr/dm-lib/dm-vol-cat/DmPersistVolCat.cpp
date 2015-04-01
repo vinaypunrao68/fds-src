@@ -52,7 +52,7 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     rsyncPasswd = migrationConf.get<std::string>("rsync_password");
 
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string snapDir = root->dir_user_repo_dm() + getVolIdStr() + "/"
+    std::string snapDir = root->dir_sys_repo_dm() + getVolIdStr() + "/"
             + std::to_string(dmUuid.uuid_get_val()) + std::string("-tmpXXXXXX");
     // FdsRootDir::fds_mkdir(snapDir.c_str());
 
@@ -70,7 +70,7 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     std::string nodeRoot = svcmgr->getSvcProperty<std::string>(
         SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
         "fds_root");
-    const std::string destDir = nodeRoot + "user-repo/dm-names/" + getVolIdStr() + "/";
+    const std::string destDir = nodeRoot + "sys-repo/dm-names/" + getVolIdStr() + "/";
     const std::string rsyncCmd = "sshpass -p " + rsyncPasswd + " rsync -r " + snapDir +
             " " + rsyncUser + "@" + destIP + ":" + destDir;
 

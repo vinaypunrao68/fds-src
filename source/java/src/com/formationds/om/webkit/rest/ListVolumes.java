@@ -44,7 +44,6 @@ import java.util.stream.Collectors;
 public class ListVolumes implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(ListVolumes.class);
 
-    private XdiService.Iface amApi;
     private ConfigurationApi config;
     private FDSP_ConfigPathReq.Iface legacyConfig;
     private AuthenticationToken token;
@@ -52,12 +51,16 @@ public class ListVolumes implements RequestHandler {
 
     private static DecimalFormat df = new DecimalFormat("#.00");
 
-    public ListVolumes( Authorizer authorizer, ConfigurationApi config,  XdiService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
+    public ListVolumes( Authorizer authorizer,
+						ConfigurationApi config,
+						FDSP_ConfigPathReq.Iface legacyConfig,
+						AuthenticationToken token ) {
+
         this.config = config;
-        this.amApi = amApi;
         this.legacyConfig = legacyConfig;
         this.token = token;
         this.authorizer = authorizer;
+
     }
 
 	@Override
@@ -75,11 +78,7 @@ public class ListVolumes implements RequestHandler {
 						// so that it's always acceptable
 						List<Tenant> tenants =
 								SingletonConfigAPI.instance().api().listTenants(0).stream()
-										.filter((t) -> {
-
-											return t.getId() == v.getTenantId();
-
-										})
+										.filter((t) -> t.getId() == v.getTenantId() )
 										.collect(Collectors.toList());
 
 						String tenantName = "";
@@ -100,20 +99,6 @@ public class ListVolumes implements RequestHandler {
 
 		return new JsonResource(jsonArray);
 	}
-	/*
-struct VolumeSettings {
-       1: required i32 maxObjectSizeInBytes,
-       2: required VolumeType volumeType,
-       3: required i64 blockDeviceSizeInBytes
-}
-
-struct VolumeDescriptor {
-       1: required string name,
-       2: required i64 dateCreated,
-       3: required VolumeSettings policy,
-       4: required i64 tenantId    // Added for multi-tenancy
-}
-	 */
 
 	private JSONObject toJsonObject( VolumeDescriptor v ) throws TException {
 		VolumeStatus status = null;
@@ -135,14 +120,20 @@ struct VolumeDescriptor {
 				status = optionalStatus.get();
 			}
 
-			// if the status is null, or empty, we check the values through the AM
-			// to make sure it's not just the absence of statistical reporting
+			/*
+			 * So there isn't any physical or blobs showing up in the
+			 * stat stream.
+			 */
 			if ( status == null || ( status.getCurrentUsageInBytes() == 0 ) ) {
-				try {
-					status = amApi.volumeStatus("", v.getName());
-				} catch( TException e ) {
-					LOG.warn( "Getting Volume Status Failed", e );
-				}
+
+				/*
+				 * Don't call the AM or the DM for volume status, current
+				 * implementation of statVolume is VERY EXPENSIVE!
+				 *
+				 * setting status to zero
+				 */
+				status = new VolumeStatus( 0, 0 );
+
 			}
 		}
 
@@ -161,78 +152,79 @@ struct VolumeDescriptor {
 
 		final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( volume );
 
-		if( v != null ) {
-			o.put( "name", v.getName() );
-			o.put( "volId", v.getVolId() );
-			o.put( "state", v.getState() );
-			o.put( "dateCreated", v.getDateCreated() );
-			o.put( "tenantId", v.getTenantId() );
+		o.put( "name", v.getName() );
+		o.put( "volId", v.getVolId() );
+		o.put( "state", v.getState() );
+		o.put( "dateCreated", v.getDateCreated() );
+		o.put( "tenantId", v.getTenantId() );
 
-			if( volInfo != null ) {
-				o.put( "id", Long.toString( volInfo.getVolUUID() ) );
-				o.put( "priority", volInfo.getRel_prio() );
-				o.put( "sla", volInfo.getIops_guarantee() );
-				o.put( "limit", volInfo.getIops_max() );
-				
-				MediaPolicy policy = MediaPolicyConverter.convertToMediaPolicy( volInfo.getMediaPolicy() );
-				o.put( "mediaPolicy", policy.name() );
-				
-				o.put( "commit_log_retention", volInfo.getContCommitlogRetention() );
-			}
+		o.put( "id", Long.toString( volInfo.getVolUUID() ) );
+		o.put( "priority", volInfo.getRel_prio() );
+		o.put( "sla", volInfo.getIops_guarantee() );
+		o.put( "limit", volInfo.getIops_max() );
 
-			if( v.getPolicy() != null ) {
+		MediaPolicy policy = MediaPolicyConverter.convertToMediaPolicy( volInfo.getMediaPolicy() );
+		o.put( "mediaPolicy", policy.name() );
 
-				VolumeSettings p = v.getPolicy();
-				JSONObject policyObj = new JSONObject();
-				policyObj.put( "maxObjectSizeInBytes", p.getMaxObjectSizeInBytes() );
-				policyObj.put( "volumeType", p.getVolumeType() );
-				policyObj.put( "blockDeviceSizeInBytes", p.getBlockDeviceSizeInBytes() );
-				policyObj.put( "contCommitLogRetention", p.getContCommitlogRetention() );
-				policyObj.put( "mediaPolicy", p.getMediaPolicy() );
-				o.put( "policy", policyObj );
+		o.put( "commit_log_retention", volInfo.getContCommitlogRetention() );
 
-				// NOTE: this duplicates some of the information included in the policy (VolumeSettings)
-				// attached to the JSON above, which was necessary for satisfying the VolumeDescriptor sent
-				// to the XDI/AM.  The UI currently uses this additional data in the display.
-				// TODO: update UI to use the policy object above and remove the duplicate data
-				if (v.getPolicy().getVolumeType() != null &&
-					v.getPolicy().getVolumeType().equals( VolumeType.OBJECT ) ) {
-					o.put( "data_connector",
-						   new JSONObject().put( "type", "object" )
-										   .put( "api", "S3, Swift" ) );
-				} else {
-					JSONObject connector = new JSONObject().put( "type", "block" );
-					Size size = Size.size( v.getPolicy()
-											.getBlockDeviceSizeInBytes() );
-                    JSONObject attributes = new JSONObject()
-                                                .put( "size", size.getCount() )
-                                                .put( "unit", size.getSizeUnit().toString() );
-					connector.put( "attributes", attributes );
-					o.put( "data_connector", connector );
-				}
+		if( v.getPolicy() != null ) {
 
-//				o.put( "mediaPolicy", v.getPolicy().getMediaPolicy().name() );
-			}
+            VolumeSettings p = v.getPolicy();
+            JSONObject policyObj = new JSONObject();
+            policyObj.put( "maxObjectSizeInBytes", p.getMaxObjectSizeInBytes() );
+            policyObj.put( "volumeType", p.getVolumeType() );
+            policyObj.put( "blockDeviceSizeInBytes", p.getBlockDeviceSizeInBytes() );
+            policyObj.put( "contCommitLogRetention", p.getContCommitlogRetention() );
+            policyObj.put( "mediaPolicy", p.getMediaPolicy() );
+            o.put( "policy", policyObj );
 
-			JSONObject fbObject = new JSONObject();
-			fbObject.put( FirebreakType.CAPACITY.name().toLowerCase(),  0.0D );
-			fbObject.put( FirebreakType.PERFORMANCE.name().toLowerCase(),  0.0D );
+            // NOTE: this duplicates some of the information included in the policy (VolumeSettings)
+            // attached to the JSON above, which was necessary for satisfying the VolumeDescriptor sent
+            // to the XDI/AM.  The UI currently uses this additional data in the display.
+            // TODO: update UI to use the policy object above and remove the duplicate data
+            if (v.getPolicy().getVolumeType() != null &&
+                v.getPolicy().getVolumeType().equals( VolumeType.OBJECT ) ) {
+                o.put( "data_connector",
+                       new JSONObject().put( "type", "object" )
+                                       .put( "api", "S3, Swift" ) );
+            } else {
+                JSONObject connector = new JSONObject().put( "type", "block" );
+                Size size = Size.size( v.getPolicy()
+                                        .getBlockDeviceSizeInBytes() );
+				JSONObject attributes = new JSONObject()
+				.put( "size", size.getCount() )
+				.put( "unit", size.getSizeUnit()
+								  .toString() );
+                connector.put( "attributes", attributes );
+                o.put( "data_connector", connector );
+            }
 
-			if ( fbResults != null ){
-				// put each firebreak event in the JSON object if it exists
-				fbResults.forEach( (type, pair) -> {
-					fbObject.put( type.name(), pair.getDatapoint().getY() );
-				});
-			}
+        }
 
-			o.put( "firebreak", fbObject );
-		}
+		JSONObject fbObject = new JSONObject();
+		fbObject.put( FirebreakType.CAPACITY.name().toLowerCase(),  0.0D );
+		fbObject.put( FirebreakType.PERFORMANCE.name().toLowerCase(),  0.0D );
+
+		if ( fbResults != null ) {
+
+            // put each firebreak event in the JSON object if it exists
+            fbResults.forEach( (type, pair) -> fbObject.put( type.name(),
+															 pair.getDatapoint()
+																 .getY() ) );
+
+        }
+
+		o.put( "firebreak", fbObject );
 
 		if( status != null ) {
+
 			Size usage = Size.size( status.getCurrentUsageInBytes() );
-			JSONObject dataUsage = new JSONObject()
-			.put( "size", formatSize( usage ) )
-			.put( "unit", usage.getSizeUnit().toString() );
+			JSONObject dataUsage =
+				new JSONObject().put( "size", formatSize( usage ) )
+								.put( "unit", usage.getSizeUnit()
+												   .toString() );
+
 			o.put( "current_usage", dataUsage );
 		}
 
@@ -242,8 +234,8 @@ struct VolumeDescriptor {
 	/**
 	 * Getting the possible firebreak events for this volume in the past 24 hours
 	 * 
-	 * @param v
-	 * @return
+	 * @param v the {@link Volume}
+	 * @return Returns EnumMap<FirebreakType, VolumeDatapointPair>
 	 */
 	private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ){
 
@@ -252,8 +244,8 @@ struct VolumeDescriptor {
 		range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime() ) ) );
 		range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
 
-		query.setSeriesType( new ArrayList<Metrics>( Metrics.FIREBREAK ) );
-		query.setContexts( Arrays.asList(v) );
+		query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
+		query.setContexts( Collections.singletonList( v ) );
 		query.setRange( range );
 
 		MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
@@ -266,15 +258,19 @@ struct VolumeDescriptor {
 		try {
 			map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
 		} catch (TException e) {
-			 LOG.warn( "Could not determine the firebreak events for volume: " + v.getId() + ":" + v.getName(), e );
+			 LOG.warn( "Could not determine the firebreak events for volume: " +
+						   v.getId() + ":" + v.getName(), e );
 		}
 
 		return map;
 	}
 
 	private static String formatSize(Size usage) {
+
 		if (usage.getCount() == 0) {
+
 			return "0";
+
 		}
 
 		return df.format(usage.getCount());

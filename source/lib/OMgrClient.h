@@ -148,8 +148,8 @@ class OMgrClient {
                    const std::string& secretAccessKey);
 
     int recvMigrationEvent(bool dlt_type);
-    Error updateDlt(bool dlt_type, std::string& dlt_data);
 
+    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
 };
 

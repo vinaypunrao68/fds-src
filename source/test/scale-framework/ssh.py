@@ -3,14 +3,14 @@
 # Written by Philippe Ribeiro
 # philippe@formationds.com
 import paramiko
-
+import config
 
 class SSHConn(object):
     '''
     Class SSHConn is a wrapper around paramiko's ssh client. In order to make
     things simpler for the user, we create a ssh_conn object for the SSHConn
     which can execute code remotely.
-    
+
     Attributes:
     -----------
     hostname: str

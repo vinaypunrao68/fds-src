@@ -885,7 +885,6 @@ void DataMgr::initHandlers() {
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
-    new dm::ReloadVolumeHandler();
 }
 
 DataMgr::~DataMgr()
@@ -988,7 +987,7 @@ void DataMgr::mod_enable_service() {
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     if (features.isTimelineEnabled()) {
         timeline->open();
     }

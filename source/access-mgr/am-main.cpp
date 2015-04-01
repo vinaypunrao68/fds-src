@@ -11,18 +11,32 @@ namespace fds {
 
 class AMMain : public SvcProcess
 {
+    std::unique_ptr<AccessMgr> am;
+
   public:
     virtual ~AMMain() {}
     AMMain(int argc, char **argv) {
-        am = AccessMgr::unique_ptr(new AccessMgr("AMMain AM Module", this));
+        am.reset(new AccessMgr("AMMain AM Module", this));
         static fds::Module *modVec[] = {
             am.get(),
             nullptr
         };
 
+        /**
+         * Initialize the AMSvc
+         */
+        auto svc_handler = boost::make_shared<AMSvcHandler>(this, am->getProcessor());
+        auto svc_processor = boost::make_shared<fpi::AMSvcProcessor>(svc_handler);
+
         /* Init service process */
-        init<AMSvcHandler, fpi::AMSvcProcessor>(argc, argv, "platform.conf",
-                "fds.am.", "am.log", modVec);
+        init(argc,
+             argv,
+             "platform.conf",
+             "fds.am.",
+             "am.log",
+             modVec,
+             svc_handler,
+             svc_processor);
     }
 
     int run() override {

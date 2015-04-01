@@ -28,7 +28,8 @@ DmPersistVolDB::~DmPersistVolDB() {
 
     if (deleted_) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-        const std::string loc_src_db = root->dir_user_repo_dm() + std::to_string(srcVolId_) +
+        const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
+                root->dir_sys_repo_dm()) + std::to_string(srcVolId_) +
                 (snapshot_ ? "/snapshot/" : "/") + getVolIdStr() + "_vcat.ldb";
         const std::string rm_cmd = "rm -rf  " + loc_src_db;
         int retcode = std::system((const char *)rm_cmd.c_str());
@@ -38,7 +39,7 @@ DmPersistVolDB::~DmPersistVolDB() {
 
 Error DmPersistVolDB::activate() {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string catName(root->dir_user_repo_dm());
+    std::string catName(snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm());
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
         // volume
         catName += getVolIdStr();
@@ -66,7 +67,7 @@ Error DmPersistVolDB::activate() {
             Catalog::CACHE_SIZE);
     fds_uint32_t maxLogFiles = configHelper_.get<fds_uint32_t>(CATALOG_MAX_LOG_FILES_STR, 5);
 
-    std::string logDirName = snapshot_ ? "" : root->dir_user_repo_dm() + getVolIdStr() + "/";
+    std::string logDirName = snapshot_ ? "" : root->dir_sys_repo_dm() + getVolIdStr() + "/";
     std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
 
     try

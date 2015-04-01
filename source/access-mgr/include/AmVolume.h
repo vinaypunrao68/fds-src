@@ -6,14 +6,14 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMVOLUME_H_
 
 #include <memory>
-#include <util/Log.h>
-#include <fds_volume.h>
+#include "fds_volume.h"
 
 namespace fds
 {
-struct AmVolume : public FDS_Volume , public HasLogger
-{
-    AmVolume(const VolumeDesc& vdesc, fds_log *parent_log);
+
+struct AmVolume : public FDS_Volume {
+    AmVolume(VolumeDesc const& vol_desc, FDS_VolumeQueue* queue);
+
     AmVolume(AmVolume const& rhs) = delete;
     AmVolume& operator=(AmVolume const& rhs) = delete;
 
@@ -22,7 +22,7 @@ struct AmVolume : public FDS_Volume , public HasLogger
     /*
      * per volume queue
      */
-    std::unique_ptr<FDS_VolumeQueue> volQueue;
+    FDS_VolumeQueue* volQueue;
 };
 
 }  // namespace fds

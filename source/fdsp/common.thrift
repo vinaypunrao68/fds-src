@@ -198,23 +198,6 @@ struct FDSP_VolumeDescType {
   20: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
 }
 
-struct FDSP_CreateVolType {
-  1: string                  vol_name,
-  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
-}
-
-struct FDSP_DeleteVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  // i64    		 vol_uuid,
-  2: i32			 domain_id,
-}
-
-struct FDSP_ModifyVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  2: i64		 vol_uuid,
-  3: FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
-}
-
 /**
  * Descriptor for a snapshot. Describes it name and
  * policy information.
