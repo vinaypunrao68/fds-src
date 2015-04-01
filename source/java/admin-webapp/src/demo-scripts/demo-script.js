@@ -5,6 +5,7 @@ mockTenant();
 mockNode();
 mockStats();
 mockActivities();
+mockMedia();
 
 /*
 * The volume size has changed - update that so the volume screen sees that too
