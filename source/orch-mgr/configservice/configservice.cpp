@@ -21,7 +21,7 @@
 #include <orchMgr.h>
 #include <util/stringutils.h>
 #include <util/timeutils.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
