@@ -238,7 +238,9 @@ class NbdOperations
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
-    void init(req_api_type::shared_string_type vol_name, uint32_t _maxObjectSizeInBytes);
+    void init(req_api_type::shared_string_type vol_name,
+              uint32_t _maxObjectSizeInBytes,
+              std::shared_ptr<AmProcessor> processor);
 
     void read(fds_uint32_t length, fds_uint64_t offset, fds_int64_t handle);
 
