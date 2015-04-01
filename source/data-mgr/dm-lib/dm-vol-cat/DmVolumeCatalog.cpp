@@ -103,17 +103,16 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
 
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     std::ostringstream oss;
-    oss << root->dir_user_repo_dm() << voldesc.srcVolumeId << "/" << voldesc.srcVolumeId
+    oss << root->dir_sys_repo_dm() << voldesc.srcVolumeId << "/" << voldesc.srcVolumeId
             << "_vcat.ldb";
     std::string dbDir = oss.str();
 
     oss.clear();
     oss.str("");
-    oss << root->dir_user_repo_dm();
     if (!voldesc.isSnapshot()) {
-        oss <<  voldesc.volUUID;
+        oss << root->dir_sys_repo_dm() <<  voldesc.volUUID;
     } else {
-        oss << voldesc.srcVolumeId << "/snapshot";
+        oss << root->dir_user_repo_dm() << voldesc.srcVolumeId << "/snapshot";
     }
 
     FdsRootDir::fds_mkdir(oss.str().c_str());
