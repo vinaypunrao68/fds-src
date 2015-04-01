@@ -5,21 +5,19 @@
 package com.formationds.om.webkit;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.webkit.rest.*;
-import com.formationds.om.webkit.rest.domain.PostLocalDomain;
-import com.formationds.om.webkit.rest.domain.GetLocalDomains;
-import com.formationds.om.webkit.rest.domain.PutLocalDomain;
-import com.formationds.om.webkit.rest.domain.PutThrottle;
-import com.formationds.om.webkit.rest.domain.PutScavenger;
 import com.formationds.om.webkit.rest.domain.DeleteLocalDomain;
 import com.formationds.om.webkit.rest.domain.GetLocalDomainServices;
+import com.formationds.om.webkit.rest.domain.GetLocalDomains;
+import com.formationds.om.webkit.rest.domain.PostLocalDomain;
+import com.formationds.om.webkit.rest.domain.PutLocalDomain;
 import com.formationds.om.webkit.rest.domain.PutLocalDomainServices;
+import com.formationds.om.webkit.rest.domain.PutScavenger;
+import com.formationds.om.webkit.rest.domain.PutThrottle;
 import com.formationds.om.webkit.rest.events.IngestEvents;
 import com.formationds.om.webkit.rest.events.QueryEvents;
 import com.formationds.om.webkit.rest.metrics.IngestVolumeStats;
@@ -51,14 +49,12 @@ import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
-
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.servlet.http.HttpServletResponse;
-
 import java.util.function.Function;
 
 /**
@@ -146,8 +142,6 @@ public class WebKitImpl {
         authenticate( HttpMethod.GET, "/api/config/volumes",
                       ( t ) -> new ListVolumes( authorizer,
                                                 configAPI,
-                                                SingletonAmAPI.instance()
-                                                              .api(),
                                                 legacyConfig,
                                                 t ) );
         authenticate( HttpMethod.POST, "/api/config/volumes",
