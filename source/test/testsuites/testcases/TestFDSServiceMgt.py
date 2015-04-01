@@ -542,7 +542,7 @@ class TestDMRemove(TestCase.FDSTestCase):
                                              "DM service removal")
 
         self.passedNode = node
-
+    @TestCase.expectedFailure
     def test_DMRemove(self):
         """
         Test Case:
@@ -901,6 +901,7 @@ class TestSMRemove(TestCase.FDSTestCase):
 
         self.passedNode = node
 
+    @TestCase.expectedFailure
     def test_SMRemove(self):
         """
         Test Case:
@@ -935,6 +936,7 @@ class TestSMRemove(TestCase.FDSTestCase):
             self.log.info("Remove SM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
 
+            self.log.warn("Remove services call currently not implemented. THIS CALL WILL FAIL!")
             status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service removeService {} sm > '
                                                 '{}/cli.out 2>&1) \"'.format(node.nd_uuid, log_dir),
                                                 fds_tools=True)
@@ -1809,6 +1811,7 @@ class TestAMRemove(TestCase.FDSTestCase):
 
         self.passedNode = node
 
+    @TestCase.expectedFailure
     def test_AMRemove(self):
         """
         Test Case:
@@ -1843,6 +1846,7 @@ class TestAMRemove(TestCase.FDSTestCase):
             self.log.info("Remove AM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
 
+            self.log.warn("Remove services call currently not implemented. THIS CALL WILL FAIL!")
             status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service removeService {} am > '
                                                 '{}/cli.out 2>&1) \"'.format(node.nd_uuid, log_dir),
                                                 fds_tools=True)
