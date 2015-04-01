@@ -137,6 +137,16 @@ class DmVolumeCatalog : public Module, public HasLogger,
                             const fpi::FDSP_MetaDataList &metadataList);
 
     /**
+     * Gets the key-value metadata pairs for the volume.
+     * @param[in]  volId The ID of the volume's catalog to update
+     * @param[out] metadataList A returned list of metadata key value pairs.
+     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
+     * to volume catalog.
+     */
+    Error getVolumeMetadata(fds_volid_t volId,
+                            fpi::FDSP_MetaDataList &metadataList);
+
+    /**
      * Get all objects for the volume
      *
      * @param[in] volId volume identifier

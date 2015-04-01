@@ -47,7 +47,7 @@ class AmRequest : public FDS_IOType {
         cb(_cb)
     {
         io_magic  = FDS_SH_IO_MAGIC_IN_USE;
-        io_module = STOR_HV_IO;
+        io_module = ACCESS_MGR_IO;
         io_req_id = 0;
         io_type   = _op;
         io_vol_id = _vol_id;

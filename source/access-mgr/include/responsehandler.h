@@ -201,6 +201,10 @@ struct StatVolumeResponseHandler : ResponseHandler, StatVolumeCallback {
 };
 
 struct SetVolumeMetadataCallback {};
+struct GetVolumeMetadataCallback {
+    /// The metadata to be filled in
+    boost::shared_ptr<std::map<std::string, std::string>> metadata;
+};
 
 struct AttachCallback {};
 struct DeleteBlobCallback {};

@@ -9,7 +9,6 @@ import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.protocol.FDSP_MediaPolicy;
-import com.formationds.protocol.FDSP_ModifyVolType;
 import com.formationds.om.helper.MediaPolicyConverter;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.security.AuthenticationToken;

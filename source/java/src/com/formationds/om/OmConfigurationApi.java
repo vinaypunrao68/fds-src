@@ -375,16 +375,24 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     /**
      * Activate all currently defined Services on all currently defined Nodes the given Local Domain.
      * 
+     * If all Service flags are set to False, it will
+     * be interpreted to mean activate all Services currently defined for the Node. If there are
+     * no Services currently defined for the node, it will be interpreted to mean activate all
+     * Services on the Node (SM, DM, and AM), and define all Services for the Node.
+     *
      * @param domainName - String: The name of the Local Domain whose services are to be activated.
+     * @param sm - A boolean indicating whether the SM Service should be activated (True) or not (False)
+     * @param dm - A boolean indicating whether the DM Service should be activated (True) or not (False)
+     * @param am - A boolean indicating whether the AM Service should be activated (True) or not (False)
      * 
      * @return void.
      * 
      * @throws TException
      */
     @Override
-    public void activateLocalDomainServices(String domainName)
+    public void activateLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
         throws ApiException, org.apache.thrift.TException {
-        getConfig().activateLocalDomainServices(domainName);
+        getConfig().activateLocalDomainServices(domainName, sm, dm, am);
         return;
     }
     
@@ -406,16 +414,23 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     /**
      * Remove all currently defined Services on all currently defined Nodes the given Local Domain.
      * 
+     * If all Service flags are set to False, it will
+     * be interpreted to mean remove all Services currently defined for the Node.
+     * Removal means that the Service is unregistered from the Domain and shutdown.
+     *
      * @param domainName - String: The name of the Local Domain whose services are to be removed.
+     * @param sm - A boolean indicating whether the SM Service should be removed (True) or not (False)
+     * @param dm - A boolean indicating whether the DM Service should be removed (True) or not (False)
+     * @param am - A boolean indicating whether the AM Service should be removed (True) or not (False)
      * 
      * @return void.
      * 
      * @throws TException
      */
     @Override
-    public void removeLocalDomainServices(String domainName)
+    public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
         throws ApiException, org.apache.thrift.TException {
-        getConfig().removeLocalDomainServices(domainName);
+        getConfig().removeLocalDomainServices(domainName, sm, dm, am);
         return;
     }
 

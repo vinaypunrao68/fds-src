@@ -48,9 +48,6 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
 
     /* svc->om response message */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlCreateBucket, CreateBucket);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDeleteBucket, DeleteBucket);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, om_node_info);
 //    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, registerService);
@@ -147,53 +144,6 @@ OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     LOGNORMAL << " receive test bucket msg";
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_test_bucket(hdr, &msg->tbmsg);
-}
-
-void
-OmSvcHandler::CreateBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                 boost::shared_ptr<fpi::CtrlCreateBucket> &msg)
-{
-    const FdspCrtVolPtr crt_buck_req(new fpi::FDSP_CreateVolType());
-    * crt_buck_req = msg->cv;
-    LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name
-              << " from  node uuid: "
-              << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
-
-    try {
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        if (domain->om_local_domain_up()) {
-            local->om_create_vol(nullptr, crt_buck_req, hdr);
-        } else {
-            LOGWARN << "OM Local Domain is not up yet, rejecting bucket "
-                    << " create; try later";
-        }
-    }
-    catch(...) {
-        LOGERROR << "Orch Mgr encountered exception while "
-                 << "processing create bucket";
-    }
-}
-
-void
-OmSvcHandler::DeleteBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                 boost::shared_ptr<fpi::CtrlDeleteBucket> &msg)
-{
-    LOGNORMAL << " receive delete bucket from " << hdr->msg_src_uuid.svc_uuid;
-    const FdspDelVolPtr del_buck_req(new fpi::FDSP_DeleteVolType());
-    *del_buck_req = msg->dv;
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_delete_vol(nullptr, del_buck_req);
-}
-
-void
-OmSvcHandler::ModifyBucket(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                           boost::shared_ptr<fpi::CtrlModifyBucket> &msg)
-{
-    LOGNORMAL << " receive delete bucket from " << hdr->msg_src_uuid.svc_uuid;
-    const FdspModVolPtr mod_buck_req(new fpi::FDSP_ModifyVolType());
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_modify_vol(mod_buck_req);
 }
 
 void

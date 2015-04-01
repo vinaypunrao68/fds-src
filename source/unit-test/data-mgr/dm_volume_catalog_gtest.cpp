@@ -178,14 +178,19 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(size, static_cast<fds_uint64_t>(blobCount) * BLOB_SIZE);
 
-        // Set some metadata for the volume
+        // Set/get/check some metadata for the volume
         fpi::FDSP_MetaDataPair metadataPair;
         metadataPair.key = "Volume Name";
         metadataPair.value = vdesc->name;
-        fpi::FDSP_MetaDataList metadataList;
-        metadataList.push_back(metadataPair);
-        rc = volcat->setVolumeMetadata(vdesc->volUUID, metadataList);
+        fpi::FDSP_MetaDataList setMetadataList;
+        setMetadataList.push_back(metadataPair);
+        rc = volcat->setVolumeMetadata(vdesc->volUUID, setMetadataList);
         EXPECT_TRUE(rc.ok());
+
+        fpi::FDSP_MetaDataList getMetadataList;
+        rc = volcat->getVolumeMetadata(vdesc->volUUID, getMetadataList);
+        EXPECT_TRUE(rc.ok());
+        EXPECT_TRUE(getMetadataList == setMetadataList);
 
         // get list of blobs for volume
         fpi::BlobDescriptorListType blobList;

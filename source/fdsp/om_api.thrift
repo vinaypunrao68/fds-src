@@ -16,30 +16,6 @@ namespace java com.formationds.protocol.om
    ------------------------------------------------------------*/
 
 /**
- * Create Volume
- */
-struct CtrlCreateBucket {
-  /** Create Volume Specification */
-  1: common.FDSP_CreateVolType  cv;
-}
-
-/**
- * Delete Volume
- */
-struct CtrlDeleteBucket {
-  /** Delete Volume Specification */
-  1:  common.FDSP_DeleteVolType dv;
-}
-
-/**
- * Modify Volume
- */
-struct CtrlModifyBucket {
-  /** Modify Volume Specification */
-  1:  common.FDSP_ModifyVolType mv;
-}
-
-/**
  * Test for Volume
  */
 struct CtrlTestBucket {

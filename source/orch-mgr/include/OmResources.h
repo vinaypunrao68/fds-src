@@ -505,10 +505,9 @@ class OM_NodeContainer : public DomainContainer
 
     /**
      * conditional broadcast to platform (nodes) to
-     * activate SM and DM services on those nodes, but only
+     * activate SM, DM, and AM services on those nodes, but only
      * to those nodes which are in discovered state
      */
-    virtual void om_cond_bcast_activate_services(); // Activate the Services defined for each Node.
     virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
                                                  fds_bool_t activate_dm,
                                                  fds_bool_t activate_am); // Activate these specific Services on each Node.
@@ -516,7 +515,9 @@ class OM_NodeContainer : public DomainContainer
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
-    virtual void om_cond_bcast_remove_services(); // Remove the Services defined for each Node.
+    virtual void om_cond_bcast_remove_services(fds_bool_t activate_sm,
+                                               fds_bool_t activate_dm,
+                                               fds_bool_t activate_am); // Remove the Services defined for each Node.
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);

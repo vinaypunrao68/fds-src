@@ -5,7 +5,7 @@ user_rtime_env    := user
 speedup           = -j $(threads)
 user_build_dir    :=
 
-user_incl_dir     := $(topdir) ../include ../stor-hvisor
+user_incl_dir     := $(topdir) ../include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \

@@ -63,7 +63,7 @@ struct GetVolumeMetadataMsg {
  * Returns key-value metadata for the volume.
  */
 struct GetVolumeMetadataMsgRsp {
-  1: dm_types.FDSP_MetaDataPair metadata;
+  1: dm_types.FDSP_MetaDataList metadataList;
 }
 
 /**
@@ -135,17 +135,6 @@ struct CreateVolumeCloneMsg {
  */
 struct CreateVolumeCloneRespMsg {
      1:i64 cloneId
-}
-
-/**
- * Reloads (i.e., opens) a volume catalog after a clone
- * catalog migration has happened.
- * TODO(Andrew): This isn't used. So it shouldn't exist.
- */
-struct ReloadVolumeMsg {
-    1:i64 volId
-}
-struct ReloadVolumeRspMsg {
 }
 
 /* ------------------------------------------------------------

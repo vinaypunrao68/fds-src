@@ -884,7 +884,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
-    new dm::ReloadVolumeHandler();
+    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
 }
 
 DataMgr::~DataMgr()

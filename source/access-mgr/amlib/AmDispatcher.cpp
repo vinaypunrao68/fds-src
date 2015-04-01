@@ -19,6 +19,8 @@
 #include "requests/requests.h"
 #include <net/MockSvcHandler.h>
 #include <AmDispatcherMocks.hpp>
+#include "lib/OMgrClient.h"
+#include "lib/StatsCollector.h"
 
 namespace fds {
 
@@ -40,41 +42,94 @@ extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 // ======
 
-AmDispatcher::AmDispatcher(const std::string &modName,
-                           DLTManagerPtr _dltMgr,
-                           DMTManagerPtr _dmtMgr)
-        : Module(modName.c_str()),
-          dltMgr(_dltMgr),
-          dmtMgr(_dmtMgr) {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    if (conf.get<fds_bool_t>("testing.uturn_dispatcher_all")) {
-        fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
-        mockTimeoutUs_ = conf.get<uint32_t>("testing.uturn_dispatcher_timeout");
-        mockHandler_.reset(new MockSvcHandler());
-    }
+AmDispatcher::AmDispatcher(const std::string &modName)
+        : Module(modName.c_str())
+{
 }
 
-AmDispatcher::~AmDispatcher() {
-}
+AmDispatcher::~AmDispatcher() = default;
 
 int
 AmDispatcher::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
+    return Module::mod_init(param);
 }
 
 void
 AmDispatcher::mod_startup() {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    if (!conf.get<bool>("testing.standalone")) {     
+    /** Construct the Orch Client */
+    om_client.reset(new OMgrClient(FDSP_ACCESS_MGR, "localhost-sh", GetLog()));
+
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.testing.");
+    if (conf.get<fds_bool_t>("uturn_dispatcher_all", false)) {
+        fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
+        mockTimeoutUs_ = conf.get<uint32_t>("uturn_dispatcher_timeout");
+        mockHandler_.reset(new MockSvcHandler());
+    }
+
+    if (conf.get<bool>("standalone", false)) {
+        dmtMgr = boost::make_shared<DMTManager>(1);
+        dltMgr = boost::make_shared<DLTManager>();
+        om_client->setNoNetwork(true);
+    } else {
         // Set the DLT manager in svc layer so that it knows to dispatch
         // requests on behalf of specific placement table versions.
+        dmtMgr = om_client->getDmtManager();
+        dltMgr = om_client->getDltManager();
         gSvcRequestPool->setDltManager(dltMgr);
+
+        // TODO(bszmyd): Thu 26 Mar 2015 02:39:33 PM PDT
+        // Shouldn't be using .get() on a unique_ptr, fix this
+	StatsCollector::singleton()->registerOmClient(om_client.get());
+	fds_bool_t print_qos_stats = conf.get<bool>("print_qos_stats");
+	fds_bool_t disableStreamingStats = conf.get<bool>("toggleDisableStreamingStats");
+	if (print_qos_stats) {
+	    StatsCollector::singleton()->enableQosStats("AM");
+	}
+	if (!disableStreamingStats) {
+	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
+	}
     }
 }
 
 void
 AmDispatcher::mod_shutdown() {
+}
+
+Error
+AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
+    auto err = om_client->updateDlt(dlt_type, dlt_data, cb);
+    if (ERR_DUPLICATE == err) {
+        LOGWARN << "Received duplicate DLT version, ignoring";
+        err = ERR_OK;
+    }
+    return err;
+}
+
+Error
+AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
+    auto err = om_client->updateDmt(dmt_type, dmt_data);
+    if (ERR_DUPLICATE == err) {
+        LOGWARN << "Received duplicate DMT version, ignoring";
+        err = ERR_OK;
+    }
+    return err;
+}
+
+Error
+AmDispatcher::attachVolume(std::string const& volume_name) {
+    return om_client->testBucket(volume_name, true, "", "");
+}
+
+/**
+ * This dispatch does not get an async reply
+ * via SvcLayer since it's an RPC call through
+ * OMgrClient. Expect the response via AMSvc
+ */
+void
+AmDispatcher::dispatchAttachVolume(AmRequest *amReq) {
+    LOGDEBUG << "Attempting to attach to volume: " << amReq->volume_name;
+    auto error = attachVolume(amReq->volume_name);
+    amReq->proc_cb(error);
 }
 
 void
@@ -151,6 +206,46 @@ AmDispatcher::setVolumeMetadataCb(AmRequest* amReq,
     fpi::SetVolumeMetadataMsgRspPtr volMetaMsgRsp =
         fds::deserializeFdspMsg<fpi::SetVolumeMetadataMsgRsp>(
             const_cast<Error&>(error), payload);
+
+    amReq->proc_cb(error);
+}
+
+void
+AmDispatcher::dispatchGetVolumeMetadata(AmRequest *amReq) {
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+
+    fpi::GetVolumeMetadataMsgPtr volMetaMsg =
+            boost::make_shared<fpi::GetVolumeMetadataMsg>();
+
+    volMetaMsg->volumeId = amReq->io_vol_id;
+    FailoverSvcRequestRespCb respCb(
+        RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb, amReq));
+
+    auto asyncGetVolMetadataReq = gSvcRequestPool->newFailoverSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
+    asyncGetVolMetadataReq->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeMetadataMsg),
+                                       volMetaMsg);
+    asyncGetVolMetadataReq->onResponseCb(respCb);
+    asyncGetVolMetadataReq->invoke();
+}
+
+void
+AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
+                                  FailoverSvcRequest* svcReq,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload) {
+    fds_verify(amReq->magicInUse());
+
+    if (error.ok()) {
+        auto response = MSG_DESERIALIZE(GetVolumeMetadataMsgRsp, error, payload);
+        boost::shared_ptr<GetVolumeMetadataCallback> cb =
+                SHARED_DYN_CAST(GetVolumeMetadataCallback, amReq->cb);
+        // Copy the FDSP structure into the API structure
+        for (auto const &meta : response->metadataList) {
+            cb->metadata->emplace(std::pair<std::string, std::string>(meta.key, meta.value));
+        }
+    }
 
     amReq->proc_cb(error);
 }
