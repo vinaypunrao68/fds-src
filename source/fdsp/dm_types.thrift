@@ -106,11 +106,3 @@ struct FDSP_DMT_Type {
   2: binary dmt_data,
   3: bool dmt_type,
 }
-
-/**
- * Represents a lock used to perform blob operations
- */
-struct VolumeLock {
-  1: required i64   vol_id;
-  2: optional i64   token = 0;
-}
