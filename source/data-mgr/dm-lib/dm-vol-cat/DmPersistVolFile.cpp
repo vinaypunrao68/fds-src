@@ -23,7 +23,7 @@ DmPersistVolFile::DmPersistVolFile(fds_volid_t volId, fds_uint32_t objSize,
             std::string("DmOIDArrayMmap") + std::to_string(volId), MMAP_CACHE_SIZE));
 
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    dirname_ = root->dir_user_repo_dm();
+    dirname_ = snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm();
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
         // volume
         dirname_ += getVolIdStr();

@@ -14,13 +14,13 @@ addModule = function( moduleName, module ){
     }
 };
 
+addModule( 'utility-directives', mockMedia );
 addModule( 'user-management', mockAuth );
 addModule( 'volume-management', mockVolume );
 addModule( 'qos', mockSnapshot );
 addModule( 'tenant-management', mockTenant );
 addModule( 'node-management', mockNode );
 addModule( 'statistics', mockStats );
-addModule( 'utility-directives', mockMedia );
 
 clean = function(){
     if ( browser.localStorage ){

@@ -529,7 +529,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
         svcmgr->mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM), "fds_root");
     std::string dst_ip = dmSvcInfo.ip;
 
-    const std::string dst_node = node_root + "user-repo/vol-stats/" +
+    const std::string dst_node = node_root + "sys-repo/vol-stats/" +
                                     std::to_string(vol_id) + std::string("/");
     const std::string rsync_cmd = "sshpass -p passwd rsync -r "
             + src_dir + "  root@" + dst_ip + ":" + dst_node + "";

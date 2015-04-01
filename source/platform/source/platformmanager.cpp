@@ -10,7 +10,6 @@
 
 #include <fds_uuid.h>
 #include <fdsp/svc_types_types.h>
-// #include <net/net-service.h>
 #include <fds_process.h>
 #include <platform/process.h>
 #include <util/stringutils.h>

@@ -106,17 +106,8 @@ public class Main {
                                         }
                     );
 
-        if(FdsFeatureToggles.FIREBREAK_EVENT.isActive()) {
-
-            logger.trace("Firebreak events feature is enabled.  Initializing repository firebreak callback.");
-            // initialize the firebreak event listener (callback from repository persist)
-            EventManager.INSTANCE.initEventListeners();
-
-        } else {
-
-            logger.info("Firebreak events feature is disabled.");
-
-        }
+        // initialize the firebreak event listener (callback from repository persist)
+        EventManager.INSTANCE.initEventListeners();
 
         // TODO: should there be an OM property for the am host?
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");

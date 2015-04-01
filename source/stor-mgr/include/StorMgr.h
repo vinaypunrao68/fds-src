@@ -299,12 +299,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      void storeCurrentDLT();
 
-     static Error volEventOmHandler(fds::fds_volid_t volume_id,
-                                    fds::VolumeDesc *vdb,
-                                    int vol_action,
-                                    FDSP_NotifyVolFlag vol_flag,
-                                    FDSP_ResultType resut);
-
      virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
      /* Made virtual for google mock */
@@ -331,6 +325,13 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      friend class SmLoadProc;
      friend class SMSvcHandler;
+
+  private:
+     static Error registerVolume(fds::fds_volid_t volume_id,
+                                 fds::VolumeDesc *vdb,
+                                 FDSP_NotifyVolFlag vol_flag,
+                                 FDSP_ResultType resut);
+
 };
 
 }  // namespace fds

@@ -11,6 +11,7 @@
 #include <fds_defines.h>
 #include <fds_error.h>
 #include <fds_typedefs.h>
+#include <fdsp/dm_types_types.h>
 #include <fdsp/xdi_types.h>
 #include <fdsp/config_types_types.h>
 #include <blob/BlobTypes.h>

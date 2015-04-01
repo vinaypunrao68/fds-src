@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_map>
 #include <map>
+#include "fdsp/dm_api_types.h"
 #include <fds_types.h>
 #include <fds_volume.h>
 

@@ -2,29 +2,8 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
-				"name" : "TestMixedBlocks",
-				"file" : "test_mixed_blocks.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
 				"name" : "TestDifferentBlobSizes",
 				"file" : "test_different_blob_sizes.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "Test100GBBlockVolume",
-				"file" : "test_100gb_block_volume.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "Test100GBS3Bucket",
-				"file" : "test_100gb_s3_bucket.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
@@ -72,20 +51,6 @@
 				"config" : ""
 			},
 			{
-				"name" : "TestMaxNumberBlockVolumes",
-				"file" : "test_max_number_block_volumes.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestMultipleBlockMountPoints",
-				"file" : "test_multiple_block_mount_points.py",
-				"arguments" : [],
-				"depends" : ["TestMaxNumberBlockVolumes"],
-				"config" : ""
-			},
-			{
 				"name" : "TestCreateThreehundredObjectVolumes",
 				"file" : "Test300VolsObj.py",
 				"arguments" : [],
@@ -98,22 +63,7 @@
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
-			},
-			{
-				"name" : "TestBlockVolumeLargeNumberBlobs",
-				"file" : "test_block_volume_large_number_blobs.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestS3LargeNumberBlobs",
-				"file" : "test_S3_bucket_large_number_blobs.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
 			}
-			
 		]
 	}
 }
