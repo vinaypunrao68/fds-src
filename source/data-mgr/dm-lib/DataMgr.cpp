@@ -885,7 +885,6 @@ void DataMgr::initHandlers() {
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
-    new dm::ReloadVolumeHandler();
 }
 
 DataMgr::~DataMgr()

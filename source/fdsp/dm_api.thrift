@@ -137,17 +137,6 @@ struct CreateVolumeCloneRespMsg {
      1:i64 cloneId
 }
 
-/**
- * Reloads (i.e., opens) a volume catalog after a clone
- * catalog migration has happened.
- * TODO(Andrew): This isn't used. So it shouldn't exist.
- */
-struct ReloadVolumeMsg {
-    1:i64 volId
-}
-struct ReloadVolumeRspMsg {
-}
-
 /* ------------------------------------------------------------
    Operations on Blobs
    ------------------------------------------------------------*/
