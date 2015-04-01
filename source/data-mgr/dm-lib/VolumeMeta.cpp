@@ -21,6 +21,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
     vol_desc = new VolumeDesc(_name, _uuid);
     dmCopyVolumeDesc(vol_desc, desc);
 
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
 }
 

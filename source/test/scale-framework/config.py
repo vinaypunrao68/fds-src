@@ -78,9 +78,11 @@ VAULT_PASS = ".vault_pass.txt"
 DESTROY_EC2 = "scripts/teardown_ec2_cluster.sh %s"
 START_EC2 = "scripts/deploy_fds_ec2.sh %s %s %s"
 START_BAREMETAL = "scripts/deploy_fds.sh %s %s"
+START_STATIC_AWS = "scripts/provision_fds_ec2.sh %s %s"
 
-LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202", 
+LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202",
                           "10.2.10.203")
+DEFAULT_AWS_INVENTORY = "static_16node_ec2"
 
 CONFIG_DIR = "./config/"
 SYSTEM_FRAMEWORK = "testsuites"

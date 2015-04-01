@@ -14,13 +14,13 @@ import users
 import utils
 
 class S3Volumes(object):
-    
+
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
     '''
     This API defines all the operations to be performed using a S3 bucket for
     FDS, including downloading, uploading, creating and deleting buckets.
-    
+
     Attributes:
     -----------
     name: the name pattern to be given to the bucket
@@ -37,14 +37,14 @@ class S3Volumes(object):
             self.am_ip_address = om_ip_address
         else:
             self.am_ip_address = am_ip_address
-        self.s3conn = utils.create_s3_conn(self.om_ip_address, self.am_ip_address)
-        self.s3conn.s3_connect()
+        self.s3conn = utils.create_s3_connection(self.om_ip_address,
+                                                 self.am_ip_address)
         self.buckets = []
-    
+
     def create_volumes(self, size):
         '''
         Given number specified by the user, create that many buckets specified.
-        
+
         Attributes:
         -----------
         size: the number of buckets to be created
@@ -55,19 +55,19 @@ class S3Volumes(object):
             bucket_name = "%s_%s" % (self.name, i)
             bucket = self.__create_volume(self.s3conn, bucket_name)
             self.buckets.append(bucket)
-            
+
     def __create_volume(self, s3conn, bucket_name):
         '''
         For each of the AM instances, create a single bucket for every volume,
         and populate that volume with sample data.
-        
+
         Attributes:
         -----------
         s3conn: S3Connection
             a S3Connection to the host machine
         bucket_name:
             the name of the bucket being created
-            
+
         Returns:
         --------
         bucket : The S3 bucket object
@@ -91,7 +91,7 @@ class S3Volumes(object):
     def download_files(self, bucket, dest):
         '''
         Download all the files present in a S3 volume
-        
+
         Attributes:
         -----------
         bucket: The s3 volume (bucket) to where download the data from
@@ -104,12 +104,12 @@ class S3Volumes(object):
             if not os.path.exists(path):
                 self.log.info("Downloading %s" % path)
                 l.get_contents_to_filename(path)
-                
+
     def store_file_to_volume(self, bucket, filepath):
         '''
         Given the list of files to be uploaded, presented in sample_files list,
         upload them to the corresponding volume
-        
+
         Attributes:
         -----------
         bucket : bucket
@@ -124,11 +124,11 @@ class S3Volumes(object):
                                          num_cb=10)
             self.log.info("Uploaded file %s to bucket %s" % 
                          (filepath, bucket.name))
-                
+
     def delete_volumes(self, buckets):
         '''
         Given a list of volumes to be deleted, remove all of them
-        
+
         Attributes:
         ----------
         buckets: a list of S3 buckets
@@ -142,7 +142,7 @@ class S3Volumes(object):
         '''
         After test execute, remove the current bucket associated with this
         connection
-        
+
         Attributes:
         -----------
         s3conn : S3Conn
