@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds_module.h>
+#include <fds_volume.h>
 #include <net/SvcRequest.h>
 #include "AmRequest.h"
 
@@ -50,10 +51,16 @@ struct AmDispatcher : public Module {
     Error updateDmt(bool dmt_type, std::string& dmt_data);
 
     /**
-     * Dispatches a stat volume request.
+     * Dispatches a test volume request to OM.
      */
     Error attachVolume(std::string const& volume_name);
     void dispatchAttachVolume(AmRequest *amReq);
+
+    /**
+     * Dispatches an open volume request to DM.
+     */
+    void dispatchOpenVolume(VolumeDesc const& vol_desc,
+                            std::function<void(Error)> cb);
 
     /**
      * Dispatches a stat volume request.
@@ -271,6 +278,12 @@ struct AmDispatcher : public Module {
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
     bool mockTimeoutEnabled_ = false;
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    bool volume_open_support { false };
 };
 
 }  // namespace fds

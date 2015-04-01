@@ -89,6 +89,13 @@ AmDispatcher::mod_startup() {
 	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
 	}
     }
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
+    volume_open_support = features.get<bool>("common.volume_open_support", false);
 }
 
 void
@@ -130,6 +137,38 @@ AmDispatcher::dispatchAttachVolume(AmRequest *amReq) {
     LOGDEBUG << "Attempting to attach to volume: " << amReq->volume_name;
     auto error = attachVolume(amReq->volume_name);
     amReq->proc_cb(error);
+}
+
+/**
+ * Dispatch a request to DM asking for permission to access this volume.
+ */
+void
+AmDispatcher::dispatchOpenVolume(VolumeDesc const& vol_desc,
+                                 std::function<void(Error)> cb) {
+    fiu_do_on("am.uturn.dispatcher", cb(ERR_OK); return;);
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    if (volume_open_support) {
+        auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
+        volMDMsg->volume_id = vol_desc.volUUID;
+
+        auto asyncStatVolReq = gSvcRequestPool->newFailoverSvcRequest(
+            boost::make_shared<DmtVolumeIdEpProvider>(
+                dmtMgr->getCommittedNodeGroup(vol_desc.volUUID)));
+        asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
+
+        asyncStatVolReq->onResponseCb(
+            [cb] (FailoverSvcRequest* svcReq,
+                  const Error& error,
+                  boost::shared_ptr<std::string> payload) { cb(error); });
+
+        asyncStatVolReq->invoke();
+    } else {
+        cb(ERR_OK);
+    }
 }
 
 void

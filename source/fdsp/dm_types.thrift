@@ -1,5 +1,6 @@
 /*
  * Copyright 2015 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp
  */
 
 namespace cpp FDS_ProtocolInterface
@@ -104,4 +105,12 @@ struct FDSP_DMT_Type {
   /** DMT table + meta in binary format */
   2: binary dmt_data,
   3: bool dmt_type,
+}
+
+/**
+ * Represents a lock used to perform blob operations
+ */
+struct VolumeLock {
+  1: required i64   vol_id;
+  2: optional i64   token = 0;
 }
