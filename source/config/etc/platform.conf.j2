@@ -413,6 +413,14 @@ fds: {
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
 
+        graphite: {
+            /* Graphite server ip */
+            ip = "{{ metricsdb_ip }}"
+            /* Graphite server port */
+            port = 2003
+            period = 5
+        }
+
         s3_http_port_offset=1000
         s3_https_port_offset=1443
         swift_port_offset=2999
