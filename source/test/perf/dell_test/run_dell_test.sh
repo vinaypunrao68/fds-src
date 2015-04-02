@@ -4,11 +4,13 @@
 
 function volume_setup {
     local max_obj_size=$1
-    local node=$2
-    local vol=$3
-    ssh $node "'pushd /fds/sbin && ./fdsconsole.py accesslevel admin && ./fdsconsole.py volume create $vol --vol-type block --blk-dev-size 10485760 --max-obj-size $max_obj_size && popd'"
+    local vol=$2
+    pushd /fds/sbin 
+    ./fdsconsole.py accesslevel admin 
+    ./fdsconsole.py volume create $vol --vol-type block --blk-dev-size 10485760 --max-obj-size $max_obj_size
     sleep 10
-    ssh $node 'pushd /fds/sbin && ./fdsconsole.py volume modify $vol --minimum 0 --maximum 0 --priority 1 && popd'
+    ./fdsconsole.py volume modify $vol --minimum 0 --maximum 0 --priority 1 
+    popd
     sleep 10
     disk=`../../../cinder/nbdadm.py attach $node $vol`
     echo $disk
@@ -20,7 +22,6 @@ function volume_detach {
 }
 
 function process_results {
-    #outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size
     local f=$1
     local numjobs=$2
     local workload=$3
@@ -48,13 +49,19 @@ outdir=$1
 node=$2
 
 size=8g
-bsizes="512 4096 8192 65536 524288"
-iodepths="1 2 4 8 16 32 64 128 256"
+# bsizes="512 4096 8192 65536 524288"
+# iodepths="1 2 4 8 16 32 64 128 256"
+# workers="4"
+# workloads="randread read randwrite write"
+
+bsizes="4096"
+iodepths="128"
 workers="4"
-workloads="randread read randwrite write"
+workloads="randread"
+
 
 for bs in $bsizes ; do
-    nbd_disk=`volume_setup $bs $node volume_$bs`
+    nbd_disk=`volume_setup $bs volume_$bs`
     fio --name=write --rw=write --filename=$nbd_disk --bs=$bs --numjobs=1 --iodepth=32 --ioengine=libaio --direct=1 --size=$size
     for worker in $workers ; do
         for workload in $workloads ; do
