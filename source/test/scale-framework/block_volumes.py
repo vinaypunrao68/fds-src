@@ -76,26 +76,16 @@ class BlockVolumes(object):
             self.log.info("userToken = %s", userToken)
 
             #Setup for the request
-            url = "http://" + self.om_ip_address + ":" + `port` + "/api/config/volumes"
+            url = "http://" + self.om_ip_address + ":" + `port` + "/api/config/volumes/%s" %volume_name
             self.log.info("url = %s", url)
             header = {'FDS-Auth' : userToken}
             self.log.info("header = %s", header)
-            # prepare data
-            data = {"sla":0,"limit":0,"priority":10,"snapshotPolicies":[],
-                    "timelinePolicies":[{"retention":604800,
-                    "recurrenceRule":{"FREQ":"DAILY"}},{"retention":1209600,
-                    "recurrenceRule":{"FREQ":"WEEKLY"}},{"retention":5184000,
-                    "recurrenceRule":{"FREQ":"MONTHLY"}},{"retention":31622400,
-                    "recurrenceRule":{"FREQ":"YEARLY"}}],"commit_log_retention":86400,
-                    "data_connector":{"type":"BLOCK","api":"Basic, Cinder",
-                    "options":{"max_size":"100","unit":["GB","TB","PB"]},
-                    "attributes":{"size":100,"unit":"GB"}},"name":volume_name}
-
-            json_data = json.dumps(data)
             #create volume
-            r = requests.delete(url, data=json_data, headers=header)
+            r = requests.delete(url, headers=header)
             if r is None:
                 raise ValueError, "r is None"
+		return False
+
             else:
                 self.log.info("request = %s", r.request)
                 self.log.info("response = %s", r.json())
@@ -103,5 +93,7 @@ class BlockVolumes(object):
 
                 #Check return code
                 assert 200 == r.status_code
+		return True
+
         except Exception, e:
             self.log.exception(e)
