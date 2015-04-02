@@ -155,13 +155,13 @@ AmDispatcher::dispatchOpenVolume(VolumeDesc const& vol_desc,
         auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
         volMDMsg->volume_id = vol_desc.volUUID;
 
-        auto asyncStatVolReq = gSvcRequestPool->newFailoverSvcRequest(
+        auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
             boost::make_shared<DmtVolumeIdEpProvider>(
                 dmtMgr->getCommittedNodeGroup(vol_desc.volUUID)));
         asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
 
         asyncStatVolReq->onResponseCb(
-            [cb] (FailoverSvcRequest* svcReq,
+            [cb] (QuorumSvcRequest* svcReq,
                   const Error& error,
                   boost::shared_ptr<std::string> payload) { cb(error); });
 

@@ -159,7 +159,7 @@ struct OpenVolumeMsg {
  */
 struct OpenVolumeRspMsg {
   /** Token for volume access */
-  1: optional i64       token;
+  1: required i64       token;
 }
 
 /**
@@ -167,7 +167,7 @@ struct OpenVolumeRspMsg {
  */
 struct CloseVolumeMsg {
   /** The token we are releasing */
-  1: optional i64       token;
+  1: required i64       token;
 }
 
 /**
