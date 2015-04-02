@@ -22,4 +22,4 @@
 - include: start_fds.yml
 
 - include: ../nginx/nginx_ssl_proxy.yml
-  when: ssl_enabled is defined and ssl_enabled == "yes"
+  when: ssl_enabled is defined

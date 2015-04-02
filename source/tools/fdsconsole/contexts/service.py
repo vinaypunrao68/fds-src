@@ -18,14 +18,28 @@ class ServiceContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('nodeid', help= "node id",  type=long)
-    @arg('svcname', help= "service name",  choices=['sm','dm','am'])
+    @arg('svcname', help= "service name. Must be some combination of sm, dm, or am, separated by commas.")
     def addService(self, nodeid, svcname):
         'activate services on a node'
+
+        # Split it up
+        svcname = svcname.split(',')
+        # Strip spaces, make lowercase
+        svcname = map(lambda x: x.strip().lower(), svcname)
+
+        svcs = {}
+        if svcname.count('am') > 0:
+            svcs['am'] = True
+        if svcname.count('sm') > 0:
+            svcs['sm'] = True
+        if svcname.count('dm') > 0:
+            svcs['dm'] = True
+
         try:
-            return self.restApi().toggleServices(nodeid, {svcname: True})
+            return self.restApi().startService(nodeid, svcs)
         except Exception, e:
             log.exception(e)
-            return 'unable to remove node'
+            return 'unable to start service'
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd

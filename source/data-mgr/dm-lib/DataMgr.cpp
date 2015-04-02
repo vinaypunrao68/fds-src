@@ -987,7 +987,7 @@ void DataMgr::mod_enable_service() {
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     if (features.isTimelineEnabled()) {
         timeline->open();
     }

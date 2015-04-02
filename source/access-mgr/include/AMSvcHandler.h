@@ -12,6 +12,7 @@
 namespace FDS_ProtocolInterface {
 class AMSvcClient;
 class AMSvcProcessor;
+struct CtrlNotifyDMTUpdate;
 }
 
 

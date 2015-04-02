@@ -4,6 +4,7 @@
 
 #include <AMSvcHandler.h>
 
+#include <fdsp/dm_api_types.h>
 #include "net/SvcRequest.h"
 #include "AmProcessor.h"
 
