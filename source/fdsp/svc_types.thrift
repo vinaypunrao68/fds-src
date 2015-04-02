@@ -164,6 +164,10 @@ enum  FDSPMsgTypeId {
   GetDmStatsMsgRespTypeId;
   ListBlobsByPatternMsgTypeId;
   ListBlobsByPatternRspMsgTypeId;
+  OpenVolumeMsgTypeId;
+  OpenVolumeRspMsgTypeId;
+  CloseVolumeMsgTypeId;
+  CloseVolumeRspMsgTypeId;
 }
 
 /**

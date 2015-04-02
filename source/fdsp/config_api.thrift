@@ -1,5 +1,6 @@
 /*
  * Copyright 2013-2015 Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
 include "config_types.thrift"

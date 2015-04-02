@@ -1,5 +1,6 @@
 /*
  * Copyright 2015 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp
  */
 
 namespace cpp FDS_ProtocolInterface

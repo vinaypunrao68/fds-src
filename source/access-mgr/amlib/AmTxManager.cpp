@@ -185,12 +185,15 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc)
 {
     auto err = amCache->registerVolume(volDesc.volUUID);
     if (ERR_OK == err) {
-        LOGDEBUG << "Create caches for volume: " << std::hex << volDesc.volUUID;
+        LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
         err = volTable->registerVolume(volDesc);
         if (ERR_OK != err) {
-            LOGERROR << "Failed to register volume: " << err;
             amCache->removeVolume(volDesc.volUUID);
         }
+    }
+
+    if (!err.ok()) {
+        LOGERROR << "Failed to register volume: " << err;
     }
     return err;
 }

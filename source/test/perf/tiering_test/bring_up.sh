@@ -23,6 +23,10 @@ cp .tmp $WORKSPACE/ansible/inventory/$config
 echo "Bring up FDS"
 pushd $WORKSPACE/ansible
 ./scripts/deploy_fds.sh $config nightly
+if [ $? -ne 0 ]; then
+    echo "FDS deploy has failed"
+    exit 1
+fi
 echo "Sleep for one minute more..."
 sleep 60
 popd
