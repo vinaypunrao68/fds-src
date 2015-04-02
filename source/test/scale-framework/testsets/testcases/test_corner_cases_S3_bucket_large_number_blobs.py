@@ -33,8 +33,8 @@ class TestS3BucketLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
     Currently, this test can only run on a single OM node.
     '''
     # max number of blobs in each bucket
-    MAX_NUMBER_BLOBS = 10
-    NUMBER_OF_ITERATION = 1 	#run test this number of times
+    MAX_NUMBER_BLOBS = 500
+    NUMBER_OF_ITERATION = 2 	#run test this number of times
     
     
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
@@ -98,7 +98,6 @@ class TestS3BucketLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 
 	#Use file_generator to create files to test
 	for eachBlob in self.all_blob_sizes:
-		pdb.set_trace()
 		fgen = file_generator.FileGenerator(eachBlob, self.MAX_NUMBER_BLOBS, 'K')
 		fgen.generate_files()
 
