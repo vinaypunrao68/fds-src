@@ -22,7 +22,6 @@ from subprocess import list2cmdline
 
 import config
 import config_parser
-import s3
 import samples
 
 
@@ -31,6 +30,17 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
+
+def is_device_mounted(device):
+    try:
+        cmd = "mount | grep %s > /dev/null" % device
+        output = subprocess.check_output([cmd], shell=True)
+        if len(output) == 0:
+            return True
+        return False
+    except Exception, e:
+        log.exception(e)
+        sys.exit(2)
 
 def create_s3_connection(om_ip, am_ip, auth=None):
     '''
@@ -52,6 +62,13 @@ def create_s3_connection(om_ip, am_ip, auth=None):
     s3conn.s3_connect()
     return s3conn
 
+def execute_cmd(cmd):
+    try:
+        return subprocess.check_output([cmd], shell=True)
+    except Exception, e:
+        log.exception(e)
+        sys.exit(2)
+
 def do_work(function, params):
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         results = {executor.submit(function, param): param for param in params}
@@ -66,14 +83,14 @@ def do_work(function, params):
 
 def hostname_to_ip(hostname):
     return socket.gethostbyname(hostname)
-    
+
 def create_test_files_dir():
     create_dir(config.TEST_DIR)
     # data files aren't there, download them
     if os.listdir(config.TEST_DIR) == []:
         fname = download_file(config.REPOSITORY_URL)
         untar_file(fname)
-    
+
 def untar_file(fname):
     if (fname.endswith("tar.gz")):
         tar = tarfile.open(fname)
@@ -109,12 +126,12 @@ def hash_file_content(path):
     '''
     Hash the file content using MD5, and store the hash key for later. If
     The file content changed, or was corrupted, the hash key will show it.
-     
+
     Attributes:
     -----------
     fname : str
         the name of the file to be hashed
-    
+
     Returns:
     --------
     str: a MD5 hash key
