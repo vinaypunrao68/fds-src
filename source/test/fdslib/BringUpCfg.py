@@ -451,8 +451,9 @@ class FdsNodeConfig(FdsConfig):
 
             status = self.nd_agent.exec_wait('ls ' + var_dir)
             if status == 0:
-                log.info("Cleanup logs and stats in: %s" % var_dir)
+                log.info("Cleanup logs,db and stats in: %s" % var_dir)
                 self.nd_agent.exec_wait('rm -rf ' + var_dir + '/logs')
+                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/db')
                 self.nd_agent.exec_wait('rm -rf ' + var_dir + '/stats')
 
             status = self.nd_agent.exec_wait('ls /corefiles')
@@ -497,7 +498,7 @@ class FdsNodeConfig(FdsConfig):
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
             status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +
-                '(cd %s && rm -r logs stats); ' % var_dir +
+                '(cd %s && rm -r logs db stats); ' % var_dir +
                 '(cd /corefiles && rm *.core); '  +
                 '(cd %s/core && rm *.core); ' % var_dir +
                 '(cd %s && ./fds clean -i); ' % tools_dir +
