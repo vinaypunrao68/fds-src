@@ -28,6 +28,7 @@ std::atomic_uint nextIoReqId;
 
 AmProcessor::AmProcessor(const std::string &modName, shutdown_cb_type&& cb)
         : Module(modName.c_str()),
+          enable_shared_from_this<AmProcessor>(),
           amDispatcher(new AmDispatcher("AM Dispatcher Module")),
           txMgr(new AmTxManager()),
           shutdown_cb(std::move(cb)) {
@@ -198,9 +199,15 @@ AmProcessor::getVolume(AmRequest* amReq, bool const allow_snapshot) {
     return shVol;
 }
 
-Error
+void
 AmProcessor::registerVolume(const VolumeDesc& volDesc) {
-    return txMgr->registerVolume(volDesc);
+    /** First we need to open the volume for access */
+    auto cb = [p = shared_from_this(), volDesc](Error e) mutable -> void {
+        static_cast<void>(ERR_OK == e ?
+            p->txMgr->registerVolume(volDesc) : p->txMgr->removeVolume(volDesc));
+    };
+
+    amDispatcher->dispatchOpenVolume(volDesc, cb);
 }
 
 Error

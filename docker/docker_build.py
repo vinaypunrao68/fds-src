@@ -60,7 +60,7 @@ class FDSDocker():
         """Parse docker stream json output into raw messages"""
         for line in stream:
             if self.debug:
-                print "D: " + line
+                print "D: " + line,
             else:
                 try:
                     print json.loads(line).get(tag),
@@ -78,7 +78,7 @@ class FDSDocker():
             if self.debug:
                 print "D: " + line
             else:
-                if re.search('Downloading', line):
+                if re.search('(Downloading|Buffering|Pushing)', line):
                     print ".",
                 else:
                     try:
@@ -105,7 +105,7 @@ class FDSDocker():
     def pushimage(self):
         """Push an image to the docker repository"""
         image = self.get_imageattrs(self.opts['type'])
-        pushclient = Client(self.get_buildhost())
+        pushclient = self.get_conn(self.get_buildhost())
         push_response = pushclient.push(repository=image['tag'],
                                         stream=True,
                                         insecure_registry=True)

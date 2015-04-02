@@ -190,10 +190,9 @@ class TestNodeActivate(TestCase.FDSTestCase):
             if services != '':
                 self.log.info("Activate services %s for node %s." % (services, n.nd_conf_dict['node-name']))
 
-                status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-services abc -k 1 -w %s -e %s > '
-                                                    '%s/cli.out 2>&1) \"' %
-                                                    (fds_dir, int(n.nd_uuid, 16), services, log_dir),
-                                                    fds_bin=True)
+                status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service '
+                                                    'addService {} {} > {}/cli.out 2>&1) \"'.format(
+                    int(n.nd_uuid, 16), services, log_dir,), fds_tools=True)
 
             if status != 0:
                 self.log.error("Service activation of node %s returned status %d." %
@@ -243,10 +242,10 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
 
             self.log.info("Remove services for node %s." % n.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e %s > '
-                                                '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, n.nd_assigned_name, n.nd_services, log_dir),
-                                                fds_bin=True)
+            self.log.warn("Remove services call currently unimplemented. THIS CALL WILL FAIL!")
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service removeService {} {} > '
+                                                '{}/cli.out 2>&1) \"'.format(n.nd_uuid, n.nd_services, log_dir),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Service removal of node %s returned status %d." %

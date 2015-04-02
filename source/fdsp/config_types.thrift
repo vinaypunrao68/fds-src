@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
 include "common.thrift"
@@ -120,6 +121,8 @@ struct VolumeSettings {
   4: required i64 contCommitlogRetention;
   /** the media policy type */
   5: MediaPolicy mediaPolicy;
+  /** the default access policy */
+  6: optional common.VolumeAccessPolicy default_policy;
 }
 
 /**

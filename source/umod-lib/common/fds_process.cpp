@@ -435,15 +435,33 @@ FdsProcess::closeAllFDs()
             fflush(stdout);
             fflush(stderr);
             ret = dup2(i, devNullFd);
+#if 0
             if (-1 == ret) {
-                LOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
+                // xxx: Not sure if we can log here as we are closing all fds in this loop.
+                // we should log to syslog
+                GLOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
             }
+#endif
         } else {
             ret = close(i);
             /* intentionally ignoring return value. some file descriptor may not be
              * open for closing.  not all entries in the dtable is populated.
              */
         }
+    }
+}
+
+void FdsProcess::checkAndDaemonize(int argc, char *argv[]) {
+    bool makeDaemon = true;
+    for (int i = 1; i < argc; i++) {
+        if (std::string(argv[i]).find("--foreground") != std::string::npos) {
+            makeDaemon = false;
+            break;
+        }
+    }
+    if (makeDaemon) {
+        closeAllFDs();
+        daemonize();
     }
 }
 
@@ -459,12 +477,12 @@ void FdsProcess::daemonize() {
     int childpid = fork();
     if (childpid < 0) {
         /* fork failed */
-        LOGERROR << "error forking for daemonize : " << errno;
+        GLOGERROR << "error forking for daemonize : " << errno;
         exit(1);
     }
     if (childpid > 0) {
         /* parent process */
-        LOGNORMAL << "forked successfully : child pid : " << childpid;
+        GLOGNORMAL << "forked successfully : child pid : " << childpid;
         exit(0);
     }
 

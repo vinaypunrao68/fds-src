@@ -173,6 +173,16 @@ class ServiceEndpoint:
         else:
             return []
 
+    def startService(self, nodeUuid, svcs):
+        rest_path = '{}/{}'.format(self.rest_path, nodeUuid)
+
+        res = self.rest.post(rest_path, data=json.dumps(svcs))
+        if res is not None:
+            if res.content == '{"status": 0}\n':
+                return True
+
+        return False
+
 
 class TenantEndpoint():
     def __init__(self, rest):
