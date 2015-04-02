@@ -39,7 +39,7 @@ struct AmVolumeTable : public HasLogger {
     using tx_callback_type = std::function<void(AmRequest*)>;
     void registerCallback(tx_callback_type cb);
 
-    Error registerVolume(const VolumeDesc& vdesc, fds_int64_t token = -1);
+    Error registerVolume(const VolumeDesc& vdesc, fds_int64_t token);
     Error removeVolume(const VolumeDesc& volDesc);
 
     /**

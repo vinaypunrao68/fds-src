@@ -91,21 +91,6 @@ AmVolumeTable::AmVolumeTable(size_t const qos_threads, fds_log *parent_log) :
     if (parent_log) {
         SetLog(parent_log);
     }
-
-    /* setup 'admin' queue that will hold requests to OM
-     * such as 'get bucket stats' and 'get bucket' */
-    {
-        VolumeDesc admin_vdesc("admin_vol", admin_vol_id);
-        admin_vdesc.iops_min = 10;
-        admin_vdesc.iops_max = 500;
-        admin_vdesc.relativePrio = 9;
-        admin_vdesc.capacity = 0; /* not really a volume, using volume struct to hold admin requests  */
-        if (ERR_OK == registerVolume(admin_vdesc)) {
-            LOGNOTIFY << "AmVolumeTable -- constructor registered admin volume";
-        } else {
-            LOGERROR << "AmVolumeTable -- failed to allocate admin volume struct";
-        }
-    }
 }
 
 AmVolumeTable::~AmVolumeTable() {

@@ -166,7 +166,7 @@ AmDispatcher::dispatchOpenVolume(VolumeDesc const& vol_desc,
                             boost::shared_ptr<std::string> payload) {
             auto e = error;
             auto msg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
-            cb((msg ? msg->token : -1), e);
+            cb((msg ? msg->token : invalid_vol_token), e);
         };
 
         asyncStatVolReq->onResponseCb(svc_cb);
@@ -192,7 +192,7 @@ AmDispatcher::dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token) {
         volMDMsg->volume_id = vol_id;
         volMDMsg->token = token;
 
-        auto asyncStatVolReq = gSvcRequestPool->newFailoverSvcRequest(
+        auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
             boost::make_shared<DmtVolumeIdEpProvider>(
                 dmtMgr->getCommittedNodeGroup(vol_id)));
         asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::CloseVolumeMsg), volMDMsg);
