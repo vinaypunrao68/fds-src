@@ -120,13 +120,6 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     typedef std::shared_ptr<AmLoadProc> shared_ptr;
 
     void init() {
-        // register and populate volumes
-        VolumeDesc volDesc(*volumeName, 5);
-        volDesc.iops_min = 0;
-        volDesc.iops_max = 0;
-        volDesc.relativePrio = 1;
-        ASSERT_EQ(ERR_OK, am->getProcessor()->registerVolume(volDesc));
-
         responseApi.reset(this, null_deleter());
         if (thrift) {
             // Setup the async response server
@@ -159,6 +152,8 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         } else {
             asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(am->getProcessor(), shared_from_this());
         }
+        am->getProcessor()->registerVolume(
+            std::move(VolumeDesc(*volumeName, 5, 0, 0, 1)));
     }
 
     enum TaskOps {
