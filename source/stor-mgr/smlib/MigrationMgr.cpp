@@ -582,7 +582,8 @@ fds_uint64_t
 SmTokenMigrationMgr::getExecutorId(fds_uint32_t localId,
                                    const NodeUuid& smSvcUuid) const {
     fds_uint64_t execId = smSvcUuid.uuid_get_val();
-    return ((execId << 32) | localId);
+    // Keep most significant bits to read the uuid easier.
+    return ((execId & (~0UL << 32)) | localId);
 }
 
 }  // namespace fds
