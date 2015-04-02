@@ -224,8 +224,8 @@ def main(args):
         sys.exit(2)
     operation = Operation(data['test_sets'], args)
     operation.start_system()
-    #operation.collect_tests()
-    #operation.run_tests()
+    operation.collect_tests()
+    operation.run_tests()
     operation.stop_system()
 
 if __name__ == '__main__':
