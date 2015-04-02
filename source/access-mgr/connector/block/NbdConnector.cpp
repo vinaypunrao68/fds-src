@@ -33,7 +33,7 @@ void NbdConnector::initialize() {
     nbdPort = pmPort + conf.get<uint32_t>("server_port_offset", 3809);
 
     // Shutdown the socket if we are reinitializing
-    if (0 > nbdSocket)
+    if (0 <= nbdSocket)
         { deinit(); }
 
     // Bind to NBD listen port
@@ -144,6 +144,7 @@ NbdConnector::createNbdSocket() {
         fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
         listen(listenfd, 10);
     } else {
+        LOGERROR << "Bind to listening socket failed: " << strerror(errno);
         listenfd = -1;
     }
 
