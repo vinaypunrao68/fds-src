@@ -125,7 +125,7 @@ void AmVolumeTable::registerCallback(tx_callback_type cb) {
  * Does nothing if volume is already registered
  */
 Error
-AmVolumeTable::registerVolume(const VolumeDesc& vdesc)
+AmVolumeTable::registerVolume(const VolumeDesc& vdesc, fds_int64_t token)
 {
     Error err(ERR_OK);
     fds_volid_t vol_uuid = vdesc.GetID();
@@ -146,7 +146,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc)
 
             /** Internal bookkeeping */
             if (err.ok()) {
-                auto new_vol = std::make_shared<AmVolume>(vdesc, queue);
+                auto new_vol = std::make_shared<AmVolume>(vdesc, queue, token);
                 /** Drain wait queue into QoS */
                 wait_queue->drain(vdesc.name,
                                   [this, vol_uuid] (AmRequest* amReq) mutable -> void {
