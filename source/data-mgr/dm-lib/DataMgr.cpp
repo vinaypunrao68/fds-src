@@ -846,6 +846,12 @@ int DataMgr::mod_init(SysParams const *const param)
     if (features.isTimelineEnabled()) {
         timeline.reset(new TimelineDB());
     }
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.volume_open_support", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -885,6 +891,15 @@ void DataMgr::initHandlers() {
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
+
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (features.isVolumeTokensEnabled()) {
+        handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler();
+        handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler();
+    }
 }
 
 DataMgr::~DataMgr()

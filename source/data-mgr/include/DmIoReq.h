@@ -645,6 +645,30 @@ struct DmIoGetVolumeMetadata : dmCatReq {
     CbType dmio_get_volmd_resp_cb;
 };
 
+struct DmIoVolumeOpen : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoVolumeOpen *req)> CbType;
+
+    explicit DmIoVolumeOpen(fds_volid_t volId, boost::shared_ptr<fpi::OpenVolumeRspMsg> message)
+            : dmCatReq(volId, "", "", 0, FDS_OPEN_VOLUME), msg(message) {
+    }
+
+    boost::shared_ptr<fpi::OpenVolumeRspMsg> msg;
+    // response callback
+    CbType dmio_get_volmd_resp_cb;
+};
+
+struct DmIoVolumeClose : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoVolumeClose *req)> CbType;
+
+    explicit DmIoVolumeClose(fds_volid_t volId, boost::shared_ptr<fpi::CloseVolumeRspMsg> message)
+            : dmCatReq(volId, "", "", 0, FDS_CLOSE_VOLUME), msg(message) {
+    }
+
+    boost::shared_ptr<fpi::CloseVolumeRspMsg> msg;
+    // response callback
+    CbType dmio_get_volmd_resp_cb;
+};
+
 /**
  * stat from a single module for volume(s)
  */
