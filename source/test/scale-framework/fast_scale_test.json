@@ -9,13 +9,6 @@
 				"config" : ""
 			},
 			{
-				"name" : "TestAMProcessConsistency",
-				"file" : "test_am_process_consistency.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
 				"name" : "TestCreateMultivolume",
 				"file" : "test_create_multivolume.py",
 				"arguments" : [],
@@ -32,20 +25,6 @@
 			{
 				"name" : "TestMultiConnections",
 				"file" : "test_multiconnections.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestCreateThreehundredObjectVolumes",
-				"file" : "Test300VolsObj.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestCreateThreehundredBlockVolumes",
-				"file" : "test300VolsBlock.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
