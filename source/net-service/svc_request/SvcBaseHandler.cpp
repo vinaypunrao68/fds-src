@@ -3,7 +3,6 @@
 
 #include <string>
 
-#include <net/BaseAsyncSvcHandler.h>
 #include <util/Log.h>
 #include <net/SvcRequest.h>
 #include <net/SvcRequestTracker.h>

@@ -202,9 +202,9 @@ AmProcessor::getVolume(AmRequest* amReq, bool const allow_snapshot) {
 void
 AmProcessor::registerVolume(const VolumeDesc& volDesc) {
     /** First we need to open the volume for access */
-    auto cb = [p = shared_from_this(), volDesc](Error e) mutable -> void {
+    auto cb = [p = shared_from_this(), volDesc](fds_int64_t t, Error e) mutable -> void {
         static_cast<void>(ERR_OK == e ?
-            p->txMgr->registerVolume(volDesc) : p->txMgr->removeVolume(volDesc));
+            p->txMgr->registerVolume(volDesc, t) : p->txMgr->removeVolume(volDesc));
     };
 
     amDispatcher->dispatchOpenVolume(volDesc, cb);
@@ -217,7 +217,17 @@ AmProcessor::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
 
 Error
 AmProcessor::removeVolume(const VolumeDesc& volDesc) {
-    auto err = txMgr->removeVolume(volDesc);
+    Error err{ERR_OK};
+
+    // Remove the volume from QoS/VolumeTable/TxMgr
+    err = txMgr->removeVolume(volDesc);
+
+    // If we had a token for a volume, give it back to DM
+    auto shVol = txMgr->getVolume(volDesc.volUUID);
+    if (shVol) {
+        fds_int64_t token = shVol->token;
+        amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
+    }
     if (shut_down && txMgr->drained())
     {
        shutdown_cb();

@@ -94,7 +94,7 @@ struct AmTxManager {
      * Notify that there is a newly attached volume, and build any
      * necessary data structures.
      */
-    Error registerVolume(const VolumeDesc& volDesc);
+    Error registerVolume(const VolumeDesc& volDesc, fds_int64_t token);
 
     /**
      * Modify the policy for an attached volume.

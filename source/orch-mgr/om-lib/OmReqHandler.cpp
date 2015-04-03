@@ -10,7 +10,7 @@
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
 #include <fdsp/svc_types_types.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 #include <net/PlatNetSvcHandler.h>
 #include "platform/node_data.h"
 #include "platform/platform.h"

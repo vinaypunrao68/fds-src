@@ -6,7 +6,6 @@
 
 [formation_cloud_ec2:vars]
 clean_fds=no
-cluster_location=awo
 deploy_artifact=beta
 fds_build=release
 no_password_change=true
