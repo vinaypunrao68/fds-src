@@ -508,6 +508,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         fpi::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
+        LOGDEBUG << "delete volume notification received:" << *volumeName << " " << err;
     }
 
     void statVolume(VolumeDescriptor& volDescriptor,
