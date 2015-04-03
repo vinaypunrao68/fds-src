@@ -17,17 +17,22 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <testlib/TestFixtures.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
 
+struct SvcMgrTest : BaseTestFixture {
+};
+
 /**
 * @brief Tests svc map update in the domain.
 */
-TEST(SvcMgr, svcmapUdpate) {
+TEST_F(SvcMgrTest, svcmapUdpate) {
     int cnt = 4;
-    FakeSyncSvcDomain domain(cnt);
+    FakeSyncSvcDomain domain(cnt, this->getArg<std::string>("fds-root") +
+                             std::string("/etc/platform.conf"));
     for (int svcIdx = 0; svcIdx < cnt; svcIdx++) {
         ASSERT_TRUE(domain.checkSvcInfoAgainstDomain(svcIdx));
     }
@@ -41,5 +46,10 @@ TEST(SvcMgr, svcmapUdpate) {
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    po::options_description opts("Allowed options");
+    opts.add_options()
+        ("help", "produce help message")
+        ("fds-root", po::value<std::string>()->default_value("/fds"), "root");
+    SvcMgrTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

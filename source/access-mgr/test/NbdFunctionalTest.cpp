@@ -55,13 +55,6 @@ class NbdOpsProc : public NbdOperationsResponseIface {
   public:
     NbdOpsProc(int argc, char **argv)
             : volumeName(new std::string("Test Volume")) {
-        // register and populate volumes
-        VolumeDesc volDesc(*volumeName, 5);
-        volDesc.iops_min = 0;
-        volDesc.iops_max = 0;
-        volDesc.relativePrio = 1;
-        fds_verify(am->getProcessor()->registerVolume(volDesc) == ERR_OK);
-
         namespace po = boost::program_options;
         po::options_description desc("Nbd Operations functional test");
         desc.add_options()
@@ -143,6 +136,8 @@ class NbdOpsProc : public NbdOperationsResponseIface {
         // pass data API to Ndb Operations
         nbdOps.reset(new NbdOperations(this));
         nbdOps->init(volumeName, 4096, am->getProcessor());
+        am->getProcessor()->registerVolume(
+            std::move(VolumeDesc(*volumeName, 5, 0, 0, 1)));
     }
 
     void resetCounters() {

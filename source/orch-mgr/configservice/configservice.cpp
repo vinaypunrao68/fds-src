@@ -21,7 +21,7 @@
 #include <orchMgr.h>
 #include <util/stringutils.h>
 #include <util/timeutils.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
@@ -508,6 +508,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         fpi::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
+        LOGDEBUG << "delete volume notification received:" << *volumeName << " " << err;
     }
 
     void statVolume(VolumeDescriptor& volDescriptor,

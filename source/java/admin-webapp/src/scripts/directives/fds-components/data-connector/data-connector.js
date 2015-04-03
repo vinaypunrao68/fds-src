@@ -5,7 +5,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/data-connector/data-connector.html',
-        scope: { dataConnector: '=ngModel', editable: '@' },
+        scope: { dataConnector: '=ngModel', editable: '@', enable: '=?'},
         controller: function( $scope, $data_connector_api ){
             
             $scope.sizes = [{name:'GB'}, {name:'TB'},{name:'PB'}];
@@ -26,14 +26,16 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 }
             };
             
-            $scope.$on( 'fds::refresh', function(){
-                
+            var refreshSelection = function(){
+                 
                 if ( angular.isDefined( $scope.dataConnector.attributes ) ){
                     $scope.dataConnector.attributes.size = $scope._selectedSize;
                     $scope.dataConnector.attributes.unit = $scope._selectedUnit.name;
                 }
-            });
-
+            };
+            
+            $scope.$on( 'fds::refresh', refreshSelection );
+            
             $scope.$watch( 'dataConnector', function( newVal ){
                 
                 if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.type ) ){

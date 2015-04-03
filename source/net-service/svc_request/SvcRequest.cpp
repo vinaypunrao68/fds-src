@@ -6,7 +6,7 @@
 
 #include <concurrency/ThreadPool.h>
 #include <net/SvcMgr.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
 #include <net/SvcRequest.h>

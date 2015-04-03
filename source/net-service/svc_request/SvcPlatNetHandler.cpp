@@ -11,17 +11,24 @@
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string.hpp>
 
+#include <net/PlatNetSvcHandler.h>
+#include <util/Log.h>
+#include <net/SvcRequest.h>
+#include <net/SvcRequestTracker.h>
+#include <net/SvcRequestPool.h>
+#include <net/SvcMgr.h>
+#include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <util/fiu_util.h>
 #include <fiu-control.h>
 #include <fds_process.h>
 #include <fdsp/svc_api_types.h>
-#include <net/SvcMgr.h>
-#include <net/SvcRequest.h>
-#include <net/PlatNetSvcHandler.h>
 
 namespace fds {
 PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
-        : BaseAsyncSvcHandler(provider)
+: HasModuleProvider(provider),
+Module("PlatNetSvcHandler")
 {
+    deferRequests_ = false;
     REGISTER_FDSP_MSG_HANDLER(fpi::GetSvcStatusMsg, getStatus);
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateSvcMapMsg, updateSvcMap);
 }
@@ -29,6 +36,192 @@ PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
 PlatNetSvcHandler::~PlatNetSvcHandler()
 {
 }
+int PlatNetSvcHandler::mod_init(SysParams const *const param)
+{
+    return 0;
+}
+
+void PlatNetSvcHandler::mod_startup()
+{
+}
+
+void PlatNetSvcHandler::mod_shutdown()
+{
+}
+
+void PlatNetSvcHandler::deferRequests(bool defer)
+{
+    /* NOTE: For now the supported deferring sequence is to start with 
+     * defer set to true and at a later point set defer to false.
+     */
+
+    deferRequests_ = defer;
+
+    if (deferRequests_ == false) {
+        /* Drain all the deferred requests.  NOTE it's possible to drain them
+         * on a threadpool as well
+         */
+        fds_scoped_lock l(lock_);
+        for (auto &reqPair: deferredReqs_) {
+            asyncReqt(reqPair.first, reqPair.second);        
+        }
+     }
+}
+
+
+/**
+ * @brief 
+ *
+ * @param taskExecutor
+ */
+void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *taskExecutor)
+{
+    taskExecutor_ = taskExecutor;
+}
+
+/**
+ * @brief
+ *
+ * @param _return
+ * @param msg
+ */
+void PlatNetSvcHandler::uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMsg& msg)
+{
+}
+
+/**
+ * @brief
+ *
+ * @param _return
+ * @param msg
+ */
+void PlatNetSvcHandler::uuidBind(fpi::AsyncHdr &_return,
+                                   boost::shared_ptr<fpi::UuidBindMsg>& msg)
+{
+}
+
+void PlatNetSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
+                                       const std::string& payload)
+{
+}
+
+/**
+  * @brief Invokes registered request handler
+  *
+  * @param header
+  * @param payload
+  */
+void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                                     boost::shared_ptr<std::string>& payload)
+{
+    SVCPERF(header->rqRcvdTs = util::getTimeStampNanos());
+    fiu_do_on("svc.uturn.asyncreqt", header->msg_code = ERR_INVALID;
+    sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); return; );
+
+    while (deferRequests_) {
+        fds_scoped_lock l(lock_);
+        if (!deferRequests_) {
+            break;
+         }
+         GLOGNOTIFY << "Deferred: " << logString(*header);
+         deferredReqs_.push_back(std::make_pair(header, payload));
+         return;
+    }
+
+    GLOGDEBUG << logString(*header);
+    try
+    {
+        /* Deserialize the message and invoke the handler.  Deserialization is performed
+         * by deserializeFdspMsg().
+         * For detaails see macro REGISTER_FDSP_MSG_HANDLER()
+         */
+         fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
+         asyncReqHandlers_.at(header->msg_type_id) (header, payload);
+    }
+    catch(std::out_of_range &e)
+    {
+        fds_assert(!"Unregistered fdsp message type");
+        LOGWARN << "Unknown message type: " << static_cast<int32_t>(header->msg_type_id)
+                << " Ignoring";
+    }
+}
+
+/**
+  *
+  * @param header
+  * @param payload
+  */
+void PlatNetSvcHandler::asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
+                                    const std::string& payload)
+{
+}
+
+/**
+  * Handler function for async responses
+  * @param header
+  * @param payload
+  */
+void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                                    boost::shared_ptr<std::string>& payload)
+{
+    SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
+    fiu_do_on("svc.disable.schedule", asyncRespHandler(\
+    MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(), header, payload); return; );
+    // fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
+
+
+    GLOGDEBUG << logString(*header);
+
+    fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
+
+    /* Execute on synchronized task exector so that handling for requests
+     * with same id gets serialized
+     */
+     taskExecutor_->schedule(header->msg_src_id,
+                           std::bind(&PlatNetSvcHandler::asyncRespHandler,
+                                     MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
+                                     header, payload));
+}
+
+
+/**
+  * @brief Static async response handler. Making this static so that this function
+  * is accessible locally(with in the process) to everyone.
+  *
+  * @param header
+  * @param payload
+*/
+void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
+     boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+     boost::shared_ptr<std::string>& payload)
+{
+     auto asyncReq = reqTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
+     if (!asyncReq)
+     {
+         GLOGWARN << logString(*header) << " Request doesn't exist (timed out?)";
+         return;
+     }
+
+     SVCPERF(asyncReq->ts.rqRcvdTs = header->rqRcvdTs);
+     SVCPERF(asyncReq->ts.rqHndlrTs = header->rqHndlrTs);
+     SVCPERF(asyncReq->ts.rspSerStartTs = header->rspSerStartTs);
+     SVCPERF(asyncReq->ts.rspSendStartTs = header->rspSendStartTs);
+     SVCPERF(asyncReq->ts.rspRcvdTs = header->rspRcvdTs);
+
+     asyncReq->handleResponse(header, payload);
+}
+
+ void PlatNetSvcHandler::sendAsyncResp_(const fpi::AsyncHdr& reqHdr,
+                     const fpi::FDSPMsgTypeId &msgTypeId,
+                     StringPtr &payload)
+{
+     auto respHdr = boost::make_shared<fpi::AsyncHdr>(
+          std::move(SvcRequestPool::swapSvcReqHeader(reqHdr)));
+     respHdr->msg_type_id = msgTypeId;
+
+     MODULEPROVIDER()->getSvcMgr()->sendAsyncSvcRespMessage(respHdr, payload);
+}
+
 
 void PlatNetSvcHandler::allUuidBinding(const fpi::UuidBindMsg& mine)
 {

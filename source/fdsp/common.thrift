@@ -1,5 +1,9 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
+ */
+/**
+ *
  */
 
 namespace c_glib FDS_ProtocolInterface
@@ -211,4 +215,9 @@ struct Snapshot {
     6:i64 retentionTimeSeconds,
     7:ResourceState state,
     8:i64 timelineTime,
+}
+
+struct VolumeAccessPolicy {
+  1: optional bool exclusive_read = true;
+  2: optional bool exclusive_write = true;
 }

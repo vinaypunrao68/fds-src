@@ -89,6 +89,13 @@ AmDispatcher::mod_startup() {
 	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
 	}
     }
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
+    volume_open_support = features.get<bool>("common.volume_open_support", false);
 }
 
 void
@@ -130,6 +137,67 @@ AmDispatcher::dispatchAttachVolume(AmRequest *amReq) {
     LOGDEBUG << "Attempting to attach to volume: " << amReq->volume_name;
     auto error = attachVolume(amReq->volume_name);
     amReq->proc_cb(error);
+}
+
+/**
+ * Dispatch a request to DM asking for permission to access this volume.
+ */
+void
+AmDispatcher::dispatchOpenVolume(VolumeDesc const& vol_desc,
+                                 std::function<void(fds_int64_t, Error)> cb) {
+    fiu_do_on("am.uturn.dispatcher", cb(0, ERR_OK); return;);
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    if (volume_open_support) {
+        auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
+        volMDMsg->volume_id = vol_desc.volUUID;
+
+        auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
+            boost::make_shared<DmtVolumeIdEpProvider>(
+                dmtMgr->getCommittedNodeGroup(vol_desc.volUUID)));
+        asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
+
+        /** What to do with the response */
+        auto svc_cb = [cb] (QuorumSvcRequest* svcReq,
+                            const Error& error,
+                            boost::shared_ptr<std::string> payload) {
+            auto e = error;
+            auto msg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
+            cb((msg ? msg->token : invalid_vol_token), e);
+        };
+
+        asyncStatVolReq->onResponseCb(svc_cb);
+        asyncStatVolReq->invoke();
+    } else {
+        cb(0, ERR_OK);
+    }
+}
+
+/**
+ * Dispatch a request to DM asking for permission to access this volume.
+ */
+void
+AmDispatcher::dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token) {
+    fiu_do_on("am.uturn.dispatcher", return;);
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    if (volume_open_support) {
+        auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
+        volMDMsg->volume_id = vol_id;
+        volMDMsg->token = token;
+
+        auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
+            boost::make_shared<DmtVolumeIdEpProvider>(
+                dmtMgr->getCommittedNodeGroup(vol_id)));
+        asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::CloseVolumeMsg), volMDMsg);
+        asyncStatVolReq->invoke();
+    }
 }
 
 void

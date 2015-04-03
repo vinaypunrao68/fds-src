@@ -5,7 +5,9 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMPROCESSOR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMPROCESSOR_H_
 
+#include <memory>
 #include <string>
+
 #include <fds_module.h>
 #include "fds_volume.h"
 #include "fds_process.h"
@@ -25,7 +27,9 @@ struct RandNumGenerator;
  * AM request processing layer. The processor handles state and
  * execution for AM requests.
  */
-class AmProcessor : public Module {
+class AmProcessor : public Module,
+                    public std::enable_shared_from_this<AmProcessor>
+    {
     using shutdown_cb_type = std::function<void(void)>;
   public:
     AmProcessor(const std::string &modName, shutdown_cb_type&& cb);
@@ -41,17 +45,17 @@ class AmProcessor : public Module {
     /**
      * Module methods
      */
-    int mod_init(SysParams const *const param)
+    int mod_init(SysParams const *const param) override 
     { Module::mod_init(param); return 0; }
-    void mod_startup();
-    void mod_shutdown() {}
+    void mod_startup() override;
+    void mod_shutdown() override {}
 
     bool stop();
 
     /**
      * Create object/metadata/offset caches for the given volume
      */
-    Error registerVolume(const VolumeDesc& volDesc);
+    void registerVolume(const VolumeDesc& volDesc);
 
     Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
 

@@ -125,23 +125,6 @@ void SvcProcess::start_modules()
 
 }
 
-#if 0
-void SvcProcess::proc_pre_startup()
-{
-    LOGNOTIFY << "Registering the service with om";
-    /* Default implementation registers with OM.  Until registration complets
-     * this will not return
-     */
-    auto config = get_conf_helper();
-    bool registerWithOM = !(config.get<bool>("testing.standalone"));
-    if (registerWithOM) {
-        registerSvcProcess();
-    }
-
-    /* After registraion is complete other modules can proceed.  See FdsProcess::main() */
-}
-#endif
-
 void SvcProcess::registerSvcProcess()
 {
     LOGNOTIFY << "register service process ( parent )" << fds::logDetailedString(svcInfo_);
@@ -177,8 +160,6 @@ SvcMgr* SvcProcess::getSvcMgr() {
 void SvcProcess::setupConfigDb_()
 {
     LOGNOTIFY << "setting up configDB";
-    // TODO(Rao): Set up configdb
-    // fds_panic("Unimpl");
 }
 
 void SvcProcess::setupSvcInfo_()
@@ -198,7 +179,6 @@ void SvcProcess::setupSvcInfo_()
     svcInfo_.svc_port = SvcMgr::mapToSvcPort(platformPort, svcType);
     svcInfo_.svc_status = fpi::SVC_STATUS_ACTIVE;
 
-    // TODO(Rao): set up correct incarnation no
     svcInfo_.incarnationNo = util::getTimeStampSeconds();
     svcInfo_.name = svcName_;
 

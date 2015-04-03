@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <blob/BlobTypes.h>
 #include <concurrency/RwLock.h>
+#include <fdsp/dm_types_types.h>
 #include "fds_volume.h"
 
 namespace fds {
@@ -93,7 +94,7 @@ struct AmTxManager {
      * Notify that there is a newly attached volume, and build any
      * necessary data structures.
      */
-    Error registerVolume(const VolumeDesc& volDesc);
+    Error registerVolume(const VolumeDesc& volDesc, fds_int64_t token);
 
     /**
      * Modify the policy for an attached volume.
