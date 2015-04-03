@@ -139,10 +139,23 @@ public enum SingletonRepositoryManager {
 
                     if ( influxRepository != null ) {
 
-                        Object influxResult = method.invoke( influxRepository, args );
-                        if ( jdoRepository == null ) {
-                            // use the results from the influx repo
-                            results = influxResult;
+                        try {
+                            Object influxResult = method.invoke( influxRepository, args );
+                            if ( jdoRepository == null ) {
+                                // use the results from the influx repo
+                                results = influxResult;
+                            }
+                        } catch (Exception e) {
+                            //
+                            if ( jdoRepository == null ) {
+                                // error since ObjectDB repo is disabled
+                                logger.error( "Failed to write data to influx repository.", e );
+                                throw e;
+                            } else {
+                                // only a warning since we are still using the ObjectDB repo as the main repo.
+                                logger.warn( "Failed to write data to influx repository.  Returning data from ObjectDB repo" + e.getMessage() );
+                                logger.trace( "Influx repository write error is ", e );
+                            }
                         }
                     }
 
