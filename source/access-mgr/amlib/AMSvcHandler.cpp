@@ -141,7 +141,8 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
     auto vol_uuid = vol_msg->vol_desc.volUUID;
     GLOGNOTIFY << "Received volume attach event from OM"
-                       << " for volume " << std::hex << vol_uuid << std::dec;
+                       << " for volume \"" << vol_msg->vol_desc.vol_name << "\" ["
+                       << std::hex << vol_uuid << std::dec << "]";
 
     if (amProcessor->isShuttingDown())
     {

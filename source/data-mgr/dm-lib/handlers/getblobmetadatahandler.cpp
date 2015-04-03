@@ -6,8 +6,8 @@
 #include <fds_assert.h>
 #include <DmIoReq.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
-                           // incomplete type errors in BaseAsyncSvcHandler.h
-#include <net/BaseAsyncSvcHandler.h>
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
 #include <PerfTrace.h>
 
 namespace fds {

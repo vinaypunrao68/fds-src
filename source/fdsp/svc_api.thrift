@@ -115,13 +115,11 @@ struct UpdateSvcMapMsg {
    Common Services
    ------------------------------------------------------------*/
 
-service BaseAsyncSvc {
-  oneway void asyncReqt(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
-  oneway void asyncResp(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
-  svc_types.AsyncHdr uuidBind(1: svc_types.UuidBindMsg msg);
-}
+service PlatNetSvc {
+    oneway void asyncReqt(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
+    oneway void asyncResp(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
+    svc_types.AsyncHdr uuidBind(1: svc_types.UuidBindMsg msg);
 
-service PlatNetSvc extends BaseAsyncSvc {
     oneway void allUuidBinding(1: svc_types.UuidBindMsg mine);
     oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info);
 

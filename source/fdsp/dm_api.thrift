@@ -166,8 +166,10 @@ struct OpenVolumeRspMsg {
  * Explicit release of volume lock. Allows other clients to write to volume.
  */
 struct CloseVolumeMsg {
+  /** The volume to request access to */
+  1: required i64       volume_id;
   /** The token we are releasing */
-  1: required i64       token;
+  2: required i64       token;
 }
 
 /**
