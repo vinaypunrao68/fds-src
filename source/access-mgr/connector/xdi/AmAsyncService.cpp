@@ -22,7 +22,7 @@ namespace fds {
 struct AmProcessor;
 
 class AsyncAmServiceRequestIfCloneFactory
-    : virtual public apis::AsyncXdiServiceRequestIfFactory
+    : public apis::AsyncXdiServiceRequestIfFactory
 {
     using request_if = apis::AsyncXdiServiceRequestIf;
     std::weak_ptr<AmProcessor> processor;
@@ -32,7 +32,7 @@ class AsyncAmServiceRequestIfCloneFactory
         processor(_processor)
     { }
 
-    ~AsyncAmServiceRequestIfCloneFactory() {}
+    ~AsyncAmServiceRequestIfCloneFactory() = default;
 
     request_if* getHandler(const xdi_at::TConnectionInfo& connInfo);
     void releaseHandler(request_if* handler);
@@ -123,8 +123,10 @@ AsyncDataServer::init_server(std::weak_ptr<AmProcessor> processor) {
 
 void
 AsyncDataServer::deinit_server() {
-    fds_verify(listen_thread != NULL);
-    listen_thread->join();
-    listen_thread.reset();
+    ttServer->stop();
+    if (listen_thread) {
+        listen_thread->join();
+        listen_thread.reset();
+    }
 }
 }  // namespace fds

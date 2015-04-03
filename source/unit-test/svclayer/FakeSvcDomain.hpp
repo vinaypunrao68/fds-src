@@ -18,6 +18,7 @@ struct FakeSvc;
 struct FakeSvcDomain;
 
 struct FakeSvcDomain {
+    FakeSvcDomain(const std::string &configFile);
     virtual void registerService(const fpi::SvcInfo &svcInfo) = 0;
 
     virtual void getSvcMap(std::vector<fpi::SvcInfo> &svcMap);
@@ -39,23 +40,31 @@ struct FakeSvcDomain {
 
     FakeSvc*& operator[](int idx) {return svcs_[idx];}
 
-    static fpi::SvcUuid getSvcUuid(int idx) {
-        fpi::SvcUuid svcUuid;
-        svcUuid.svc_uuid = SVCUUID_BASE + idx;
-        return svcUuid;
+    virtual fpi::SvcUuid getFakeSvcUuid(int idx) {
+        fpi::SvcUuid uuid;
+        uuid.svc_uuid = (PMUUID_BASE + idx) << PMBITS;
+        return uuid;
+    }
+    virtual int getFakeSvcPort(int idx) {
+        return PMPORT_BASE + (idx * 100);
+    }
+    virtual int getFakeSvcIdx(const fpi::SvcUuid &uuid) {
+        return (uuid.svc_uuid >> PMBITS) - PMUUID_BASE;
     }
 
-    static uint64_t SVCUUID_BASE;
-    static int PORT_BASE;
+    static int PMBITS;
+    static uint64_t PMUUID_BASE;
+    static int PMPORT_BASE;
     static fpi::SvcUuid INVALID_SVCUUID;
 
+    std::string configFile_;
     std::vector<fpi::SvcInfo> svcMap_;
     std::vector<FakeSvc*> svcs_;
 };
-uint64_t FakeSvcDomain::SVCUUID_BASE = 0x100;
-int FakeSvcDomain::PORT_BASE = 10000;
+int FakeSvcDomain::PMBITS = 8;
+uint64_t FakeSvcDomain::PMUUID_BASE = 0x100;
+int FakeSvcDomain::PMPORT_BASE = 10000;
 fpi::SvcUuid FakeSvcDomain::INVALID_SVCUUID;
-
 
 /**
 * @brief Fake service domain
@@ -63,7 +72,7 @@ fpi::SvcUuid FakeSvcDomain::INVALID_SVCUUID;
 * space.  All the communication is synchronous.
 */
 struct FakeSyncSvcDomain : FakeSvcDomain {
-    FakeSyncSvcDomain(int numSvcs);
+    FakeSyncSvcDomain(int numSvcs, const std::string &configFile);
     ~FakeSyncSvcDomain();
 
     virtual void registerService(const fpi::SvcInfo &svcInfo) override;
@@ -87,14 +96,17 @@ struct FakeSvc : SvcProcess {
     FakeSvcDomain *domain_;
 };
 
+FakeSvcDomain::FakeSvcDomain(const std::string &configFile) {
+    configFile_ = configFile;
+}
+
 void FakeSvcDomain::getSvcMap(std::vector<fpi::SvcInfo> &svcMap) {
     svcMap = svcMap_;
 }
 
 bool FakeSvcDomain::checkSvcInfoAgainstDomain(int svcIdx) {
     fpi::SvcInfo svcInfo = svcMap_[svcIdx];
-    auto svcUuid = getSvcUuid(svcIdx);
-    fds_assert(svcUuid == svcInfo.svc_id.svc_uuid);
+    auto svcUuid = svcInfo.svc_id.svc_uuid;
     for (auto &s : svcs_) {
         if (!s) {
             /* ignore when service is down or when s is my service */
@@ -115,7 +127,7 @@ void FakeSvcDomain::sendGetStatusEpSvcRequest(int srcIdx, int destIdx,
 
     auto srcMgr = svcs_[srcIdx]->getSvcMgr();
     auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = srcMgr->getSvcRequestMgr()->newEPSvcRequest(getSvcUuid(destIdx));
+    auto asyncReq = srcMgr->getSvcRequestMgr()->newEPSvcRequest(getFakeSvcUuid(destIdx));
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
     asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(cbHandle.cb);
@@ -130,7 +142,7 @@ void FakeSvcDomain::sendGetStatusFailoverSvcRequest(int srcIdx,
     DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(destIdxs.size());
     int i = 0;
     for (auto &idx : destIdxs) {
-        tokGroup->set(i, NodeUuid(getSvcUuid(idx)));
+        tokGroup->set(i, NodeUuid(getFakeSvcUuid(idx)));
         i++;
     }
     auto epProvider = boost::make_shared<DltObjectIdEpProvider>(tokGroup);
@@ -150,7 +162,7 @@ void FakeSvcDomain::sendGetStatusQuorumSvcRequest(int srcIdx, const std::vector<
     DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(destIdxs.size());
     int i = 0;
     for (auto &idx : destIdxs) {
-        tokGroup->set(i, NodeUuid(getSvcUuid(idx)));
+        tokGroup->set(i, NodeUuid(getFakeSvcUuid(idx)));
         i++;
     }
     auto epProvider = boost::make_shared<DltObjectIdEpProvider>(tokGroup);
@@ -163,25 +175,17 @@ void FakeSvcDomain::sendGetStatusQuorumSvcRequest(int srcIdx, const std::vector<
     asyncReq->invoke();
 }
 
-FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs) {
-    uint64_t svcUuidCntr = SVCUUID_BASE;
-    int portCntr = PORT_BASE; 
-
-    INVALID_SVCUUID.svc_uuid = svcUuidCntr - 1;
+FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs, const std::string &configFile)
+: FakeSvcDomain(configFile)
+{
+    INVALID_SVCUUID.svc_uuid = PMUUID_BASE - 1;
 
     /* Create svc mgr instances */
     svcs_.resize(numSvcs);
     for (uint32_t i = 0; i < svcs_.size(); i++) {
-        svcs_[i] = new FakeSvc(this, "/fds/etc/platform.conf",svcUuidCntr, portCntr);
-
-        svcUuidCntr++;
-        portCntr++;
-    }
-
-    /* Update the service map on every svcMgr instance */
-    for (uint32_t i = 0; i < svcs_.size(); i++) {
-        auto svcMgr = svcs_[i]->getSvcMgr();
-        svcMgr->updateSvcMap(svcMap_);
+        auto uuid = getFakeSvcUuid(i);
+        auto port = getFakeSvcPort(i);
+        svcs_[i] = new FakeSvc(this, configFile_, uuid.svc_uuid, port);
     }
 }
 
@@ -194,7 +198,8 @@ FakeSyncSvcDomain::~FakeSyncSvcDomain() {
 }
 
 void FakeSyncSvcDomain::registerService(const fpi::SvcInfo &svcInfo) {
-    uint64_t idx = svcInfo.svc_id.svc_uuid.svc_uuid - SVCUUID_BASE;
+    uint64_t idx = static_cast<uint64_t>(getFakeSvcIdx(svcInfo.svc_id.svc_uuid));
+    fds_assert(idx < svcs_.size());
     if (idx >= svcMap_.size()) {
         svcMap_.resize(idx+1);
     }
@@ -214,9 +219,9 @@ void FakeSyncSvcDomain::spawn(int idx) {
      * NOTE: The registration, updating service map, and propagating around the
      * domain takes place synchronously
      */
-    svcs_[idx] = new FakeSvc(this, "/fds/etc/platform.conf",
-                           SVCUUID_BASE + idx,
-                           PORT_BASE + idx);
+    svcs_[idx] = new FakeSvc(this, configFile_,
+                             getFakeSvcUuid(idx).svc_uuid,
+                             getFakeSvcPort(idx));
 }
 
 void FakeSyncSvcDomain::broadcastSvcMap() {
@@ -233,11 +238,12 @@ FakeSvc::FakeSvc(FakeSvcDomain *domain,
     domain_ = domain;
 
     /* config */
-    std::string configBasePath = "fds.dm.";
+    std::string configBasePath = "fds.pm.";
     boost::shared_ptr<FdsConfig> config(new FdsConfig(configFile, 0, {nullptr}));
     conf_helper_.init(config, configBasePath);
-    config->set("fds.dm.svc.uuid", uuid);
-    config->set("fds.dm.svc.port", port);
+    config->set("fds.pm.platform_uuid", std::to_string(uuid));
+    config->set("fds.pm.platform_port", port);
+    svcName_ = "pm";
 
     /* timer */
     timer_servicePtr_.reset(new FdsTimer());

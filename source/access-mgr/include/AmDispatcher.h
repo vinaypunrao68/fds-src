@@ -60,7 +60,12 @@ struct AmDispatcher : public Module {
      * Dispatches an open volume request to DM.
      */
     void dispatchOpenVolume(VolumeDesc const& vol_desc,
-                            std::function<void(Error)> cb);
+                            std::function<void(fds_int64_t, Error)> cb);
+
+    /**
+     * Dispatches an open volume request to DM.
+     */
+    void dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token);
 
     /**
      * Dispatches a stat volume request.

@@ -33,12 +33,15 @@ void NbdConnector::initialize() {
     nbdPort = pmPort + conf.get<uint32_t>("server_port_offset", 3809);
 
     // Shutdown the socket if we are reinitializing
-    if (0 > nbdSocket)
+    if (0 <= nbdSocket)
         { deinit(); }
 
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
-    fds_verify(nbdSocket > 0);
+    if (nbdSocket < 0) {
+        LOGERROR << "Could not bind to NBD port. No Nbd attachments can be made.";
+        return;
+    }
 
     // Setup event loop
     if (!evIoWatcher) {
@@ -135,11 +138,15 @@ NbdConnector::createNbdSocket() {
         LOGWARN << "Failed to set REUSEADDR on NBD socket";
     }
 
-    fds_verify(bind(listenfd,
-                    (sockaddr*)&serv_addr,
-                    sizeof(serv_addr)) == 0);
-    fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
-    listen(listenfd, 10);
+    if (bind(listenfd,
+             (sockaddr*)&serv_addr,
+             sizeof(serv_addr)) == 0) {
+        fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
+        listen(listenfd, 10);
+    } else {
+        LOGERROR << "Bind to listening socket failed: " << strerror(errno);
+        listenfd = -1;
+    }
 
     return listenfd;
 }

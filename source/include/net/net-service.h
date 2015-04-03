@@ -15,7 +15,7 @@
 #include <fds_error.h>
 #include <shared/fds-constants.h>
 #include <fdsp/svc_types_types.h>
-#include <fdsp/BaseAsyncSvc.h>
+#include <fdsp/PlatNetSvc.h>
 #include <fds_typedefs.h>
 #include <util/hash-util.h>
 #include <net/fdssocket.h>
@@ -33,7 +33,7 @@ namespace FDS_ProtocolInterface {
     class UuidBindMsg;
     class NodeInfoMsg;
     class PlatNetSvcClient;
-    typedef boost::shared_ptr<BaseAsyncSvcClient> BaseAsyncSvcClientPtr;
+    typedef boost::shared_ptr<PlatNetSvcClient> PlatNetSvcClientPtr;
 }  // namespace FDS_ProtocolInterface
 
 namespace fpi = FDS_ProtocolInterface;
@@ -405,7 +405,7 @@ typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>       UuidSvcMap;
 typedef std::unordered_map<UuidIntKey, int, UuidIntKeyHash>    UuidShmMap;
 typedef std::unordered_map<UuidIntKey, EpSvcHandle::pointer, UuidIntKeyHash> EpHandleMap;
 typedef std::unordered_map<UuidIntKey,
-                           fpi::BaseAsyncSvcClientPtr, UuidIntKeyHash> EpClientMap;
+                           fpi::PlatNetSvcClientPtr, UuidIntKeyHash> EpClientMap;
 
 /**
  * Singleton module manages all endpoints.

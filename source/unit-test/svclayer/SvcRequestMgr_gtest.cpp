@@ -23,19 +23,29 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <google/profiler.h>
+#include <testlib/TestFixtures.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
 
+struct SvcRequestMgrTest : BaseTestFixture {
+    static std::string confFile;
+
+    static void SetUpTestCase() {
+        confFile = getArg<std::string>("fds-root") + std::string("/etc/platform.conf");
+    }
+
+};
+std::string SvcRequestMgrTest::confFile;
+
 /**
 * @brief Tests svc map update in the domain.
 */
-TEST(SvcRequestMgr, epsvcrequest)
+TEST_F(SvcRequestMgrTest, epsvcrequest)
 {
     int cnt = 2;
-    FakeSyncSvcDomain domain(cnt);
+    FakeSyncSvcDomain domain(cnt, confFile);
 
     /* dest service is up...request should succeed */
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
@@ -69,10 +79,10 @@ TEST(SvcRequestMgr, epsvcrequest)
 * @brief Test sending endpoint request agains invalid endpoint
 *
 */
-TEST(SvcRequestMgr, epsvcrequest_invalidep)
+TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
 {
     int cnt = 2;
-    FakeSyncSvcDomain domain(cnt);
+    FakeSyncSvcDomain domain(cnt, confFile);
 
     auto svcMgr1 = domain[0]->getSvcMgr();
 
@@ -90,10 +100,10 @@ TEST(SvcRequestMgr, epsvcrequest_invalidep)
 
 
 /* Tests basic failover style request */
-TEST(SvcRequestMgr, failoversvcrequest)
+TEST_F(SvcRequestMgrTest, failoversvcrequest)
 {
     int cnt = 3;
-    FakeSyncSvcDomain domain(cnt);
+    FakeSyncSvcDomain domain(cnt, confFile);
 
     /* all endpoints are up...request should succeed */
     SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
@@ -133,10 +143,10 @@ TEST(SvcRequestMgr, failoversvcrequest)
 }
 
 /* Tests basic quorum reqesut */
-TEST(SvcRequestMgr, quorumsvcrequest)
+TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 {
     int cnt = 3;
-    FakeSyncSvcDomain domain(cnt);
+    FakeSyncSvcDomain domain(cnt, confFile);
 
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
     domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter);
@@ -177,5 +187,10 @@ TEST(SvcRequestMgr, quorumsvcrequest)
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    po::options_description opts("Allowed options");
+    opts.add_options()
+        ("help", "produce help message")
+        ("fds-root", po::value<std::string>()->default_value("/fds"), "root");
+    SvcRequestMgrTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }
