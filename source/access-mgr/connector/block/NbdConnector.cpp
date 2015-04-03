@@ -17,14 +17,13 @@ extern "C" {
 
 #include "connector/block/NbdConnector.h"
 #include "connector/block/NbdConnection.h"
-#include "OmConfigService.h"
 #include "fds_process.h"
 
 namespace fds {
 
-NbdConnector::NbdConnector(OmConfigApi::shared_ptr omApi)
-        : omConfigApi(omApi),
-          nbdPort(10809) {
+NbdConnector::NbdConnector(std::weak_ptr<AmProcessor> processor)
+        : nbdPort(10809),
+          amProcessor(processor) {
     initialize();
 }
 
@@ -34,12 +33,15 @@ void NbdConnector::initialize() {
     nbdPort = pmPort + conf.get<uint32_t>("server_port_offset", 3809);
 
     // Shutdown the socket if we are reinitializing
-    if (0 > nbdSocket)
+    if (0 <= nbdSocket)
         { deinit(); }
 
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
-    fds_verify(nbdSocket > 0);
+    if (nbdSocket < 0) {
+        LOGERROR << "Could not bind to NBD port. No Nbd attachments can be made.";
+        return;
+    }
 
     // Setup event loop
     if (!evIoWatcher) {
@@ -73,6 +75,14 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
         return;
     }
 
+    /** First see if we even have a processing layer */
+    auto processor = amProcessor.lock();
+    if (!processor) {
+        LOGNORMAL << "No processing layer, shutdown.";
+        deinit();
+        return;
+    }
+
     int clientsd = 0;
     while (0 <= clientsd) {
         socklen_t client_len = sizeof(sockaddr_in);
@@ -88,7 +98,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
         if (0 <= clientsd) {
             // Create a handler for this NBD connection
             // Will delete itself when connection dies
-            NbdConnection *client = new NbdConnection(omConfigApi, clientsd);
+            NbdConnection *client = new NbdConnection(clientsd, processor);
             LOGNORMAL << "Created client connection...";
         } else {
             switch (errno) {
@@ -97,8 +107,9 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
             case EINVAL:
             case EBADF:
                 // Reinitialize server
-                LOGWARN << "Accept error: " << strerror(errno);
-                initialize();
+                LOGWARN << "Accept error: " << strerror(errno)
+                        << " shutting down server.";
+                evIoWatcher->stop();
                 break;
             default:
                 break; // Nothing special, no more clients
@@ -127,11 +138,15 @@ NbdConnector::createNbdSocket() {
         LOGWARN << "Failed to set REUSEADDR on NBD socket";
     }
 
-    fds_verify(bind(listenfd,
-                    (sockaddr*)&serv_addr,
-                    sizeof(serv_addr)) == 0);
-    fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
-    listen(listenfd, 10);
+    if (bind(listenfd,
+             (sockaddr*)&serv_addr,
+             sizeof(serv_addr)) == 0) {
+        fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
+        listen(listenfd, 10);
+    } else {
+        LOGERROR << "Bind to listening socket failed: " << strerror(errno);
+        listenfd = -1;
+    }
 
     return listenfd;
 }

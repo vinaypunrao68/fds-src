@@ -33,6 +33,7 @@ class AmAsyncResponseApi {
     typedef sp<std::vector<BlobDescriptor>> shared_descriptor_vec_type;
     typedef sp<apis::TxDescriptor> shared_tx_ctx_type;
     typedef sp<apis::VolumeStatus> shared_status_type;
+    typedef sp<std::map<std::string, std::string>> shared_meta_type;
 
     virtual void attachVolumeResp(const error_type &error,
                                   handle_type& requestId) = 0;
@@ -67,6 +68,10 @@ class AmAsyncResponseApi {
 
     virtual void setVolumeMetadataResp(const error_type &error,
                                        handle_type& requestId) = 0;
+
+    virtual void getVolumeMetadataResp(const error_type &error,
+                                       handle_type& requestId,
+                                       shared_meta_type& metadata) = 0;
 
     virtual void getBlobResp(const error_type &error,
                              handle_type& requestId,

@@ -10,9 +10,7 @@ user_cpp         := \
 	SvcRequestPool.cpp \
 	SvcRequest.cpp \
 	SvcProcess.cpp \
-	SvcHandler.cpp \
-	SvcBaseHandler.cpp
-
+	SvcPlatNetHandler.cpp
 
 user_ar_libs     := fds-svc-request
 fds-svc-request  := $(user_cpp) $(user_cc)

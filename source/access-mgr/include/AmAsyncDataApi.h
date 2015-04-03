@@ -13,6 +13,8 @@
 
 namespace fds {
 
+struct AmProcessor;
+
 /**
  * AM's async data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to.
@@ -33,16 +35,19 @@ class AmAsyncDataApi {
     typedef sp<std::map<std::string, std::string>> shared_meta_type;
 
  private:
+    typedef std::shared_ptr<AmProcessor> processor_type;
     typedef AmAsyncResponseApi<handle_type> response_api_type;
     typedef typename boost::shared_ptr<response_api_type> response_ptr;
+
+    processor_type amProcessor;
 
   protected:
     /// Response client to use in response handler
     response_ptr responseApi;
 
   public:
-    explicit AmAsyncDataApi(response_ptr response_api);
-    explicit AmAsyncDataApi(response_api_type* response_api);
+    explicit AmAsyncDataApi(processor_type processor, response_ptr response_api);
+    explicit AmAsyncDataApi(processor_type processor, response_api_type* response_api);
 
     ~AmAsyncDataApi() {}
 
@@ -67,6 +72,10 @@ class AmAsyncDataApi {
                            shared_string_type& domainName,
                            shared_string_type& volumeName,
                            shared_meta_type& metadata);
+
+    void getVolumeMetadata(handle_type& requestId,
+                           shared_string_type& domainName,
+                           shared_string_type& volumeName);
 
     void statBlob(handle_type& requestId,
                   shared_string_type& domainName,

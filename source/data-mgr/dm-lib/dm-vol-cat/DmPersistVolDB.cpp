@@ -28,7 +28,8 @@ DmPersistVolDB::~DmPersistVolDB() {
 
     if (deleted_) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-        const std::string loc_src_db = root->dir_user_repo_dm() + std::to_string(srcVolId_) +
+        const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
+                root->dir_sys_repo_dm()) + std::to_string(srcVolId_) +
                 (snapshot_ ? "/snapshot/" : "/") + getVolIdStr() + "_vcat.ldb";
         const std::string rm_cmd = "rm -rf  " + loc_src_db;
         int retcode = std::system((const char *)rm_cmd.c_str());
@@ -38,7 +39,7 @@ DmPersistVolDB::~DmPersistVolDB() {
 
 Error DmPersistVolDB::activate() {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string catName(root->dir_user_repo_dm());
+    std::string catName(snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm());
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
         // volume
         catName += getVolIdStr();
@@ -66,7 +67,7 @@ Error DmPersistVolDB::activate() {
             Catalog::CACHE_SIZE);
     fds_uint32_t maxLogFiles = configHelper_.get<fds_uint32_t>(CATALOG_MAX_LOG_FILES_STR, 5);
 
-    std::string logDirName = snapshot_ ? "" : root->dir_user_repo_dm() + getVolIdStr() + "/";
+    std::string logDirName = snapshot_ ? "" : root->dir_sys_repo_dm() + getVolIdStr() + "/";
     std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
 
     try
@@ -100,8 +101,16 @@ Error DmPersistVolDB::copyVolDir(const std::string & destName) {
 }
 
 Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
-    // TODO(Andrew): Fill in.
-    return ERR_OK;
+    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+
+    std::string value;
+    Error rc = catalog_->Query(keyRec, &value);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to get metadata volume: " << std::hex << volId_
+                 << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+    return volDesc.loadSerialized(value);
 }
 
 Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,

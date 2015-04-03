@@ -233,13 +233,13 @@ struct SetVolumeMetadataHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
-struct ReloadVolumeHandler : Handler {
-    ReloadVolumeHandler();
+struct GetVolumeMetadataHandler : Handler {
+    GetVolumeMetadataHandler();
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::ReloadVolumeMsg>& message);
+                       boost::shared_ptr<fpi::GetVolumeMetadataMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::ReloadVolumeMsg>& message,
+                        boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
 

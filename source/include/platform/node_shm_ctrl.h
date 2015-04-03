@@ -66,7 +66,7 @@ namespace fds
 
             static ShmObjROKeyUint64 *shm_node_inventory(FdspNodeType type)
             {
-                if (type == fpi::FDSP_STOR_HVISOR)
+                if (type == fpi::FDSP_ACCESS_MGR)
                 {
                     return gl_NodeShmCtrl->shm_am_inv;
                 }

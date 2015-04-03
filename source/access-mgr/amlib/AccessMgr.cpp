@@ -7,11 +7,9 @@
 #include "fds_process.h"
 
 #include "AccessMgr.h"
-#include "StorHvCtrl.h"
-#include "StorHvQosCtrl.h"
-#include "StorHvVolumes.h"
 #include "AmProcessor.h"
 #include <net/SvcMgr.h>
+#include <AmDataApi.h>
 
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/fdsn-server.h"
@@ -23,7 +21,10 @@ AccessMgr::AccessMgr(const std::string &modName,
                      CommonModuleProviderIf *modProvider)
         : Module(modName.c_str()),
           modProvider_(modProvider),
-          shuttingDown(false) {
+          shuttingDown(false),
+          amProcessor(std::make_shared<fds::AmProcessor>("AM Processor Module",
+                                                       [this]() mutable { this->stop(); }))
+{
 }
 
 AccessMgr::~AccessMgr() {
@@ -32,42 +33,36 @@ AccessMgr::~AccessMgr() {
 int
 AccessMgr::mod_init(SysParams const *const param) {
     Module::mod_init(param);
-    // Init the storHvisor global object. It takes a bunch of arguments
-    // but doesn't really need them so we just create stock values.
-    fds::Module *io_dm_vec[] = {
-        nullptr
-    };
+
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    auto standalone_mode = conf.get<bool>("testing.standalone");
 
-    int argc = 0;
-    char **argv = NULL;
-    fds::ModuleVector io_dm(argc, argv, io_dm_vec);
-    storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
-                                StorHvCtrl::NORMAL);
-    dataApi = boost::make_shared<AmDataApi>();
-
+    /**
+     * Initialize the old synchronous Xdi interface
+     */
+    dataApi = boost::make_shared<AmDataApi>(amProcessor);
     fds_uint32_t pmPort = g_fdsprocess->get_fds_config()->get<int>(
         "fds.pm.platform_port");
-    if (!conf.get<bool>("testing.standalone")) {
+    if (!standalone_mode) {
         pmPort = modProvider_->getSvcMgr()->getMappedSelfPlatformPort();
     }
     LOGTRACE << "Platform port " << pmPort;
 
     // Init the FDSN server to serve XDI data requests
-    fdsnServer = FdsnServer::unique_ptr(
-        new FdsnServer("AM FDSN Server", dataApi, pmPort));
+    fdsnServer = FdsnServer::unique_ptr(new FdsnServer("AM FDSN Server", dataApi, pmPort));
     fdsnServer->init_server();
 
-    // Init the async server
-    asyncServer = AsyncDataServer::unique_ptr(
-        new AsyncDataServer("AM Async Server", pmPort));
-    asyncServer->init_server();
+    /**
+     * Initialize the async server
+     */
+    auto weakProcessor = std::weak_ptr<AmProcessor>(amProcessor);
+    asyncServer = AsyncDataServer::unique_ptr(new AsyncDataServer("AM Async Server", pmPort));
+    asyncServer->init_server(weakProcessor);
 
-    if (!conf.get<bool>("testing.standalone")) {
-        omConfigApi = boost::make_shared<OmConfigApi>();
-    }
-
-    blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(omConfigApi));
+    /**
+     * Initialize the block connector
+     */
+    blkConnector = std::unique_ptr<NbdConnector>(new NbdConnector(weakProcessor));
 
     return 0;
 }
@@ -78,14 +73,13 @@ AccessMgr::mod_startup() {
 
 void
 AccessMgr::mod_shutdown() {
-    delete storHvisor;
+    amProcessor->mod_shutdown();
 }
 
 void AccessMgr::mod_enable_service()
 {
     LOGNOTIFY << "Enbaling services ";
-    storHvisor->StartOmClient();
-    storHvisor->qos_ctrl->runScheduler();
+    amProcessor->mod_startup();
 }
 
 void
@@ -95,42 +89,11 @@ AccessMgr::run() {
     asyncServer->deinit_server();
 }
 
-Error
-AccessMgr::registerVolume(const VolumeDesc& volDesc) {
-    // TODO(Andrew): Register the new volume to processing and storhv layers
-    // We should converge on a single volume add location.
-    storHvisor->amProcessor->addVolume(volDesc);
-    return storHvisor->vol_table->registerVolume(volDesc);
-}
-
-// Set AM in shutdown mode.
-void
-AccessMgr::setShutDown() {
-    shuttingDown = true;
-
-    /*
-     * If there are no
-     * more outstanding requests, tell the QoS
-     * Dispatcher that we're shutting down.
-     */
-    if (storHvisor->qos_ctrl->htb_dispatcher->num_outstanding_ios == 0)
-    {
-        stop();
-    }
-}
-
 void
 AccessMgr::stop() {
     LOGDEBUG << "Shutting down and no outstanding I/O's. Stop dispatcher and server.";
-    storHvisor->qos_ctrl->htb_dispatcher->stop();
     asyncServer->getTTServer()->stop();
     fdsnServer->getNBServer()->stop();
-}
-
-// Check whether AM is in shutdown mode.
-bool
-AccessMgr::isShuttingDown() {
-    return shuttingDown;
 }
 
 }  // namespace fds

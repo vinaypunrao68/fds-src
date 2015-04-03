@@ -51,20 +51,25 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                 raise Exception('Volume section %s must have "id" keyword.' % volume.nd_conf_dict['vol-name'])
             cmd = cmd + (' --tenant-id %s' % volume.nd_conf_dict['id'])
 
-            if 'size' not in volume.nd_conf_dict:
-                raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
-            cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
-
-            # if 'policy' not in volume.nd_conf_dict:
-            #     raise Exception('Volume section %s must have "policy" keyword.' % volume.nd_conf_dict['vol-name'])
-            # cmd = cmd + (' -p %s' % volume.nd_conf_dict['policy'])
-
             if 'access' not in volume.nd_conf_dict:
                 access = 'object'
             else:
                 access = volume.nd_conf_dict['access']
 
+            # Size only makes sense for block volumes
+            if 'block' == access:
+                if 'size' not in volume.nd_conf_dict:
+                    raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
+                cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
+
             cmd = cmd + (' --vol-type %s' % access)
+
+            if 'media' not in volume.nd_conf_dict:
+                media = 'hdd'
+            else:
+                media = volume.nd_conf_dict['media']
+
+            cmd = cmd + (' --media-policy %s' % media)
 
             self.log.info("Create volume %s on OM node %s." %
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
@@ -112,6 +117,11 @@ class TestVolumeAttach(TestCase.FDSTestCase):
             # If we were passed a volume, attach that one and exit.
             if self.passedVolume is not None:
                 volume = self.passedVolume
+
+
+            # Object volumes currently attach implicitly
+            if 'block' != volume.nd_conf_dict['access']:
+                break
 
             cmd = (' attach %s %s' %
                (volume.nd_conf_dict['vol-name'],

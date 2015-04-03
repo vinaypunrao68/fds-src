@@ -233,8 +233,8 @@ class FdsNodeConfig(FdsConfig):
         print "\nStart influxdb on", self.nd_host_name()
 
         ## check if influx is running on the node.  If not, start it
-        pidstat = self.nd_agent.exec_wait('pgrep -f influxdb', output=False)
-        if pidstat == 1:
+        influxstat = self.nd_status_influxdb()
+        if influxstat != 0:
             status = self.nd_agent.exec_wait('service influxdb start')
         else:
             print "\nInfluxDB is already running."
@@ -304,9 +304,7 @@ class FdsNodeConfig(FdsConfig):
                                             (fds_dir, log_dir, port),
                                              fds_bin=True)
         else:
-            self.nd_agent.exec_wait('bash -c \"(rm -rf /dev/shm/0x*)\"')
-            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
-                                            ' > %s/pm.out' % log_dir)
+            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg + ' > %s/pm.out' % log_dir)
 
         if status == 0:
             time.sleep(4)
@@ -326,6 +324,29 @@ class FdsNodeConfig(FdsConfig):
 
         # From the --list-services output we can determine node name
         # and node UUID.
+        # Figure out the platform uuid.  Platform has 'pm' as the name
+        # port should match the read port from fdscli --list-services output
+        # Group 0 = Entire matched expression
+        # Group 1 = node UUID
+        # Group 2 = Node root (not showing up)
+        # Group 3 = Node ID
+        # Group 4 = IPv4
+        # Group 5 = IPv6
+        # Group 6 = Service name
+        # Group 8 = Service Type
+        # Group 9 = Service UUID
+        # Group 10 = Control port
+        # Group 11 = Data port
+        # Group 12 = Migration port
+        # TODO(brian): uncomment this regex when we start capturing node root correctly
+        #svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
+        #                    '\s*(\d.\d.\d.\d)\s*(\w{2})\s*(\w*)\s*(0x[a-f0-9]{16})\s*'
+        #                    '([A-Za-z0-9_]*)\s*(\d*)\s*(\d*)\s*(\d*)')
+        # Use this regex for now
+        svc_re = re.compile(r'(0x[a-f0-9]{16})(\s+)(\d{1})\s+(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
+                            '\s+(\d.\d.\d.\d)\s+(\w{2})\s+(\w*)\s+(0x[a-f0-9]{16})\s+'
+                            '([A-Za-z0-9_]*)\s+(\d+)\s+(\d+)\s+(\d+)')
+
         status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain listServices local) \"',
                                                     return_stdin=True,
                                                     fds_tools=True)
@@ -334,29 +355,21 @@ class FdsNodeConfig(FdsConfig):
         # port should match the read port from fdscli --list-services output
         if status == 0:
             for line in stdout.split('\n'):
-                # Skip fdsconsole banners and output headers.
-                if not line.startswith('0x'):
-                    continue
-
-                # Output has one row per Service with these columns in this order:
-                # node_uuid, node_root, node_id, IPv4, IPv6, service_name, service_type, service_uuid,
-                # service_state, control_port, data_port, migration_port, metasync_port
-                #
-                # But "node_root" currently (3/25/2015) has no output. Hence, the "-1" everywhere below.
-                #
-                # We want the rows where the service_name is "pm".
-                if line.split()[5-1] == "pm":
-                    # Now make sure this is the PM row for our host and port.
-                    try:
-                        hostName = socket.gethostbyaddr(line.split()[3-1])[0]
-                    except:
-                        hostName = None
-
-                    if (line.split()[3-1] == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"]):
-                        if (int(line.split()[10-1]) == int(port)):
-                            self.nd_assigned_name = line.split()[5-1]
-                            self.nd_uuid = line.split()[0]  # No "-1" here!
-                            break
+                res = svc_re.match(line)
+                if res is not None:
+                    # UUID
+                    assigned_uuid = res.group(1)
+                    # IP
+                    hostName = socket.gethostbyaddr(res.group(4))
+                    ourIP = (res.group(4) == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
+                    # Service name
+                    assigned_name = res.group(6)
+                    # Ports
+                    readPort = int(res.group(11))
+                    if assigned_name.lower() == 'pm' and readPort == int(port):
+                        self.nd_assigned_name = assigned_name
+                        self.nd_uuid = assigned_uuid
+                        break
 
             if (self.nd_uuid is None):
                 log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
@@ -364,7 +377,7 @@ class FdsNodeConfig(FdsConfig):
                 log.error("Results from service list:\n%s." % stdout)
                 status = -1
             else:
-                log.debug("Node %s has assigned name %s and UUID 0x%s." %
+                log.debug("Node %s has assigned name %s and UUID %s." %
                           (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
         else:
             log.error("status = %s" % status)
@@ -438,8 +451,9 @@ class FdsNodeConfig(FdsConfig):
 
             status = self.nd_agent.exec_wait('ls ' + var_dir)
             if status == 0:
-                log.info("Cleanup logs and stats in: %s" % var_dir)
+                log.info("Cleanup logs,db and stats in: %s" % var_dir)
                 self.nd_agent.exec_wait('rm -rf ' + var_dir + '/logs')
+                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/db')
                 self.nd_agent.exec_wait('rm -rf ' + var_dir + '/stats')
 
             status = self.nd_agent.exec_wait('ls /corefiles')
@@ -484,7 +498,7 @@ class FdsNodeConfig(FdsConfig):
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
             status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +
-                '(cd %s && rm -r logs stats); ' % var_dir +
+                '(cd %s && rm -r logs db stats); ' % var_dir +
                 '(cd /corefiles && rm *.core); '  +
                 '(cd %s/core && rm *.core); ' % var_dir +
                 '(cd %s && ./fds clean -i); ' % tools_dir +

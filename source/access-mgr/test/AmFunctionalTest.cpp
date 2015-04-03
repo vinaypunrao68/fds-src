@@ -3,15 +3,25 @@
  */
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
+extern "C" {
+#include <arpa/inet.h>
+}
+
 #include <string>
 #include <vector>
 #include <map>
 #include <thread>
 #include <condition_variable>
 
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/server/TThreadedServer.h>
+
 #include <util/fds_stat.h>
 #include <AccessMgr.h>
+#include <AmProcessor.h>
 #include "connector/xdi/AmAsyncXdi.h"
+#include "AmDataApi.h"
 #include "AmAsyncDataApi_impl.h"
 
 #include "boost/program_options.hpp"
@@ -68,13 +78,6 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
               serverIp("127.0.0.1"),
               serverPort(8899),
               responsePort(9876) {
-        // register and populate volumes
-        VolumeDesc volDesc(*volumeName, 5);
-        volDesc.iops_min = 0;
-        volDesc.iops_max = 0;
-        volDesc.relativePrio = 1;
-        fds_verify(am->registerVolume(volDesc) == ERR_OK);
-
         namespace po = boost::program_options;
         po::options_description desc("AM functional test");
         desc.add_options()
@@ -147,8 +150,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncXdiServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(shared_from_this());
+            asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(am->getProcessor(), shared_from_this());
         }
+        am->getProcessor()->registerVolume(
+            std::move(VolumeDesc(*volumeName, 5, 0, 0, 1)));
     }
 
     enum TaskOps {
@@ -159,7 +164,8 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         PUTMETA,
         LISTVOL,
         GETWITHMETA,
-        SETVOLMETA
+        SETVOLMETA,
+        GETVOLMETA
     };
 
     // **********
@@ -224,6 +230,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                       boost::shared_ptr<apis::VolumeStatus>& response) {}
     void setVolumeMetadataResponse(const apis::RequestId& requestId) {}
     void setVolumeMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void getVolumeMetadataResponse(const apis::RequestId& requestId,
+                                   const std::map<std::string, std::string>& metadata) {}
+    void getVolumeMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                                   boost::shared_ptr<std::map<std::string, std::string>>& metadata) {}
     void completeExceptionally(const apis::RequestId& requestId,
                                const fpi::ErrorCode errorCode,
                                const std::string& message) {}
@@ -366,6 +376,16 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         }
     }
 
+    void getVolumeMetadataResp(const Error &error,
+                               boost::shared_ptr<apis::RequestId>& requestId,
+                               boost::shared_ptr<std::map<std::string, std::string>>& metadata) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
     void asyncTask(int id, TaskOps opType) {
         fds_uint32_t ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
         GLOGDEBUG << "Starting thread " << id;
@@ -483,6 +503,13 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                                                 domainName,
                                                 volumeName,
                                                 meta);
+            } else if (opType == GETVOLMETA) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                asyncDataApi->getVolumeMetadata(reqId,
+                                                domainName,
+                                                volumeName);
             } else {
                 fds_panic("Unknown op type");
             }
@@ -755,6 +782,11 @@ TEST(AccessMgr, getWithMeta) {
 TEST(AccessMgr, setVolMeta) {
     GLOGDEBUG << "Testing async setVolumeMetadata";
     amLoad->runAsyncTask(AmLoadProc::SETVOLMETA);
+}
+
+TEST(AccessMgr, getVolMeta) {
+    GLOGDEBUG << "Testing async getVolumeMetadata";
+    amLoad->runAsyncTask(AmLoadProc::GETVOLMETA);
 }
 
 int

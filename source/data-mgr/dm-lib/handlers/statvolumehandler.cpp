@@ -4,8 +4,8 @@
 
 #include <dmhandler.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
-                           // incomplete type errors in BaseAsyncSvcHandler.h
-#include <net/BaseAsyncSvcHandler.h>
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
 #include <util/Log.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
@@ -26,7 +26,7 @@ void StatVolumeHandler::handleRequest(
     LOGTRACE << "Received a statVolume request for volume "
              << message->volume_id;
 
-    auto dmReq = new DmIoGetVolumeMetaData(message);
+    auto dmReq = new DmIoStatVolume(message);
     dmReq->cb = BIND_MSG_CALLBACK(StatVolumeHandler::handleResponse, asyncHdr, message);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
@@ -36,7 +36,7 @@ void StatVolumeHandler::handleRequest(
 
 void StatVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dmRequest);
-    DmIoGetVolumeMetaData* typedRequest = static_cast<DmIoGetVolumeMetaData*>(dmRequest);
+    DmIoStatVolume* typedRequest = static_cast<DmIoStatVolume*>(dmRequest);
 
     helper.err = dataMgr->timeVolCat_->queryIface()->statVolume(
             typedRequest->getVolId(),

@@ -30,7 +30,7 @@ namespace fds
     const ShmObjRO *NodeInventory::node_shm_ctrl() const
     {
         TRACEFUNC;
-        if (node_svc_type == fpi::FDSP_STOR_HVISOR)
+        if (node_svc_type == fpi::FDSP_ACCESS_MGR)
         {
             return NodeShmCtrl::shm_am_inventory();
         }
@@ -339,7 +339,7 @@ namespace fds
     void NodeInventory::init_node_info_msg(fpi::NodeInfoMsg *msg) const
     {
         TRACEFUNC;
-        node_info_msg_frm_shm(node_svc_type == fpi::FDSP_STOR_HVISOR ? true : false, node_ro_idx,
+        node_info_msg_frm_shm(node_svc_type == fpi::FDSP_ACCESS_MGR ? true : false, node_ro_idx,
                               msg);
     }
 

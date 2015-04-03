@@ -4,6 +4,7 @@ import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.protocol.FDSP_NodeState;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.model.*;
 import com.formationds.commons.model.builder.VolumeBuilder;
@@ -331,9 +332,29 @@ public class SystemHealthStatus implements RequestHandler {
 
         List<Service> services = new ArrayList<Service>();
         
-        rawServices.stream().forEach( service -> {
-        	services.add( ServiceType.find( service ).get() );
-        });
+        /**
+         * We need to remove all services that are in the discovered state before we continue 
+         * because they do not inform the state of the system health.
+         * 
+         * We are creating a new list here because we need the size to reflect the 
+         * reduced version of this list.
+         */
+        final List<FDSP_Node_Info_Type> filteredList = rawServices.stream()
+        	.filter( (s) -> {
+	        	
+	        	if ( s.node_state.equals( FDSP_NodeState.FDS_Node_Discovered ) ){
+	        		return false;
+	        	}
+	        	
+	        	return true;
+	        })
+	        .collect( Collectors.toList() );
+        
+        // converting from the thrift type to our type
+        filteredList.stream()
+        	.forEach( service -> {
+        		services.add( ServiceType.find( service ).get() );
+        	});
         
         // first, if all the services are up, we're good.
         long servicesUp = services.stream()
@@ -353,7 +374,7 @@ public class SystemHealthStatus implements RequestHandler {
         // No we will report okay if there is at least 1 om, 1 am in the system
         // and an sm,dm,pm running on each node.
 
-        // first we do 2 groupings.  One into nodes, on into services
+        // first we do 2 groupings.  One into nodes, one into services
         Map<ManagerType, List<Service>> byService = services.stream()
                 .collect(Collectors.groupingBy(Service::getType));
         
@@ -364,7 +385,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         // get a list of the services so we can use their counts
         List<Service> oms = byService.get(ManagerType.FDSP_ORCH_MGR);
-        List<Service> ams = byService.get(ManagerType.FDSP_STOR_HVISOR);
+        List<Service> ams = byService.get(ManagerType.FDSP_ACCESS_MGR);
         List<Service> pms = byService.get(ManagerType.FDSP_PLATFORM);
         List<Service> dms = byService.get(ManagerType.FDSP_DATA_MGR);
         List<Service> sms = byService.get(ManagerType.FDSP_STOR_MGR);

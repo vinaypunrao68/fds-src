@@ -34,9 +34,6 @@
 #include "lib/qos_min_prio.h"
 #include "lib/QoSWFQDispatcher.h"
 
-/* TODO: avoid include across module, put API header file to include dir */
-#include "lib/OMgrClient.h"
-
 #include "fds_module.h"
 
 #include "fdsp/SMSvc.h"
@@ -52,6 +49,7 @@
 using namespace FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
+struct OMgrClient;
 
 extern ObjectStorMgr *objStorMgr;
 
@@ -301,12 +299,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      void storeCurrentDLT();
 
-     static Error volEventOmHandler(fds::fds_volid_t volume_id,
-                                    fds::VolumeDesc *vdb,
-                                    int vol_action,
-                                    FDSP_NotifyVolFlag vol_flag,
-                                    FDSP_ResultType resut);
-
      virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
      /* Made virtual for google mock */
@@ -333,6 +325,13 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      friend class SmLoadProc;
      friend class SMSvcHandler;
+
+  private:
+     static Error registerVolume(fds::fds_volid_t volume_id,
+                                 fds::VolumeDesc *vdb,
+                                 FDSP_NotifyVolFlag vol_flag,
+                                 FDSP_ResultType resut);
+
 };
 
 }  // namespace fds

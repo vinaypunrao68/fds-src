@@ -6,7 +6,6 @@
 #include <fds_process.h>
 #include <PerfTrace.h>
 #include <climits>
-#include "AmTxManager.h"
 #include "AmTxDescriptor.h"
 
 namespace fds {
@@ -23,21 +22,26 @@ AmCache::AmCache()
 AmCache::~AmCache() = default;
 
 Error
-AmCache::addVolume(const VolumeDesc& volDesc) {
-    Error err = descriptor_cache.addVolume(volDesc.volUUID, max_metadata_entries);
-    if (err != ERR_OK) {
+AmCache::registerVolume(fds_volid_t const vol_uuid) {
+    Error err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
+    if (ERR_OK != err) {
         return err;
     }
-    err = offset_cache.addVolume(volDesc.volUUID, max_metadata_entries);
-    if (err != ERR_OK) {
+    err = offset_cache.addVolume(vol_uuid, max_metadata_entries);
+    if (ERR_OK != err) {
+        descriptor_cache.removeVolume(vol_uuid);
         return err;
     }
-    err = object_cache.addVolume(volDesc.volUUID, max_data_entries);
+    err = object_cache.addVolume(vol_uuid, max_data_entries);
+    if (ERR_OK != err) {
+        offset_cache.removeVolume(vol_uuid);
+        descriptor_cache.removeVolume(vol_uuid);
+    }
     return err;
 }
 
 Error
-AmCache::removeVolume(fds_volid_t volId) {
+AmCache::removeVolume(fds_volid_t const volId) {
     Error err = descriptor_cache.removeVolume(volId);
     if (err != ERR_OK) {
         return err;

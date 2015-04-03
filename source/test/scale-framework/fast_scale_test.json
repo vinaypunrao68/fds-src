@@ -2,29 +2,8 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
-				"name" : "TestMixedBlocks",
-				"file" : "test_mixed_blocks.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
 				"name" : "TestDifferentBlobSizes",
 				"file" : "test_different_blob_sizes.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "Test100GBBlockVolume",
-				"file" : "test_100gb_block_volume.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "Test100GBS3Bucket",
-				"file" : "test_100gb_s3_bucket.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
@@ -37,22 +16,8 @@
 				"config" : ""
 			},
 			{
-				"name" : "TestCreateMultipleBuckets",
-				"file" : "test_create_multiple_buckets.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
 				"name" : "TestCreateMultivolume",
 				"file" : "test_create_multivolume.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestGigabyteBlobSize",
-				"file" : "test_gigabyte_blob_size.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
@@ -69,20 +34,6 @@
 				"file" : "test_multiconnections.py",
 				"arguments" : [],
 				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestMaxNumberBlockVolumes",
-				"file" : "test_max_number_block_volumes.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestMultipleBlockMountPoints",
-				"file" : "test_multiple_block_mount_points.py",
-				"arguments" : [],
-				"depends" : ["TestMaxNumberBlockVolumes"],
 				"config" : ""
 			},
 			{

@@ -1,67 +1,128 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2013-2015 Formation Data Systems, Inc.
  */
+
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMPROCESSOR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMPROCESSOR_H_
 
+#include <memory>
 #include <string>
+
 #include <fds_module.h>
-#include <StorHvVolumes.h>
-#include <StorHvQosCtrl.h>
-#include <AmDispatcher.h>
-#include "AmRequest.h"
+#include "fds_volume.h"
+#include "fds_process.h"
 
 namespace fds {
 
 /**
  * Forward declarations
  */
+struct AmDispatcher;
+struct AmRequest;
 struct AmTxManager;
+struct AmVolume;
 struct RandNumGenerator;
 
 /**
  * AM request processing layer. The processor handles state and
  * execution for AM requests.
  */
-class AmProcessor : public Module {
+class AmProcessor : public Module,
+                    public std::enable_shared_from_this<AmProcessor>
+    {
+    using shutdown_cb_type = std::function<void(void)>;
   public:
-    /**
-     * The processor takes a shared ptr to a tx manager.
-     * TODO(Andrew): Use a different structure than SHVolTable.
-     */
-    AmProcessor(const std::string &modName,
-                AmDispatcher::shared_ptr _amDispatcher,
-                std::shared_ptr<StorHvQosCtrl> _qosCtrl,
-                std::shared_ptr<StorHvVolumeTable> _volTable);
+    AmProcessor(const std::string &modName, shutdown_cb_type&& cb);
     AmProcessor(AmProcessor const&) = delete;
     AmProcessor& operator=(AmProcessor const&) = delete;
     ~AmProcessor();
 
-    typedef std::unique_ptr<AmProcessor> unique_ptr;
+    Error enqueueRequest(AmRequest* amReq);
+
+    Error updateQoS(long int const* rate,
+                    float const* throttle);
 
     /**
      * Module methods
      */
-    int mod_init(SysParams const *const param)
+    int mod_init(SysParams const *const param) override 
     { Module::mod_init(param); return 0; }
-    void mod_startup() {}
-    void mod_shutdown() {}
+    void mod_startup() override;
+    void mod_shutdown() override {}
+
+    bool stop();
 
     /**
      * Create object/metadata/offset caches for the given volume
      */
-    Error addVolume(const VolumeDesc& volDesc);
+    void registerVolume(const VolumeDesc& volDesc);
+
+    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
 
     /**
-     * Processes a stat volume request
+     * Remove object/metadata/offset caches for the given volume
      */
-    void statVolume(AmRequest *amReq);
+    Error removeVolume(const VolumeDesc& volDesc);
 
     /**
-     * Callback for a stat volume request
+     * DMT/DLT update notifications
      */
-    void statVolumeCb(AmRequest *amReq,
-                      const Error &error);
+    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data);
+
+    bool isShuttingDown() const
+    { return shut_down; }
+
+  private:
+    /// Unique ptr to the dispatcher layer
+    std::unique_ptr<AmDispatcher> amDispatcher;
+
+    /// Unique ptr to the transaction manager
+    std::unique_ptr<AmTxManager> txMgr;
+
+    /// Unique ptr to a random num generator for tx IDs
+    std::unique_ptr<RandNumGenerator> randNumGen;
+
+    shutdown_cb_type shutdown_cb;
+    bool shut_down { false };
+
+    void processBlobReq(AmRequest *amReq);
+
+    std::shared_ptr<AmVolume> getVolume(AmRequest* amReq, bool const allow_snapshot=true);
+
+    /**
+     * Processes a get volume metadata request
+     */
+    void getVolumeMetadata(AmRequest *amReq);
+
+    /**
+     * Processes a abort blob transaction
+     */
+    void abortBlobTx(AmRequest *amReq);
+    void abortBlobTxCb(AmRequest *amReq, const Error &error);
+
+    /**
+     * Processes a commit blob transaction
+     */
+    void commitBlobTx(AmRequest *amReq);
+    void commitBlobTxCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Processes a delete blob request
+     */
+    void deleteBlob(AmRequest *amReq);
+
+    /**
+     * Processes a get blob request
+     */
+    void getBlob(AmRequest *amReq);
+    void getBlobCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Processes a put blob request
+     */
+    void putBlob(AmRequest *amReq);
+    void putBlobCb(AmRequest *amReq, const Error& error);
 
     /**
      * Processes a set volume metadata request
@@ -69,56 +130,21 @@ class AmProcessor : public Module {
     void setVolumeMetadata(AmRequest *amReq);
 
     /**
-     * Processes a abort blob transaction
-     */
-    void abortBlobTx(AmRequest *amReq);
-
-    /**
-     * Callback for abort blob transaction
-     */
-    void abortBlobTxCb(AmRequest *amReq,
-                       const Error &error);
-
-    /**
      * Processes a start blob transaction
      */
     void startBlobTx(AmRequest *amReq);
+    void startBlobTxCb(AmRequest *amReq, const Error &error);
 
     /**
-     * Callback for start blob transaction
+     * Processes a stat volume request
      */
-    void startBlobTxCb(AmRequest *amReq,
-                       const Error &error);
-
-    /**
-     * Processes a put blob request
-     */
-    void putBlob(AmRequest *amReq);
-
-    /**
-     * Callback for get blob request
-     */
-    void putBlobCb(AmRequest *amReq, const Error& error);
-
-    /**
-     * Processes a get blob request
-     */
-    void getBlob(AmRequest *amReq);
+    void statVolume(AmRequest *amReq);
+    void statVolumeCb(AmRequest *amReq, const Error &error);
 
     /**
      * Callback for catalog query request
      */
     void queryCatalogCb(AmRequest *amReq, const Error& error);
-
-    /**
-     * Callback for get blob request
-     */
-    void getBlobCb(AmRequest *amReq, const Error& error);
-
-    /**
-     * Processes a delete blob request
-     */
-    void deleteBlob(AmRequest *amReq);
 
     /**
      * Processes a set metadata on blob request
@@ -137,49 +163,12 @@ class AmProcessor : public Module {
     void volumeContents(AmRequest *amReq);
 
     /**
-     * Processes a commit blob transaction
-     */
-    void commitBlobTx(AmRequest *amReq);
-
-    /**
-     * Callback for commit blob transaction
-     */
-    void commitBlobTxCb(AmRequest *amReq, const Error& error);
-
-    /**
      * Generic callback for a few responses
      */
-    void respond_and_delete(AmRequest *amReq, const Error& error)
-    { respond(amReq, error); delete amReq; }
+    inline void respond_and_delete(AmRequest *amReq, const Error& error);
 
     void respond(AmRequest *amReq, const Error& error);
 
-  private:
-
-    /**
-     * Return pointer to volume iff volume is not a snapshot
-     */
-    StorHvVolumeTable::volume_ptr_type getNoSnapshotVolume(AmRequest* amReq);
-
-    /// Raw pointer to QoS controller
-    // TODO(Andrew): Move this to unique once it's owned here.
-    std::shared_ptr<StorHvQosCtrl> qosCtrl;
-
-    /// Raw pointer to table of attached volumes
-    // TODO(Andrew): Move this unique once it's owned here.
-    // Also, probably want a simpler class structure
-    std::shared_ptr<StorHvVolumeTable> volTable;
-
-    /// Shared ptr to the dispatcher layer
-    // TODO(Andrew): Decide if AM or Process owns this and make unique.
-    // I'm leaning towards this layer owning it.
-    AmDispatcher::shared_ptr amDispatcher;
-
-    /// Shared ptr to the transaction manager
-    std::unique_ptr<AmTxManager> txMgr;
-
-    /// Unique ptr to a random num generator for tx IDs
-    std::unique_ptr<RandNumGenerator> randNumGen;
 };
 
 }  // namespace fds

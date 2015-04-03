@@ -7,16 +7,50 @@
 #include "AmTxManager.h"
 #include "AmCache.h"
 #include "AmTxDescriptor.h"
+#include "AmVolumeTable.h"
 
 namespace fds {
 
 AmTxManager::AmTxManager()
-    : amCache(new AmCache()) {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
+    : amCache(nullptr),
+      volTable(nullptr)
+{
 }
 
 AmTxManager::~AmTxManager() = default;
+
+void AmTxManager::init(processor_callback_type&& cb) {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
+    qos_threads = conf.get<int>("qos_threads");
+
+    amCache.reset(new AmCache());
+    volTable.reset(new AmVolumeTable(qos_threads, GetLog()));
+
+    auto closure = [cb](AmRequest* amReq) mutable -> void { cb(amReq); };
+    volTable->registerCallback(std::move(closure));
+}
+
+Error
+AmTxManager::enqueueRequest(AmRequest* amReq) {
+    return volTable->enqueueRequest(amReq);
+}
+
+Error
+AmTxManager::markIODone(AmRequest* amReq) {
+    return volTable->markIODone(amReq);
+}
+
+bool
+AmTxManager::drained() {
+    return volTable->drained();
+}
+
+Error
+AmTxManager::updateQoS(long int const* rate,
+                       float const* throttle) {
+    return volTable->updateQoS(rate, throttle);
+}
 
 Error
 AmTxManager::addTx(fds_volid_t volId,
@@ -147,8 +181,35 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::addVolume(const VolumeDesc& volDesc)
-{ return amCache->addVolume(volDesc); }
+AmTxManager::registerVolume(const VolumeDesc& volDesc, fds_int64_t token)
+{
+    auto err = amCache->registerVolume(volDesc.volUUID);
+    if (ERR_OK == err) {
+        LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
+        err = volTable->registerVolume(volDesc, token);
+        if (ERR_OK != err) {
+            amCache->removeVolume(volDesc.volUUID);
+        }
+    }
+
+    if (!err.ok()) {
+        LOGERROR << "Failed to register volume: " << err;
+    }
+    return err;
+}
+
+Error
+AmTxManager::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
+{ return volTable->modifyVolumePolicy(vol_uuid, vdesc); }
+
+Error
+AmTxManager::removeVolume(const VolumeDesc& volDesc)
+{
+    auto err = volTable->removeVolume(volDesc);
+    if (ERR_OK == err)
+      { amCache->removeVolume(volDesc.volUUID); }
+    return err;
+}
 
 Error
 AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
@@ -158,6 +219,10 @@ AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
     }
     return ERR_NOT_FOUND;
 }
+
+AmVolumeTable::volume_ptr_type
+AmTxManager::getVolume(fds_volid_t vol_uuid) const
+{ return volTable->getVolume(vol_uuid); }
 
 BlobDescriptor::ptr
 AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)

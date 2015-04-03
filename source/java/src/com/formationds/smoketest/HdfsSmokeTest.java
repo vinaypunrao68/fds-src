@@ -6,6 +6,8 @@ import com.formationds.hadoop.OwnerGroupInfo;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.util.Progressable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -236,6 +238,27 @@ public class HdfsSmokeTest {
     }
 
     @Test
+    public void testCreateNonRecursive() throws Exception {
+        byte[] contents = new byte[]{-1, -2, -114, -65};
+        Path p = new Path("/foo/bar");
+        Progressable progress = () -> {
+        };
+
+        try {
+            fileSystem.createNonRecursive(p, FsPermission.getDefault(), true, 1024, (short) 1, 1024, progress);
+            fail("Should have gotten an IOException!");
+        } catch (IOException e) {
+        }
+
+        fileSystem.mkdirs(new Path("/foo"));
+        FSDataOutputStream out = fileSystem.createNonRecursive(p, FsPermission.getDefault(), true, 1024, (short) 1, 1024, progress);
+        out.write(contents);
+        out.flush();
+        out.close();
+        assertPathContent(p, contents);
+    }
+
+    @Test
     public void appendTest() throws Exception {
         Path f = new Path("/peanuts");
         byte[] data1 = new byte[]{1, 2, 3, 4};
@@ -343,7 +366,7 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-	Integer pmPort = 7000;
+        Integer pmPort = 7000;
 
         XdiClientFactory xdiCf = new XdiClientFactory(pmPort + amResponsePortOffset);
         String host = (String) System.getProperties()

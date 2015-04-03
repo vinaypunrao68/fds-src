@@ -1,5 +1,6 @@
 /*
  * Copyright 2013-2015 Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
 include "config_types.thrift"
@@ -84,6 +85,9 @@ service ConfigurationService {
   /**
    * Shutdown currently the named Local Domain.
    *
+   * Shutdown involves stopping all processes associated with SM, DM, and AM services. However,
+   * none of them are unregistered from the Domain as would be the case with "removing" services.
+   *
    * @param domainName - A string representing the name of the Local Domain to be shutdown.
    *
    * @return void.
@@ -104,9 +108,19 @@ service ConfigurationService {
   /**
    * Activate currently defined Services for the named Local Domain.
    *
+   * If all Service flags are set to False, it will
+   * be interpreted to mean activate all Services currently defined for the Node. If there are
+   * no Services currently defined for the node, it will be interpreted to mean activate all
+   * Services on the Node (SM, DM, and AM), and define all Services for the Node.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose Services are to be activated.
+   * @param sm - A bool indicating whether the SM Service should be activated (True) or not (False)
+   * @param dm - A bool indicating whether the DM Service should be activated (True) or not (False)
+   * @param am - A bool indicating whether the AM Service should be activated (True) or not (False)
+   *
    * @return void.
    */
-  void activateLocalDomainServices(1:string domainName)
+  void activateLocalDomainServices(1:string domainName, 2:bool sm, 3:bool dm, 4:bool am)
       throws (1: common.ApiException e);
 
   /**
@@ -120,9 +134,18 @@ service ConfigurationService {
   /**
    * Remove currently defined Services from the named Local Domain.
    *
+   * If all Service flags are set to False, it will
+   * be interpreted to mean remove all Services currently defined for the Node.
+   * Removal means that the Service is unregistered from the Domain and shutdown.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose Services are to be removed.
+   * @param sm - A bool indicating whether the SM Service should be removed (True) or not (False)
+   * @param dm - A bool indicating whether the DM Service should be removed (True) or not (False)
+   * @param am - A bool indicating whether the AM Service should be removed (True) or not (False)
+   *
    * @return void.
    */
-  void removeLocalDomainServices(1:string domainName)
+  void removeLocalDomainServices(1:string domainName, 2:bool sm, 3:bool dm, 4:bool am)
       throws (1: common.ApiException e);
 
   /**

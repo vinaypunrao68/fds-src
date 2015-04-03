@@ -90,27 +90,23 @@ void
 DmTimeVolCatalog::mod_shutdown() {
 }
 
-Error
-DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
+void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
     LOGDEBUG << "Will prepare commit log for new volume "
              << std::hex << voldesc.volUUID << std::dec;
-    Error rc = ERR_OK;
-    {
-        fds_scoped_spinlock l(commitLogLock_);
-        /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
-         * on DmCommitLog so that initialization can happen outside the lock
-         */
-        commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
-                                                                       voldesc.maxObjSizeInBytes);
-        commitLogs_[voldesc.volUUID]->mod_init(mod_params);
-        commitLogs_[voldesc.volUUID]->mod_startup();
+    /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
+     * on DmCommitLog so that initialization can happen outside the lock
+     */
+    fds_scoped_spinlock l(commitLogLock_);
+    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
+                                                                   voldesc.maxObjSizeInBytes);
+    commitLogs_[voldesc.volUUID]->mod_init(mod_params);
+    commitLogs_[voldesc.volUUID]->mod_startup();
+}
 
-        if (!voldesc.isSnapshot() && !voldesc.isClone()) {
-            rc = volcat->addCatalog(voldesc);
-        }
-    }
-
-    return rc;
+Error
+DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
+    createCommitLog(voldesc);
+    return volcat->addCatalog(voldesc);
 }
 
 Error
@@ -127,10 +123,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
              << "] from srcvol:" << voldesc.srcVolumeId;
 
     if (voldesc.isClone()) {
-        rc = addVolume(voldesc);
-        if (!rc.ok()) {
-            LOGWARN << "Failed to create commit log for clone '" << voldesc.volUUID << "'";
-        }
+        createCommitLog(voldesc);
     }
 
     // Create snapshot of volume catalog
@@ -484,7 +477,7 @@ void DmTimeVolCatalog::getDirChildren(const std::string & parent,
 
 void DmTimeVolCatalog::monitorLogs() {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    const std::string dmDir = root->dir_user_repo_dm();
+    const std::string dmDir = root->dir_sys_repo_dm();
     FdsRootDir::fds_mkdir(dmDir.c_str());
     FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
 
@@ -740,20 +733,6 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
         LOGERROR << "unable to catalog for vol:" << destVolId;
         return ERR_NOT_FOUND;
     }
-
-    /**
-     * TODO(dm-team) : How will the replay work if there are no txns
-     * at the start time. As commitlogs are retained only for a specified
-     * amount of time, there might be a gap . Eg.
-     *                  T----------------------- commitlog
-     *  ======S1===a======b======S2===c====== snapshots
-     *  At c, base is S2 and the txns between S2&c will be replayed
-     *  Both at a & b , [1] will be the base snapshot.
-     *  for a, there is nothing to be replayed
-     *  but for b , even though there are txns matching in the log it 
-     *  should not be replayed on to S1 as there are no txns between S1&T
-     *
-     */
 
     return dmReplayCatJournalOps(catalog, journalFiles, fromTime, toTime);
 }

@@ -11,6 +11,7 @@
 #include <fds_defines.h>
 #include <fds_error.h>
 #include <fds_typedefs.h>
+#include <fdsp/dm_types_types.h>
 #include <fdsp/xdi_types.h>
 #include <fdsp/config_types_types.h>
 #include <blob/BlobTypes.h>
@@ -201,6 +202,10 @@ struct StatVolumeResponseHandler : ResponseHandler, StatVolumeCallback {
 };
 
 struct SetVolumeMetadataCallback {};
+struct GetVolumeMetadataCallback {
+    /// The metadata to be filled in
+    boost::shared_ptr<std::map<std::string, std::string>> metadata;
+};
 
 struct AttachCallback {};
 struct DeleteBlobCallback {};

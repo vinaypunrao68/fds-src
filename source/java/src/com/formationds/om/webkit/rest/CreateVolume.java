@@ -47,7 +47,7 @@ public class CreateVolume
   private static final Long DURATION = TimeUnit.MINUTES.toSeconds( 2 );
   private static final Long FREQUENCY = TimeUnit.MINUTES.toSeconds( 1 );
 
-  private static final Integer DEF_BLOCK_SIZE = ( 1024 * 4 );
+  private static final Integer DEF_BLOCK_SIZE = ( 1024 * 128 );
   private static final Integer DEF_OBJECT_SIZE = ( ( 1024 * 1024 ) * 2 );
 
   private final Authorizer authorizer;

@@ -16,3 +16,6 @@ Build/linux-x86_64.debug/tests/sm_token_migration_seqnum_gtest
 Build/linux-x86_64.debug/tests/sm_token_snapshot_delta_gtest
 Build/linux-x86_64.debug/tests/sm_token_persistent_snapshot_gtest
 Build/linux-x86_64.debug/tests/object_metadata_reconcile_gtest
+Build/linux-x86_64.debug/tests/svcserver_gtest
+Build/linux-x86_64.debug/tests/svcmgr_gtest --fds-root=./config
+Build/linux-x86_64.debug/tests/svcrequestmgr_gtest --fds-root=./config

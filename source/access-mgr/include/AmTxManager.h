@@ -10,12 +10,16 @@
 #include <unordered_map>
 #include <blob/BlobTypes.h>
 #include <concurrency/RwLock.h>
+#include <fdsp/dm_types_types.h>
 #include "fds_volume.h"
 
 namespace fds {
 
 struct AmCache;
+struct AmRequest;
 struct AmTxDescriptor;
+struct AmVolume;
+struct AmVolumeTable;
 
 /**
  * Manages outstanding AM transactions. The transaction manager tracks which
@@ -28,6 +32,9 @@ struct AmTxManager {
     using descriptor_ptr_type = std::shared_ptr<AmTxDescriptor>;
 
  private:
+    /// The call we make back to the processing layer
+    using processor_callback_type = std::function<void(AmRequest*)>;
+
     /// Maps a TxId with its descriptor
     typedef std::unordered_map<BlobTxId, descriptor_ptr_type, BlobTxIdHash> TxMap;
     TxMap txMap;
@@ -38,14 +45,32 @@ struct AmTxManager {
     /// Maximum number of entries to stage
     fds_uint32_t maxStagedEntries;
 
+    /// The number of QoS threads
+    fds_uint32_t qos_threads;
+
     // Unique ptr to the data object cache
     std::unique_ptr<AmCache> amCache;
+
+    // Unique ptr to the volume table
+    std::unique_ptr<AmVolumeTable> volTable;
 
   public:
     AmTxManager();
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
     ~AmTxManager();
+
+    /**
+     * Initialize the cache and volume table
+     */
+    void init(processor_callback_type&& cb);
+
+    Error enqueueRequest(AmRequest* amReq);
+    Error markIODone(AmRequest* amReq);
+    bool drained();
+
+    Error updateQoS(long int const* rate,
+                    float const* throttle);
 
     /**
      * Removes an existing transaction from the manager, destroying
@@ -69,7 +94,18 @@ struct AmTxManager {
      * Notify that there is a newly attached volume, and build any
      * necessary data structures.
      */
-    Error addVolume(const VolumeDesc& volDesc);
+    Error registerVolume(const VolumeDesc& volDesc, fds_int64_t token);
+
+    /**
+     * Modify the policy for an attached volume.
+     */
+    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
+
+    /**
+     * Notify that we have detached a volume, and remove any available
+     * data structures.
+     */
+    Error removeVolume(const VolumeDesc& volDesc);
 
     /**
      * Removes the transaction and pushes all updates into the cache.
@@ -81,6 +117,11 @@ struct AmTxManager {
      * error if the transaction ID does not already exist.
      */
     Error getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const;
+
+    /**
+     * Return pointer to volume iff volume is attached
+     */
+    std::shared_ptr<AmVolume> getVolume(fds_volid_t vol_uuid) const;
 
     /**
      * Updates an existing transaction with a new operation

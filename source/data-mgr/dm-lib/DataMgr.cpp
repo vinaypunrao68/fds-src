@@ -810,7 +810,6 @@ int DataMgr::mod_init(SysParams const *const param)
 {
     Error err(ERR_OK);
 
-    omConfigPort = 0;
     standalone = false;
     numTestVols = 10;
     scheduleRate = 10000;
@@ -854,7 +853,6 @@ int DataMgr::mod_init(SysParams const *const param)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
-    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
     standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     if (!standalone) {
         LOGDEBUG << " Initialising the OM client ";
@@ -862,12 +860,8 @@ int DataMgr::mod_init(SysParams const *const param)
          * Setup communication with OM.
          */
         omClient = new OMgrClient(FDSP_DATA_MGR,
-                                  omIpStr,
-                                  omConfigPort,
                                   MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog(),
-                                  nullptr,
-                                  nullptr);
+                                  GetLog());
         omClient->setNoNetwork(false);
     }
 
@@ -890,7 +884,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
-    new dm::ReloadVolumeHandler();
+    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
 }
 
 DataMgr::~DataMgr()
@@ -993,7 +987,7 @@ void DataMgr::mod_enable_service() {
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     if (features.isTimelineEnabled()) {
         timeline->open();
     }

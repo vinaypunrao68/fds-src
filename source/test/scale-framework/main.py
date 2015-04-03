@@ -63,8 +63,11 @@ class Operation(object):
             # gets the op_ip_address from the inventory file
             self.inventory_file = self.args.inventory
         else:
-            self.inventory_file = config.DEFAULT_INVENTORY_FILE
-            
+            if self.args.type == "static_aws":
+                self.inventory_file = config.DEFAULT_AWS_INVENTORY
+            else:
+                self.inventory_file = config.DEFAULT_INVENTORY_FILE
+
         self.om_ip_address = config_parser.get_om_ipaddress_from_inventory(
                                                             self.inventory_file)
 
@@ -117,6 +120,7 @@ class Operation(object):
             self.logger.info("Using an existing cluster... skipping startup" \
                              " phase.")
         elif self.args.test == 'multi':
+            print self.args.type
             if self.args.type == "aws":
                 if self.args.name == None:
                     raise ValueError, "A name tag must be given to the AWS" \
@@ -124,6 +128,14 @@ class Operation(object):
                 self.multicluster = multinode.Multinode(name=self.args.name,
                                               instance_count=self.args.count,
                                               type=self.args.type)
+            if self.args.type == "static_aws":
+                if self.inventory_file == None:
+                    self.inventory_file = os.path.join(config.ANSIBLE_INVENTORY,
+                                                       config.DEFAULT_AWS_INVENTORY)
+                    print self.inventory_file
+                self.multicluster = multinode.Multinode(type=self.args.type,
+                                                        build=self.args.build,
+                                                        inventory=self.inventory_file)
             else:
                 # make the scale-framework-cluster version the default one
                 self.multicluster = multinode.Multinode(type=self.args.type,
@@ -148,7 +160,6 @@ class Operation(object):
     Collect all the test sets listed in .json config file
     '''
     def collect_tests(self):
-        
         for ts in self.test_sets_list:
             current_ts = test_set.TestSet(name=ts,
                                         test_cases=self.test_sets_list[ts],
