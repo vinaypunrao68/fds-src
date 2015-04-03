@@ -6,23 +6,58 @@ import traceback
 import re
 import sys
 import os
-'''
-Helper module around ngrep
-'''
-class FDSTrace:
-    def __init__(self):
-        self.apps={}
-        self.apps["om"]="orchMgr"
-        self.apps["am"]="AMAgent"
-        self.apps["sm"]="StorMgr"
-        self.apps["dm"]="DataMgr"
-        #T 127.0.0.1:49917 -> 127.0.0.1:8904 [AP]
-        self.infoLine = re.compile("T [0-9\.:]+:\d+ -> [0-9\.:]+:\d+ \[\w+\]")
-        self.ports={}
-        self.portMap={}
+import time
 
-    def addPort(self,name,port):
-        self.ports[name]=port
+class FDSTrace:
+    '''
+    Helper module around ngrep
+    '''
+    def __init__(self):
+        self.apps = {}
+        self.apps["om"] = "orchmgr"
+        self.apps["am"] = "bare_am"
+        self.apps["sm"] = "StorMgr"
+        self.apps["dm"] = "DataMgr"
+        self.apps["xdi"] = "java"
+
+        #T 127.0.0.1:49917 -> 127.0.0.1:8904 [AP]
+        self.infoLine = re.compile(r'T [0-9\.:]+:\d+ -> [0-9\.:]+:\d+ \[\w+\]')
+        self.ports = {}
+        self.portMap = {}
+        self.setupKnownPorts()
+
+    def setupKnownPorts(self):
+        ports = [
+            (7000, 'pm'),
+            (7001, 'sm'),
+            (7002, 'dm'),
+            (7003, 'am'),
+            (7004, 'om'),
+            (9090, 'om.config.api'),
+            (8903, 'om.cfg.path'),
+            (8904, 'om.ctrl.path'),
+            (7001, 'om.ui'),
+            (7443, 'om.ui.ssl'),
+            (9988, 'am.sync'),
+            (8899, 'am.async'),
+            (10809, 'am.nbd'),
+            (8000, 'xdi'),
+            (8999, 'xdi.stats'),
+            (9999, 'xdi.swift'),
+            (9876, 'xdi.async'),
+            (8443, 'xdi.ssl')
+        ]
+        self.knownPorts = {}
+        self.knownPortNames = {}
+        for p in ports:
+            self.knownPorts[p[0]] = p[1]
+            self.knownPortNames[p[1]] = p[0]
+
+    def addPort(self, name, port=None):
+        if port == None:
+            self.ports[self.knownPortNames[name]] = name
+        else:
+            self.ports[port] = name
 
     def getName(self,name):
         if name in self.apps:
@@ -49,12 +84,22 @@ class FDSTrace:
         if int(pid) <=0 :
             return ''
 
-        cmd=['ps','-p',pid]
+        cmd=['ps','-up',pid]
         ps=self.getCmdOutput(cmd)
         del ps[0]
         if len(ps) == 0:
             return ''
-        return self.getName(ps[0].split()[3])
+        psname=ps[0].split()[10]
+        if '/' in psname:
+            psname = psname.split('/')[-1]
+            
+        if psname == 'java':
+            if 'com.formationds.am.Main' in ps[0]:
+                psname = 'am'
+            elif 'com.formationds.om.Main' in ps[0]:
+                psname = 'om'
+        
+        return self.getName(psname)
 
     def getPortOwner(self,port):
         cmd=['lsof','-i','TCP:' + str(port) , '-P']
@@ -111,13 +156,12 @@ class FDSTrace:
     def getDisplayName(self,port):
         port=int(port)
         if port not in self.portMap:
-            name = self.getProcess(self.getPortOwner(port))
-            # check if it is a std ctrl port .
-            ctrlname= name + 'ctrlport'
-            #print name,port,ctrlname
-            if ctrlname in self.ports and self.ports[ctrlname] == port:
-                name= name + '-ctrl'
-                
+            if port in self.ports and not self.ports[port].isdigit():
+                name = self.ports[port]
+            elif port in self.knownPorts:
+                name = self.knownPorts[port]
+            else:
+                name = self.getProcess(self.getPortOwner(port))
             #print name,port
             self.portMap[port] = name
 
@@ -133,7 +177,7 @@ class FDSTrace:
         print f.getPortOwner(omport)
         print 'port',omport,'is owned by',f.getProcess(f.getPortOwner(omport))
 
-    def runNgrep(self):
+    def runNgrep(self, match='', invert=False):
         
         if os.geteuid() != 0 :
             print "error : you need root privileges - mebbe try with sudo !!"
@@ -141,7 +185,7 @@ class FDSTrace:
 
         portstr=""
         
-        for port in self.ports.values():
+        for port in self.ports.keys():
             if len(portstr)>0:
                 portstr += " or "
             portstr += "port " + str(port)
@@ -150,11 +194,16 @@ class FDSTrace:
             print 'error: no ports to listen on !!!'
             return
 
-        cmd = ['ngrep','-l','-q','-d','any','',portstr]
+        cmd = ['ngrep','-l','-q']
+        cmd += ['-d','any']
+        if invert:
+            cmd += ['-v']
+        cmd += [match,portstr]
         #print cmd
         
         try :
             proc=subprocess.Popen(cmd,stdout=subprocess.PIPE)
+            processLine = None
             while True:
                 line=proc.stdout.readline().strip()
                 if self.infoLine.match(line):
@@ -167,14 +216,21 @@ class FDSTrace:
                         fromproc = fromhost
                     if toproc == '' :
                         toproc = tohost
+
+                    if fromproc == 'om.config.api' and toproc == 'om':
+                        toproc = 'om-java'
+                    elif toproc == 'om.config.api' and fromproc == 'om':
+                        fromproc = 'om-java'
                     
-                    print "[%s:%s ---> %s:%s]" % (fromproc,fromport,toproc,toport)
+                    print "[%s:%s -> %s:%s] : [%s]" % (fromproc,fromport,toproc,toport,time.asctime())
                 else:
                     if len(line)>2:
                         print(re.sub(r'\.{7}\.*','....',line)),
                     else:
-                        print line
-                        print
+                        print "\n"
+                        
+
+
                 #print proc.stdout.closed
         except KeyboardInterrupt :
             #print "hi"
@@ -188,64 +244,65 @@ class FDSTrace:
         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Trace fds network calls. Just do "sudo ./fdstrace"',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--omport',default=8904 ,help='om port' , type=int, nargs='?')
-    parser.add_argument('--omctrlport',default=8903 ,help='om ctrl port' , type=int, nargs='?')
-    parser.add_argument('--amport',default=8000 ,help='am port' , type=int, nargs='?')
-    parser.add_argument('--dmport',default=6902 ,help='dm port' , type=int, nargs='?')
-    parser.add_argument('--dmctrlport',default=7902 ,help='dm ctrl port' , type=int, nargs='?')
-    parser.add_argument('--smport',default=6901 ,help='sm port' , type=int, nargs='?')
-    parser.add_argument('--smctrlport',default=7901 ,help='sm ctrl port' , type=int, nargs='?')
 
     parser.add_argument('--test',dest='test',action='store_true',default=False ,help="run test fn")
+    parser.add_argument('-m', '--match', dest='match',default='' ,help="Matching regex", type=str)
+    parser.add_argument('-v', '--invert', dest='invert',action='store_true',default=False,help='invert match')
 
-    parser.add_argument('--om',dest='om',action='store_true'   ,help='enable OM tracing')
-    parser.add_argument('--noom',dest='om',action='store_false',help='disable OM tracing')
-    parser.set_defaults(om=True)
+    for proc in ['om', 'sm', 'am', 'pm', 'dm', 'xdi', 'ssl']:
+        parser.add_argument('--'+proc, dest=proc, action='store_true'   ,help='enable %s tracing' % (proc) )
+        parser.add_argument('--no'+proc, dest=proc, action='store_false',help='disable %s tracing' % (proc) )
+        eval('parser.set_defaults(' + proc + '=None)')
 
-    parser.add_argument('--am',dest='am',action='store_true'   ,help='enable AM tracing')
-    parser.add_argument('--noam',dest='am',action='store_false',help='disable AM tracing')
-    parser.set_defaults(am=True)
-
-    parser.add_argument('--dm',dest='dm',action='store_true'   ,help='enable DM tracing')
-    parser.add_argument('--nodm',dest='dm',action='store_false',help='disable DM tracing')
-    parser.set_defaults(dm=True)
-
-    parser.add_argument('--sm',dest='sm',action='store_true'   ,help='enable SM tracing')
-    parser.add_argument('--nosm',dest='sm',action='store_false',help='disable SM tracing')
-    parser.set_defaults(sm=True)
-
-    parser.add_argument('--nodefaults',dest='nodefaults',action='store_true',help='disable default ports')
-    parser.set_defaults(nodefaults=False)
+    parser.set_defaults(ssl=False)
+    parser.add_argument('--none',dest='none',action='store_true',help='disable default ports')
+    parser.set_defaults(none=False)
 
     parser.add_argument('ports', nargs=argparse.REMAINDER ,type=int ,help="other ports to be monitored")
-
     args = parser.parse_args()
+    #print args
+    for proc in ['om', 'sm', 'am', 'pm', 'dm', 'xdi']:
+        if getattr(args, proc) == None:
+            setattr(args, proc, not args.none)
+                
     #print args
     #sys.exit(0)
     f = FDSTrace()
 
-    if args.om and not args.nodefaults:
-        f.addPort("omport", args.omport)
-        f.addPort("omctrlport" , args.omctrlport)
-    if args.dm and not args.nodefaults:
-        f.addPort("dmport", args.dmport)
-        f.addPort("dmctrlport" , args.dmctrlport)
-    if args.sm and not args.nodefaults:
-        f.addPort("smport", args.smport)
-        f.addPort("smctrlport" , args.smctrlport)
-    if args.am and not args.nodefaults:
-        f.addPort("amport", args.amport)
+    if args.om:
+        f.addPort("om")
+        f.addPort("om.config.api")
+        f.addPort("om.cfg.path")
+        f.addPort("om.ctrl.path")
+        f.addPort("om.ui")
+        if args.ssl:
+            f.addPort("om.ui.ssl")
+    if args.dm:
+        f.addPort("dm")
+    if args.sm:
+        f.addPort("sm")
+    if args.pm:
+        f.addPort("pm")
+    if args.am:
+        f.addPort("am")
+        f.addPort("am.sync")
+        f.addPort("am.async")
+        f.addPort("am.nbd")
+    if args.xdi:
+        f.addPort("xdi")
+        f.addPort("xdi.stats")
+        f.addPort("xdi.swift")
+        f.addPort("xdi.async")
+        if args.ssl:
+            f.addPort("xdi.ssl")
 
-    count=0
+    count = 1
     for port in args.ports:
-        f.addPort("port" + str(count), port)
-        count+=1
-        
-    
-    #print f.ports
-        
+        f.addPort(str(count), port)
+        count += 1
+
     if args.test:
         f.test()
     else:
-        f.runNgrep()
+        f.runNgrep(args.match, args.invert)
 

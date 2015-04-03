@@ -354,3 +354,26 @@ def exec_commands(cmds):
             break
         else:
             time.sleep(0.05)
+
+def compare_hashes(dict1_hashes, dict2_hashes):
+    '''
+	This function compares two dictionary hashes.
+
+    Attributes:
+    -----------
+	Takes two dictionary hashes
+
+    Returns:
+    --------
+	Returns true if two dictionary hashes are the same
+    '''
+
+    for k, v in dict1_hashes.iteritems():
+
+	    log.info("Comparing hashes for file %s" % k)
+	    if dict1_hashes[k]  != dict2_hashes[k]:
+		log.warning("%s != %s - on key=%s" % (dict1_hashes[k], dict2_hashes[k], k))
+		return False
+		break
+
+    return True
