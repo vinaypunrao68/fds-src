@@ -57,7 +57,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                 access = volume.nd_conf_dict['access']
 
             # Size only makes sense for block volumes
-            if 'block' in access:
+            if 'block' == access:
                 if 'size' not in volume.nd_conf_dict:
                     raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
                 cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
@@ -120,7 +120,7 @@ class TestVolumeAttach(TestCase.FDSTestCase):
 
 
             # Object volumes currently attach implicitly
-            if 'block' not in volume.nd_conf_dict['access']:
+            if 'block' != volume.nd_conf_dict['access']:
                 break
 
             cmd = (' attach %s %s' %
