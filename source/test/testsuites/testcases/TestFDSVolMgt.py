@@ -51,18 +51,16 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                 raise Exception('Volume section %s must have "id" keyword.' % volume.nd_conf_dict['vol-name'])
             cmd = cmd + (' --tenant-id %s' % volume.nd_conf_dict['id'])
 
-            if 'size' not in volume.nd_conf_dict:
-                raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
-            cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
-
-            # if 'policy' not in volume.nd_conf_dict:
-            #     raise Exception('Volume section %s must have "policy" keyword.' % volume.nd_conf_dict['vol-name'])
-            # cmd = cmd + (' -p %s' % volume.nd_conf_dict['policy'])
-
             if 'access' not in volume.nd_conf_dict:
                 access = 'object'
             else:
                 access = volume.nd_conf_dict['access']
+
+            # Size only makes sense for block volumes
+            if 'block' in access:
+                if 'size' not in volume.nd_conf_dict:
+                    raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
+                cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
 
             cmd = cmd + (' --vol-type %s' % access)
 
@@ -119,6 +117,11 @@ class TestVolumeAttach(TestCase.FDSTestCase):
             # If we were passed a volume, attach that one and exit.
             if self.passedVolume is not None:
                 volume = self.passedVolume
+
+
+            # Object volumes currently attach implicitly
+            if 'block' not in volume.nd_conf_dict['access']:
+                break
 
             cmd = (' attach %s %s' %
                (volume.nd_conf_dict['vol-name'],
