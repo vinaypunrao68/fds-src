@@ -20,7 +20,7 @@ class FileGenerator(object):
     units = ('K', 'M', 'G')
     
     def __init__(self, size, quantity, unit):
-        assert size >= 1
+        #assert size >= 1  #need to comment this out for 0 bytes file
         assert quantity >= 1
         assert unit.upper() in self.units
         
@@ -45,9 +45,14 @@ class FileGenerator(object):
         for i in xrange(0, self.quantity):
             current_size = "%s%s" % (self.size, self.unit)
             fname = "file_%s_%s" % (i, current_size)
-            cmd = config.DD % (fname, current_size)
+	    if int(self.size) == 0:
+		cmd = 'touch %s' %fname
+	    else:
+            	cmd = config.DD % (fname, current_size)
             subprocess.call([cmd], shell=True)
             
+	os.chdir('../') #need to get back to scale-framework directory
+
     def clean_up(self):
         '''
         if the API user decided to delete the entire random_data directory

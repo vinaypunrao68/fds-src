@@ -3,30 +3,18 @@
  */
 
 #include "AmVolume.h"
-#include "StorHvQosCtrl.h"
-#include "StorHvCtrl.h"
-
-extern StorHvCtrl* storHvisor;
 
 namespace fds
 {
 
-AmVolume::AmVolume(const VolumeDesc& vdesc, fds_log *parent_log)
-    : FDS_Volume(vdesc),
-      volQueue(nullptr)
+AmVolume::AmVolume(VolumeDesc const& vol_desc, FDS_VolumeQueue* queue, fds_int64_t _token)
+    :  FDS_Volume(vol_desc),
+       volQueue(queue),
+       token(_token)
 {
-    if (vdesc.isSnapshot()) {
-        volQueue.reset(storHvisor->qos_ctrl->getQueue(vdesc.qosQueueId));
-    }
-
-    if (!volQueue) {
-        volQueue.reset(new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio));
-    }
     volQueue->activate();
 }
 
-AmVolume::~AmVolume() {
-    storHvisor->qos_ctrl->deregisterVolume(voldesc->volUUID);
-}
+AmVolume::~AmVolume() = default;
 
 }  // namespace fds

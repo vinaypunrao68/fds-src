@@ -259,11 +259,10 @@ void ObjectStorMgr::mod_enable_service()
             else
                 testVdb->mediaPolicy = FDSP_MEDIA_POLICY_HYBRID_PREFCAP;
 
-            volEventOmHandler(testVolId,
-                              testVdb,
-                              FDS_VOL_ACTION_CREATE,
-                              FDS_ProtocolInterface::FDSP_NOTIFY_VOL_NO_FLAG,
-                              FDS_ProtocolInterface::FDSP_ERR_OK);
+            registerVolume(testVolId,
+                           testVdb,
+                           FDS_ProtocolInterface::FDSP_NOTIFY_VOL_NO_FLAG,
+                           FDS_ProtocolInterface::FDSP_ERR_OK);
 
             delete testVdb;
         }
@@ -341,78 +340,39 @@ Error ObjectStorMgr::handleDltUpdate() {
 }
 
 /*
- * Note this function is generally run in the context
- * of an Ice thread.
+ * Note this method register volumes outside of SMSvc
  */
 Error
-ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
-                                 VolumeDesc  *vdb,
-                                 int          action,
-                                 FDSP_NotifyVolFlag vol_flag,
-                                 FDSP_ResultType result) {
+ObjectStorMgr::registerVolume(fds_volid_t  volumeId,
+                              VolumeDesc  *vdb,
+                              FDSP_NotifyVolFlag vol_flag,
+                              FDSP_ResultType result) {
     StorMgrVolume* vol = NULL;
     Error err(ERR_OK);
     fds_assert(vdb != NULL);
 
-    switch (action) {
-        case FDS_VOL_ACTION_CREATE :
-            GLOGNOTIFY << "Received create for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb->getName() << "]";
-            /*
-             * Needs to reference the global SM object
-             * since this is a static function.
-             */
-            err = objStorMgr->volTbl->registerVolume(*vdb);
-            if (err.ok()) {
-                vol = objStorMgr->volTbl->getVolume(volumeId);
-                fds_assert(vol != NULL);
-                err = objStorMgr->qosCtrl->registerVolume(vdb->isSnapshot() ?
-                        vdb->qosQueueId : vol->getVolId(),
-                        static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
-                if (!err.ok()) {
-                    // most likely axceeded min iops
-                    objStorMgr->volTbl->deregisterVolume(volumeId);
-                }
-            }
-            if (!err.ok()) {
-                GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
-                          << std::dec << " error: " << err.GetErrstr();
-            }
-            break;
-        case FDS_VOL_ACTION_DELETE:
-            GLOGNOTIFY << "Received delete for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb->getName() << "]";
-            objStorMgr->qosCtrl->quieseceIOs(volumeId);
-            objStorMgr->qosCtrl->deregisterVolume(volumeId);
-            objStorMgr->volTbl->deregisterVolume(volumeId);
-            break;
-        case fds_notify_vol_mod:
-            GLOGNOTIFY << "Received modify for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb->getName() << "]";
-
-            vol = objStorMgr->volTbl->getVolume(volumeId);
-            fds_assert(vol != NULL);
-            if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
-                GLOGWARN << "Modify volume requested to modify media policy "
-                         << "- Not supported yet! Not modifying media policy";
-            }
-
-            vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
-            err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
-                                                             vdb->iops_min,
-                                                             vdb->iops_max,
-                                                             vdb->relativePrio);
-            if ( !err.ok() )  {
-                GLOGERROR << "Modify volume policy failed for vol " << vdb->getName()
-                          << std::hex << volumeId << std::dec << " error: "
-                          << err.GetErrstr();
-            }
-            break;
-        default:
-            fds_panic("Unknown (corrupt?) volume event recieved!");
+    GLOGNOTIFY << "Received create for vol "
+               << "[" << std::hex << volumeId << std::dec << ", "
+               << vdb->getName() << "]";
+    /*
+     * Needs to reference the global SM object
+     * since this is a static function.
+     */
+    err = objStorMgr->regVol(*vdb);
+    if (err.ok()) {
+        vol = objStorMgr->getVol(volumeId);
+        fds_assert(vol != NULL);
+        err = objStorMgr->regVolQos(vdb->isSnapshot() ?
+                vdb->qosQueueId : vol->getVolId(),
+                static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
+        if (!err.ok()) {
+            // most likely axceeded min iops
+            objStorMgr->deregVol(volumeId);
+        }
+    }
+    if (!err.ok()) {
+        GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
+                  << std::dec << " error: " << err.GetErrstr();
     }
 
     return err;

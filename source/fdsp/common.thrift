@@ -1,5 +1,9 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
+ */
+/**
+ *
  */
 
 namespace c_glib FDS_ProtocolInterface
@@ -209,23 +213,6 @@ struct FDSP_PolicyInfoType {
   5: i32                    rel_prio,    /* relative priority */
 }
 
-struct FDSP_CreateVolType {
-  1: string                  vol_name,
-  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
-}
-
-struct FDSP_DeleteVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  // i64    		 vol_uuid,
-  2: i32			 domain_id,
-}
-
-struct FDSP_ModifyVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  2: i64		 vol_uuid,
-  3: FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
-}
-
 /**
  * Descriptor for a snapshot. Describes it name and
  * policy information.
@@ -239,4 +226,9 @@ struct Snapshot {
     6:i64 retentionTimeSeconds,
     7:ResourceState state,
     8:i64 timelineTime,
+}
+
+struct VolumeAccessPolicy {
+  1: optional bool exclusive_read = true;
+  2: optional bool exclusive_write = true;
 }

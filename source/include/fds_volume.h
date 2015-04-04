@@ -33,9 +33,8 @@ namespace fds {
 // typedef fds_uint64_t fds_volid_t;
 typedef boost::posix_time::ptime ptime;
 
-static const fds_volid_t invalid_vol_id = 0;
-/// not real volume, used to queue admin commands from AM to OM
-static const fds_volid_t admin_vol_id = 0x8001;
+static constexpr fds_volid_t invalid_vol_id = 0;
+static constexpr fds_int64_t invalid_vol_token = -1;
 
 /**
  * Basic descriptor class for a volume. This is intended

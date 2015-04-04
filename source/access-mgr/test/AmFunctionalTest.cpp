@@ -3,15 +3,25 @@
  */
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
+extern "C" {
+#include <arpa/inet.h>
+}
+
 #include <string>
 #include <vector>
 #include <map>
 #include <thread>
 #include <condition_variable>
 
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/server/TThreadedServer.h>
+
 #include <util/fds_stat.h>
 #include <AccessMgr.h>
+#include <AmProcessor.h>
 #include "connector/xdi/AmAsyncXdi.h"
+#include "AmDataApi.h"
 #include "AmAsyncDataApi_impl.h"
 
 #include "boost/program_options.hpp"
@@ -68,13 +78,6 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
               serverIp("127.0.0.1"),
               serverPort(8899),
               responsePort(9876) {
-        // register and populate volumes
-        VolumeDesc volDesc(*volumeName, 5);
-        volDesc.iops_min = 0;
-        volDesc.iops_max = 0;
-        volDesc.relativePrio = 1;
-        fds_verify(am->registerVolume(volDesc) == ERR_OK);
-
         namespace po = boost::program_options;
         po::options_description desc("AM functional test");
         desc.add_options()
@@ -147,8 +150,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncXdiServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(shared_from_this());
+            asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(am->getProcessor(), shared_from_this());
         }
+        am->getProcessor()->registerVolume(
+            std::move(VolumeDesc(*volumeName, 5, 0, 0, 1)));
     }
 
     enum TaskOps {

@@ -18,13 +18,6 @@
 #include <string>
 using namespace FDS_ProtocolInterface; // NOLINT
 
-#define FDS_VOL_ACTION_NONE   0
-#define FDS_VOL_ACTION_CREATE 1
-#define FDS_VOL_ACTION_DELETE 2
-#define FDS_VOL_ACTION_MODIFY 3
-#define FDS_VOL_ACTION_ATTACH 4
-#define FDS_VOL_ACTION_DETACH 5
-
 namespace FDS_ProtocolInterface {
 class FDSP_OMControlPathReqClient;
 class FDSP_OMControlPathRespProcessor;
@@ -40,25 +33,6 @@ typedef netClientSessionEx<FDSP_OMControlPathReqClient,
                            FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 
 namespace fds {
-
-class Platform;
-
-typedef enum {
-    fds_notify_vol_default = 0,
-    fds_notify_vol_add     = 1,
-    fds_notify_vol_rm      = 2,
-    fds_notify_vol_mod     = 3,
-    fds_notify_vol_attatch = 4,
-    fds_notify_vol_detach  = 5,
-    fds_notify_vol_snap    = 6,
-    MAX
-} fds_vol_notify_t;
-
-typedef enum {
-    fds_catalog_push_meta = 0,
-    fds_catalog_dmt_commit = 1,
-    fds_catalog_dmt_close = 2
-} fds_catalog_action_t;
 
 // Callback for DMT close
 typedef std::function<void(Error &err)> DmtCloseCb;
@@ -148,8 +122,8 @@ class OMgrClient {
                    const std::string& secretAccessKey);
 
     int recvMigrationEvent(bool dlt_type);
-    Error updateDlt(bool dlt_type, std::string& dlt_data);
 
+    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
 };
 

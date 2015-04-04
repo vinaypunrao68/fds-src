@@ -103,9 +103,6 @@ enum  FDSPMsgTypeId {
   /** AM-> OM */
   CtrlTestBucketTypeId                      = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
-  CtrlCreateBucketTypeId                    = 3002;
-  CtrlDeleteBucketTypeId                    = 3003;
-  CtrlModifyBucketTypeId                    = 3004;
 
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;
@@ -167,8 +164,10 @@ enum  FDSPMsgTypeId {
   GetDmStatsMsgRespTypeId;
   ListBlobsByPatternMsgTypeId;
   ListBlobsByPatternRspMsgTypeId;
-  ReloadVolumeMsgTypeId;
-  ReloadVolumeRspMsgTypeId
+  OpenVolumeMsgTypeId;
+  OpenVolumeRspMsgTypeId;
+  CloseVolumeMsgTypeId;
+  CloseVolumeRspMsgTypeId;
 }
 
 /**

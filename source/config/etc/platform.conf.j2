@@ -24,6 +24,7 @@ fds: {
 
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
             all_ssd = {{ all_ssd_support }}
+	    volume_open_support = false
         }
         plat: {
 
@@ -37,7 +38,6 @@ fds: {
 
         }
         am: {
-
         }
         om: {
 
@@ -57,6 +57,18 @@ fds: {
 {% endif %}
 	om_port = 7004
 	om_uuid = 1028
+
+       {# TODO: FDSCONFIG Make it so that services search for configs in common
+           as well as in their own config block. A uniform order of precedence
+           for all values and all services would be preferred #}
+
+       {#graphite: {
+            /* Graphite server ip */
+            ip = "{{ metricsdb_ip }}"
+            /* Graphite server port */
+            port = 2003
+            period = 5
+        } #}
     }
 
     pm: {
@@ -93,6 +105,7 @@ fds: {
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
         graphite: {
             /* Graphite server ip */
             ip = "{{ metricsdb_ip }}"
@@ -100,6 +113,7 @@ fds: {
             port = 2003
             period = 5
         }
+
         threadpool: {
             num_threads = 10
 
@@ -181,10 +195,10 @@ fds: {
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
         graphite: {
             /* Graphite server ip */
             ip = "{{ metricsdb_ip }}"
-
             /* Graphite server port */
             port = 2003
             period = 5
@@ -349,23 +363,25 @@ fds: {
         }
 	tiering: {
 	    hybrid: {
-	        enable 		= false
+	        enable 		= {{ sm_tiering_hybrid_enable }}
 		/* Number of objects to move at a time */
-		batchSz 	= 1024
+		batchSz 	= {{ sm_tiering_hybrid_batchsz }}
 		/* In seconds to make testing easier (default 172800s = 2days) */
-		frequency 	= 172800
+		frequency 	= {{ sm_tiering_hybrid_frequency }}
 	    }
 	}
+
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
         graphite: {
             /* Graphite server ip */
             ip = "{{ metricsdb_ip }}"
-
             /* Graphite server port */
-            port=2003
+            port = 2003
             period = 5
         }
+
     }
 
     am: {
@@ -393,7 +409,17 @@ fds: {
 
         /* TODO(Rao): Get this from platform */
         om_config_port = 8903
+
+        /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
+        graphite: {
+            /* Graphite server ip */
+            ip = "{{ metricsdb_ip }}"
+            /* Graphite server port */
+            port = 2003
+            period = 5
+        }
 
         s3_http_port_offset=1000
         s3_https_port_offset=1443

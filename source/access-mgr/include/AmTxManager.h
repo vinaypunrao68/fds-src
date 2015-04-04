@@ -10,11 +10,13 @@
 #include <unordered_map>
 #include <blob/BlobTypes.h>
 #include <concurrency/RwLock.h>
+#include <fdsp/dm_types_types.h>
 #include "fds_volume.h"
 
 namespace fds {
 
 struct AmCache;
+struct AmRequest;
 struct AmTxDescriptor;
 struct AmVolume;
 struct AmVolumeTable;
@@ -30,6 +32,9 @@ struct AmTxManager {
     using descriptor_ptr_type = std::shared_ptr<AmTxDescriptor>;
 
  private:
+    /// The call we make back to the processing layer
+    using processor_callback_type = std::function<void(AmRequest*)>;
+
     /// Maps a TxId with its descriptor
     typedef std::unordered_map<BlobTxId, descriptor_ptr_type, BlobTxIdHash> TxMap;
     TxMap txMap;
@@ -39,6 +44,9 @@ struct AmTxManager {
 
     /// Maximum number of entries to stage
     fds_uint32_t maxStagedEntries;
+
+    /// The number of QoS threads
+    fds_uint32_t qos_threads;
 
     // Unique ptr to the data object cache
     std::unique_ptr<AmCache> amCache;
@@ -55,7 +63,14 @@ struct AmTxManager {
     /**
      * Initialize the cache and volume table
      */
-    void init();
+    void init(processor_callback_type&& cb);
+
+    Error enqueueRequest(AmRequest* amReq);
+    Error markIODone(AmRequest* amReq);
+    bool drained();
+
+    Error updateQoS(long int const* rate,
+                    float const* throttle);
 
     /**
      * Removes an existing transaction from the manager, destroying
@@ -79,7 +94,7 @@ struct AmTxManager {
      * Notify that there is a newly attached volume, and build any
      * necessary data structures.
      */
-    Error registerVolume(const VolumeDesc& volDesc);
+    Error registerVolume(const VolumeDesc& volDesc, fds_int64_t token);
 
     /**
      * Modify the policy for an attached volume.
@@ -90,7 +105,7 @@ struct AmTxManager {
      * Notify that we have detached a volume, and remove any available
      * data structures.
      */
-    Error removeVolume(fds_volid_t const vol_uuid);
+    Error removeVolume(const VolumeDesc& volDesc);
 
     /**
      * Removes the transaction and pushes all updates into the cache.
@@ -133,14 +148,6 @@ struct AmTxManager {
      */
     Error updateStagedBlobDesc(const BlobTxId &txId,
                                fpi::FDSP_MetaDataList const& metaDataList);
-
-    /**
-     * Volume table operations
-     * TODO(bszmyd): Sun 22 Mar 2015 07:13:59 PM PDT
-     * These are kinda ugly. When we do real transactions we should clean
-     * this up.
-     */
-    fds_volid_t getVolumeUUID(const std::string& vol_name) const;
 
     /**
      * Cache operations

@@ -110,8 +110,11 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // We can't initialize this in the constructor since we want to pass
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
-NbdOperations::init(boost::shared_ptr<std::string> vol_name, fds_uint32_t _maxObjectSizeInBytes) {
-    amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(shared_from_this()));
+NbdOperations::init(boost::shared_ptr<std::string> vol_name,
+                    fds_uint32_t _maxObjectSizeInBytes,
+                    std::shared_ptr<AmProcessor> processor)
+{
+    amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(processor, shared_from_this()));
     volumeName = vol_name;
     maxObjectSizeInBytes = _maxObjectSizeInBytes;
 }
