@@ -123,7 +123,9 @@ public enum SingletonRepositoryManager {
             this.influxRepository = influxRepository;
             this.influxQueryEnabled = influxQueryEnabled;
 
-            influxRepository.open( null );
+            if ( influxRepository != null ) {
+                influxRepository.open( null );
+            }
         }
 
         @Override
