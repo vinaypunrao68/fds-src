@@ -16,6 +16,7 @@ import org.joda.time.DateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -35,7 +36,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     private AtomicLong snapshotPolicyId;
 
     private List<FDSP_PolicyInfoType> qosPolicies;
-    private AtomicLong qosPolicyId;
+    private AtomicInteger qosPolicyId;
 
     private List<Tenant> tenants;
     private AtomicLong tenantId;
@@ -58,7 +59,7 @@ public class StubConfigurationApi implements ConfigurationApi {
         snapshotPolicies = new CopyOnWriteArrayList<>();
         snapshotPolicyId = new AtomicLong(0);
         qosPolicies = new CopyOnWriteArrayList<>();
-        qosPolicyId = new AtomicLong(0);
+        qosPolicyId = new AtomicInteger(0);
         tenants = new CopyOnWriteArrayList<>();
         tenantId = new AtomicLong(0);
         users = new CopyOnWriteArrayList<>();
@@ -380,11 +381,11 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public long createQoSPolicy(String policyName, long minIops, long maxIops, int relPrio) throws ApiException, TException {
+    public FDSP_PolicyInfoType createQoSPolicy(String policyName, long minIops, long maxIops, int relPrio) throws ApiException, TException {
         configurationVersion.incrementAndGet();
-        FDSP_PolicyInfoType policy = new FDSP_PolicyInfoType(qosPolicyId.incrementAndGet(), policyName, minIops, maxIops, relPrio);
+        FDSP_PolicyInfoType policy = new FDSP_PolicyInfoType(policyName, qosPolicyId.incrementAndGet(), minIops, maxIops, relPrio);
         qosPolicies.add(policy);
-        return policy.getId();
+        return policy;
     }
 
     @Override
@@ -393,14 +394,13 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public long modifyQoSPolicy(String currentPolicyName, String newPolicyName, long minIops, long maxIops, int relPrio) throws ApiException, TException {
+    public FDSP_PolicyInfoType modifyQoSPolicy(String currentPolicyName, String newPolicyName, long minIops, long maxIops, int relPrio) throws ApiException, TException {
         configurationVersion.incrementAndGet();
         FDSP_PolicyInfoType policy = qosPolicies.get(0);
-        return policy.getId();
+        return policy;
     }
 
     @Override
     public void deleteQoSPolicy(String policyName) throws TException {
-        return;
     }
 }
