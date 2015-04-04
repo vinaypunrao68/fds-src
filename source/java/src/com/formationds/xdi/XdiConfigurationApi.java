@@ -6,6 +6,7 @@ package com.formationds.xdi;
 
 import com.formationds.apis.*;
 import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.FDSP_PolicyInfoType;
 import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
@@ -316,6 +317,32 @@ public class XdiConfigurationApi implements ConfigurationApi {
     public List<Long> listVolumesForSnapshotPolicy(long policyId)
             throws ApiException, org.apache.thrift.TException {
         return config.listVolumesForSnapshotPolicy( policyId );
+    }
+
+    @Override
+    public FDSP_PolicyInfoType createQoSPolicy(String policyName, long minIops, long maxIops, int relPrio)
+            throws ApiException, TException {
+        FDSP_PolicyInfoType qosPolicy = config.createQoSPolicy(policyName, minIops, maxIops, relPrio);
+        return qosPolicy;
+    }
+
+    @Override
+    public List<FDSP_PolicyInfoType> listQoSPolicies(long ignore)
+            throws ApiException, TException {
+        return config.listQoSPolicies(0);
+    }
+
+    @Override
+    public FDSP_PolicyInfoType modifyQoSPolicy(String currentPolicyName, String newPolicyName, long minIops, long maxIops, int relPrio)
+            throws ApiException, TException {
+        FDSP_PolicyInfoType qosPolicy = config.modifyQoSPolicy(currentPolicyName, newPolicyName, minIops, maxIops, relPrio);
+        return qosPolicy;
+    }
+
+    @Override
+    public void deleteQoSPolicy(String policyName)
+        throws ApiException, TException {
+        config.deleteQoSPolicy(policyName);
     }
 
     @Override
