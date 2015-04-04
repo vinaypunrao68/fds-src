@@ -218,9 +218,9 @@ class FDS_VolumePolicy : public serialize::Serializable {
     FDS_VolumePolicy();
     ~FDS_VolumePolicy();
 
-    fds_uint32_t virtual write(serialize::Serializer*  s) const;
-    fds_uint32_t virtual read(serialize::Deserializer* d);
-    fds_uint32_t virtual getEstimatedSize() const;
+    uint32_t virtual write(serialize::Serializer*  s) const;
+    uint32_t virtual read(serialize::Deserializer* d);
+    uint32_t virtual getEstimatedSize() const;
     friend std::ostream& operator<<(std::ostream& os, const FDS_VolumePolicy& policy);
 };
 

@@ -11,6 +11,7 @@ import time
 from tabulate import tabulate
 from collections import OrderedDict
 import socket, struct
+import pyfdsp.common.constants as TConstants
 
 try:
     import requests
@@ -50,6 +51,7 @@ class RestEndpoint(object):
         self.ssl = ssl
         self.setHost(host)
         self.setPort(port)
+        self.setConfigPrefix()
 
         self.user = user
         self.password = password
@@ -69,6 +71,9 @@ class RestEndpoint(object):
     def setPort(self, port):
         self.port = port
         self.base_path = 'http{}://{}:{}'.format('s' if self.ssl else '',self.host,self.port)
+
+    def setConfigPrefix(self):
+        self.configPrefix = "/fds/config/" + TConstants.CURRENT_XDI_VERSION
 
     def login(self, user, password):
         '''
@@ -863,6 +868,123 @@ class DomainEndpoint():
                 return False
         else:
             return False
+
+
+class QoSPolicyEndpoint():
+
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + self.rest.configPrefix + '/qos_policies'
+
+    def createQoSPolicy(self, policy_name, iops_min, iops_max, rel_prio):
+
+        '''
+        Create a new QoS Policy in the system.
+        Params:
+           policy_name - str: name of the new QoS Policy
+           iops_min - int: minimum IOPS
+           iops_max - int: maximum IOPS
+           rel_prio - int: relative priority
+        Returns:
+           A JSON set of the newly created QoS Policy attributes.
+        '''
+        path = self.rest_path
+
+        policy_info = {
+            'policy_name': policy_name,
+            'iops_min': iops_min,
+            'iops_max': iops_max,
+            'rel_prio': rel_prio
+        }
+
+        res = self.rest.post(path, data=json.dumps(policy_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if ('policy_id' in res) and (int(res['policy_id']) > 0):
+                return res
+            else:
+                return None
+        else:
+            return None
+
+    def listQoSPolicies(self):
+        '''
+        List all QoS Policies in the global domain.
+        Params:
+           None
+        Returns:
+           List of Qos Policies and their attributes, None on failure
+        '''
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            # Take the opportunity here to create the column headings
+            # and ordering that we want.
+            new_res = list()
+            for row in res:
+                new_row = OrderedDict([
+                    ("policy_name", row["policy_name"]),
+                    ("policy_id", row["policy_id"]),
+                    ("iops_min", row["iops_min"]),
+                    ("iops_max", row["iops_max"]),
+                    ("rel_prio", row["rel_prio"])])
+                new_res.append(new_row)
+
+            return tabulate(new_res, headers="keys")
+        else:
+            return None
+
+    def updateQosPolicy(self, current_policy_name, new_policy_name, iops_min, iops_max, rel_prio):
+        '''
+        Change the attributes of a particular QoS Policy.
+        Params:
+            current_policy_name - str: Current name of the QoS Policy.
+            new_policy_name - str: New name for the QoS Policy. Same as current name if name is not changing.
+            iops_min - int: New minimum IOPS guarantee.
+            iops_max - int: New maximum IOPS guarantee.
+            rel_prio - int: New relative priority.
+        Returns:
+           The updated policy results are returned upon success, otherwise nothing.
+        '''
+
+        path = '{}/{}'.format(self.rest_path, current_policy_name)
+
+        domain_info = {
+            'new_policy_name': new_policy_name,
+            'iops_min': iops_min,
+            'iops_max': iops_max,
+            'rel_prio': rel_prio,
+        }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if ('policy_id' in res) and (int(res['policy_id']) > 0):
+                return res
+            else:
+                return None
+        else:
+            return None
+
+    def deleteQoSPolicy(self, policy_name):
+        '''
+        Delete the specified QoS Policy.
+        Params:
+           policy_name - str: Name of the QoS Policy to be deleted
+        Returns:
+           True success, False otherwise
+        '''
+        path = '{}/{}'.format(self.rest_path, policy_name)
+        res = self.rest.delete(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
 
             
 class TestServiceEndpoints(unittest.TestCase):

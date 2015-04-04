@@ -6,6 +6,9 @@ namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol
 
+const string INITIAL_XDI_VERSION = "0_8"
+const string CURRENT_XDI_VERSION = INITIAL_XDI_VERSION
+
 enum ResourceState {
   Unknown,
   Loading, /* resource is loading or in the middle of creation */
@@ -196,6 +199,14 @@ struct FDSP_VolumeDescType {
   18: i64                       timelineTime,
   19: i64                       createTime,
   20: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
+}
+
+struct FDSP_PolicyInfoType {
+  1: string                 policy_name, /* Name of the policy */
+  2: i32                    policy_id,   /* policy id */
+  3: double                 iops_min,    /* minimum (guaranteed) iops */
+  4: double                 iops_max,    /* maximum iops */
+  5: i32                    rel_prio,    /* relative priority */
 }
 
 struct FDSP_CreateVolType {
