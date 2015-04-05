@@ -127,6 +127,7 @@ class Operation(object):
                                       "cluster"
                 self.multicluster = multinode.Multinode(name=self.args.name,
                                               instance_count=self.args.count,
+                                              build=self.args.build,
                                               type=self.args.type)
             if self.args.type == "static_aws":
                 if self.inventory_file == None:
@@ -139,6 +140,7 @@ class Operation(object):
             else:
                 # make the scale-framework-cluster version the default one
                 self.multicluster = multinode.Multinode(type=self.args.type,
+                                                        build=self.args.build,
                                               inventory=self.inventory_file)
         self.logger.info("Sleeping for 60 seconds before starting tests")
         time.sleep(60)
@@ -222,6 +224,7 @@ def main(args):
         raise ValueError("test_sets are required in the %s file" %
                          test_file)
         sys.exit(2)
+    print args.build
     operation = Operation(data['test_sets'], args)
     operation.start_system()
     operation.collect_tests()
@@ -231,7 +234,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Command line argument for'
                                      ' the scale framework')
-    parser.add_argument('-b', '--build', action='store_true',
+    parser.add_argument('-b', '--build',
                         default='nightly',
                         help='Specify if the build is local or nightly')
     parser.add_argument('-c', '--count',
