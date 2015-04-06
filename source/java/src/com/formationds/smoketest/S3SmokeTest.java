@@ -285,19 +285,40 @@ public class S3SmokeTest {
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }
 
-    // @Test
+    @Test
     public void testCopyObject() {
         String source = UUID.randomUUID()
                 .toString();
         String destination = UUID.randomUUID()
                 .toString();
         userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
-        userClient.copyObject(userBucket, source, userBucket, destination);
-        String sourceEtag = userClient.getObjectMetadata(userBucket, destination)
-                .getETag();
-        String destinationEtag = userClient.getObjectMetadata(userBucket, destination)
-                .getETag();
+        ObjectMetadata newObjectMetadata = new ObjectMetadata();
+        newObjectMetadata.addUserMetadata("foo", "bar");
+        CopyObjectRequest request = new CopyObjectRequest(userBucket, source, userBucket, destination)
+                .withNewObjectMetadata(newObjectMetadata);
+        userClient.copyObject(request);
+
+        ObjectMetadata sourceMetadata = userClient.getObjectMetadata(userBucket, source);
+        String sourceEtag = sourceMetadata.getETag();
+        ObjectMetadata destinationMetadata = userClient.getObjectMetadata(userBucket, destination);
+        String destinationEtag = destinationMetadata.getETag();
         assertEquals(sourceEtag, destinationEtag);
+        assertEquals("bar", destinationMetadata.getUserMetadata().get("foo"));
+    }
+
+    @Test
+    public void testCopyToSelf() {
+        String source = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+
+        ObjectMetadata newObjectMetadata = new ObjectMetadata();
+        newObjectMetadata.addUserMetadata("foo", "bar");
+        CopyObjectRequest request = new CopyObjectRequest(userBucket, source, userBucket, source)
+                .withNewObjectMetadata(newObjectMetadata);
+        userClient.copyObject(request);
+
+        ObjectMetadata metadata = userClient.getObjectMetadata(userBucket, source);
+        assertEquals("bar", metadata.getUserMetadata().get("foo"));
     }
 
     @Test

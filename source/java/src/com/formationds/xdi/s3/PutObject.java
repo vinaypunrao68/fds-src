@@ -45,7 +45,10 @@ public class PutObject implements SyncRequestHandler {
 
         InputStream str = context.getInputStream();
 
-        String uploadId = context.getQueryParameters().get("uploadId").iterator().next();
+        String uploadId = null;
+        if (context.getQueryParameters().get("uploadId") != null) {
+            uploadId = context.getQueryParameters().get("uploadId").iterator().next();
+        }
 
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
@@ -119,7 +122,7 @@ public class PutObject implements SyncRequestHandler {
                     md.remove(kv.getKey());
                 }
                 md.putAll(S3UserMetadataUtility.extractUserMetadata(metadataMap));
-                xdi.setMetadata(token, targetDomain, targetBucketName, targetBlobName, md);
+                xdi.setMetadata(token, targetDomain, targetBucketName, targetBlobName, md).get();
             }
             digest = Hex.decodeHex(copySourceETag.toCharArray());
         } else {

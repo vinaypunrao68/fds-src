@@ -4,7 +4,10 @@
 
 package com.formationds.xdi;
 
-import com.formationds.apis.*;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeStatus;
+import com.formationds.apis.XdiService;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -153,11 +156,11 @@ public class Xdi {
         return XdiConfigurationApi.systemFolderName(tenantId);
     }
 
-    public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
+    public CompletableFuture<Void> setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
         attemptBlobAccess(token, domain, volume, blob, Intent.readWrite);
-        TxDescriptor tx = am.startBlobTx(domain, volume, blob, 0);
-        am.updateMetadata(domain, volume, blob, tx, metadataMap);
-        am.commitBlobTx(domain, volume, blob, tx);
+        return asyncAm.startBlobTx(domain, volume, blob, 1)
+                .thenCompose(tx -> asyncAm.updateMetadata(domain, volume, blob, tx, metadataMap).thenApply(x -> tx))
+                .thenCompose(tx -> asyncAm.commitBlobTx(domain, volume, blob, tx));
     }
 
     public AuthenticationToken authenticate(String login, String password) throws LoginException {

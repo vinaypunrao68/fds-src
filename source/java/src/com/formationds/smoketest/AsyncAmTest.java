@@ -76,6 +76,20 @@ public class AsyncAmTest extends BaseAmTest {
     }
 
     @Test
+    public void testTransactionalMetadataUpdate() throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 1).get();
+        metadata.put("animal", "panda");
+        asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
+        asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals("panda", blobDescriptor.getMetadata().get("animal"));
+        assertEquals(smallObjectLength, blobDescriptor.getByteCount());
+    }
+
+    @Test
     public void testMultipleAsyncUpdates() throws Exception {
         String blobName = UUID.randomUUID().toString();
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), Maps.newHashMap()).get();
@@ -130,5 +144,4 @@ public class AsyncAmTest extends BaseAmTest {
 
         configService.createVolume(domainName, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
     }
-
 }
