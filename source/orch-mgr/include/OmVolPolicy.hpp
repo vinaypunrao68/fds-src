@@ -22,6 +22,9 @@ class VolPolicyMgr : public HasLogger {
     /* create new policy
      * returns 'invalid argument' error if policy already exists */
     Error createPolicy(const fpi::FDSP_PolicyInfoType& pol_info);
+    Error createPolicy(fpi::FDSP_PolicyInfoType& _return, const std::string& policyName,
+                       const fds_uint64_t minIops, const fds_uint64_t maxIops,
+                       const fds_uint32_t relPrio);
 
     /* modify existing policy 
      * returns 'invalid argument' error if policy does not exist */
@@ -44,6 +47,7 @@ class VolPolicyMgr : public HasLogger {
 
   private:
     kvstore::ConfigDB* configDB;
+    fds_mutex policyMutex;  /* Serializes policy management */
 };
 
 

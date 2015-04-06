@@ -14,8 +14,8 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
           omStartMigrCb(NULL),
           targetDltVersion(DLT_VER_INVALID),
-          numBitsPerDltToken(0),
-          clientLock("Migration Client Map Lock") {
+          numBitsPerDltToken(0)
+{
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
 
@@ -210,7 +210,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
     MigrationClient::shared_ptr migrClient;
     int64_t executorId = rebalSetMsg->executorID;
     {
-        fds_mutex::scoped_lock l(clientLock);
+        SCOPEDWRITE(clientLock);
         if (migrClients.count(executorId) == 0) {
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
@@ -257,7 +257,7 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
     }
     fds_verify(atomic_load(&migrState) == MIGR_IN_PROGRESS);
 
-    fds_mutex::scoped_lock l(clientLock);
+    SCOPEDREAD(clientLock);
     // we must have migration client if we are in progress state
     fds_verify(migrClients.count(msg->executorID) != 0);
     // TODO(Sean):  Need to reset the double sequence for executor on the destion SM
@@ -409,6 +409,8 @@ SmTokenMigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok
     if (!isMigrationInProgress()) {
         return;
     }
+
+    SCOPEDREAD(clientLock);
     // since executorID is valid, this request must have come from
     // migration client; so we must have it
     fds_verify(migrClients.count(executorId) > 0);
@@ -467,6 +469,7 @@ SmTokenMigrationMgr::forwardAddObjRefIfNeeded(FDS_IOType* req)
          mapIter != addObjRefMap.end();
          ++mapIter)
     {
+         SCOPEDREAD(clientLock);
          for (MigrClientMap::iterator clientIter = migrClients.begin();
               clientIter != migrClients.end();
               ++clientIter) {
@@ -504,6 +507,7 @@ SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
             fds_token_id dltTok = DLT::getToken(objId, numBitsPerDltToken);
             // tell each migration client reponsible for migrating this DLT
             // token to forward the request to the destination
+            SCOPEDREAD(clientLock);
             for (MigrClientMap::iterator it = migrClients.begin();
                  it != migrClients.end();
                  ++it) {
@@ -532,7 +536,7 @@ SmTokenMigrationMgr::handleDltClose() {
     LOGMIGRATE << "Will cleanup executors and migr clients";
     migrExecutors.clear();
     {
-        fds_mutex::scoped_lock l(clientLock);
+        SCOPEDWRITE(clientLock);
         migrClients.clear();
     }
     targetDltVersion = DLT_VER_INVALID;
@@ -582,7 +586,8 @@ fds_uint64_t
 SmTokenMigrationMgr::getExecutorId(fds_uint32_t localId,
                                    const NodeUuid& smSvcUuid) const {
     fds_uint64_t execId = smSvcUuid.uuid_get_val();
-    return ((execId << 32) | localId);
+    // Keep most significant bits to read the uuid easier.
+    return ((execId & (~0UL << 32)) | localId);
 }
 
 }  // namespace fds

@@ -338,11 +338,11 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
                 if (firstToken != prevToken) {
                     oss << std::setw(8)
                         << firstToken
-                        <<" - " << prevToken <<" : " << prevNodeListStr << "\n";
+                        <<" - " << prevToken <<" : " << std::hex << prevNodeListStr << std::dec << "\n";
                 } else {
                     oss << std::setw(8)
                         << firstToken
-                        << " : " << prevNodeListStr << "\n";
+                        << " : " << std::hex << prevNodeListStr << "\n";
                 }
                 firstToken =  count;
             }
@@ -355,11 +355,11 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
             if (firstToken != prevToken) {
                 oss << std::setw(8)
                     << firstToken
-                    <<" - " << prevToken <<" : " << prevNodeListStr << "\n";
+                    <<" - " << prevToken <<" : " << std::hex << prevNodeListStr << std::dec << "\n";
             } else {
                 oss << std::setw(8)
                     << firstToken
-                    << " : " << prevNodeListStr << "\n";
+                    << " : " << std::hex << prevNodeListStr << std::dec << "\n";
             }
         }
     }
@@ -373,7 +373,7 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
     for (tokenMapiter = dlt.mapNodeTokens->begin(); tokenMapiter != dlt.mapNodeTokens->end(); ++tokenMapiter) { // NOLINT
         TokenList::const_iterator tokenIter;
         const TokenList& tlist = tokenMapiter->second;
-        oss << std::setw(8) << tokenMapiter->first.uuid_get_val() << " : ";
+        oss << std::setw(8) << std::hex << tokenMapiter->first.uuid_get_val() << std::dec << " : ";
         prevToken = 0;
         firstToken = 0;
         bool fFirst = true;
