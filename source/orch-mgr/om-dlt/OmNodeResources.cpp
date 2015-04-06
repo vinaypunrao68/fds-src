@@ -669,9 +669,9 @@ OM_NodeAgent::om_send_shutdown() {
     Error err(ERR_OK);
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
-    fpi::ShutdownMODMsgPtr msg(new fpi::ShutdownMODMsg());
+    fpi::PrepareForShutdownMsgPtr msg(new fpi::PrepareForShutdownMsg());
 
-    om_req->setPayload(FDSP_MSG_TYPEID(fpi::ShutdownMODMsg), msg);
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), msg);
     om_req->setTimeoutMs(0);
     om_req->invoke();
 

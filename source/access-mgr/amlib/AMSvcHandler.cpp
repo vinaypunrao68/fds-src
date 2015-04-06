@@ -26,7 +26,7 @@ AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider,
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, DetachVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
-    REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownMODMsg, shutdownAM);
+    REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownAM);
 }
 
 // notifySvcChange
@@ -269,7 +269,7 @@ AMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr
  */
 void
 AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
-                         boost::shared_ptr<fpi::ShutdownMODMsg>     &shutdownMsg)
+                         boost::shared_ptr<fpi::PrepareForShutdownMsg>     &shutdownMsg)
 {
     Error err(ERR_OK);
 
