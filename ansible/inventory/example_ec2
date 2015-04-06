@@ -19,7 +19,7 @@ localhost
 
 awo-bh-01
 
-[cody_ec2:vars]
+[example_ec2:vars]
 clean_fds=no
 ansible_ssh_user=deploy
 cluster_location=awo

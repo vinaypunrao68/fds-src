@@ -9,6 +9,8 @@ import com.formationds.commons.crud.AbstractRepository;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Database;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -16,18 +18,20 @@ import java.util.Properties;
 
 abstract public class InfluxRepository<T,PK extends Serializable> extends AbstractRepository<T, PK> {
 
-    public static final String CP_USER = "om.repository.username";
-    public static final String CP_CRED = "om.repository.cred";
+    public static final Logger logger = LoggerFactory.getLogger( InfluxRepository.class );
+
+    public static final String CP_USER   = "om.repository.username";
+    public static final String CP_CRED   = "om.repository.cred";
     public static final String CP_DBNAME = "om.repository.db";
 
     public static final String TIMESTAMP_COLUMN_NAME = "time";
-    
+
     protected static final String SELECT = "select";
-    protected static final String FROM = "from";
-    protected static final String WHERE = "where";
-    protected static final String AND = "and";
-    protected static final String OR = "or";
-    
+    protected static final String FROM   = "from";
+    protected static final String WHERE  = "where";
+    protected static final String AND    = "and";
+    protected static final String OR     = "or";
+
     private final String url;
     private final String adminUser;
 
@@ -35,7 +39,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     // private final AuthenticationToken adminAuth;
     private char[] adminCredentials;
 
-    private Properties connectionProperties;
+    private Properties         connectionProperties;
     private InfluxDBConnection connection;
 
     /**
@@ -49,17 +53,27 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         this.adminCredentials = Arrays.copyOf( adminCredentials, adminCredentials.length );
     }
 
+    abstract public String getInfluxDatabaseName();
+
+    private Properties getDefaultConnectionProperties() {
+        Properties props = new Properties( );
+        props.setProperty( InfluxRepository.CP_USER, adminUser );
+        props.setProperty( InfluxRepository.CP_CRED, String.valueOf( adminCredentials ) );
+        return props;
+    }
+
     /**
      * Open the influx database
      * @param properties the connection properties
      */
     @Override
     synchronized public void open( Properties properties ) {
-        this.connectionProperties = properties;
+
+        this.connectionProperties = (properties != null ? properties : getDefaultConnectionProperties() );
         this.connection = new InfluxDBConnection( url,
-                                                  properties.getProperty( CP_USER ),
-                                                  properties.getProperty( CP_CRED ).toCharArray(),
-                                                  properties.getProperty( CP_DBNAME ) );
+                                                  connectionProperties.getProperty( CP_USER ),
+                                                  connectionProperties.getProperty( CP_CRED ).toCharArray(),
+                                                  getInfluxDatabaseName() );
     }
 
     /**
@@ -95,7 +109,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     }
 
     /**
-     * @param database
+     * @param database the database to create if it does not already exist
      *
      * @return true if the database was successfully created.  False if it already exists.
      *
