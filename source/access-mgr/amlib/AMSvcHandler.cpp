@@ -285,7 +285,7 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       * It's an async shutdown as we cleanup. So acknowledge the message now.
       */
      hdr->msg_code = err.GetErrno();
-     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ShutdownMODMsg), *shutdownMsg);
+     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), *shutdownMsg);
 }
 
 }  // namespace fds
