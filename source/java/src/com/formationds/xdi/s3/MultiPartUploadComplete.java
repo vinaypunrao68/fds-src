@@ -96,8 +96,7 @@ public class MultiPartUploadComplete implements SyncRequestHandler {
         }
 
         Map<String, String> metadata = new HashMap<>();
-        // TODO: do this write asynchronously
-        byte[] digest = xdi.writeStream(token, S3Endpoint.FDS_S3, bucket, objectName, is, metadata);
+        byte[] digest = xdi.writeStream(token, S3Endpoint.FDS_S3, bucket, objectName, is, metadata).get().digest;
 
 
         for(PartInfo bd : partInfoList)

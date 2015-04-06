@@ -19,24 +19,26 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.security.Intent;
 import com.formationds.xdi.security.XdiAuthorizer;
 import org.apache.thrift.TException;
-import org.joda.time.DateTime;
 
 import javax.security.auth.login.LoginException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 public class Xdi {
     public static final String LAST_MODIFIED = "Last-Modified";
     private final XdiService.Iface am;
     private ConfigurationApi config;
     private AsyncAm asyncAm;
+    private Supplier<XdiAsync> factory;
     private XdiAuthorizer authorizer;
 
-    public Xdi(XdiService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
+    public Xdi(XdiService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm, Supplier<XdiAsync> factory) {
         this.am = am;
         this.config = config;
         this.asyncAm = asyncAm;
+        this.factory = factory;
         this.authorizer = new XdiAuthorizer(authenticator, authorizer, asyncAm, config);
     }
 
@@ -134,12 +136,9 @@ public class Xdi {
         return new FdsObjectStreamer(iterator);
     }
 
-    public byte[] writeStream(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
+    public CompletableFuture<XdiAsync.PutResult> writeStream(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         attemptVolumeAccess(token, volumeName, Intent.readWrite);
-        VolumeDescriptor volume = config.statVolume(domainName, volumeName);
-        int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
-        metadata.putIfAbsent(LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
-        return new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
+        return factory.get().putBlobFromStream(domainName, volumeName, blobName, metadata, in);
     }
 
     public CompletableFuture<Void> deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {

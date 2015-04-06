@@ -3,9 +3,9 @@ package com.formationds.am;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.XdiService;
 import com.formationds.apis.AsyncXdiServiceRequest;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.XdiService;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -157,12 +157,13 @@ public class Main {
                 new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
 
-        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, asyncAm);
-
         // TODO: should XdiAsync use omCachedConfigProxy too?
         Supplier<XdiAsync> factory = () -> new XdiAsync(asyncAm,
                 bbp,
                 configCache);
+
+        Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, asyncAm, factory);
+
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port_offset", 1000);
         int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port_offset", 1443);
