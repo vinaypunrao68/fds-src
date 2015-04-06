@@ -110,6 +110,34 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 }
 
 Error
+DmTimeVolCatalog::openVolume(fds_volid_t const volId,
+                             fds_int64_t const token,
+                             fpi::VolumeAccessPolicy const& policy) {
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        return ERR_VOLUME_ACCESS_DENIED;
+    } else {
+        return ERR_OK;
+    }
+}
+
+Error
+DmTimeVolCatalog::closeVolume(fds_volid_t const volId, fds_int64_t const token) {
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        return ERR_VOLUME_ACCESS_DENIED;
+    } else {
+        return ERR_OK;
+    }
+}
+
+Error
 DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
     Error rc(ERR_OK);
     DmCommitLog::ptr commitLog;
