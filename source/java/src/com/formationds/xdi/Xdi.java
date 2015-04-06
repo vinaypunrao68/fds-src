@@ -21,17 +21,19 @@ import org.joda.time.DateTime;
 import javax.security.auth.login.LoginException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public class Xdi {
     public static final String LAST_MODIFIED = "Last-Modified";
-
     private final XdiService.Iface am;
     private ConfigurationApi config;
+    private AsyncAm asyncAm;
     private XdiAuthorizer authorizer;
 
     public Xdi(XdiService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm) {
         this.am = am;
         this.config = config;
+        this.asyncAm = asyncAm;
         this.authorizer = new XdiAuthorizer(authenticator, authorizer, asyncAm, config);
     }
 
@@ -74,9 +76,9 @@ public class Xdi {
         }
     }
 
-    public VolumeStatus statVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
+    public CompletableFuture<VolumeStatus> statVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
         attemptVolumeAccess(token, volumeName, Intent.read);
-        return am.volumeStatus(domainName, volumeName);
+        return asyncAm.volumeStatus(domainName, volumeName);
     }
 
     public VolumeDescriptor volumeConfiguration(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
@@ -117,13 +119,6 @@ public class Xdi {
         return blobDescriptor;
     }
 
-    public void updateMetadata(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws ApiException, TException {
-        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.readWrite);
-        TxDescriptor txDescriptor = am.startBlobTx(domainName, volumeName, blobName, 0);
-        am.updateMetadata(domainName, volumeName, blobName, txDescriptor, metadata);
-        am.commitBlobTx(domainName, volumeName, blobName, txDescriptor);
-    }
-
     public InputStream readStream(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
         attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
         Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName);
@@ -144,9 +139,9 @@ public class Xdi {
         return new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
     }
 
-    public void deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
+    public CompletableFuture<Void> deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
         attemptBlobAccess(token, domainName, volumeName, blobName, Intent.delete);
-        am.deleteBlob(domainName, volumeName, blobName);
+        return asyncAm.deleteBlob(domainName, volumeName, blobName);
     }
 
     public XdiAuthorizer getAuthorizer() {

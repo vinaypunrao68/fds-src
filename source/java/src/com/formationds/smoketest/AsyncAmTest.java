@@ -1,6 +1,7 @@
 package com.formationds.smoketest;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
@@ -16,13 +17,38 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+
+    @Test
+    public void testDeleteBlob() throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals("world", blobDescriptor.getMetadata().get("hello"));
+        asyncAm.deleteBlob(domainName, volumeName, blobName).get();
+        try {
+            asyncAm.statBlob(domainName, volumeName, blobName).get();
+            fail("Should have gotten an ExecutionException");
+        } catch (ExecutionException e) {
+            ApiException apiException = (ApiException) e.getCause();
+            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
+        }
+    }
+
+    @Test
+    public void testStatVolume() throws Exception {
+        VolumeStatus volumeStatus = asyncAm.volumeStatus(domainName, volumeName).get();
+        assertEquals(0, volumeStatus.blobCount);
+    }
 
     @Test
     public void testUpdateMetadata() throws Exception {

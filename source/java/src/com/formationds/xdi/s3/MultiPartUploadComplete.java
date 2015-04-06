@@ -101,7 +101,7 @@ public class MultiPartUploadComplete implements SyncRequestHandler {
 
 
         for(PartInfo bd : partInfoList)
-            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName());
+            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName()).get();
 
         XmlElement response = new XmlElement("CompleteMultipartUploadResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")
