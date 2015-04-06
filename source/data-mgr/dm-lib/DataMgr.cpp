@@ -891,15 +891,8 @@ void DataMgr::initHandlers() {
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
-
-    /**
-     * FEATURE TOGGLE: Volume Open Support
-     * Thu 02 Apr 2015 12:39:27 PM PDT
-     */
-    if (features.isVolumeTokensEnabled()) {
-        handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler();
-        handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler();
-    }
+    handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler();
+    handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler();
 }
 
 DataMgr::~DataMgr()

@@ -43,6 +43,8 @@ extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updC
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 // ======
 
     /*
@@ -648,11 +650,15 @@ struct DmIoGetVolumeMetadata : dmCatReq {
 struct DmIoVolumeOpen : dmCatReq {
     typedef std::function<void (const Error &e, DmIoVolumeOpen *req)> CbType;
 
-    explicit DmIoVolumeOpen(fds_volid_t volId, boost::shared_ptr<fpi::OpenVolumeRspMsg> message)
-            : dmCatReq(volId, "", "", 0, FDS_OPEN_VOLUME), msg(message) {
+    explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message)
+            : dmCatReq(message->volume_id, "", "", 0, FDS_OPEN_VOLUME),
+              token(message->token),
+              access_policy(message->policy) {
     }
 
-    boost::shared_ptr<fpi::OpenVolumeRspMsg> msg;
+    fds_int64_t token;
+    fpi::VolumeAccessPolicy access_policy;
+
     // response callback
     CbType dmio_get_volmd_resp_cb;
 };
@@ -660,11 +666,11 @@ struct DmIoVolumeOpen : dmCatReq {
 struct DmIoVolumeClose : dmCatReq {
     typedef std::function<void (const Error &e, DmIoVolumeClose *req)> CbType;
 
-    explicit DmIoVolumeClose(fds_volid_t volId, boost::shared_ptr<fpi::CloseVolumeRspMsg> message)
-            : dmCatReq(volId, "", "", 0, FDS_CLOSE_VOLUME), msg(message) {
+    explicit DmIoVolumeClose(fds_volid_t volId, fds_int64_t _token)
+            : dmCatReq(volId, "", "", 0, FDS_CLOSE_VOLUME), token(_token) {
     }
 
-    boost::shared_ptr<fpi::CloseVolumeRspMsg> msg;
+    fds_int64_t token;
     // response callback
     CbType dmio_get_volmd_resp_cb;
 };
