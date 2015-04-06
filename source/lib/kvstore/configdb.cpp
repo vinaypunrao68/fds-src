@@ -816,7 +816,7 @@ uint ConfigDB::getNodeNameCounter() {
 fds_uint32_t ConfigDB::createQoSPolicy(const std::string& identifier,
                                        const fds_uint64_t minIops, const fds_uint64_t maxIops,
                                        const fds_uint32_t relPrio) {
-    fds_uint32_t id;
+    fds_uint32_t id = 0;
 
     TRACKMOD();
 
