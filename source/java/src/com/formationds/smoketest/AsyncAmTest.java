@@ -15,6 +15,7 @@ import org.junit.Test;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -26,6 +27,17 @@ import static org.junit.Assert.fail;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+
+    @Test
+    public void testVolumeContents() throws Exception {
+        List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0).get();
+        assertEquals(0, contents.size());
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0).get();
+        assertEquals(1, contents.size());
+    }
 
     @Test
     public void testDeleteBlob() throws Exception {
