@@ -896,12 +896,12 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         return True
 
 class TestModifyPlatformConf(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, param_names=None, param_vals=None):
+    def __init__(self, parameters=None, current_string=None, replace_string=None):
         '''
         Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
         :param parameters: Params filled in by .ini file
-        :param_names: Comma separated list of platform.conf **lines** to modify (eg. "frequency       = 172800")
-        :param_vals: List of values, comma separated, to replace old line with
+        :current_string: String in platform.conf to repalce e.g. authentication=true
+        :replace_string: String to replace current_string with. e.g. authentication=false
         '''
 
         super(self.__class__, self).__init__(parameters,
@@ -909,20 +909,16 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
                                              self.test_TestModifyPlatformConf,
                                              "Modify Platform.conf")
 
-        self.param_names = param_names
-        self.param_vals = param_vals
+        self.current_string = current_string
+        self.replace_string = replace_string
 
     def test_TestModifyPlatformConf(self):
 
         fdscfg = self.parameters['fdscfg']
         localhost = fdscfg.rt_get_obj('cfg_localhost')
 
-        lines = self.param_names.split(',')
-        vals = self.param_vals.split(',')
-
-        status = []
-        for count, line in enumerate(lines):
-            status.append(localhost.nd_agent.exec_wait('sed -e "s/line/{}/g" '.format(line, vals[count])))
+        status = localhost.nd_agent.exec_wait('sed -e "s/line/{}/g" '.format(self.current_string,
+                                                                             self.replace_string))
 
         status = sum(status)
 
