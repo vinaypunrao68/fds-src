@@ -354,27 +354,31 @@ NodeDomainFSM::DACT_SendDltDmt::operator()(Evt const &evt, Fsm &fsm, SrcST &src,
                 << std::hex << evt.svc_uuid.uuid_get_val()
                 << std::dec;
 
-    OM_Module *om = OM_Module::om_singleton();
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+	try {
+        OM_Module *om = OM_Module::om_singleton();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
-    // Get a NodeAgent::ptr to the new node
-    NodeAgent::pointer newNode = local->dc_find_node_agent(evt.svc_uuid);
+        // Get a NodeAgent::ptr to the new node
+        NodeAgent::pointer newNode = local->dc_find_node_agent(evt.svc_uuid);
 
-    // Send DLT to node
-    DataPlacement *dp = om->om_dataplace_mod();
-    OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
+        // Send DLT to node
+        DataPlacement *dp = om->om_dataplace_mod();
+        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
 
 
-    // Send DMT to node
-    VolumePlacement* vp = om->om_volplace_mod();
-    if (vp->hasCommittedDMT()) {
-        OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
-    } else {
-        LOGWARN << "Not sending DMT to new node, because no "
+        // Send DMT to node
+        VolumePlacement* vp = om->om_volplace_mod();
+        if (vp->hasCommittedDMT()) {
+            OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
+        } else {
+            LOGWARN << "Not sending DMT to new node, because no "
                     << " committed DMT yet";
+        }
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM DACT_SendDltDmt :: " << e.what();
     }
-
-};
+}
 
 /**
  * DACT_NodesUp
@@ -386,55 +390,60 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    OM_Module *om = OM_Module::om_singleton();
-    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    OM_DLTMod *dltMod = om->om_dlt_mod();
-    OM_DMTMod *dmtMod = om->om_dmt_mod();
-    ClusterMap *cm = om->om_clusmap_mod();
-
     LOGDEBUG << "NodeDomainFSM DACT_NodesUp";
+    
+    try {
+        OM_Module *om = OM_Module::om_singleton();
+        OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        OM_DLTMod *dltMod = om->om_dlt_mod();
+        OM_DMTMod *dmtMod = om->om_dmt_mod();
+        ClusterMap *cm = om->om_clusmap_mod();
 
-    // cancel timeout timer
-    src.waitTimer->cancel(src.waitTimerTask);
+        // cancel timeout timer
+        src.waitTimer->cancel(src.waitTimerTask);
 
-    // start DLT, DMT deploy from the point where we ready to commit
+        // start DLT, DMT deploy from the point where we ready to commit
 
-    // cluster map must not have pending nodes, but remember that
-    // sm nodes in container may have pending nodes that are already in DLT
-    fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
-    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0);
-    dltMod->dlt_deploy_event(DltLoadedDbEvt());
+        // cluster map must not have pending nodes, but remember that
+        // sm nodes in container may have pending nodes that are already in DLT
+        fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
+        fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0);
+        dltMod->dlt_deploy_event(DltLoadedDbEvt());
 
-    // cluster map must not have pending nodes, but remember that
-    // dm nodes in container may have pending nodes that are already in DMT
-    fds_verify((cm->getAddedServices(fpi::FDSP_DATA_MGR)).size() == 0);
-    fds_verify((cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size() == 0);
-    dmtMod->dmt_deploy_event(DmtLoadedDbEvt());
+        // cluster map must not have pending nodes, but remember that
+        // dm nodes in container may have pending nodes that are already in DMT
+        fds_verify((cm->getAddedServices(fpi::FDSP_DATA_MGR)).size() == 0);
+        fds_verify((cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size() == 0);
+        dmtMod->dmt_deploy_event(DmtLoadedDbEvt());
 
-    // move nodes that are already in DLT from pending list
-    // to cluster map (but make them not pending in cluster map
-    // because they are already in DLT), so that we will not try to update DLT
-    // with those nodes again
-    OM_SmContainer::pointer smNodes = local->om_sm_nodes();
-    NodeList addNodes, rmNodes;
-    smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
-    cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
-    // since updateMap keeps those nodes as pending, we tell cluster map that
-    // they are not pending, since these nodes are already in the DLT
-    cm->resetPendServices(fpi::FDSP_STOR_MGR);
+        // move nodes that are already in DLT from pending list
+        // to cluster map (but make them not pending in cluster map
+        // because they are already in DLT), so that we will not try to update DLT
+        // with those nodes again
+        OM_SmContainer::pointer smNodes = local->om_sm_nodes();
+        NodeList addNodes, rmNodes;
+        smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
+        cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
+        // since updateMap keeps those nodes as pending, we tell cluster map that
+        // they are not pending, since these nodes are already in the DLT
+        cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
-    // move nodes that are already in DMT from pending list
-    // to cluster map (but make them not pending in cluster map
-    // because they are already in DMT), so that we will not try to update DMT
-    // with those nodes again
-    OM_DmContainer::pointer dmNodes = local->om_dm_nodes();
-    addNodes.clear();
-    rmNodes.clear();
-    dmNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.dm_up);
-    cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes);
-    // since updateMap keeps those nodes as pending, we tell cluster map that
-    // they are not pending, since these nodes are already in the DMT
-    cm->resetPendServices(fpi::FDSP_DATA_MGR);
+        // move nodes that are already in DMT from pending list
+        // to cluster map (but make them not pending in cluster map
+        // because they are already in DMT), so that we will not try to update DMT
+        // with those nodes again
+        OM_DmContainer::pointer dmNodes = local->om_dm_nodes();
+        addNodes.clear();
+        rmNodes.clear();
+        dmNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.dm_up);
+        cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes);
+        // since updateMap keeps those nodes as pending, we tell cluster map that
+        // they are not pending, since these nodes are already in the DMT
+        cm->resetPendServices(fpi::FDSP_DATA_MGR);
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM DACT_NodeUp :: " << e.what();
+    }
 }
 
 /**
@@ -447,12 +456,18 @@ void
 NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "NodeDomainFSM DACT_LoadVols";
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    domain->om_load_volumes();
+    
+    try {
+        OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+        domain->om_load_volumes();
 
-    // also send all known stream registrations
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_bcast_stream_register_cmd(0, true);
+        // also send all known stream registrations
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        local->om_bcast_stream_register_cmd(0, true);
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM DACT_LoadVols :: " << e.what();
+    }
 }
 
 
@@ -466,21 +481,28 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_WaitNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    WaitNdsEvt waitEvt = (WaitNdsEvt)evt;
-    dst.sm_services.swap(waitEvt.sm_services);
-    dst.dm_services.swap(waitEvt.dm_services);
+    LOGDEBUG << "NodeDomainFSM DACT_WaitNds";
+        
+    try {
+        WaitNdsEvt waitEvt = (WaitNdsEvt)evt;
+        dst.sm_services.swap(waitEvt.sm_services);
+        dst.dm_services.swap(waitEvt.dm_services);
 
-    LOGDEBUG << "NodeDomainFSM DACT_WaitNds: will wait for " << dst.sm_services.size()
-             << " SM(s) to come up and " << dst.dm_services.size() << " << DM(s) to come up";
+        LOGDEBUG << "NodeDomainFSM DACT_WaitNds: will wait for " << dst.sm_services.size()
+                 << " SM(s) to come up and " << dst.dm_services.size() << " << DM(s) to come up";
 
-    // start timer to timeout in case services do not come up
-    if (!dst.waitTimer->schedule(dst.waitTimerTask,
-                                 std::chrono::seconds(OM_WAIT_NODES_UP_SECONDS))) {
-        fds_verify(!"Failed to schedule timer");
-        // couldn't start timer, so don't wait for services to come up
-        LOGWARN << "DACT_WaitNds: failed to start timer -- will not wait for "
-                << "services to come up";
-        fsm.process_event(TimeoutEvt());
+        // start timer to timeout in case services do not come up
+        if (!dst.waitTimer->schedule(dst.waitTimerTask,
+                                     std::chrono::seconds(OM_WAIT_NODES_UP_SECONDS))) {
+            fds_verify(!"Failed to schedule timer");
+            // couldn't start timer, so don't wait for services to come up
+            LOGWARN << "DACT_WaitNds: failed to start timer -- will not wait for "
+                    << "services to come up";
+            fsm.process_event(TimeoutEvt());
+        }
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM DACT_WaitNds :: " << e.what();
     }
 }
 
@@ -499,13 +521,19 @@ NodeDomainFSM::DACT_Wait::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     LOGDEBUG << "NodeDomainFSM DACT_Wait: initial wait for " << OM_WAIT_START_SECONDS
              << " seconds before start DLT compute for new SMs";
 
-    // start timer to timeout in case services do not come up
-    if (!dst.waitTimer->schedule(dst.waitTimerTask,
-                                 std::chrono::seconds(OM_WAIT_START_SECONDS))) {
-        // couldn't start timer, so don't wait for services to come up
-        LOGWARN << "DACT_WaitNds: failed to start timer -- will not wait before "
-                << " before admitting new SMs into DLT";
-        fsm.process_event(TimeoutEvt());
+    try {
+        // start timer to timeout in case services do not come up
+        if (!dst.waitTimer->schedule(dst.waitTimerTask,
+                                     std::chrono::seconds(OM_WAIT_START_SECONDS))) {
+            // couldn't start timer, so don't wait for services to come up
+            LOGWARN << "DACT_WaitNds: failed to start timer -- will not wait before "
+                    << " before admitting new SMs into DLT";
+            fsm.process_event(TimeoutEvt());
+        }
+    
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM DACT_Wait :: " << e.what();
     }
 }
 
@@ -523,10 +551,15 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 {
     LOGDEBUG << "NodeDomainFSM DACT_WaitDone: will try to compute DLT if any SMs joined";
 
-    // start cluster update process that will recompute DLT /rebalance /etc
-    // so that we move to DLT that reflects actual nodes that came up
-    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    domain->om_dlt_update_cluster();
+    try {
+        // start cluster update process that will recompute DLT /rebalance /etc
+        // so that we move to DLT that reflects actual nodes that came up
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        domain->om_dlt_update_cluster();
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM DACT_WaitDone :: " << e.what();
+    }
 }
 
 /**
@@ -539,45 +572,50 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 NodeDomainFSM::GRD_EnoughNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    // We expect the same nodes to come up that were up prior to restart.
-    // Until proper restart is implemented we will not proceed when only
-    // some of the nodes comeup.
-    fds_verify(!"Timer expired while wating for nodes to come up in restart");
+    try {
+        // We expect the same nodes to come up that were up prior to restart.
+        // Until proper restart is implemented we will not proceed when only
+        // some of the nodes come up.
+        fds_verify(!"Timer expired while waiting for nodes to come up in restart");
 
-    // proceed if more than half nodes are up
-    fds_uint32_t total_sms = src.sm_services.size();
-    fds_uint32_t up_sms = src.sm_up.size();
-    fds_verify(total_sms > up_sms);
-    fds_uint32_t wait_more = total_sms - up_sms;
-    if ((total_sms > 2) && (wait_more < total_sms/2)) {
-        wait_more = 0;
-    }
-
-    if (wait_more == 0) {
-        LOGNOTIFY << "GRD_EnoughNds: " << up_sms << " SMs out of " << total_sms
-                  << " SMs are up, will proceed without waiting for remaining SMs";
-        return true;
-    }
-
-    // first print out the nodes were are waiting for
-    LOGWARN << "WARNING: OM IS NOT UP: OM is waiting for at least "
-            << wait_more << " more nodes to register (!!!) out of the following:";
-    for (NodeUuidSet::const_iterator cit = src.sm_services.cbegin();
-         cit != src.sm_services.cend();
-         ++cit) {
-        if (src.sm_up.count(*cit) == 0) {
-            LOGWARN << "   Node " << std::hex << (*cit).uuid_get_val()
-                    << std::dec;
+        // proceed if more than half nodes are up
+        fds_uint32_t total_sms = src.sm_services.size();
+        fds_uint32_t up_sms = src.sm_up.size();
+        fds_verify(total_sms > up_sms);
+        fds_uint32_t wait_more = total_sms - up_sms;
+        if ((total_sms > 2) && (wait_more < total_sms/2)) {
+            wait_more = 0;
         }
-    }
 
-    // restart timeout timer -- use 20x interval than initial
-    if (!src.waitTimer->schedule(src.waitTimerTask,
-                                 std::chrono::seconds(20*OM_WAIT_NODES_UP_SECONDS))) {
-        // we are not going to pring warning messages anymore, will be in
-        // wait state until all nodes are up
-        LOGWARN << "GRD_EnoughNds: Failed to start timer -- bring up ALL nodes or "
-                << "clean persistent state and restart OM";
+        if (wait_more == 0) {
+            LOGNOTIFY << "GRD_EnoughNds: " << up_sms << " SMs out of " << total_sms
+                      << " SMs are up, will proceed without waiting for remaining SMs";
+            return true;
+        }
+
+        // first print out the nodes were are waiting for
+        LOGWARN << "WARNING: OM IS NOT UP: OM is waiting for at least "
+                << wait_more << " more nodes to register (!!!) out of the following:";
+        for (NodeUuidSet::const_iterator cit = src.sm_services.cbegin();
+             cit != src.sm_services.cend();
+             ++cit) {
+            if (src.sm_up.count(*cit) == 0) {
+                LOGWARN << "   Node " << std::hex << (*cit).uuid_get_val()
+                        << std::dec;
+            }
+        }
+
+        // restart timeout timer -- use 20x interval than initial
+        if (!src.waitTimer->schedule(src.waitTimerTask,
+                                     std::chrono::seconds(20*OM_WAIT_NODES_UP_SECONDS))) {
+            // we are not going to print warning messages anymore, will be in
+            // wait state until all nodes are up
+            LOGWARN << "GRD_EnoughNds: Failed to start timer -- bring up ALL nodes or "
+                    << "clean persistent state and restart OM";
+        }
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM DACT_WaitDone :: " << e.what();
     }
 
     return false;
@@ -597,54 +635,59 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    OM_Module *om = OM_Module::om_singleton();
-    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
-    DataPlacement *dp = om->om_dataplace_mod();
-    ClusterMap *cm = om->om_clusmap_mod();
-
     LOGDEBUG << "NodeDomainFSM DACT_UpdDlt";
+    
+    try {
+        OM_Module *om = OM_Module::om_singleton();
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
+        DataPlacement *dp = om->om_dataplace_mod();
+        ClusterMap *cm = om->om_clusmap_mod();
 
-    // commit the DLT we got from config DB
-    dp->commitDlt();
+        // commit the DLT we got from config DB
+        dp->commitDlt();
 
-    // broadcast DLT to SMs only (so they know the diff when we update the DLT)
-    dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true, false, false);
+        // broadcast DLT to SMs only (so they know the diff when we update the DLT)
+        dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true, false, false);
 
-    // at this point there should be no pending add/rm nodes in cluster map
-    fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
-    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0);
+        // at this point there should be no pending add/rm nodes in cluster map
+        fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
+        fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0);
 
-    // move nodes that came up (which are already in DLT) from pending nodes in
-    // SM container to cluster map
-    OM_SmContainer::pointer smNodes = dom_ctrl->om_sm_nodes();
-    NodeList addNodes, rmNodes;
-    smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
-    cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
-    // since updateMap keeps those nodes as pending, we tell cluster map that
-    // they are not pending, since these nodes are already in the DLT
-    cm->resetPendServices(fpi::FDSP_STOR_MGR);
+        // move nodes that came up (which are already in DLT) from pending nodes in
+        // SM container to cluster map
+        OM_SmContainer::pointer smNodes = dom_ctrl->om_sm_nodes();
+        NodeList addNodes, rmNodes;
+        smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
+        cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
+        // since updateMap keeps those nodes as pending, we tell cluster map that
+        // they are not pending, since these nodes are already in the DLT
+        cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
-    // set SMs that did not come up as 'delete pending' in cluster map
-    // -- this will tell DP to remove those nodes from DLT
-    for (NodeUuidSet::const_iterator cit = src.sm_services.cbegin();
-         cit != src.sm_services.cend();
-         ++cit) {
-        if (src.sm_up.count(*cit) == 0) {
-            fds_assert(!"Shouldn't happen");
-            LOGDEBUG << "DACT_UpdDlt: will remove node " << std::hex
-                     << (*cit).uuid_get_val() << std::dec << " from DLT";
-            cm->addPendingRmService(fpi::FDSP_STOR_MGR, *cit);
+        // set SMs that did not come up as 'delete pending' in cluster map
+        // -- this will tell DP to remove those nodes from DLT
+        for (NodeUuidSet::const_iterator cit = src.sm_services.cbegin();
+             cit != src.sm_services.cend();
+             ++cit) {
+            if (src.sm_up.count(*cit) == 0) {
+                fds_assert(!"Shouldn't happen");
+                LOGDEBUG << "DACT_UpdDlt: will remove node " << std::hex
+                         << (*cit).uuid_get_val() << std::dec << " from DLT";
+                cm->addPendingRmService(fpi::FDSP_STOR_MGR, *cit);
 
-            // also remove that node from configDB
-            domain->om_rm_sm_configDB(*cit);
+                // also remove that node from configDB
+                domain->om_rm_sm_configDB(*cit);
+            }
         }
-    }
-    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() > 0);
+        fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() > 0);
 
-    // start cluster update process that will recompute DLT /rebalance /etc
-    // so that we move to DLT that reflects actual nodes that came up
-    domain->om_dlt_update_cluster();
+        // start cluster update process that will recompute DLT /rebalance /etc
+        // so that we move to DLT that reflects actual nodes that came up
+        domain->om_dlt_update_cluster();
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM DACT_UpdDlt :: " << e.what();
+    }
 }
 
 
@@ -658,20 +701,28 @@ bool
 NodeDomainFSM::GRD_DltDmtUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     fds_bool_t b_ret = false;
-    if (evt.svc_type == fpi::FDSP_STOR_MGR) {
-        fds_assert(src.dlt_up == false);
-        src.dlt_up = true;
-    } else if (evt.svc_type == fpi::FDSP_DATA_MGR) {
-        fds_assert(src.dmt_up == false);
-        src.dmt_up = true;
-    }
-    LOGDEBUG << "GRD_DltDmtUp dlt up: " << src.dlt_up << " dmt up: " << src.dmt_up;
+    
+    try {
+        if (evt.svc_type == fpi::FDSP_STOR_MGR) {
+            fds_assert(src.dlt_up == false);
+            src.dlt_up = true;
+        } else if (evt.svc_type == fpi::FDSP_DATA_MGR) {
+            fds_assert(src.dmt_up == false);
+            src.dmt_up = true;
+        }
+        
+        LOGDEBUG << "GRD_DltDmtUp dlt up: " << src.dlt_up << " dmt up: " << src.dmt_up;
 
-    if (src.dlt_up && src.dmt_up) {
-        return true;
-    } else {
-        return false;
+        if (src.dlt_up && src.dmt_up) {
+            b_ret = true;
+        } 
+    
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                    << "processing FSM GRD_DltDmtUp :: " << e.what();
     }
+        
+    return b_ret;
 }
 
 /**
@@ -683,16 +734,24 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
     LOGDEBUG << "Will send shutdown msg to all services";
+    
+    try {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
 
-    // broadcast shutdown msg to all services
-    dom_ctrl->om_bcast_shutdown_msg();
 
-    // TODO(Anna) we are not currently waiting for responses. Implement waiting
-    // for acks to confirm that each service shut down
-    LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
+        // broadcast shutdown message to all services
+        dom_ctrl->om_bcast_shutdown_msg();
+
+        // TODO(Anna) we are not currently waiting for responses. Implement waiting
+        // for acknowledgment to confirm that each service shut down
+        LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
+    
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                 << "processing FSM DACT_Shutdown :: " << e.what();
+    }
 }
 
 //--------------------------------------------------------------------
