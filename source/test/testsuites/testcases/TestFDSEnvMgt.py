@@ -735,8 +735,17 @@ class TestBootInfluxDB(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
+        # Make sure we don't try to boot influx if it wasn't actually configured to do so
+        boot_influx = n.nd_conf_dict.get('influxdb', False)
+        if isinstance(boot_influx, str):
+            if boot_influx.lower() == 'false':
+                boot_influx = False
 
+        if not boot_influx:
+            self.log.warn('InfluxDB was not configured for {} returning True'.format(n.nd_conf_dict['node-name']))
+            return True
+
+        self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
         status = n.nd_agent.exec_wait("service influxdb start")
         time.sleep(2)
 
@@ -882,6 +891,42 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         # influxdb init script status returns 3 if the process is down. 1 if remote.
         if (status != 3) and (n.nd_agent.env_install and status != 1):
             self.log.error("Verify InfluxDB is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+class TestModifyPlatformConf(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, param_names=None, param_vals=None):
+        '''
+        Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
+        :param parameters: Params filled in by .ini file
+        :param_names: Comma separated list of platform.conf **lines** to modify (eg. "frequency       = 172800")
+        :param_vals: List of values, comma separated, to replace old line with
+        '''
+
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_TestModifyPlatformConf,
+                                             "Modify Platform.conf")
+
+        self.param_names = param_names
+        self.param_vals = param_vals
+
+    def test_TestModifyPlatformConf(self):
+
+        fdscfg = self.parameters['fdscfg']
+        localhost = fdscfg.rt_get_obj('cfg_localhost')
+
+        lines = self.param_names.split(',')
+        vals = self.param_vals.split(',')
+
+        status = []
+        for count, line in enumerate(lines):
+            status.append(localhost.nd_agent.exec_wait('sed -e "s/line/{}/g" '.format(line, vals[count])))
+
+        status = sum(status)
+
+        if status != 0:
             return False
 
         return True
