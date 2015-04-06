@@ -96,6 +96,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     @Override
+    public String getInfluxDatabaseName() { return DEFAULT_METRIC_DB.getName(); }
+
+    @Override
     public String getEntityName() {
         return VOL_SERIES_NAME;
     }
@@ -263,66 +266,68 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     protected List<IVolumeDatapoint> convertSeriesToPoints( List<Serie> series ) {
 
-    	final List<IVolumeDatapoint> datapoints = new ArrayList<IVolumeDatapoint>();
-    	
-    	// we expect rows from one and only one series.  If there are more, we'll only use
-    	// the first one
-    	if ( series == null || series.size() == 0 ) {
-    		return datapoints;
-    	}
-    	
-    	List<Map< String, Object>> rowList = series.get( 0 ).getRows();
-    	
-    	for ( Map<String, Object> row : rowList ) {
-    		
-    		// get the timestamp
-    		Object timestampO = null;
-    		Object volumeIdO = null;
-    		Object volumeNameO = null;
-    		
-    		try {
-				timestampO = row.get( getTimestampColumnName() );
-				volumeIdO = row.get( getVolumeIdColumnName().get() );
-				volumeNameO = row.get( getVolumeNameColumnName().get() );
-				
-    		} catch( NoSuchElementException nsee ) {
-    			continue;
-    		}
-    		
-    		// we expect a value for all of these fields.  If not, bail
-    		if ( timestampO == null || volumeIdO == null || volumeNameO == null ) {
-    			continue;
-    		}
-    		
-    		Long timestamp = ((Double)timestampO ).longValue();
-    		String volumeName = volumeIdO.toString();
-    		String volumeId = volumeIdO.toString();
-    		
-    		row.forEach( ( key, value ) -> {
-    		
-    			// If we run across a column for metadata we just skip it.
-    			// we're only interested in the stats columns at this point
-    			try {
-	    			if ( key.equals( getTimestampColumnName() ) ||
-	    				key.equals( getVolumeIdColumnName().get() ) || 
-	    				key.equals( getVolumeNameColumnName().get() ) ||
-	    				key.equals( getVolumeDomainColumnName().get() ) ||
-	    				value == null ) {
-	    				return;
-	    			}
-    			} catch( NoSuchElementException nsee ) {
-    				return;
-    			}
-    			
-    			Double numberValue = Double.parseDouble( value.toString() );
-    			
-    			VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeId, volumeName, key, numberValue );
-    			datapoints.add( point );
-    			
-    		});
-    	} // for each row
-    	
-    	return datapoints;
+        final List<IVolumeDatapoint> datapoints = new ArrayList<IVolumeDatapoint>();
+
+        // we expect rows from one and only one series.  If there are more, we'll only use
+        // the first one
+        if ( series == null || series.size() == 0 ) {
+            return datapoints;
+        }
+
+        if (series.size() > 1) {
+            logger.warn( "Expecting only one metric series.  Skipping " + (series.size() - 1) + " unexpected series." );
+        }
+
+        List<Map<String, Object>> rowList = series.get( 0 ).getRows();
+
+        for ( Map<String, Object> row : rowList ) {
+
+            // get the timestamp
+            Object timestampO = null;
+            Object volumeIdO = null;
+            Object volumeNameO = null;
+
+            try {
+                timestampO = row.get( getTimestampColumnName() );
+                volumeIdO = row.get( getVolumeIdColumnName().get() );
+                volumeNameO = row.get( getVolumeNameColumnName().get() );
+            } catch ( NoSuchElementException nsee ) {
+                continue;
+            }
+
+            // we expect a value for all of these fields.  If not, bail
+            if ( timestampO == null || volumeIdO == null || volumeNameO == null ) {
+                continue;
+            }
+
+            Long timestamp = ((Double) timestampO).longValue();
+            String volumeName = volumeIdO.toString();
+            String volumeId = volumeIdO.toString();
+
+            row.forEach( ( key, value ) -> {
+
+                // If we run across a column for metadata we just skip it.
+                // we're only interested in the stats columns at this point
+                try {
+                    if ( key.equals( getTimestampColumnName() ) ||
+                         key.equals( getVolumeIdColumnName().get() ) ||
+                         key.equals( getVolumeNameColumnName().get() ) ||
+                         key.equals( getVolumeDomainColumnName().get() ) ||
+                         value == null ) {
+                        return;
+                    }
+                } catch ( NoSuchElementException nsee ) {
+                    return;
+                }
+
+                Double numberValue = Double.parseDouble( value.toString() );
+
+                VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeId, volumeName, key, numberValue );
+                datapoints.add( point );
+            } );
+        } // for each row
+
+        return datapoints;
     }
 
     @Override
