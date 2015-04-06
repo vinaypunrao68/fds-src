@@ -57,6 +57,11 @@
         with_items: ec2.tagged_instances
         tags: provision
 
+    -   name: DUMPING EC2 IP ADDRESS AT -- /tmp/yourinventoryfilename_ips.txt
+        template: src=../templates/deploy_fds/ec2_ips.txt.j2
+            dest=/tmp/{{fds_cluster_name}}_ips.txt
+            mode=0400
+
 -   hosts: awo-bh-01
     name: stage debs on awo-bh-01 and wait for cluster to be available for deployment
     remote_user: deploy

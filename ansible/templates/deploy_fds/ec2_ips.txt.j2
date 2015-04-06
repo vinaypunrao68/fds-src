@@ -1,0 +1,3 @@
+{% for instance in ec2.tagged_instances %}
+{{ instance.private_ip }}
+{% endfor %}
