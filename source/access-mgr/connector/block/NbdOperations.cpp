@@ -111,12 +111,26 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
 NbdOperations::init(boost::shared_ptr<std::string> vol_name,
-                    fds_uint32_t _maxObjectSizeInBytes,
                     std::shared_ptr<AmProcessor> processor)
 {
     amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(processor, shared_from_this()));
     volumeName = vol_name;
-    maxObjectSizeInBytes = _maxObjectSizeInBytes;
+
+    handle_type reqId{0, 0};
+    amAsyncDataApi->attachVolume(reqId,
+                                 domainName,
+                                 volumeName);
+}
+
+void
+NbdOperations::attachVolumeResp(const Error& error,
+                                handle_type& requestId,
+                                boost::shared_ptr<VolumeDesc>& volDesc) {
+    LOGDEBUG << "Reponse for attach: [" << error << "]";
+    if (ERR_OK == error) {
+        maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+    }
+    nbdResp->attachResp(error, volDesc);
 }
 
 NbdOperations::~NbdOperations() {

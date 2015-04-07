@@ -27,13 +27,14 @@ class NbdConnector {
 
     int createNbdSocket();
     void initialize();
-    void deinit();
     void runNbdLoop();
     void nbdAcceptCb(ev::io &watcher, int revents);
 
   public:
     explicit NbdConnector(std::weak_ptr<AmProcessor> processor);
     ~NbdConnector();
+
+    void stop();
 };
 
 }  // namespace fds

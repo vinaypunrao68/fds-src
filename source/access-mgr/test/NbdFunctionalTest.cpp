@@ -66,8 +66,8 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                  po::value<fds_uint32_t>(&outstandCount)->default_value(1),
                  "Number of requests outstanding from the tester")
                 ("bsize,b",
-                 po::value<fds_uint32_t>(&blobSize)->default_value(4096),
-                 "Blob size in bytes")
+                 po::value<fds_uint32_t>(&objSize)->default_value(4096),
+                 "Object size in bytes")
                 ("verify,v",
                  po::value<fds_bool_t>(&verifyData)->default_value(false),
                  "True to verify data")
@@ -96,8 +96,14 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     }
     typedef std::unique_ptr<NbdOpsProc> unique_ptr;
 
+    void attachResp(Error const& error,
+                    boost::shared_ptr<VolumeDesc> const& volDesc) override {
+        ASSERT_EQ(ERR_OK, error);
+        objSize = volDesc->maxObjSizeInBytes;
+    }
+
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(NbdResponseVector* response) {
+    void readWriteResp(NbdResponseVector* response) override {
         fds_uint32_t cdone = atomic_fetch_add(&opsDone, (fds_uint32_t)1);
         GLOGDEBUG << "Read? " << response->isRead()
                   << " response for handle " << response->handle
@@ -135,7 +141,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void init() {
         // pass data API to Ndb Operations
         nbdOps.reset(new NbdOperations(this));
-        nbdOps->init(volumeName, 4096, am->getProcessor());
+        nbdOps->init(volumeName, am->getProcessor());
         am->getProcessor()->registerVolume(
             std::move(VolumeDesc(*volumeName, 5, 0, 0, 1)));
     }
@@ -157,9 +163,9 @@ class NbdOpsProc : public NbdOperationsResponseIface {
         fds_int64_t handle = id*totalOps;
         fds_uint64_t offset = firstOffset;
 
-        SequentialBlobDataGen blobGen(blobSize, id);
+        SequentialBlobDataGen blobGen(objSize, id);
         while ((ops + 1) <= totalOps) {
-            offset = ops * blobSize + firstOffset;
+            offset = ops * objSize + firstOffset;
             if (opType == PUT) {
                 try {
                     // Make copy of data since function "takes" the shared_ptr
@@ -176,7 +182,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                 }
             } else if (opType == GET) {
                 try {
-                    nbdOps->read(blobSize, offset, ++handle);
+                    nbdOps->read(objSize, offset, ++handle);
                 } catch(fpi::ApiException fdsE) {
                     fds_panic("read failed");
                 }
@@ -243,7 +249,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     /// total number of ops to execute
     fds_uint32_t totalOps;
     /// blob size in bytes
-    fds_uint32_t blobSize;
+    fds_uint32_t objSize;
     /// verify that data we wrote is correct
     fds_bool_t verifyData;
     fds_uint64_t firstOffset;
