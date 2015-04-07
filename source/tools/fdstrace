@@ -36,7 +36,7 @@ class FDSTrace:
             (9090, 'om.config.api'),
             (8903, 'om.cfg.path'),
             (8904, 'om.ctrl.path'),
-            (7001, 'om.ui'),
+            (7777, 'om.ui'),
             (7443, 'om.ui.ssl'),
             (9988, 'am.sync'),
             (8899, 'am.async'),
