@@ -34,7 +34,7 @@ void NbdConnector::initialize() {
 
     // Shutdown the socket if we are reinitializing
     if (0 <= nbdSocket)
-        { deinit(); }
+        { stop(); }
 
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
@@ -56,7 +56,7 @@ void NbdConnector::initialize() {
     }
 }
 
-void NbdConnector::deinit() {
+void NbdConnector::stop() {
     if (0 <= nbdSocket) {
         shutdown(nbdSocket, SHUT_RDWR);
         close(nbdSocket);
@@ -65,7 +65,7 @@ void NbdConnector::deinit() {
 };
 
 NbdConnector::~NbdConnector() {
-    deinit();
+    stop();
 }
 
 void
@@ -79,7 +79,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     auto processor = amProcessor.lock();
     if (!processor) {
         LOGNORMAL << "No processing layer, shutdown.";
-        deinit();
+        stop();
         return;
     }
 
