@@ -66,7 +66,8 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
      * @return the list of metric names in the order they are stored.
      */
     public static List<String> getColumnNames() {
-        return Lists.newArrayList( EVENT_ID_COLUMN_NAME,
+        return Lists.newArrayList( TIMESTAMP_COLUMN_NAME,
+                                   EVENT_ID_COLUMN_NAME,
                                    EVENT_TYPE_COLUMN_NAME,
                                    EVENT_CATEGORY_COLUMN_NAME,
                                    EVENT_SEVERITY_COLUMN_NAME,
@@ -90,11 +91,10 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
      */
     @Override
     synchronized public void open( Properties properties ) {
-        // command is silently ignored if the database already exists.
-        if ( !super.createDatabase( DEFAULT_EVENT_DB ) ) {
-            logger.debug( "Database " + DEFAULT_EVENT_DB.getName() + " already exists." );
-        }
         super.open( properties );
+
+        // command is silently ignored if the database already exists.
+        super.createDatabaseAsync( DEFAULT_EVENT_DB );
     }
 
     @Override
@@ -151,7 +151,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         String prefix = SELECT + " * " + FROM + " " + getEntityName();
         sb.append( prefix );
 
-        if ( queryCriteria.getRange() != null &&
+        if ( queryCriteria.getRange() != null ||
              queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
 
             sb.append( " " + WHERE );
@@ -175,7 +175,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         String queryString = formulateQueryString( queryCriteria );
 
         // execute the query
-        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
+        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
 
         // convert from influxdb format to FDS model format
         List<? extends Event> datapoints = convertSeriesToEvents( series );
@@ -215,7 +215,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
                            .columns( EVENT_COLUMN_NAMES_A )
                            .values( toSerieRow( entity ) )
                            .build();
-        getConnection().getDBWriter().write( TimeUnit.MILLISECONDS, s );
+        getConnection().getAsyncDBWriter().write( TimeUnit.MILLISECONDS, s );
         return entity;
 	}
 
@@ -229,7 +229,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         }
 
         Serie s = sb.build();
-        getConnection().getDBWriter().write( TimeUnit.MILLISECONDS, s );
+        getConnection().getAsyncDBWriter().write( TimeUnit.MILLISECONDS, s );
         return (entities instanceof List ? ((List)entities) : new ArrayList<>( entities ) );
     }
 
@@ -257,8 +257,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
             logger.warn( "Expecting only one event series.  Skipping " + (series.size() - 1) + " unexpected series." );
         }
 
-        events.addAll( series.stream().map( serie -> (Event) convertSeriesToEvents( serie ) )
-                             .collect( Collectors.toList() ) );
+        series.stream().forEach( serie -> events.addAll( convertSeriesToEvents( serie ) ) );
 
         return events;
     }
@@ -281,8 +280,8 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     protected Event convertSeriesRowToEvent( Serie serie, int i ) {
         Map<String, Object> row = serie.getRows().get( i );
 
-        Long id = Long.parseLong( row.get( EVENT_ID_COLUMN_NAME ).toString() );
-        Long ts = Long.parseLong( row.get( getTimestampColumnName() ).toString() );
+        Long ts = ( (Double)row.get( getTimestampColumnName() ) ).longValue();
+        Long id = Double.valueOf( row.get( EVENT_ID_COLUMN_NAME ).toString() ).longValue();
         EventType type = EventType.valueOf( row.get( EVENT_TYPE_COLUMN_NAME ).toString().toUpperCase() );
         EventCategory category = EventCategory.valueOf( row.get( EVENT_CATEGORY_COLUMN_NAME ).toString().toUpperCase( ) );
         EventSeverity severity = EventSeverity.valueOf( row.get( EVENT_SEVERITY_COLUMN_NAME ).toString().toUpperCase( ) );
@@ -331,6 +330,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
      */
     protected Object[] toSerieRow(Event e) {
         /*
+            TIMESTAMP_COLUMN_NAME,
             EVENT_ID_COLUMN_NAME,
             EVENT_TYPE_COLUMN_NAME,
             EVENT_CATEGORY_COLUMN_NAME,
@@ -346,6 +346,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
             FBEVENT_SIGMA_COLUMN_NAME;
          */
         return new Object[] {
+            e.getInitialTimestamp(),
             e.getId(),
             e.getType().name(),
             e.getCategory().name(),
