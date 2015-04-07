@@ -83,6 +83,9 @@ struct ConfigDB : KVStore {
     uint getNodeNameCounter();
 
     // volume policies
+    fds_uint32_t createQoSPolicy(const std::string& identifier,
+                                 const fds_uint64_t minIops, const fds_uint64_t maxIops, const fds_uint32_t relPrio);
+    fds_uint32_t getIdOfQoSPolicy(const std::string& identifier);
     bool getPolicy(fds_uint32_t volPolicyId, FDS_VolumePolicy& volumePolicy, int localDomain = 0); //NOLINT
     bool addPolicy(const FDS_VolumePolicy& volumePolicy, int localDomain = 0);
     bool updatePolicy(const FDS_VolumePolicy& volumePolicy, int localDomain = 0);

@@ -42,20 +42,11 @@ extern std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 extern std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 // ======
 
-AmDispatcher::AmDispatcher(const std::string &modName)
-        : Module(modName.c_str())
-{
-}
-
+AmDispatcher::AmDispatcher() = default;
 AmDispatcher::~AmDispatcher() = default;
 
-int
-AmDispatcher::mod_init(SysParams const *const param) {
-    return Module::mod_init(param);
-}
-
 void
-AmDispatcher::mod_startup() {
+AmDispatcher::start() {
     /** Construct the Orch Client */
     om_client.reset(new OMgrClient(FDSP_ACCESS_MGR, "localhost-sh", GetLog()));
 
@@ -96,10 +87,6 @@ AmDispatcher::mod_startup() {
      */
     FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
     volume_open_support = features.get<bool>("common.volume_open_support", false);
-}
-
-void
-AmDispatcher::mod_shutdown() {
 }
 
 Error

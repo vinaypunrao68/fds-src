@@ -63,7 +63,6 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                 cmd = cmd + (' --blk-dev-size %s' % volume.nd_conf_dict['size'])
 
             cmd = cmd + (' --vol-type %s' % access)
-
             if 'media' not in volume.nd_conf_dict:
                 media = 'hdd'
             else:

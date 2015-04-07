@@ -121,34 +121,43 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         bool fCatSyncEnabled = true;
         bool fTestMode = false;
         bool fTimelineEnabled = true;
+        bool fVolumeTokensEnabled { false };
 
       public:
         inline bool isQosEnabled() const {
             return fQosEnabled;
         }
-        inline void setQosEnabled(bool val) {
+        inline void setQosEnabled(bool const val) {
             fQosEnabled = val;
         }
 
         inline bool isCatSyncEnabled() const {
             return fCatSyncEnabled;
         }
-        inline void setCatSyncEnabled(bool val) {
+        inline void setCatSyncEnabled(bool const val) {
             fCatSyncEnabled = val;
         }
 
         inline bool isTestMode() const {
             return fTestMode;
         }
-        inline void setTestMode(bool val) {
+        inline void setTestMode(bool const val) {
             fTestMode = val;
         }
 
         inline bool isTimelineEnabled() const {
             return fTimelineEnabled;
         }
-        inline void setTimelineEnabled(bool val) {
+        inline void setTimelineEnabled(bool const val) {
             fTimelineEnabled = val;
+        }
+
+        inline bool isVolumeTokensEnabled() const {
+            return fVolumeTokensEnabled;
+        }
+
+        inline void setVolumeTokensEnabled(bool const val) {
+            fVolumeTokensEnabled = val;
         }
     } features;
 

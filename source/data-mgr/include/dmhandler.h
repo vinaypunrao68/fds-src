@@ -243,6 +243,32 @@ struct GetVolumeMetadataHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+/**
+ * Attempt to retrieve an access token for the given volume
+ */
+struct VolumeOpenHandler : Handler {
+    VolumeOpenHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::OpenVolumeMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::OpenVolumeMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+/**
+ * Close an existing access token for the given volume
+ */
+struct VolumeCloseHandler : Handler {
+    VolumeCloseHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CloseVolumeMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CloseVolumeMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_
