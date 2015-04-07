@@ -22,6 +22,7 @@ import org.apache.thrift.TException;
 
 import javax.security.auth.login.LoginException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -134,6 +135,21 @@ public class Xdi {
         attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
         Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName, requestOffset, requestLength);
         return new FdsObjectStreamer(iterator);
+    }
+
+    public CompletableFuture<AsyncStreamer.BlobInfo> getBlobInfo(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
+        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
+        return factory.get().getBlobInfo(domainName, volumeName, blobName);
+    }
+
+    public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, AsyncStreamer.BlobInfo blobInfo, OutputStream out) throws Exception {
+        attemptBlobAccess(token, blobInfo.domain, blobInfo.volume, blobInfo.blob, Intent.read);
+        return factory.get().readToOutputStream(blobInfo, out);
+    }
+
+    public OutputStream openForWriting(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws Exception {
+        attemptVolumeAccess(token, volumeName, Intent.readWrite);
+        return factory.get().openForWriting(domainName, volumeName, blobName, metadata);
     }
 
     public CompletableFuture<AsyncStreamer.PutResult> put(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {

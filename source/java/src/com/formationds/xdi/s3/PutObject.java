@@ -11,6 +11,7 @@ import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.web.toolkit.XmlResource;
+import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.apache.commons.codec.binary.Hex;
@@ -19,6 +20,9 @@ import org.joda.time.DateTimeZone;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -126,8 +130,12 @@ public class PutObject implements SyncRequestHandler {
             }
             digest = Hex.decodeHex(copySourceETag.toCharArray());
         } else {
-            InputStream instr = xdi.get(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
-            digest = xdi.put(token, targetDomain, targetBucketName, targetBlobName, instr, metadataMap).get().digest;
+            OutputStream outputStream = xdi.openForWriting(token, targetDomain, targetBucketName, targetBlobName, metadataMap);
+            DigestOutputStream digestOutputStream = new DigestOutputStream(outputStream, MessageDigest.getInstance("MD5"));
+            AsyncStreamer.BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]).get();
+            xdi.readToOutputStream(token, blobInfo, digestOutputStream).get();
+            digestOutputStream.close();
+            digest = digestOutputStream.getMessageDigest().digest();
         }
 
         XmlElement responseFrame = new XmlElement("CopyObjectResult")

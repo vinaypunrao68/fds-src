@@ -10,6 +10,7 @@ import com.formationds.protocol.Snapshot;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -23,6 +24,7 @@ import org.junit.Test;
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -255,13 +257,14 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void testMultipartUpload() {
+    public void testMultipartUpload() throws Exception {
         String key = UUID.randomUUID()
                 .toString();
         InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
 
         int partCount = 5;
 
+        MessageDigest md5 = MessageDigest.getInstance("MD5");
         List<PartETag> etags = IntStream.range(0, partCount)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
@@ -272,15 +275,16 @@ public class S3SmokeTest {
                             .withPartNumber(i)
                             .withUploadId(initiateResult.getUploadId())
                             .withPartSize(randomBytes.length);
-
+                    md5.update(randomBytes);
                     UploadPartResult uploadPartResult = userClient.uploadPart(request);
                     return uploadPartResult.getPartETag();
                 })
                 .collect(Collectors.toList());
 
         CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(userBucket, key, initiateResult.getUploadId(), etags);
-        userClient.completeMultipartUpload(completeRequest);
-
+        CompleteMultipartUploadResult result = userClient.completeMultipartUpload(completeRequest);
+        byte[] digest = md5.digest();
+        assertEquals(result.getETag(), Hex.encodeHexString(digest));
         ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }

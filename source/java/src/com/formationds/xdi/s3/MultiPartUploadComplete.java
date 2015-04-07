@@ -9,6 +9,7 @@ import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
+import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.codec.binary.Hex;
 
@@ -17,7 +18,9 @@ import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.InputStream;
-import java.io.SequenceInputStream;
+import java.io.OutputStream;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,19 +88,18 @@ public class MultiPartUploadComplete implements SyncRequestHandler {
         // TODO: do this read asynchronously
         List<PartInfo> partInfoList = mops.getParts();
 
-        InputStream is = null;
         String systemVolume = xdi.getSystemVolumeName(token);
+        Map<String, String> metadata = new HashMap<>();
+        OutputStream outputStream = xdi.openForWriting(token, S3Endpoint.FDS_S3, bucket, objectName, metadata);
+        DigestOutputStream digestOutputStream = new DigestOutputStream(outputStream, MessageDigest.getInstance("MD5"));
+
         for(PartInfo bd : partInfoList) {
-            InputStream str = xdi.get(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName());
-            if(is == null)
-                is = str;
-            else
-                is = new SequenceInputStream(is, str);
+            AsyncStreamer.BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName()).get();
+            xdi.readToOutputStream(token, blobInfo, digestOutputStream).get();
         }
 
-        Map<String, String> metadata = new HashMap<>();
-        byte[] digest = xdi.put(token, S3Endpoint.FDS_S3, bucket, objectName, is, metadata).get().digest;
-
+        digestOutputStream.close();
+        byte[] digest = digestOutputStream.getMessageDigest().digest();
 
         for(PartInfo bd : partInfoList)
             xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName()).get();

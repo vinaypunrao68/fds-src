@@ -73,7 +73,7 @@ public class AsyncStreamer {
         });
     }
 
-    public CompletableFuture<Void> writeBlobToStream(BlobInfo blob, OutputStream str) {
+    public CompletableFuture<Void> readToOutputStream(BlobInfo blob, OutputStream str) {
         return getBlobToConsumer(blob, bytes -> {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             CompletableFuture.runAsync(() -> {
@@ -254,6 +254,7 @@ public class AsyncStreamer {
         VolumeDescriptor volumeDescriptor = statVolume(domainName, volumeName).get();
         int chunkSize = volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
         TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 1).get();
+        MessageDigest messageDigest = MessageDigest.getInstance("MD5");
         return new OutputStream() {
             ByteBuffer buf = ByteBuffer.allocate(chunkSize);
             long chunksWrittenSoFar = 0;
@@ -272,6 +273,7 @@ public class AsyncStreamer {
                     }
                 }
                 buf.put((byte) b);
+                messageDigest.update((byte) b);
             }
 
             @Override
@@ -281,6 +283,8 @@ public class AsyncStreamer {
                         int length = buf.position();
                         buf.flip();
                         asyncAm.updateBlob(domainName, volumeName, blobName, tx, buf, length, new ObjectOffset(chunksWrittenSoFar), true).get();
+                        metadata.put(Xdi.LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
+                        metadata.put("etag", Hex.encodeHexString(messageDigest.digest()));
                         asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata);
                     }
                     asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
