@@ -125,5 +125,6 @@
             dest=/tmp/{{fds_cluster_name}}_ips.txt
             mode=0400
         sudo: false
+        ignore_errors: true
 
     -   include: ../tasks/deploy_fds/deploy_fds.yml
