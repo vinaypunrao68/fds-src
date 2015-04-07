@@ -68,7 +68,7 @@ public class PutObject implements SyncRequestHandler {
         }
 
         if(copySource == null) {
-            byte[] digest = xdi.writeStream(token, domain, bucketName, objectName, str, map).get().digest;
+            byte[] digest = xdi.put(token, domain, bucketName, objectName, str, map).get().digest;
             return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
         } else {
             return copy(context, domain, bucketName, objectName, copySource, map);
@@ -126,8 +126,8 @@ public class PutObject implements SyncRequestHandler {
             }
             digest = Hex.decodeHex(copySourceETag.toCharArray());
         } else {
-            InputStream instr = xdi.readStream(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
-            digest = xdi.writeStream(token, targetDomain, targetBucketName, targetBlobName, instr, metadataMap).get().digest;
+            InputStream instr = xdi.get(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
+            digest = xdi.put(token, targetDomain, targetBucketName, targetBlobName, instr, metadataMap).get().digest;
         }
 
         XmlElement responseFrame = new XmlElement("CopyObjectResult")

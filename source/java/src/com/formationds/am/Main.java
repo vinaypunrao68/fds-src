@@ -158,7 +158,7 @@ public class Main {
         asyncAm.start();
 
         // TODO: should XdiAsync use omCachedConfigProxy too?
-        Supplier<XdiAsync> factory = () -> new XdiAsync(asyncAm,
+        Supplier<AsyncStreamer> factory = () -> new AsyncStreamer(asyncAm,
                 bbp,
                 configCache);
 

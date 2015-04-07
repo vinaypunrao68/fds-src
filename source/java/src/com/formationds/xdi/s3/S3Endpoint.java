@@ -12,8 +12,8 @@ import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.*;
+import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.XdiAsync;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -31,10 +31,10 @@ public class S3Endpoint {
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
     private final AsyncWebapp webApp;
     private Xdi xdi;
-    private Supplier<XdiAsync> xdiAsync;
+    private Supplier<AsyncStreamer> xdiAsync;
     private SecretKey secretKey;
 
-    public S3Endpoint(Xdi xdi, Supplier<XdiAsync> xdiAsync, SecretKey secretKey,
+    public S3Endpoint(Xdi xdi, Supplier<AsyncStreamer> xdiAsync, SecretKey secretKey,
                       HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;

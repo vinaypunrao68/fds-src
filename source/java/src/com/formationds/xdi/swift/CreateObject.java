@@ -42,7 +42,7 @@ public class CreateObject implements RequestHandler {
         metadata.put("Content-Type", contentType);
         metadata.put("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
 
-        byte[] digest = xdi.writeStream(token, domain, volume, object, request.getInputStream(), metadata).get().digest;
+        byte[] digest = xdi.put(token, domain, volume, object, request.getInputStream(), metadata).get().digest;
 
 
         // TODO: add real transactionId instead of call to swiftResource here

@@ -5,14 +5,18 @@ import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
+import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Maps;
+import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
@@ -27,6 +31,30 @@ import static org.junit.Assert.fail;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+
+    @Test
+    public void testAsyncStreamerWritesOneChunkOnly() throws Exception {
+        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new ArrayByteBufferPool(), new XdiConfigurationApi(configService));
+        HashMap<String, String> map = new HashMap<>();
+        map.put("hello", "world");
+        OutputStream outputStream = asyncStreamer.openForWriting(domainName, volumeName, blobName, map);
+        outputStream.write(new byte[OBJECT_SIZE]);
+        outputStream.close();
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals(OBJECT_SIZE, (long) blobDescriptor.getByteCount());
+        assertEquals("world", blobDescriptor.getMetadata().get("hello"));
+    }
+
+    @Test
+    public void testAsyncStreamer() throws Exception {
+        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new ArrayByteBufferPool(), new XdiConfigurationApi(configService));
+        OutputStream outputStream = asyncStreamer.openForWriting(domainName, volumeName, blobName, new HashMap<>());
+        outputStream.write(new byte[42]);
+        outputStream.write(new byte[42]);
+        outputStream.close();
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals(84, (long) blobDescriptor.getByteCount());
+    }
 
     @Test
     public void testVolumeContents() throws Exception {

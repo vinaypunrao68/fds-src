@@ -31,10 +31,10 @@ public class Xdi {
     private final XdiService.Iface am;
     private ConfigurationApi config;
     private AsyncAm asyncAm;
-    private Supplier<XdiAsync> factory;
+    private Supplier<AsyncStreamer> factory;
     private XdiAuthorizer authorizer;
 
-    public Xdi(XdiService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm, Supplier<XdiAsync> factory) {
+    public Xdi(XdiService.Iface am, ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm, Supplier<AsyncStreamer> factory) {
         this.am = am;
         this.config = config;
         this.asyncAm = asyncAm;
@@ -124,19 +124,19 @@ public class Xdi {
         return blobDescriptor;
     }
 
-    public InputStream readStream(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
+    public InputStream get(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
         attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
         Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName);
         return new FdsObjectStreamer(iterator);
     }
 
-    public InputStream readStream(AuthenticationToken token, String domainName, String volumeName, String blobName, long requestOffset, long requestLength) throws Exception {
+    public InputStream get(AuthenticationToken token, String domainName, String volumeName, String blobName, long requestOffset, long requestLength) throws Exception {
         attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
         Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName, requestOffset, requestLength);
         return new FdsObjectStreamer(iterator);
     }
 
-    public CompletableFuture<XdiAsync.PutResult> writeStream(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
+    public CompletableFuture<AsyncStreamer.PutResult> put(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         attemptVolumeAccess(token, volumeName, Intent.readWrite);
         return factory.get().putBlobFromStream(domainName, volumeName, blobName, metadata, in);
     }

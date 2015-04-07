@@ -3,7 +3,7 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.async.CompletableFutureUtility;
-import com.formationds.xdi.XdiAsync;
+import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.security.Intent;
 import com.formationds.xdi.security.XdiAuthorizer;
 import org.apache.commons.codec.binary.Hex;
@@ -16,12 +16,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public class AsyncPutObject implements Function<HttpContext, CompletableFuture<Void>> {
-    private XdiAsync xdiAsync;
+    private AsyncStreamer asyncStreamer;
     private XdiAuthorizer authorizer;
     private S3Authenticator authenticator;
 
-    public AsyncPutObject(XdiAsync xdiAsync, S3Authenticator authenticator, XdiAuthorizer authorizer) {
-        this.xdiAsync = xdiAsync;
+    public AsyncPutObject(AsyncStreamer asyncStreamer, S3Authenticator authenticator, XdiAuthorizer authorizer) {
+        this.asyncStreamer = asyncStreamer;
         this.authenticator = authenticator;
         this.authorizer = authorizer;
     }
@@ -41,7 +41,7 @@ public class AsyncPutObject implements Function<HttpContext, CompletableFuture<V
             InputStream inputStream = ctx.getInputStream();
             return filterAccess(ctx, bucket, object)
                     .thenApply(metadata -> updateMetadata(ctx, metadata))
-                    .thenCompose(metadata -> xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, inputStream))
+                    .thenCompose(metadata -> asyncStreamer.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, inputStream))
                     .thenAccept(result -> {
                         String etagValue = formatEtag(Hex.encodeHexString(result.digest));
                         ctx.addResponseHeader("ETag", etagValue);
@@ -60,7 +60,7 @@ public class AsyncPutObject implements Function<HttpContext, CompletableFuture<V
 
 
     private CompletableFuture<Map<String, String>> filterAccess(HttpContext context, String bucket, String key) {
-        return xdiAsync.statBlob(S3Endpoint.FDS_S3, bucket, key)
+        return asyncStreamer.statBlob(S3Endpoint.FDS_S3, bucket, key)
                 .thenApply(bd -> bd.getMetadata())
                 .exceptionally(t -> new HashMap<>()) // This blob might not exist, so we use empty metadata as a filter
                 .thenCompose(metadata -> {

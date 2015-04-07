@@ -88,7 +88,7 @@ public class MultiPartUploadComplete implements SyncRequestHandler {
         InputStream is = null;
         String systemVolume = xdi.getSystemVolumeName(token);
         for(PartInfo bd : partInfoList) {
-            InputStream str = xdi.readStream(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName());
+            InputStream str = xdi.get(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName());
             if(is == null)
                 is = str;
             else
@@ -96,7 +96,7 @@ public class MultiPartUploadComplete implements SyncRequestHandler {
         }
 
         Map<String, String> metadata = new HashMap<>();
-        byte[] digest = xdi.writeStream(token, S3Endpoint.FDS_S3, bucket, objectName, is, metadata).get().digest;
+        byte[] digest = xdi.put(token, S3Endpoint.FDS_S3, bucket, objectName, is, metadata).get().digest;
 
 
         for(PartInfo bd : partInfoList)

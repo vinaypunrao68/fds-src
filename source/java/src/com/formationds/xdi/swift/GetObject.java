@@ -44,7 +44,7 @@ public class GetObject implements RequestHandler {
 
         InputStream objStream = null;
         if(ranges.size() == 0) {
-            objStream = xdi.readStream(token, domain, volume, object, 0, stat.getByteCount());
+            objStream = xdi.get(token, domain, volume, object, 0, stat.getByteCount());
         } else if(ranges.size() == 1) {
             objStream = readStreamForRange(xdi, domain, volume, object, ranges.get(0), stat.byteCount);
         } else {
@@ -67,13 +67,13 @@ public class GetObject implements RequestHandler {
     private InputStream readStreamForRange(Xdi xdi, String domain, String volume, String object, Range range, long blobLength) throws Exception {
         // NB: this case is inconsistently specified in the openstack API docs
         if(range.rangeMin.isPresent() && range.rangeMax.isPresent())
-            return xdi.readStream(token, domain, volume, object, range.rangeMin.get(), 1 + range.rangeMax.get() - range.rangeMin.get());
+            return xdi.get(token, domain, volume, object, range.rangeMin.get(), 1 + range.rangeMax.get() - range.rangeMin.get());
 
         if(range.rangeMin.isPresent())
-            return xdi.readStream(token, domain, volume, object, range.rangeMin.get(), blobLength - range.rangeMin.get());
+            return xdi.get(token, domain, volume, object, range.rangeMin.get(), blobLength - range.rangeMin.get());
 
         if(range.rangeMax.isPresent())
-            return xdi.readStream(token, domain, volume, object, blobLength - range.rangeMax.get(), range.rangeMax.get() );
+            return xdi.get(token, domain, volume, object, blobLength - range.rangeMax.get(), range.rangeMax.get());
 
         throw new Exception("Invalid range specified");
     }

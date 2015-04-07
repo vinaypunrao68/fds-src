@@ -3,7 +3,7 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.async.CompletableFutureUtility;
-import com.formationds.xdi.XdiAsync;
+import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.security.Intent;
 import com.formationds.xdi.security.XdiAuthorizer;
 import org.eclipse.jetty.http.HttpStatus;
@@ -14,12 +14,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public class AsyncGetObject implements Function<HttpContext, CompletableFuture<Void>> {
-    private XdiAsync xdiAsync;
+    private AsyncStreamer asyncStreamer;
     private S3Authenticator authenticator;
     private XdiAuthorizer authorizer;
 
-    public AsyncGetObject(XdiAsync xdiAsync, S3Authenticator authenticator, XdiAuthorizer authorizer) {
-        this.xdiAsync = xdiAsync;
+    public AsyncGetObject(AsyncStreamer asyncStreamer, S3Authenticator authenticator, XdiAuthorizer authorizer) {
+        this.asyncStreamer = asyncStreamer;
         this.authenticator = authenticator;
         this.authorizer = authorizer;
     }
@@ -30,7 +30,7 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
         String object = ctx.getRouteParameters().get("object");
 
         try {
-            return xdiAsync.getBlobInfo(S3Endpoint.FDS_S3, bucket, object).thenCompose(blobInfo -> {
+            return asyncStreamer.getBlobInfo(S3Endpoint.FDS_S3, bucket, object).thenCompose(blobInfo -> {
                 if (!hasAccess(ctx, bucket, blobInfo.blobDescriptor.getMetadata())) {
                     return CompletableFutureUtility.exceptionFuture(new SecurityException());
                 }
@@ -44,7 +44,7 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
                 S3UserMetadataUtility.extractUserMetadata(md).forEach((key, value) -> ctx.addResponseHeader(key, value));
 
                 OutputStream outputStream = ctx.getOutputStream();
-                return xdiAsync.writeBlobToStream(blobInfo, outputStream);
+                return asyncStreamer.writeBlobToStream(blobInfo, outputStream);
             });
         } catch (Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);
