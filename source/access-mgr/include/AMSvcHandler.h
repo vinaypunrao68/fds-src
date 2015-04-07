@@ -68,8 +68,8 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
                       const Error                                 &err);
 
     virtual void
-    shutdownAM(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-               boost::shared_ptr<fpi::ShutdownMODMsg>   &shutdownMsg);
+    shutdownAM(boost::shared_ptr<fpi::AsyncHdr>               &hdr,
+               boost::shared_ptr<fpi::PrepareForShutdownMsg>  &shutdownMsg);
 };
 
 }  // namespace fds
