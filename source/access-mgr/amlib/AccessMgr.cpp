@@ -80,6 +80,10 @@ void AccessMgr::mod_enable_service()
     blkConnector.reset(new NbdConnector(weakProcessor));
 }
 
+void AccessMgr::mod_disable_service() {
+    stop();
+}
+
 void
 AccessMgr::run() {
     std::unique_lock<std::mutex> lk {stop_lock};
