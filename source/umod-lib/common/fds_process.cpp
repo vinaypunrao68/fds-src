@@ -456,12 +456,21 @@ FdsProcess::closeAllFDs()
 
 void FdsProcess::checkAndDaemonize(int argc, char *argv[]) {
     bool makeDaemon = true;
+    volatile bool gdb = false;
     for (int i = 1; i < argc; i++) {
         if (std::string(argv[i]).find("--foreground") != std::string::npos) {
             makeDaemon = false;
-            break;
+        }
+        if (std::string(argv[i]).find("--gdb") != std::string::npos) {
+            gdb = true;
         }
     }
+
+    /* When --gdb is set, wait until gdb flag is unset from inside a gdb session */
+    while (gdb) {
+        sleep(1);
+    }
+
     if (makeDaemon) {
         closeAllFDs();
         daemonize();
