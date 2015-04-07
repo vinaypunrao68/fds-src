@@ -15,25 +15,28 @@ def suiteConstruction(self, fdsNodes=None):
     """
     Construct the ordered set of test cases that comprise the
     test cases necessary to check whether a node's Services
-    are all down due to a "kill action".
+    are down or up accordingly due to a "shutdown action".
     """
     suite = unittest.TestSuite()
 
     # Check the node(s) according to configuration supplied with the -q cli option
     # or if a list of nodes is provided, check them specifically.
+    #
+    # With a "graceful" shutdown, we expect AM, DM, and SM to be down but OM and PM
+    # up.
     if fdsNodes is not None:
 
         for node in fdsNodes:
-            suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMVerifyDown(node=node))
-            suite.addTest(testcases.TestFDSServiceMgt.TestOMVerifyDown(node=node))
-            suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMWait(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestOMWait(node=node))
+            suite.addTest(testcases.TestFDSServiceMgt.TestPMWait(node=node))
             suite.addTest(testcases.TestFDSServiceMgt.TestDMVerifyDown(node=node))
             suite.addTest(testcases.TestFDSServiceMgt.TestSMVerifyDown(node=node))
             suite.addTest(testcases.TestFDSServiceMgt.TestAMVerifyDown(node=node))
     else:
-        suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMVerifyDown())
-        suite.addTest(testcases.TestFDSServiceMgt.TestOMVerifyDown())
-        suite.addTest(testcases.TestFDSServiceMgt.TestPMVerifyDown())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestOMWait())
+        suite.addTest(testcases.TestFDSServiceMgt.TestPMWait())
         suite.addTest(testcases.TestFDSServiceMgt.TestDMVerifyDown())
         suite.addTest(testcases.TestFDSServiceMgt.TestSMVerifyDown())
         suite.addTest(testcases.TestFDSServiceMgt.TestAMVerifyDown())

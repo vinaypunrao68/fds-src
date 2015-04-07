@@ -114,7 +114,7 @@ def pidWaitParent(pid, child_count, node):
 
 def modWait(mod, node, forShutdown = False):
     """
-    Wait for the named service to become active.
+    Wait for the named service to become active or to stop according to forShutdown option.
     """
     log = logging.getLogger('TestFDSModMgt' + '.' + 'modWait')
 
