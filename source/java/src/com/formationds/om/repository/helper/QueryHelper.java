@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.OptionalDouble;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
@@ -140,7 +141,17 @@ public class QueryHelper {
 
                 calculatedList.add( deDupRatio() );
 
-                final CapacityConsumed consumed = bytesConsumed();
+                // let's get the physical bytes consumed.
+            	Series physicalBytes = series.stream()
+	            		.filter( ( s ) -> { 
+	            			return s.getType().equals( Metrics.PBYTES.name() );
+	            		})
+		            	.findFirst().orElse( null );
+            	
+            	Double bytesConsumed = physicalBytes.getDatapoints().get( physicalBytes.getDatapoints().size()-1 ).getY();
+                
+                final CapacityConsumed consumed = new CapacityConsumed();
+                consumed.setTotal( bytesConsumed );
                 calculatedList.add( consumed );
 
                 // only the FDS admin is allowed to get data about the capacity limit
@@ -155,13 +166,6 @@ public class QueryHelper {
 	                TotalCapacity totalCap = new TotalCapacity();
 	                totalCap.setTotalCapacity( systemCapacity );
 	                calculatedList.add( totalCap );
-	                
-	                // TODO finish implementing  -- once Nate provides a library
-	            	Series physicalBytes = series.stream()
-	            		.filter( ( s ) -> { 
-	            			return s.getType().equals( Metrics.PBYTES.name() );
-	            		})
-		            	.findFirst().orElse( null );
 	            	
 	            	if ( physicalBytes != null ){
 	            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
@@ -513,16 +517,6 @@ public class QueryHelper {
         return dedup;
     }
 
-    /**
-     * @return Returns {@link CapacityConsumed}
-     */
-    protected CapacityConsumed bytesConsumed() {
-        final CapacityConsumed consumed = new CapacityConsumed();
-        consumed.setTotal( SingletonRepositoryManager.instance()
-                                                     .getMetricsRepository()
-                                                     .sumPhysicalBytes() );
-        return consumed;
-    }
 
     /**
      * @param consumed       the {@link CapacityConsumed} representing bytes

@@ -241,7 +241,7 @@ public class SeriesHelper {
      * @param operation
      * @return
      */
-    private Series generate(
+    protected Series generate(
         final List<IVolumeDatapoint> volumeDatapoints,
         final Long timestamp,
         final Metrics metrics,
