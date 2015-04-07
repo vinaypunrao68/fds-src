@@ -264,6 +264,13 @@ AMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
 }
 
+void
+AMSvcHandler::PrepareForShutdownRespCb(boost::shared_ptr<fpi::AsyncHdr>  &hdr,
+                                       boost::shared_ptr<fpi::PrepareForShutdownMsg> &shutdownMsg)
+{
+     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), *shutdownMsg);
+}
+
 /**
  * Initiate cleanup in preparation for shutdown
  */
@@ -285,7 +292,8 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       * It's an async shutdown as we cleanup. So acknowledge the message now.
       */
      hdr->msg_code = err.GetErrno();
-     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), *shutdownMsg);
+
+     amProcessor->prepareForShutdownRespToOM(std::bind(PrepareForShutdownRespCb, this, hdr, shutdownMsg);
 }
 
 }  // namespace fds
