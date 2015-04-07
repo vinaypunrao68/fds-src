@@ -159,13 +159,7 @@ function startApp() {
     # start influxdb if needed
     case "$appname" in
         om|all|influx*)
-            sudo service influxdb status 2>&1 >> /dev/null
-            if [ $? != 0 ]; then
-                sudo service influxdb start 2>&1 >> /dev/null
-                if [ $? != 0 ]; then
-                    logwarn "Failed to start InfluxDB"
-                fi
-            fi
+            startInfluxDB
             ;;
     esac
 
@@ -205,13 +199,7 @@ function stopApp() {
 
     case "$appname" in 
         om|all|influx*)
-            sudo service influxdb status 2>&1 >> /dev/null
-            if [ $? == 0 ]; then
-                sudo service influxdb stop 2>&1 >> /dev/null
-                if [ $? != 0 ]; then
-                    logwarn "Failed to stop InfluxDB"
-                fi
-            fi
+            stopInfluxDB
             ;;
     esac
 
@@ -230,6 +218,58 @@ function stopApp() {
     done
 
     # Not stopping redis for now
+}
+
+function startInfluxDB() {
+    local ret=0
+    sudo service influxdb status 2>&1 >> /dev/null
+    if [ $? != 0 ]; then
+        sudo service influxdb start 2>&1 >> /dev/null
+        ret=$?
+        if [ $ret != 0 ]; then
+            logwarn "Failed to start InfluxDB"
+        fi
+    fi
+    return $ret
+}
+
+function stopInfluxDB() {
+    local ret=0
+    sudo service influxdb status 2>&1 >> /dev/null
+    if [ $? == 0 ]; then
+        sudo service influxdb stop 2>&1 >> /dev/null
+        ret=$?
+        if [ $ret != 0 ]; then
+            logwarn "Failed to stop InfluxDB"
+        fi
+    fi
+    return $ret;
+}
+
+function cleanInfluxDB() {
+
+    ## first check if influx is running
+    sudo service influxdb status 2>&1 >> /dev/null
+    local isRunning=$?
+
+    ## if it is not running, start it.
+    if [ $isRunning != 0 ]; then
+        startInfluxDB
+        sleep 5
+    fi
+
+    loginfo "cleaning up InfluxDB databases"
+    for db in om-eventdb om-metricdb; do
+        local out=$(curl -s -X DELETE "http://localhost:8086/db/$db?u=root&p=root" > /dev/null)
+        if [ $? != 0 ]; then
+            echo $out
+        fi
+    done
+
+    ## if influx was NOT running originally, stop it again.
+    if [ $isRunning != 0 ]; then
+        stopInfluxDB
+    fi
 }
 
 function statusApp() {
@@ -449,8 +489,6 @@ function clean() {
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
 
-                # influxdb
-                # TODO: how to clean influx data?
 				rm -rf /${node}/var/logs
                 #cleanlogs
             ) 2>/dev/null
@@ -459,6 +497,7 @@ function clean() {
 
 	rm -f /dev/shm/0x*
 
+    cleanInfluxDB
     cleanBinDirs
 }
 
