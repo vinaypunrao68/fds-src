@@ -40,6 +40,28 @@ static const fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_eve
 
 namespace fds {
 
+/**
+ * Structure used by the TvC to prevent multi-access to a volume.
+ */
+struct DmVolumeAccessTable {
+    explicit DmVolumeAccessTable(fpi::VolumeAccessPolicy const _policy) : policy(_policy)
+    { }
+    DmVolumeAccessTable(DmVolumeAccessTable const&) = delete;
+    DmVolumeAccessTable& operator=(DmVolumeAccessTable const&) = delete;
+    ~DmVolumeAccessTable() = default;
+
+    Error getToken(fds_int64_t& token, fpi::VolumeAccessPolicy const& policy) {
+        return ERR_OK;
+    }
+
+    void removeToken(fds_int64_t const token) {
+    }
+
+  private:
+    fpi::VolumeAccessPolicy policy;
+    std::unordered_map<fds_int64_t, bool> map;
+};
+
 void
 DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
 }
@@ -111,30 +133,50 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 
 Error
 DmTimeVolCatalog::openVolume(fds_volid_t const volId,
-                             fds_int64_t const token,
+                             fds_int64_t& token,
                              fpi::VolumeAccessPolicy const& policy) {
+    Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
     if (dataMgr->features.isVolumeTokensEnabled()) {
-        return ERR_VOLUME_ACCESS_DENIED;
-    } else {
-        return ERR_OK;
+        std::unique_lock<std::mutex> lk(accessTableLock_);
+        auto it = accessTable_.find(volId);
+        if (accessTable_.end() == it) {
+            auto table = new DmVolumeAccessTable(policy);
+            table->getToken(token, policy);
+            accessTable_[volId].reset(table);
+        } else {
+            // Table already exists, check if we can attach again or
+            // renew the existing token.
+            err = it->second->getToken(token, policy);
+        }
     }
+
+    return err;
 }
 
 Error
 DmTimeVolCatalog::closeVolume(fds_volid_t const volId, fds_int64_t const token) {
+    Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
     if (dataMgr->features.isVolumeTokensEnabled()) {
-        return ERR_VOLUME_ACCESS_DENIED;
-    } else {
-        return ERR_OK;
+        std::unique_lock<std::mutex> lk(accessTableLock_);
+        auto it = accessTable_.find(volId);
+        if (accessTable_.end() != it) {
+            it->second->removeToken(token);
+        }
     }
+
+    // TODO(bszmyd): Tue 07 Apr 2015 01:02:51 AM PDT
+    // Determine if there is any usefulness returning an
+    // error to this operation. Seems like it should be
+    // idempotent and never fail upon initial design.
+    return err;
 }
 
 Error

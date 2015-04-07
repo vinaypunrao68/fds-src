@@ -239,6 +239,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_STAT_VOLUME:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
+                case FDS_OPEN_VOLUME:
+                case FDS_CLOSE_VOLUME:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
