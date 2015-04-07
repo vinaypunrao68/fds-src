@@ -73,7 +73,7 @@ public class AsyncStreamer {
         });
     }
 
-    public CompletableFuture<Void> readToOutputStream(BlobInfo blob, OutputStream str) {
+    public CompletableFuture<Void> readToOutputStream(BlobInfo blob, OutputStream str, long offset, long byteCount) {
         return getBlobToConsumer(blob, bytes -> {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             CompletableFuture.runAsync(() -> {
@@ -86,15 +86,15 @@ public class AsyncStreamer {
             });
 
             return cf;
-        });
+        }, offset, byteCount);
     }
 
-    public CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor) {
+    private CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor, long offset, long length) {
         int objectSize = blobInfo.volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
 
         // TODO: do we need to worry about limiting reads?
         ArrayList<CompletableFuture<ByteBuffer>> readFutures = new ArrayList<>();
-        for (FdsObjectFrame frame : FdsObjectFrame.frames(0, blobInfo.blobDescriptor.byteCount, objectSize)) {
+        for (FdsObjectFrame frame : FdsObjectFrame.frames(offset, length, objectSize)) {
             if (frame.objectOffset == 0)
                 readFutures.add(CompletableFuture.completedFuture(blobInfo.object0));
             else
