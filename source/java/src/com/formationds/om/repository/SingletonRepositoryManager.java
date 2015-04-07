@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
@@ -130,7 +131,15 @@ public enum SingletonRepositoryManager {
 
         @Override
         public Object invoke( Object proxy, Method method, Object[] args ) throws Throwable {
+            try {
+                return doInvoke( proxy, method, args );
+            } catch ( InvocationTargetException ite ) {
+                // unwrap cause and rethrow
+                throw ite.getTargetException();
+            }
+        }
 
+        protected Object doInvoke(Object proxy, Method method, Object[] args ) throws Throwable {
             switch ( method.getName() ) {
                 case "save":
 
