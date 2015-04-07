@@ -53,7 +53,7 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
                                      shared_string_type& volumeName) {
     // Closure for response call
     auto closure = [p = responseApi, requestId](AttachCallback* cb, Error const& e) mutable -> void {
-        p->attachVolumeResp(e, requestId);
+        p->attachVolumeResp(e, requestId, cb->volDesc);
     };
 
     auto callback = create_async_handler<AttachCallback>(std::move(closure));

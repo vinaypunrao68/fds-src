@@ -242,8 +242,9 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                                boost::shared_ptr<std::string>& message) {}
 
     void attachVolumeResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId) {
-        fds_verify(ERR_OK == error);
+                          boost::shared_ptr<apis::RequestId>& requestId,
+                          boost::shared_ptr<VolumeDesc>& volDesc) override {
+        ASSERT_EQ(ERR_OK, error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
