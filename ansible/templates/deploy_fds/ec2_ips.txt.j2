@@ -1,3 +1,4 @@
-{% for instance in ec2.tagged_instances %}
-{{ instance.private_ip }}
+{% for hostname in groups[fds_cluster_name] %}
+{{ hostname }}{% if hostname == fds_om_host %} OM_HOST{% endif %}
+
 {% endfor %}

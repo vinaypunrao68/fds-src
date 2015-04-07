@@ -99,9 +99,12 @@ struct EmptyMsg {
 }
 
 /**
- * Shutdown service.
+ * Message from OM to a service to prepare for shutdown
+ * The service receiving the message should stop receiving IO,
+ * drain the IO and sync its state to persistent storage (if needed
+ * to be persisted).
  */
-struct ShutdownMODMsg {
+struct PrepareForShutdownMsg {
 }
 
 /**

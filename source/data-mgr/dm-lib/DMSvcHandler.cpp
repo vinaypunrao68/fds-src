@@ -28,7 +28,7 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDMMigrateMeta, StartDMMetaMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyDMAbortMigration);
-    REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownMODMsg, shutdownDM);
+    REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownDM);
 }
 
 // notifySvcChange
@@ -406,7 +406,7 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 }
 
 void DMSvcHandler::shutdownDM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-        boost::shared_ptr<fpi::ShutdownMODMsg>& shutdownMsg) {
+        boost::shared_ptr<fpi::PrepareForShutdownMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message DM ... shuttting down...";
     dataMgr->mod_shutdown();
 }

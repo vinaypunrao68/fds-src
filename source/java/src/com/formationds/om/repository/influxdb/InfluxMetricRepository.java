@@ -88,11 +88,11 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     @Override
     synchronized public void open( Properties properties ) {
-        // command is silently ignored if the database already exists.
-        if ( !super.createDatabase( DEFAULT_METRIC_DB ) ) {
-            logger.debug( "Database " + DEFAULT_METRIC_DB.getName() + " already exists." );
-        }
+
         super.open( properties );
+
+        // command is silently ignored if the database already exists.
+        super.createDatabaseAsync( DEFAULT_METRIC_DB );
     }
 
     @Override
@@ -174,7 +174,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                                   .values(metricValues)
                                   .build();
 
-                getConnection().getDBWriter().write( TimeUnit.MILLISECONDS, serie );
+                getConnection().getAsyncDBWriter().write( TimeUnit.MILLISECONDS, serie );
             }
         }
         return vdps;
@@ -219,7 +219,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         String prefix = SELECT + " * " + FROM + " " + getEntityName();
         sb.append( prefix );
 
-        if ( queryCriteria.getRange() != null &&
+        if ( queryCriteria.getRange() != null ||
              queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
 
             sb.append( " " + WHERE );

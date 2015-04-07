@@ -1,26 +1,26 @@
 ---
--   name: remove Artifactory 3rd party repo in favor of local mirror
-    file: path=/etc/apt/sources.list.d/artifacts_artifactoryonline_com_artifacts_third_party_deps.list
+-   name: remove local 3rd party repo in favor of Artifactory
+    file: path=/etc/apt/sources.list.d/{{item}}-apt_formationds_com_third_party_deps.list
         state=absent
+    with_items:
+        - awo
+        - bld
+        - fre
     tags:
       - install-repo
 
--   name: remove Artifactory formation repo in favor of local mirror
-    file: path=/etc/apt/sources.list.d/artifacts_artifactoryonline_com_artifacts_formation_apt.list
+-   name: remove local formation repo in favor of Artifactory
+    file: path=/etc/apt/sources.list.d/{{item}}-apt_formationds_com_formation_apt.list
         state=absent
-    tags:
-      - install-repo
-
--   name: add LOCAL fds nightly platform repo
-    when: (deploy_artifact == "nightly" or deploy_artifact == "beta") and cluster_location is defined
-    apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform {{deploy_artifact}}"
-        state=present
-        update_cache=yes
+    with_items:
+        - awo
+        - bld
+        - fre
     tags:
       - install-repo
 
 -   name: add Artifactory fds nightly platform repo
-    when: (deploy_artifact == "nightly" or deploy_artifact == "beta") and cluster_location is not defined
+    when: deploy_artifact == "nightly" or deploy_artifact == "beta"
     apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform {{deploy_artifact}}"
         state=present
         update_cache=yes
