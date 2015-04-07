@@ -83,16 +83,13 @@
         - init
         - influxdb
 
--   name: create influxdb log and data dirs
+-   name: create influxdb log/data dir
     file:
-        path=/fds/var/{{item}}/influxdb
+        path=/opt/influxdb/shared
         state=directory
         owner=influxdb
         group=root
         mode=0755
-    with_items:
-        - logs
-        - db
     tags:
         - post-install
         - influxdb

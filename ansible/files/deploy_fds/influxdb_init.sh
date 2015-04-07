@@ -88,7 +88,7 @@ name=influxdb
 daemon=/opt/fds-deps/embedded/influxdb/$name
 
 # pid file for the daemon
-pidfile=/fds/var/db/$name/$name.pid
+pidfile=/opt/$name/$name.pid
 
 # Configuration file
 config=/fds/etc/influxdb_config.toml
