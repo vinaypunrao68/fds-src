@@ -5,6 +5,7 @@
 #include <AmProcessor.h>
 
 #include <algorithm>
+#include <deque>
 #include <string>
 
 #include "fds_process.h"
@@ -296,20 +297,24 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     txMgr->markIODone(amReq);
     amReq->cb->call(error);
 
-    /*
-     * If we're shutting down and there are no
-     * more outstanding requests, tell the QoS
-     * Dispatcher that we're shutting down.
-     */
-    if (shut_down && txMgr->drained())
-    {
-       shutdown_cb();
+    // If we're shutting down check if the
+    // queue is empty and make the callback
+    if (isShuttingDown()) {
+        stop();
     }
 }
 
 bool AmProcessor_impl::stop() {
     shut_down = true;
     if (txMgr->drained()) {
+        // Close all attached volumes before finishing shutdown
+        std::deque<std::pair<fds_volid_t, fds_int64_t>> tokens;
+        txMgr->getVolumeTokens(tokens);
+        for (auto const& token_pair: tokens) {
+            if (invalid_vol_token != token_pair.second) {
+                amDispatcher->dispatchCloseVolume(token_pair.first, token_pair.second);
+            }
+        }
         shutdown_cb();
         return true;
     }
@@ -350,15 +355,16 @@ Error
 AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     Error err{ERR_OK};
 
-    // Remove the volume from QoS/VolumeTable/TxMgr
-    err = txMgr->removeVolume(volDesc);
-
     // If we had a token for a volume, give it back to DM
     auto shVol = txMgr->getVolume(volDesc.volUUID);
     if (shVol) {
         fds_int64_t token = shVol->token;
         amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
     }
+
+    // Remove the volume from QoS/VolumeTable/TxMgr
+    err = txMgr->removeVolume(volDesc);
+
     if (shut_down && txMgr->drained())
     {
        shutdown_cb();

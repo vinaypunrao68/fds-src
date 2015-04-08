@@ -227,6 +227,15 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t vol_uuid) co
     return ret_vol;
 }
 
+void
+AmVolumeTable::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const
+{
+    ReadGuard rg(map_rwlock);
+    for (auto const& vol_pair: volume_map) {
+        tokens.push_back(std::make_pair(vol_pair.first, vol_pair.second->token));
+    }
+}
+
 fds_uint32_t
 AmVolumeTable::getVolMaxObjSize(fds_volid_t volUuid) const {
     ReadGuard rg(map_rwlock);

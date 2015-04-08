@@ -14,6 +14,15 @@
 
 namespace fds {
 
+/**
+ * Since multiple connections can serve the same volume we need
+ * to keep this association information somewhere so we can
+ * properly detach from the volume when unused.
+ */
+static std::unordered_map<std::string, std::uint_fast16_t> assoc_map {};
+static std::mutex assoc_map_lock {};
+
+
 fds_bool_t
 NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
                                       fds_uint32_t len,
@@ -128,7 +137,15 @@ NbdOperations::attachVolumeResp(const Error& error,
                                 boost::shared_ptr<VolumeDesc>& volDesc) {
     LOGDEBUG << "Reponse for attach: [" << error << "]";
     if (ERR_OK == error) {
+        if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
+            LOGWARN << "Wrong volume type: " << volDesc->volType;
+            return nbdResp->attachResp(ERR_INVALID_VOL_ID, nullptr);
+        }
         maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+
+        // Reference count this association
+        std::unique_lock<std::mutex> lk(assoc_map_lock);
+        ++assoc_map[volDesc->name];
     }
     nbdResp->attachResp(error, volDesc);
 }
@@ -458,8 +475,14 @@ NbdOperations::updateBlobResp(const Error &error,
 void
 NbdOperations::shutdown()
 {
-    handle_type reqId{0, 0};
-    amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
+    {
+        // Only close the volume if it's the last connection
+        std::unique_lock<std::mutex> lk(assoc_map_lock);
+        if (0 == --assoc_map[*volumeName]) {
+            handle_type reqId{0, 0};
+            amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
+        }
+    }
     amAsyncDataApi.reset();
 }
 

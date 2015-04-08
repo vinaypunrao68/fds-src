@@ -139,6 +139,7 @@ AmDispatcher::dispatchOpenVolume(VolumeDesc const& vol_desc,
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
     if (volume_open_support) {
+        LOGDEBUG << "Attempting to open volume: " << std::hex << vol_desc.volUUID;
         auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
         volMDMsg->volume_id = vol_desc.volUUID;
 
@@ -175,6 +176,7 @@ AmDispatcher::dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token) {
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
     if (volume_open_support) {
+        LOGDEBUG << "Attempting to close volume: " << std::hex << vol_id;
         auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
         volMDMsg->volume_id = vol_id;
         volMDMsg->token = token;
