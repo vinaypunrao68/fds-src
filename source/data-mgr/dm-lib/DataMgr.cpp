@@ -553,6 +553,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     }
 
     if (err.ok()) {
+        // For now, volumes only land in the map if it is already active.
+        volmeta->vol_desc->setState(Active);
+
         // we registered queue and shadow queue if needed
         vol_meta_map[vol_uuid] = volmeta;
     }
