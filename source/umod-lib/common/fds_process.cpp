@@ -304,9 +304,14 @@ FdsProcess::sig_handler(void* param)
 {
     sigset_t ctrl_c_sigs;
     sigemptyset(&ctrl_c_sigs);
-    sigaddset(&ctrl_c_sigs, SIGHUP);
-    sigaddset(&ctrl_c_sigs, SIGINT);
     sigaddset(&ctrl_c_sigs, SIGTERM);
+    /*
+     * NOTE: We arent doing anything for SIGHUP and SIGINT.  Becuase
+     * most processes that derive fds_process are daemonized.  When we do
+     * sigwait on these signals, when we gdb the process, hitting ctrl+c is
+     * delivered to the process instead of gdb.
+     * see https://bugzilla.kernel.org/show_bug.cgi?id=9039#c1
+     */
 
     while (true)
     {
@@ -339,14 +344,12 @@ FdsProcess::sig_handler(void* param)
 void FdsProcess::setup_sig_handler()
 {
     /*
-     * We will block ctrl+c like signals in the main thread.  All
+     * We will block sigterm signal in the main thread.  All
      * other threads will have signals blocked as well.  We will
      * create a thread to listen for signals
      */
     sigset_t ctrl_c_sigs;
     sigemptyset(&ctrl_c_sigs);
-    sigaddset(&ctrl_c_sigs, SIGHUP);
-    sigaddset(&ctrl_c_sigs, SIGINT);
     sigaddset(&ctrl_c_sigs, SIGTERM);
 
     int rc = pthread_sigmask(SIG_BLOCK, &ctrl_c_sigs, 0);
@@ -453,12 +456,21 @@ FdsProcess::closeAllFDs()
 
 void FdsProcess::checkAndDaemonize(int argc, char *argv[]) {
     bool makeDaemon = true;
+    volatile bool gdb = false;
     for (int i = 1; i < argc; i++) {
         if (std::string(argv[i]).find("--foreground") != std::string::npos) {
             makeDaemon = false;
-            break;
+        }
+        if (std::string(argv[i]).find("--gdb") != std::string::npos) {
+            gdb = true;
         }
     }
+
+    /* When --gdb is set, wait until gdb flag is unset from inside a gdb session */
+    while (gdb) {
+        sleep(1);
+    }
+
     if (makeDaemon) {
         closeAllFDs();
         daemonize();

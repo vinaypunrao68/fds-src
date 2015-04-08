@@ -93,6 +93,11 @@ class AmProcessor_impl
     void getVolumeMetadata(AmRequest *amReq);
 
     /**
+     * Attachment request, retrieve volume descriptor
+     */
+    void attachVolume(AmRequest *amReq);
+
+    /**
      * Processes a abort blob transaction
      */
     void abortBlobTx(AmRequest *amReq);
@@ -217,8 +222,7 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
             break;
 
         case fds::FDS_ATTACH_VOL:
-            /** If we're processing this, then we must be attached. Return success */
-            respond_and_delete(amReq, ERR_OK);
+            attachVolume(amReq);
             break;
 
         case fds::FDS_IO_READ:
@@ -392,6 +396,17 @@ AmProcessor_impl::getVolumeMetadata(AmRequest *amReq) {
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchGetVolumeMetadata(amReq);
+}
+
+void
+AmProcessor_impl::attachVolume(AmRequest *amReq) {
+    // This really can not fail, we have to be attached to be here
+    auto shVol = getVolume(amReq);
+    if (!shVol) return;
+
+    boost::shared_ptr<AttachCallback> cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
+    cb->volDesc = boost::make_shared<VolumeDesc>(*shVol->voldesc);
+    respond_and_delete(amReq, ERR_OK);
 }
 
 void

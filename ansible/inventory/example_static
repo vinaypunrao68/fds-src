@@ -1,0 +1,24 @@
+### This inventory is full of made-up IPs and (likely) wrong credentials.
+##   Please be sure to update the group and groupvars headers from
+##   'example_static' to whatever you want your group to be called.
+##   After that, please update the IP range listed under your group header
+##   ([example_static] in this example) to reflect either the IPs or
+##   resolvable hostnames to which you want to deploy
+
+[example_static]
+1.2.3.[6:9]
+
+[example_static:vars]
+clean_fds=no
+ansible_ssh_user=ubuntu
+ansible_ssh_pass=ubuntu
+deploy_artifact=nightly
+fds_build=release
+fds_default_nic=eth0
+fds_om_host=1.2.3.6
+fds_metrics_enabled=false
+fds_metricsdb_ip=10.2.10.22
+fds_ssh_user=root
+fds_ssh_password=passwd
+fds_ft_common_enable_multi_om_support=false
+fds_om_host_count=3

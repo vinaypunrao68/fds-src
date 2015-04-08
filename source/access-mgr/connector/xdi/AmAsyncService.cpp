@@ -52,6 +52,7 @@ AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& c
     boost::shared_ptr<xdi_att::TSocket> sock =
         boost::dynamic_pointer_cast<xdi_att::TSocket>(connInfo.transport);
     fds_assert(sock.get());
+    LOGNORMAL << "Asynchronous Xdi connection being made from: " << sock->getPeerAddress();
     return new AmAsyncXdiRequest(amProcessor,
                                  boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress()));
 }
