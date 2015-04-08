@@ -49,10 +49,10 @@ class AmProcessor_impl
 
     void start(shutdown_cb_type&& cb);
 
-    void prepareForShutdownRespToOM(shutdown_cb_type&& cb)
+    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
         { prepareForShutdownCb = cb; }
 
-    void prepareForShutdownMsgCallCb();
+    void prepareForShutdownMsgRespCallCb();
 
     bool stop();
 
@@ -307,8 +307,8 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     }
 }
 
-void AmProcessor_impl::prepareForShutdownMsgCallCb() {
-    if(prepareForShutdownCb) {
+void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
+    if (prepareForShutdownCb) {
         prepareForShutdownCb();
         prepareForShutdownCb = NULL;
     }
@@ -793,14 +793,14 @@ AmProcessor::~AmProcessor() = default;
 void AmProcessor::start(shutdown_cb_type&& cb)
 { return _impl->start(std::move(cb)); }
 
-void AmProcessor::prepareForShutdownRespToOM(shutdown_cb_type&& cb)
+void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
 {
-    return _impl->prepareForShutdownRespToOM(std::move(cb));
+    return _impl->prepareForShutdownMsgRespBindCb(std::move(cb));
 }
 
-void AmProcessor::prepareForShutdownMsgCallCb()
+void AmProcessor::prepareForShutdownMsgRespCallCb()
 {
-    return _impl->prepareForShutdownMsgCallCb();
+    return _impl->prepareForShutdownMsgRespCallCb();
 }
 
 bool AmProcessor::stop()

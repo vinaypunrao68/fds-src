@@ -94,7 +94,7 @@ AccessMgr::run() {
     fdsnServer->stop();
     blkConnector->stop();
 
-    amProcessor->prepareForShutdownMsgCallCb();
+    amProcessor->prepareForShutdownMsgRespCallCb();
 }
 
 void

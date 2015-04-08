@@ -38,9 +38,9 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      */
     bool stop();
 
-    void prepareForShutdownRespToOM(shutdown_cb_type&& cb);
+    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb);
 
-    void prepareForShutdownMsgCallCb();
+    void prepareForShutdownMsgRespCallCb();
 
     /**
      * Enqueue a connector request

@@ -264,10 +264,14 @@ AMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
 }
 
+/**
+ * Send the response back to OM for PrepareForShutdown Message.
+ */
 void
-AMSvcHandler::PrepareForShutdownRespCb(boost::shared_ptr<fpi::AsyncHdr>  &hdr,
-                                       boost::shared_ptr<fpi::PrepareForShutdownMsg> &shutdownMsg)
+AMSvcHandler::prepareForShutdownMsgRespCb(boost::shared_ptr<fpi::AsyncHdr>  &hdr,
+                                          boost::shared_ptr<fpi::PrepareForShutdownMsg> &shutdownMsg)
 {
+     LOGNOTIFY << "Data servers stopped. Sending PrepareForShutdownMsg response back to OM";
      sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), *shutdownMsg);
 }
 
@@ -293,7 +297,15 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       */
      hdr->msg_code = err.GetErrno();
 
-     amProcessor->prepareForShutdownRespToOM(std::bind(PrepareForShutdownRespCb, this, hdr, shutdownMsg);
+    /*
+     * Bind the callback for PrepareForShutdown Message. This will be called 
+     * once the data servers are stopped.
+     */
+     amProcessor->prepareForShutdownMsgRespBindCb(std::bind(
+                                                    &AMSvcHandler::prepareForShutdownMsgRespCb,
+                                                    this,
+                                                    hdr,
+                                                    shutdownMsg));
 }
 
 }  // namespace fds
