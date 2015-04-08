@@ -40,7 +40,7 @@ class AmProcessor_impl
   public:
     AmProcessor_impl() : amDispatcher(new AmDispatcher()),
                          txMgr(new AmTxManager()),
-                         prepareForShutdownCb(NULL)
+                         prepareForShutdownCb(nullptr)
     { }
 
     AmProcessor_impl(AmProcessor_impl const&) = delete;
@@ -310,7 +310,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
 void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
     if (prepareForShutdownCb) {
         prepareForShutdownCb();
-        prepareForShutdownCb = NULL;
+        prepareForShutdownCb = nullptr;
     }
 }
 

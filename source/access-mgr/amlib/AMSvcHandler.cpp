@@ -271,8 +271,12 @@ void
 AMSvcHandler::prepareForShutdownMsgRespCb(boost::shared_ptr<fpi::AsyncHdr>  &hdr,
                                           boost::shared_ptr<fpi::PrepareForShutdownMsg> &shutdownMsg)
 {
-     LOGNOTIFY << "Data servers stopped. Sending PrepareForShutdownMsg response back to OM";
-     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), *shutdownMsg);
+    LOGNOTIFY << "Data servers stopped. Sending PrepareForShutdownMsg response back to OM";
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), *shutdownMsg);
+    /**
+     * Delete reference to the amProcessor as we are in shutdown sequence.
+     */
+    amProcessor.reset();
 }
 
 /**
