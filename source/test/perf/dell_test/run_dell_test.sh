@@ -64,7 +64,7 @@ for bs in $bsizes ; do
     nbd_disk=""
     volume_setup $bs $node volume_$bs
     echo "nbd disk: $nbd_disk"
-    if [ $nbd_disk -e "" ]; then
+    if [ $nbd_disk -eq "" ]; then
         echo "Volume setup failed"
         exit 1;
     fi
