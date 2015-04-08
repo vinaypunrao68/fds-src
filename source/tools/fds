@@ -619,7 +619,10 @@ case "${CMD}" in
         ;;
     stop) stopApp  $APP;;
     status) statusApp $APP;;
-    clean) clean ;;
+    clean)
+        stopApp "all"
+        clean
+        ;;
     clogs) cleanlogs ;;
     restart)
             stopApp $APP
