@@ -2,8 +2,8 @@
  * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_ATTACHVOLBLOBREQ_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_ATTACHVOLBLOBREQ_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_ATTACHVOLUMEREQ_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_ATTACHVOLUMEREQ_H_
 
 #include <string>
 
@@ -19,13 +19,13 @@ namespace fds
  * to call the callback and notify that the
  * attach is complete.
  */
-struct AttachVolBlobReq : public AmRequest {
+struct AttachVolumeReq : public AmRequest {
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
      * request class just expects them.
      */
-    AttachVolBlobReq(fds_volid_t        _volid,
+    AttachVolumeReq(fds_volid_t        _volid,
                      const std::string& _vol_name,
                      CallbackPtr        cb) :
         AmRequest(FDS_ATTACH_VOL, _volid, _vol_name, "", cb)
@@ -37,4 +37,4 @@ struct AttachVolBlobReq : public AmRequest {
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_ATTACHVOLBLOBREQ_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_ATTACHVOLUMEREQ_H_

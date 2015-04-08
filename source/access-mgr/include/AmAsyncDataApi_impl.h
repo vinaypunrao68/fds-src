@@ -58,7 +58,7 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
 
     auto callback = create_async_handler<AttachCallback>(std::move(closure));
 
-    AmRequest *blobReq = new AttachVolBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new AttachVolumeReq(invalid_vol_id,
                                               *volumeName,
                                               callback);
     amProcessor->enqueueRequest(blobReq);
@@ -76,7 +76,7 @@ void AmAsyncDataApi<H>::detachVolume(H& requestId,
 
     auto callback = create_async_handler<DetachCallback>(std::move(closure));
 
-    AmRequest *blobReq = new DetachVolBlobReq(invalid_vol_id, *volumeName, callback);
+    AmRequest *blobReq = new DetachVolumeReq(invalid_vol_id, *volumeName, callback);
     amProcessor->enqueueRequest(blobReq);
 }
 

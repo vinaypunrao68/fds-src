@@ -2,8 +2,8 @@
  * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_DETACHVOLBLOBREQ_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_DETACHVOLBLOBREQ_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_DETACHVOLUMEREQ_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_DETACHVOLUMEREQ_H_
 
 #include <string>
 
@@ -19,13 +19,13 @@ namespace fds
  * to call the callback and notify that the
  * detach is complete.
  */
-struct DetachVolBlobReq : public AmRequest {
+struct DetachVolumeReq : public AmRequest {
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
      * request class just expects them.
      */
-    DetachVolBlobReq(fds_volid_t        _volid,
+    DetachVolumeReq(fds_volid_t        _volid,
                      const std::string& _vol_name,
                      CallbackPtr        cb) :
         AmRequest(FDS_DETACH_VOL, _volid, _vol_name, "", cb)
@@ -37,4 +37,4 @@ struct DetachVolBlobReq : public AmRequest {
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_DETACHVOLBLOBREQ_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_DETACHVOLUMEREQ_H_
