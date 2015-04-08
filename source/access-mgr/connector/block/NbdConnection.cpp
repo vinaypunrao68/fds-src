@@ -17,8 +17,8 @@ extern "C" {
 #include <ev++.h>
 
 #include "connector/block/NbdConnection.h"
-#include "OmConfigService.h"
 #include "fds_process.h"
+#include "fds_volume.h"
 #include "fdsp/config_types_types.h"
 
 
@@ -81,6 +81,8 @@ NbdConnection::NbdConnection(int clientsd,
         : amProcessor(processor),
           nbdOps(boost::make_shared<NbdOperations>(this)),
           clientSocket(clientsd),
+          volume_size{0},
+          object_size{0},
           nbd_state(NbdProtoState::PREINIT),
           resp_needed(0u),
           handshake({ { 0x01u },  0x00ull, 0x00ull, nullptr }),
@@ -227,29 +229,14 @@ bool NbdConnection::option_request(ev::io &watcher) {
     // In case volume name is not NULL terminated.
     auto volumeName = boost::make_shared<std::string>(attach.data.begin(),
                                                  attach.data.begin() + attach.header.length);
-    apis::VolumeDescriptor volume_desc;
+    LOGNORMAL << "Attaching volume name " << *volumeName;
     if (standalone_mode) {
         object_size = 4 * Ki;
         volume_size = 1 * Gi;
+        asyncWatcher->send();
     } else {
-        // TODO(bszmyd): Sun 29 Mar 2015 10:10:27 AM PDT
-        // Probably should not be making om calls from a connector, ideally
-        // we'd attach through the processor and get back a descriptor
-        LOGNORMAL << "Will stat volume " << *volumeName;
-        OmConfigApi omConfigApi;
-        Error err = omConfigApi.statVolume(volumeName, volume_desc);
-        if (ERR_OK != err || apis::BLOCK != volume_desc.policy.volumeType) {
-            LOGERROR << "Cannot connect to volume: " << (ERR_OK == err ? ERR_INVALID : err);
-            throw NbdError::connection_closed;
-        }
-        object_size = volume_desc.policy.maxObjectSizeInBytes;
-        volume_size = __builtin_bswap64(volume_desc.policy.blockDeviceSizeInBytes);
+        nbdOps->init(volumeName, amProcessor);
     }
-
-    LOGNORMAL << "Attaching volume name " << *volumeName
-              << " of size " << volume_size
-              << " object size " << object_size;
-    nbdOps->init(volumeName, object_size, amProcessor);
 
     return true;
 }
@@ -264,6 +251,11 @@ NbdConnection::option_reply(ev::io &watcher) {
         { to_iovec(&optFlags), sizeof(optFlags)    },
         { to_iovec(zeros),     sizeof(zeros)       },
     };
+
+    // Verify we got a valid volume size from attach
+    if (0 == volume_size) {
+        throw NbdError::connection_closed;
+    }
 
     if (!response) {
         write_offset = 0;
@@ -439,7 +431,6 @@ NbdConnection::callback(ev::io &watcher, int revents) {
             case NbdProtoState::AWAITOPTS:
                 if (option_request(watcher)) {
                     nbd_state = NbdProtoState::SENDOPTS;
-                    ioWatcher->set(ev::READ | ev::WRITE);
                 }
                 break;
             case NbdProtoState::DOREQS:
@@ -515,6 +506,18 @@ NbdConnection::readWriteResp(NbdResponseVector* response) {
     readyResponses.push(response);
 
     // We have something to write, so poke the loop
+    asyncWatcher->send();
+}
+
+void
+NbdConnection::attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) {
+    if (ERR_OK == error) {
+        object_size = volDesc->maxObjSizeInBytes;
+        // capacity is in MB
+        volume_size = __builtin_bswap64(volDesc->capacity * Mi);
+        LOGNORMAL << "Attached to volume with capacity: " << volume_size
+                  << " and object size: " << object_size;
+    }
     asyncWatcher->send();
 }
 

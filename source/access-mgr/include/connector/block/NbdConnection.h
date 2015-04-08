@@ -61,6 +61,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
 
     // implementation of NbdOperationsResponseIface
     void readWriteResp(NbdResponseVector* response);
+    void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc);
 
   private:
     template<typename T>

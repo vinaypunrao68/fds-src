@@ -4,7 +4,7 @@
 # systems in the cluster, you'll have to set the hostname to an IP or something
 # that can be resolved here.
 # hostname = ""
-{% set fds_influxdb_dir = '/fds/var/db/influxdb' %}
+{% set fds_influxdb_dir = '/opt/influxdb/shared' %}
 bind-address = "{{ hostvars[inventory_hostname]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_default_nic is defined else '0.0.0.0'}}"
 
 # Once every 24 hours InfluxDB will report anonymous data to m.influxdb.com
@@ -18,7 +18,7 @@ reporting-disabled = false
 [logging]
 # logging level can be one of "fine", "debug", "info", "warn" or "error"
 level  = "info"
-file   = "/fds/var/logs/influxdb/influxdb.log"         # stdout to log to standard out, or syslog facility
+file   = "/opt/influxdb/shared/influxdb.log"         # stdout to log to standard out, or syslog facility
 
 # Configure the admin server
 [admin]
