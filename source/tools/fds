@@ -260,9 +260,16 @@ function cleanInfluxDB() {
 
     loginfo "cleaning up InfluxDB databases"
     for db in om-eventdb om-metricdb; do
-        local out=$(curl -s -X DELETE "http://localhost:8086/db/$db?u=root&p=root" > /dev/null)
+        local out=$(curl -s --write-out ":%{http_code}" -X DELETE "http://localhost:8086/db/$db?u=root&p=root")
         if [ $? != 0 ]; then
-            echo $out
+            logwarn InfluxDB Request failed: $out
+        fi
+        local msg=$(echo $out | cut -d : -f 1)
+        local httpCode=$(echo $out | cut -d : -f 2)
+        if [[ "$httpCode" -lt 200 || "$httpCode" -ge 300 ]]; then
+            # influx reported an unsuccessful error code.  Print the message output from the response.
+            # we don't currently distinguish between errors and things like redirects.
+            loginfo "InfluxDB [HTTP $httpCode]: $msg"
         fi
     done
 
