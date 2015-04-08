@@ -68,7 +68,7 @@ for bs in $bsizes ; do
         echo "Volume setup failed"
         exit 1;
     fi
-    fio --name=write --rw=write --filename=$nbd_disk --bs=$bs --numjobs=1 --iodepth=32 --ioengine=libaio --direct=1 --size=$size
+    fio --name=write --rw=write --filename=$nbd_disk --bs=128k --numjobs=4 --iodepth=32 --ioengine=libaio --direct=1 --size=$size
     for worker in $workers ; do
         for workload in $workloads ; do
                 for d in $iodepths ; do
