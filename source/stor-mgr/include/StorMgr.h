@@ -196,6 +196,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      virtual void mod_startup() override;
      virtual void mod_shutdown() override;
      virtual void mod_enable_service() override;
+     virtual void mod_disable_service() override;
 
      int run();
 

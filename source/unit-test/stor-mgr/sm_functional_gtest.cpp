@@ -386,6 +386,7 @@ SmUnitTest::shutdownAndWaitIoComplete(TestVolume::ptr volume) {
     Error err(ERR_OK);
 
     LOGNOTIFY << "Calling prepare for shutdown";
+    sm->mod_disable_service();
     sm->mod_shutdown();
     LOGNOTIFY << "SM finished handling prepare for shutdown";
 
@@ -483,6 +484,7 @@ TEST_F(SmUnitTest, prepare_for_shutdown) {
 
     // try to shutdown again, nothing should happen
     LOGNOTIFY << "Will do second prepare for shutdown msg";
+    sm->mod_disable_service();
     sm->mod_shutdown();
 }
 

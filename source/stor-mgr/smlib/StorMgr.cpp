@@ -90,11 +90,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
                                   GetLog());
     }
 
-    return 0;
-}
 
-void ObjectStorMgr::mod_startup()
-{
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
@@ -115,8 +111,19 @@ void ObjectStorMgr::mod_startup()
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
                                                           volTbl));
-    objectStore->mod_init(mod_params);
+    // objectStore->mod_init(mod_params);
 
+    static Module *smDepMods[] = {
+        objectStore.get(),
+        NULL
+    };                                                                                                                                                                            
+    mod_intern = smDepMods;
+    Module::mod_init(param);
+    return 0;
+}
+
+void ObjectStorMgr::mod_startup()
+{
     // Init token migration manager
     migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this));
 
@@ -139,6 +146,8 @@ void ObjectStorMgr::mod_startup()
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
+
+    Module::mod_startup();
 }
 
 //
@@ -232,11 +241,12 @@ void ObjectStorMgr::mod_enable_service()
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         gSvcRequestPool->setDltManager(omClient->getDltManager());
     }
+
+    Module::mod_enable_service();
 }
 
-void ObjectStorMgr::mod_shutdown()
-{
-    LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
+void ObjectStorMgr::mod_disable_service() {
+    LOGDEBUG << "Disable (shutdown) service is called on SM";
     // Setting shuttingDown will cause any IO going to the QOS queue
     // to return ERR_NOT_READY
     fds_bool_t expectShuttingDown = false;
@@ -245,13 +255,13 @@ void ObjectStorMgr::mod_shutdown()
         return;
     }
 
-    // Shutdown scavenger
+    // Stop scavenger
     SmScavengerCmd *shutdownCmd = new SmScavengerCmd();
     shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
     objectStore->scavengerControlCmd(shutdownCmd);
     LOGDEBUG << "Scavenger is now shut down.";
 
-    // Shutdown tier migration
+    // Disable tier migration
     SmTieringCmd tierCmd(SmTieringCmd::TIERING_DISABLE);
     objectStore->tieringControlCmd(&tierCmd);
 
@@ -271,10 +281,18 @@ void ObjectStorMgr::mod_shutdown()
     // once we are here, enqueue msg to qos queues will return
     // not ready error == requests will be rejected
     LOGDEBUG << "Started draining volume QoS queues...";
+}
+
+void ObjectStorMgr::mod_shutdown()
+{
+    LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
+    fds_verify(shuttingDown == true);
 
     // Now clean up the persistent layer
-    objectStore->mod_shutdown();
-    LOGDEBUG << "Persistent layer closed all token files and metadata DBs";
+    // objectStore->mod_shutdown();
+    // LOGDEBUG << "Persistent layer closed all token files and metadata DBs";
+
+    Module::mod_shutdown();
 }
 
 int ObjectStorMgr::run()
