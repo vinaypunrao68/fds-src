@@ -36,9 +36,11 @@ std::atomic_uint nextIoReqId;
 class AmProcessor_impl
 {
     using shutdown_cb_type = std::function<void(void)>;
+
   public:
     AmProcessor_impl() : amDispatcher(new AmDispatcher()),
-                         txMgr(new AmTxManager())
+                         txMgr(new AmTxManager()),
+                         prepareForShutdownCb(nullptr)
     { }
 
     AmProcessor_impl(AmProcessor_impl const&) = delete;
@@ -46,6 +48,11 @@ class AmProcessor_impl
     ~AmProcessor_impl() = default;
 
     void start(shutdown_cb_type&& cb);
+
+    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
+        { prepareForShutdownCb = cb; }
+
+    void prepareForShutdownMsgRespCallCb();
 
     bool stop();
 
@@ -82,6 +89,8 @@ class AmProcessor_impl
 
     shutdown_cb_type shutdown_cb;
     bool shut_down { false };
+
+    shutdown_cb_type prepareForShutdownCb;
 
     void processBlobReq(AmRequest *amReq);
 
@@ -299,6 +308,13 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     if (shut_down && txMgr->drained())
     {
        shutdown_cb();
+    }
+}
+
+void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
+    if (prepareForShutdownCb) {
+        prepareForShutdownCb();
+        prepareForShutdownCb = nullptr;
     }
 }
 
@@ -791,6 +807,16 @@ AmProcessor::~AmProcessor() = default;
 
 void AmProcessor::start(shutdown_cb_type&& cb)
 { return _impl->start(std::move(cb)); }
+
+void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
+{
+    return _impl->prepareForShutdownMsgRespBindCb(std::move(cb));
+}
+
+void AmProcessor::prepareForShutdownMsgRespCallCb()
+{
+    return _impl->prepareForShutdownMsgRespCallCb();
+}
 
 bool AmProcessor::stop()
 { return _impl->stop(); }
