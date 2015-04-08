@@ -65,6 +65,22 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
 }
 
 template<typename H>
+void AmAsyncDataApi<H>::detachVolume(H& requestId,
+                                     shared_string_type& domainName,
+                                     shared_string_type& volumeName) {
+    // Closure for response call
+    auto closure = [p = responseApi, volumeName](DetachCallback* cb, Error const& e) mutable -> void {
+        LOGDEBUG << "Detached volume: " << *volumeName;
+        p.reset();
+    };
+
+    auto callback = create_async_handler<DetachCallback>(std::move(closure));
+
+    AmRequest *blobReq = new DetachVolBlobReq(invalid_vol_id, *volumeName, callback);
+    amProcessor->enqueueRequest(blobReq);
+}
+
+template<typename H>
 void AmAsyncDataApi<H>::volumeStatus(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {

@@ -512,11 +512,11 @@ NbdConnection::readWriteResp(NbdResponseVector* response) {
 void
 NbdConnection::attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) {
     if (ERR_OK == error) {
-        object_size = volDesc->maxObjSizeInBytes;
         // capacity is in MB
+        LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
+                  << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
+        object_size = volDesc->maxObjSizeInBytes;
         volume_size = __builtin_bswap64(volDesc->capacity * Mi);
-        LOGNORMAL << "Attached to volume with capacity: " << volume_size
-                  << " and object size: " << object_size;
     }
     asyncWatcher->send();
 }

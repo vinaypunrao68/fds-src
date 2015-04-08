@@ -96,6 +96,7 @@ class AmProcessor_impl
      * Attachment request, retrieve volume descriptor
      */
     void attachVolume(AmRequest *amReq);
+    void detachVolume(AmRequest *amReq);
 
     /**
      * Processes a abort blob transaction
@@ -221,6 +222,10 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
             abortBlobTx(amReq);
             break;
 
+        case fds::FDS_DETACH_VOL:
+            detachVolume(amReq);
+            break;
+
         case fds::FDS_ATTACH_VOL:
             attachVolume(amReq);
             break;
@@ -329,9 +334,10 @@ AmProcessor_impl::getVolume(AmRequest* amReq, bool const allow_snapshot) {
 void
 AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
     /** First we need to open the volume for access */
-    auto cb = [this, volDesc](fds_int64_t t, Error e) mutable -> void {
+    auto cb = [this, volDesc](fds_int64_t token, Error e) mutable -> void {
         if (ERR_OK == e) {
-            this->txMgr->registerVolume(volDesc, t);
+            GLOGDEBUG << "Received volume access token: 0x" << std::hex << token;
+            this->txMgr->registerVolume(volDesc, token);
         } else {
             this->txMgr->removeVolume(volDesc);
         }
@@ -406,6 +412,16 @@ AmProcessor_impl::attachVolume(AmRequest *amReq) {
 
     boost::shared_ptr<AttachCallback> cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
     cb->volDesc = boost::make_shared<VolumeDesc>(*shVol->voldesc);
+    respond_and_delete(amReq, ERR_OK);
+}
+
+void
+AmProcessor_impl::detachVolume(AmRequest *amReq) {
+    // This really can not fail, we have to be attached to be here
+    auto shVol = getVolume(amReq);
+    if (!shVol) return;
+
+    removeVolume(*shVol->voldesc);
     respond_and_delete(amReq, ERR_OK);
 }
 

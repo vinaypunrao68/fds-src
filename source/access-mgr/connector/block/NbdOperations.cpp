@@ -455,6 +455,14 @@ NbdOperations::updateBlobResp(const Error &error,
     }
 }
 
+void
+NbdOperations::shutdown()
+{
+    handle_type reqId{0, 0};
+    amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
+    amAsyncDataApi.reset();
+}
+
 /**
  * Calculate number of objects that are contained in a request with length
  * 'length' at offset 'offset'

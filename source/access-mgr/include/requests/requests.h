@@ -4,6 +4,7 @@
 
 #include "requests/AbortBlobTxReq.h"
 #include "requests/AttachVolBlobReq.h"
+#include "requests/DetachVolBlobReq.h"
 #include "requests/CommitBlobTxReq.h"
 #include "requests/DeleteBlobReq.h"
 #include "requests/GetBlobReq.h"

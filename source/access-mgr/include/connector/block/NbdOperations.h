@@ -258,8 +258,7 @@ class NbdOperations
 
     void updateBlobResp(const resp_api_type::error_type &error, handle_type& requestId) override;
 
-    void shutdown()
-    { amAsyncDataApi.reset(); }
+    void shutdown();
 
   private:
     fds_uint32_t getObjectCount(fds_uint32_t length,
