@@ -111,7 +111,6 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
                                                           volTbl));
-    // objectStore->mod_init(mod_params);
 
     static Module *smDepMods[] = {
         objectStore.get(),
@@ -287,10 +286,6 @@ void ObjectStorMgr::mod_shutdown()
 {
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
     fds_verify(shuttingDown == true);
-
-    // Now clean up the persistent layer
-    // objectStore->mod_shutdown();
-    // LOGDEBUG << "Persistent layer closed all token files and metadata DBs";
 
     Module::mod_shutdown();
 }
