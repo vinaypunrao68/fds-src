@@ -124,6 +124,18 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error addVolume(const VolumeDesc& voldesc);
 
     /**
+     * Attempt to "open" this volume for access
+     */
+    Error openVolume(fds_volid_t const volId,
+                     fds_int64_t const token,
+                     fpi::VolumeAccessPolicy const& policy);
+
+    /**
+     * Attempt to "close" this volume from a previous open
+     */
+    Error closeVolume(fds_volid_t const volId, fds_int64_t const token);
+
+    /**
      * Create copy of the volume for snapshot/clone
      */
     Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = 0);

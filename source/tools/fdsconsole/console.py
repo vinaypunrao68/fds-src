@@ -19,6 +19,7 @@ from contexts import domain
 from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
+from contexts import QoSPolicy
 from contexts import service
 from contexts import user
 from contexts import tenant
@@ -473,6 +474,7 @@ class FDSConsole(cmd.Cmd):
         vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
         snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
+        self.root.add_sub_context(QoSPolicy.QoSPolicyContext(self.config,'qospolicy'))
 
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))
         self.root.add_sub_context(tenant.TenantContext(self.config,'tenant'))

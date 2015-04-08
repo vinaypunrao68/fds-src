@@ -65,3 +65,35 @@ class BlockVolumes(object):
                 assert 200 == r.status_code
         except Exception, e:
             self.log.exception(e)
+
+    def delete_block_volume(self, volume_name):
+        r = None
+        port = config.FDS_REST_PORT
+        try:
+            #Get the user token
+            userToken = str(utils.get_user_token("admin", "admin",
+                                                 self.om_ip_address, port, 0, 1))
+            self.log.info("userToken = %s", userToken)
+
+            #Setup for the request
+            url = "http://" + self.om_ip_address + ":" + `port` + "/api/config/volumes/%s" %volume_name
+            self.log.info("url = %s", url)
+            header = {'FDS-Auth' : userToken}
+            self.log.info("header = %s", header)
+            #create volume
+            r = requests.delete(url, headers=header)
+            if r is None:
+                raise ValueError, "r is None"
+		return False
+
+            else:
+                self.log.info("request = %s", r.request)
+                self.log.info("response = %s", r.json())
+                self.log.info("status = %s", r.status_code)
+
+                #Check return code
+                assert 200 == r.status_code
+		return True
+
+        except Exception, e:
+            self.log.exception(e)

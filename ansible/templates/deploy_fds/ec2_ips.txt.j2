@@ -1,0 +1,4 @@
+{% for hostname in groups[fds_cluster_name] %}
+{{ hostname }}{% if hostname == fds_om_host %} OM_HOST{% endif %}
+
+{% endfor %}

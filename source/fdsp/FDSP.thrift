@@ -225,14 +225,6 @@ struct FDSP_CreateDomainType {
 
 }
 
-struct FDSP_PolicyInfoType {
-  1: string                 policy_name, /* Name of the policy */
-  2: i32                    policy_id,   /* policy id */
-  3: double                 iops_min,    /* minimum (guaranteed) iops */
-  4: double                 iops_max,    /* maximum iops */
-  5: i32                    rel_prio,    /* relative priority */
-}
-
 struct FDSP_AttachVolCmdType {
   1: string		 vol_name, // Name of the volume to attach
   // double		 vol_uuid, // UUID of the volume being attached
@@ -274,7 +266,7 @@ struct FDSP_AttachVolType {
 
 struct FDSP_CreatePolicyType {
   1: string                 policy_name,  /* Name of the policy */
-  2: FDSP_PolicyInfoType 	 policy_info,  /* Policy description */
+  2: common.FDSP_PolicyInfoType 	 policy_info,  /* Policy description */
 }
 
 struct FDSP_DeletePolicyType {
@@ -285,7 +277,7 @@ struct FDSP_DeletePolicyType {
 struct FDSP_ModifyPolicyType {
   1: string                 policy_name,  /* Name of the policy */
   2: i32                    policy_id,    /* policy id */
-  3: FDSP_PolicyInfoType 	 policy_info,  /* Policy description */
+  3: common.FDSP_PolicyInfoType 	 policy_info,  /* Policy description */
 }
 
 struct FDSP_AnnounceDiskCapability {

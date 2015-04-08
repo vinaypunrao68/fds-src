@@ -1,0 +1,13 @@
+{
+	"test_sets" : {
+		"multi_am_tests" : [
+			{
+				"name" : "TestBlockVolumeLargeNumberBlobsForCornerCases",
+				"file" : "test_corner_cases_block_volume_large_number_blobs.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}
+		]
+	}
+}

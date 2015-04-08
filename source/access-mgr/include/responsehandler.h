@@ -26,6 +26,8 @@ namespace fds {
  */
 enum class HandlerType { WAITEDFOR, IMMEDIATE, QUEUED };
 
+struct VolumeDesc;
+
 /**
  * After filling the callback object , the call() method should be called.
  * Whether the call() method executes immediately / later / in a separate thread
@@ -207,7 +209,10 @@ struct GetVolumeMetadataCallback {
     boost::shared_ptr<std::map<std::string, std::string>> metadata;
 };
 
-struct AttachCallback {};
+struct AttachCallback {
+    boost::shared_ptr<VolumeDesc> volDesc;
+};
+
 struct DeleteBlobCallback {};
 struct UpdateMetadataCallback {};
 

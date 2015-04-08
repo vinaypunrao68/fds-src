@@ -112,6 +112,20 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg &openVol)
+{
+    std::ostringstream oss;
+    oss << " OpenVolumeMsg Vol Id: " << openVol.volume_id;
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg &closeVol)
+{
+    std::ostringstream oss;
+    oss << " CloseVolumeMsg Vol Id: " << closeVol.volume_id;
+    return oss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
 {
     std::ostringstream oss;
