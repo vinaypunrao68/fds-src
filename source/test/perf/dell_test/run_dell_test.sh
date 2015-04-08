@@ -62,7 +62,7 @@ workloads="randread"
 
 
 for bs in $bsizes ; do
-    nbd_disk=`volume_setup $bs $node volume_$bs`
+    nbd_disk=$(volume_setup $bs $node volume_$bs )
     fio --name=write --rw=write --filename=$nbd_disk --bs=$bs --numjobs=1 --iodepth=32 --ioengine=libaio --direct=1 --size=$size
     for worker in $workers ; do
         for workload in $workloads ; do
