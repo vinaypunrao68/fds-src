@@ -24,8 +24,6 @@ using diskio::DataTier;
 
 namespace fds {
 
-fds_bool_t  stor_mgr_stopping = false;
-
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
@@ -45,7 +43,11 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       modProvider_(modProvider),
       totalRate(6000),  // will be over-written using node capability
       qosThrds(100),  // will be over-written from config
-      qosOutNum(10)
+      qosOutNum(10),
+      volTbl(nullptr),
+      qosCtrl(nullptr),
+      omClient(nullptr),
+      shuttingDown(false)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -57,13 +59,16 @@ void ObjectStorMgr::setModProvider(CommonModuleProviderIf *modProvider) {
 
 ObjectStorMgr::~ObjectStorMgr() {
     LOGDEBUG << " Destructing  the Storage  manager";
-
-    delete qosCtrl;
-    qosCtrl = NULL;
-    LOGDEBUG << "qosCtrl destructed...";
-    delete volTbl;
-    volTbl = NULL;
-    LOGDEBUG << "volTbl destructed...";
+    if (qosCtrl) {
+        delete qosCtrl;
+        qosCtrl = nullptr;
+        LOGDEBUG << "qosCtrl destructed...";
+    }
+    if (volTbl) {
+        delete volTbl;
+        volTbl = NULL;
+        LOGDEBUG << "volTbl destructed...";
+    }
 
     objectStore.reset();
     LOGDEBUG << "Destructed Object Store";
@@ -77,7 +82,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    omClient = NULL;
+    fds_verify(omClient == nullptr);
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
         omClient = new OMgrClient(FDSP_STOR_MGR,
@@ -90,21 +95,12 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
 
 void ObjectStorMgr::mod_startup()
 {
-    // todo: clean up the code below.  It's doing too many things here.
-    // Refactor into functions or make it part of module vector
-
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
 
-    // init the checksum verification class
-    chksumPtr =  new checksum_calc();
-
     /*
-     * Create local volume table. Create after omClient
-     * is initialized, because it needs to register with the
-     * omClient. Create before register with OM because
-     * the OM vol event receivers depend on this table.
+     * Create local volume table.
      */
     volTbl = new StorMgrVolumeTable(this, GetLog());
 
@@ -243,8 +239,11 @@ void ObjectStorMgr::mod_shutdown()
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
     // Setting shuttingDown will cause any IO going to the QOS queue
     // to return ERR_NOT_READY
-    LOGDEBUG << " Destructing  the Storage  manager";
-    shuttingDown = true;
+    fds_bool_t expectShuttingDown = false;
+    if (!shuttingDown.compare_exchange_strong(expectShuttingDown, true)) {
+        LOGNOTIFY << "SM already started shutting down, nothing to do";
+        return;
+    }
 
     // Shutdown scavenger
     SmScavengerCmd *shutdownCmd = new SmScavengerCmd();

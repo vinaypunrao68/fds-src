@@ -204,8 +204,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      /// Enables uturn testing for put object ops
      fds_bool_t testUturnPutObj;
 
-     checksum_calc   *chksumPtr;
-
      fds_bool_t isShuttingDown() const {
          return shuttingDown;
      }

@@ -225,7 +225,7 @@ SmUnitTest::putSmCb(const Error &err,
                     SmIoPutObjectReq* putReq)
 {
     fds_volid_t volId = putReq->getVolId();
-    fds_verify(volId == 98);
+    ASSERT_EQ(volId, 98);
     fds_uint32_t dispatched = atomic_fetch_sub(&(volume1->dispatched_count), (fds_uint32_t)1);
     if (dispatched <= 1) {
         done_cond.notify_all();
@@ -242,7 +242,7 @@ SmUnitTest::getSmCb(const Error &err,
                     SmIoGetObjectReq *getReq)
 {
     fds_volid_t volId = getReq->getVolId();
-    EXPECT_EQ(volId, 98);
+    ASSERT_EQ(volId, 98);
     TestVolume::ptr vol = volume1;
 
     // validate data
@@ -480,6 +480,10 @@ TEST_F(SmUnitTest, prepare_for_shutdown) {
     // back to original test state
     expectedGetError = ERR_OK;
     expectedPutError = ERR_OK;
+
+    // try to shutdown again, nothing should happen
+    LOGNOTIFY << "Will do second prepare for shutdown msg";
+    sm->mod_shutdown();
 }
 
 }  // namespace fds
