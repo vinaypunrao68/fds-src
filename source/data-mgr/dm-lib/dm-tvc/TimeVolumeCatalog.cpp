@@ -48,7 +48,10 @@ namespace fds {
  * Not thread-safe, needs mutual exclusion at point of access
  */
 struct DmVolumeAccessTable {
-    DmVolumeAccessTable() = default;
+    explicit DmVolumeAccessTable(fds_volid_t const vol_uuid)
+        : access_map(),
+          random_generator(vol_uuid)
+    {}
     DmVolumeAccessTable(DmVolumeAccessTable const&) = delete;
     DmVolumeAccessTable& operator=(DmVolumeAccessTable const&) = delete;
     ~DmVolumeAccessTable() = default;
@@ -172,7 +175,7 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         std::unique_lock<std::mutex> lk(accessTableLock_);
         auto it = accessTable_.find(volId);
         if (accessTable_.end() == it) {
-            auto table = new DmVolumeAccessTable();
+            auto table = new DmVolumeAccessTable(volId);
             table->getToken(token, policy);
             accessTable_[volId].reset(table);
         } else {
