@@ -13,8 +13,7 @@ function volume_setup {
     ./fdsconsole.py volume modify $vol --minimum 0 --maximum 0 --priority 1 
     popd
     sleep 10
-    disk=`../../../cinder/nbdadm.py attach $node $vol`
-    echo $disk
+    nbd_disk=`../../../cinder/nbdadm.py attach $node $vol`
 }
 
 function volume_detach {
@@ -62,7 +61,13 @@ workloads="randread"
 
 
 for bs in $bsizes ; do
-    nbd_disk=$(volume_setup $bs $node volume_$bs )
+    nbd_disk=""
+    volume_setup $bs $node volume_$bs
+    echo "nbd disk: $nbd_disk"
+    if [ $nbd_disk -e "" ]; then
+        echo "Volume setup failed"
+        exit 1;
+    fi
     fio --name=write --rw=write --filename=$nbd_disk --bs=$bs --numjobs=1 --iodepth=32 --ioengine=libaio --direct=1 --size=$size
     for worker in $workers ; do
         for workload in $workloads ; do
