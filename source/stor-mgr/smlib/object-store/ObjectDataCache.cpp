@@ -35,6 +35,7 @@ ObjectDataCache::mod_init(SysParams const *const p) {
  */
 void
 ObjectDataCache::mod_startup() {
+    Module::mod_startup();
 }
 
 /**
@@ -42,6 +43,7 @@ ObjectDataCache::mod_startup() {
  */
 void
 ObjectDataCache::mod_shutdown() {
+    Module::mod_shutdown();
 }
 
 void

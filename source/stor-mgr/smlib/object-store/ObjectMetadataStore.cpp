@@ -16,6 +16,7 @@ ObjectMetadataStore::ObjectMetadataStore(const std::string& modName)
 
 ObjectMetadataStore::~ObjectMetadataStore() {
     metaDb_.reset();
+    metaCache.reset();
 }
 
 int
@@ -33,10 +34,14 @@ ObjectMetadataStore::mod_init(SysParams const *const param) {
 
 void
 ObjectMetadataStore::mod_startup() {
+    Module::mod_startup();
 }
 
 void
 ObjectMetadataStore::mod_shutdown() {
+    metaDb_->closeMetadataDb();
+    Module::mod_shutdown();
+    LOGDEBUG << "Done.";
 }
 
 void
@@ -123,7 +128,7 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
     leveldb::DB *db;
     leveldb::ReadOptions options;
 
-    metaDb_->snapshot(smTokId, db, options);
+    err = metaDb_->snapshot(smTokId, db, options);
     notifFn(err, snapReq, options, db);
 }
 

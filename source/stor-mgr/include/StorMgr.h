@@ -324,6 +324,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      }
 
      friend class SmLoadProc;
+     friend class SmUnitTest;
      friend class SMSvcHandler;
 
   private:
@@ -332,6 +333,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                  FDSP_NotifyVolFlag vol_flag,
                                  FDSP_ResultType resut);
 
+     // for standalone test
+     DLT* standaloneTestDlt;
+     void setTestDlt(DLT* dlt) {
+         standaloneTestDlt = dlt;
+     }
 };
 
 }  // namespace fds

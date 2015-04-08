@@ -36,6 +36,7 @@ ObjectMetaCache::mod_init(SysParams const *const p) {
  */
 void
 ObjectMetaCache::mod_startup() {
+    Module::mod_startup();
 }
 
 /**
@@ -43,6 +44,7 @@ ObjectMetaCache::mod_startup() {
  */
 void
 ObjectMetaCache::mod_shutdown() {
+    Module::mod_shutdown();
 }
 
 void
