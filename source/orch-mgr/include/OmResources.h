@@ -146,6 +146,9 @@ class OM_NodeAgent : public NodeAgent
                                          fds_bool_t bAll);
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
     virtual Error om_send_shutdown();
+    void om_send_shutdown_resp(EPSvcRequest* req,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload);
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
@@ -487,7 +490,7 @@ class OM_NodeContainer : public DomainContainer
                                       fds_bool_t to_am = true);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
     virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
-    virtual void om_bcast_shutdown_msg();
+    virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 
     /**
@@ -633,6 +636,20 @@ class ShutdownEvt
     }
 };
 
+struct ShutAckEvt
+{
+    ShutAckEvt(fpi::FDSP_MgrIdType type,
+               const Error& err) {
+        svc_type = type;
+        error = err;
+    }
+    std::string logString() const {
+        return "ShutAckEvt";
+    }
+
+    fpi::FDSP_MgrIdType svc_type;
+    Error error;  // error that came with ack
+};
 
 class OM_NodeDomainMod : public Module
 {
@@ -835,6 +852,7 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(TimeoutEvt const &evt);
     void local_domain_event(NoPersistEvt const &evt);
     void local_domain_event(ShutdownEvt const &evt);
+    void local_domain_event(ShutAckEvt const &evt);
 
   protected:
     void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
