@@ -692,7 +692,7 @@ OM_NodeAgent::om_send_shutdown_resp(EPSvcRequest* req,
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " " << error;
 
-    // TODO(Anna) notify domain state machine
+    // Notify domain state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->local_domain_event(ShutAckEvt(node_svc_type, error));
 }
