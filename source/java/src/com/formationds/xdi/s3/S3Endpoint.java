@@ -54,7 +54,7 @@ public class S3Endpoint {
                 (t) -> new MultiPartListParts(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.GET, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, new AsyncGetObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
+                executeAsync(ctx, new AsyncGetObject(xdi)));
 
         syncRoute(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi, t));
 

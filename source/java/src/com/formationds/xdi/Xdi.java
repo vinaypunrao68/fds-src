@@ -159,12 +159,29 @@ public class Xdi {
     }
 
     public CompletableFuture<BlobInfo> getBlobInfo(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
-        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
-        return factory.get().getBlobInfo(domainName, volumeName, blobName);
+        CompletableFuture<BlobInfo> cf = new CompletableFuture<>();
+
+        factory.get().getBlobInfo(domainName, volumeName, blobName)
+                .handle((bi, t) -> {
+                    if (t != null) {
+                        cf.completeExceptionally(t);
+                    } else {
+                        if (!authorizer.hasBlobPermission(token, volumeName, Intent.read, bi.getBlobDescriptor().getMetadata())) {
+                            cf.completeExceptionally(new SecurityException());
+                        } else {
+                            cf.complete(bi);
+                        }
+                    }
+                    return 0;
+                });
+
+        return cf;
     }
 
-    public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, BlobInfo blobInfo, OutputStream out, long offset, long length) throws Exception {
-        attemptBlobAccess(token, blobInfo.getDomain(), blobInfo.getVolume(), blobInfo.getBlob(), Intent.read);
+    public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, BlobInfo blobInfo, OutputStream out, long offset, long length) {
+        if (!authorizer.hasBlobPermission(token, blobInfo.getVolume(), Intent.read, blobInfo.getBlobDescriptor().getMetadata())) {
+            return CompletableFutureUtility.exceptionFuture(new SecurityException());
+        }
         return factory.get().readToOutputStream(blobInfo, out, offset, length);
     }
 
