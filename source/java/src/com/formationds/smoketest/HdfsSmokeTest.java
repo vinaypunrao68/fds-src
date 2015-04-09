@@ -228,6 +228,17 @@ public class HdfsSmokeTest {
     }
 
     @Test
+    public void testRenameRecursive() throws Exception {
+        fileSystem.mkdirs(new Path("/foo/bar"), FsPermission.getDefault());
+        byte[] data = new byte[]{1, 2, 4, 5};
+        createWithContent(new Path("/foo/bar/hello"), data);
+        assertTrue(fileSystem.exists(new Path("/foo/bar/hello")));
+        fileSystem.rename(new Path("/foo"), new Path("/panda"));
+        assertTrue(fileSystem.exists(new Path("/panda/bar/hello")));
+        assertFalse(fileSystem.exists(new Path("/foo/bar/hello")));
+    }
+
+    @Test
     public void testInputStream() throws Exception {
         byte[] contents = new byte[]{-1, -2, -114, -65};
         Path p = new Path("/panda");

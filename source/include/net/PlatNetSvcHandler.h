@@ -96,10 +96,6 @@ class PlatNetSvcHandler : public HasModuleProvider,
     void asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
 
-    void uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMsg& msg) override;
-    void uuidBind(fpi::AsyncHdr &_return,
-                          boost::shared_ptr<fpi::UuidBindMsg>& msg) override;
-
     static void asyncRespHandler(SvcRequestTracker* reqTracker,
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload);

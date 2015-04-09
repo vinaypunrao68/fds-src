@@ -89,12 +89,12 @@ AccessMgr::run() {
     std::unique_lock<std::mutex> lk {stop_lock};
     stop_signal.wait(lk, [this]() { return this->shutting_down; });
 
+    amProcessor->prepareForShutdownMsgRespCallCb();
+
     LOGDEBUG << "Processing layer has shutdown, stop external services.";
     asyncServer->stop();
     fdsnServer->stop();
     blkConnector->stop();
-
-    amProcessor->prepareForShutdownMsgRespCallCb();
 }
 
 void
