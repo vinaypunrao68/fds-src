@@ -10,7 +10,6 @@ import shlex
 import pipes
 from argparse import ArgumentParser
 import pkgutil
-from fds.services import rest_helper
 from services.fds_auth import FdsAuth
 
 class FDSShell( cmd.Cmd ):
@@ -140,15 +139,13 @@ if __name__ == '__main__':
 #         print 'It\'s true.'
 #     else:
 #         print 'It\'s not true.'
-
-    token = FdsAuth().login()
+    auth = FdsAuth()
+    token = auth.login()
     
     #login failures will return empty tokens
     if ( token == None ):
         print 'Authentication failed.'
         sys.exit( 1 )
     
-    rh = rest_helper.RESTHelper( token )
-    
-    shell = FDSShell(rh, cmdargs)
+    shell = FDSShell(auth, cmdargs)
     shell.run( cmdargs ) 

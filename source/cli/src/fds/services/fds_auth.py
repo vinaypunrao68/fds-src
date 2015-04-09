@@ -56,10 +56,16 @@ class FdsAuth():
             
         return self.__port
     
+    def get_token(self):
+        return self.__token
+    
     def login(self):
     
         try:
             payload = { "login" : self.get_username(), "password" : self.get_password() }
+            
+            #get rid of the password immediately after its used
+            self.__password = ""
             response = requests.post( 'http://' + self.get_hostname() + ':' + str(self.get_port()) + '/api/auth/token', params=payload )
             response = response.json()
         

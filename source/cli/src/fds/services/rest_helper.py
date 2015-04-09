@@ -8,12 +8,11 @@ import response_writer
 
 class RESTHelper():
     
-    def __init__(self, token):
-        self.__token = token
+    def __init__(self):
         return
     
-    def getHeaders(self):
-        return { "FDS-Auth" : self.__token }   
+    def buildHeader(self, session):
+        return { "FDS-Auth" : session.get_token() }   
         
     def defaultSuccess(self, response):
         response_writer.ResponseWriter.writeTabularData( response )
@@ -28,11 +27,11 @@ class RESTHelper():
 #         self.__token = response['token']
 #         successCallback()
             
-    def post(self, url, data, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
+    def post(self, session, url, data, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         return ''
     
-    def get(self, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
+    def get(self, session, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         
-        response = requests.get( url, params=params, headers=self.getHeaders() )
+        response = requests.get( url, params=params, headers=self.buildHeader( session ) )
         rj = response.json()
         return rj
