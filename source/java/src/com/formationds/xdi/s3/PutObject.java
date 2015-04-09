@@ -86,7 +86,7 @@ public class PutObject implements SyncRequestHandler {
 
         String copySourceBucket = copySourceParts[0];
         String copySourceObject = copySourceParts[1];
-        BlobDescriptor copySourceStat = xdi.statBlob(token, S3Endpoint.FDS_S3, copySourceBucket, copySourceObject);
+        BlobDescriptor copySourceStat = xdi.statBlob(token, S3Endpoint.FDS_S3, copySourceBucket, copySourceObject).get();
 
         String metadataDirective = context.getRequestHeader("x-amz-metadata-directive");
         if(metadataDirective != null && metadataDirective.equals("COPY")) {

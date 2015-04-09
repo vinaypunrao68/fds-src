@@ -112,20 +112,22 @@ public class Xdi {
         return asyncAm.volumeContents(domainName, volumeName, count, offset, pattern, orderBy, descending);
     }
 
-    public BlobDescriptor statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
+    public CompletableFuture<BlobDescriptor> statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
         return attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
     }
 
-    private BlobDescriptor attemptBlobAccess(AuthenticationToken token, String domainName, String volumeName, String blobName, Intent intent) throws TException {
-        Map<String, String> metadata = new HashMap<>();
+    private CompletableFuture<BlobDescriptor> attemptBlobAccess(AuthenticationToken token, String domainName, String volumeName, String blobName, Intent intent) throws TException {
+        CompletableFuture<BlobDescriptor> cf = new CompletableFuture<>();
 
-        BlobDescriptor blobDescriptor = am.statBlob(domainName, volumeName, blobName);
-        metadata.putAll(blobDescriptor.getMetadata());
-
-        if (!authorizer.hasBlobPermission(token, volumeName, intent, metadata)) {
-            throw new SecurityException();
-        }
-        return blobDescriptor;
+        asyncAm.statBlob(domainName, volumeName, blobName)
+                .thenAccept(bd -> {
+                    if (!authorizer.hasBlobPermission(token, volumeName, intent, bd.getMetadata())) {
+                        cf.completeExceptionally(new SecurityException());
+                    } else {
+                        cf.complete(bd);
+                    }
+                });
+        return cf;
     }
 
     public CompletableFuture<BlobInfo> getBlobInfo(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {

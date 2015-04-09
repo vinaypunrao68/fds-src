@@ -41,7 +41,7 @@ public class GetObject implements RequestHandler {
         String object = requiredString(routeParameters, "object");
 
         ArrayList<Range> ranges = parseRanges(request.getHeader("Range"));
-        BlobDescriptor stat = xdi.statBlob(token, domain, volume, object);
+        BlobDescriptor stat = xdi.statBlob(token, domain, volume, object).get();
 
         // FIXME: add Accept-Ranges header
         // FIXME: add actual value for Last-Modified header
