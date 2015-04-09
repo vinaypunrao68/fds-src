@@ -127,6 +127,8 @@ public class FdsFileSystem extends FileSystem {
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
                 mkDirBlob(root);
+            } else {
+            	throw new IOException(e);
             }
         } catch (Exception e) {
             throw new IOException(e);

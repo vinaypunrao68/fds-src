@@ -106,6 +106,28 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 iter->second->vol_desc : 0);
     }
 
+    ///
+    /// Check if a given volume is active.
+    ///
+    /// @param volumeId The ID of the volume to check.
+    ///
+    /// @return ERR_OK if the volume is active. ERR_VOL_NOT_FOUND if @p volumeId is not in the
+    ///         volume map. ERR_DM_VOL_NOT_ACTIVATED if the volume exists but is not active.
+    ///
+    Error validateVolumeIsActive(fds_volid_t const volumeId) const {
+        auto volumeDesc = getVolumeDesc(volumeId);
+        if (!volumeDesc) {
+            return ERR_VOL_NOT_FOUND;
+        }
+
+        if (volumeDesc->state != Active)
+        {
+            return ERR_DM_VOL_NOT_ACTIVATED;
+        }
+
+        return ERR_OK;
+    }
+
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
     typedef enum {
