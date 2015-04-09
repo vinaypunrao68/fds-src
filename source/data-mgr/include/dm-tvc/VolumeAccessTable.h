@@ -5,11 +5,14 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_TVC_VOLUMEACCESSTABLE_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_TVC_VOLUMEACCESSTABLE_H_
 
+#include <mutex>
 #include <random>
 #include <unordered_map>
+#include <utility>
+
+#include "fdsp/common_types.h"
 
 #include "shared/fds_types.h"
-#include "fdsp/common_types.h"
 #include "fds_volume.h"
 
 namespace fpi = FDS_ProtocolInterface;
@@ -17,17 +20,14 @@ namespace fpi = FDS_ProtocolInterface;
 namespace fds
 {
 
+struct FdsTimer;
+struct FdsTimerTask;
+
 /**
  * Structure used by the TvC to prevent multi-access to a volume.
- *
- * NOTE(bszmyd): Tue 07 Apr 2015 02:41:14 AM PDT
- * Not thread-safe, needs mutual exclusion at point of access
  */
 struct DmVolumeAccessTable {
-    explicit DmVolumeAccessTable(fds_volid_t const vol_uuid)
-        : access_map(),
-          random_generator(vol_uuid)
-    {}
+    explicit DmVolumeAccessTable(fds_volid_t const vol_uuid);
     DmVolumeAccessTable(DmVolumeAccessTable const&) = delete;
     DmVolumeAccessTable& operator=(DmVolumeAccessTable const&) = delete;
     ~DmVolumeAccessTable() = default;
@@ -43,11 +43,18 @@ struct DmVolumeAccessTable {
     void removeToken(fds_int64_t const token);
 
   private:
-    std::unordered_map<fds_int64_t, fpi::VolumeAccessPolicy> access_map;
+    using map_value_type = std::pair<fpi::VolumeAccessPolicy, boost::shared_ptr<FdsTimerTask>>;
+    std::unordered_map<fds_int64_t, map_value_type> access_map;
     std::mt19937_64 random_generator;
 
     bool write_locked { false };
     bool read_locked { false };
+    std::mutex lock;
+
+    /**
+     * A timer to expire tokens
+     */
+    std::unique_ptr<FdsTimer> timer;
 };
 }  // namespace fds
 

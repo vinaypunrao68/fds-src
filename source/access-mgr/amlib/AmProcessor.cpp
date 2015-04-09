@@ -360,6 +360,7 @@ AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
             GLOGDEBUG << "Received volume access token: 0x" << std::hex << token;
             this->txMgr->registerVolume(volDesc, token);
         } else {
+            LOGNOTIFY << "Failed to open volume, error: " << e;
             this->txMgr->removeVolume(volDesc);
         }
     };
