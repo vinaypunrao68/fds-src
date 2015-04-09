@@ -2,22 +2,15 @@
 	"test_sets" : {
 		"multi_am_tests" : [
 			{
-				"name" : "TestDifferentBlobSizes",
-				"file" : "test_different_blob_sizes.py",
+				"name" : "TestCreateThreehundredObjectVolumes",
+				"file" : "Test300VolsObj.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
 			},
 			{
-				"name" : "TestCreateMultivolume",
-				"file" : "test_create_multivolume.py",
-				"arguments" : [],
-				"depends" : [],
-				"config" : ""
-			},
-			{
-				"name" : "TestMultiConnToMultiVolume",
-				"file" : "test_multiconn_to_multivolumes.py",
+				"name" : "TestCreateThreehundredBlockVolumes",
+				"file" : "test300VolsBlock.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
@@ -25,6 +18,20 @@
 			{
 				"name" : "TestMultiConnections",
 				"file" : "test_multiconnections.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestMixedBlocks",
+				"file" : "test_mixed_blocks.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			},
+			{
+				"name" : "TestMaxNumberBlockVolumes",
+				"file" : "test_max_number_block_volumes.py",
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
