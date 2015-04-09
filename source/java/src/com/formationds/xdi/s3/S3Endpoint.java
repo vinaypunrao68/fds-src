@@ -19,6 +19,7 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import javax.crypto.SecretKey;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -100,8 +101,15 @@ public class S3Endpoint {
         webApp.start();
     }
 
-    private CompletableFuture<Void> executeAsync(HttpContext ctx, Function<HttpContext, CompletableFuture<Void>> function) {
-        CompletableFuture<Void> cf = function.apply(ctx);
+    private CompletableFuture<Void> executeAsync(HttpContext ctx, BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> function) {
+        CompletableFuture<Void> cf = null;
+        try {
+            AuthenticationToken token = new S3Authenticator(xdi.getAuthorizer(), secretKey).authenticate(ctx);
+            cf = function.apply(ctx, token);
+        } catch (Exception e) {
+            cf.completeExceptionally(e);
+        }
+
         return cf.exceptionally(e -> {
             String requestUri = ctx.getRequestURI();
             Resource resource = new TextResource("");

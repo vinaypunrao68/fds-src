@@ -11,9 +11,9 @@ import org.eclipse.jetty.http.HttpStatus;
 import java.io.OutputStream;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
-public class AsyncGetObject implements Function<HttpContext, CompletableFuture<Void>> {
+public class AsyncGetObject implements BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> {
     private AsyncStreamer asyncStreamer;
     private S3Authenticator authenticator;
     private XdiAuthorizer authorizer;
@@ -25,7 +25,7 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
     }
 
     @Override
-    public CompletableFuture<Void> apply(HttpContext ctx) {
+    public CompletableFuture<Void> apply(HttpContext ctx, AuthenticationToken token) {
         String bucket = ctx.getRouteParameters().get("bucket");
         String object = ctx.getRouteParameters().get("object");
 

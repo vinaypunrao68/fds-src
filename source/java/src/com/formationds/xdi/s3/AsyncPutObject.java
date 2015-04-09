@@ -13,9 +13,9 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
-public class AsyncPutObject implements Function<HttpContext, CompletableFuture<Void>> {
+public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> {
     private AsyncStreamer asyncStreamer;
     private XdiAuthorizer authorizer;
     private S3Authenticator authenticator;
@@ -30,7 +30,8 @@ public class AsyncPutObject implements Function<HttpContext, CompletableFuture<V
         return "\"" + input + "\"";
     }
 
-    public CompletableFuture<Void> apply(HttpContext ctx) {
+    @Override
+    public CompletableFuture<Void> apply(HttpContext ctx, AuthenticationToken token) {
         String bucket = ctx.getRouteParameters().get("bucket");
         String object = ctx.getRouteParameters().get("object");
 
