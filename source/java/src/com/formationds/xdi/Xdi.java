@@ -15,6 +15,7 @@ import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
+import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.security.Intent;
 import com.formationds.xdi.security.XdiAuthorizer;
@@ -23,10 +24,7 @@ import org.apache.thrift.TException;
 import javax.security.auth.login.LoginException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -113,19 +111,49 @@ public class Xdi {
     }
 
     public CompletableFuture<BlobDescriptor> statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
-        return attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
-    }
-
-    private CompletableFuture<BlobDescriptor> attemptBlobAccess(AuthenticationToken token, String domainName, String volumeName, String blobName, Intent intent) throws TException {
         CompletableFuture<BlobDescriptor> cf = new CompletableFuture<>();
 
+        attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read)
+                .handle((obd, t) -> {
+                    if (t != null) {
+                        cf.completeExceptionally(t);
+                    }
+
+                    if (obd.isPresent()) {
+                        cf.complete(obd.get());
+                    } else {
+                        cf.completeExceptionally(new ApiException("Missing resource", ErrorCode.MISSING_RESOURCE));
+                    }
+                    return 0;
+                });
+
+        return cf;
+    }
+
+    /**
+     * Attempt accessing this blob, optionally returning the corresponding blob descriptor if it exists.
+     */
+    private CompletableFuture<Optional<BlobDescriptor>> attemptBlobAccess(AuthenticationToken token, String domainName, String volumeName, String blobName, Intent intent) throws TException {
+        CompletableFuture<Optional<BlobDescriptor>> cf = new CompletableFuture<>();
+
         asyncAm.statBlob(domainName, volumeName, blobName)
-                .thenAccept(bd -> {
-                    if (!authorizer.hasBlobPermission(token, volumeName, intent, bd.getMetadata())) {
+                .handle((bd, t) -> {
+                    Map<String, String> metadata = new HashMap<>();
+
+                    if (bd != null) {
+                        metadata = bd.getMetadata();
+                    }
+
+                    if (!authorizer.hasBlobPermission(token, volumeName, intent, metadata)) {
                         cf.completeExceptionally(new SecurityException());
                     } else {
-                        cf.complete(bd);
+                        if (bd == null) {
+                            cf.complete(Optional.<BlobDescriptor>empty());
+                        } else {
+                            cf.complete(Optional.of(bd));
+                        }
                     }
+                    return 0;
                 });
         return cf;
     }
@@ -149,9 +177,13 @@ public class Xdi {
         return factory.get().openForWriting(domainName, volumeName, blobName, metadata);
     }
 
-    public CompletableFuture<AsyncStreamer.PutResult> put(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
-        attemptVolumeAccess(token, volumeName, Intent.readWrite);
-        return factory.get().putBlobFromStream(domainName, volumeName, blobName, metadata, in);
+    public CompletableFuture<AsyncStreamer.PutResult> put(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) {
+        try {
+            return attemptBlobAccess(token, domainName, volumeName, blobName, Intent.readWrite)
+                    .thenCompose(bd -> factory.get().putBlobFromStream(domainName, volumeName, blobName, metadata, in));
+        } catch (TException e) {
+            return CompletableFutureUtility.exceptionFuture(e);
+        }
     }
 
     public CompletableFuture<Void> deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {

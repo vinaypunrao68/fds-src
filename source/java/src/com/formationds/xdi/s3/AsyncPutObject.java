@@ -3,9 +3,7 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.async.CompletableFutureUtility;
-import com.formationds.xdi.AsyncStreamer;
-import com.formationds.xdi.security.Intent;
-import com.formationds.xdi.security.XdiAuthorizer;
+import com.formationds.xdi.Xdi;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.http.HttpStatus;
 
@@ -16,14 +14,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> {
-    private AsyncStreamer asyncStreamer;
-    private XdiAuthorizer authorizer;
-    private S3Authenticator authenticator;
 
-    public AsyncPutObject(AsyncStreamer asyncStreamer, S3Authenticator authenticator, XdiAuthorizer authorizer) {
-        this.asyncStreamer = asyncStreamer;
-        this.authenticator = authenticator;
-        this.authorizer = authorizer;
+    private Xdi xdi;
+
+    public AsyncPutObject(Xdi xdi) {
+        this.xdi = xdi;
     }
 
     public static String formatEtag(String input) {
@@ -40,9 +35,11 @@ public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationTok
             ctx.setResponseStatus(HttpStatus.OK_200);
 
             InputStream inputStream = ctx.getInputStream();
-            return filterAccess(ctx, bucket, object)
+            return xdi.statBlob(token, S3Endpoint.FDS_S3, bucket, object)
+                    .thenApply(bd -> bd.getMetadata())
+                    .exceptionally(e -> new HashMap<>())
                     .thenApply(metadata -> updateMetadata(ctx, metadata))
-                    .thenCompose(metadata -> asyncStreamer.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, inputStream))
+                    .thenCompose(metadata -> xdi.put(token, S3Endpoint.FDS_S3, bucket, object, inputStream, metadata))
                     .thenAccept(result -> {
                         String etagValue = formatEtag(Hex.encodeHexString(result.digest));
                         ctx.addResponseHeader("ETag", etagValue);
@@ -58,24 +55,4 @@ public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationTok
         metadata.putAll(S3UserMetadataUtility.requestUserMetadata(context));
         return metadata;
     }
-
-
-    private CompletableFuture<Map<String, String>> filterAccess(HttpContext context, String bucket, String key) {
-        return asyncStreamer.statBlob(S3Endpoint.FDS_S3, bucket, key)
-                .thenApply(bd -> bd.getMetadata())
-                .exceptionally(t -> new HashMap<>()) // This blob might not exist, so we use empty metadata as a filter
-                .thenCompose(metadata -> {
-                    CompletableFuture<Map<String, String>> cf = new CompletableFuture<Map<String, String>>();
-                    AuthenticationToken token = authenticator.authenticate(context);
-
-                    if (authorizer.hasBlobPermission(token, bucket, Intent.readWrite, metadata)) {
-                        cf.complete(metadata);
-                    } else {
-                        cf.completeExceptionally(new SecurityException());
-                    }
-
-                    return cf;
-                });
-    }
-
 }

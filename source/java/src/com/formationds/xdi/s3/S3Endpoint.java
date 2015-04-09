@@ -82,7 +82,7 @@ public class S3Endpoint {
                 (t) -> new PutObjectAcl(xdi, t));
 
         webApp.route(new HttpPath(HttpMethod.PUT, "/:bucket/:object"), ctx ->
-                executeAsync(ctx, new AsyncPutObject(xdiAsync.get(), authenticator, xdi.getAuthorizer())));
+                executeAsync(ctx, new AsyncPutObject(xdi)));
 
         syncRoute(new HttpPath(HttpMethod.POST, "/:bucket/:object")
                 .withUrlParam("delete"), (t) -> new DeleteMultipleObjects(xdi, t));
