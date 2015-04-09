@@ -25,6 +25,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -260,32 +261,36 @@ public class S3SmokeTest {
     public void testMultipartUpload() throws Exception {
         String key = UUID.randomUUID()
                 .toString();
-        InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
 
+        uploadMultipart(userClient, userBucket, key);
+    }
+
+    private void uploadMultipart(AmazonS3Client client, String bucket, String blobName) throws NoSuchAlgorithmException {
         int partCount = 5;
+        InitiateMultipartUploadResult initiateResult = client.initiateMultipartUpload(new InitiateMultipartUploadRequest(bucket, blobName));
 
         MessageDigest md5 = MessageDigest.getInstance("MD5");
         List<PartETag> etags = IntStream.range(0, partCount)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
                     UploadPartRequest request = new UploadPartRequest()
-                            .withBucketName(userBucket)
-                            .withKey(key)
+                            .withBucketName(bucket)
+                            .withKey(blobName)
                             .withInputStream(new ByteArrayInputStream(randomBytes))
                             .withPartNumber(i)
                             .withUploadId(initiateResult.getUploadId())
                             .withPartSize(randomBytes.length);
                     md5.update(randomBytes);
-                    UploadPartResult uploadPartResult = userClient.uploadPart(request);
+                    UploadPartResult uploadPartResult = client.uploadPart(request);
                     return uploadPartResult.getPartETag();
                 })
                 .collect(Collectors.toList());
 
-        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(userBucket, key, initiateResult.getUploadId(), etags);
-        CompleteMultipartUploadResult result = userClient.completeMultipartUpload(completeRequest);
+        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(bucket, blobName, initiateResult.getUploadId(), etags);
+        CompleteMultipartUploadResult result = client.completeMultipartUpload(completeRequest);
         byte[] digest = md5.digest();
         assertEquals(result.getETag(), Hex.encodeHexString(digest));
-        ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
+        ObjectMetadata objectMetadata = client.getObjectMetadata(bucket, blobName);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }
 
@@ -366,13 +371,13 @@ public class S3SmokeTest {
         IntStream.range(from, to)
                 .map(new ConsoleProgress("Putting objects into volume", count))
                 .forEach(i -> {
-                        ObjectMetadata objectMetadata = new ObjectMetadata();
-                        Map<String, String> customMetadata = new HashMap<String, String>();
-                        String key = prefix + "-" + i;
-                        customMetadata.put(CUSTOM_METADATA_HEADER, key);
-                        objectMetadata.setUserMetadata(customMetadata);
-                        last[0] = userClient.putObject(volumeName, key, new ByteArrayInputStream(data), objectMetadata);
-                    });
+                    ObjectMetadata objectMetadata = new ObjectMetadata();
+                    Map<String, String> customMetadata = new HashMap<String, String>();
+                    String key = prefix + "-" + i;
+                    customMetadata.put(CUSTOM_METADATA_HEADER, key);
+                    objectMetadata.setUserMetadata(customMetadata);
+                    last[0] = userClient.putObject(volumeName, key, new ByteArrayInputStream(data), objectMetadata);
+                });
     }
 
     private void putGetOneObject(int byteCount) throws Exception {
@@ -463,6 +468,8 @@ public class S3SmokeTest {
         userClient.putObject(adminBucket, key, new ByteArrayInputStream(bytes), new ObjectMetadata());
         S3Object object = userClient.getObject(adminBucket, key);
         assertEquals(42l, object.getObjectMetadata().getContentLength());
+
+        uploadMultipart(userClient, adminBucket, key);
     }
 
     @Test

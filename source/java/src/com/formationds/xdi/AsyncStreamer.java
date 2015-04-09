@@ -326,14 +326,6 @@ public class AsyncStreamer {
         }
     }
 
-    public class PutResult {
-        public byte[] digest;
-
-        public PutResult(byte[] md) {
-            digest = md;
-        }
-    }
-
     public class TransactionHandle {
         private final String domain;
         private final String volume;

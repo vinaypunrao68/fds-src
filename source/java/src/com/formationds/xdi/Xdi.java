@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 public class Xdi {
@@ -190,11 +191,22 @@ public class Xdi {
     }
 
     public OutputStream openForWriting(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws Exception {
-        attemptVolumeAccess(token, volumeName, Intent.readWrite);
-        return factory.get().openForWriting(domainName, volumeName, blobName, metadata);
+        Map<String, String> updatedMetadata = new HashMap<>();
+        updatedMetadata.putAll(metadata);
+        try {
+            Optional<BlobDescriptor> blobDescriptor = attemptBlobAccess(token, domainName, volumeName, blobName, Intent.readWrite).get();
+            if (blobDescriptor.isPresent()) {
+                updatedMetadata.putAll(blobDescriptor.get().getMetadata());
+            }
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof SecurityException) {
+                throw (SecurityException) e.getCause();
+            }
+        }
+        return factory.get().openForWriting(domainName, volumeName, blobName, updatedMetadata);
     }
 
-    public CompletableFuture<AsyncStreamer.PutResult> put(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) {
+    public CompletableFuture<PutResult> put(AuthenticationToken token, String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) {
         try {
             return attemptBlobAccess(token, domainName, volumeName, blobName, Intent.readWrite)
                     .thenCompose(bd -> factory.get().putBlobFromStream(domainName, volumeName, blobName, metadata, in));

@@ -19,6 +19,7 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import javax.crypto.SecretKey;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -138,11 +139,17 @@ public class S3Endpoint {
                         AuthenticatedRequestContext.begin(token);
                         Function<AuthenticationToken, SyncRequestHandler> errorHandler = new S3FailureHandler(f);
                         resource = errorHandler.apply(token).handle(ctx);
-                    } catch (SecurityException e) {
-                        resource = new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", ctx.getRequestURI());
-                    } catch (Exception e) {
-                        LOG.debug("Got an exception: ", e);
-                        resource = new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", ctx.getRequestURI());
+                    } catch (Throwable t) {
+                        if (t instanceof ExecutionException) {
+                            t = t.getCause();
+                        }
+
+                        if (t instanceof SecurityException) {
+                            resource = new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", ctx.getRequestURI());
+                        } else {
+                            LOG.debug("Got an exception: ", t);
+                            resource = new S3Failure(S3Failure.ErrorCode.InternalError, "Internal error", ctx.getRequestURI());
+                        }
                     } finally {
                         AuthenticatedRequestContext.complete();
                         resource.renderTo(ctx);
