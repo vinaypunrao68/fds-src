@@ -853,7 +853,7 @@ NodeDomainFSM::GRD_AmDmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         }
         
         LOGDEBUG << "AM acks to wait: " << src.am_acks_to_wait
-                 << " DM acks to wait: " << src.dm_acks_to_wait;
+                 << ", DM acks to wait: " << src.dm_acks_to_wait;
 
         if ((src.am_acks_to_wait == 0) &&
             (src.dm_acks_to_wait == 0)) {
