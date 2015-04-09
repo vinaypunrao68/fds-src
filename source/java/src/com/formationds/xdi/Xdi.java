@@ -107,9 +107,9 @@ public class Xdi {
         return result;
     }
 
-    public List<BlobDescriptor> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
+    public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
         attemptVolumeAccess(token, volumeName, Intent.read);
-        return am.volumeContents(domainName, volumeName, count, offset, pattern, orderBy, descending);
+        return asyncAm.volumeContents(domainName, volumeName, count, offset, pattern, orderBy, descending);
     }
 
     public BlobDescriptor statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {

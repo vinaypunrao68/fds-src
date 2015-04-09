@@ -3,6 +3,7 @@ package com.formationds.smoketest;
 import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.xdi.AsyncStreamer;
@@ -58,12 +59,12 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testVolumeContents() throws Exception {
-        List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0).get();
+        List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         assertEquals(0, contents.size());
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
-        contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0).get();
+        contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         assertEquals(1, contents.size());
     }
 
