@@ -10,7 +10,6 @@ import com.formationds.commons.model.Series;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
-import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.util.DateTimeUtil;

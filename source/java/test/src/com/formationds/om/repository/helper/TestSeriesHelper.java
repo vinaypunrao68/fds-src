@@ -29,6 +29,7 @@ public class TestSeriesHelper {
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 30L ), "1", "TestVol", "PBYTES", 100004.1 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 15L ), "1", "TestVol", "PBYTES", 10186.33 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 12L ), "1", "TestVol", "PBYTES", 4006.0 ) );
+		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 110L ), "1", "TestVol", "PBYTES", 1000000.0 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 7L ), "1", "TestVol", "PBYTES", 10.1 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 8L ), "1", "TestVol", "PBYTES", 18.64 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 11L ), "1", "TestVol", "PBYTES", 33.0 ) );
@@ -36,7 +37,6 @@ public class TestSeriesHelper {
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 4L ), "1", "TestVol", "PBYTES", 3.0 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 5L ), "1", "TestVol", "PBYTES", 4.1 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 6L ), "1", "TestVol", "PBYTES", 5.9 ) );
-		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 110L ), "1", "TestVol", "PBYTES", 1000000.0 ) );
 	}
 	
 	@Test
@@ -44,7 +44,7 @@ public class TestSeriesHelper {
 
 		SeriesHelper sh = new SeriesHelper();
 		
-		Series s = sh.generate( this.results, 0L, Metrics.PBYTES, 10L, 100, StatOperation.MAX );
+		Series s = sh.generate( results, 0L, Metrics.PBYTES, 10L, 100, StatOperation.MAX );
 		
 		assertEquals( 4, s.getDatapoints().size() );
 		
