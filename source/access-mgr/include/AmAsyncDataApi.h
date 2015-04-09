@@ -55,6 +55,10 @@ class AmAsyncDataApi {
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
 
+    void detachVolume(handle_type& requestId,
+                      shared_string_type& domainName,
+                      shared_string_type& volumeName);
+
     void volumeStatus(handle_type& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName);

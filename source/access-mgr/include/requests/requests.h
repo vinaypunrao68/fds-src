@@ -3,7 +3,8 @@
  */
 
 #include "requests/AbortBlobTxReq.h"
-#include "requests/AttachVolBlobReq.h"
+#include "requests/AttachVolumeReq.h"
+#include "requests/DetachVolumeReq.h"
 #include "requests/CommitBlobTxReq.h"
 #include "requests/DeleteBlobReq.h"
 #include "requests/GetBlobReq.h"

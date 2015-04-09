@@ -59,8 +59,10 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
                                               Error const& e, dmCatReq* dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg),
-            fpi::OpenVolumeRspMsg());
+    auto response = fpi::OpenVolumeRspMsg();
+    DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
+    response.token = request->token;
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
     if (dmRequest)
         delete dmRequest;
 }
