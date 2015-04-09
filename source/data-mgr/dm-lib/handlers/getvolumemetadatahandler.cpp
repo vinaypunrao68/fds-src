@@ -26,6 +26,14 @@ void GetVolumeMetadataHandler::handleRequest(
     LOGTRACE << "Received a get volume metadata request for volume "
              << message->volumeId;
 
+    auto err = dataMgr->validateVolumeIsActive(message->volumeId);
+    if (!err.OK())
+    {
+        auto dummyResponse = boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();
+        handleResponse(asyncHdr, dummyResponse, err, nullptr);
+        return;
+    }
+
     boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> response =
             boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();
     auto dmReq = new DmIoGetVolumeMetadata(message->volumeId, response);

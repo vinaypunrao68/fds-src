@@ -38,6 +38,10 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      */
     bool stop();
 
+    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb);
+
+    void prepareForShutdownMsgRespCallCb();
+
     /**
      * Enqueue a connector request
      */
@@ -71,7 +75,6 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      * Update QoS' rate and throttle
      */
     Error updateQoS(long int const* rate, float const* throttle);
-
 
   private:
     std::unique_ptr<AmProcessor_impl> _impl;

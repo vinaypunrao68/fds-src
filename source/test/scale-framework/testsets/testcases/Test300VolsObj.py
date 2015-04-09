@@ -9,6 +9,7 @@ import unittest
 import requests
 import json
 import testsets.testcase as testcase
+import block_volumes
 
 from boto.s3.key import Key
 from boto.s3.bucket import Bucket
@@ -22,6 +23,9 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestCreateThreehundredObjectVolumes, self).__init__(parameters=parameters,
                 config_file=config_file, om_ip_address=om_ip_address)
+        
+        self.block_volume = block_volumes.BlockVolumes(om_ip_address)
+        self.buckets = []
 
     '''
     Do it.
@@ -49,11 +53,11 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
 
             #Get number of volumes currently?
 
-            for i in range(0, 100):
+            for i in range(0, 300):
 
                 #bucket name
                 bucket_name = "test-" + str(i).zfill(3) + "_300"
-
+                self.buckets.append(bucket_name)
                 #prep data
                 data = {"sla":0,"limit":0,"priority":10,"snapshotPolicies":[],
                         "timelinePolicies":[{"retention":604800,"recurrenceRule":{"FREQ":"DAILY"}},
@@ -77,32 +81,7 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
                     #Check return code
                     self.assertTrue(200 == r.status_code)
 
-                #Get the bucket via boto
-                #bucket = conn.lookup(bucket_name)
-                #self.assertTrue(bucket != None)
-                #self.log.info("bucket = %s", bucket)
-
-                #Write to the volume
-                #k = Key(bucket)
-                #self.log.info("key = %s", k)
-                #k.key = "test"
-                #in_string = "This is a test."
-                #k.set_contents_from_string = in_string
-
-                #Read from volume
-                #self.log.info("keys = %s", bucket.get_all_keys())
-                #k = bucket.get_key("test")
-                #out_string = k.get_contents_as_string()
-                #self.assertTrue(in_string == out_string)
-
-            #Get Volumes
-            r = requests.get(url, headers=header)
-            self.log.info("response = %s", r.json())
-            self.log.info("Status = %s", r.status_code)
-
-            #Yay?
             test_passed = True
-
 
         except Exception, e:
             self.log.exception(e)
@@ -110,10 +89,12 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
         finally:
             super(self.__class__, self).reportTestCaseResult(test_passed)
 
-    '''
-    Undo it.
-    '''
-#    def tearDown(self):
+    def tearDown(self):
+        '''
+        Undo it.
+        '''
+        for bucket in self.buckets:
+            self.block_volume.delete_block_volume(bucket)
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

@@ -4,7 +4,7 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
 
-#include <map>
+#include <deque>
 #include <string>
 #include <fds_error.h>
 #include <unordered_map>
@@ -122,6 +122,11 @@ struct AmTxManager {
      * Return pointer to volume iff volume is attached
      */
     std::shared_ptr<AmVolume> getVolume(fds_volid_t vol_uuid) const;
+
+    /**
+     * Return tokens to all attached volumes
+     */
+    void getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const;
 
     /**
      * Updates an existing transaction with a new operation

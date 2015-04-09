@@ -20,13 +20,13 @@ ObjectDataCache::~ObjectDataCache() {
  */
 int
 ObjectDataCache::mod_init(SysParams const *const p) {
-    Module::mod_init(p);
-
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.sm.");
     maxEntries = conf.get<fds_uint32_t>("cache.default_data_entries");
 
     dataCache = std::unique_ptr<ObjectCache>(new ObjectCache("SM Object Data Cache",
                                                              maxEntries));
+
+    Module::mod_init(p);
     return 0;
 }
 
@@ -35,6 +35,7 @@ ObjectDataCache::mod_init(SysParams const *const p) {
  */
 void
 ObjectDataCache::mod_startup() {
+    Module::mod_startup();
 }
 
 /**
@@ -42,6 +43,8 @@ ObjectDataCache::mod_startup() {
  */
 void
 ObjectDataCache::mod_shutdown() {
+    dataCache.reset();
+    Module::mod_shutdown();
 }
 
 void

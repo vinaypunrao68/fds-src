@@ -5,6 +5,7 @@
 #include <AmProcessor.h>
 
 #include <algorithm>
+#include <deque>
 #include <string>
 
 #include "fds_process.h"
@@ -36,9 +37,11 @@ std::atomic_uint nextIoReqId;
 class AmProcessor_impl
 {
     using shutdown_cb_type = std::function<void(void)>;
+
   public:
     AmProcessor_impl() : amDispatcher(new AmDispatcher()),
-                         txMgr(new AmTxManager())
+                         txMgr(new AmTxManager()),
+                         prepareForShutdownCb(nullptr)
     { }
 
     AmProcessor_impl(AmProcessor_impl const&) = delete;
@@ -46,6 +49,11 @@ class AmProcessor_impl
     ~AmProcessor_impl() = default;
 
     void start(shutdown_cb_type&& cb);
+
+    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
+        { prepareForShutdownCb = cb; }
+
+    void prepareForShutdownMsgRespCallCb();
 
     bool stop();
 
@@ -83,6 +91,8 @@ class AmProcessor_impl
     shutdown_cb_type shutdown_cb;
     bool shut_down { false };
 
+    shutdown_cb_type prepareForShutdownCb;
+
     void processBlobReq(AmRequest *amReq);
 
     std::shared_ptr<AmVolume> getVolume(AmRequest* amReq, bool const allow_snapshot=true);
@@ -96,6 +106,7 @@ class AmProcessor_impl
      * Attachment request, retrieve volume descriptor
      */
     void attachVolume(AmRequest *amReq);
+    void detachVolume(AmRequest *amReq);
 
     /**
      * Processes a abort blob transaction
@@ -221,6 +232,10 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
             abortBlobTx(amReq);
             break;
 
+        case fds::FDS_DETACH_VOL:
+            detachVolume(amReq);
+            break;
+
         case fds::FDS_ATTACH_VOL:
             attachVolume(amReq);
             break;
@@ -291,20 +306,31 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     txMgr->markIODone(amReq);
     amReq->cb->call(error);
 
-    /*
-     * If we're shutting down and there are no
-     * more outstanding requests, tell the QoS
-     * Dispatcher that we're shutting down.
-     */
-    if (shut_down && txMgr->drained())
-    {
-       shutdown_cb();
+    // If we're shutting down check if the
+    // queue is empty and make the callback
+    if (isShuttingDown()) {
+        stop();
+    }
+}
+
+void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
+    if (prepareForShutdownCb) {
+        prepareForShutdownCb();
+        prepareForShutdownCb = nullptr;
     }
 }
 
 bool AmProcessor_impl::stop() {
     shut_down = true;
     if (txMgr->drained()) {
+        // Close all attached volumes before finishing shutdown
+        std::deque<std::pair<fds_volid_t, fds_int64_t>> tokens;
+        txMgr->getVolumeTokens(tokens);
+        for (auto const& token_pair: tokens) {
+            if (invalid_vol_token != token_pair.second) {
+                amDispatcher->dispatchCloseVolume(token_pair.first, token_pair.second);
+            }
+        }
         shutdown_cb();
         return true;
     }
@@ -329,9 +355,10 @@ AmProcessor_impl::getVolume(AmRequest* amReq, bool const allow_snapshot) {
 void
 AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
     /** First we need to open the volume for access */
-    auto cb = [this, volDesc](fds_int64_t t, Error e) mutable -> void {
+    auto cb = [this, volDesc](fds_int64_t token, Error e) mutable -> void {
         if (ERR_OK == e) {
-            this->txMgr->registerVolume(volDesc, t);
+            GLOGDEBUG << "Received volume access token: 0x" << std::hex << token;
+            this->txMgr->registerVolume(volDesc, token);
         } else {
             this->txMgr->removeVolume(volDesc);
         }
@@ -344,15 +371,16 @@ Error
 AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     Error err{ERR_OK};
 
-    // Remove the volume from QoS/VolumeTable/TxMgr
-    err = txMgr->removeVolume(volDesc);
-
     // If we had a token for a volume, give it back to DM
     auto shVol = txMgr->getVolume(volDesc.volUUID);
     if (shVol) {
         fds_int64_t token = shVol->token;
         amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
     }
+
+    // Remove the volume from QoS/VolumeTable/TxMgr
+    err = txMgr->removeVolume(volDesc);
+
     if (shut_down && txMgr->drained())
     {
        shutdown_cb();
@@ -406,6 +434,16 @@ AmProcessor_impl::attachVolume(AmRequest *amReq) {
 
     boost::shared_ptr<AttachCallback> cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
     cb->volDesc = boost::make_shared<VolumeDesc>(*shVol->voldesc);
+    respond_and_delete(amReq, ERR_OK);
+}
+
+void
+AmProcessor_impl::detachVolume(AmRequest *amReq) {
+    // This really can not fail, we have to be attached to be here
+    auto shVol = getVolume(amReq);
+    if (!shVol) return;
+
+    removeVolume(*shVol->voldesc);
     respond_and_delete(amReq, ERR_OK);
 }
 
@@ -791,6 +829,16 @@ AmProcessor::~AmProcessor() = default;
 
 void AmProcessor::start(shutdown_cb_type&& cb)
 { return _impl->start(std::move(cb)); }
+
+void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
+{
+    return _impl->prepareForShutdownMsgRespBindCb(std::move(cb));
+}
+
+void AmProcessor::prepareForShutdownMsgRespCallCb()
+{
+    return _impl->prepareForShutdownMsgRespCallCb();
+}
 
 bool AmProcessor::stop()
 { return _impl->stop(); }
