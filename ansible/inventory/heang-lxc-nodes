@@ -1,7 +1,7 @@
 [heang-lxc-nodes]
-10.3.19.255
-10.3.20.0
-10.3.20.1
+10.3.119.99
+10.3.119.98
+10.3.119.97
 
 [heang-lxc-nodes:vars]
 clean_fds=yes
@@ -14,7 +14,7 @@ ansible_ssh_pass=ubuntu
 deploy_artifact=nightly
 fds_build=release
 fds_default_nic=eth0
-fds_om_host=10.3.19.254
+fds_om_host=10.3.119.100
 fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1
 fds_ssh_user=root
