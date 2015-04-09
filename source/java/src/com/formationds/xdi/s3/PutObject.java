@@ -11,7 +11,7 @@ import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.web.toolkit.XmlResource;
-import com.formationds.xdi.AsyncStreamer;
+import com.formationds.xdi.BlobInfo;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.apache.commons.codec.binary.Hex;
@@ -132,7 +132,7 @@ public class PutObject implements SyncRequestHandler {
         } else {
             OutputStream outputStream = xdi.openForWriting(token, targetDomain, targetBucketName, targetBlobName, metadataMap);
             DigestOutputStream digestOutputStream = new DigestOutputStream(outputStream, MessageDigest.getInstance("MD5"));
-            AsyncStreamer.BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]).get();
+            BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]).get();
             xdi.readToOutputStream(token, blobInfo, digestOutputStream).get();
             digestOutputStream.close();
             digest = digestOutputStream.getMessageDigest().digest();

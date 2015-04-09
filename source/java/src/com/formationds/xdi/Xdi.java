@@ -128,18 +128,18 @@ public class Xdi {
         return blobDescriptor;
     }
 
-    public CompletableFuture<AsyncStreamer.BlobInfo> getBlobInfo(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
+    public CompletableFuture<BlobInfo> getBlobInfo(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
         attemptBlobAccess(token, domainName, volumeName, blobName, Intent.read);
         return factory.get().getBlobInfo(domainName, volumeName, blobName);
     }
 
-    public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, AsyncStreamer.BlobInfo blobInfo, OutputStream out, long offset, long length) throws Exception {
-        attemptBlobAccess(token, blobInfo.domain, blobInfo.volume, blobInfo.blob, Intent.read);
+    public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, BlobInfo blobInfo, OutputStream out, long offset, long length) throws Exception {
+        attemptBlobAccess(token, blobInfo.getDomain(), blobInfo.getVolume(), blobInfo.getBlob(), Intent.read);
         return factory.get().readToOutputStream(blobInfo, out, offset, length);
     }
 
-    public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, AsyncStreamer.BlobInfo blobInfo, OutputStream out) throws Exception {
-        return this.readToOutputStream(token, blobInfo, out, 0, blobInfo.blobDescriptor.byteCount);
+    public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, BlobInfo blobInfo, OutputStream out) throws Exception {
+        return this.readToOutputStream(token, blobInfo, out, 0, blobInfo.getBlobDescriptor().byteCount);
     }
 
     public OutputStream openForWriting(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws Exception {

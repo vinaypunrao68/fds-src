@@ -31,11 +31,11 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
 
         try {
             return asyncStreamer.getBlobInfo(S3Endpoint.FDS_S3, bucket, object).thenCompose(blobInfo -> {
-                if (!hasAccess(ctx, bucket, blobInfo.blobDescriptor.getMetadata())) {
+                if (!hasAccess(ctx, bucket, blobInfo.getBlobDescriptor().getMetadata())) {
                     return CompletableFutureUtility.exceptionFuture(new SecurityException());
                 }
 
-                Map<String, String> md = blobInfo.blobDescriptor.getMetadata();
+                Map<String, String> md = blobInfo.getBlobDescriptor().getMetadata();
                 String contentType = md.getOrDefault("Content-Type", S3Endpoint.S3_DEFAULT_CONTENT_TYPE);
                 ctx.setResponseContentType(contentType);
                 ctx.setResponseStatus(HttpStatus.OK_200);
@@ -44,7 +44,7 @@ public class AsyncGetObject implements Function<HttpContext, CompletableFuture<V
                 S3UserMetadataUtility.extractUserMetadata(md).forEach((key, value) -> ctx.addResponseHeader(key, value));
 
                 OutputStream outputStream = ctx.getOutputStream();
-                return asyncStreamer.readToOutputStream(blobInfo, outputStream, 0, blobInfo.blobDescriptor.byteCount);
+                return asyncStreamer.readToOutputStream(blobInfo, outputStream, 0, blobInfo.getBlobDescriptor().byteCount);
             });
         } catch (Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);

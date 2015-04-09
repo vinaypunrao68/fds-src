@@ -8,7 +8,7 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
-import com.formationds.xdi.AsyncStreamer;
+import com.formationds.xdi.BlobInfo;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
@@ -49,7 +49,7 @@ public class GetObject implements RequestHandler {
         Map<String, String> metadata = stat.getMetadata();
         String contentType = metadata.getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
-        AsyncStreamer.BlobInfo blobInfo = xdi.getBlobInfo(token, domain, volume, object).get();
+        BlobInfo blobInfo = xdi.getBlobInfo(token, domain, volume, object).get();
 
         Resource resource = new Resource() {
             @Override
@@ -71,7 +71,7 @@ public class GetObject implements RequestHandler {
                 .withHeader("Last-Modified", lastModified);
     }
 
-    private void renderRange(OutputStream outputStream, ArrayList<Range> ranges, AsyncStreamer.BlobInfo blobInfo) throws Exception {
+    private void renderRange(OutputStream outputStream, ArrayList<Range> ranges, BlobInfo blobInfo) throws Exception {
         if (ranges.size() == 0) {
             xdi.readToOutputStream(token, blobInfo, outputStream).get();
         } else if (ranges.size() == 1) {
@@ -81,10 +81,10 @@ public class GetObject implements RequestHandler {
                 xdi.readToOutputStream(token, blobInfo, outputStream, range.rangeMin.get(), 1 + range.rangeMax.get() - range.rangeMin.get());
 
             if (range.rangeMin.isPresent())
-                xdi.readToOutputStream(token, blobInfo, outputStream, range.rangeMin.get(), blobInfo.blobDescriptor.byteCount - range.rangeMin.get());
+                xdi.readToOutputStream(token, blobInfo, outputStream, range.rangeMin.get(), blobInfo.getBlobDescriptor().byteCount - range.rangeMin.get());
 
             if (range.rangeMax.isPresent())
-                xdi.readToOutputStream(token, blobInfo, outputStream, blobInfo.blobDescriptor.byteCount - range.rangeMax.get(), range.rangeMax.get());
+                xdi.readToOutputStream(token, blobInfo, outputStream, blobInfo.getBlobDescriptor().byteCount - range.rangeMax.get(), range.rangeMax.get());
 
             throw new Exception("Invalid range specified");
         } else {

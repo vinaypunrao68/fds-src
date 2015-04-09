@@ -90,15 +90,15 @@ public class AsyncStreamer {
     }
 
     private CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor, long offset, long length) {
-        int objectSize = blobInfo.volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
+        int objectSize = blobInfo.getVolumeDescriptor().getPolicy().getMaxObjectSizeInBytes();
 
         // TODO: do we need to worry about limiting reads?
         ArrayList<CompletableFuture<ByteBuffer>> readFutures = new ArrayList<>();
         for (FdsObjectFrame frame : FdsObjectFrame.frames(offset, length, objectSize)) {
             if (frame.objectOffset == 0)
-                readFutures.add(CompletableFuture.completedFuture(blobInfo.object0));
+                readFutures.add(CompletableFuture.completedFuture(blobInfo.getObject0()));
             else
-                readFutures.add(asyncAm.getBlob(blobInfo.domain, blobInfo.volume, blobInfo.blob, frame.internalLength, new ObjectOffset(frame.objectOffset)));
+                readFutures.add(asyncAm.getBlob(blobInfo.getDomain(), blobInfo.getVolume(), blobInfo.getBlob(), frame.internalLength, new ObjectOffset(frame.objectOffset)));
         }
 
         CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
@@ -364,21 +364,4 @@ public class AsyncStreamer {
         }
     }
 
-    public class BlobInfo {
-        public String domain;
-        public String volume;
-        public String blob;
-        public BlobDescriptor blobDescriptor;
-        public VolumeDescriptor volumeDescriptor;
-        public ByteBuffer object0;
-
-        public BlobInfo(String domain, String volume, String blob, BlobDescriptor bd, VolumeDescriptor vd, ByteBuffer object0) {
-            this.domain = domain;
-            this.volume = volume;
-            this.blob = blob;
-            blobDescriptor = bd;
-            volumeDescriptor = vd;
-            this.object0 = object0;
-        }
-    }
 }
