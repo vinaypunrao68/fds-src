@@ -59,15 +59,30 @@ class FDSNBDDriver(driver.VolumeDriver):
         self.configuration.append_config_values(volume_opts)
         self.nbd = NbdManager(self._execute)
 
+        self.nbd_endpoints = [x for x in str(self.configuration.fds_nbd_server).split(",")]
+        self.nbd_endpoints_idx = 0
+
+        self.endpoints = []
+        self.endpoints_idx = 0
+        for am_host in str(self.configuration.fds_am_host).split(","):
+            self.endpoints.append(((am_host, self.configuration.fds_am_port),
+                                   (self.configuration.fds_cs_host, self.configuration.fds_cs_port)))
+
+
     def set_execute(self, execute):
         super(FDSNBDDriver, self).set_execute(execute)
         self.nbd = NbdManager(execute)
 
     def _get_services(self):
-        am_connection_info = (self.configuration.fds_am_host, self.configuration.fds_am_port)
-        cs_connection_info = (self.configuration.fds_cs_host, self.configuration.fds_cs_port)
+        (am_connection_info, cs_connection_info) = self.endpoints[self.endpoints_idx]
         fds = FDSServices(am_connection_info, cs_connection_info)
+        self.endpoints_idx = (self.endpoints_idx + 1) % len(self.endpoints)
         return fds
+
+    def _get_nbd_endpoint(self):
+        endpoint = self.nbd_endpoints[self.nbd_endpoints_idx]
+        self.nbd_endpoints_idx = (self.nbd_endpoints_idx + 1) % len(self.nbd_endpoints)
+        return endpoint
 
     @property
     def fds_domain(self):
@@ -106,7 +121,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         LOG.warning('FDS_DRIVER: attach volume %s to %s begin' % (volume['name'], connector['ip']))
         try:
             url = self.host_to_nbdd_url(connector['ip'])
-            device = self.nbd.attach_nbd_remote(url, self.configuration.fds_nbd_server, volume['name'])
+            device = self.nbd.attach_nbd_remote(url, self._get_nbd_endpoint(), volume['name'])
             LOG.warning('FDS_DRIVER: attach volume %s to %s success' % (volume['name'], connector['ip']))
             return {
                 'driver_volume_type': 'local',
@@ -121,7 +136,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         LOG.warning('FDS_DRIVER: detach volume %s to %s begin' % (volume['name'], connector['ip']))
         try:
             url = self.host_to_nbdd_url(connector['ip'])
-            self.nbd.detach_nbd_remote(url, self.configuration.fds_nbd_server, volume['name'])
+            self.nbd.detach_remote_all(url, volume['name'])
             LOG.warning('FDS_DRIVER: detach volume %s to %s success' % (volume['name'], connector['ip']))
         except Exception as e:
             LOG.warning('FDS_DRIVER: detach volume %s to %s failed with exception %s' % (volume['name'], connector['ip'], traceback.format_exc()))
@@ -153,7 +168,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         pass
 
     def copy_image_to_volume(self, context, volume, image_service, image_id):
-        self.nbd.image_via_nbd(self.configuration.fds_nbd_server, context, volume, image_service, image_id)
+        self.nbd.image_via_nbd(self._get_nbd_endpoint(), context, volume, image_service, image_id)
 
     def image_via_nbd(self, nbd_server, context, volume, image_service, image_id):
         with self.nbd.use_nbd_local(nbd_server, volume["name"]) as dev:
