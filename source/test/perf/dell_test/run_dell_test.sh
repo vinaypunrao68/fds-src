@@ -54,8 +54,8 @@ size=8g
 # workers="4"
 # workloads="randread read randwrite write"
 
-bsizes="4096"
-# bsizes="4096 8192 65536 524288"
+#bsizes="4096"
+bsizes="512 4096 8192 65536 524288"
 iodepths="32 64 128"
 workers="4"
 workloads="randread randwrite"
