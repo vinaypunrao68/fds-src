@@ -177,6 +177,10 @@ class FDSTrace:
         print f.getPortOwner(omport)
         print 'port',omport,'is owned by',f.getProcess(f.getPortOwner(omport))
 
+    def splitHostPort(self, hp):
+        index = hp.rfind(':')
+        return (hp[0:index], hp[index+1:])
+
     def runNgrep(self, match='', invert=False):
         
         if os.geteuid() != 0 :
@@ -207,9 +211,10 @@ class FDSTrace:
             while True:
                 line=proc.stdout.readline().strip()
                 if self.infoLine.match(line):
+                    #print line
                     pieces=line.split(' ')
-                    (fromhost,fromport) = pieces[1].split(':')
-                    (tohost,toport) = pieces[3].split(':')
+                    (fromhost,fromport) = self.splitHostPort(pieces[1])
+                    (tohost,toport) = self.splitHostPort(pieces[3])
                     fromproc = self.getDisplayName(fromport)
                     toproc = self.getDisplayName(toport)
                     if fromproc == '' :
@@ -237,7 +242,7 @@ class FDSTrace:
             pass
         except:
             traceback.print_exc();
-            #pass;
+            pass;
         
         sys.stdout.flush()
         sys.stderr.flush()
@@ -246,7 +251,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Trace fds network calls. Just do "sudo ./fdstrace"',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('--test',dest='test',action='store_true',default=False ,help="run test fn")
-    parser.add_argument('-m', '--match', dest='match',default='' ,help="Matching regex", type=str)
     parser.add_argument('-v', '--invert', dest='invert',action='store_true',default=False,help='invert match')
 
     for proc in ['om', 'sm', 'am', 'pm', 'dm', 'xdi', 'ssl']:
@@ -258,7 +262,8 @@ if __name__ == "__main__":
     parser.add_argument('--none',dest='none',action='store_true',help='disable default ports')
     parser.set_defaults(none=False)
 
-    parser.add_argument('ports', nargs=argparse.REMAINDER ,type=int ,help="other ports to be monitored")
+    parser.add_argument('-p','--port',dest='ports', action='append' ,type=int ,help="other ports to be monitored", default=[])
+    parser.add_argument('match',default='', nargs='?' ,help="Matching regex", type=str)
     args = parser.parse_args()
     #print args
     for proc in ['om', 'sm', 'am', 'pm', 'dm', 'xdi']:
