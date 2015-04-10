@@ -1,21 +1,25 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.crud.AbstractRepository;
 
+import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.Volume;
+import com.formationds.om.repository.query.QueryCriteria;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Database;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.Iterator;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 abstract public class InfluxRepository<T,PK extends Serializable> extends AbstractRepository<T, PK> {
@@ -29,11 +33,11 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     public static final String TIMESTAMP_COLUMN_NAME = "time";
     public static final String SEQUENCE_COLUMN_NAME = "sequence";
 
-    protected static final String SELECT = "select";
-    protected static final String FROM   = "from";
-    protected static final String WHERE  = "where";
-    protected static final String AND    = "and";
-    protected static final String OR     = "or";
+    protected static final String SELECT = "select ";
+    protected static final String FROM   = " from ";
+    protected static final String WHERE  = " where ";
+    protected static final String AND    = " and ";
+    protected static final String OR     = " or ";
 
     private InfluxDBConnection adminConnection;
 
@@ -77,6 +81,104 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
      */
     public InfluxDBConnection getConnection() {
         return this.dbConnection;
+    }
+
+    /**
+     * Convert the Java TimeUnit to an InfluxDB unit.
+     * <p/>
+     * InfluxDB's week (w) specifier is not supported in java.util.Concurrent.TimeUnit
+     * and InfluxDB does not support Nanosecond precision.
+     *
+     * @param unit the java.util.Concurrent TimeUnit
+     * @return the influx unit specifier
+     *
+     * @throws IllegalArgumentException for TimeUnit.NANOSECONDS which is not supported by influxdb.
+     */
+    public String toInfluxUnits(TimeUnit unit) {
+        switch ( unit ) {
+            case MICROSECONDS: return "u";
+            case MILLISECONDS: return "ms";
+            case SECONDS:      return "s";
+            case MINUTES:      return "m";
+            case HOURS:        return "h";
+            case DAYS:         return "d";
+
+            case NANOSECONDS:
+            default:
+                // Influx supports time to microseconds
+                // and also supports a "weeks" options (w), but
+                // juc TimeUnit does not support that.
+                throw new IllegalArgumentException( "Unsupported InfluxDB TimeUnit: " + unit );
+        }
+    }
+
+    /**
+     * Method to create a string from the query object that matches influx format
+     *
+     * @param queryCriteria the query criteria
+     * @return a query string for influx event series based on the criteria
+     */
+    // TODO: we can almost certainly refactor this and InfluxMetricRepository to a single version in InfluxRepository
+    // I think at this point the only real difference is the volume id column name and the metric time
+    // explicitly specifies seconds instead of relying on the unit passed to influx query.
+    protected String formulateQueryString( QueryCriteria queryCriteria, String volIdColumnName, TimeUnit unit ) {
+
+        StringBuilder sb = new StringBuilder();
+
+        String prefix = SELECT + "*" + FROM + getEntityName();
+        sb.append( prefix );
+
+        if ( queryCriteria.getRange() != null ||
+             queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
+
+            sb.append( WHERE );
+        }
+
+        // do time range
+        if ( queryCriteria.getRange() != null ) {
+
+            DateRange range = queryCriteria.getRange();
+            if ( range.getStart() == null )
+                throw new IllegalArgumentException( "DateRange must have a start time" );
+
+            if ( range.getEnd() != null )
+                sb.append( "( " );
+
+            sb.append( getTimestampColumnName() ).append( " > " )
+              .append( range.getStart() )
+              .append( toInfluxUnits( unit ) );
+
+            if ( range.getEnd() != null ) {
+                sb.append( AND )
+                  .append( getTimestampColumnName() )
+                  .append( " < " )
+                  .append( range.getEnd() ).append( toInfluxUnits( unit ) )
+                  .append( " )" );
+            }
+        }
+
+        if ( queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
+
+            if ( queryCriteria.getRange() != null )
+                sb.append( AND );
+
+            sb.append( "( " );
+            Iterator<Volume> contextIt = queryCriteria.getContexts().iterator();
+            while ( contextIt.hasNext() ) {
+
+                Volume volume = contextIt.next();
+
+                sb.append( volIdColumnName + " = '" + volume.getId() + "'" );
+
+                if ( contextIt.hasNext() ) {
+                    sb.append( OR );
+                }
+            }
+
+            sb.append( " )" );
+        }
+
+        return sb.toString();
     }
 
     @Override
