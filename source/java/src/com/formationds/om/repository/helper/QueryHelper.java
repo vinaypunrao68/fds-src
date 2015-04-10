@@ -134,7 +134,7 @@ public class QueryHelper {
                 series.addAll(
                     new SeriesHelper().getRollupSeries( queryResults,
                                                         query,
-                                                        StatOperation.MAX) );
+                                                        StatOperation.MAX_X) );
 
                 calculatedList.add( deDupRatio() );
 

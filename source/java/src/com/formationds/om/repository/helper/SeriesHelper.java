@@ -23,8 +23,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
 /**
@@ -255,7 +257,7 @@ public class SeriesHelper {
         groupByTimestamp.forEach( ( bytesTimestamp, bytesValues ) -> {
             
         	// this is always a sum because it represents collapsing
-        	// a set of points that are cumulative numbers by nature
+        	// a set of points that are cumulative numbers by nature because there is one per volume
         	// i.e. if you are wanting the average number of PUTS over a time frame
         	// you still need to sum them here, and divide that number by the 
         	// distribution in order to get a real average.  Otherwise you'll
@@ -308,19 +310,30 @@ public class SeriesHelper {
         for ( Double key : bucketMap.keySet() ){
         	
         	Double rolledupValue = 0.0;
-        	DoubleStream ds = bucketMap.get( key ).stream().mapToDouble( Datapoint::getY );
+        	DoubleStream dsY = bucketMap.get( key ).stream().mapToDouble( Datapoint::getY );
         	
         	switch( operation ) {
         		case RATE:
-        			rolledupValue = ds.sum() / TimeUnit.MINUTES.toSeconds( distribution );
+        			rolledupValue = dsY.sum() / TimeUnit.MINUTES.toSeconds( distribution );
         			break;
-        		case MAX:
+        		case MAX_Y:
         			// capacity is an example of using max for bucket calculation
         			// each time capacity is reported, it's the current state of the system
         			// so summing each value in this list makes no sense - so we take the last
         			// value (or max) in the list and use it for our indicator of the 
         			// state of the system at this time.
-        			rolledupValue = ds.max().getAsDouble();
+        			rolledupValue = dsY.max().getAsDouble();
+        			break;
+        		case MAX_X:
+                	
+                	Optional<Datapoint> maxDatapoint = bucketMap.get( key ).stream().max( (dp1, dp2) ->{
+                		return dp1.getX().compareTo( dp2.getX() );
+                	});
+                	
+        			if ( maxDatapoint.isPresent() ){
+        				rolledupValue = maxDatapoint.get().getY();
+        			}
+        			
         			break;
         		case SUM:
         			// the default case is to sum everything in this bucket assuming the values
@@ -328,7 +341,7 @@ public class SeriesHelper {
         			// encapsulates.  Performance # of gets is a good example of why you would use
         			// SUM
         		default:
-        			rolledupValue = ds.sum();
+        			rolledupValue = dsY.sum();
         			break;
         	}
         	
