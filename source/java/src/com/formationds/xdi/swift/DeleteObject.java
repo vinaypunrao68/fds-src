@@ -27,7 +27,7 @@ public class DeleteObject implements RequestHandler {
         String object = requiredString(routeParameters, "object");
 
         // TODO: multipart-manifest delete behavior
-        xdi.deleteBlob(token, domain, volume, object);
+        xdi.deleteBlob(token, domain, volume, object).get();
 
         return SwiftUtility.swiftResource(new TextResource(200, ""));
     }

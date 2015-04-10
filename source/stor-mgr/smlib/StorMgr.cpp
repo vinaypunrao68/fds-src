@@ -24,8 +24,6 @@ using diskio::DataTier;
 
 namespace fds {
 
-fds_bool_t  stor_mgr_stopping = false;
-
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
 #define FDSP_MAX_MSG_LEN (4*(4*1024 + 128))
@@ -45,7 +43,11 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       modProvider_(modProvider),
       totalRate(6000),  // will be over-written using node capability
       qosThrds(100),  // will be over-written from config
-      qosOutNum(10)
+      qosOutNum(10),
+      volTbl(nullptr),
+      qosCtrl(nullptr),
+      omClient(nullptr),
+      shuttingDown(false)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -56,52 +58,20 @@ void ObjectStorMgr::setModProvider(CommonModuleProviderIf *modProvider) {
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
-    // Setting shuttingDown will cause any IO going to the QOS queue
-    // to return ERR_SM_SHUTTING_DOWN
     LOGDEBUG << " Destructing  the Storage  manager";
-    shuttingDown = true;
-
-    // Shutdown scavenger
-    SmScavengerCmd *shutdownCmd = new SmScavengerCmd();
-    shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
-    objectStore->scavengerControlCmd(shutdownCmd);
-    LOGDEBUG << "Scavenger is now shut down.";
-
-    /*
-     * Clean up the QoS system. Need to wait for I/Os to
-     * complete and deregister each volume. The volume info
-     * is freed when the table is deleted.
-     * TODO: We should prevent further volume registration and
-     * accepting network I/Os while shutting down.
-     */
-    if (volTbl) {
-        std::list<fds_volid_t> volIds = volTbl->getVolList();
-        for (std::list<fds_volid_t>::iterator vit = volIds.begin();
-             vit != volIds.end();
-             vit++) {
-            qosCtrl->quieseceIOs((*vit));
-            qosCtrl->deregisterVolume((*vit));
-        }
+    if (qosCtrl) {
+        delete qosCtrl;
+        qosCtrl = nullptr;
+        LOGDEBUG << "qosCtrl destructed...";
     }
-        // delete perfStats;
-    LOGDEBUG << "Volumes deregistered...";
-    /*
-     * TODO: Assert that the waiting req map is empty.
-     */
+    if (volTbl) {
+        delete volTbl;
+        volTbl = NULL;
+        LOGDEBUG << "volTbl destructed...";
+    }
 
-    delete qosCtrl;
-    LOGDEBUG << "qosCtrl destructed...";
-    delete volTbl;
-    LOGDEBUG << "volTbl destructed...";
-
-    // Now clean up the persistent layer
     objectStore.reset();
-    LOGDEBUG << "Persistent layer has been destructed...";
-
-    // TODO(brian): Make this a cleaner exit
-    // Right now it will cause mod_shutdown to be called for each
-    // module. When we reach the SM module we bomb out
-    delete modProvider_;
+    LOGDEBUG << "Destructed Object Store";
 }
 
 int
@@ -112,7 +82,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    omClient = NULL;
+    fds_verify(omClient == nullptr);
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
         omClient = new OMgrClient(FDSP_STOR_MGR,
@@ -120,26 +90,13 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
                                   GetLog());
     }
 
-    return 0;
-}
-
-void ObjectStorMgr::mod_startup()
-{
-    // todo: clean up the code below.  It's doing too many things here.
-    // Refactor into functions or make it part of module vector
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
 
-    // init the checksum verification class
-    chksumPtr =  new checksum_calc();
-
     /*
-     * Create local volume table. Create after omClient
-     * is initialized, because it needs to register with the
-     * omClient. Create before register with OM because
-     * the OM vol event receivers depend on this table.
+     * Create local volume table.
      */
     volTbl = new StorMgrVolumeTable(this, GetLog());
 
@@ -154,8 +111,18 @@ void ObjectStorMgr::mod_startup()
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
                                                           volTbl));
-    objectStore->mod_init(mod_params);
 
+    static Module *smDepMods[] = {
+        objectStore.get(),
+        NULL
+    };                                                                                                                                                                            
+    mod_intern = smDepMods;
+    Module::mod_init(param);
+    return 0;
+}
+
+void ObjectStorMgr::mod_startup()
+{
     // Init token migration manager
     migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this));
 
@@ -178,6 +145,8 @@ void ObjectStorMgr::mod_startup()
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
+
+    Module::mod_startup();
 }
 
 //
@@ -271,11 +240,54 @@ void ObjectStorMgr::mod_enable_service()
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         gSvcRequestPool->setDltManager(omClient->getDltManager());
     }
+
+    Module::mod_enable_service();
+}
+
+void ObjectStorMgr::mod_disable_service() {
+    LOGDEBUG << "Disable (shutdown) service is called on SM";
+    // Setting shuttingDown will cause any IO going to the QOS queue
+    // to return ERR_NOT_READY
+    fds_bool_t expectShuttingDown = false;
+    if (!shuttingDown.compare_exchange_strong(expectShuttingDown, true)) {
+        LOGNOTIFY << "SM already started shutting down, nothing to do";
+        return;
+    }
+
+    // Stop scavenger
+    SmScavengerCmd *shutdownCmd = new SmScavengerCmd();
+    shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
+    objectStore->scavengerControlCmd(shutdownCmd);
+    LOGDEBUG << "Scavenger is now shut down.";
+
+    // Disable tier migration
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_DISABLE);
+    objectStore->tieringControlCmd(&tierCmd);
+
+    /*
+     * Clean up the QoS system. Need to wait for I/Os to
+     * complete;
+     * TODO: We should prevent further volume registration
+     */
+    if (volTbl) {
+        std::list<fds_volid_t> volIds = volTbl->getVolList();
+        for (std::list<fds_volid_t>::iterator vit = volIds.begin();
+             vit != volIds.end();
+             vit++) {
+            qosCtrl->quieseceIOs((*vit));
+        }
+    }
+    // once we are here, enqueue msg to qos queues will return
+    // not ready error == requests will be rejected
+    LOGDEBUG << "Started draining volume QoS queues...";
 }
 
 void ObjectStorMgr::mod_shutdown()
 {
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
+    fds_verify(shuttingDown == true);
+
+    Module::mod_shutdown();
 }
 
 int ObjectStorMgr::run()
@@ -312,6 +324,9 @@ ObjectStorMgr::getUuid() const {
 }
 
 const DLT* ObjectStorMgr::getDLT() {
+    if (testStandalone == true) {
+        return standaloneTestDlt;
+    }
     if (!omClient) { return nullptr; }
     return omClient->getCurrentDLT();
 }
@@ -459,6 +474,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
                                      objId,
                                      boost::make_shared<std::string>(putReq->putObjectNetReq->data_obj),
                                      putReq->forwardedReq);
+
         qosCtrl->markIODone(*putReq);
 
         // end of ObjectStore layer latency
@@ -504,6 +520,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
         err = objectStore->deleteObject(volId,
                                         objId,
                                         delReq->forwardedReq);
+
 
         qosCtrl->markIODone(*delReq);
 
@@ -556,7 +573,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
 
         rc = objectStore->copyAssociation(addObjRefReq->getSrcVolId(),
                                           addObjRefReq->getDestVolId(),
-                                          oid);
+                                              oid);
         if (!rc.ok()) {
             LOGERROR << "Failed to add association entry for object " << oid
                      << "in to odb with err " << rc;
@@ -568,7 +585,6 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
                 addObjRefReq->objIds().erase(it);
             }
         }
-
     }
 
     qosCtrl->markIODone(*addObjRefReq);
@@ -656,13 +672,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     ObjectID objectId;
     ioReq->setVolId(volId);
 
-    // TODO(brian): Move this elsewhere ?
-    // Return ERR_SM_SHUTTING_DOWN here if SM is in shutdown state
-    if (isShuttingDown()) {
-        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-        return ERR_SM_SHUTTING_DOWN;
-    }
-
     switch (ioReq->io_type) {
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
@@ -697,7 +706,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     }
 
     if (err != fds::ERR_OK) {
-        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string() << " " << err;
     }
 
     return err;

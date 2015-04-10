@@ -85,20 +85,6 @@ void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *tas
  * @param _return
  * @param msg
  */
-void PlatNetSvcHandler::uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMsg& msg)
-{
-}
-
-/**
- * @brief
- *
- * @param _return
- * @param msg
- */
-void PlatNetSvcHandler::uuidBind(fpi::AsyncHdr &_return,
-                                   boost::shared_ptr<fpi::UuidBindMsg>& msg)
-{
-}
 
 void PlatNetSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
                                        const std::string& payload)

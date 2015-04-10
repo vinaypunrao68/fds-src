@@ -40,7 +40,7 @@ public class ListObjects implements SyncRequestHandler {
             return new S3Failure(S3Failure.ErrorCode.NoSuchBucket, "No such bucket", bucket);
         }
 
-        List<BlobDescriptor> contents = xdi.volumeContents(token, S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
+        List<BlobDescriptor> contents = xdi.volumeContents(token, S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
 
         XmlElement result = new XmlElement("ListBucketResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")

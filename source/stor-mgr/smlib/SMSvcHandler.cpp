@@ -239,8 +239,14 @@ SMSvcHandler::getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::PrepareForShutdownMsg>& shutdownMsg) {
-    LOGDEBUG << "Received shutdown message... shuttting down...";
-    objStorMgr->~ObjectStorMgr();
+    LOGDEBUG << "Received shutdown message... shutting down...";
+    if (!objStorMgr->isShuttingDown()) {
+        objStorMgr->mod_disable_service();
+        objStorMgr->mod_shutdown();
+    }
+
+    // respond to OM
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,

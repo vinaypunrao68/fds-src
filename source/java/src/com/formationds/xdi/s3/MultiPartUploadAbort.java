@@ -31,7 +31,7 @@ public class MultiPartUploadAbort implements SyncRequestHandler {
 
         for(PartInfo pi : mops.getParts()) {
             String systemVolume = xdi.getSystemVolumeName(token);
-            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName());
+            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName()).get();
         }
 
         return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");

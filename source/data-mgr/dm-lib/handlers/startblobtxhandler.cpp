@@ -36,6 +36,13 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         return;
     }
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     auto dmReq = new DmIoStartBlobTx(message->volume_id,
                                      message->blob_name,
                                      message->blob_version,

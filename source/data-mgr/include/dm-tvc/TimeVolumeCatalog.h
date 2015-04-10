@@ -20,6 +20,8 @@
 
 namespace fds {
 
+struct DmVolumeAccessTable;
+
 /**
  * The time volume catalog manages the update history of a volume
  * and current pending updates to a volume. The TVC allows updates
@@ -36,6 +38,15 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * blob transactions
      */
     std::unordered_map<fds_volid_t, DmCommitLog::ptr> commitLogs_;
+
+    /** Mutual exclusion for AccessTable operations */
+    std::mutex accessTableLock_;
+
+    /**
+     * Volume access map. Each volume has an access policy which controls
+     * the exclusivity of AM attachments.
+     */
+    std::unordered_map<fds_volid_t, std::unique_ptr<DmVolumeAccessTable>> accessTable_;
 
     /**
      * For executing certain blob operations (commit, delete) in a
@@ -127,7 +138,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Attempt to "open" this volume for access
      */
     Error openVolume(fds_volid_t const volId,
-                     fds_int64_t const token,
+                     fds_int64_t& token,
                      fpi::VolumeAccessPolicy const& policy);
 
     /**

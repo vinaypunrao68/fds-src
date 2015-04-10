@@ -48,6 +48,11 @@ struct AmVolumeTable : public HasLogger {
     volume_ptr_type getVolume(fds_volid_t vol_uuid) const;
 
     /**
+     * Return tokens to all attached volumes
+     */
+    void getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const;
+
+    /**
      * Returns the volumes max object size
      */
     fds_uint32_t getVolMaxObjSize(fds_volid_t volUuid) const;
