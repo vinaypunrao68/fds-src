@@ -7,7 +7,6 @@ package com.formationds.om.repository.query;
 import com.formationds.commons.crud.SearchCriteria;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
-import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.ModelBase;
 
 import java.util.ArrayList;
@@ -34,6 +33,9 @@ public class QueryCriteria
     // changing the query to only take volumes
     private List<Volume> contexts;    // the context
     private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important 
+
+    public QueryCriteria() {}
+    public QueryCriteria(DateRange dateRange) { this.range = dateRange; }
 
     /**
      * @return Returns the {@link com.formationds.commons.model.DateRange}
