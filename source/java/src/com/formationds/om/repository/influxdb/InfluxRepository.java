@@ -116,11 +116,11 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
      * Method to create a string from the query object that matches influx format
      *
      * @param queryCriteria the query criteria
+     * @param volIdColumnName the name for the volume id column, required if the query criteria has volume contexts.
+     * @param unit the TimeUnit to represent the data range in.
+     *
      * @return a query string for influx event series based on the criteria
      */
-    // TODO: we can almost certainly refactor this and InfluxMetricRepository to a single version in InfluxRepository
-    // I think at this point the only real difference is the volume id column name and the metric time
-    // explicitly specifies seconds instead of relying on the unit passed to influx query.
     protected String formulateQueryString( QueryCriteria queryCriteria, String volIdColumnName, TimeUnit unit ) {
 
         StringBuilder sb = new StringBuilder();
