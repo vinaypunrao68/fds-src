@@ -22,7 +22,6 @@ import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.JDOEventRepository;
 import com.formationds.om.repository.MetricRepository;
-import com.formationds.om.repository.JDOMetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.util.Configuration;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -86,11 +85,8 @@ public class EventManagerTest {
         Files.deleteIfExists( Paths.get( SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db",
                                          "events.odb$" ) );
 
-        SingletonRepositoryManager.instance().initializeRepositories();
-
-        // initialize the event manager notification handler to store in both the event repository and an in-memory map
+        // initialize the event manager notification handler to store in an in-memory map
         EventManager.instance().initEventNotifier(key, (e) -> {
-            SingletonRepositoryManager.instance().getEventRepository().save(e);
             events.add(e);
             return true;
         });
