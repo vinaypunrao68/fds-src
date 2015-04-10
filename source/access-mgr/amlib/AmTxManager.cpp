@@ -181,12 +181,13 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::registerVolume(const VolumeDesc& volDesc, fds_int64_t token)
+AmTxManager::registerVolume(const VolumeDesc& volDesc,
+                           boost::shared_ptr<AmVolumeAccessToken> access_token)
 {
     auto err = amCache->registerVolume(volDesc.volUUID);
     if (ERR_OK == err) {
         LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
-        err = volTable->registerVolume(volDesc, token);
+        err = volTable->registerVolume(volDesc, access_token);
         if (ERR_OK != err) {
             amCache->removeVolume(volDesc.volUUID);
         }

@@ -130,8 +130,9 @@ AmDispatcher::dispatchAttachVolume(AmRequest *amReq) {
  * Dispatch a request to DM asking for permission to access this volume.
  */
 void
-AmDispatcher::dispatchOpenVolume(VolumeDesc const& vol_desc,
-                                 std::function<void(fds_int64_t, Error)> cb) {
+AmDispatcher::dispatchOpenVolume(fds_volid_t const vol_id,
+                                 fds_int64_t const token,
+                                 std::function<void(fds_int64_t const, Error const)> cb) {
     fiu_do_on("am.uturn.dispatcher", cb(0, ERR_OK); return;);
 
     /**
@@ -139,13 +140,14 @@ AmDispatcher::dispatchOpenVolume(VolumeDesc const& vol_desc,
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
     if (volume_open_support) {
-        LOGDEBUG << "Attempting to open volume: " << std::hex << vol_desc.volUUID;
+        LOGDEBUG << "Attempting to open volume: " << std::hex << vol_id;
         auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
-        volMDMsg->volume_id = vol_desc.volUUID;
+        volMDMsg->volume_id = vol_id;
+        volMDMsg->token = token;
 
         auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
             boost::make_shared<DmtVolumeIdEpProvider>(
-                dmtMgr->getCommittedNodeGroup(vol_desc.volUUID)));
+                dmtMgr->getCommittedNodeGroup(vol_id)));
         asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
 
         /** What to do with the response */

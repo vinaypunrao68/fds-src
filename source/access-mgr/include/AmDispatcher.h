@@ -56,8 +56,9 @@ struct AmDispatcher
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchOpenVolume(VolumeDesc const& vol_desc,
-                            std::function<void(fds_int64_t, Error)> cb);
+    void dispatchOpenVolume(fds_volid_t const vol_id,
+                            fds_int64_t const token,
+                            std::function<void(fds_int64_t const, Error const)> cb);
 
     /**
      * Dispatches an open volume request to DM.
