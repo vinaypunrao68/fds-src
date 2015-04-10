@@ -152,7 +152,7 @@ public class RealAsyncAm implements AsyncAm {
     public CompletableFuture<Void> updateBlob(String domainName, String volumeName, String blobName,
                                               TxDescriptor txDescriptor, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) {
         return scheduleAsync(rid -> {
-            oneWayAm.updateBlob(rid, domainName, volumeName, blobName, txDescriptor, bytes, length, new ObjectOffset(objectOffset), isLast);
+            oneWayAm.updateBlob(rid, domainName, volumeName, blobName, txDescriptor, bytes, length, new ObjectOffset(objectOffset));
         });
     }
 

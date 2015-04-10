@@ -1,0 +1,16 @@
+cfg/ActiveIOKillTest.cfg
+cfg/ActiveIORndKillTest.cfg
+cfg/ActiveMigration.cfg
+cfg/dev0_multi_node.cfg
+cfg/dev0_multi_nodes.cfg
+cfg/dev2_multi_node.cfg
+cfg/ForkExample.cfg
+cfg/happy_demo.cfg
+cfg/local_templ.cfg
+cfg/mn_test.cfg
+cfg/node_join_remove_sync.cfg
+cfg/poc_demo.cfg
+cfg/RestartDataPersistence.cfg
+cfg/s3-qos-demo.cfg
+cfg/smoke_test.cfg
+cfg/TrafficGen.cfg

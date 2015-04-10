@@ -166,7 +166,7 @@ public class FdsServerOperations implements NbdServerOperations {
                         }
                     }
 
-                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
+                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset);
                     am_bytes_written += i_len;
                 }
 

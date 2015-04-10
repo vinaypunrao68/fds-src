@@ -1,0 +1,3 @@
+[Boto]
+debug=1
+num_retries=5

@@ -16,8 +16,6 @@ struct PutBlobReq
     :   public AmRequest,
         public AmTxReq
 {
-    fds_bool_t last_buf;
-
     // Needed fields
     fds_uint64_t dmt_version;
 
@@ -47,7 +45,6 @@ struct PutBlobReq
                fds_uint64_t _data_len,
                boost::shared_ptr<std::string> _data,
                BlobTxId::ptr _txDesc,
-               fds_bool_t _last_buf,
                CallbackPtr _cb);
 
     /// Constructor used on putBlobOnce requests.

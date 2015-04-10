@@ -442,7 +442,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
     FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
     updBlobInfo.offset   = amReq->blob_offset;
     updBlobInfo.size     = amReq->data_len;
-    updBlobInfo.blob_end = blobReq->last_buf;
+    updBlobInfo.blob_end = false;
     updBlobInfo.data_obj_id.digest = std::string(
         reinterpret_cast<const char*>(amReq->obj_id.GetId()),
         amReq->obj_id.GetLen());

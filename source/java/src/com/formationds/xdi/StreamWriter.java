@@ -61,7 +61,7 @@ public class StreamWriter {
                 // push first read to FDS
                 am.updateBlob(domainName, volumeName, blobName, tx,
                         ByteBuffer.wrap(buf, 0, firstReadCount), firstReadCount,
-                        new ObjectOffset(objectOffset), false);
+                        new ObjectOffset(objectOffset));
                 objectOffset++;
 
                 // reassemble second read and push to FDS
@@ -70,7 +70,7 @@ public class StreamWriter {
                 md.update(buf, 0, secondReadCount);
                 am.updateBlob(domainName, volumeName, blobName, tx,
                         ByteBuffer.wrap(buf, 0, secondReadCount), secondReadCount,
-                        new ObjectOffset(objectOffset), false);
+                        new ObjectOffset(objectOffset));
                 objectOffset++;
 
                 // read remaining
@@ -78,7 +78,7 @@ public class StreamWriter {
                     md.update(buf, 0, read);
                     am.updateBlob(domainName, volumeName, blobName, tx,
                             ByteBuffer.wrap(buf, 0, read), read,
-                            new ObjectOffset(objectOffset), false);
+                            new ObjectOffset(objectOffset));
                     objectOffset++;
                 }
             }
