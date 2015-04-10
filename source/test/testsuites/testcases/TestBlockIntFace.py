@@ -96,7 +96,7 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
 
         cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
         #blkAttCmd = '%s/nbdadm.py attach %s %s' % (cinder_dir, om_node.nd_conf_dict['ip'], volume)
-        blkAttCmd = '%s/nbdadm.py --lockfile %s/%s attach %s %s' % (cinder_dir, nbdadm_tmp, nbadm_lockfile, om_node.nd_conf_dict['ip'], volume)
+        blkAttCmd = '%s/nbdadm.py --lockfile %s/%s attach %s %s' % (cinder_dir, nbdadm_tmp, nbdadm_lockfile, om_node.nd_conf_dict['ip'], volume)
 
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
         status, stdout = om_node.nd_agent.exec_wait(blkAttCmd, return_stdin=True)
