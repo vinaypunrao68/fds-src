@@ -49,6 +49,13 @@
 				"arguments" : [],
 				"depends" : [],
 				"config" : ""
+			},
+			{
+				"name" : "TestS3BucketLargeNumberBlobsForCornerCases",
+				"file" : "test_corner_cases_S3_bucket_large_number_blobs.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
 			}
 		]
 	}
