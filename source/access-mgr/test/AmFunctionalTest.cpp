@@ -3,15 +3,25 @@
  */
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
+extern "C" {
+#include <arpa/inet.h>
+}
+
 #include <string>
 #include <vector>
 #include <map>
 #include <thread>
 #include <condition_variable>
 
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/server/TThreadedServer.h>
+
 #include <util/fds_stat.h>
 #include <AccessMgr.h>
+#include <AmProcessor.h>
 #include "connector/xdi/AmAsyncXdi.h"
+#include "AmDataApi.h"
 #include "AmAsyncDataApi_impl.h"
 
 #include "boost/program_options.hpp"
@@ -68,13 +78,6 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
               serverIp("127.0.0.1"),
               serverPort(8899),
               responsePort(9876) {
-        // register and populate volumes
-        VolumeDesc volDesc(*volumeName, 5);
-        volDesc.iops_min = 0;
-        volDesc.iops_max = 0;
-        volDesc.relativePrio = 1;
-        fds_verify(am->registerVolume(volDesc) == ERR_OK);
-
         namespace po = boost::program_options;
         po::options_description desc("AM functional test");
         desc.add_options()
@@ -147,8 +150,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncXdiServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(shared_from_this());
+            asyncDataApi = boost::make_shared<AmAsyncXdiRequest>(am->getProcessor(), shared_from_this());
         }
+        am->getProcessor()->registerVolume(
+            std::move(VolumeDesc(*volumeName, 5, 0, 0, 1)));
     }
 
     enum TaskOps {
@@ -158,8 +163,18 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         STAT,
         PUTMETA,
         LISTVOL,
-        GETWITHMETA
+        GETWITHMETA,
+        SETVOLMETA,
+        GETVOLMETA
     };
+
+    void verifyResponse(const Error &error) {
+        if (am->getProcessor()->isShuttingDown()) {
+            ASSERT_EQ(ERR_SHUTTING_DOWN, error);
+        } else {
+            ASSERT_EQ(ERR_OK, error);
+        }
+    }
 
     // **********
     // Thrift response handlers
@@ -221,6 +236,12 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                       const apis::VolumeStatus& response) {}
     void volumeStatus(boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<apis::VolumeStatus>& response) {}
+    void setVolumeMetadataResponse(const apis::RequestId& requestId) {}
+    void setVolumeMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void getVolumeMetadataResponse(const apis::RequestId& requestId,
+                                   const std::map<std::string, std::string>& metadata) {}
+    void getVolumeMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                                   boost::shared_ptr<std::map<std::string, std::string>>& metadata) {}
     void completeExceptionally(const apis::RequestId& requestId,
                                const fpi::ErrorCode errorCode,
                                const std::string& message) {}
@@ -229,8 +250,9 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                                boost::shared_ptr<std::string>& message) {}
 
     void attachVolumeResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId) {
-        fds_verify(ERR_OK == error);
+                          boost::shared_ptr<apis::RequestId>& requestId,
+                          boost::shared_ptr<VolumeDesc>& volDesc) override {
+        ASSERT_EQ(ERR_OK, error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -240,7 +262,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void startBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -249,7 +271,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void updateBlobResp(const Error &error,
                         boost::shared_ptr<apis::RequestId>& requestId) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -258,7 +280,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void updateBlobOnceResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -267,7 +289,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void updateMetadataResp(const Error &error,
                         boost::shared_ptr<apis::RequestId>& requestId) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -276,7 +298,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void abortBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -285,7 +307,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void commitBlobTxResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -296,7 +318,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                      boost::shared_ptr<apis::RequestId>& requestId,
                      boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -308,7 +330,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                              boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -318,7 +340,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -327,7 +349,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void deleteBlobResp(const Error &error,
                         boost::shared_ptr<apis::RequestId>& requestId) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -337,7 +359,7 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void volumeStatusResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId,
                           boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -347,7 +369,26 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void volumeContentsResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId,
                             boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents) {
-        fds_verify(ERR_OK == error);
+        verifyResponse(error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
+    void setVolumeMetadataResp(const Error &error,
+                               boost::shared_ptr<apis::RequestId>& requestId) {
+        verifyResponse(error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
+    void getVolumeMetadataResp(const Error &error,
+                               boost::shared_ptr<apis::RequestId>& requestId,
+                               boost::shared_ptr<std::map<std::string, std::string>>& metadata) {
+        verifyResponse(error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
@@ -463,6 +504,21 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                                              pattern,
                                              orderBy,
                                              descending);
+            } else if (opType == SETVOLMETA) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                asyncDataApi->setVolumeMetadata(reqId,
+                                                domainName,
+                                                volumeName,
+                                                meta);
+            } else if (opType == GETVOLMETA) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                asyncDataApi->getVolumeMetadata(reqId,
+                                                domainName,
+                                                volumeName);
             } else {
                 fds_panic("Unknown op type");
             }
@@ -613,6 +669,23 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         return 0;
     }
 
+    void prepareForShutdown() {
+        if (am && am->getProcessor()) {
+            am->getProcessor()->stop();
+        }
+        GLOGNOTIFY << "AmProcessor stopped. Now re-run all IO tests ";
+        runAsyncTask(AmLoadProc::STARTTX);
+        runAsyncTask(AmLoadProc::PUT);
+        runAsyncTask(AmLoadProc::STAT);
+        runAsyncTask(AmLoadProc::GET);
+        runAsyncTask(AmLoadProc::LISTVOL);
+        runAsyncTask(AmLoadProc::PUT);
+        runAsyncTask(AmLoadProc::GET);
+        runAsyncTask(AmLoadProc::GETWITHMETA);
+        runAsyncTask(AmLoadProc::SETVOLMETA);
+        runAsyncTask(AmLoadProc::GETVOLMETA);
+	}
+
   private:
     /// performance test setup
     fds_uint32_t concurrency;
@@ -730,6 +803,21 @@ TEST(AccessMgr, wr) {
 TEST(AccessMgr, getWithMeta) {
     GLOGDEBUG << "Testing async getWithMeta";
     amLoad->runAsyncTask(AmLoadProc::GETWITHMETA);
+}
+
+TEST(AccessMgr, setVolMeta) {
+    GLOGDEBUG << "Testing async setVolumeMetadata";
+    amLoad->runAsyncTask(AmLoadProc::SETVOLMETA);
+}
+
+TEST(AccessMgr, getVolMeta) {
+    GLOGDEBUG << "Testing async getVolumeMetadata";
+    amLoad->runAsyncTask(AmLoadProc::GETVOLMETA);
+}
+
+TEST(AccessMgr, prepareForShutdown) {
+    GLOGDEBUG << "Testing prepareForShutdown handling";
+    amLoad->prepareForShutdown();
 }
 
 int

@@ -20,6 +20,8 @@
 
 namespace fds {
 
+struct DmVolumeAccessTable;
+
 /**
  * The time volume catalog manages the update history of a volume
  * and current pending updates to a volume. The TVC allows updates
@@ -36,6 +38,15 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * blob transactions
      */
     std::unordered_map<fds_volid_t, DmCommitLog::ptr> commitLogs_;
+
+    /** Mutual exclusion for AccessTable operations */
+    std::mutex accessTableLock_;
+
+    /**
+     * Volume access map. Each volume has an access policy which controls
+     * the exclusivity of AM attachments.
+     */
+    std::unordered_map<fds_volid_t, std::unique_ptr<DmVolumeAccessTable>> accessTable_;
 
     /**
      * For executing certain blob operations (commit, delete) in a
@@ -87,6 +98,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                 util::TimeStamp toTime);
     Error dmGetCatJournalStartTime(const std::string &logfile, fds_uint64_t *journal_time);
 
+  protected:
+    void createCommitLog(const VolumeDesc& voldesc);
 
   public:
     /**
@@ -120,6 +133,18 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * for volume activate
      */
     Error addVolume(const VolumeDesc& voldesc);
+
+    /**
+     * Attempt to "open" this volume for access
+     */
+    Error openVolume(fds_volid_t const volId,
+                     fds_int64_t& token,
+                     fpi::VolumeAccessPolicy const& policy);
+
+    /**
+     * Attempt to "close" this volume from a previous open
+     */
+    Error closeVolume(fds_volid_t const volId, fds_int64_t const token);
 
     /**
      * Create copy of the volume for snapshot/clone
@@ -161,6 +186,17 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * as deleted
      */
     Error deleteEmptyVolume(fds_volid_t volId);
+
+    /**
+     * Sets the key-value metadata pairs for the volume. Any keys that already
+     * existed are overwritten and previously set keys are left unchanged.
+     * @param[in] volId The ID of the volume's catalog to update
+     * @param[in] metadataList A list of metadata key value pairs to set.
+     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
+     * to volume catalog.
+     */
+    Error setVolumeMetadata(fds_volid_t volId,
+                            const fpi::FDSP_MetaDataList &metadataList);
 
     /**
      * Starts a new transaction for blob

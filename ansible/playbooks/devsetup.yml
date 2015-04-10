@@ -7,6 +7,57 @@
 
     tasks:
 
+    - name: create /corefiles directory
+      file: path=/corefiles
+        state=directory
+        owner=root
+        group=root
+        mode=0777
+
+    - name: set sysctl config
+      sysctl: name={{item.key}} value={{item.value.value}} state={{item.value.state}}
+      with_dict:
+        kernel.core_pattern:
+            value: /corefiles
+            state: present
+        fs.file-max:
+            value: 400000
+            state: present
+        kernel.core_uses_pid:
+            value: 1
+            state: present
+        fs.suid_dumpable:
+            value: 1
+            state: present
+
+    -   name: install_limits_conf
+        template:
+            src=../templates/deploy_fds/fds_limits.conf
+            dest=/etc/security/limits.conf
+            owner=root
+            group=root
+            mode=0644
+
+    - name: Copy sudoers for safety
+      command: cp -f /etc/sudoers /etc/sudoers.tmp
+
+    - name: Backup sudoers
+      command: cp -f /etc/sudoers /etc/sudoers.bak
+
+    - name: Make sure we retain BUILD_ID for Jenkins
+      lineinfile:
+        dest=/etc/sudoers.tmp
+        state=present
+        insertafter='^Defaults'
+        regexp='^Defaults env_keep\+\=BUILD_ID'
+        line='Defaults env_keep+=BUILD_ID'
+
+    - name: Sudoers syntax check && replace
+      shell: visudo -q -c -f /etc/sudoers.tmp && cp -f /etc/sudoers.tmp /etc/sudoers
+
+    - name: Cleanup tmp sudoers
+      command: rm -f /etc/sudoers.tmp
+
     - name: add JRE ppa
       apt_repository: repo=ppa:webupd8team/java state=present
 
@@ -123,18 +174,21 @@
         - sshpass
         - nbd-client
         - fio
+        - python-coverage-test-runner
+        - python-mock
 
     - name: install pip packages
       pip: name={{item}} state=present
       with_items:
         - scp
         - PyYAML
-        - tabulate
         - xmlrunner
         - filechunkio
         - httplib2
         - docker-py
         - psutil
+        - fstab
+        - "tabulate==0.7.4"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true

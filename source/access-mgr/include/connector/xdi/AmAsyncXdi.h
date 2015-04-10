@@ -54,7 +54,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
                            boost::shared_ptr<int32_t>& port);
 
     void attachVolumeResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId);
+                          api_type::handle_type& requestId,
+                          api_type::shared_vol_descriptor_type& volDesc);
 
     void startBlobTxResp(const api_type::error_type &error,
                          api_type::handle_type& requestId,
@@ -84,6 +85,15 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
         api_type::handle_type& requestId,
         api_type::shared_descriptor_vec_type& volContents);
 
+    void setVolumeMetadataResp(
+        const api_type::error_type &error,
+        api_type::handle_type& requestId);
+
+    void getVolumeMetadataResp(
+        const api_type::error_type &error,
+        api_type::handle_type& requestId,
+        api_type::shared_meta_type& metadata);
+
     void getBlobResp(const api_type::error_type &error,
                      api_type::handle_type& requestId,
                      api_type::shared_buffer_type buf,
@@ -106,8 +116,8 @@ struct AmAsyncXdiRequest
 {
     using api_type = AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>;
 
-    explicit AmAsyncXdiRequest(boost::shared_ptr<AmAsyncResponseApi<api_type::handle_type>> response_api):
-        api_type(response_api)
+    explicit AmAsyncXdiRequest(std::shared_ptr<AmProcessor> processor, boost::shared_ptr<AmAsyncResponseApi<api_type::handle_type>> response_api):
+        api_type(processor, response_api)
     {}
 
     // This is only a Thrift interface, not a generic AmAsyncData one just to
@@ -167,6 +177,10 @@ struct AmAsyncXdiRequest
     { api_type::volumeContents(requestId, domainName, volumeName, count, offset, pattern, orderBy, descending); }
     void volumeStatus(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
     { api_type::volumeStatus(requestId, domainName, volumeName); }
+    void setVolumeMetadata(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_meta_type& metadata)  // NOLINT
+    { api_type::setVolumeMetadata(requestId, domainName, volumeName, metadata); }
+    void getVolumeMetadata(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
+    { api_type::getVolumeMetadata(requestId, domainName, volumeName); }
 
     // TODO(bszmyd): Tue 13 Jan 2015 04:00:24 PM PST
     // Delete these when we can. These are the synchronous forwarding.
@@ -199,6 +213,10 @@ struct AmAsyncXdiRequest
     void volumeContents(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const int32_t count, const int64_t offset, const std::string& pattern, const fpi::BlobListOrder orderBy, const bool descending)  // NOLINT
     { you_should_not_be_here(); }
     void volumeStatus(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName)  // NOLINT
+    { you_should_not_be_here(); }
+    void setVolumeMetadata(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::map<std::string, std::string>& metadata)  // NOLINT
+    { you_should_not_be_here(); }
+    void getVolumeMetadata(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName)  // NOLINT
     { you_should_not_be_here(); }
 };
 

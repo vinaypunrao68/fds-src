@@ -1,10 +1,13 @@
 package com.formationds.hadoop;
 
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.XdiService;
 import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
-import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.blob.Mode;
 import com.formationds.xdi.XdiClientFactory;
@@ -18,10 +21,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -48,6 +48,8 @@ public class FdsFileSystem extends FileSystem {
     public static final String LAST_MODIFIED_KEY = "last-modified";
     public static final String CREATED_BY_USER = "created-by-user";
     public static final String CREATED_BY_GROUP = "created-by-group";
+    public static final int amServicePortOffset = 2988;
+    public static int amResponsePortOffset = 2876;
 
     private XdiService.Iface am;
     private Path workingDirectory;
@@ -77,15 +79,16 @@ public class FdsFileSystem extends FileSystem {
         setConf(conf);
         String am = conf.get("fds.am.endpoint");
         String cs = conf.get("fds.cs.endpoint");
+	Integer pmPort = 7000;
 
-        XdiClientFactory cf = new XdiClientFactory();
+        XdiClientFactory cf = new XdiClientFactory(pmPort + amResponsePortOffset);
         XdiService.Iface amClient = null;
 
         this.uri = URI.create(getScheme() + "://" + uri.getAuthority());
         workingDirectory = new Path(uri);
 
         if (am != null) {
-            HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, 9988);
+            HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, pmPort + amServicePortOffset);
             amClient = cf.remoteAmService(amConnectionData.getHost(), amConnectionData.getPort());
         } else if (this.am != null) {
             amClient = this.am;
@@ -124,6 +127,8 @@ public class FdsFileSystem extends FileSystem {
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
                 mkDirBlob(root);
+            } else {
+            	throw new IOException(e);
             }
         } catch (Exception e) {
             throw new IOException(e);
@@ -162,6 +167,19 @@ public class FdsFileSystem extends FileSystem {
         }
         ensureWritingPossible(absolutePath);
         return new FSDataOutputStream(FdsOutputStream.openNew(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize(), OwnerGroupInfo.current()));
+    }
+
+    @Override
+    public FSDataOutputStream createNonRecursive(Path f, FsPermission permission,
+                                                 EnumSet<CreateFlag> flags, int bufferSize, short replication, long blockSize,
+                                                 Progressable progress) throws IOException {
+        Path absolutePath = getAbsolutePath(f);
+        if (!exists(absolutePath.getParent())) {
+            throw new IOException("Parent does not exist!");
+        }
+        ensureWritingPossible(absolutePath);
+        return new FSDataOutputStream(FdsOutputStream.openNew(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize(), OwnerGroupInfo.current()));
+
     }
 
     private void ensureWritingPossible(Path absolutePath) throws IOException {

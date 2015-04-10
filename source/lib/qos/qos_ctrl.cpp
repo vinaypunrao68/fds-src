@@ -98,8 +98,4 @@ Error FDS_QoSControl::processIO(FDS_IOType *io_type) {
     return err;
 }
 
-void FDS_QoSControl::registerOmClient(OMgrClient* om_client)
-{
-}
-
 }  // namespace fds

@@ -8,15 +8,17 @@
 #include <AmDataApi.h>
 #include <responsehandler.h>
 #include "fds_process.h"
-#include "StorHvCtrl.h"
+#include "fds_volume.h"
+#include "AmProcessor.h"
 
 #include "requests/requests.h"
 
 namespace fds {
 
-AmDataApi::AmDataApi()
+AmDataApi::AmDataApi(std::shared_ptr<AmProcessor> processor)
         : io_log_counter(0),
-          io_log_interval(100) {
+          io_log_interval(100),
+          amProcessor(processor) {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     testUturnAll = conf.get_abs<bool>("fds.am.testing.uturn_amserv_all");
     if (true == testUturnAll) {
@@ -64,10 +66,11 @@ AmDataApi::attachVolume(const std::string& domainName,
 void
 AmDataApi::attachVolume(boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
-    AttachVolumeResponseHandler::ptr handler(
-        new AttachVolumeResponseHandler());
-    storHvisor->enqueueAttachReq(*volumeName,
-                                 SHARED_DYN_CAST(Callback, handler));
+    AttachVolumeResponseHandler::ptr handler(new AttachVolumeResponseHandler());
+    AmRequest *blobReq = new AttachVolumeReq(invalid_vol_id,
+                                              *volumeName,
+                                              SHARED_DYN_CAST(Callback, handler));
+    amProcessor->enqueueRequest(blobReq);
     handler->wait();
     handler->process();
 }
@@ -84,10 +87,10 @@ AmDataApi::volumeStatus(apis::VolumeStatus& _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
     StatVolumeResponseHandler::ptr handler(new StatVolumeResponseHandler(_return));
-    AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
-                                                   *volumeName,
-                                                   SHARED_DYN_CAST(Callback, handler));
-    storHvisor->enqueueBlobReq(blobReq);
+    AmRequest *blobReq = new StatVolumeReq(invalid_vol_id,
+                                           *volumeName,
+                                           SHARED_DYN_CAST(Callback, handler));
+    amProcessor->enqueueRequest(blobReq);
 
     handler->wait();
     handler->process();
@@ -123,7 +126,7 @@ AmDataApi::volumeContents(std::vector<fpi::BlobDescriptor> & _return,
                                                *orderBy,
                                                *descending,
                                                SHARED_DYN_CAST(Callback, handler));
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     handler->wait();
     handler->process();
@@ -156,7 +159,7 @@ AmDataApi::statBlob(fpi::BlobDescriptor& _return,
                                           *volumeName,
                                           *blobName,
                                           SHARED_DYN_CAST(Callback, handler));
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     handler->wait();
     handler->process();
@@ -191,7 +194,7 @@ AmDataApi::startBlobTx(apis::TxDescriptor& _return,
                                              *blobName,
                                              *blobMode,
                                              SHARED_DYN_CAST(Callback, handler));
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     handler->wait();
     handler->process();
@@ -227,7 +230,7 @@ AmDataApi::commitBlobTx(boost::shared_ptr<std::string>& domainName,
                                               *blobName,
                                               blobTxDesc,
                                               SHARED_DYN_CAST(Callback, handler));
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     handler->wait();
     if (handler->error != ERR_OK) {
@@ -271,7 +274,7 @@ AmDataApi::abortBlobTx(boost::shared_ptr<std::string>& domainName,
                                              *blobName,
                                              blobTxDesc,
                                              SHARED_DYN_CAST(Callback, handler));
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     handler->wait();
     handler->process();
@@ -300,9 +303,6 @@ AmDataApi::getBlob(std::string& _return,
         return;
     }
 
-    BucketContextPtr bucket_ctx(
-        new BucketContext("host", *volumeName, "accessid", "secretkey"));
-
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
@@ -318,7 +318,7 @@ AmDataApi::getBlob(std::string& _return,
                                         SHARED_DYN_CAST(Callback, getHandler),
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     // Wait for a signal from the callback thread
     getHandler->wait();
@@ -379,7 +379,7 @@ AmDataApi::updateMetadata(boost::shared_ptr<std::string>& domainName,
                                                  blobTxDesc,
                                                  metaDataList,
                                                  SHARED_DYN_CAST(Callback, handler));
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     handler->wait();
     LOGDEBUG << "set meta data returned";
@@ -429,7 +429,7 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
                                         *blobMode,
                                         metadata,
                                         putHandler);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     // Wait for a signal from the callback thread
     putHandler->wait();
@@ -478,8 +478,6 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
         return;
     }
 
-    BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
@@ -499,11 +497,8 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
                                         bytes,
                                         blobTxDesc,
                                         *isLast,
-                                        &bucket_ctx,
-                                        NULL,
-                                        NULL,
                                         putHandler);
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     // Wait for a signal from the callback thread
     putHandler->wait();
@@ -547,7 +542,7 @@ AmDataApi::deleteBlob(boost::shared_ptr<std::string>& domainName,
                                            blobTxId,
                                            SHARED_DYN_CAST(Callback, handler));
 
-    storHvisor->enqueueBlobReq(blobReq);
+    amProcessor->enqueueRequest(blobReq);
 
     handler->wait();
     boost::shared_ptr<apis::TxDescriptor> txnPtr(new apis::TxDescriptor());

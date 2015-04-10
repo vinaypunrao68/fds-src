@@ -37,8 +37,6 @@ class TestPolicyCreate(TestCase.FDSTestCase):
 
         # Currently, all policies are created using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
         policies = fdscfg.rt_get_obj('cfg_vol_pol')
@@ -47,32 +45,28 @@ class TestPolicyCreate(TestCase.FDSTestCase):
             if self.passedPolicy is not None:
                 policy = self.passedPolicy
 
-            if 'id' not in policy.nd_conf_dict:
-                raise Exception('Policy section %s must have an id.' % policy.nd_conf_dict['pol_name'])
-
-            pol = policy.nd_conf_dict['id']
-            cmd = (' --policy-create policy_%s -p %s' % (pol, pol))
-
+            iops_min = 0
             if 'iops_min' in policy.nd_conf_dict:
-                cmd = cmd + (' -g %s' % policy.nd_conf_dict['iops_min'])
+                iops_min = policy.nd_conf_dict['iops_min']
 
+            iops_max = 0
             if 'iops_max' in policy.nd_conf_dict:
-                cmd = cmd + (' -m %s' % policy.nd_conf_dict['iops_max'])
+                iops_max = policy.nd_conf_dict['iops_max']
 
+            priority = 0
             if 'priority' in policy.nd_conf_dict:
-                cmd = cmd + (' -r %s' % policy.nd_conf_dict['priority'])
+                priority = policy.nd_conf_dict['priority']
 
             self.log.info("Create a policy %s on OM node %s." %
                           (policy.nd_conf_dict['pol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s %s > '
-                                          '%s/cli.out 2>&1 &) \"' %
-                                          (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py qospolicy create {} {} {} {} > '
+                                                '{}/fdsconsole.out 2>&1) \"'.format(policy.nd_conf_dict['pol-name'],
+                                                                                    iops_min,
+                                                                                    iops_max,
+                                                                                    priority,
+                                                                                    log_dir),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Policy %s creation on %s returned status %d." %
@@ -106,8 +100,6 @@ class TestPolicyDelete(TestCase.FDSTestCase):
 
         # Currently, all policies are created using our one well-known OM.
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         log_dir = fdscfg.rt_env.get_log_dir()
 
         policies = fdscfg.rt_get_obj('cfg_vol_pol')
@@ -116,23 +108,13 @@ class TestPolicyDelete(TestCase.FDSTestCase):
             if self.passedPolicy is not None:
                 policy = self.passedPolicy
 
-            if 'id' not in policy.nd_conf_dict:
-                raise Exception('Policy section %s must have an id.' % policy.nd_conf_dict['pol_name'])
-
-            pol = policy.nd_conf_dict['id']
-            cmd = (' --policy-delete policy_%s -p %s' % (pol, pol))
-
             self.log.info("Delete a policy %s on OM node %s." %
                           (policy.nd_conf_dict['pol-name'], om_node.nd_conf_dict['node-name']))
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s %s > '
-                                          '%s/cli.out 2>&1) \"' %
-                                          (fds_dir, cmd, log_dir if om_node.nd_agent.env_install else "."))
-
-            os.chdir(cur_dir)
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py qospolicy delete {} > '
+                                                '{}/fdsconsole.out 2>&1) \"'.format(policy.nd_conf_dict['pol-name'],
+                                                                                    log_dir),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Policy %s deletion on %s returned status %d." %

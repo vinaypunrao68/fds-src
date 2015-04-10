@@ -146,6 +146,9 @@ class OM_NodeAgent : public NodeAgent
                                          fds_bool_t bAll);
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
     virtual Error om_send_shutdown();
+    void om_send_shutdown_resp(EPSvcRequest* req,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload);
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
@@ -200,6 +203,13 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
                                   NodeAgent::pointer svc_agent);
+
+    /**
+     * Send 'remove services' message to Platform
+     */
+    Error send_remove_services(fds_bool_t activate_sm,
+                               fds_bool_t activate_dm,
+                               fds_bool_t activate_am);
 
     /**
      * @return uuid of service that was unregistered
@@ -376,7 +386,7 @@ class OM_AmContainer : public OM_AgentContainer
     }
   protected:
     virtual Resource *rs_new(const ResourceUUID &uuid) {
-        return new OM_AmAgent(uuid, fpi::FDSP_STOR_HVISOR);
+        return new OM_AmAgent(uuid, fpi::FDSP_ACCESS_MGR);
     }
 };
 
@@ -480,7 +490,7 @@ class OM_NodeContainer : public DomainContainer
                                       fds_bool_t to_am = true);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
     virtual fds_uint32_t om_bcast_sm_migration_abort(fds_uint64_t cur_dlt_version);
-    virtual void om_bcast_shutdown_msg();
+    virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 
     /**
@@ -498,16 +508,19 @@ class OM_NodeContainer : public DomainContainer
 
     /**
      * conditional broadcast to platform (nodes) to
-     * activate SM and DM services on those nodes, but only
+     * activate SM, DM, and AM services on those nodes, but only
      * to those nodes which are in discovered state
      */
     virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
                                                  fds_bool_t activate_dm,
-                                                 fds_bool_t activate_am);
+                                                 fds_bool_t activate_am); // Activate these specific Services on each Node.
     virtual Error om_activate_node_services(const NodeUuid& node_uuid,
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
+    virtual void om_cond_bcast_remove_services(fds_bool_t activate_sm,
+                                               fds_bool_t activate_dm,
+                                               fds_bool_t activate_am); // Remove the Services defined for each Node.
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
@@ -623,6 +636,20 @@ class ShutdownEvt
     }
 };
 
+struct ShutAckEvt
+{
+    ShutAckEvt(fpi::FDSP_MgrIdType type,
+               const Error& err) {
+        svc_type = type;
+        error = err;
+    }
+    std::string logString() const {
+        return "ShutAckEvt";
+    }
+
+    fpi::FDSP_MgrIdType svc_type;
+    Error error;  // error that came with ack
+};
 
 class OM_NodeDomainMod : public Module
 {
@@ -671,7 +698,7 @@ class OM_NodeDomainMod : public Module
     }
     inline OM_NodeAgent::pointer om_all_agent(const NodeUuid &uuid) {
         switch (uuid.uuid_get_val() & 0x0F) {
-        case FDSP_STOR_HVISOR:
+        case FDSP_ACCESS_MGR:
             return om_am_agent(uuid);
         case FDSP_STOR_MGR:
             return om_sm_agent(uuid);
@@ -825,6 +852,7 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(TimeoutEvt const &evt);
     void local_domain_event(NoPersistEvt const &evt);
     void local_domain_event(ShutdownEvt const &evt);
+    void local_domain_event(ShutAckEvt const &evt);
 
   protected:
     void fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 

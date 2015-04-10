@@ -780,7 +780,7 @@ DmtDplyFSM::DACT_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     VolumePlacement* vp = om->om_volplace_mod();
 
     // broadcast DMT to AMs
-    dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_STOR_HVISOR,
+    dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_ACCESS_MGR,
                                                        vp->getCommittedDMT());
     LOGDEBUG << "dst.commit_acts_to_wait should be: " << dst.commit_acks_to_wait
                 << " from AMs";
@@ -794,7 +794,7 @@ DmtDplyFSM::DACT_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     if (dst.commit_acks_to_wait == 0) {
         LOGDEBUG << "Not waiting for any acks, no AMs found...";
         fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
-        fsm.process_event(DmtCommitAckEvt(committed_ver, fpi::FDSP_STOR_HVISOR));
+        fsm.process_event(DmtCommitAckEvt(committed_ver, fpi::FDSP_ACCESS_MGR));
     }
 
     LOGDEBUG << "Sent DMT to all AMs, will wait for " << dst.commit_acks_to_wait
@@ -830,7 +830,7 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
         return false;
     }
     // otherwise the ack must be from AMs only
-    fds_verify(evt.svc_type == fpi::FDSP_STOR_HVISOR || evt.svc_type == fpi::FDSP_STOR_MGR);
+    fds_verify(evt.svc_type == fpi::FDSP_ACCESS_MGR || evt.svc_type == fpi::FDSP_STOR_MGR);
 
     // for now assuming commit is always a success
     if (src.commit_acks_to_wait > 0) {
@@ -982,7 +982,7 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         fds_uint32_t commitCnt = 0;
         if (!vp->hasNonCommitedTarget()) {
             // has target DMT (see the first if) and it is commited
-            commitCnt = dom_ctrl->om_bcast_dmt(fpi::FDSP_STOR_HVISOR,
+            commitCnt = dom_ctrl->om_bcast_dmt(fpi::FDSP_ACCESS_MGR,
                                                vp->getCommittedDMT());
             commitCnt += dom_ctrl->om_bcast_dmt(fpi::FDSP_STOR_MGR,
                                                 vp->getCommittedDMT());

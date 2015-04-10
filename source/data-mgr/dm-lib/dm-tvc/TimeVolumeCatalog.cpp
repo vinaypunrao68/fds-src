@@ -11,6 +11,7 @@ extern "C" {
 #include <vector>
 #include <set>
 #include <map>
+#include <random>
 #include <limits>
 #include <DataMgr.h>
 #include <cstdlib>
@@ -39,6 +40,58 @@ static const fds_uint32_t MAX_POLL_EVENTS = 1024;
 static const fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_event) + NAME_MAX);
 
 namespace fds {
+
+/**
+ * Structure used by the TvC to prevent multi-access to a volume.
+ *
+ * NOTE(bszmyd): Tue 07 Apr 2015 02:41:14 AM PDT
+ * Not thread-safe, needs mutual exclusion at point of access
+ */
+struct DmVolumeAccessTable {
+    explicit DmVolumeAccessTable(fds_volid_t const vol_uuid)
+        : access_map(),
+          random_generator(vol_uuid)
+    {}
+    DmVolumeAccessTable(DmVolumeAccessTable const&) = delete;
+    DmVolumeAccessTable& operator=(DmVolumeAccessTable const&) = delete;
+    ~DmVolumeAccessTable() = default;
+
+    Error getToken(fds_int64_t& token, fpi::VolumeAccessPolicy const& policy) {
+        auto it = access_map.find(token);
+        if (access_map.end() == it) {
+            // check that the exclusivity policy allows for this access request
+            if ((policy.exclusive_read && read_locked) ||
+                (policy.exclusive_write && write_locked)) {
+                return ERR_VOLUME_ACCESS_DENIED;
+            }
+            token = random_generator();
+            access_map[token] = policy;
+        } else {
+            // token is already registered, just reset the timer
+        }
+        return ERR_OK;
+    }
+
+    void removeToken(fds_int64_t const token) {
+        auto it = access_map.find(token);
+        if (access_map.end() != it) {
+            if (write_locked && it->second.exclusive_write) {
+                write_locked = false;
+            }
+            if (read_locked && it->second.exclusive_read) {
+                read_locked = false;
+            }
+            access_map.erase(it);
+        }
+    }
+
+  private:
+    std::unordered_map<fds_int64_t, fpi::VolumeAccessPolicy> access_map;
+    std::mt19937_64 random_generator;
+
+    bool write_locked { false };
+    bool read_locked { false };
+};
 
 void
 DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
@@ -90,25 +143,71 @@ void
 DmTimeVolCatalog::mod_shutdown() {
 }
 
-Error
-DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
+void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
     LOGDEBUG << "Will prepare commit log for new volume "
              << std::hex << voldesc.volUUID << std::dec;
-    Error rc = ERR_OK;
-    {
-        fds_scoped_spinlock l(commitLogLock_);
-        /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
-         * on DmCommitLog so that initialization can happen outside the lock
-         */
-        commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
-                                                                       voldesc.maxObjSizeInBytes);
-        commitLogs_[voldesc.volUUID]->mod_init(mod_params);
-        commitLogs_[voldesc.volUUID]->mod_startup();
+    /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
+     * on DmCommitLog so that initialization can happen outside the lock
+     */
+    fds_scoped_spinlock l(commitLogLock_);
+    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
+                                                                   voldesc.maxObjSizeInBytes);
+    commitLogs_[voldesc.volUUID]->mod_init(mod_params);
+    commitLogs_[voldesc.volUUID]->mod_startup();
+}
 
-        rc = volcat->addCatalog(voldesc);
+Error
+DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
+    createCommitLog(voldesc);
+    return volcat->addCatalog(voldesc);
+}
+
+Error
+DmTimeVolCatalog::openVolume(fds_volid_t const volId,
+                             fds_int64_t& token,
+                             fpi::VolumeAccessPolicy const& policy) {
+    Error err = ERR_OK;
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        std::unique_lock<std::mutex> lk(accessTableLock_);
+        auto it = accessTable_.find(volId);
+        if (accessTable_.end() == it) {
+            auto table = new DmVolumeAccessTable(volId);
+            table->getToken(token, policy);
+            accessTable_[volId].reset(table);
+        } else {
+            // Table already exists, check if we can attach again or
+            // renew the existing token.
+            err = it->second->getToken(token, policy);
+        }
     }
 
-    return rc;
+    return err;
+}
+
+Error
+DmTimeVolCatalog::closeVolume(fds_volid_t const volId, fds_int64_t const token) {
+    Error err = ERR_OK;
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        std::unique_lock<std::mutex> lk(accessTableLock_);
+        auto it = accessTable_.find(volId);
+        if (accessTable_.end() != it) {
+            it->second->removeToken(token);
+        }
+    }
+
+    // TODO(bszmyd): Tue 07 Apr 2015 01:02:51 AM PDT
+    // Determine if there is any usefulness returning an
+    // error to this operation. Seems like it should be
+    // idempotent and never fail upon initial design.
+    return err;
 }
 
 Error
@@ -123,6 +222,10 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
     }
     LOGDEBUG << "copying into volume [" << voldesc.volUUID
              << "] from srcvol:" << voldesc.srcVolumeId;
+
+    if (voldesc.isClone()) {
+        createCommitLog(voldesc);
+    }
 
     // Create snapshot of volume catalog
     rc = volcat->copyVolume(voldesc);
@@ -238,6 +341,12 @@ DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
         }
     }
     return err;
+}
+
+Error
+DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
+                                    const fpi::FDSP_MetaDataList &metadataList) {
+    return volcat->setVolumeMetadata(volId, metadataList);
 }
 
 Error
@@ -469,7 +578,7 @@ void DmTimeVolCatalog::getDirChildren(const std::string & parent,
 
 void DmTimeVolCatalog::monitorLogs() {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    const std::string dmDir = root->dir_user_repo_dm();
+    const std::string dmDir = root->dir_sys_repo_dm();
     FdsRootDir::fds_mkdir(dmDir.c_str());
     FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
 
@@ -725,20 +834,6 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
         LOGERROR << "unable to catalog for vol:" << destVolId;
         return ERR_NOT_FOUND;
     }
-
-    /**
-     * TODO(dm-team) : How will the replay work if there are no txns
-     * at the start time. As commitlogs are retained only for a specified
-     * amount of time, there might be a gap . Eg.
-     *                  T----------------------- commitlog
-     *  ======S1===a======b======S2===c====== snapshots
-     *  At c, base is S2 and the txns between S2&c will be replayed
-     *  Both at a & b , [1] will be the base snapshot.
-     *  for a, there is nothing to be replayed
-     *  but for b , even though there are txns matching in the log it 
-     *  should not be replayed on to S1 as there are no txns between S1&T
-     *
-     */
 
     return dmReplayCatJournalOps(catalog, journalFiles, fromTime, toTime);
 }

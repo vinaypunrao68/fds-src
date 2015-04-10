@@ -33,7 +33,9 @@ extern std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg);
-extern std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::GetVolumeMetadataMsgRsp& msg);
 extern std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
 extern std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
@@ -41,6 +43,8 @@ extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updC
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
+extern std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
 // ======
 
     /*
@@ -593,11 +597,11 @@ class DmIoGetBlobMetaData: public dmCatReq {
     CbType dmio_getmd_resp_cb;
 };
 
-struct DmIoGetVolumeMetaData : dmCatReq {
-    typedef std::function<void (const Error &e, DmIoGetVolumeMetaData *req)> CbType;
+struct DmIoStatVolume : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoStatVolume *req)> CbType;
 
-    explicit DmIoGetVolumeMetaData(boost::shared_ptr<fpi::GetVolumeMetaDataMsg> message)
-            : dmCatReq(message->volume_id, "", "", 0, FDS_GET_VOLUME_METADATA), msg(message) {
+    explicit DmIoStatVolume(boost::shared_ptr<fpi::StatVolumeMsg> message)
+            : dmCatReq(message->volume_id, "", "", 0, FDS_STAT_VOLUME), msg(message) {
         // perf-trace related data
         opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
 
@@ -614,7 +618,59 @@ struct DmIoGetVolumeMetaData : dmCatReq {
         opQoSWaitCtx.reset_volid(message->volume_id);
     }
 
-    boost::shared_ptr<fpi::GetVolumeMetaDataMsg> msg;
+    boost::shared_ptr<fpi::StatVolumeMsg> msg;
+    // response callback
+    CbType dmio_get_volmd_resp_cb;
+};
+
+struct DmIoSetVolumeMetaData : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoSetVolumeMetaData *req)> CbType;
+
+    explicit DmIoSetVolumeMetaData(boost::shared_ptr<fpi::SetVolumeMetadataMsg> message)
+            : dmCatReq(message->volumeId, "", "", 0, FDS_SET_VOLUME_METADATA), msg(message) {
+    }
+
+    boost::shared_ptr<fpi::SetVolumeMetadataMsg> msg;
+    // response callback
+    CbType dmio_set_volmd_resp_cb;
+};
+
+struct DmIoGetVolumeMetadata : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoGetVolumeMetadata *req)> CbType;
+
+    explicit DmIoGetVolumeMetadata(fds_volid_t volId, boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> message)
+            : dmCatReq(volId, "", "", 0, FDS_GET_VOLUME_METADATA), msg(message) {
+    }
+
+    boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> msg;
+    // response callback
+    CbType dmio_get_volmd_resp_cb;
+};
+
+struct DmIoVolumeOpen : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoVolumeOpen *req)> CbType;
+
+    explicit DmIoVolumeOpen(boost::shared_ptr<fpi::OpenVolumeMsg> message)
+            : dmCatReq(message->volume_id, "", "", 0, FDS_OPEN_VOLUME),
+              token(message->token),
+              access_policy(message->policy) {
+    }
+
+    fds_int64_t token;
+    fpi::VolumeAccessPolicy access_policy;
+
+    // response callback
+    CbType dmio_get_volmd_resp_cb;
+};
+
+struct DmIoVolumeClose : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoVolumeClose *req)> CbType;
+
+    explicit DmIoVolumeClose(fds_volid_t volId, fds_int64_t _token)
+            : dmCatReq(volId, "", "", 0, FDS_CLOSE_VOLUME), token(_token) {
+    }
+
+    fds_int64_t token;
     // response callback
     CbType dmio_get_volmd_resp_cb;
 };

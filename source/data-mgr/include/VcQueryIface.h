@@ -40,10 +40,20 @@ class VolumeCatalogQueryIface {
      * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
      * to volume catalog
      */
-    virtual Error getVolumeMeta(fds_volid_t volume_id,
-                                fds_uint64_t* size,
-                                fds_uint64_t* blob_count,
-                                fds_uint64_t* object_count) = 0;
+    virtual Error statVolume(fds_volid_t volume_id,
+                             fds_uint64_t* size,
+                             fds_uint64_t* blob_count,
+                             fds_uint64_t* object_count) = 0;
+
+    /**
+     * Returns key-value metadata for the volume 'volume_id'
+     * @param[in]  volume_id ID of the volume to get metadata from
+     * @param[out] metadataList list of metadata for the volume
+     * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
+     * to volume catalog
+     */
+    virtual Error getVolumeMetadata(fds_volid_t volume_id,
+                                    fpi::FDSP_MetaDataList &metadataList) = 0;
 
     /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'

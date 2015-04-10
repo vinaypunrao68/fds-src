@@ -18,6 +18,7 @@
 #include <orch-mgr/om-service.h>
 #include <OmDmtDeploy.h>
 #include <fdsp/am_api_types.h>
+#include <fdsp/dm_api_types.h>
 #include <fdsp/sm_api_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
@@ -116,6 +117,13 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
     TRACEFUNC;
+
+    if (node_state() == fpi::FDS_Node_Down) {
+        LOGNORMAL << "Will not send vol command to service we know is down"
+                  << get_node_name();
+        return ERR_NOT_FOUND;
+    }
+
     const char       *log;
     const VolumeDesc *desc;
 
@@ -661,16 +669,32 @@ OM_NodeAgent::om_send_shutdown() {
     Error err(ERR_OK);
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
-    fpi::ShutdownMODMsgPtr msg(new fpi::ShutdownMODMsg());
+    fpi::PrepareForShutdownMsgPtr msg(new fpi::PrepareForShutdownMsg());
 
-    om_req->setPayload(FDSP_MSG_TYPEID(fpi::ShutdownMODMsg), msg);
-    om_req->setTimeoutMs(0);
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_shutdown_resp, this,
+                                   std::placeholders::_1, std::placeholders::_2,
+                                   std::placeholders::_3));
+    om_req->setTimeoutMs(20000);
     om_req->invoke();
 
     LOGNOTIFY << "OM: send shutdown message to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
-
     return err;
+}
+
+void
+OM_NodeAgent::om_send_shutdown_resp(EPSvcRequest* req,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "OM received response for Prepare For Shutdown msg from node "
+             << std::hex << req->getPeerEpId().svc_uuid << std::dec
+             << " " << error;
+
+    // Notify domain state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    domain->local_domain_event(ShutAckEvt(node_svc_type, error));
 }
 
 void
@@ -718,7 +742,7 @@ OM_PmAgent::service_exists(FDS_ProtocolInterface::FDSP_MgrIdType svc_type) const
             if (activeDmAgent != NULL)
                 return true;
             break;
-        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
             if (activeAmAgent != NULL)
                 return true;
             break;
@@ -769,7 +793,7 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
             services.dm = svc_agent->get_uuid();
             LOGDEBUG << " dm: " <<  std::hex << services.dm.uuid_get_val() << std::dec;
             break;
-        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
             activeAmAgent = OM_AmAgent::agt_cast_ptr(svc_agent);
             services.am = svc_agent->get_uuid();
             LOGDEBUG << " am: " <<  std::hex << services.am.uuid_get_val() << std::dec;
@@ -817,7 +841,7 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
             svc_uuid = services.dm;
             services.dm.uuid_set_val(0);
             break;
-        case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
+        case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
             activeAmAgent = NULL;
             svc_uuid = services.am;
             services.am.uuid_set_val(0);
@@ -845,7 +869,7 @@ OM_PmAgent::handle_unregister_service(const NodeUuid& uuid)
     } else if (activeDmAgent->get_uuid() == uuid) {
         handle_unregister_service(FDS_ProtocolInterface::FDSP_DATA_MGR);
     } else if (activeAmAgent->get_uuid() == uuid) {
-        handle_unregister_service(FDS_ProtocolInterface::FDSP_STOR_HVISOR);
+        handle_unregister_service(FDS_ProtocolInterface::FDSP_ACCESS_MGR);
     }
 }
 
@@ -888,7 +912,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                       << "not going to restart...";
             do_activate_dm = false;
         }
-        if (activate_am && service_exists(FDS_ProtocolInterface::FDSP_STOR_HVISOR)) {
+        if (activate_am && service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
             LOGNOTIFY << "OM_PmAgent: AM service already running. Allowing another "
                       << "AM instance...";
             // TODO(Andrew): Re-enable this if we want to prevent multiple AM
@@ -918,10 +942,29 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         }
     }
 
+    /**
+    * Update or add Node Services accordingly.
+    *
+    * You might think we should do this at this point. I did. However,
+    * handle_register_service() at this point causes om_reg_node_info()
+    * to fail because it sets active[X]mAgent which is not expected. It must
+    * be the case that Services are expected to be activated and then
+    * registered, or something along those lines.
+    */
+//    if (activate_sm) {
+//        handle_register_service(FDS_ProtocolInterface::FDSP_STOR_MGR, this);
+//    }
+//    if (activate_dm) {
+//        handle_register_service(FDS_ProtocolInterface::FDSP_DATA_MGR, this);
+//    }
+//    if (activate_am) {
+//        handle_register_service(FDS_ProtocolInterface::FDSP_ACCESS_MGR, this);
+//    }
+
     fpi::ActivateServicesMsgPtr activateMsg = boost::make_shared<fpi::ActivateServicesMsg>();
     fpi::FDSP_ActivateNodeType& activateInfo = activateMsg->info;
 
-    (activateInfo.node_uuid).uuid = get_uuid().uuid_get_val();
+    (activateInfo.node_uuid).uuid = static_cast<int64_t>(get_uuid().uuid_get_val());
     activateInfo.node_name = get_node_name();
     activateInfo.has_sm_service = activate_sm;
     activateInfo.has_dm_service = activate_dm;
@@ -931,6 +974,56 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     req->setPayload(FDSP_MSG_TYPEID(fpi::ActivateServicesMsg), activateMsg);
     req->invoke();
+
+    return err;
+}
+
+/**
+ * Execute "remove services" message for the specified services.
+ *
+ * @param remove_XX - true or false indicating whether the Service is to be removed or not.
+ *
+ * @return Error
+ */
+Error
+OM_PmAgent::send_remove_services(fds_bool_t remove_sm,
+                                 fds_bool_t remove_dm,
+                                 fds_bool_t remove_am)
+{
+    TRACEFUNC;
+    Error err(ERR_OK);
+    try {
+        LOGNORMAL << "Received remove services for node" << get_node_name()
+                        << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+                        << " remove am ? " << remove_am
+                        << " remove sm ? " << remove_sm
+                        << " remove dm ? " << remove_dm;
+
+        /*
+         * Currently (3/21/2015) we only have support for one Local Domain.
+         * At some point we should be able to look up the DomainContainer based on this PM Agent.
+         */
+
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+        err = domain->om_del_services(get_uuid().uuid_get_val(),
+                                      get_node_name(),
+                                      remove_sm,
+                                      remove_dm,
+                                      remove_am);
+
+        if (!err.ok()) {
+            LOGERROR << "RemoveServices: Failed to remove services for node "
+                            << get_node_name() << ", uuid "
+                            << std::hex << get_uuid().uuid_get_val()
+                            << std::dec << ", result: " << err.GetErrstr();
+        }
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                        << "processing rmv node";
+        err = Error(ERR_NOT_FOUND);
+    }
 
     return err;
 }
@@ -1240,7 +1333,7 @@ OM_DmContainer::OM_DmContainer() : OM_AgentContainer(fpi::FDSP_DATA_MGR) {}
 // -------------------------------------------------------------------------------------
 // OM AM NodeAgent Container
 // -------------------------------------------------------------------------------------
-OM_AmContainer::OM_AmContainer() : OM_AgentContainer(fpi::FDSP_STOR_HVISOR) {}
+OM_AmContainer::OM_AmContainer() : OM_AgentContainer(fpi::FDSP_ACCESS_MGR) {}
 
 // --------------------------------------------------------------------------------------
 // OM Node Container
@@ -1323,7 +1416,7 @@ OM_NodeContainer::om_send_me_qosinfo(NodeAgent::pointer me) {
     OM_AmAgent::pointer agent = OM_AmAgent::agt_cast_ptr(me);
 
     // for now we are just sending total rate to AM
-    if (agent->node_get_svc_type() != fpi::FDSP_STOR_HVISOR) return;
+    if (agent->node_get_svc_type() != fpi::FDSP_ACCESS_MGR) return;
 
     fds_uint64_t max_iopc = om_admin_ctrl->getMaxIOPC();
     if (max_iopc != 0) {
@@ -1348,7 +1441,7 @@ void
 OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref)
 {
     TRACEFUNC;
-    if (ref->node_type == fpi::FDSP_STOR_HVISOR) {
+    if (ref->node_type == fpi::FDSP_ACCESS_MGR) {
         return;
     }
     dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
@@ -1388,6 +1481,37 @@ om_activate_services(fds_bool_t activate_sm,
                      NodeAgent::pointer node)
 {
     TRACEFUNC;
+
+    if (!activate_sm && !activate_dm & !activate_am) {
+        /**
+         * We are being asked to activate all Services defined for the Node.
+         * Which services are defined for this Node?
+         */
+        NodeServices services;
+        kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+
+        if (configDB->getNodeServices(node->get_uuid(), services)) {
+            if (services.am.uuid_get_val() != 0) {
+                activate_am = true;
+            }
+            if (services.sm.uuid_get_val() != 0) {
+                activate_sm = true;
+            }
+            if (services.dm.uuid_get_val() != 0) {
+                activate_dm = true;
+            }
+        } else {
+            /**
+            * We interpret no Services information in ConfigDB
+            * as the Node is configured for all Services - default
+            * for a new Node.
+            */
+            activate_am = true;
+            activate_sm = true;
+            activate_dm = true;
+        }
+    }
+
     OM_PmAgent::agt_cast_ptr(node)->send_activate_services(activate_sm,
                                                            activate_dm,
                                                            activate_am);
@@ -1426,6 +1550,58 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
     return agent->send_activate_services(activate_sm,
                                          activate_dm,
                                          activate_am);
+}
+
+/**
+ * Remove all defined Services on the specified Node.
+ */
+static void
+om_remove_services(fds_bool_t remove_sm,
+                   fds_bool_t remove_dm,
+                   fds_bool_t remove_am,
+                   NodeAgent::pointer node)
+{
+    TRACEFUNC;
+
+    if (!remove_sm && !remove_dm && !remove_am) {
+        /**
+         * We are being asked to remove all defined Services from the given Node.
+         * Which services are defined for this Node?
+         */
+        NodeServices services;
+        kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
+
+        if (configDB->getNodeServices(node->get_uuid(), services)) {
+            if (services.am.uuid_get_val() != 0) {
+                remove_am = true;
+            }
+            if (services.sm.uuid_get_val() != 0) {
+                remove_sm = true;
+            }
+            if (services.dm.uuid_get_val() != 0) {
+                remove_dm = true;
+            }
+        } else {
+            /**
+            * Nothing defined, so nothing to remove.
+            */
+            return;
+        }
+    }
+
+    OM_PmAgent::agt_cast_ptr(node)->send_remove_services(remove_sm, remove_dm, remove_am);
+}
+
+/**
+ * Remove specified Services on all Nodes defined in the Local Domain.
+ */
+void
+OM_NodeContainer::om_cond_bcast_remove_services(fds_bool_t remove_sm,
+                                                fds_bool_t remove_dm,
+                                                fds_bool_t remove_am)
+{
+    TRACEFUNC;
+    dc_pm_nodes->agent_foreach(remove_sm, remove_dm, remove_am, om_remove_services);
 }
 
 // om_send_vol_info
@@ -1682,9 +1858,9 @@ OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
     } else if (svc_type == fpi::FDSP_STOR_MGR) {
         count += dc_sm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " SM services successfully";
-    } else if (svc_type == fpi::FDSP_STOR_HVISOR) {
+    } else if (svc_type == fpi::FDSP_ACCESS_MGR) {
         // this method must only be called for either DM, SM or AM!
-        fds_verify(svc_type == fpi::FDSP_STOR_HVISOR);
+        fds_verify(svc_type == fpi::FDSP_ACCESS_MGR);
         count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " AM services successfully";
     } else {
@@ -1898,22 +2074,27 @@ om_send_shutdown(fds_uint32_t ignore, NodeAgent::pointer agent) {
 // om_bcast_shutdown_msg
 // ---------------------
 //
-void
-OM_NodeContainer::om_bcast_shutdown_msg()
+fds_uint32_t
+OM_NodeContainer::om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type)
 {
     fds_uint32_t count = 0;
 
-    // send shutdown to AM nodes
-    count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
-    LOGDEBUG << "Sent SHUTDOWN to " << count << " AM services successfully";
-
-    // send shutdown to DM nodes
-    count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
-    LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
-
-    // send shutdown to SM nodes
-    count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
-    LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully";
+    if (svc_type == fpi::FDSP_DATA_MGR) {
+        // send shutdown to DM nodes
+        count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+        LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
+    } else if (svc_type == fpi::FDSP_STOR_MGR) {
+        // send shutdown to SM nodes
+        count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+        LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully"; 
+    } else if (svc_type == fpi::FDSP_ACCESS_MGR) {
+        // send shutdown to AM nodes
+        count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+        LOGDEBUG << "Sent SHUTDOWN to " << count << " AM services successfully";
+    } else {
+        LOGERROR << "Received Prepare For Shutdown request for invalid svc type.";
+    }
+    return count;
 }
 
 void OM_NodeContainer::om_bcast_svcmap()

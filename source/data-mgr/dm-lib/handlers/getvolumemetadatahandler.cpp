@@ -4,8 +4,8 @@
 
 #include <dmhandler.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
-                           // incomplete type errors in BaseAsyncSvcHandler.h
-#include <net/BaseAsyncSvcHandler.h>
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
 #include <util/Log.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
@@ -14,46 +14,50 @@
 namespace fds {
 namespace dm {
 
-GetVolumeMetaDataHandler::GetVolumeMetaDataHandler() {
+GetVolumeMetadataHandler::GetVolumeMetadataHandler() {
     if (!dataMgr->features.isTestMode()) {
-        REGISTER_DM_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, handleRequest);
+        REGISTER_DM_MSG_HANDLER(fpi::GetVolumeMetadataMsg, handleRequest);
     }
 }
 
-void GetVolumeMetaDataHandler::handleRequest(
-        boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-        boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message) {
-    LOGNORMAL << "get vol meta data msg ";
+void GetVolumeMetadataHandler::handleRequest(
+    boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+    boost::shared_ptr<fpi::GetVolumeMetadataMsg>& message) {
+    LOGTRACE << "Received a get volume metadata request for volume "
+             << message->volumeId;
 
-    auto dmReq = new DmIoGetVolumeMetaData(message);
-    dmReq->cb = BIND_MSG_CALLBACK(GetVolumeMetaDataHandler::handleResponse, asyncHdr, message);
+    auto err = dataMgr->validateVolumeIsActive(message->volumeId);
+    if (!err.OK())
+    {
+        auto dummyResponse = boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();
+        handleResponse(asyncHdr, dummyResponse, err, nullptr);
+        return;
+    }
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
+    boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> response =
+            boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();
+    auto dmReq = new DmIoGetVolumeMetadata(message->volumeId, response);
+    dmReq->cb = BIND_MSG_CALLBACK(GetVolumeMetadataHandler::handleResponse, asyncHdr, response);
 
     addToQueue(dmReq);
 }
 
-void GetVolumeMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
+void GetVolumeMetadataHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dmRequest);
-    DmIoGetVolumeMetaData* typedRequest = static_cast<DmIoGetVolumeMetaData*>(dmRequest);
+    DmIoGetVolumeMetadata* typedRequest = static_cast<DmIoGetVolumeMetadata*>(dmRequest);
 
-    helper.err = dataMgr->timeVolCat_->queryIface()->getVolumeMeta(
-            typedRequest->getVolId(),
-            // FIXME(DAC): These casts are poster-children for inappropriate usage of
-            //             reinterpret_cast.
-            reinterpret_cast<fds_uint64_t*>(&typedRequest->msg->volume_meta_data.size),
-            reinterpret_cast<fds_uint64_t*>(&typedRequest->msg->volume_meta_data.blobCount),
-            reinterpret_cast<fds_uint64_t*>(&typedRequest->msg->volume_meta_data.objectCount));
+    helper.err = dataMgr->timeVolCat_->queryIface()->getVolumeMetadata(typedRequest->getVolId(),
+                                                                       typedRequest->msg->metadataList);
 }
 
-void GetVolumeMetaDataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                              boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
+void GetVolumeMetadataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                              boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp>& message,
                                               Error const& e, dmCatReq* dmRequest) {
-    LOGNORMAL << "finished get volume meta";
+    LOGTRACE << "Finished get metadata for volume " << dmRequest->volId;
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     asyncHdr->msg_code = e.GetErrno();
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::GetVolumeMetaDataMsgTypeId, *message);
+    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::GetVolumeMetadataRspMsgTypeId, *message);
 
     delete dmRequest;
 }

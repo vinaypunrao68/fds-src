@@ -23,6 +23,8 @@ fds: {
         common: {
 
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
+            all_ssd = {{ all_ssd_support }}
+	    volume_open_support = false
         }
         plat: {
 
@@ -36,7 +38,6 @@ fds: {
 
         }
         am: {
-
         }
         om: {
 
@@ -56,6 +57,18 @@ fds: {
 {% endif %}
 	om_port = 7004
 	om_uuid = 1028
+
+       {# TODO: FDSCONFIG Make it so that services search for configs in common
+           as well as in their own config block. A uniform order of precedence
+           for all values and all services would be preferred #}
+
+       {#graphite: {
+            /* Graphite server ip */
+            ip = "{{ metricsdb_ip }}"
+            /* Graphite server port */
+            port = 2003
+            period = 5
+        } #}
     }
 
     pm: {
@@ -92,6 +105,7 @@ fds: {
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
         graphite: {
             /* Graphite server ip */
             ip = "{{ metricsdb_ip }}"
@@ -99,6 +113,7 @@ fds: {
             port = 2003
             period = 5
         }
+
         threadpool: {
             num_threads = 10
 
@@ -180,10 +195,10 @@ fds: {
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
         graphite: {
             /* Graphite server ip */
             ip = "{{ metricsdb_ip }}"
-
             /* Graphite server port */
             port = 2003
             period = 5
@@ -198,6 +213,7 @@ fds: {
 
         /* Timeline feature toggle */
         enable_timeline = true
+        upload_to_cloud = false
 
         /* Internal testing related info */
         testing: {
@@ -347,23 +363,25 @@ fds: {
         }
 	tiering: {
 	    hybrid: {
-	        enable 		= false
+	        enable 		= {{ sm_tiering_hybrid_enable }}
 		/* Number of objects to move at a time */
-		batchSz 	= 1024
+		batchSz 	= {{ sm_tiering_hybrid_batchsz }}
 		/* In seconds to make testing easier (default 172800s = 2days) */
-		frequency 	= 172800
+		frequency 	= {{ sm_tiering_hybrid_frequency }}
 	    }
 	}
+
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
         graphite: {
             /* Graphite server ip */
             ip = "{{ metricsdb_ip }}"
-
             /* Graphite server port */
-            port=2003
+            port = 2003
             period = 5
         }
+
     }
 
     am: {
@@ -389,23 +407,34 @@ fds: {
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
 
-        /* ID for local AM instance */
-        instanceId = 0
-
         /* TODO(Rao): Get this from platform */
         om_config_port = 8903
+
+        /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
 
-        s3_http_port=8000
-        s3_https_port=8443
-        swift_port=9999
+        graphite: {
+            /* Graphite server ip */
+            ip = "{{ metricsdb_ip }}"
+            /* Graphite server port */
+            port = 2003
+            period = 5
+        }
+
+        s3_http_port_offset=1000
+        s3_https_port_offset=1443
+        swift_port_offset=2999
+        am_base_response_port_offset=2876
+        am_service_port_offset=2988
+        xdi_service_port_offset=1899
+        streaming_port_offset=1911
         memory_backend=false
         fdsn_server_threads=30
         qos_threads=4
 
         connector: {
             nbd: {
-                server_port=10809
+                server_port_offset=3809
                 non_block_io=true
             }
         }
@@ -502,7 +531,6 @@ fds: {
 	/* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
         control_port=8904
         ip_address = "{{ om_ip }}"
-        enable_graphite = {{ metrics_enabled }}
         token_factor=8
         replica_factor=4
         placement_algo="ConsistHash"

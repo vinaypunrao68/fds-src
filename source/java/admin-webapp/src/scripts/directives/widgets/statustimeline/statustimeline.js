@@ -10,7 +10,7 @@ angular.module( 'display-widgets' ).directive( 'statusTimeline', function(){
         // dateRange: { start: , end: }
         // lastEvent:  # in seconds
         scope: { data: '=ngModel', dateRange: '=', divisions: '@', domain: '=', range: '=', iconClass: '@', rightLabel: '@', leftLabel: '@', middleLabel: '@' },
-        controller: function( $scope ){
+        controller: function( $scope, $timeout ){
             
             $scope.bucketTime = 0;
             $scope.boxes = [];

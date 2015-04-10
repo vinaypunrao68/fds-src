@@ -49,7 +49,7 @@ set(SOURCE_FILES
 ./access-mgr/include/am-tx-mgr.h
 ./access-mgr/include/fdsn-server.h
 ./access-mgr/include/requests/AbortBlobTxReq.h
-./access-mgr/include/requests/AttachVolBlobReq.h
+./access-mgr/include/requests/AttachVolumeReq.h
 ./access-mgr/include/requests/CommitBlobTxReq.h
 ./access-mgr/include/requests/DeleteBlobReq.h
 ./access-mgr/include/requests/GetBlobReq.h
@@ -372,10 +372,6 @@ set(SOURCE_FILES
 ./include/net/net-service.h
 ./include/net/net_utils.h
 ./include/net-proxies/vol_policy.h
-./include/nginx-driver/am-engine.h
-./include/nginx-driver/atmos-connector.h
-./include/nginx-driver/http_utils.h
-./include/nginx-driver/s3connector.h
 ./include/odb.h
 ./include/orch-mgr/om-service.h
 ./include/persistent-layer/dm_io.h
@@ -556,11 +552,6 @@ set(SOURCE_FILES
 ./net-service/svc_request/SvcRequest.cpp
 ./net-service/svc_request/SvcRequestPool.cpp
 ./net-service/svc_request/SvcRequestTracker.cpp
-./nginx-driver/am-plugin.h
-./nginx-driver/misc/am-urls.cpp
-./nginx-driver/misc/atmos-connector.cpp
-./nginx-driver/misc/http_utils.cpp
-./nginx-driver/misc/s3connector.cpp
 ./orch-mgr/OmBindings.cpp
 ./orch-mgr/com_formationds_om_NativeOm.h
 ./orch-mgr/configservice/configservice.cpp
@@ -907,10 +898,8 @@ set(SOURCE_FILES
 ./unit-test/data-mgr/dm_mocks.h
 ./unit-test/data-mgr/dm_utils.h
 ./unit-test/data-mgr/dm_volume_catalog_gtest.cpp
-./unit-test/data-mgr/ngx_modules.c
 ./unit-test/data-mgr/svc-test/dm_mod_gtest.cpp
 ./unit-test/data-mgr/svc-test/dm_mod_gtest.h
-./unit-test/data-mgr/svc-test/ngx_modules.c
 ./unit-test/data-mgr/svc-test/sldmperf_gtest.cpp
 ./unit-test/data-mgr/timelinedb.cpp
 ./unit-test/examples/goog-pprof.cpp
@@ -956,7 +945,6 @@ set(SOURCE_FILES
 ./unit-test/stor-mgr/sm_util_lib.cpp
 ./unit-test/stor-mgr/sm_util_lib.h
 ./unit-test/stor-mgr/smchk_gtest.cpp
-./unit-test/stor-mgr/svc-test/ngx_modules.c
 ./unit-test/stor-mgr/svc-test/slsmperf_gtest.cpp
 ./unit-test/stor-mgr/svc-test/smapi_gtest.cpp
 ./unit-test/stor-mgr/svc-test/smperf_dmsm_gtest.cpp
@@ -964,7 +952,6 @@ set(SOURCE_FILES
 ./unit-test/stor-mgr/svc-test/svc_gtest.cpp
 ./unit-test/svc-layer/Threadpool.h
 ./unit-test/svc-layer/Threadpool2.h
-./unit-test/svc-layer/ngx_modules.c
 ./unit-test/svc-layer/serializer_gtest.cpp
 ./unit-test/svc-layer/th_am.cpp
 ./unit-test/svc-layer/th_am_server.cpp

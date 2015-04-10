@@ -103,9 +103,6 @@ enum  FDSPMsgTypeId {
   /** AM-> OM */
   CtrlTestBucketTypeId                      = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
-  CtrlCreateBucketTypeId                    = 3002;
-  CtrlDeleteBucketTypeId                    = 3003;
-  CtrlModifyBucketTypeId                    = 3004;
 
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;
@@ -120,7 +117,7 @@ enum  FDSPMsgTypeId {
   DeleteObjectRspMsgTypeId                  = 10005;
   AddObjectRefMsgTypeId                     = 10006;
   AddObjectRefRspMsgTypeId                  = 10007;
-  ShutdownMODMsgTypeId                      = 10008;
+  PrepareForShutdownMsgTypeId               = 10008;
 
   /** DM Type Ids */
   QueryCatalogMsgTypeId                     = 20000;
@@ -135,10 +132,12 @@ enum  FDSPMsgTypeId {
   SetBlobMetaDataRspMsgTypeId;
   GetBlobMetaDataMsgTypeId;
   GetBlobMetaDataRspMsgTypeId;
-  SetVolumeMetaDataMsgTypeId;
-  SetVolumeMetaDataRspMsgTypeId;
-  GetVolumeMetaDataMsgTypeId;
-  GetVolumeMetaDataRspMsgTypeId;
+  StatVolumeMsgTypeId;
+  StatVolumeRspMsgTypeId;
+  SetVolumeMetadataMsgTypeId;
+  SetVolumeMetadataRspMsgTypeId;
+  GetVolumeMetadataMsgTypeId;
+  GetVolumeMetadataRspMsgTypeId;
   CommitBlobTxMsgTypeId;
   CommitBlobTxRspMsgTypeId;
   AbortBlobTxMsgTypeId;
@@ -165,8 +164,10 @@ enum  FDSPMsgTypeId {
   GetDmStatsMsgRespTypeId;
   ListBlobsByPatternMsgTypeId;
   ListBlobsByPatternRspMsgTypeId;
-  ReloadVolumeMsgTypeId;
-  ReloadVolumeRspMsgTypeId
+  OpenVolumeMsgTypeId;
+  OpenVolumeRspMsgTypeId;
+  CloseVolumeMsgTypeId;
+  CloseVolumeRspMsgTypeId;
 }
 
 /**

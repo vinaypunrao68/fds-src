@@ -1,0 +1,13 @@
+{
+	"test_sets" : {
+		"multi_am_tests" : [
+			{
+				"name" : "TestS3LargeNumberBlobs",
+				"file" : "test_S3_large_number_blobs.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : ""
+			}
+		]
+	}
+}

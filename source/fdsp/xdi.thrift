@@ -73,6 +73,12 @@ service AsyncXdiServiceRequest {
                                3:string volumeName, 4:i32 count, 5:i64 offset, 6:string pattern,
                                7:common.BlobListOrder orderBy, 8:bool descending),
 
+    oneway void setVolumeMetadata(1:RequestId requestId, 2:string domainName,
+                                  3:string volumeName, 4:map<string, string> metadata),
+
+    oneway void getVolumeMetadata(1:RequestId requestId, 2:string domainName,
+                                  3:string volumeName),
+
     oneway void statBlob(1:RequestId requestId, 2:string domainName,
                          3:string volumeName, 4:string blobName),
 
@@ -114,6 +120,10 @@ service AsyncXdiServiceResponse {
     oneway void attachVolumeResponse(1:RequestId requestId),
 
     oneway void volumeContents(1:RequestId requestId, 2:list<common.BlobDescriptor> response),
+
+    oneway void setVolumeMetadataResponse(1:RequestId requestId),
+
+    oneway void getVolumeMetadataResponse(1:RequestId requestId, 2:map<string, string> metadata),
 
     oneway void statBlobResponse(1:RequestId requestId, 2:common.BlobDescriptor response),
 

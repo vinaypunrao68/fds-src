@@ -3,8 +3,9 @@
  */
 
 #include <StorMgr.h>
-#include <net/SvcProcess.h>
+
 #include <SMSvcHandler.h>
+#include <net/SvcProcess.h>
 
 class SMMain : public SvcProcess
 {
@@ -22,25 +23,12 @@ class SMMain : public SvcProcess
             nullptr
         };
 
-         /* Before calling init, close all file descriptors.  Later, we may daemonize the
-         * process, in which case we may be closing all existing file descriptors while
-         * threads may access the file descriptor.
-         */
-        closeAllFDs();
-
         /* Init platform process */
-        init<fds::SMSvcHandler, fpi::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.",
+        init<fds::SMSvcHandler, FDS_ProtocolInterface::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.",
                 "sm.log", smVec);
 
         /* setup signal handler */
         setupSigHandler();
-
-        /* Daemonize */
-        fds_bool_t daemonizeProc = get_fds_config()->get<bool>("fds.sm.daemonize", true);
-        // xxx: Daemonize should be the first thing that needs to happen
-        if (false && true == daemonizeProc) {
-            daemonize();
-        }
     }
 
     static void SIGSEGVHandler(int sigNum, siginfo_t *sigInfo, void *context) {
@@ -86,6 +74,9 @@ class SMMain : public SvcProcess
 
 int main(int argc, char *argv[])
 {
+    /* Based on command line arg --foreground is set, don't daemonize the process */
+    fds::FdsProcess::checkAndDaemonize(argc, argv);
+
     auto smMain = new SMMain(argc, argv);
     auto ret = smMain->main();
     delete smMain;

@@ -11,6 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <fdsp/sm_types_types.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
 #include <fds_types.h>
@@ -252,6 +253,9 @@ TEST_F(SmObjectStoreTest, one_thread_dup_puts) {
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
         err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
+        if (!err.ok()) {
+            std::cout << oid << " putObject returned " << err << std::endl;
+        }
     }
 }
 
@@ -293,7 +297,7 @@ initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg) {
     msg.objectSize = 0;
 
     // init
-    MetaDataVolumeAssoc volAssoc;
+    fpi::MetaDataVolumeAssoc volAssoc;
     volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
     volAssoc.volumeRefCnt = 1;
     msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
@@ -417,7 +421,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
         EXPECT_TRUE(err.ok());
 
         // add new volume association
-        MetaDataVolumeAssoc volAssoc2;
+        fpi::MetaDataVolumeAssoc volAssoc2;
         volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID;
         volAssoc2.volumeRefCnt = 3;
         msg.objectRefCnt = 3;

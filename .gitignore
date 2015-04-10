@@ -38,7 +38,6 @@ core
 cscope.*
 gmock-1.7.0/gmock_test
 linux-*
-nginx/src/main/ngx_modules.c
 node_modules
 source/.idea
 source/am-engine
@@ -100,8 +99,6 @@ source/unit-test/fds-probe/s3-template/o.h
 source/unit-test/fds-probe/sm-embed/in.h
 source/unit-test/fds-probe/thrift/server/endpoint-test.P
 source/unit-test/fds-probe/thrift/server/endpoint-test.cpp-chk
-source/unit-test/fds-probe/thrift/server/ngx_modules.P
-source/unit-test/fds-probe/thrift/server/ngx_modules.c-chk
 source/unit-test/fds-probe/thrift/thrift-gen/*
 source/unit-test/svc-layer/TestAMSvc.cpp
 source/unit-test/svc-layer/TestAMSvc.h
@@ -124,9 +121,12 @@ thrift-0.9.0/lib/py/thrift.egg-info/
 thrift-0.9.0/tutorial/erl/client.sh
 tmppkg*/
 ycm.flags
-/source/nginx-driver/misc/am-urls.cpp
 /nbproject/
 /CMakeCache.txt
 /CMakeFiles/2.8.12.2/
 /CMakeFiles/
 /source/java/nb-configuration.xml
+ExtendedFstabTest.unit.bak
+ExtendedFstabTest.unit.1*
+ExtendedFstabTest.unit.altered.1*
+.coverage

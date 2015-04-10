@@ -213,6 +213,7 @@ class FdsLocalEnv(FdsEnv):
                  cmd,
                  wait_compl = False,
                  fds_bin = False,
+                 fds_tools = False,
                  output = False,
                  return_stdin = False,
                  cmd_input=None):
@@ -242,10 +243,13 @@ class FdsLocalEnv(FdsEnv):
         # Split the command into a list of strings as prefered by subprocess.Popen()
         call_args = shlex.split(cmd_exec)
 
-        # For FDS binaries in a development environment, we need to switch to that directory for execution.
+        # For FDS binaries in a development environment or for "FDS tools", we need to switch to that
+        # directory for execution.
         cur_dir = os.getcwd()
         if fds_bin and not self.env_install:
             os.chdir(self.get_bin_dir(debug=True))
+        elif fds_tools:
+            os.chdir(self.get_tools_dir())
 
         p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -269,12 +273,14 @@ class FdsLocalEnv(FdsEnv):
 
         status = p.returncode
 
-        # For FDS binaries in a development environment, we need to switch back to our original directory.
-        if fds_bin and not self.env_install:
+        # For FDS binaries in a development environment or for "FDS tools", we need to switch back
+        # to our original directory.
+        if (fds_bin and not self.env_install) or fds_tools:
             os.chdir(cur_dir)
 
         if stderr is not None:
             for line in stderr.splitlines():
+                # These are stderr "warnings" and "errors" we wish to ignore.
                 # sudo prompts show up in stderr.
                 if line.startswith("[sudo] password for "):
                     # If the line does not extend past ':', ignore it.
@@ -283,18 +289,32 @@ class FdsLocalEnv(FdsEnv):
                         continue
                     else:
                         prompt, colon, line = line.partition(":")
+
                 if 'log4j:WARN' in line:
                     continue
+
                 if 'Content is not allowed in prolog.' in line:
                     continue
-                log.warn("[%s Error] %s" % (self.env_host, line))
+
+                # From fsdconsole.py
+                if 'InsecureRequestWarning' in line:
+                    continue
+
                 if status == 0:
+                    log.warning("Shell reported status 0 from command execution but stderr "
+                                "contains unexpected output as follows. Forcing status to -1.")
                     status = -1
+
+                log.warning("[{} stderr] {}".format(self.env_host, line))
 
         if output and (stdout is not None):
             if status != 0:
+                if len(stdout) > 0:
+                    log.warning("Non-zero status from shell command execution, {}, "
+                                "or unrecognized stderr output.".format(status))
+                    log.warning("stdout contents as follows.")
                 for line in stdout.splitlines():
-                    log.info("[%s] %s" % (self.env_host, line))
+                    log.warning("[{} stdout] {}".format(self.env_host, line))
 
         return_line = None
         if return_stdin and wait_compl and (stdout is not None):
@@ -315,8 +335,8 @@ class FdsLocalEnv(FdsEnv):
     # Execute command and wait for result. We'll also log
     # output in this case.
     #
-    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True, fds_bin=False, output=True):
-        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=output, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin=False, cmd_input=None, wait_compl=True, fds_bin=False, fds_tools=False, output=True):
+        return self.local_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, fds_tools=fds_tools, output=output, return_stdin=return_stdin,
                                cmd_input=cmd_input)
 
     def local_close(self):
@@ -396,6 +416,7 @@ class FdsRmtEnv(FdsEnv):
                  cmd,
                  wait_compl = False,
                  fds_bin = False,
+                 fds_tools = False,
                  output = False,
                  return_stdin = False,
                  cmd_input = None):
@@ -408,6 +429,13 @@ class FdsRmtEnv(FdsEnv):
             else:
                 cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
                             'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
+        elif fds_tools:
+            if self.env_test_harness:
+                cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_tools_dir() +
+                            '; ulimit -c unlimited; ulimit -n 12800; ' + cmd)
+            else:
+                cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_tools_dir() +
+                            '; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
         else:
             cmd_exec = cmd
 
@@ -437,14 +465,35 @@ class FdsRmtEnv(FdsEnv):
 
         if self.env_test_harness:
             for line in stderr.read().splitlines():
-                log.warn("[%s Error] %s" % (self.env_host, line))
+                # These are stderr "warnings" and "errors" we wish to ignore.
+                if 'log4j:WARN' in line:
+                    continue
+
+                if 'Content is not allowed in prolog.' in line:
+                    continue
+
+                # From fsdconsole.py
+                if 'InsecureRequestWarning' in line:
+                    continue
+
                 if status == 0:
+                    log.warning("Shell reported status 0 from command execution but stderr "
+                                "contains unexpected output as follows. Forcing status to -1.")
                     status = -1
+
+                log.warning("[{} stderr] {}".format(self.env_host, line))
 
             if output == True:
                 if status != 0:
+                    firstTime = True
                     for line in stdout.read().splitlines():
-                        log.info("[%s] %s" % (self.env_host, line))
+                        if firstTime:
+                            log.warning("Non-zero status from shell command execution, {}, "
+                                        "or unrecognized stderr output.".format(status))
+                            log.warning("stdout contents as follows.")
+                            firstTime = False
+
+                        log.warning("[{} stdout] {}".format(self.env_host, line))
         else:
             if output == True:
                 for line in stdout.read().splitlines():
@@ -474,8 +523,8 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
-    def exec_wait(self, cmd, return_stdin = False, cmd_input=None, wait_compl=True, fds_bin=False, output=True):
-        return self.ssh_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, output=output, return_stdin=return_stdin,
+    def exec_wait(self, cmd, return_stdin = False, cmd_input=None, wait_compl=True, fds_bin=False, fds_tools=False, output=True):
+        return self.ssh_exec(cmd, wait_compl=wait_compl, fds_bin=fds_bin, fds_tools=fds_tools, output=output, return_stdin=return_stdin,
                              cmd_input=cmd_input)
 
     def ssh_close(self):

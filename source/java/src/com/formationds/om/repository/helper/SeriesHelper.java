@@ -9,6 +9,7 @@ import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.SeriesBuilder;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
@@ -50,10 +51,9 @@ public class SeriesHelper {
         this.vdpHelper = new VolumeDatapointHelper();
     }
 
-    public final List<Series> getRollupSeries(
-    	final List<VolumeDatapoint> datapoints,
-    	final MetricQueryCriteria query,
-    	final StatOperation operation ) {
+    public final List<Series> getRollupSeries( final List<IVolumeDatapoint> datapoints,
+    	                                       final MetricQueryCriteria query,
+    	                                       final StatOperation operation ) {
     	
     	/*
          * So the idea is that we need to sum up all the volume datapoints
@@ -123,7 +123,7 @@ public class SeriesHelper {
         throw new IllegalArgumentException( "Date Range is invalid" );    	
     }
     
-    private List<Series> hourRollup( final List<VolumeDatapoint> datapoints, 
+    private List<Series> hourRollup( final List<IVolumeDatapoint> datapoints,
     								 final Long epoch,
     								 final List<Metrics> metrics,
     								 final StatOperation operation ) {
@@ -144,7 +144,7 @@ public class SeriesHelper {
     	return series;
     }
     
-    private List<Series> dayRollup(	final List<VolumeDatapoint> datapoints, 
+    private List<Series> dayRollup(	final List<IVolumeDatapoint> datapoints,
 			 						final Long epoch,
 			 						final List<Metrics> metrics,
 			 						final StatOperation operation	) {
@@ -164,7 +164,7 @@ public class SeriesHelper {
 		return series;
 	}    
     
-    private List<Series> weekRollup(final List<VolumeDatapoint> datapoints, 
+    private List<Series> weekRollup(final List<IVolumeDatapoint> datapoints,
 									final Long epoch,
 									final List<Metrics> metrics,
 									final StatOperation operation ) {
@@ -184,7 +184,7 @@ public class SeriesHelper {
 		return series;
 	}      
     
-    private List<Series> thirtyDaysRollup(	final List<VolumeDatapoint> datapoints, 
+    private List<Series> thirtyDaysRollup(	final List<IVolumeDatapoint> datapoints,
 											final Long epoch,
 											final List<Metrics> metrics,
 											final StatOperation operation ) {
@@ -203,7 +203,7 @@ public class SeriesHelper {
 		return series;
 	}  
     
-    private List<Series> longTermRollup( final List<VolumeDatapoint> datapoints,
+    private List<Series> longTermRollup( final List<IVolumeDatapoint> datapoints,
     		final long epoch,
     		final List<Metrics> metrics,
     		final StatOperation operation ){
@@ -242,14 +242,14 @@ public class SeriesHelper {
      * @return
      */
     private Series generate(
-        final List<VolumeDatapoint> volumeDatapoints,
+        final List<IVolumeDatapoint> volumeDatapoints,
         final Long timestamp,
         final Metrics metrics,
         final Long distribution,
         final int maxResults,
         final StatOperation operation ) {
     	
-        Map<Long, Set<VolumeDatapoint>> groupByTimestamp =
+        Map<Long, Set<? extends IVolumeDatapoint>> groupByTimestamp =
             vdpHelper.groupByTimestamp( volumeDatapoints );
 
         final List<Datapoint> datapoints = new ArrayList<>( );
@@ -264,10 +264,10 @@ public class SeriesHelper {
         	// the value you desire.
         	Double d = bytesValues.stream()
                                         .filter( ( value ) -> {
-                                        	return value.getKey().equalsIgnoreCase( metrics.key() );
+                                        	return metrics.matches( value.getKey() );
                                         })
                                         .peek( ( l ) -> logger.trace( l.toString() ) )
-                                        .mapToDouble( VolumeDatapoint::getValue )
+                                        .mapToDouble( IVolumeDatapoint::getValue )
                                         .sum();
              
             logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",

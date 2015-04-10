@@ -3,11 +3,14 @@
  */
 
 #include "requests/AbortBlobTxReq.h"
-#include "requests/AttachVolBlobReq.h"
+#include "requests/AttachVolumeReq.h"
+#include "requests/DetachVolumeReq.h"
 #include "requests/CommitBlobTxReq.h"
 #include "requests/DeleteBlobReq.h"
 #include "requests/GetBlobReq.h"
-#include "requests/GetVolumeMetaDataReq.h"
+#include "requests/StatVolumeReq.h"
+#include "requests/SetVolumeMetadataReq.h"
+#include "requests/GetVolumeMetadataReq.h"
 #include "requests/PutBlobReq.h"
 #include "requests/SetBlobMetaDataReq.h"
 #include "requests/StartBlobTxReq.h"

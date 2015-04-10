@@ -13,7 +13,6 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import com.google.common.base.Joiner;
-import org.apache.thrift.TException;
 import org.dom4j.Document;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
@@ -77,8 +76,8 @@ public class ListContainers implements SwiftRequestHandler {
                 .map(v -> {
                     VolumeStatus status = null;
                     try {
-                        status = xdi.statVolume(token, accountName, v.getName());
-                    } catch (TException e) {
+                        status = xdi.statVolume(token, accountName, v.getName()).get();
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                     return new JSONObject()
@@ -98,8 +97,8 @@ public class ListContainers implements SwiftRequestHandler {
                 .forEach(v -> {
                     VolumeStatus status = null;
                     try {
-                        status = xdi.statVolume(token, accountName, v.getName());
-                    } catch (TException e) {
+                        status = xdi.statVolume(token, accountName, v.getName()).get();
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                     Element object = root.addElement("container");

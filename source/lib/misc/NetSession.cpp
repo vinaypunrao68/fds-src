@@ -188,7 +188,7 @@ void netSessionTbl::listenServer(netSession* server_session) {
         case FDSP_DATA_MGR:
             break;
 
-        case FDSP_STOR_HVISOR:
+        case FDSP_ACCESS_MGR:
             break;
 
         case FDSP_ORCH_MGR:

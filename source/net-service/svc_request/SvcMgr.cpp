@@ -19,10 +19,16 @@
 #include <net/SvcMgr.h>
 
 namespace fds {
-std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
-    return svcId.svc_uuid;
-}
 
+/*********************************************************************************
+ * Static variables
+ ********************************************************************************/
+int32_t SvcMgr::MIN_CONN_RETRIES = 3;
+int32_t SvcMgr::MAX_CONN_RETRIES = 1024;
+
+/*********************************************************************************
+ * Free functions
+ ********************************************************************************/
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
 {
     std::stringstream ss;
@@ -46,34 +52,38 @@ std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
 
 template<class T>
 boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
-                                           const bool &blockOnConnect)
+                                    const int &retryCnt)
 {
     auto sock = bo::make_shared<net::Socket>(ip, port);
     auto trans = bo::make_shared<tt::TFramedTransport>(sock);
     auto proto = bo::make_shared<tp::TBinaryProtocol>(trans);
     boost::shared_ptr<T> client = bo::make_shared<T>(proto);
-    if (!blockOnConnect) {
-        /* This may throw an exception when trying to open.  Caller is expected to handle
-         * the exception
-         */
-        sock->open();
-    } else {
-        sock->connect();
+    bool bConnected = sock->connect(retryCnt);
+    if (!bConnected) {
+        GLOGWARN << "Failed to connect to ip: " << ip << " port: " << port;
+        throw tt::TTransportException();
     }
     return client;
 }
 template
 boost::shared_ptr<fpi::PlatNetSvcClient> allocRpcClient<fpi::PlatNetSvcClient>(
     const std::string &ip, const int &port,
-    const bool &blockOnConnect);
+    const int &retryCnt);
 template
 boost::shared_ptr<fpi::OMSvcClient> allocRpcClient<fpi::OMSvcClient>(
     const std::string &ip, const int &port,
-    const bool &blockOnConnect);
+    const int &retryCnt);
 template
 boost::shared_ptr<fpi::StreamingClient> allocRpcClient<fpi::StreamingClient>(
     const std::string &ip, const int &port,
-    const bool &blockOnConnect);
+    const int &retryCnt);
+
+/*********************************************************************************
+ * class methods
+ ********************************************************************************/
+std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
+    return svcId.svc_uuid;
+}
 
 SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
                PlatNetSvcHandlerPtr handler,
@@ -112,7 +122,7 @@ fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
     } else if (svcName == "dm") {
         return fpi::FDSP_DATA_MGR;
     } else if (svcName == "am") {
-        return fpi::FDSP_STOR_HVISOR;
+        return fpi::FDSP_ACCESS_MGR;
     } else if (svcName == "om") {
         return fpi::FDSP_ORCH_MGR;
     } else if (svcName == "console") {
@@ -134,7 +144,7 @@ std::string SvcMgr::mapToSvcName(const fpi::FDSP_MgrIdType &svcType)
         return "sm";
     case fpi::FDSP_DATA_MGR:
         return "dm";
-    case fpi::FDSP_STOR_HVISOR:
+    case fpi::FDSP_ACCESS_MGR:
         return "am";
     case fpi::FDSP_ORCH_MGR:
         return "om";
@@ -386,7 +396,7 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
     fpi::OMSvcClientPtr omClient;
     while (true) {
         try {
-            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, true);
+            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, MAX_CONN_RETRIES);
             break;
         } catch (std::exception &e) {
             GLOGWARN << "allocRpcClient failed.  Exception: " << e.what()
@@ -489,7 +499,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
             GLOGDEBUG << "Allocating PlatNetSvcClient for: " << logString();
             svcClient_ = allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
                                                                svcInfo_.svc_port,
-                                                               false);
+                                                               SvcMgr::MIN_CONN_RETRIES);
         }
         if (isAsyncReqt) {
             svcClient_->asyncReqt(*header, *payload);

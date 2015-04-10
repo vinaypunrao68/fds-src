@@ -63,7 +63,7 @@ class SvcMap(object):
     svc_type_map = {
         'sm' : [FDSP_MgrIdType.FDSP_STOR_MGR,       SMSvc],
         'dm' : [FDSP_MgrIdType.FDSP_DATA_MGR,       DMSvc],
-        'am' : [FDSP_MgrIdType.FDSP_STOR_HVISOR,    PlatNetSvc],
+        'am' : [FDSP_MgrIdType.FDSP_ACCESS_MGR,    PlatNetSvc],
         #TODO(prem): add config service with different name
         #'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       ConfigurationService],
         'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       OMSvc],

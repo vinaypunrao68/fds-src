@@ -1,15 +1,13 @@
 [luke]
 luke
 han
-chewie
 c3po
+chewie
 
 [luke:vars]
 fds_authentication=false
 ansible_ssh_user=root
 ansible_ssh_pass=passwd
-cluster_location=fre
-deploy_artifact=nightly
 fds_default_nic=p7p1
 fds_om_host=luke
 fds_metrics_enabled=false

@@ -17,6 +17,10 @@ struct GetBlobReq: public AmRequest {
 
     fds_bool_t oid_cached;
     fds_bool_t metadata_cached;
+    // TODO(bszmyd): Mon 23 Mar 2015 02:59:55 AM PDT
+    // Take this out when we support transactions.
+    fds_bool_t retry { false };
+    ObjectID   last_obj_id;
 
     GetBlobReq(fds_volid_t _volid,
                const std::string& _volumeName,

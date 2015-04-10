@@ -9,6 +9,7 @@ import com.formationds.apis.StreamingRegistrationMsg;
 import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.FDSP_PolicyInfoType;
 import com.formationds.commons.events.*;
 import com.formationds.om.events.EventManager;
 import com.formationds.security.AuthenticationToken;
@@ -174,6 +175,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         UPDATE_USER(EventCategory.SYSTEM, "Updated user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
         ASSIGN_USER_TENANT(EventCategory.SYSTEM, "Assigned user {0} to tenant {1}", "userId", "tenantId"),
         REVOKE_USER_TENANT(EventCategory.SYSTEM, "Revoked user {0} from tenant {1}", "userId", "tenantId"),
+        CREATE_QOS_POLICY(EventCategory.VOLUMES, "Created QoS policy {0}", "policyName"),
+        MODIFY_QOS_POLICY(EventCategory.VOLUMES, "Modified QoS policy {0}", "policyName"),
+        DELETE_QOS_POLICY(EventCategory.VOLUMES, "Deleted QoS policy {0}", "policyName"),
         CREATE_VOLUME(EventCategory.VOLUMES, "Created volume: domain={0}; name={1}; tenantId={2}; type={3}; size={4}",
                       "domainName", "volumeName", "tenantId", "volumeType", "maxSize"),
         DELETE_VOLUME(EventCategory.VOLUMES, "Deleted volume: domain={0}; name={1}", "domainName", "volumeName"),
@@ -272,18 +276,166 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
     
     /**
-     * List all currently defined Services for the given Local Domain.
+     * Rename the given Local Domain.
      * 
-     * @param domainName - String: The name of the Local Domain whose services are to be listed.
+     * @param oldDomainName - String: The name of the Local Domain to be renamed.
+     * @param newDomainName - String: The new name of the Local Domain.
      * 
-     * @return List<com.formationds.apis.LocalDomain>: A list of the currently defined Local Domains and associated information.
+     * @return void.
      * 
      * @throws TException
      */
     @Override
-    public List<FDSP_Node_Info_Type> listServices(String domainName)
+    public void updateLocalDomainName(String oldDomainName, String newDomainName)
         throws ApiException, org.apache.thrift.TException {
-        return getConfig().listServices(domainName);
+        getConfig().updateLocalDomainName(oldDomainName, newDomainName);
+        return;
+    }
+    
+    /**
+     * Rename the given Local Domain's site.
+     * 
+     * @param domainName - String: The name of the Local Domain whose site is to be renamed.
+     * @param newSiteName - String: The new name of the Local Domain's site.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void updateLocalDomainSite(String domainName, String newSiteName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().updateLocalDomainSite(domainName, newSiteName);
+        return;
+    }
+    
+    /**
+     * Set the Local Domain's throttle.
+     * 
+     * @param domainName - String: The name of the Local Domain whose throttle is to be set.
+     * @param throttleLevel - Double: The throttle level to set for the Local Domain.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void setThrottle(String domainName, double throttleLevel)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().setThrottle(domainName, throttleLevel);
+        return;
+    }
+    
+    /**
+     * Set the Local Domain's scavenger action.
+     * 
+     * @param domainName - String: The name of the Local Domain whose scavenger action is to be set.
+     * @param scavengerAction - String: The scavenger action to set for the Local Domain. One of
+     *                          "enable", "disable", "start", "stop".
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void setScavenger(String domainName, String scavengerAction)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().setScavenger(domainName, scavengerAction);
+        return;
+    }
+    
+    /**
+     * Shutdown the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain to be shutdown.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void shutdownLocalDomain(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().shutdownLocalDomain(domainName);
+        return;
+    }
+    
+    /**
+     * Delete the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain to be deleted.
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void deleteLocalDomain(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().deleteLocalDomain(domainName);
+        return;
+    }
+    
+    /**
+     * Activate all currently defined Services on all currently defined Nodes the given Local Domain.
+     * 
+     * If all Service flags are set to False, it will
+     * be interpreted to mean activate all Services currently defined for the Node. If there are
+     * no Services currently defined for the node, it will be interpreted to mean activate all
+     * Services on the Node (SM, DM, and AM), and define all Services for the Node.
+     *
+     * @param domainName - String: The name of the Local Domain whose services are to be activated.
+     * @param sm - A boolean indicating whether the SM Service should be activated (True) or not (False)
+     * @param dm - A boolean indicating whether the DM Service should be activated (True) or not (False)
+     * @param am - A boolean indicating whether the AM Service should be activated (True) or not (False)
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void activateLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().activateLocalDomainServices(domainName, sm, dm, am);
+        return;
+    }
+    
+    /**
+     * List all currently defined Services for the given Local Domain.
+     * 
+     * @param domainName - String: The name of the Local Domain whose services are to be listed.
+     * 
+     * @return List<com.formationds.apis.LocalDomain>: A list of the currently defined Services for the given Local Domain.
+     * 
+     * @throws TException
+     */
+    @Override
+    public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
+        throws ApiException, org.apache.thrift.TException {
+        return getConfig().listLocalDomainServices(domainName);
+    }
+    
+    /**
+     * Remove all currently defined Services on all currently defined Nodes the given Local Domain.
+     * 
+     * If all Service flags are set to False, it will
+     * be interpreted to mean remove all Services currently defined for the Node.
+     * Removal means that the Service is unregistered from the Domain and shutdown.
+     *
+     * @param domainName - String: The name of the Local Domain whose services are to be removed.
+     * @param sm - A boolean indicating whether the SM Service should be removed (True) or not (False)
+     * @param dm - A boolean indicating whether the DM Service should be removed (True) or not (False)
+     * @param am - A boolean indicating whether the AM Service should be removed (True) or not (False)
+     * 
+     * @return void.
+     * 
+     * @throws TException
+     */
+    @Override
+    public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().removeLocalDomainServices(domainName, sm, dm, am);
+        return;
     }
 
     @Override
@@ -391,6 +543,81 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public long configurationVersion(long ignore) throws ApiException {
         return fillCacheMaybe().getVersion();
+    }
+
+    /**
+     * Create a QoS Policy with the provided name and accoutrements.
+     *
+     * @param policyName - String: The name of the new QoS Policy. Must be unique within the Global Domain.
+     * @param iopsMin - A long representing the minimum IOPS to be achieved by the policy. Also referred to as "SLA" or
+     *                  "Service Level Agreement".
+     * @param iopsMax - A long representing the maximum IOPS guaranteed by the policy. Also referred to as "Limit".
+     * @param relPrio - An integer representing the relative priority of requests against Volumes with this policy compared
+     *                  to requests against Volumes with different relative priorities.
+     *
+     * @return FDSP_PolicyInfoType: The detail of the created QoS Policy.
+     *
+     * @throws TException
+     */
+    @Override
+    public FDSP_PolicyInfoType createQoSPolicy(String policyName, long iopsMin, long iopsMax, int relPrio)
+            throws TException {
+        FDSP_PolicyInfoType qosPolicy = getConfig().createQoSPolicy(policyName, iopsMin, iopsMax, relPrio);
+        EventManager.notifyEvent(ConfigEvent.CREATE_QOS_POLICY, qosPolicy.policy_name);
+        return qosPolicy;
+    }
+
+    /**
+     * List all currently defined QoS Policies (within the context of the understood Global Domain).
+     * 
+     * @return List<FDSP_PolicyInfoType>: A list of the currently defined QoS Policies and associated information.
+     * 
+     * @throws TException
+     */
+    @Override
+    public List<FDSP_PolicyInfoType> listQoSPolicies(long ignore)
+        throws ApiException, org.apache.thrift.TException {
+        return getConfig().listQoSPolicies(ignore);
+    }
+
+    /**
+     * Modify a QoS Policy with the provided name and accoutrements.
+     *
+     * @param currentPolicyName - String: The name of the current QoS Policy.
+     * @param newPolicyName - String: The name of the new QoS Policy. Must be unique within the Global Domain. May be
+     *                                the same as currentPolicyName if the name is not changing.
+     * @param iopsMin - A long representing the new minimum IOPS to be achieved by the policy. Also referred to as "SLA" or
+     *                  "Service Level Agreement".
+     * @param iopsMax - A long representing the new maximum IOPS guaranteed by the policy. Also referred to as "Limit".
+     * @param relPrio - An integer representing the new relative priority of requests against Volumes with this policy compared
+     *                  to requests against Volumes with different relative priorities.
+     *
+     * @return FDSP_PolicyInfoType: The detail of the modified QoS Policy.
+     *
+     * @throws TException
+     */
+    @Override
+    public FDSP_PolicyInfoType modifyQoSPolicy(String currentPolicyName, String newPolicyName,
+                                               long iopsMin, long iopsMax, int relPrio)
+            throws TException {
+        FDSP_PolicyInfoType policy = getConfig().modifyQoSPolicy(currentPolicyName, newPolicyName,
+                                                                 iopsMin, iopsMax, relPrio);
+        EventManager.notifyEvent(ConfigEvent.MODIFY_QOS_POLICY, policy.policy_name);
+        return policy;
+    }
+
+    /**
+     * Delete the given QoS Policy.
+     * 
+     * @param policyName - String: The name of the QoS Policy to be deleted.
+     *
+     * @throws TException
+     */
+    @Override
+    public void deleteQoSPolicy(String policyName)
+        throws ApiException, org.apache.thrift.TException {
+        getConfig().deleteQoSPolicy(policyName);
+        EventManager.notifyEvent(ConfigEvent.DELETE_QOS_POLICY, policyName);
     }
 
     @Override

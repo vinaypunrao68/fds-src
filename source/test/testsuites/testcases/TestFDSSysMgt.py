@@ -42,10 +42,9 @@ class TestDomainActivate(TestCase.FDSTestCase):
 
         self.log.info("Activate domain starting %s services on each node." % self.passedServices)
 
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-nodes abc -k 1 -e %s > '
-                                            '%s/cli.out 2>&1) \"' %
-                                            (fds_dir, self.passedServices, log_dir),
-                                            fds_bin=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local {} > '
+                                            '{}/fdsconsole.out 2>&1) \"'.format(self.passedServices, log_dir),
+                                            fds_tools=True)
 
         if status != 0:
             self.log.error("Domain activation on %s returned status %d." % (om_node.nd_conf_dict['node-name'], status))
@@ -186,30 +185,14 @@ class TestNodeActivate(TestCase.FDSTestCase):
                                (n.nd_conf_dict['node-name'], status))
                 return False
 
-            # By handling AM separately in a multi-node environment,
-            # we avoid FS-879.
-            if len(nodes) > 1:
-                services = n.nd_services.replace('am', '')
-            else:
-                services = n.nd_services
+            services = n.nd_services
 
             if services != '':
                 self.log.info("Activate services %s for node %s." % (services, n.nd_conf_dict['node-name']))
 
-                status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --activate-services abc -k 1 -w %s -e %s > '
-                                                    '%s/cli.out 2>&1) \"' %
-                                                    (fds_dir, int(n.nd_uuid, 16), services, log_dir),
-                                                    fds_bin=True)
-
-            # By handling AM separately in a multi-node environment,
-            # we avoid FS-879.
-            if (n.nd_services.count('am') > 0) and (len(nodes) > 1):
-                # Boot instead of activate.
-                amBootTest = TestAMBringUp(node=n)
-                amBooted = amBootTest.test_AMBringUp()
-                if not amBooted:
-                    self.log.error("AM failed to boot on node %s." % n.nd_conf_dict['node-name'])
-                    return False
+                status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service '
+                                                    'addService {} {} > {}/cli.out 2>&1) \"'.format(
+                    int(n.nd_uuid, 16), services, log_dir,), fds_tools=True)
 
             if status != 0:
                 self.log.error("Service activation of node %s returned status %d." %
@@ -259,10 +242,10 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
 
             self.log.info("Remove services for node %s." % n.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --remove-services %s -e %s > '
-                                                '%s/cli.out 2>&1) \"' %
-                                                (fds_dir, n.nd_assigned_name, n.nd_services, log_dir),
-                                                fds_bin=True)
+            self.log.warn("Remove services call currently unimplemented. THIS CALL WILL FAIL!")
+            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service removeService {} {} > '
+                                                '{}/cli.out 2>&1) \"'.format(n.nd_uuid, n.nd_services, log_dir),
+                                                fds_tools=True)
 
             if status != 0:
                 self.log.error("Service removal of node %s returned status %d." %
@@ -293,15 +276,11 @@ class TestDomainShutdown(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
 
         self.log.info("Shutdown domain.")
 
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --domain-shutdown abc -k 1 > '
-                                            '%s/cli.out 2>&1) \"' %
-                                            (fds_dir, log_dir),
-                                            fds_bin=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain shutdown local) \"',
+                                            fds_tools=True)
 
         if status != 0:
             self.log.error("Domain shutdown returned status %d." % (status))
@@ -328,15 +307,11 @@ class TestDomainCreate(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
 
         self.log.info("Create domain.")
 
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root %s --domain-create abc -k 1 > '
-                                            '%s/cli.out 2>&1) \"' %
-                                            (fds_dir, log_dir),
-                                            fds_bin=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain create my_domain Woodville,MS) \"',
+                                            fds_tools=True)
 
         if status != 0:
             self.log.error("Domain create returned status %d." % (status))

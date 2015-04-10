@@ -1,4 +1,7 @@
 #!/bin/bash -e
+echo "THIS SCRIPT IS DEPRECATED - please use docker_build.py --type base"
+exit 1
+
 if [ ! -x `which docker` ] ; then
   echo "Cannot find the docker executable - please install following the docs here:"
   echo "http://docs.docker.com/installation/"

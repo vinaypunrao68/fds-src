@@ -41,10 +41,6 @@ ObjectStore::ObjectStore(const std::string &modName,
 }
 
 ObjectStore::~ObjectStore() {
-    // Call destructors of ObjectDataStore and ObjectMetadataStore,
-    // this will chain down the components closing levelDBs
-    // and cleaning memory
-
     dataStore.reset();
     metaStore.reset();
 }
@@ -664,8 +660,19 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
         return err;
     }
 
+    // TODO(Sean):
+    // Here, we have to careful about what it means to have forwarded copyAssociation()
+    // operation (i.e. AddObjectRef()) and not have the objMetaData not present.
+    // We will have to handle it similar to other data paths (i.e. PUT and DELETE), but
+    // not sure if doing it at this point makes too much sense, since DM side of
+    // it will be re-done.  For now, make a note and re-visit, once DM has the
+    // design.
+
     // copy association entry
     updatedMeta.reset(new ObjMetaData(objMeta));
+
+    // TODO(Sean):
+    // Why do we need to get volsrefcnt here?  What do we do with it?
     std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->copyAssocEntry(objId, srcVolId, destVolId);
@@ -929,15 +936,15 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             fds_volid_t volId = volAssoc.volumeAssoc;
             StorMgrVolume* vol = volumeTbl->getVolume(volId);
             fds_assert(vol);  // SM must know about all volumes
-            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+            if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_SSD) {
                 selectVol = vol;
                 break;   // ssd-only is highest media policy
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID) {
                 // we didn't find ssd-only volume yet, so potential candidate
                 // but we may see ssd-only volumes, so continue search
                 selectVol = vol;
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
-                if (selectVol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
+                if (selectVol->voldesc->mediaPolicy != fpi::FDSP_MEDIA_POLICY_HYBRID) {
                     selectVol = vol;
                 }
             } else if (!selectVol) {
@@ -1100,10 +1107,10 @@ ObjectStore::getDiskCount() const {
 int
 ObjectStore::mod_init(SysParams const *const p) {
     static Module *objStoreDepMods[] = {
-        dataStore.get(),
-        diskMap.get(),
-        metaStore.get(),
         tierEngine.get(),
+        dataStore.get(),
+        metaStore.get(),
+        diskMap.get(),
         NULL
     };
     mod_intern = objStoreDepMods;

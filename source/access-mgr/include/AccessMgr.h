@@ -4,15 +4,18 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_ACCESSMGR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_ACCESSMGR_H_
 
+#include <condition_variable>
+#include <mutex>
 #include <string>
 #include <fds_types.h>
 #include <fds_module_provider.h>
 #include <fds_volume.h>
-#include <AmDataApi.h>
-#include <OmConfigService.h>
+#include <fds_module.h>
 
 namespace fds {
 
+struct AmDataApi;
+struct AmProcessor;
 struct AsyncDataServer;
 struct FdsnServer;
 struct NbdConnector;
@@ -32,20 +35,28 @@ class AccessMgr : public Module, public boost::noncopyable {
      */
     int mod_init(SysParams const *const param) override;
     void mod_startup() override;
-    virtual void mod_enable_service() override;
+    void mod_enable_service() override;
+    void mod_disable_service() override;
     void mod_shutdown() override;
 
     void run();
-    /// Interface to directly register a volume. Only
-    /// used for testing today.
-    Error registerVolume(const VolumeDesc& volDesc);
-
-    // Set AM in shutdown mode.
-    void setShutDown();
     void stop();
 
-    // Check whether AM is in shutdown mode.
-    bool isShuttingDown();
+    /// Shared ptr to AM's data API. It's public so that
+    /// other components (e.g., unit tests, perf tests) can
+    /// directly call it. It may be shared by this and the
+    /// fdsn server.
+    boost::shared_ptr<AmDataApi> dataApi;
+
+    std::shared_ptr<AmProcessor> getProcessor()
+    { return amProcessor; }
+
+  private:
+    /// Raw pointer to an external dependency manager
+    CommonModuleProviderIf *modProvider_;
+
+    /// Block connector
+    std::unique_ptr<NbdConnector> blkConnector;
 
     /// Unique ptr to the fdsn server that communicates with XDI
     std::unique_ptr<FdsnServer> fdsnServer;
@@ -53,29 +64,15 @@ class AccessMgr : public Module, public boost::noncopyable {
     /// Unique ptr to the async server that communicates with XDI
     std::unique_ptr<AsyncDataServer> asyncServer;
 
-    /// Shared ptr to AM's data API. It's public so that
-    /// other components (e.g., unit tests, perf tests) can
-    /// directly call it. It may be shared by this and the
-    /// fdsn server.
-    AmDataApi::shared_ptr dataApi;
+    /// Processing Layer
+    std::shared_ptr<AmProcessor> amProcessor;
 
-  private:
-    /// Raw pointer to an external dependency manager
-    CommonModuleProviderIf *modProvider_;
+    std::mutex stop_lock;
+    std::condition_variable stop_signal;
+    bool shutting_down;
 
-    /// Unique instance ID of this AM
-    fds_uint32_t instanceId;
-
-    /// OM config service API
-    OmConfigApi::shared_ptr omConfigApi;
-
-    /// Block connector
-    std::unique_ptr<NbdConnector> blkConnector;
-
-    std::atomic_bool  shuttingDown;
+    bool standalone_mode;
 };
-
-extern AccessMgr::unique_ptr am;
 
 }  // namespace fds
 

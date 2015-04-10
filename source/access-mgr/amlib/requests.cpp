@@ -6,15 +6,17 @@
 #include <string>
 
 #include "requests/requests.h"
-
-#include "am-tx-mgr.h"
-#include "StorHvCtrl.h"
-#include "StorHvQosCtrl.h"
+#include "AmCounters.h"
+#include "fds_process.h"
 
 namespace fds
 {
 
-class AmTxDescriptor;
+std::unique_ptr<AMCounters> counters { nullptr };
+std::once_flag counter_flag;
+
+void init_counters()
+{ counters.reset(new AMCounters("AM", g_fdsprocess->get_cntrs_mgr().get())); }
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
@@ -46,7 +48,8 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
 
 GetBlobReq::~GetBlobReq()
 {
-    storHvisor->getCounters().gets_latency.update(stopwatch.getElapsedNanos());
+    std::call_once(counter_flag, &init_counters);
+    counters->gets_latency.update(stopwatch.getElapsedNanos());
 }
 
 PutBlobReq::PutBlobReq(fds_volid_t _volid,
@@ -57,16 +60,10 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        boost::shared_ptr<std::string> _data,
                        BlobTxId::ptr _txDesc,
                        fds_bool_t _last_buf,
-                       BucketContext* _bucket_ctxt,
-                       PutPropertiesPtr _put_props,
-                       void* _req_context,
                        CallbackPtr _cb) :
 AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
     AmTxReq(_txDesc),
     last_buf(_last_buf),
-    bucket_ctxt(_bucket_ctxt),
-    put_properties(_put_props),
-    req_context(_req_context),
     resp_acks(2),
     ret_status(ERR_OK),
     final_meta_data(),
@@ -134,7 +131,8 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
 
 PutBlobReq::~PutBlobReq()
 {
-    storHvisor->getCounters().puts_latency.update(stopwatch.getElapsedNanos());
+    std::call_once(counter_flag, &init_counters);
+    counters->puts_latency.update(stopwatch.getElapsedNanos());
 }
 
 void
