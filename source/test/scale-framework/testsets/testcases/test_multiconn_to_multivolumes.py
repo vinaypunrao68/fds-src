@@ -86,7 +86,7 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
         self.log.info("Starting the multi connection to multi volume test...\n")
         bucket_name = "volume0%s-test"
         for ip in self.ip_addresses:
-            for i in xrange(0, 25):
+            for i in xrange(0, 100):
                 s3conn = self.create_s3_connection(ip)
                 bucket = self.create_volume(s3conn, (bucket_name % self.id_number))
                 self.s3_connections_table[s3conn] = bucket
