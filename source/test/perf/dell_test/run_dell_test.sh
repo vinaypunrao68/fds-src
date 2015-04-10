@@ -77,7 +77,7 @@ for bs in $bsizes ; do
                 #echo 3 > /proc/sys/vm/drop_caches
                 outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size
                 fio --name=test --rw=$workload --filename=$nbd_disk --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60 | tee $outfile
-                process_results $outfile
+                process_results $outfile $worker $workload $bs $d $size
                 done
             done
         done
