@@ -194,6 +194,12 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_activate_services(fds_bool_t activate_sm,
                                  fds_bool_t activate_dm,
                                  fds_bool_t activate_am);
+    /**
+     * Send 'deactivate services' message to Platform
+     */
+    Error send_deactivate_services(fds_bool_t deactivate_sm,
+                                   fds_bool_t deactivate_dm,
+                                   fds_bool_t deactivate_am);
 
     /**
      * Tell platform Agent about new active service
@@ -521,6 +527,12 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_cond_bcast_remove_services(fds_bool_t activate_sm,
                                                fds_bool_t activate_dm,
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
+
+    // broadcast "deactivate services" message to all PMs in the domain
+    virtual void om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
+                                                   fds_bool_t deactivate_dm,
+                                                   fds_bool_t deactivate_am);
+
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
