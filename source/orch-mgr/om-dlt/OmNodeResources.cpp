@@ -1674,10 +1674,15 @@ om_deactivate_services(fds_bool_t deactivate_sm,
         } else {
             /**
             * Nothing defined, so nothing to deactivate.
+            * However, we will still send a deactivate services msg to
+            * PM so it can choose to check/deactivate unregistered/unknown
+            * services
             */
             LOGNOTIFY << "No services defined for node" << std::hex
-                      << node->get_uuid().uuid_get_val() << std::dec;
-            return;
+                      << node->get_uuid().uuid_get_val() << std::dec
+                      << ", but we will send deactivate services msg to PM"
+                      << " anyway so it can check if there are any uknown"
+                      << " or unregistered services";
         }
     }
 
