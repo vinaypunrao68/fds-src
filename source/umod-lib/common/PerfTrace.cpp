@@ -179,6 +179,8 @@ const char * eventTypeToStr[] = {
         "am_volume_attach_req",
         "am_volume_contents_req",
         "am_volume_stats_req",
+    	"am_set_volume_metadata_req",
+    	"am_get_volume_metadata_req",
 
         "am_qos_queue_size",
 

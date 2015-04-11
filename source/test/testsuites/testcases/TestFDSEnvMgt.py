@@ -915,14 +915,16 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
     def test_TestModifyPlatformConf(self):
 
         fdscfg = self.parameters['fdscfg']
-        localhost = fdscfg.rt_get_obj('cfg_localhost')
+        status = []
+        for node in fdscfg.rt_obj.cfg_nodes:
 
-        status = localhost.nd_agent.exec_wait('sed -e "s/line/{}/g" '.format(self.current_string,
-                                                                             self.replace_string))
+            plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
 
-        status = sum(status)
+            status.append(node.nd_agent.exec_wait(
+                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file)))
 
-        if status != 0:
+        print status
+        if sum(status) != 0:
             return False
 
         return True

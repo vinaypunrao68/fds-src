@@ -37,6 +37,12 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
     else:
         log_fmt = logging.Formatter("%(asctime)s %(name)-24s %(levelname)-8s %(message)s",
                                     "%Y-%m-%d %H:%M:%S")
+
+    screen_handler = logging.StreamHandler()
+    screen_handler.setLevel(logging.ERROR)
+    screen_handler.setFormatter(log_fmt)
+    log.addHandler(screen_handler)
+
     if not os.access(dir, os.W_OK):
        log.warning("There is no write access to the specified log "
                          "directory %s  No log file will be created." %dir)
@@ -46,11 +52,14 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
             log_handle = logging.handlers.RotatingFileHandler(log_file, "w",
                                                               max_bytes,
                                                               rollover_count)
+            log_handle.setLevel(log_level)
             log_handle.setFormatter(log_fmt)
-            logging.getLogger("").addHandler(log_handle)
+            log.addHandler(log_handle)
             if os.path.exists(log_file):
                 log_handle.doRollover()
-        except:
+
+        except Exception as e:
+            log.error(e.message)
             log.error("Failed to rollover the log file. Perhaps a permissions problem on the log file %s." %
                       log_file)
             logging.getLogger("").removeHandler(log_handle)
