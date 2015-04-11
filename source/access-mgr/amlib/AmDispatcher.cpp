@@ -80,13 +80,6 @@ AmDispatcher::start() {
 	    StatsCollector::singleton()->startStreaming(nullptr, nullptr);
 	}
     }
-
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
-    volume_open_support = features.get<bool>("common.volume_open_support", false);
 }
 
 Error
@@ -135,35 +128,27 @@ AmDispatcher::dispatchOpenVolume(fds_volid_t const vol_id,
                                  std::function<void(fds_int64_t const, Error const)> cb) {
     fiu_do_on("am.uturn.dispatcher", cb(0, ERR_OK); return;);
 
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    if (volume_open_support) {
-        LOGDEBUG << "Attempting to open volume: " << std::hex << vol_id;
-        auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
-        volMDMsg->volume_id = vol_id;
-        volMDMsg->token = token;
+    LOGDEBUG << "Attempting to open volume: " << std::hex << vol_id;
+    auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
+    volMDMsg->volume_id = vol_id;
+    volMDMsg->token = token;
 
-        auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
-            boost::make_shared<DmtVolumeIdEpProvider>(
-                dmtMgr->getCommittedNodeGroup(vol_id)));
-        asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
+    auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(vol_id)));
+    asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
 
-        /** What to do with the response */
-        auto svc_cb = [cb] (QuorumSvcRequest* svcReq,
-                            const Error& error,
-                            boost::shared_ptr<std::string> payload) {
-            auto e = error;
-            auto msg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
-            cb((msg ? msg->token : invalid_vol_token), e);
-        };
+    /** What to do with the response */
+    auto svc_cb = [cb] (QuorumSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload) {
+        auto e = error;
+        auto msg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
+        cb((msg ? msg->token : invalid_vol_token), e);
+    };
 
-        asyncStatVolReq->onResponseCb(svc_cb);
-        asyncStatVolReq->invoke();
-    } else {
-        cb(0, ERR_OK);
-    }
+    asyncStatVolReq->onResponseCb(svc_cb);
+    asyncStatVolReq->invoke();
 }
 
 /**
@@ -173,22 +158,16 @@ void
 AmDispatcher::dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token) {
     fiu_do_on("am.uturn.dispatcher", return;);
 
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    if (volume_open_support) {
-        LOGDEBUG << "Attempting to close volume: " << std::hex << vol_id;
-        auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
-        volMDMsg->volume_id = vol_id;
-        volMDMsg->token = token;
+    LOGDEBUG << "Attempting to close volume: " << std::hex << vol_id;
+    auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
+    volMDMsg->volume_id = vol_id;
+    volMDMsg->token = token;
 
-        auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
-            boost::make_shared<DmtVolumeIdEpProvider>(
-                dmtMgr->getCommittedNodeGroup(vol_id)));
-        asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::CloseVolumeMsg), volMDMsg);
-        asyncStatVolReq->invoke();
-    }
+    auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(vol_id)));
+    asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::CloseVolumeMsg), volMDMsg);
+    asyncStatVolReq->invoke();
 }
 
 void

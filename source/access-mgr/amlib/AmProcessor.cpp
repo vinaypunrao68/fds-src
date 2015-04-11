@@ -109,6 +109,12 @@ class AmProcessor_impl
     std::shared_ptr<AmVolume> getVolume(AmRequest* amReq, bool const allow_snapshot=true);
 
     /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    bool volume_open_support { false };
+
+    /**
      * Processes a get volume metadata request
      */
     void getVolumeMetadata(AmRequest *amReq);
@@ -304,6 +310,14 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
     }
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
+    volume_open_support = features.get<bool>("common.volume_open_support", false);
+
     shutdown_cb = std::move(cb);
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
@@ -370,7 +384,22 @@ AmProcessor_impl::registerVolume(const VolumeDesc& volDesc, fds_int64_t const to
         this->registerVolumeCb(volDesc, token, e);
     };
 
-    amDispatcher->dispatchOpenVolume(volDesc.volUUID, token, cb);
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    if (volume_open_support) {
+        amDispatcher->dispatchOpenVolume(volDesc.volUUID, token, cb);
+    } else {
+        // Create a fake token that doesn't expire.
+        auto access_token = boost::make_shared<AmVolumeAccessToken>(
+                token_timer,
+                invalid_vol_token,
+                [this, volDesc] (fds_int64_t const token) mutable -> void {
+                    // No-op
+                });
+        this->txMgr->registerVolume(volDesc, access_token);
+    }
 }
 
 void

@@ -281,12 +281,6 @@ struct AmDispatcher
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
     bool mockTimeoutEnabled_ = false;
-
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    bool volume_open_support { false };
 };
 
 }  // namespace fds
