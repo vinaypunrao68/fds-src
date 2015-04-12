@@ -159,7 +159,6 @@ NetPlatSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
     NodeAgent::pointer      agent;
     DomainContainer::pointer  local;
 
-    NodeInventory::node_info_msg_to_shm(msg, &rec);
     EpPlatLibMod::ep_node_info_to_mapping(&rec, &map);
 
     /* Search through shm for matching key, return back the index */
