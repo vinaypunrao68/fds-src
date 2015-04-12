@@ -885,7 +885,7 @@ NodeDomainFSM::DACT_ShutDmSm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         dst.sm_acks_to_wait = dom_ctrl->om_bcast_shutdown_msg(fpi::FDSP_STOR_MGR);
         LOGDEBUG << "Will wait for acks from " << dst.sm_acks_to_wait << " SMs";
         if (dst.dm_acks_to_wait == 0 && dst.sm_acks_to_wait == 0) {
-            // do dummy ack event so we progress to next state
+            // do dummy acknowledge event so we progress to next state
             fsm.process_event(ShutAckEvt(fpi::FDSP_INVALID_SVC, ERR_OK));
         }
     } catch(exception& e) {
@@ -897,7 +897,7 @@ NodeDomainFSM::DACT_ShutDmSm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 /**
  * GRD_DmSmShut
  * ------------
- * Checks if DMs and SMs acked to "Prepare for shutdown" message
+ * Checks if DMs and SMs acknowledged to "Prepare for shutdown" message
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
@@ -910,7 +910,7 @@ NodeDomainFSM::GRD_DmSmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     // TODO(Anna) will need to implement proper error handling
     if ((evt.error == ERR_SVC_REQUEST_TIMEOUT) ||
         (evt.error == ERR_SVC_REQUEST_INVOCATION)) {
-        LOGWARN << "Coudn't reach service type " << evt.svc_type
+        LOGWARN << "Couldn't reach service type " << evt.svc_type
                 << " for prepare for shutdown "
                 << "; should be ok if service is actually down."
                 << " BUT cannot assume shutdown is graceful! "
@@ -935,8 +935,8 @@ NodeDomainFSM::GRD_DmSmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
                        (src.dm_acks_to_wait == 0));
         }
         
-        LOGDEBUG << "SM acks to wait: " << src.sm_acks_to_wait
-                 << ", DM acks to wait: " << src.dm_acks_to_wait;
+        LOGDEBUG << "SM acknowledges to wait: " << src.sm_acks_to_wait
+                 << ", DM acknowledges to wait: " << src.dm_acks_to_wait;
 
         if ((src.sm_acks_to_wait == 0) &&
             (src.dm_acks_to_wait == 0)) {
@@ -1077,7 +1077,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
     // if no SMs were up, even if platforms were running, we
     // don't need to wait for the platforms/DMs/AMs to come up
     // since we cannot admit any volumes anyway. So, we will go
-    // directly to 'domain up' state if no SMs were running...
+    // directly to domain up state if no SMs were running...
     NodeUuidSet sm_services;
     NodeUuidSet dm_services;
     if (configDB) {
@@ -1103,8 +1103,22 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 }
             }
         }
-
-        // load DLT (and save as not commited) from config DB and
+        
+        /*
+         * Update Service Map, then broadcast it!
+         */
+        std::vector<fpi::SvcInfo> svcinfos;
+        if ( configDB->getSvcMap( svcinfos ) ) {
+            
+            if ( svcinfos.size() > 0 ) {
+                LOGDEBUG << "Updating Service Map from persist store.";
+                MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);
+            } else {
+                LOGNORMAL << "No persisted Service Map found.";
+            }
+        }
+        
+        // load DLT (and save as not committed) from config DB and
         // check if DLT matches the set of persisted nodes
         err = dp->loadDltsFromConfigDB(sm_services);
         if (!err.ok()) {
@@ -1241,7 +1255,9 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
     TRACEFUNC;
     Error err;
-    /* TODO(OM team): This registration should be handled in synchronized manner (single thread
+    
+    /* 
+     * TODO(OM team): This registration should be handled in synchronized manner (single thread
      * handling is better) to avoid race conditions.
      */
 
@@ -1253,10 +1269,12 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 
     fromTo(svcInfo, reg_node_req);
 
-    /* Update the service layer service map upfront so that any subsequent communitcation
-     * with that service will work.
+    /* 
+     * Update the service layer service map up front so that any subsequent 
+     * communication with that service will work.
      */
     MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+    configDB->updateSvcMap(*svcInfo);
 
     /* Do the registration */
     NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
@@ -1265,9 +1283,10 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     if (err.ok()) {
         om_locDomain->om_bcast_svcmap();
     } else {
-        /* We updated the svcmap before, undo it by setting svc status to invalid */
+        /* We updated the svcmap before, undo it by setting service status to invalid */
         svcInfo->svc_status = SVC_STATUS_INVALID;
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+        configDB->updateSvcMap(*svcInfo);
     }
     return err;
 }
@@ -1275,17 +1294,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 void OM_NodeDomainMod::fromTo(boost::shared_ptr<fpi::SvcInfo>& svcInfo, 
                           fpi::FDSP_RegisterNodeTypePtr& reg_node_req)
 {
-    TRACEFUNC;
-       
-//    FDS_ProtocolInterface::FDSP_AnnounceDiskCapability& capacity;
-//    capacity = new FDS_ProtocolInterface::FDSP_AnnounceDiskCapability();
-//    reg_node_req->disk_info = capacity;
-//    reg_node_req->domain_id = 0;
-//    reg_node_req->ip_hi_addr = 0;
-//    reg_node_req->metasync_port = 0;
-//    reg_node_req->migration_port = 0;
-//    reg_node_req->node_root = new std::string();    
-//    reg_node_req->node_uuid = new FDSP_Uuid(); 
+    TRACEFUNC; 
     
     reg_node_req->control_port = svcInfo->svc_port;
     reg_node_req->data_port = svcInfo->svc_port;
@@ -1335,10 +1344,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
 
-    LOGNORMAL << "OM recv reg node for platform uuid " << std::hex
-        << msg->node_uuid.uuid << ", svc uuid " << msg->service_uuid.uuid
+    LOGNORMAL << "OM received register node for platform uuid " << std::hex
+        << msg->node_uuid.uuid << ", service uuid " << msg->service_uuid.uuid
         << std::dec << ", type " << msg->node_type << ", ip "
-        << netSession::ipAddr2String(msg->ip_lo_addr) << ", ctrl port "
+        << netSession::ipAddr2String(msg->ip_lo_addr) << ", control port "
         << msg->control_port;
 
     if ((msg->node_type == fpi::FDSP_STOR_MGR) ||
@@ -1356,8 +1365,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
 
     /**
-     * Note this is a temporary hack to return the node registration call immediatley
-     * and wait for for 3s before broadcast...
+     * Note this is a temporary hack to return the node registration call 
+     * immediate and wait for for 3s before broadcast...
      */
     
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
@@ -1366,7 +1375,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
          */
         MODULEPROVIDER()->proc_thrpool()->schedule(&OM_NodeDomainMod::setupNewNode,
                                                   this, uuid, msg, newNode, 1000);
-        //*/
     }
     return err;
 }
@@ -1499,7 +1507,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             handle_unregister_service(node_uuid, node_name, fpi::FDSP_STOR_MGR);
         if (uuid.uuid_get_val() != 0) {
             // dc_unregister_service requires node name and checks if uuid matches service
-            // name, however handle_unregister_service returns svc uuid only if there is
+            // name, however handle_unregister_service returns service uuid only if there is
             // one service with the same name, so ok if we get name first
             OM_SmAgent::pointer smAgent = om_sm_agent(uuid);
 
@@ -1519,7 +1527,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result: " << err.GetErrstr();
 
-            // send shutdown msg to SM
+            // send shutdown message to SM
             if (err.ok()) {
                 err = smAgent->om_send_shutdown();
             } else {
@@ -1541,7 +1549,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             LOGDEBUG << "Unregistered DM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result: " << err.GetErrstr();
-            // send shutdown msg to DM
+            // send shutdown message to DM
             if (err.ok()) {
                 err = dmAgent->om_send_shutdown();
             } else {
@@ -1620,7 +1628,7 @@ OM_NodeDomainMod::om_dmt_update_cluster() {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     dmtMod->dmt_deploy_event(DmtDeployEvt());
-    // in case there are no vol acks to wait
+    // in case there are no volume acknowledge to wait
     dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }
 void
@@ -1629,7 +1637,7 @@ OM_NodeDomainMod::om_dmt_waiting_timeout() {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     dmtMod->dmt_deploy_event(DmtTimeoutEvt());
-    // in case there are no vol acks to wait
+    // in case there are no volume acknowledge to wait
     dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }
 
@@ -1647,7 +1655,7 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
     dltMod->dlt_deploy_event(DltComputeEvt());
 
     // in case there was no DLT to send and we can
-    // go to rebalances state, send event to check that
+    // go to re-balances state, send event to check that
     const DLT* dlt = dp->getCommitedDlt();
     fds_uint64_t dlt_version = (dlt == NULL) ? 0 : dlt->getVersion();
     dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
@@ -1683,7 +1691,7 @@ OM_NodeDomainMod::om_service_down(const Error& error,
     }
 }
 
-// Called when OM receives notification that the rebalance is
+// Called when OM receives notification that the re-balance is
 // done on node with uuid 'uuid'.
 Error
 OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
@@ -1707,7 +1715,7 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
 
         // for now we shouldn't move to new dlt version until
         // we are done with current cluster update, so
-        // expect to see migration done resp for current dlt version
+        // expect to see migration done response for current dlt version
         fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
         fds_verify(cur_dlt_ver == dlt_version);
 
@@ -1806,7 +1814,7 @@ OM_NodeDomainMod::om_recv_dmt_close_resp(const NodeUuid& uuid,
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
-    // tell state machine that we received ack for close
+    // tell state machine that we received acknowledge for close
     if (respError.ok()) {
         dmtMod->dmt_deploy_event(DmtCloseOkEvt(dmt_version));
     } else {
@@ -1832,14 +1840,14 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
     AgentContainer::pointer agent_container = local->dc_container_frm_msg(node_type);
     NodeAgent::pointer agent = agent_container->agent_info(uuid);
     if (agent == NULL) {
-        LOGERROR << "OM: Received DLT commit ack from unknown node: uuid "
+        LOGERROR << "OM: Received DLT commit acknowledge from unknown node: uuid "
                  << std::hex << uuid.uuid_get_val() << std::dec;
         return ERR_NOT_FOUND;
     }
 
     // for now we shouldn't move to new dlt version until
     // we are done with current cluster update, so
-    // expect to see dlt commit resp for current dlt version
+    // expect to see dlt commit response for current dlt version
     fds_uint64_t cur_dlt_ver = dp->getLatestDltVersion();
     if (cur_dlt_ver > (dlt_version+1)) {
         LOGWARN << "Received DLT commit for unexpected version:" << dlt_version;
@@ -1856,16 +1864,16 @@ OM_NodeDomainMod::om_recv_dlt_commit_resp(FdspNodeType node_type,
         // set node's confirmed dlt version to this version
         agent->set_node_dlt_version(dlt_version);
 
-        // commit ok event, will transition to next state when
-        // when all 'up' nodes acked this dlt commit
+        // commit event, will transition to next state when
+        // when all 'up' nodes acknowledged this dlt commit
         dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, uuid));
     } else {
         LOGERROR << "Received " << respError << " with DLT commit; handling..";
         dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
     }
 
-    // in case dlt is in error mode, also send recover ack, since OM sends
-    // dlt commit for previously commited DLT as part of recovery
+    // in case dlt is in error mode, also send recover acknowledge, since OM sends
+    // dlt commit for previously committed DLT as part of recovery
     dltMod->dlt_deploy_event(DltRecoverAckEvt(false, uuid, respError));
 
     return err;
