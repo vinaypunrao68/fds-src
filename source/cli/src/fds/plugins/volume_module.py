@@ -5,10 +5,11 @@ Created on Apr 3, 2015
 '''
 from fds.services import volume_service
 from fds.services import response_writer
+import abstract_plugin
 
-class VolumeModule():
+class VolumeModule( abstract_plugin.AbstractPlugin):
     
-    def buildParser(self, parentParser, session): 
+    def build_parser(self, parentParser, session): 
         
         self.__volume_service = volume_service.VolumeService( session )
         
@@ -17,6 +18,17 @@ class VolumeModule():
         
         self.createListCommand( self.__subparser )
         self.createCreateCommand( self.__subparser )
+        
+    def detect_shortcut(self, args):
+
+        # is it the listVolumes shortcut
+        if ( args[0].endswith( "listVolumes" ) ):
+            args.pop(0)
+            args.insert( 0, "volume" )
+            args.insert( 1, "list" )
+            return args
+        
+        return None
         
     def get_volume_service(self):
         return self.__volume_service  

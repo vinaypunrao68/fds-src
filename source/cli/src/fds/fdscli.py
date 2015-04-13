@@ -45,6 +45,9 @@ class FDSShell( cmd.Cmd ):
         
         for loader, mod_name, ispkg in modules:
             
+            if ( mod_name == "abstract_plugin" ):
+                continue
+            
             loadedModule = __import__( "fds.plugins." + mod_name, fromlist=[mod_name] )
 
             clazzName = self.formatClassName( mod_name )
@@ -52,7 +55,7 @@ class FDSShell( cmd.Cmd ):
             clazz = clazz()
             self.plugins.append( clazz )
             
-            clazz.buildParser( self.subParsers, self.__session )
+            clazz.build_parser( self.subParsers, self.__session )
             
     '''
     Default method that gets called when no 'do_*' method
@@ -114,7 +117,6 @@ def setupHistoryFile():
     histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history")
     try:
         readline.read_history_file(histfile)
-        readline.parse_and_bind( "tab: complete" )
     except IOError:
         pass
     import atexit
@@ -125,20 +127,9 @@ The main entry point to the application.
 Instantiates the CLI object and passes that args in
 '''
 if __name__ == '__main__':
-    
-    if ( len( sys.argv ) > 1 and sys.argv[1].endswith( 'listVolumes' ) ):
-        sys.argv.pop(0)
-        sys.argv.insert( 1, "volume" )
-        sys.argv.insert( 2, "list" )
-    
+        
     cmdargs=sys.argv[1:]
 
-#     fInit = not (len(cmdargs) > 0 and cmdargs[0] == 'set')
-#     
-#     if fInit:
-#         print 'It\'s true.'
-#     else:
-#         print 'It\'s not true.'
     auth = FdsAuth()
     token = auth.login()
     
@@ -148,4 +139,24 @@ if __name__ == '__main__':
         sys.exit( 1 )
     
     shell = FDSShell(auth, cmdargs)
+
+    # now we check argv[0] to see if its a shortcut scripts or not    
+    if ( len( cmdargs ) > 0 ):
+
+        for plugin in shell.plugins:
+            detectMethod = getattr( plugin, "detect_shortcut", None )
+            
+            # the plugin does not support shortcut argv[0] stuff
+            if ( detectMethod == None or not callable( plugin.detect_shortcut ) ):
+                continue
+            
+            tempArgs = plugin.detect_shortcut( cmdargs )
+                
+            # we got a new argument set
+            if ( tempArgs != None ):
+                cmdargs = tempArgs
+                break
+        # end of for loop
+        
+    # now actually run the command
     shell.run( cmdargs ) 
