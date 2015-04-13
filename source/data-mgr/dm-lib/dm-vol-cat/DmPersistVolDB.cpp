@@ -194,7 +194,6 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         fpi::FDSP_BlobObjectInfo blobInfo;
         blobInfo.offset = static_cast<fds_uint64_t>(key->objIndex) * objSize_;
         blobInfo.size = objSize_;
-        blobInfo.blob_end = false;  // assume false
         blobInfo.data_obj_id.digest = std::move(dbIt->value().ToString());
 
         objList.push_back(std::move(blobInfo));
