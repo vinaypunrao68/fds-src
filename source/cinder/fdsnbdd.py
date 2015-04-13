@@ -51,6 +51,16 @@ volume_opts = [
 CONF = cfg.CONF
 CONF.register_opts(volume_opts)
 
+class RoundRobinPool:
+    def __init__(self, pool):
+        self.pool = pool
+        self.idx = 0
+
+    def next(self):
+        item = self.pool[self.idx]
+        self.idx = (self.idx + 1) % len(self.pool)
+        return item
+
 class FDSNBDDriver(driver.VolumeDriver):
     VERSION = "0.0.1"
 
@@ -59,14 +69,17 @@ class FDSNBDDriver(driver.VolumeDriver):
         self.configuration.append_config_values(volume_opts)
         self.nbd = NbdManager(self._execute)
 
-        self.nbd_endpoints = [x for x in str(self.configuration.fds_nbd_server).split(",")]
-        self.nbd_endpoints_idx = 0
 
-        self.endpoints = []
-        self.endpoints_idx = 0
+
+        nbds = [x for x in str(self.configuration.fds_nbd_server).split(",")]
+        self.nbd_attach_endpoints = RoundRobinPool(nbds)
+        self.nbd_image_endpoints = RoundRobinPool(nbds)
+
+        endpts = []
         for am_host in str(self.configuration.fds_am_host).split(","):
-            self.endpoints.append(((am_host, self.configuration.fds_am_port),
+            endpts.append(((am_host, self.configuration.fds_am_port),
                                    (self.configuration.fds_cs_host, self.configuration.fds_cs_port)))
+        self.endpoints = RoundRobinPool(endpts)
 
 
     def set_execute(self, execute):
@@ -74,15 +87,9 @@ class FDSNBDDriver(driver.VolumeDriver):
         self.nbd = NbdManager(execute)
 
     def _get_services(self):
-        (am_connection_info, cs_connection_info) = self.endpoints[self.endpoints_idx]
+        (am_connection_info, cs_connection_info) = self.endpoints.next()
         fds = FDSServices(am_connection_info, cs_connection_info)
-        self.endpoints_idx = (self.endpoints_idx + 1) % len(self.endpoints)
         return fds
-
-    def _get_nbd_endpoint(self):
-        endpoint = self.nbd_endpoints[self.nbd_endpoints_idx]
-        self.nbd_endpoints_idx = (self.nbd_endpoints_idx + 1) % len(self.nbd_endpoints)
-        return endpoint
 
     @property
     def fds_domain(self):
@@ -121,7 +128,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         LOG.warning('FDS_DRIVER: attach volume %s to %s begin' % (volume['name'], connector['ip']))
         try:
             url = self.host_to_nbdd_url(connector['ip'])
-            device = self.nbd.attach_nbd_remote(url, self._get_nbd_endpoint(), volume['name'])
+            device = self.nbd.attach_nbd_remote(url, self.nbd_attach_endpoints.next(), volume['name'])
             LOG.warning('FDS_DRIVER: attach volume %s to %s success' % (volume['name'], connector['ip']))
             return {
                 'driver_volume_type': 'local',
@@ -168,7 +175,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         pass
 
     def copy_image_to_volume(self, context, volume, image_service, image_id):
-        self.nbd.image_via_nbd(self._get_nbd_endpoint(), context, volume, image_service, image_id)
+        self.nbd.image_via_nbd(self.nbd_image_endpoints.next(), context, volume, image_service, image_id)
 
     def image_via_nbd(self, nbd_server, context, volume, image_service, image_id):
         with self.nbd.use_nbd_local(nbd_server, volume["name"]) as dev:
