@@ -9,6 +9,7 @@
 #include <string>
 
 #include "fds_process.h"
+#include "fds_timer.h"
 #include <ObjectId.h>
 #include "FdsRandom.h"
 #include <fiu-control.h>
@@ -16,6 +17,7 @@
 #include "AmDispatcher.h"
 #include "AmTxManager.h"
 #include "AmVolume.h"
+#include "AmVolumeAccessToken.h"
 
 #include "requests/requests.h"
 #include "AsyncResponseHandlers.h"
@@ -62,7 +64,10 @@ class AmProcessor_impl
     Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
         { return txMgr->modifyVolumePolicy(vol_uuid, vdesc); }
 
-    void registerVolume(const VolumeDesc& volDesc);
+    void registerVolume(const VolumeDesc& volDesc, fds_int64_t const token = invalid_vol_token);
+    void registerVolumeCb(const VolumeDesc& volDesc,
+                          fds_int64_t const token,
+                          Error const error);
 
     Error removeVolume(const VolumeDesc& volDesc);
 
@@ -88,6 +93,8 @@ class AmProcessor_impl
     /// Unique ptr to a random num generator for tx IDs
     std::unique_ptr<RandNumGenerator> randNumGen;
 
+    FdsTimer token_timer;
+
     shutdown_cb_type shutdown_cb;
     bool shut_down { false };
 
@@ -96,6 +103,13 @@ class AmProcessor_impl
     void processBlobReq(AmRequest *amReq);
 
     std::shared_ptr<AmVolume> getVolume(AmRequest* amReq, bool const allow_snapshot=true);
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    bool volume_open_support { false };
+    std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
     /**
      * Processes a get volume metadata request
@@ -293,6 +307,18 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
     }
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
+    volume_open_support = features.get<bool>("common.volume_open_support", false);
+    if (volume_open_support) {
+        vol_tok_renewal_freq =
+            std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
+    }
+
     shutdown_cb = std::move(cb);
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
@@ -353,18 +379,60 @@ AmProcessor_impl::getVolume(AmRequest* amReq, bool const allow_snapshot) {
 }
 
 void
-AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
+AmProcessor_impl::registerVolume(const VolumeDesc& volDesc, fds_int64_t const token) {
     /** First we need to open the volume for access */
-    auto cb = [this, volDesc](fds_int64_t token, Error e) mutable -> void {
-        if (ERR_OK == e) {
-            GLOGDEBUG << "Received volume access token: 0x" << std::hex << token;
-            this->txMgr->registerVolume(volDesc, token);
-        } else {
-            this->txMgr->removeVolume(volDesc);
-        }
+    auto cb = [this, volDesc](fds_int64_t const token, Error const e) mutable -> void {
+        this->registerVolumeCb(volDesc, token, e);
     };
 
-    amDispatcher->dispatchOpenVolume(volDesc, cb);
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    if (volume_open_support) {
+        amDispatcher->dispatchOpenVolume(volDesc.volUUID, token, cb);
+    } else {
+        // Create a fake token that doesn't expire.
+        auto access_token = boost::make_shared<AmVolumeAccessToken>(
+                token_timer,
+                invalid_vol_token,
+                [this, volDesc] (fds_int64_t const token) mutable -> void {
+                    // No-op
+                });
+        this->txMgr->registerVolume(volDesc, access_token);
+    }
+}
+
+void
+AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
+                                   fds_int64_t const token,
+                                   Error const error) {
+    if (ERR_OK == error) {
+        GLOGDEBUG << "For volume: " << volDesc.volUUID
+                  << ", received access token: 0x" << std::hex << token;
+
+        // Build an access token that will renew itself at regular
+        // intervals
+        auto access_token = boost::make_shared<AmVolumeAccessToken>(
+                token_timer,
+                token,
+                [this, volDesc] (fds_int64_t const token) mutable -> void {
+                    this->registerVolume(volDesc, token);
+                });
+
+        auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
+        if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
+        {
+            LOGERROR << "Failed to schedule token renewal timer!";
+            this->txMgr->removeVolume(volDesc);
+        } else {
+            // Yay, success!
+            this->txMgr->registerVolume(volDesc, access_token);
+        }
+    } else {
+        LOGNOTIFY << "Failed to open volume, error: " << error;
+        this->txMgr->removeVolume(volDesc);
+    }
 }
 
 Error
@@ -374,7 +442,7 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // If we had a token for a volume, give it back to DM
     auto shVol = txMgr->getVolume(volDesc.volUUID);
     if (shVol) {
-        fds_int64_t token = shVol->token;
+        fds_int64_t token = shVol->getToken();
         amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
     }
 

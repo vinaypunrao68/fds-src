@@ -5,6 +5,7 @@ public enum StatOperation {
 	SUM, 
 	RATE,
 	MIN,
-	MAX,
+	MAX_X,
+	MAX_Y,
 	COUNT
 }

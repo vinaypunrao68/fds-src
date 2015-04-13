@@ -50,6 +50,7 @@ enum  FDSPMsgTypeId {
   GetSvcStatusMsgTypeId                     = 1018;
   GetSvcStatusRespMsgTypeId                 = 1019;
   ActivateServicesMsgTypeId                 = 1020;
+  DeactivateServicesMsgTypeId               = 1021;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;

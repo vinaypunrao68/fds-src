@@ -1,28 +1,95 @@
 package com.formationds.smoketest;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.ByteBufferUtility;
+import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Maps;
+import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+
+    @Test
+    public void testAsyncStreamerWritesOneChunkOnly() throws Exception {
+        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new ArrayByteBufferPool(), new XdiConfigurationApi(configService));
+        HashMap<String, String> map = new HashMap<>();
+        map.put("hello", "world");
+        OutputStream outputStream = asyncStreamer.openForWriting(domainName, volumeName, blobName, map);
+        outputStream.write(new byte[OBJECT_SIZE]);
+        outputStream.close();
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals(OBJECT_SIZE, (long) blobDescriptor.getByteCount());
+        assertEquals("world", blobDescriptor.getMetadata().get("hello"));
+    }
+
+    @Test
+    public void testAsyncStreamer() throws Exception {
+        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new ArrayByteBufferPool(), new XdiConfigurationApi(configService));
+        OutputStream outputStream = asyncStreamer.openForWriting(domainName, volumeName, blobName, new HashMap<>());
+        outputStream.write(new byte[42]);
+        outputStream.write(new byte[42]);
+        outputStream.close();
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals(84, (long) blobDescriptor.getByteCount());
+    }
+
+    @Test
+    public void testVolumeContents() throws Exception {
+        List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
+        assertEquals(0, contents.size());
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
+        assertEquals(1, contents.size());
+    }
+
+    @Test
+    public void testDeleteBlob() throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals("world", blobDescriptor.getMetadata().get("hello"));
+        asyncAm.deleteBlob(domainName, volumeName, blobName).get();
+        try {
+            asyncAm.statBlob(domainName, volumeName, blobName).get();
+            fail("Should have gotten an ExecutionException");
+        } catch (ExecutionException e) {
+            ApiException apiException = (ApiException) e.getCause();
+            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
+        }
+    }
+
+    @Test
+    public void testStatVolume() throws Exception {
+        VolumeStatus volumeStatus = asyncAm.volumeStatus(domainName, volumeName).get();
+        assertEquals(0, volumeStatus.blobCount);
+    }
 
     @Test
     public void testUpdateMetadata() throws Exception {
@@ -47,6 +114,20 @@ public class AsyncAmTest extends BaseAmTest {
                 .thenCompose(x -> asyncAm.statBlob(domainName, volumeName, blobName))
                 .thenAccept(bd -> assertEquals(OBJECT_SIZE + smallObjectLength, bd.getByteCount()))
                 .get();
+    }
+
+    @Test
+    public void testTransactionalMetadataUpdate() throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 1).get();
+        metadata.put("animal", "panda");
+        asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
+        asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
+        BlobDescriptor blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals("panda", blobDescriptor.getMetadata().get("animal"));
+        assertEquals(smallObjectLength, blobDescriptor.getByteCount());
     }
 
     @Test
@@ -104,5 +185,4 @@ public class AsyncAmTest extends BaseAmTest {
 
         configService.createVolume(domainName, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
     }
-
 }

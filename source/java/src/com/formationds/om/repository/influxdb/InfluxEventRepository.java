@@ -1,13 +1,18 @@
+/**
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
+ */
 package com.formationds.om.repository.influxdb;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
 import com.formationds.commons.events.FirebreakType;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
@@ -22,7 +27,6 @@ import org.influxdb.dto.Serie;
 public class InfluxEventRepository extends InfluxRepository<Event, Long> implements EventRepository {
 
     public static final String EVENT_SERIES_NAME    = "events";
-    public static final String EVENT_ID_COLUMN_NAME = "event_id";
     public static final String EVENT_TYPE_COLUMN_NAME = "event_type";
     public static final String EVENT_SEVERITY_COLUMN_NAME = "event_severity";
     public static final String EVENT_CATEGORY_COLUMN_NAME = "event_category";
@@ -67,7 +71,6 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
      */
     public static List<String> getColumnNames() {
         return Lists.newArrayList( TIMESTAMP_COLUMN_NAME,
-                                   EVENT_ID_COLUMN_NAME,
                                    EVENT_TYPE_COLUMN_NAME,
                                    EVENT_CATEGORY_COLUMN_NAME,
                                    EVENT_SEVERITY_COLUMN_NAME,
@@ -110,10 +113,6 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         return super.getTimestampColumnName();
     }
 
-    public Optional<String> getEventIdColumnName() {
-        return Optional.of( EVENT_ID_COLUMN_NAME );
-    }
-
     public Optional<String> getEventTypeColumnName() {
         return Optional.of( EVENT_TYPE_COLUMN_NAME );
     }
@@ -138,41 +137,10 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         return 0;
     }
 
-    /**
-     * Method to create a string from the query object that matches influx format
-     *
-     * @param queryCriteria the query criteria
-     * @return a query string for influx event series based on the criteria
-     */
-    protected String formulateQueryString( QueryCriteria queryCriteria ) {
-
-        StringBuilder sb = new StringBuilder();
-
-        String prefix = SELECT + " * " + FROM + " " + getEntityName();
-        sb.append( prefix );
-
-        if ( queryCriteria.getRange() != null ||
-             queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
-
-            sb.append( " " + WHERE );
-        }
-
-        // do time range
-        if ( queryCriteria.getRange() != null ) {
-
-            String time = " ( " + getTimestampColumnName() + " >= " + queryCriteria.getRange().getStart() + " " + AND +
-                          " " + getTimestampColumnName() + " <= " + queryCriteria.getRange().getEnd() + " ) ";
-
-            sb.append( time );
-        }
-
-        return sb.toString();
-    }
-
-	@Override
+    @Override
 	public List<? extends Event> query(QueryCriteria queryCriteria) {
         // get the query string
-        String queryString = formulateQueryString( queryCriteria );
+        String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
 
         // execute the query
         List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
@@ -198,14 +166,86 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 	@Override
 	public List<UserActivityEvent> queryTenantUsers(QueryCriteria queryCriteria,
 			List<Long> tenantUsers) {
-		// TODO Auto-generated method stub
-		return null;
+
+        QueryCriteria criteria = new QueryCriteria( );
+        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
+        StringBuilder queryString = new StringBuilder( queryBase );
+
+        if ( ! queryBase.contains( WHERE )) {
+            queryString.append( " " ).append( WHERE ).append( " " );
+        }
+
+        if (tenantUsers.size() > 1) {
+            queryString.append( " ( " );
+        }
+        Iterator<Long> idIter = tenantUsers.iterator();
+        while (idIter.hasNext()) {
+
+            Long id = idIter.next();
+            queryString.append( " " )
+                       .append( USER_EVENT_USERID_COLUMN_NAME )
+                       .append( " = " )
+                       .append( id )
+                       .append( "" );
+
+            if (idIter.hasNext()) {
+                queryString.append( " " )
+                           .append( OR )
+                           .append( " " );
+            }
+        }
+
+        if (tenantUsers.size() > 1) {
+            queryString.append( " ) " );
+        }
+
+        // execute the query
+        List<Serie> series = getConnection().getDBReader()
+                                            .query( queryString.toString(), TimeUnit.MILLISECONDS );
+
+        if ( series.size() == 0 ) {
+            return null;
+        }
+
+        // convert from influxdb format to FDS model format
+        List<? extends Event> datapoints = convertSeriesToEvents( series );
+
+        return (List<UserActivityEvent>)datapoints;
 	}
 
 	@Override
 	public FirebreakEvent findLatestFirebreak(Volume v, FirebreakType type) {
-		// TODO Auto-generated method stub
-		return null;
+        // create base query (select * from EVENT_SERIES_NAME where
+        Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ));
+        Long tsOneDayAgo = oneDayAgo.toEpochMilli();
+
+        QueryCriteria criteria = new QueryCriteria( new DateRange( tsOneDayAgo ) );
+        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
+		StringBuilder queryString = new StringBuilder( queryBase );
+
+        queryString.append( " " )
+                   .append( AND )
+                   .append( " " )
+                   .append( FBEVENT_TYPE_COLUMN_NAME )
+                   .append( " = '" )
+                   .append( type.name() )
+                   .append( "'" );
+
+        // execute the query
+        List<Serie> series = getConnection().getDBReader().query( queryString.toString(), TimeUnit.MILLISECONDS );
+
+        // we only care about the latest event
+        // TODO: do we need an order by to ensure correct ordering
+        if ( series.size() == 0 )
+            return null;
+        else if (series.size() > 1 ) {
+            series = series.subList( series.size() - 2, series.size() - 1 );
+        }
+
+        // convert from influxdb format to FDS model format
+        List<? extends Event> datapoints = convertSeriesToEvents( series );
+
+        return (FirebreakEvent)datapoints.get( datapoints.size() - 1 );
 	}
 
 	@Override
@@ -220,7 +260,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 	}
 
     @Override
-    protected <R extends Event> List<R> doPersist(Collection<R> entities) {
+    protected <R extends Event> List<R> doPersist(Collection<R> entities ) {
         Serie.Builder sb = new Serie.Builder(EVENT_SERIES_NAME)
                                     .columns( EVENT_COLUMN_NAMES_A );
 
@@ -241,9 +281,9 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     /**
      * Convert an influxDB return type into VolumeDatapoints that we can use
      *
-     * @param series
+     * @param series the series to convert
      *
-     * @return
+     * @return the list of events
      */
     protected List<? extends Event> convertSeriesToEvents( List<Serie> series ) {
 
@@ -262,6 +302,11 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         return events;
     }
 
+    /**
+     *
+     * @param serie the serie to convert
+     * @return the list of event from the series
+     */
     protected List<? extends Event> convertSeriesToEvents( Serie serie ) {
 
         final List<Event> events = new ArrayList<Event>();
@@ -277,11 +322,17 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         return events;
     }
 
+    /**
+     *
+     * @param serie the serie to convert
+     * @param i the row from the serie to convert to an event
+     *
+     * @return the event
+     */
     protected Event convertSeriesRowToEvent( Serie serie, int i ) {
         Map<String, Object> row = serie.getRows().get( i );
 
         Long ts = ( (Double)row.get( getTimestampColumnName() ) ).longValue();
-        Long id = Double.valueOf( row.get( EVENT_ID_COLUMN_NAME ).toString() ).longValue();
         EventType type = EventType.valueOf( row.get( EVENT_TYPE_COLUMN_NAME ).toString().toUpperCase() );
         EventCategory category = EventCategory.valueOf( row.get( EVENT_CATEGORY_COLUMN_NAME ).toString().toUpperCase( ) );
         EventSeverity severity = EventSeverity.valueOf( row.get( EVENT_SEVERITY_COLUMN_NAME ).toString().toUpperCase( ) );
@@ -331,7 +382,6 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     protected Object[] toSerieRow(Event e) {
         /*
             TIMESTAMP_COLUMN_NAME,
-            EVENT_ID_COLUMN_NAME,
             EVENT_TYPE_COLUMN_NAME,
             EVENT_CATEGORY_COLUMN_NAME,
             EVENT_SEVERITY_COLUMN_NAME,
@@ -347,7 +397,6 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
          */
         return new Object[] {
             e.getInitialTimestamp(),
-            e.getId(),
             e.getType().name(),
             e.getCategory().name(),
             e.getSeverity().name(),
@@ -380,10 +429,10 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         return "";
     }
 
-    private String fbEventVolId(Event e) {
+    private Long fbEventVolId(Event e) {
         if (e instanceof FirebreakEvent)
             return ((FirebreakEvent)e).getVolumeId();
-        return "";
+        return -1L;
     }
 
     private String fbEventVolName(Event e) {

@@ -75,7 +75,7 @@ public class MultiPartListParts implements SyncRequestHandler {
         for (PartInfo pi : filteredList) {
             // TODO: remove when volumeContents is fixed - right now it does not return metadata
             String systemVolume = xdi.getSystemVolumeName(token);
-            BlobDescriptor bd = xdi.statBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName());
+            BlobDescriptor bd = xdi.statBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName()).get();
             Map<String, String> md = bd.getMetadata();
             DateTime lastModifiedTemp;
             try {
