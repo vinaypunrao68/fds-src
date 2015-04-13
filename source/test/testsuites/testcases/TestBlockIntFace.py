@@ -88,7 +88,8 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
 	nbdadm_tmp = '/tmp/nbdadm'
 	nbdadm_lockfile = 'nbdadm.lock'
 
-	os.makedirs('%s' % nbdadm_tmp)
+	if not os.path.exists(nbdadm_tmp):
+		os.makedirs('%s' % nbdadm_tmp)
 
         # Check if a volume was passed to us.
         if self.passedVolume is not None:
