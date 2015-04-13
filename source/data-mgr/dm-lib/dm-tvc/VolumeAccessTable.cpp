@@ -9,12 +9,6 @@
 namespace fds
 {
 
-/**
- * TODO(bszmyd): Thu 09 Apr 2015 01:49:53 PM PDT
- * This should maybe be a knob, or part of the open message
- */
-static constexpr std::chrono::minutes k_lease_time {1};
-
 DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)
     : access_map(),
       random_generator(vol_uuid),
@@ -23,7 +17,8 @@ DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)
 
 Error
 DmVolumeAccessTable::getToken(fds_int64_t& token,
-                              fpi::VolumeAccessPolicy const& policy) {
+                              fpi::VolumeAccessPolicy const& policy,
+                              std::chrono::duration<fds_uint32_t> const lease_time) {
     std::unique_lock<std::mutex> lk(lock);
     auto it = access_map.find(token);
     if (access_map.end() == it) {
@@ -43,7 +38,7 @@ DmVolumeAccessTable::getToken(fds_int64_t& token,
                                         this->removeToken(token);
                                      }));
         auto entry = std::make_pair(policy, task);
-        timer->schedule(entry.second, std::chrono::minutes(k_lease_time));
+        timer->schedule(entry.second, lease_time);
 
         // Update table state
         read_locked = policy.exclusive_read;
@@ -59,7 +54,7 @@ DmVolumeAccessTable::getToken(fds_int64_t& token,
         // Reset the timer for this token
         LOGTRACE << "Renewing volume token: " << token;
         timer->cancel(it->second.second);
-        timer->schedule(it->second.second, std::chrono::minutes(k_lease_time));
+        timer->schedule(it->second.second, lease_time);
     }
     return ERR_OK;
 }

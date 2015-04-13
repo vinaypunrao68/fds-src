@@ -32,10 +32,6 @@ namespace fds {
  */
 std::atomic_uint nextIoReqId;
 
-// TODO(bszmyd): Thu 09 Apr 2015 06:18:49 PM PDT
-// This should maybe be a knob, or part of the attach volume request
-static constexpr std::chrono::seconds k_renewal_time {30};
-
 /**
  * AM request processing layer. The processor handles state and
  * execution for AM requests.
@@ -113,6 +109,7 @@ class AmProcessor_impl
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
     bool volume_open_support { false };
+    std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
     /**
      * Processes a get volume metadata request
@@ -317,6 +314,10 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
      */
     FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
     volume_open_support = features.get<bool>("common.volume_open_support", false);
+    if (volume_open_support) {
+        vol_tok_renewal_freq =
+            std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
+    }
 
     shutdown_cb = std::move(cb);
     randNumGen = RandNumGenerator::unique_ptr(
@@ -407,7 +408,8 @@ AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
                                    fds_int64_t const token,
                                    Error const error) {
     if (ERR_OK == error) {
-        GLOGDEBUG << "Received volume access token: 0x" << std::hex << token;
+        GLOGDEBUG << "For volume: " << volDesc.volUUID
+                  << ", received access token: 0x" << std::hex << token;
 
         // Build an access token that will renew itself at regular
         // intervals
@@ -419,7 +421,7 @@ AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
                 });
 
         auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-        if (!token_timer.schedule(timer_task, k_renewal_time))
+        if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
         {
             LOGERROR << "Failed to schedule token renewal timer!";
             this->txMgr->removeVolume(volDesc);

@@ -56,6 +56,16 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
                 std::bind(&DmTimeVolCatalog::monitorLogs, this)));
     }
 
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        vol_tok_lease_time =
+            std::chrono::duration<fds_uint32_t>(
+                config_helper_.get_abs<fds_uint32_t>("fds.dm.token_lease_time"));
+    }
+
     // TODO(Andrew): The module vector should be able to take smart pointers.
     // To get around this for now, we're extracting the raw pointer and
     // expecting that any reference to are done once this returns...
@@ -124,12 +134,12 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         auto it = accessTable_.find(volId);
         if (accessTable_.end() == it) {
             auto table = new DmVolumeAccessTable(volId);
-            table->getToken(token, policy);
+            table->getToken(token, policy, vol_tok_lease_time);
             accessTable_[volId].reset(table);
         } else {
             // Table already exists, check if we can attach again or
             // renew the existing token.
-            err = it->second->getToken(token, policy);
+            err = it->second->getToken(token, policy, vol_tok_lease_time);
         }
     }
 

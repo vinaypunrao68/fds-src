@@ -5,6 +5,7 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_TVC_VOLUMEACCESSTABLE_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_TVC_VOLUMEACCESSTABLE_H_
 
+#include <chrono>
 #include <mutex>
 #include <random>
 #include <unordered_map>
@@ -35,7 +36,9 @@ struct DmVolumeAccessTable {
     /**
      * Request an access token for the given policy
      */
-    Error getToken(fds_int64_t& token, fpi::VolumeAccessPolicy const& policy);
+    Error getToken(fds_int64_t& token,
+                   fpi::VolumeAccessPolicy const& policy,
+                   std::chrono::duration<fds_uint32_t> const lease_time);
 
     /**
      * Remove a previously received token
