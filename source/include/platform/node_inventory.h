@@ -78,7 +78,6 @@ namespace fds
             virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
             virtual void init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const;
             virtual void init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const;
-            virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const;
             virtual void init_plat_info_msg(fpi::NodeInfoMsg *msg) const;
             virtual void init_node_info_msg(fpi::NodeInfoMsg *msg) const;
             virtual void init_om_info_msg(fpi::NodeInfoMsg *msg);
@@ -89,8 +88,6 @@ namespace fds
              */
             static void node_info_msg_to_shm(const fpi::NodeInfoMsg *msg, struct node_data *rec);
             static void node_info_msg_frm_shm(bool am, int ro_idx, fpi::NodeInfoMsg *msg);
-            static void node_stor_cap_to_shm(const fpi::StorCapMsg *msg, struct node_stor_cap *);
-            static void node_stor_cap_frm_shm(fpi::StorCapMsg *msg, const struct node_stor_cap *);
 
         protected:
             FdspNodeType     node_svc_type;

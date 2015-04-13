@@ -1,7 +1,6 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
@@ -140,50 +139,64 @@ public enum SingletonRepositoryManager {
         }
 
         protected Object doInvoke(Object proxy, Method method, Object[] args ) throws Throwable {
+
             switch ( method.getName() ) {
                 case "save":
 
-                    Object results = null;
-                    if ( jdoRepository != null ) {
-                        results = method.invoke( jdoRepository, args );
-                    }
+                    return doInvoke0( false, proxy, method, args );
 
-                    if ( influxRepository != null ) {
-
-                        try {
-                            Object influxResult = method.invoke( influxRepository, args );
-                            if ( jdoRepository == null ) {
-                                // use the results from the influx repo
-                                results = influxResult;
-                            }
-                        } catch (Exception e) {
-                            //
-                            if ( jdoRepository == null ) {
-                                // error since ObjectDB repo is disabled
-                                logger.error( "Failed to write data to influx repository.", e );
-                                throw e;
-                            } else {
-                                // only a warning since we are still using the ObjectDB repo as the main repo.
-                                logger.warn( "Failed to write data to influx repository.  Returning data from ObjectDB repo" + e.getMessage() );
-                                logger.trace( "Influx repository write error is ", e );
-                            }
-                        }
-                    }
-
-                    return results;
-
+                // generic, base query api
                 case "query":
+                case "count":
+                // event-specific queries
+                case "findLatestFirebreak":
+                case "queryTenantUsers":
+                // metric specific queries
+                case "mostRecentOccurrenceBasedOnTimestamp":
+                case "leastRecentOccurrenceBasedOnTimestamp":
+                case "getLatestVolumeStatus":
 
-                    if ( influxRepository != null && influxQueryEnabled ) {
-                        return method.invoke( influxRepository, args );
-                    } else {
-                        return method.invoke( jdoRepository, args );
-                    }
+                    return doInvoke0( true, proxy, method, args );
 
                 default:
-                    // everything else allow to pass-through on the JDO repository for now
-                    return method.invoke( jdoRepository, args );
+
+                    // everything else allow to pass-through on the JDO repository for now if it is enabled.
+                    return doInvoke0( false, proxy, method, args );
+
             }
+        }
+
+        protected Object doInvoke0(boolean isQuery, Object proxy, Method method, Object[] args ) throws Throwable {
+            if ( jdoRepository == null && influxRepository == null ) {
+                throw new IllegalStateException( "No repository is enabled.  Ensure one of the repositories is enabled in the fds-features.conf file." );
+            }
+
+            Object results = null;
+            if (jdoRepository != null) {
+                results = method.invoke( jdoRepository, args );
+            }
+
+            if ( influxRepository != null ) {
+                try {
+                    Object influxResult = method.invoke( influxRepository, args );
+                    if ( jdoRepository == null || (isQuery && influxQueryEnabled)) {
+                        // use the results from the influx repo
+                        results = influxResult;
+                    }
+                } catch (Exception e) {
+                    //
+                    if ( jdoRepository == null ) {
+                        // error since ObjectDB repo is disabled
+                        logger.error( "Failed to influx repository operation.", e );
+                        throw e;
+                    } else {
+                        // only a warning since we are still using the ObjectDB repo as the main repo.
+                        logger.warn( "Failed to execute influx repository operation.  Returning data from ObjectDB repo" + e.getMessage() );
+                        logger.trace( "Influx repository error is ", e );
+                    }
+                }
+            }
+            return results;
         }
     }
 

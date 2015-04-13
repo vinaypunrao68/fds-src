@@ -544,9 +544,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                          << ":" << vol->vol_get_properties()->getStateName();
 
                 if (!vol->vol_get_properties()->isSnapshot()) {
-                    VolumeDescriptor volDescriptor;
-                    convert::getVolumeDescriptor(volDescriptor, vol);
-                    vec.push_back(volDescriptor);
+                    if (vol->getState() == Active) {
+                        VolumeDescriptor volDescriptor;
+                        convert::getVolumeDescriptor(volDescriptor, vol);
+                        vec.push_back(volDescriptor);
+                    }
                 }
             });
     }
