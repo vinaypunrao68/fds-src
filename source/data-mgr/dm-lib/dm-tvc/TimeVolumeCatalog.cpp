@@ -66,7 +66,7 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name,
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
-    if (dataMgr->features.isVolumeTokensEnabled()) {
+    if (dataManager.features.isVolumeTokensEnabled()) {
         vol_tok_lease_time =
             std::chrono::duration<fds_uint32_t>(
                 config_helper_.get_abs<fds_uint32_t>("fds.dm.token_lease_time"));
