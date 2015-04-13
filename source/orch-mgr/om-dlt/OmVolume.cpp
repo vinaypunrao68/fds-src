@@ -874,7 +874,6 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
         case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
             /* TODO(Andrew): Remove usage of deleted struct fields.
                This code was dead (compiled, but unused) to begin with.
-            FdspAttVolPtr attach = *out->u.vol_attach;
 
             vol_fmt_desc_pkt(&attach->vol_desc);
             attach->vol_name = vol_get_name();
@@ -1373,97 +1372,6 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
     vol->vol_event(VolOpEvt(vol.get(),
                             FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL,
                             new_desc));
-    return err;
-}
-
-// om_attach_vol
-// -------------
-//
-Error
-VolumeContainer::om_attach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspAttVolCmdPtr        &attach)
-{
-    Error err(ERR_OK);
-    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeInfo::pointer vol = get_volume(attach->vol_name);
-    if (vol == NULL) {
-        LOGWARN << "Received AttachVol for non-existing volume " << attach->vol_name;
-        return Error(ERR_NOT_FOUND);
-    } else if (vol->isDeletePending()) {
-        LOGWARN << "Received AttachVol for volume " << attach->vol_name
-                << " for which delete is pending";
-        return Error(ERR_NOT_FOUND);
-    }
-
-    NodeUuid node_uuid(hdr->src_service_uuid.uuid);
-    if (hdr->src_service_uuid.uuid == 0) {
-        /* Don't have uuid, only have the name. */
-        OM_AmContainer::pointer am_nodes = local->om_am_nodes();
-        OM_AmAgent::pointer am =
-                OM_AmAgent::agt_cast_ptr(am_nodes->
-                                         rs_get_resource(hdr->src_node_name.c_str()));
-
-        if (am == NULL) {
-            LOGWARN << "Received AttachVol " << attach->vol_name
-                    << " for unknown node " << hdr->src_node_name;
-            return Error(ERR_NOT_FOUND);
-        }
-        node_uuid = am->rs_get_uuid();
-        LOGNOTIFY << "uuid for  the node:" << hdr->src_node_name << ":"
-                  << std::hex << node_uuid.uuid_get_val() << std::dec;
-    }
-    vol->vol_event(VolOpEvt(vol.get(),
-                            FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
-                            node_uuid));
-    return err;
-}
-
-// om_detach_vol
-// -------------
-//
-Error
-VolumeContainer::om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspAttVolCmdPtr        &detach)
-{
-    Error err(ERR_OK);
-    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    std::string         &vname = detach->vol_name;
-    VolumeInfo::pointer  vol;
-
-    LOGNOTIFY << "Processing detach volume " << vname << " from "
-              << hdr->src_node_name;
-
-    vol = get_volume(vname);
-    if (vol == NULL) {
-        LOGWARN << "Received detach Vol for non-existing volume " << vname;
-        return Error(ERR_NOT_FOUND);
-    } else if (vol->isDeletePending()) {
-        LOGWARN << "Received detach Vol for volume " << vname
-                << " in delete pending state";
-        return Error(ERR_NOT_FOUND);
-    }
-
-    NodeUuid node_uuid(hdr->src_service_uuid.uuid);
-    if (hdr->src_service_uuid.uuid == 0) {
-        /* Don't have uuid, only have the name. */
-        OM_AmContainer::pointer am_nodes = local->om_am_nodes();
-        OM_AmAgent::pointer am =
-            OM_AmAgent::agt_cast_ptr(am_nodes->
-                 rs_get_resource(hdr->src_node_name.c_str()));
-
-        if (am == NULL) {
-            LOGWARN << "Received DetachVol " << detach->vol_name
-                    << " for unknown node " << hdr->src_node_name;
-            return Error(ERR_NOT_FOUND);
-        }
-
-        node_uuid = am->rs_get_uuid();
-        LOGNOTIFY << "uuid for  the node:" << hdr->src_node_name << ":"
-                  << std::hex << node_uuid.uuid_get_val() << std::dec;
-    }
-    vol->vol_event(VolOpEvt(vol.get(),
-                            FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD,
-                            node_uuid));
     return err;
 }
 

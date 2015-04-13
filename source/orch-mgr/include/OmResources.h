@@ -437,30 +437,13 @@ class OM_NodeContainer : public DomainContainer
     inline VolumeContainer::pointer om_vol_mgr() {
         return om_volumes;
     }
-    inline Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspCrtVolPtr           &creat_msg,
-                               const boost::shared_ptr<fpi::AsyncHdr> &hdrz) {
-        return om_volumes->om_create_vol(hdr, creat_msg, hdrz);
-    }
 
     inline Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                              const FdspCrtVolPtr      &snap_msg) {
         return om_volumes->om_snap_vol(hdr, snap_msg);
     }
-    inline Error om_delete_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspDelVolPtr &del_msg) {
-        return om_volumes->om_delete_vol(hdr, del_msg);
-    }
     inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
-    }
-    inline Error om_attach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspAttVolCmdPtr   &attach) {
-        return om_volumes->om_attach_vol(hdr, attach);
-    }
-    inline Error om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
-                               const FdspAttVolCmdPtr   &detach) {
-        return om_volumes->om_detach_vol(hdr, detach);
     }
     inline void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
                                const fpi::FDSP_TestBucket *req) {
@@ -812,12 +795,6 @@ class OM_NodeDomainMod : public Module
     virtual void om_dlt_update_cluster();
     virtual void om_dlt_waiting_timeout();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
-
-    /**
-     * Domain support.
-     */
-    virtual int om_create_domain(const FdspCrtDomPtr &crt_domain);
-    virtual int om_delete_domain(const FdspCrtDomPtr &crt_domain);
 
     /**
      * Module methods

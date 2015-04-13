@@ -1380,25 +1380,6 @@ OM_NodeDomainMod::om_shutdown_domain()
     return err;
 }
 
-// om_create_domain
-// ----------------
-//
-int
-OM_NodeDomainMod::om_create_domain(const FdspCrtDomPtr &crt_domain)
-{
-    TRACEFUNC;
-    return 0;
-}
-
-// om_delete_domain
-// ----------------
-//
-int
-OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
-{
-    return 0;
-}
-
 void
 OM_NodeDomainMod::om_dmt_update_cluster() {
     OM_Module *om = OM_Module::om_singleton();

@@ -60,8 +60,6 @@ class FdsAdminCtrl {
 
     void addDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);
     void removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *caps);
-    void getAvailableDiskCapacity(const FdspVolDescPtr  pVolInfo);
-    void updateAvailableDiskCapacity(const FdspVolDescPtr pVolInfo);
     Error volAdminControl(VolumeDesc *pVolDesc);
     Error checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc);
     void updateAdminControlParams(VolumeDesc  *pVolInfo);

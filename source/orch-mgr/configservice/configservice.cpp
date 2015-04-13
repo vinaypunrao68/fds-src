@@ -70,6 +70,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     void listLocalDomainServices(std::vector<FDSP_Node_Info_Type>& _return, const std::string& domainName) {}
     void removeLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
+    int32_t RemoveServices(const FDSP_RemoveServicesType& rm_svc_req) { return 0; }
     int64_t createTenant(const std::string& identifier) { return 0;}
     void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
     int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
@@ -82,6 +83,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings, const int64_t tenantId) {}  //NOLINT
     int64_t getVolumeId(const std::string& volumeName) {return 0;}
     void getVolumeName(std::string& _return, const int64_t volumeId) {}
+    void GetVolInfo(FDSP_VolumeDescType& _return, const FDSP_GetVolInfoReqType& vol_info_req) {}
+    int32_t ModifyVol(const FDSP_ModifyVolType& mod_vol_req) {return 0;}
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
@@ -385,6 +388,46 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     }
 
+
+    int32_t RemoveServices(boost::shared_ptr<FDSP_RemoveServicesType>& rm_svc_req) {
+
+        Error err(ERR_OK);
+        try {
+            LOGNORMAL << "Received remove services for node" << rm_svc_req->node_name
+                      << " UUID " << std::hex << rm_svc_req->node_uuid.uuid << std::dec
+                      << " remove am ? " << rm_svc_req->remove_am
+                      << " remove sm ? " << rm_svc_req->remove_sm
+                      << " remove dm ? " << rm_svc_req->remove_dm;
+
+            OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+            NodeUuid node_uuid;
+            if (rm_svc_req->node_uuid.uuid > 0) {
+                node_uuid = rm_svc_req->node_uuid.uuid;
+            }
+            // else ok if 0, will search by name
+
+            err = domain->om_del_services(rm_svc_req->node_uuid.uuid,
+                                          rm_svc_req->node_name,
+                                          rm_svc_req->remove_sm,
+                                          rm_svc_req->remove_dm,
+                                          rm_svc_req->remove_am);
+
+            if (!err.ok()) {
+                LOGERROR << "RemoveServices: Failed to remove services for node "
+                         << rm_svc_req->node_name << ", uuid "
+                         << std::hex << rm_svc_req->node_uuid.uuid
+                         << std::dec << ", result: " << err.GetErrstr();
+            }
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                     << "processing rmv node";
+            err = Error(ERR_NOT_FOUND);
+        }
+
+        return err.GetErrno();
+    }
+
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
         return configDB->createTenant(*identifier);
     }
@@ -449,7 +492,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (err == ERR_OK) apiException("volume already exists", RESOURCE_ALREADY_EXISTS);
 
         fpi::FDSP_MsgHdrTypePtr header;
-        fpi::FDSP_CreateVolTypePtr request;
+        FDSP_CreateVolTypePtr request;
         convert::getFDSPCreateVolRequest(header, request,
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
@@ -498,6 +541,46 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 
+    void GetVolInfo(FDSP_VolumeDescType& _return, boost::shared_ptr<FDSP_GetVolInfoReqType>& vol_info_req) {
+        LOGNOTIFY << "Received Get volume info request for volume: "
+                  << vol_info_req->vol_name;
+
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer vol_list = local->om_vol_mgr();
+        VolumeInfo::pointer vol = vol_list->get_volume(vol_info_req->vol_name);
+        if (vol) {
+            vol->vol_fmt_desc_pkt(&_return);
+            LOGNOTIFY << "Volume " << vol_info_req->vol_name
+                      << " -- min iops " << _return.iops_min << ",max iops "
+                      << _return.iops_max << ", prio " << _return.rel_prio
+                      << " media policy " << _return.mediaPolicy;
+        } else {
+            LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
+            FDSP_VolumeNotFound except;
+            except.message = std::string("Volume not found");
+            throw except;
+        }
+    }
+
+    int32_t ModifyVol(FDSP_ModifyVolTypePtr& mod_vol_req) {
+        Error err(ERR_OK);
+        LOGNOTIFY << "Received modify volume " << (mod_vol_req->vol_desc).vol_name;
+
+        try {
+            // no need to check if local domain is up, because volume create
+            // would be rejected so om_modify_vol will return error in that case
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+            err = local->om_modify_vol(mod_vol_req);
+        }
+        catch(...) {
+            LOGERROR << "Orch Mgr encountered exception while "
+                     << "processing modify volume";
+            err = Error(ERR_NETWORK_TRANSPORT);  // only transport throws
+        }
+
+        return err.GetErrno();
+    }
+
     void deleteVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
         checkDomainStatus();
@@ -509,7 +592,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (err != ERR_OK) apiException("volume does NOT exist", MISSING_RESOURCE);
 
         fpi::FDSP_MsgHdrTypePtr header;
-        fpi::FDSP_DeleteVolTypePtr request;
+        apis::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
         LOGDEBUG << "delete volume notification received:" << *volumeName << " " << err;

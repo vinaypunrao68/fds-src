@@ -149,6 +149,11 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
+   * Unlike removeLocalDomainServices, RemoveServices is Node-specific.
+   */
+  i32 RemoveServices(1:config_types.FDSP_RemoveServicesType rm_node_req),
+
+  /**
    * Create a new tenant.
    *
    * @param identifier a string representing the tenants identifier or name
@@ -272,10 +277,23 @@ service ConfigurationService {
    *
    * @param volumeId the volume's uuid
    *
-   * @return Returns a string representing teh volume name
+   * @return Returns a string representing the volume name
    */
   string getVolumeName(1:i64 volumeId)
       throws (1: common.ApiException e),
+
+  common.FDSP_VolumeDescType GetVolInfo(1:config_types.FDSP_GetVolInfoReqType vol_info_req)
+      throws (1:config_types.FDSP_VolumeNotFound not_found),
+
+  /**
+   * Modify volume attributes. Actually used to create and clone a
+   * volume as well.
+   *
+   * @param mod_vol_req volume attributes.
+   *
+   * @return Zero for success, non-zero otherwise.
+   */
+  i32 ModifyVol(1:config_types.FDSP_ModifyVolType mod_vol_req),
 
   /**
    * Delete FDS volume.
