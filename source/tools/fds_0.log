@@ -1,3 +1,0 @@
-[19.03.2015 13:51:17.020655] [notify] [0x00007fedbebbe780] - [fds_process.cpp:179:init] - current rlimit(RLIMIT_CORE): soft limit 18446744073709551615, hard limit 18446744073709551615
-[19.03.2015 13:51:17.021012] [normal] [0x00007fedbebbe780] - [fdscli.cpp:38:FdsCli] - Constructing the CLI
-[19.03.2015 13:51:17.021997] [normal] [0x00007fedbebbe780] - [fdscli.cpp:42:~FdsCli] - Destructing the CLI
