@@ -20,6 +20,7 @@ import xmlrunner
 
 import NodeWaitSuite
 import NodeVerifyDownSuite
+import NodeVerifyShutdownSuite
 import DomainBootSuite
 import DomainShutdownSuite
 
@@ -468,6 +469,8 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         elif state == "down":
             # Check that the specified node(s) is(are) down. If no node
             # specified, check that all defined are down.
+            # In this case we check that all FDS processes are down typically
+            # following a domain or node "kill" action.
             if "fds_nodes" in scenario.nd_conf_dict:
                 fdsNodeNames = scenario.nd_conf_dict['fds_nodes'].split(",")
                 fdsNodes = []
@@ -479,6 +482,22 @@ def queue_up_scenario(suite, scenario, log_dir=None):
 
             nodeDownSuite = NodeVerifyDownSuite.suiteConstruction(self=None, fdsNodes=fdsNodes)
             suite.addTest(nodeDownSuite)
+        elif state == "shutdown":
+            # Check that the specified node(s) is(are) shutdown. If no node
+            # specified, check that all defined are down.
+            # In this case we check that necessary FDS processes are down or up
+            # accordingly following a domain or node "shutdown" action.
+            if "fds_nodes" in scenario.nd_conf_dict:
+                fdsNodeNames = scenario.nd_conf_dict['fds_nodes'].split(",")
+                fdsNodes = []
+                for node in scenario.cfg_sect_nodes:
+                    if node.nd_conf_dict['node-name'] in fdsNodeNames:
+                        fdsNodes.append(node)
+            else:
+                fdsNodes = None
+
+            nodeShutdownSuite = NodeVerifyShutdownSuite.suiteConstruction(self=None, fdsNodes=fdsNodes)
+            suite.addTest(nodeShutdownSuite)
         else:
             log.error("Unrecognized node state '%s' for scenario %s" %
                       (state, scenario.nd_conf_dict['scenario-name']))

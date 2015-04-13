@@ -103,7 +103,10 @@ class ObjectPersistData : public Module,
     std::map<fds_uint64_t, fds_uint16_t> writeFileIdMap;
     fds_rwlock mapLock;  // lock for both tokFileTbl and writeFileIdMap
 
-    // Scavenget (garbage collector)
+    // when flag is true, do not reopen any files...
+    fds_bool_t shuttingDown;
+
+    // Scavenger (garbage collector)
     ScavControl::unique_ptr scavenger;
 
   public:

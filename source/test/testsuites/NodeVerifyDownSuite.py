@@ -14,7 +14,8 @@ import testcases.TestFDSSysMgt
 def suiteConstruction(self, fdsNodes=None):
     """
     Construct the ordered set of test cases that comprise the
-    test cases necessary to check whether a node is shutdown.
+    test cases necessary to check whether a node's Services
+    are all down due to a "kill action".
     """
     suite = unittest.TestSuite()
 

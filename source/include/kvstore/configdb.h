@@ -68,6 +68,13 @@ struct ConfigDB : KVStore {
     bool storeDmt(const DMT& dmt, const std::string type = "" , int localDomain = 0);
     bool getDmt(DMT& dmt, fds_uint64_t version, int localDomain = 0);
 
+    /*
+     * TODO(Tinius) EPIC Restart - Full System Card FS-1355 
+     * ( REPLACE WITH SERVICE MAP, defined below )
+     * 
+     * The following node methods should be cleaned up once all functionality
+     * about nodes is moved to use service map defined below.
+     */
     // nodes
     bool addNode(const NodeInfoType& node);
     bool updateNode(const NodeInfoType& node);
@@ -82,6 +89,11 @@ struct ConfigDB : KVStore {
     bool setNodeServices(const NodeUuid& uuid, const NodeServices& services);
     uint getNodeNameCounter();
 
+    // service map
+    bool deleteSvcMap(const fpi::SvcInfo& svcinfo);
+    bool getSvcMap(std::vector<fpi::SvcInfo>& svcMap);
+    bool updateSvcMap(const fpi::SvcInfo& svcinfo);
+    
     // volume policies
     fds_uint32_t createQoSPolicy(const std::string& identifier,
                                  const fds_uint64_t minIops, const fds_uint64_t maxIops, const fds_uint32_t relPrio);
