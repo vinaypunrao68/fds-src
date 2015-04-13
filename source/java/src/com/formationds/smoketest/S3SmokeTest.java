@@ -202,6 +202,7 @@ public class S3SmokeTest {
             testBucketExists(bucketName, true);
             userClient.deleteBucket(bucketName);
             testBucketNotExists(bucketName, true);
+            userClient.deleteBucket(bucketName);  // this should not throw an exception
         } finally {
             deleteBucketIgnoreErrors(adminClient, bucketName);
         }
