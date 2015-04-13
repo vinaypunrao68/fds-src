@@ -213,6 +213,7 @@ struct AttachCallback {
     boost::shared_ptr<VolumeDesc> volDesc;
 };
 
+struct DetachCallback {};
 struct DeleteBlobCallback {};
 struct UpdateMetadataCallback {};
 

@@ -26,6 +26,13 @@ void StatVolumeHandler::handleRequest(
     LOGTRACE << "Received a statVolume request for volume "
              << message->volume_id;
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     auto dmReq = new DmIoStatVolume(message);
     dmReq->cb = BIND_MSG_CALLBACK(StatVolumeHandler::handleResponse, asyncHdr, message);
 

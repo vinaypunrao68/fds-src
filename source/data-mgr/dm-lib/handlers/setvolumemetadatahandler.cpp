@@ -26,6 +26,13 @@ void SetVolumeMetadataHandler::handleRequest(
     LOGTRACE << "Received a set volume metadata request for volume "
              << message->volumeId;
 
+    auto err = dataMgr->validateVolumeIsActive(message->volumeId);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     auto dmReq = new DmIoSetVolumeMetaData(message);
     dmReq->cb = BIND_MSG_CALLBACK(SetVolumeMetadataHandler::handleResponse, asyncHdr, message);
 

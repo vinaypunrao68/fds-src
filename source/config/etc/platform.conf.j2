@@ -181,6 +181,9 @@ fds: {
         /* Log severity */
         log_severity = "{{ dm_log_severity }}"
 
+	/* Lease time (seconds) for volume access tokens */
+	token_lease_time=60
+
         cache: {
            /* Default max entries in a volume's DM catalog cache */
            default_max_entries = 200
@@ -432,6 +435,9 @@ fds: {
         fdsn_server_threads=30
         qos_threads=4
 
+	/* Frequency (seconds) to notify DM we are using a volume */
+	token_renewal_freq=30
+
         connector: {
             nbd: {
                 server_port_offset=3809
@@ -461,9 +467,6 @@ fds: {
 
             /* Toggle to disable stats collection for metadata streaming */
             toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }}
-
-            /* NBD module driver */
-            nbd_vol_module = "sm"
 
             /* Forces all AM processor APIs to immediately return success */
             uturn_processor_all = false
