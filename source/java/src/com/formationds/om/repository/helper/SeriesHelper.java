@@ -325,7 +325,7 @@ public class SeriesHelper {
         			rolledupValue = dsY.max().getAsDouble();
         			break;
         		case MAX_X:
-                	
+                	// getting the max datapoint by time (i.e. most recent) but use the Y value
                 	Optional<Datapoint> maxDatapoint = bucketMap.get( key ).stream().max( (dp1, dp2) ->{
                 		return dp1.getX().compareTo( dp2.getX() );
                 	});

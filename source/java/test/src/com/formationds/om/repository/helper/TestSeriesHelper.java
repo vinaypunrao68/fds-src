@@ -44,7 +44,7 @@ public class TestSeriesHelper {
 
 		SeriesHelper sh = new SeriesHelper();
 		
-		Series s = sh.generate( results, 0L, Metrics.PBYTES, 10L, 100, StatOperation.MAX );
+		Series s = sh.generate( results, 0L, Metrics.PBYTES, 10L, 100, StatOperation.MAX_X );
 		
 		assertEquals( 4, s.getDatapoints().size() );
 		
