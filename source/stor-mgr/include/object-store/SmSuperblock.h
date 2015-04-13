@@ -224,6 +224,7 @@ struct SmSuperblock {
     /* POD data definitions.  Collection of superblock header and data.
      */
     SmSuperblockHeader Header;
+    fds_uint64_t DLTVersion;
     ObjectLocationTable olt;
     TokenDescTable tokTbl;
 
@@ -307,6 +308,12 @@ class SmSuperblockMgr {
 
     /* Set of interfaces for unit testing */
     std::string SmSuperblockMgrTestGetFileName();
+
+    /**
+     * Set and get the latest committed DLT version.
+     */
+    Error setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately);
+    fds_uint64_t getDLTVersion();
 
     // So we can print class members for logging
     friend std::ostream& operator<< (std::ostream &out,
