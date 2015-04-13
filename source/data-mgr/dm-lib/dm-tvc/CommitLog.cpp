@@ -188,38 +188,21 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, const T & blobData) {
 }
 
 void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectList & data) {
-    GLOGDEBUG << "upsertBlobData";
     fds_uint64_t newSize = 0;
     BlobObjKey objKey(tx.nameId, 0);
-    GLOGDEBUG << "tx.nameId=" << tx.nameId;
-    GLOGDEBUG << "tx.blobMode | blob::TRUNCATE = " << (tx.blobMode | blob::TRUNCATE);
-    bool blob_end_came = false;
-    int cntr = 0;
     for (const auto & objInfo : data) {
         fds_verify(0 == objInfo.offset % objSize_);
         fds_verify(0 < objInfo.size);
         fds_verify((tx.blobMode | blob::TRUNCATE) || (objSize_ == objInfo.size));
-        GLOGDEBUG << "objInfo.offset=" << objInfo.offset;
-        GLOGDEBUG << "objInfo.size=" << objInfo.size;
         newSize = objInfo.offset + objInfo.size;
-        if (tx.blobSize < newSize || objInfo.blob_end) {
-            GLOGDEBUG << "tx.blobSize < newSize || objInfo.blob_end";
-            GLOGDEBUG << "objInfo.blob_end=" << objInfo.blob_end;
+        if (tx.blobSize < newSize) {
             tx.blobSize = newSize;
-        }
-        if (objInfo.blob_end) {
-            GLOGDEBUG << "blob_end_came";
-            blob_end_came = true;
-        }
-        if (blob_end_came) {
-            cntr++;
         }
 
         objKey.objIndex = objInfo.offset / objSize_;
         const Record keyRec(reinterpret_cast<const char *>(&objKey), sizeof(BlobObjKey));
         tx.wb.Put(keyRec, objInfo.data_obj_id.digest);
     }
-    fds_verify(cntr <= 1);
 }
 
 // delete blob
