@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-GetBucketHandler::GetBucketHandler() {
-    if (!dataMgr->features.isTestMode()) {
+GetBucketHandler::GetBucketHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::GetBucketMsg, handleRequest);
     }
 }
@@ -24,7 +26,7 @@ void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                      boost::shared_ptr<fpi::GetBucketMsg>& message) {
     LOGDEBUG << "volume: " << message->volume_id;
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
     if (!err.OK())
     {
         auto dummyResponse = boost::make_shared<fpi::GetBucketRspMsg>();
@@ -42,12 +44,12 @@ void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 }
 
 void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
-    QueueHelper helper(dmRequest);  // this will call the callback
+    QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoGetBucket *request = static_cast<DmIoGetBucket*>(dmRequest);
 
     fpi::BlobDescriptorListType & blobVec = request->response->blob_descr_list;
     // do processing and set the error
-    helper.err = dataMgr->timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
+    helper.err = dataManager.timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
 
     // match pattern if specified
     if (!request->message->pattern.empty()) {

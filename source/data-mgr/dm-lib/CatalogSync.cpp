@@ -276,8 +276,10 @@ void CatalogSync::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 /***** CatalogSyncManager implementation ******/
 
 CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
-                               DmIoReqHandler* dm_req_hdlr)
+                               DmIoReqHandler* dm_req_hdlr,
+                               DataMgr& dataManager)
         : Module("CatalogSyncMgr"),
+          _dataManager(dataManager),
           sync_in_progress(false),
           max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
@@ -481,9 +483,9 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
     // TODO(Andrew): Clean this stuff up since the callback is made
     // in a later call.
     if (send_dmt_close_ack) {
-        if (dataMgr->sendDmtCloseCb != nullptr) {
+        if (_dataManager.sendDmtCloseCb != nullptr) {
             Error err(ERR_OK);
-            dataMgr->sendDmtCloseCb(err);
+            _dataManager.sendDmtCloseCb(err);
         } else {
             LOGDEBUG << "sendDmtCloseCb called while ptr was NULL!!!";
         }

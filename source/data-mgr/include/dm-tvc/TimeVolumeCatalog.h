@@ -30,6 +30,8 @@ struct DmVolumeAccessTable;
  */
 class DmTimeVolCatalog : public Module, boost::noncopyable {
   private:
+    DataMgr& dataManager_;
+
     /* Lock around commit log */
     fds_spinlock commitLogLock_;
 
@@ -105,7 +107,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Constructs the TVC object but does not init
      */
-    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp);
+    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp, DataMgr& dataManager);
     ~DmTimeVolCatalog();
 
     typedef boost::shared_ptr<DmTimeVolCatalog> ptr;

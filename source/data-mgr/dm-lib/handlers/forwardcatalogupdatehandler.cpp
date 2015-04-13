@@ -15,8 +15,10 @@
 namespace fds {
 namespace dm {
 
-ForwardCatalogUpdateHandler::ForwardCatalogUpdateHandler() {
-    if (!dataMgr->features.isTestMode()) {
+ForwardCatalogUpdateHandler::ForwardCatalogUpdateHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::ForwardCatalogMsg, handleRequest);
     }
 }
@@ -38,11 +40,11 @@ void ForwardCatalogUpdateHandler::handleRequest(
 }
 
 void ForwardCatalogUpdateHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoFwdCat* typedRequest = static_cast<DmIoFwdCat*>(dmRequest);
 
     LOGMIGRATE << "Will commit fwd blob " << *typedRequest << " to tvc";
-    helper.err = dataMgr->timeVolCat_->updateFwdCommittedBlob(
+    helper.err = dataManager.timeVolCat_->updateFwdCommittedBlob(
             typedRequest->volId,
             typedRequest->blob_name,
             typedRequest->blob_version,
@@ -60,7 +62,7 @@ void ForwardCatalogUpdateHandler::handleQueueItem(dmCatReq* dmRequest) {
 
 void ForwardCatalogUpdateHandler::handleUpdateFwdCommittedBlob(Error const& e,
                                                                DmIoFwdCat* fwdCatReq) {
-    QueueHelper helper(fwdCatReq);
+    QueueHelper helper(dataManager, fwdCatReq);
 
     LOGTRACE << "Commited fwd blob " << *fwdCatReq;
 }

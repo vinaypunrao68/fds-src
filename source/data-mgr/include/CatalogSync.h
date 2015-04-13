@@ -27,6 +27,8 @@ namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
+    struct DataMgr;
+
      class CatalogSyncMgr;
 
      // Callback to DM svc handler for any DMT migration events
@@ -214,7 +216,8 @@ namespace fds {
     class CatalogSyncMgr: public Module {
   public:
         CatalogSyncMgr(fds_uint32_t max_jobs,
-                       DmIoReqHandler* dm_req_hdlr);
+                       DmIoReqHandler* dm_req_hdlr,
+                       DataMgr& dataManager);
         virtual ~CatalogSyncMgr();
 
         /* Overrides from Module */
@@ -288,6 +291,8 @@ namespace fds {
 
 
   private:
+        DataMgr& _dataManager;
+
         fds_bool_t sync_in_progress;
         /**
          * max number of volume sync jobs we can have in progress

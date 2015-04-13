@@ -507,10 +507,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     vol_map_mtx->lock();
     if (needReg) {
-        err = dataMgr->qosCtrl->registerVolume(vdesc->isSnapshot() ?
-                                               vdesc->qosQueueId : vol_uuid,
-                                               static_cast<FDS_VolumeQueue*>(
-                                                   volmeta->dmVolQueue.get()));
+        err = qosCtrl->registerVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid,
+                                      static_cast<FDS_VolumeQueue*>(volmeta->dmVolQueue.get()));
     }
     if (!err.ok()) {
         delete volmeta;
@@ -565,7 +563,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // cleanup volmeta and deregister queue
         LOGERROR << "Cleaning up volume queue and vol meta because of error "
                  << " volid 0x" << std::hex << vol_uuid << std::dec;
-        dataMgr->qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
+        qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
         delete volmeta;
     }
@@ -878,24 +876,25 @@ int DataMgr::mod_init(SysParams const *const param)
 }
 
 void DataMgr::initHandlers() {
-    handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
-    handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
-    handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler();
-    handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler();
-    handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler();
-    handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler();
-    handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler();
-    handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler();
-    handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler();
-    handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler();
-    handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
-    handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
-    handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
-    handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
-    handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
-    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
-    handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler();
-    handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler();
+    // TODO: Inject these.
+    handlers[FDS_LIST_BLOB] = new dm::GetBucketHandler(*this);
+    handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler(*this);
+    handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler(*this);
+    handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler(*this);
+    handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler(*this);
+    handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler(*this);
+    handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler(*this);
+    handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler(*this);
+    handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler(*this);
+    handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler(*this);
+    handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler(*this);
+    handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler(*this);
+    handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler(*this);
+    handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler(*this);
+    handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler(*this);
+    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler(*this);
+    handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
+    handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -968,15 +967,17 @@ void DataMgr::mod_enable_service() {
 
 
     // create time volume catalog
-    timeVolCat_ = DmTimeVolCatalog::ptr(new
-                                        DmTimeVolCatalog("DM Time Volume Catalog",
-                                                         *qosCtrl->threadPool));
+    timeVolCat_ = DmTimeVolCatalog::ptr(new DmTimeVolCatalog("DM Time Volume Catalog",
+                                                             *qosCtrl->threadPool,
+                                                             *this));
 
 
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
-    statStreamAggr_ = StatStreamAggregator::ptr(
-        new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
+    statStreamAggr_ =
+            StatStreamAggregator::ptr(new StatStreamAggregator("DM Stat Stream Aggregator",
+                                                               modProvider_->get_fds_config(),
+                                                               *this));
 
     // enable collection of local stats in DM
     StatsCollector::singleton()->registerOmClient(omClient);
@@ -1045,7 +1046,7 @@ void DataMgr::mod_shutdown()
 
 void DataMgr::setup_metasync_service()
 {
-    catSyncMgr.reset(new CatalogSyncMgr(1, this));
+    catSyncMgr.reset(new CatalogSyncMgr(1, this, *this));
     // TODO(xxx) should we start catalog sync manager when no OM?
     catSyncMgr->mod_startup();
 }
@@ -1237,7 +1238,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     fds::assign(expReq->objId, objId);
 
     // Make RPC call
-    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    DLTManagerPtr dltMgr = omClient->getDltManager();
     // get DLT and increment refcount so that DM will respond to
     // DLT commit of the next DMT only after all deletes with this DLT complete
     const DLT* dlt = dltMgr->getAndLockCurrentDLT();
@@ -1261,7 +1262,7 @@ DataMgr::expungeObjectCb(fds_uint64_t dltVersion,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
-    DLTManagerPtr dltMgr = dataMgr->omClient->getDltManager();
+    DLTManagerPtr dltMgr = omClient->getDltManager();
     dltMgr->decDLTRefcnt(dltVersion);
 }
 

@@ -19,7 +19,7 @@ namespace fds {
 
 class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
  public:
-    explicit DMSvcHandler(CommonModuleProviderIf *provider);
+    explicit DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager);
 
     void startBlobTx(const fpi::AsyncHdr& asyncHdr,
                        const fpi::StartBlobTxMsg& startBlob) {
@@ -143,6 +143,10 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     void
     StartDMMetaMigrationCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                            const Error &err);
+
+ private:
+
+    DataMgr& _dataManager;
 };
 
 }  // namespace fds

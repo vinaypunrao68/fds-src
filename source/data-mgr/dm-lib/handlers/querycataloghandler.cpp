@@ -13,8 +13,10 @@
 namespace fds {
 namespace dm {
 
-QueryCatalogHandler::QueryCatalogHandler() {
-    if (!dataMgr->features.isTestMode()) {
+QueryCatalogHandler::QueryCatalogHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::QueryCatalogMsg, handleRequest);
     }
 }
@@ -23,7 +25,7 @@ void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
                                         boost::shared_ptr<fpi::QueryCatalogMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -39,12 +41,12 @@ void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
 }
 
 void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoQueryCat* typedRequest = static_cast<DmIoQueryCat*>(dmRequest);
 
     // TODO(Andrew): Should add request flag so that we don't always
     // pass the metadata and size over the network, unless it's needed
-    helper.err = dataMgr->timeVolCat_->queryIface()->getBlob(
+    helper.err = dataManager.timeVolCat_->queryIface()->getBlob(
         typedRequest->volId,
         typedRequest->blob_name,
         typedRequest->queryMsg->start_offset,

@@ -33,13 +33,17 @@
     }
 
 #define HANDLE_U_TURN() \
-    if (dataMgr->testUturnAll) { \
+    if (dataManager.testUturnAll) { \
         LOGNOTIFY << "Uturn testing" << logString(*message); \
         handleResponse(asyncHdr, message, ERR_OK, nullptr); \
         return; \
     }
 
-namespace fds { namespace dm {
+namespace fds {
+
+struct DataMgr;
+
+namespace dm {
 /**
  * ------ NOTE :: IMPORTANT ---
  * do NOT store any state in these classes for now.
@@ -47,8 +51,10 @@ namespace fds { namespace dm {
  */
 struct RequestHelper {
     dmCatReq *dmRequest;
-    explicit RequestHelper(dmCatReq *dmRequest);
+    RequestHelper(DataMgr& dataManager, dmCatReq *dmRequest);
     ~RequestHelper();
+private:
+    DataMgr& _dataManager;
 };
 
 struct QueueHelper {
@@ -57,23 +63,28 @@ struct QueueHelper {
     fds_bool_t skipImplicitCb;
     dmCatReq *dmRequest;
     Error err = ERR_OK;
-    explicit QueueHelper(dmCatReq *dmRequest);
+    QueueHelper(DataMgr& dataManager, dmCatReq *dmRequest);
     ~QueueHelper();
     void markIoDone();
     void cancel();
+private:
+    DataMgr& _dataManager;
 };
 
 
 struct Handler: HasLogger {
+    explicit Handler(DataMgr& dataManager);
     // providing a default empty implmentation to support requests that
     // do not need queuing
     virtual void handleQueueItem(dmCatReq *dmRequest);
     virtual void addToQueue(dmCatReq *dmRequest);
     virtual ~Handler();
+protected:
+    DataMgr& dataManager;
 };
 
 struct GetBucketHandler : Handler {
-    GetBucketHandler();
+    explicit GetBucketHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::GetBucketMsg>& message);
     void handleQueueItem(dmCatReq *dmRequest);
@@ -83,7 +94,7 @@ struct GetBucketHandler : Handler {
 };
 
 struct DmSysStatsHandler : Handler {
-    DmSysStatsHandler();
+    explicit DmSysStatsHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::GetDmStatsMsg>& message);
     void handleQueueItem(dmCatReq *dmRequest);
@@ -93,7 +104,7 @@ struct DmSysStatsHandler : Handler {
 };
 
 struct DeleteBlobHandler : Handler {
-    DeleteBlobHandler();
+    explicit DeleteBlobHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::DeleteBlobMsg>& message);
     void handleQueueItem(dmCatReq *dmRequest);
@@ -103,7 +114,7 @@ struct DeleteBlobHandler : Handler {
 };
 
 struct UpdateCatalogHandler : Handler {
-    UpdateCatalogHandler();
+    explicit UpdateCatalogHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::UpdateCatalogMsg> & message);
     void handleQueueItem(dmCatReq * dmRequest);
@@ -113,7 +124,7 @@ struct UpdateCatalogHandler : Handler {
 };
 
 struct GetBlobMetaDataHandler : Handler {
-    GetBlobMetaDataHandler();
+    explicit GetBlobMetaDataHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -123,7 +134,7 @@ struct GetBlobMetaDataHandler : Handler {
 };
 
 struct QueryCatalogHandler : Handler {
-    QueryCatalogHandler();
+    explicit QueryCatalogHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::QueryCatalogMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -133,7 +144,7 @@ struct QueryCatalogHandler : Handler {
 };
 
 struct StartBlobTxHandler : Handler {
-    StartBlobTxHandler();
+    explicit StartBlobTxHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::StartBlobTxMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -143,7 +154,7 @@ struct StartBlobTxHandler : Handler {
 };
 
 struct StatStreamHandler : Handler {
-    StatStreamHandler();
+    explicit StatStreamHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::StatStreamMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -153,7 +164,7 @@ struct StatStreamHandler : Handler {
 };
 
 struct CommitBlobTxHandler : Handler {
-    CommitBlobTxHandler();
+    explicit CommitBlobTxHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::CommitBlobTxMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -168,7 +179,7 @@ struct CommitBlobTxHandler : Handler {
 };
 
 struct UpdateCatalogOnceHandler : Handler {
-    UpdateCatalogOnceHandler();
+    explicit UpdateCatalogOnceHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -180,7 +191,7 @@ struct UpdateCatalogOnceHandler : Handler {
 };
 
 struct SetBlobMetaDataHandler : Handler {
-    SetBlobMetaDataHandler();
+    explicit SetBlobMetaDataHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::SetBlobMetaDataMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -190,7 +201,7 @@ struct SetBlobMetaDataHandler : Handler {
 };
 
 struct AbortBlobTxHandler : Handler {
-    AbortBlobTxHandler();
+    explicit AbortBlobTxHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::AbortBlobTxMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -200,7 +211,7 @@ struct AbortBlobTxHandler : Handler {
 };
 
 struct ForwardCatalogUpdateHandler : Handler {
-    ForwardCatalogUpdateHandler();
+    explicit ForwardCatalogUpdateHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::ForwardCatalogMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -214,7 +225,7 @@ struct ForwardCatalogUpdateHandler : Handler {
 };
 
 struct StatVolumeHandler : Handler {
-    StatVolumeHandler();
+    explicit StatVolumeHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::StatVolumeMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -224,7 +235,7 @@ struct StatVolumeHandler : Handler {
 };
 
 struct SetVolumeMetadataHandler : Handler {
-    SetVolumeMetadataHandler();
+    explicit SetVolumeMetadataHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::SetVolumeMetadataMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -234,7 +245,7 @@ struct SetVolumeMetadataHandler : Handler {
 };
 
 struct GetVolumeMetadataHandler : Handler {
-    GetVolumeMetadataHandler();
+    explicit GetVolumeMetadataHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::GetVolumeMetadataMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -247,7 +258,7 @@ struct GetVolumeMetadataHandler : Handler {
  * Attempt to retrieve an access token for the given volume
  */
 struct VolumeOpenHandler : Handler {
-    VolumeOpenHandler();
+    explicit VolumeOpenHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::OpenVolumeMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
@@ -260,7 +271,7 @@ struct VolumeOpenHandler : Handler {
  * Close an existing access token for the given volume
  */
 struct VolumeCloseHandler : Handler {
-    VolumeCloseHandler();
+    explicit VolumeCloseHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::CloseVolumeMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);

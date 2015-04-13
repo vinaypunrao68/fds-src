@@ -14,8 +14,10 @@
 namespace fds {
 namespace dm {
 
-SetBlobMetaDataHandler::SetBlobMetaDataHandler() {
-    if (!dataMgr->features.isTestMode()) {
+SetBlobMetaDataHandler::SetBlobMetaDataHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::SetBlobMetaDataMsg, handleRequest);
     }
 }
@@ -30,13 +32,13 @@ void SetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
     HANDLE_U_TURN();
 
     // U-turn specific to set metadata
-    if (dataMgr->testUturnSetMeta) {
+    if (dataManager.testUturnSetMeta) {
         LOGNOTIFY << "Uturn testing" << logString(*message);
         handleResponse(asyncHdr, message, ERR_OK, nullptr);
         return;
     }
 
-    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    auto err = dataManager.validateVolumeIsActive(message->volume_id);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -52,12 +54,12 @@ void SetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
 }
 
 void SetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
-    QueueHelper helper(dmRequest);
+    QueueHelper helper(dataManager, dmRequest);
     DmIoSetBlobMetaData* typedRequest = static_cast<DmIoSetBlobMetaData*>(dmRequest);
 
-    helper.err = dataMgr->timeVolCat_->updateBlobTx(typedRequest->volId,
-                                                    typedRequest->ioBlobTxDesc,
-                                                    typedRequest->md_list);
+    helper.err = dataManager.timeVolCat_->updateBlobTx(typedRequest->volId,
+                                                       typedRequest->ioBlobTxDesc,
+                                                       typedRequest->md_list);
 }
 
 void SetBlobMetaDataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
