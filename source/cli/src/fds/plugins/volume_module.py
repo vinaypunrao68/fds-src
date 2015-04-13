@@ -13,7 +13,7 @@ class VolumeModule( abstract_plugin.AbstractPlugin):
         
         self.__volume_service = volume_service.VolumeService( session )
         
-        self.__parser = parentParser.add_parser( "volume", help="Command to interact with volumes" )
+        self.__parser = parentParser.add_parser( "volume", help="All volume management operations" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
         
         self.createListCommand( self.__subparser )

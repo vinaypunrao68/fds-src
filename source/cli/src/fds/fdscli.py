@@ -27,7 +27,7 @@ class FDSShell( cmd.Cmd ):
         self.prompt ='fds> '
         self.parser = ArgumentParser( add_help=True)
         
-        self.subParsers = self.parser.add_subparsers( help="Sub-commands" )
+        self.subParsers = self.parser.add_subparsers( help="Command suite description" )
         self.loadmodules()
         
     def formatClassName(self, name):
