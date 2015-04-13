@@ -5,8 +5,8 @@ package com.formationds.xdi.swift;
 
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.web.Dom4jResource;
@@ -47,7 +47,7 @@ public class GetContainer  implements SwiftRequestHandler {
         ResponseFormat format = obtainFormat(request);
         List<BlobDescriptor> descriptors = null;
         try {
-            descriptors = xdi.volumeContents(token, accountName, containerName, limit, 0, "", BlobListOrder.UNSPECIFIED, false);
+            descriptors = xdi.volumeContents(token, accountName, containerName, limit, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         } catch (TException e) {
             throw new ApiException("Not found", ErrorCode.MISSING_RESOURCE);
         }

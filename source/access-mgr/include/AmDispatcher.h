@@ -56,8 +56,9 @@ struct AmDispatcher
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchOpenVolume(VolumeDesc const& vol_desc,
-                            std::function<void(fds_int64_t, Error)> cb);
+    void dispatchOpenVolume(fds_volid_t const vol_id,
+                            fds_int64_t const token,
+                            std::function<void(fds_int64_t const, Error const)> cb);
 
     /**
      * Dispatches an open volume request to DM.
@@ -280,12 +281,6 @@ struct AmDispatcher
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
     bool mockTimeoutEnabled_ = false;
-
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    bool volume_open_support { false };
 };
 
 }  // namespace fds

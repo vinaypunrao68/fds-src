@@ -1,7 +1,6 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.events;
 
 import com.formationds.commons.crud.EntityPersistListener;
@@ -11,8 +10,7 @@ import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
-import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.om.repository.JDOEventRepository;
+import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -156,19 +154,12 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
     }
 
     protected void loadActiveFirebreaks(Volume vol, FirebreakType fbtype) {
-        // TODO: it really shouldn't be necessary to create a new instance here, but without it i'm
-        // seeing duplicate results.  Need to revisit.  Note it may have something to do with the
-        // "in" clause used in EventRepository.
-        JDOEventRepository er = new JDOEventRepository();
-        try {
-            FirebreakEvent fb = er.findLatestFirebreak(vol, fbtype);
+        EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
+        FirebreakEvent fb = er.findLatestFirebreak(vol, fbtype);
 
-            if (fb != null) {
-                activeFirebreaks.put(new FBInfo(vol, fb.getFirebreakType()), fb);
-                isVolumeloaded.put(vol, Boolean.TRUE);
-            }
-        } finally {
-            er.close();
+        if (fb != null) {
+            activeFirebreaks.put(new FBInfo(vol, fb.getFirebreakType()), fb);
+            isVolumeloaded.put(vol, Boolean.TRUE);
         }
     }
 }

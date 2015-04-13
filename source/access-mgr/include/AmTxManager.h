@@ -19,6 +19,7 @@ struct AmCache;
 struct AmRequest;
 struct AmTxDescriptor;
 struct AmVolume;
+struct AmVolumeAccessToken;
 struct AmVolumeTable;
 
 /**
@@ -94,7 +95,7 @@ struct AmTxManager {
      * Notify that there is a newly attached volume, and build any
      * necessary data structures.
      */
-    Error registerVolume(const VolumeDesc& volDesc, fds_int64_t token);
+    Error registerVolume(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
 
     /**
      * Modify the policy for an attached volume.
