@@ -20,6 +20,7 @@
 #include <fdsp/am_api_types.h>
 #include <fdsp/dm_api_types.h>
 #include <fdsp/sm_api_types.h>
+#include <fdsp/pm_service_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
@@ -1028,6 +1029,41 @@ OM_PmAgent::send_remove_services(fds_bool_t remove_sm,
     return err;
 }
 
+/**
+ * Execute "deactivate services" message for the specified services.
+ *
+ * @param deactivate_XX - true or false indicating whether the Service is to be deactivated or not.
+ *
+ * @return Error
+ */
+Error
+OM_PmAgent::send_deactivate_services(fds_bool_t deactivate_sm,
+                                     fds_bool_t deactivate_dm,
+                                     fds_bool_t deactivate_am)
+{
+    Error err(ERR_OK);
+    LOGNORMAL << "Received deactivate services for node" << get_node_name()
+              << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+              << " deactivate am ? " << deactivate_am
+              << " deactivate sm ? " << deactivate_sm
+              << " deactivate dm ? " << deactivate_dm;
+
+    fpi::DeactivateServicesMsgPtr deactivateMsg = boost::make_shared<fpi::DeactivateServicesMsg>();
+    (deactivateMsg->node_uuid).uuid = static_cast<int64_t>(get_uuid().uuid_get_val());
+    deactivateMsg->node_name = get_node_name();
+    deactivateMsg->deactivate_sm_svc = deactivate_sm;
+    deactivateMsg->deactivate_dm_svc = deactivate_dm;
+    deactivateMsg->deactivate_am_svc = deactivate_am;
+    deactivateMsg->deactivate_om_svc = false;
+
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::DeactivateServicesMsg), deactivateMsg);
+    req->invoke();
+
+    return err;
+}
+
+
 // ---------------------------------------------------------------------------------
 // Common OM Service Container
 // ---------------------------------------------------------------------------------
@@ -1602,6 +1638,72 @@ OM_NodeContainer::om_cond_bcast_remove_services(fds_bool_t remove_sm,
 {
     TRACEFUNC;
     dc_pm_nodes->agent_foreach(remove_sm, remove_dm, remove_am, om_remove_services);
+}
+
+/**
+ * Deactivate all defined Services on the specified Node.
+ * if all deactivate_sm && deactivate_dm && deactivate_am are false, then
+ * will deactivate all services on the specified Node
+ */
+static void
+om_deactivate_services(fds_bool_t deactivate_sm,
+                       fds_bool_t deactivate_dm,
+                       fds_bool_t deactivate_am,
+                       NodeAgent::pointer node)
+{
+    LOGDEBUG << "deactivate_sm " << deactivate_sm << ", deactivate_dm "
+             << deactivate_dm << ", deactivate_am " << deactivate_am;
+
+    if (!deactivate_sm && !deactivate_dm && !deactivate_am) {
+        /**
+         * We are being asked to deactivate all defined Services from the given Node.
+         * Which services are defined for this Node?
+         */
+        NodeServices services;
+        kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
+
+        if (configDB->getNodeServices(node->get_uuid(), services)) {
+            if (services.am.uuid_get_val() != 0) {
+                deactivate_am = true;
+            }
+            if (services.sm.uuid_get_val() != 0) {
+                deactivate_sm = true;
+            }
+            if (services.dm.uuid_get_val() != 0) {
+                deactivate_dm = true;
+            }
+        } else {
+            /**
+            * Nothing defined, so nothing to deactivate.
+            * However, we will still send a deactivate services msg to
+            * PM so it can choose to check/deactivate unregistered/unknown
+            * services
+            */
+            LOGNOTIFY << "No services defined for node" << std::hex
+                      << node->get_uuid().uuid_get_val() << std::dec
+                      << ", but we will send deactivate services msg to PM"
+                      << " anyway so it can check if there are any uknown"
+                      << " or unregistered services";
+        }
+    }
+
+    OM_PmAgent::agt_cast_ptr(node)->send_deactivate_services(deactivate_sm, deactivate_dm, deactivate_am);
+}
+
+
+/**
+ * Deactivate specified Services on all Nodes defined in the Local Domain.
+ * This is different from remove services -- remove a service will deregister
+ * the service and remove it from cluster map, deactivate is just a message
+ * to PM to kill the corresponding processes
+ */
+void
+OM_NodeContainer::om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
+                                                    fds_bool_t deactivate_dm,
+                                                    fds_bool_t deactivate_am)
+{
+    TRACEFUNC;
+    dc_pm_nodes->agent_foreach(deactivate_sm, deactivate_dm, deactivate_am, om_deactivate_services);
 }
 
 // om_send_vol_info
