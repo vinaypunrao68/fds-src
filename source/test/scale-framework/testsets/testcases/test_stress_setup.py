@@ -12,6 +12,7 @@ import json
 import testsets.testcase as testcase
 import block_volumes
 import s3_volumes
+import logging
 
 class TestStressSetup(testcase.FDSTestCase):
 
@@ -23,18 +24,20 @@ class TestStressSetup(testcase.FDSTestCase):
     '''
 
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
-        super(TestCreateThreehundredObjectVolumes, self).__init__(parameters=parameters,
+        super(TestStressSetup, self).__init__(parameters=parameters,
                 config_file=config_file, om_ip_address=om_ip_address)
 
         self.s3_vol_count = 500
         self.block_vol_count = 500
-        if(config_file != None)
+        if(config_file != None):
             self.log.info("config_file = %s", config_file)
             config = ConfigParser.ConfigParser()
             config.readfp(open(config_file))
-            self.s3_vol_count = config.getInt(stress, s3_vols)
+            # TODO: Only get this if these values are set
+            self.s3_vol_count = config.getint("stress", "s3_vols")
+            self.block_vol_count = config.getint("stress", "block_vols")
 
-        self.log.info("s3_vol_count = %s", self.s3_vols_count)
+        self.log.info("s3_vol_count = %s", self.s3_vol_count)
 
     '''
     Do it.
@@ -43,10 +46,15 @@ class TestStressSetup(testcase.FDSTestCase):
         test_passed = False
         r = None
         port = config.FDS_REST_PORT
+        s3_vols = s3_volumes.S3Volumes("stress_test_s3", self.om_ip_address)
+        block_vols = block_volumes.BlockVolumes(self.om_ip_address)
 
         try:
 
             #Setup
+            s3_vols.create_volumes(self.s3_vol_count)
+            block_vols.create_block_volumes(self.block_vol_count,
+                    "stress_test_block", "1", "GB")
 
             #Yay?
             test_passed = True
