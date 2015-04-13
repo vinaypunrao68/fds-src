@@ -9,8 +9,9 @@ import json
 class ResponseWriter():
     
     @staticmethod
-    def writeTabularData( data ):
-        print tabulate.tabulate( data, headers="keys" )
+    def writeTabularData( data, headers="keys" ):
+        
+        print tabulate.tabulate( data, headers=headers )
         
     @staticmethod
     def writeJson( data ):
