@@ -1743,7 +1743,7 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
         std::string key = "svcmap";
                 
         FDSP_SERIALIZE( svcinfo, serialized );        
-        r.hset( key, uuid.str().c_str(), *serialized );
+        bRetCode = r.hset( key, uuid.str().c_str(), *serialized );
                        
     } catch(const RedisException& e) {
         

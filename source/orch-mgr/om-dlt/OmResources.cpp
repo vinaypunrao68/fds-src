@@ -1366,7 +1366,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 
     /**
      * Note this is a temporary hack to return the node registration call 
-     * immediate and wait for for 3s before broadcast...
+     * immediately and wait for 3 seconds before broadcast...
      */
     
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
