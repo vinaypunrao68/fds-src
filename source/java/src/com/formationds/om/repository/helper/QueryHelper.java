@@ -145,7 +145,13 @@ public class QueryHelper {
 	            		})
 		            	.findFirst().orElse( null );
             	
-            	Double bytesConsumed = physicalBytes.getDatapoints().get( physicalBytes.getDatapoints().size()-1 ).getY();
+            	Double bytesConsumed = 0.0;
+            	
+            	if ( physicalBytes != null ) {
+            		bytesConsumed = physicalBytes.getDatapoints()
+            								     .get( physicalBytes.getDatapoints().size()-1 )
+            								     .getY();
+            	}
                 
                 final CapacityConsumed consumed = new CapacityConsumed();
                 consumed.setTotal( bytesConsumed );
