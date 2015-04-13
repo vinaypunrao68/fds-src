@@ -84,12 +84,19 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
 
         volume = 'volume1'
 
+	#Per FS-1368, make use of --lockfile /tmp/nbdadm/nbdadm.lock
+	nbdadm_tmp = '/tmp/nbdadm'
+	nbdadm_lockfile = 'nbdadm.lock'
+
+	os.makedirs('%s' % nbdadm_tmp)
+
         # Check if a volume was passed to us.
         if self.passedVolume is not None:
             volume = self.passedVolume
 
         cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
-        blkAttCmd = '%s/nbdadm.py attach %s %s' % (cinder_dir, om_node.nd_conf_dict['ip'], volume)
+        #blkAttCmd = '%s/nbdadm.py attach %s %s' % (cinder_dir, om_node.nd_conf_dict['ip'], volume)
+        blkAttCmd = '%s/nbdadm.py --lockfile %s/%s attach %s %s' % (cinder_dir, nbdadm_tmp, nbdadm_lockfile, om_node.nd_conf_dict['ip'], volume)
 
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
         status, stdout = om_node.nd_agent.exec_wait(blkAttCmd, return_stdin=True)
