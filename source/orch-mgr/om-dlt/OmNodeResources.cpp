@@ -20,6 +20,7 @@
 #include <fdsp/am_api_types.h>
 #include <fdsp/dm_api_types.h>
 #include <fdsp/sm_api_types.h>
+#include <fdsp/pm_service_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
