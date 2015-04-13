@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
+#include <ratio>
 
 #include "platform/platform_shm_typedefs.h"
 #include "platform/node_data.h"
@@ -1715,23 +1716,42 @@ bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId
     return setSnapshotState(snapshot, state);
 }
 
-#if 0
-/* NOTE (March 3, 2015): Keeping this code commented here in hopes this code will get
- * uncommented.  If this code isn't used in 2 months, it's safe to get rid of it
- */
-bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
-    TRACKMOD();
+bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo) {
     try {
-        boost::shared_ptr<std::string> serialized;
-        fds::serializeFdspMsg(svcinfo, serialized);
-
-        r.hset("svcmap", svcinfo.svc_id.svc_uuid.svc_uuid, *serialized); //NOLINT
+        std::stringstream uuid;
+        uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
+        
+        Reply reply = r.sendCommand( "hdel svcmap %s", uuid.str().c_str() ); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
         return false;
     }
     return true;
+}
+
+bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
+    bool bRetCode = false;
+    try {
+        
+        std::stringstream uuid;
+        uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
+        
+        LOGDEBUG << "CONFIGDB::UPDATE::SVC::MAP " 
+                 << svcinfo.name << " "
+                 << uuid.str();
+        
+        std::string key = "svcmap";
+                
+        FDSP_SERIALIZE( svcinfo, serialized );        
+        bRetCode = r.hset( key, uuid.str().c_str(), *serialized );
+                       
+    } catch(const RedisException& e) {
+        
+        LOGCRITICAL << "error with redis " << e.what();
+        
+    }
+    
+    return bRetCode;
 }
 
 bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
@@ -1756,7 +1776,7 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
     return true;
 
 }
-#endif
+
 
 }  // namespace kvstore
 }  // namespace fds

@@ -27,6 +27,8 @@ public class Volume
   private String name;
   private Long limit;                   // maximum IOPS
   private Long sla;                     // minimum IOPS -- service level agreement
+
+  // TODO: change to a long to be consistent with the Thrift definition in VolumeDescriptor
   private String id;                    // volume Id
   private Integer priority;
   private Integer max_object_size;
