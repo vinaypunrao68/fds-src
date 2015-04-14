@@ -5,9 +5,11 @@
 #include <AmProcessor.h>
 
 #include <algorithm>
+#include <deque>
 #include <string>
 
 #include "fds_process.h"
+#include "fds_timer.h"
 #include <ObjectId.h>
 #include "FdsRandom.h"
 #include <fiu-control.h>
@@ -15,6 +17,7 @@
 #include "AmDispatcher.h"
 #include "AmTxManager.h"
 #include "AmVolume.h"
+#include "AmVolumeAccessToken.h"
 
 #include "requests/requests.h"
 #include "AsyncResponseHandlers.h"
@@ -36,9 +39,11 @@ std::atomic_uint nextIoReqId;
 class AmProcessor_impl
 {
     using shutdown_cb_type = std::function<void(void)>;
+
   public:
     AmProcessor_impl() : amDispatcher(new AmDispatcher()),
-                         txMgr(new AmTxManager())
+                         txMgr(new AmTxManager()),
+                         prepareForShutdownCb(nullptr)
     { }
 
     AmProcessor_impl(AmProcessor_impl const&) = delete;
@@ -47,6 +52,11 @@ class AmProcessor_impl
 
     void start(shutdown_cb_type&& cb);
 
+    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
+        { prepareForShutdownCb = cb; }
+
+    void prepareForShutdownMsgRespCallCb();
+
     bool stop();
 
     Error enqueueRequest(AmRequest* amReq);
@@ -54,7 +64,10 @@ class AmProcessor_impl
     Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
         { return txMgr->modifyVolumePolicy(vol_uuid, vdesc); }
 
-    void registerVolume(const VolumeDesc& volDesc);
+    void registerVolume(const VolumeDesc& volDesc, fds_int64_t const token = invalid_vol_token);
+    void registerVolumeCb(const VolumeDesc& volDesc,
+                          fds_int64_t const token,
+                          Error const error);
 
     Error removeVolume(const VolumeDesc& volDesc);
 
@@ -80,12 +93,23 @@ class AmProcessor_impl
     /// Unique ptr to a random num generator for tx IDs
     std::unique_ptr<RandNumGenerator> randNumGen;
 
+    FdsTimer token_timer;
+
     shutdown_cb_type shutdown_cb;
     bool shut_down { false };
+
+    shutdown_cb_type prepareForShutdownCb;
 
     void processBlobReq(AmRequest *amReq);
 
     std::shared_ptr<AmVolume> getVolume(AmRequest* amReq, bool const allow_snapshot=true);
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    bool volume_open_support { false };
+    std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
     /**
      * Processes a get volume metadata request
@@ -96,6 +120,7 @@ class AmProcessor_impl
      * Attachment request, retrieve volume descriptor
      */
     void attachVolume(AmRequest *amReq);
+    void detachVolume(AmRequest *amReq);
 
     /**
      * Processes a abort blob transaction
@@ -221,6 +246,10 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
             abortBlobTx(amReq);
             break;
 
+        case fds::FDS_DETACH_VOL:
+            detachVolume(amReq);
+            break;
+
         case fds::FDS_ATTACH_VOL:
             attachVolume(amReq);
             break;
@@ -278,6 +307,18 @@ AmProcessor_impl::start(shutdown_cb_type&& cb)
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
     }
+
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
+    volume_open_support = features.get<bool>("common.volume_open_support", false);
+    if (volume_open_support) {
+        vol_tok_renewal_freq =
+            std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
+    }
+
     shutdown_cb = std::move(cb);
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
@@ -291,20 +332,31 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     txMgr->markIODone(amReq);
     amReq->cb->call(error);
 
-    /*
-     * If we're shutting down and there are no
-     * more outstanding requests, tell the QoS
-     * Dispatcher that we're shutting down.
-     */
-    if (shut_down && txMgr->drained())
-    {
-       shutdown_cb();
+    // If we're shutting down check if the
+    // queue is empty and make the callback
+    if (isShuttingDown()) {
+        stop();
+    }
+}
+
+void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
+    if (prepareForShutdownCb) {
+        prepareForShutdownCb();
+        prepareForShutdownCb = nullptr;
     }
 }
 
 bool AmProcessor_impl::stop() {
     shut_down = true;
     if (txMgr->drained()) {
+        // Close all attached volumes before finishing shutdown
+        std::deque<std::pair<fds_volid_t, fds_int64_t>> tokens;
+        txMgr->getVolumeTokens(tokens);
+        for (auto const& token_pair: tokens) {
+            if (invalid_vol_token != token_pair.second) {
+                amDispatcher->dispatchCloseVolume(token_pair.first, token_pair.second);
+            }
+        }
         shutdown_cb();
         return true;
     }
@@ -327,32 +379,76 @@ AmProcessor_impl::getVolume(AmRequest* amReq, bool const allow_snapshot) {
 }
 
 void
-AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
+AmProcessor_impl::registerVolume(const VolumeDesc& volDesc, fds_int64_t const token) {
     /** First we need to open the volume for access */
-    auto cb = [this, volDesc](fds_int64_t t, Error e) mutable -> void {
-        if (ERR_OK == e) {
-            this->txMgr->registerVolume(volDesc, t);
-        } else {
-            this->txMgr->removeVolume(volDesc);
-        }
+    auto cb = [this, volDesc](fds_int64_t const token, Error const e) mutable -> void {
+        this->registerVolumeCb(volDesc, token, e);
     };
 
-    amDispatcher->dispatchOpenVolume(volDesc, cb);
+    /**
+     * FEATURE TOGGLE: Single AM Enforcement
+     * Wed 01 Apr 2015 01:52:55 PM PDT
+     */
+    if (volume_open_support) {
+        amDispatcher->dispatchOpenVolume(volDesc.volUUID, token, cb);
+    } else {
+        // Create a fake token that doesn't expire.
+        auto access_token = boost::make_shared<AmVolumeAccessToken>(
+                token_timer,
+                invalid_vol_token,
+                [this, volDesc] (fds_int64_t const token) mutable -> void {
+                    // No-op
+                });
+        this->txMgr->registerVolume(volDesc, access_token);
+    }
+}
+
+void
+AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
+                                   fds_int64_t const token,
+                                   Error const error) {
+    if (ERR_OK == error) {
+        GLOGDEBUG << "For volume: " << volDesc.volUUID
+                  << ", received access token: 0x" << std::hex << token;
+
+        // Build an access token that will renew itself at regular
+        // intervals
+        auto access_token = boost::make_shared<AmVolumeAccessToken>(
+                token_timer,
+                token,
+                [this, volDesc] (fds_int64_t const token) mutable -> void {
+                    this->registerVolume(volDesc, token);
+                });
+
+        auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
+        if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
+        {
+            LOGERROR << "Failed to schedule token renewal timer!";
+            this->txMgr->removeVolume(volDesc);
+        } else {
+            // Yay, success!
+            this->txMgr->registerVolume(volDesc, access_token);
+        }
+    } else {
+        LOGNOTIFY << "Failed to open volume, error: " << error;
+        this->txMgr->removeVolume(volDesc);
+    }
 }
 
 Error
 AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     Error err{ERR_OK};
 
-    // Remove the volume from QoS/VolumeTable/TxMgr
-    err = txMgr->removeVolume(volDesc);
-
     // If we had a token for a volume, give it back to DM
     auto shVol = txMgr->getVolume(volDesc.volUUID);
     if (shVol) {
-        fds_int64_t token = shVol->token;
+        fds_int64_t token = shVol->getToken();
         amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
     }
+
+    // Remove the volume from QoS/VolumeTable/TxMgr
+    err = txMgr->removeVolume(volDesc);
+
     if (shut_down && txMgr->drained())
     {
        shutdown_cb();
@@ -406,6 +502,16 @@ AmProcessor_impl::attachVolume(AmRequest *amReq) {
 
     boost::shared_ptr<AttachCallback> cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
     cb->volDesc = boost::make_shared<VolumeDesc>(*shVol->voldesc);
+    respond_and_delete(amReq, ERR_OK);
+}
+
+void
+AmProcessor_impl::detachVolume(AmRequest *amReq) {
+    // This really can not fail, we have to be attached to be here
+    auto shVol = getVolume(amReq);
+    if (!shVol) return;
+
+    removeVolume(*shVol->voldesc);
     respond_and_delete(amReq, ERR_OK);
 }
 
@@ -791,6 +897,16 @@ AmProcessor::~AmProcessor() = default;
 
 void AmProcessor::start(shutdown_cb_type&& cb)
 { return _impl->start(std::move(cb)); }
+
+void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
+{
+    return _impl->prepareForShutdownMsgRespBindCb(std::move(cb));
+}
+
+void AmProcessor::prepareForShutdownMsgRespCallCb()
+{
+    return _impl->prepareForShutdownMsgRespCallCb();
+}
 
 bool AmProcessor::stop()
 { return _impl->stop(); }

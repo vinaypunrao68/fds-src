@@ -22,7 +22,8 @@ user_cpp          := \
     sm_token_migration_seqnum_gtest.cpp \
     sm_token_snapshot_delta_gtest.cpp \
     sm_token_persistent_snapshot_gtest.cpp \
-    object_metadata_reconcile_gtest.cpp
+    object_metadata_reconcile_gtest.cpp \
+    sm_functional_gtest.cpp
 
 user_no_style     :=
 
@@ -42,7 +43,8 @@ user_bin_exe      := \
     sm_token_migration_seqnum_gtest \
     sm_token_snapshot_delta_gtest \
     sm_token_persistent_snapshot_gtest \
-    object_metadata_reconcile_gtest
+    object_metadata_reconcile_gtest \
+    sm_functional_gtest
 
 
 sm_objectstore_gtest   := object_store_unit_test.cpp
@@ -61,5 +63,6 @@ sm_token_migration_seqnum_gtest := sm_token_migration_seqnum_gtest.cpp
 sm_token_snapshot_delta_gtest := sm_token_snapshot_delta_gtest.cpp
 sm_token_persistent_snapshot_gtest := sm_token_persistent_snapshot_gtest.cpp
 object_metadata_reconcile_gtest := object_metadata_reconcile_gtest.cpp
+sm_functional_gtest := sm_functional_gtest.cpp
 
 include $(test_topdir)/Makefile.sm

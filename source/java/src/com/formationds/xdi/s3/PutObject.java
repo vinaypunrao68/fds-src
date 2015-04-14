@@ -11,6 +11,7 @@ import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.web.toolkit.XmlResource;
+import com.formationds.xdi.BlobInfo;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.apache.commons.codec.binary.Hex;
@@ -19,6 +20,9 @@ import org.joda.time.DateTimeZone;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -45,7 +49,10 @@ public class PutObject implements SyncRequestHandler {
 
         InputStream str = context.getInputStream();
 
-        String uploadId = context.getQueryParameters().get("uploadId").iterator().next();
+        String uploadId = null;
+        if (context.getQueryParameters().get("uploadId") != null) {
+            uploadId = context.getQueryParameters().get("uploadId").iterator().next();
+        }
 
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
@@ -65,7 +72,7 @@ public class PutObject implements SyncRequestHandler {
         }
 
         if(copySource == null) {
-            byte[] digest = xdi.writeStream(token, domain, bucketName, objectName, str, map);
+            byte[] digest = xdi.put(token, domain, bucketName, objectName, str, map).get().digest;
             return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
         } else {
             return copy(context, domain, bucketName, objectName, copySource, map);
@@ -79,7 +86,7 @@ public class PutObject implements SyncRequestHandler {
 
         String copySourceBucket = copySourceParts[0];
         String copySourceObject = copySourceParts[1];
-        BlobDescriptor copySourceStat = xdi.statBlob(token, S3Endpoint.FDS_S3, copySourceBucket, copySourceObject);
+        BlobDescriptor copySourceStat = xdi.statBlob(token, S3Endpoint.FDS_S3, copySourceBucket, copySourceObject).get();
 
         String metadataDirective = context.getRequestHeader("x-amz-metadata-directive");
         if(metadataDirective != null && metadataDirective.equals("COPY")) {
@@ -119,12 +126,16 @@ public class PutObject implements SyncRequestHandler {
                     md.remove(kv.getKey());
                 }
                 md.putAll(S3UserMetadataUtility.extractUserMetadata(metadataMap));
-                xdi.setMetadata(token, targetDomain, targetBucketName, targetBlobName, md);
+                xdi.setMetadata(token, targetDomain, targetBucketName, targetBlobName, md).get();
             }
             digest = Hex.decodeHex(copySourceETag.toCharArray());
         } else {
-            InputStream instr = xdi.readStream(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
-            digest = xdi.writeStream(token, targetDomain, targetBucketName, targetBlobName, instr, metadataMap);
+            OutputStream outputStream = xdi.openForWriting(token, targetDomain, targetBucketName, targetBlobName, metadataMap);
+            DigestOutputStream digestOutputStream = new DigestOutputStream(outputStream, MessageDigest.getInstance("MD5"));
+            BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]).get();
+            xdi.readToOutputStream(token, blobInfo, digestOutputStream).get();
+            digestOutputStream.close();
+            digest = digestOutputStream.getMessageDigest().digest();
         }
 
         XmlElement responseFrame = new XmlElement("CopyObjectResult")

@@ -20,14 +20,14 @@ ObjectMetaCache::~ObjectMetaCache() {
  */
 int
 ObjectMetaCache::mod_init(SysParams const *const p) {
-    Module::mod_init(p);
-
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.sm.");
     maxEntries = conf.get<fds_uint32_t>("cache.default_meta_entries");
 
     metaCache =
             std::unique_ptr<MetadataCache>(new MetadataCache("SM Object Metadata Cache",
                                                              maxEntries));
+
+    Module::mod_init(p);
     return 0;
 }
 
@@ -36,6 +36,7 @@ ObjectMetaCache::mod_init(SysParams const *const p) {
  */
 void
 ObjectMetaCache::mod_startup() {
+    Module::mod_startup();
 }
 
 /**
@@ -43,6 +44,8 @@ ObjectMetaCache::mod_startup() {
  */
 void
 ObjectMetaCache::mod_shutdown() {
+    metaCache.reset();
+    Module::mod_shutdown();
 }
 
 void

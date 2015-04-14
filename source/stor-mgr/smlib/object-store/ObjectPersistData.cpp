@@ -12,6 +12,7 @@ namespace fds {
 ObjectPersistData::ObjectPersistData(const std::string &modName,
                                      SmIoReqHandler *data_store)
         : Module(modName.c_str()),
+          shuttingDown(false),
           scavenger(new ScavControl("SM Disk Scavenger", data_store, this)) {
 }
 
@@ -113,6 +114,9 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
     diskio::PersisDataIO *iop = getTokenFile(req->getTier(),
                                              smTokId,
                                              fileId, false);
+    if (shuttingDown) {
+        return ERR_NOT_READY;
+    }
 
     fds_verify(iop);
     return iop->disk_write(req);
@@ -127,6 +131,10 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
     diskio::PersisDataIO *iop = getTokenFile(req->getTier(),
                                              smTokId,
                                              fileId, true);
+    if (shuttingDown) {
+        return ERR_NOT_READY;
+    }
+
     fds_verify(iop);
     return iop->disk_read(req);
 }
@@ -141,6 +149,9 @@ ObjectPersistData::notifyDataDeleted(const ObjectID& objId,
                                              smTokId,
                                              fileId, true);
 
+    if (shuttingDown) {
+      return;  // ignore for now, anyway delete stats are not persisted
+    }
     iop->disk_delete(objSize);
 }
 
@@ -308,6 +319,9 @@ ObjectPersistData::getTokenFile(diskio::DataTier tier,
         if (tokFileTbl.count(fkey) > 0) {
             return tokFileTbl[fkey];
         } else {
+            if (shuttingDown) {
+                return NULL;
+            }
             fds_verify(openIfNotExist == true);
         }
     }
@@ -335,6 +349,10 @@ ObjectPersistData::getSmTokenStats(fds_token_id smTokId,
                                    diskio::TokenStat* retStat) {
     fds_uint16_t fileId = getWriteFileId(tier, smTokId);
     diskio::FilePersisDataIO *fdesc = getTokenFile(tier, smTokId, fileId, false);
+    if (shuttingDown) {
+        return;
+    }
+
     fds_verify(fdesc);
 
     // TODO(Anna) if we do multiple files per SM token, this method should
@@ -424,6 +442,7 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
  */
 int
 ObjectPersistData::mod_init(SysParams const *const p) {
+    shuttingDown = false;
     static Module *objPersistDepMods[] = {
         scavenger.get(),
         NULL
@@ -443,6 +462,7 @@ ObjectPersistData::mod_init(SysParams const *const p) {
  */
 void
 ObjectPersistData::mod_startup() {
+    Module::mod_startup();
 }
 
 /**
@@ -450,6 +470,26 @@ ObjectPersistData::mod_startup() {
  */
 void
 ObjectPersistData::mod_shutdown() {
+    LOGNOTIFY;
+    {
+        SCOPEDWRITE(mapLock);
+        shuttingDown = true;
+        // Now close levelDBs
+        diskio::FilePersisDataIO* delFdesc = NULL;
+        for (TokFileMap::iterator it = tokFileTbl.begin();
+             it != tokFileTbl.end();
+             ++it) {
+            delFdesc = it->second;
+            if (delFdesc) {
+                // file is closed in FilePersisDataIO destructor
+                delete delFdesc;
+                it->second = NULL;
+            }
+        }
+        tokFileTbl.clear();
+    }
+    Module::mod_shutdown();
+    LOGDEBUG << "Done.";
 }
 
 }  // namespace fds
