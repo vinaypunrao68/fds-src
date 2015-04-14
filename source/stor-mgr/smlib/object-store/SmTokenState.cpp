@@ -34,9 +34,11 @@ TokenDescTable::initializeSmTokens(const SmTokenSet& smToksValid) {
     for (SmTokenSet::const_iterator cit = smToksValid.cbegin();
          cit != smToksValid.cend();
          ++cit) {
-        SmTokenDesc td(SM_INIT_FILE_ID, SMTOKEN_FLAG_VALID);
-        stateTbl[fds_hdd_row][*cit] = td;
-        stateTbl[fds_ssd_row][*cit] = td;
+        if (!stateTbl[fds_hdd_row][*cit].isValid()) {
+            SmTokenDesc td(SM_INIT_FILE_ID, SMTOKEN_FLAG_VALID);
+            stateTbl[fds_hdd_row][*cit] = td;
+            stateTbl[fds_ssd_row][*cit] = td;
+        }
     }
 }
 
