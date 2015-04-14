@@ -30,7 +30,7 @@ struct AttachVolBlobReq : public AmRequest {
                      CallbackPtr        cb) :
         AmRequest(FDS_ATTACH_VOL, _volid, _vol_name, "", cb)
     {
-        e2e_req_perf_ctx.type = AM_VOLUME_ATTACH_REQ,
+        e2e_req_perf_ctx.type = PerfEventType::AM_VOLUME_ATTACH_REQ,
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 };

@@ -181,7 +181,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
     fds_verify(odb != NULL);
 
     // get meta from DB
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     err = odb->Get(objId, buf);
     if (!err.ok()) {
@@ -203,7 +203,7 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
     fds_verify(odb != NULL);
 
     // store gata
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     ObjectBuf buf;
     objMeta->serializeTo(buf);
@@ -218,7 +218,7 @@ Error ObjectMetadataDb::remove(fds_volid_t volId,
     osm::ObjectDB *odb = getObjectDB(objId);
     fds_verify(odb != NULL);
 
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     return odb->Delete(objId);
 }
