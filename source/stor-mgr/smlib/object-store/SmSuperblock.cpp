@@ -309,7 +309,7 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
          */
         superblockMaster.initSuperblock();
         SmTokenPlacement::compute(hddIds, ssdIds, &(superblockMaster.olt));
-        superblockMaster.tokTbl.initialize(smTokensOwned);
+        superblockMaster.tokTbl.initializeSmTokens(smTokensOwned);
 
         /* After creating a new superblock, sync to disks.
          */

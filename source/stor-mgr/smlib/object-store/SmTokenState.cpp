@@ -29,7 +29,7 @@ TokenDescTable::~TokenDescTable() {
 }
 
 void
-TokenDescTable::initialize(const SmTokenSet& smToksValid) {
+TokenDescTable::initializeSmTokens(const SmTokenSet& smToksValid) {
     // token id is also a column index into stateTbl
     for (SmTokenSet::const_iterator cit = smToksValid.cbegin();
          cit != smToksValid.cend();
@@ -37,6 +37,17 @@ TokenDescTable::initialize(const SmTokenSet& smToksValid) {
         SmTokenDesc td(SM_INIT_FILE_ID, SMTOKEN_FLAG_VALID);
         stateTbl[fds_hdd_row][*cit] = td;
         stateTbl[fds_ssd_row][*cit] = td;
+    }
+}
+
+void
+TokenDescTable::invalidateSmTokens(const SmTokenSet& smToksInvalid) {
+    // token id is also a column index into stateTbl
+    for (SmTokenSet::const_iterator cit = smToksInvalid.cbegin();
+         cit != smToksInvalid.cend();
+         ++cit) {
+        stateTbl[fds_hdd_row][*cit].setInvalid();
+        stateTbl[fds_ssd_row][*cit].setInvalid();
     }
 }
 
