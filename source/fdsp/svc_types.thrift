@@ -194,7 +194,7 @@ struct AsyncHdr {
   /** Message Type */
   2: required FDSPMsgTypeId     msg_type_id;
   /**  */
-  3: required i32               msg_src_id;
+  3: required i64               msg_src_id;
   /** Sender's Uuid */
   4: required common.SvcUuid    msg_src_uuid;
   /** Destination Uuid */
