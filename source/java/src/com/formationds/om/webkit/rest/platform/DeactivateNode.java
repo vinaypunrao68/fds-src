@@ -4,9 +4,8 @@
 
 package com.formationds.om.webkit.rest.platform;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_RemoveServicesType;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.FDSP_RemoveServicesType;
 import com.formationds.protocol.FDSP_Uuid;
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventDescriptor;
@@ -38,9 +37,9 @@ public class DeactivateNode
     private static final Logger logger =
         LoggerFactory.getLogger( DeactivateNode.class );
 
-    private FDSP_ConfigPathReq.Iface client;
+    private ConfigurationService.Iface client;
 
-    public DeactivateNode( FDSP_ConfigPathReq.Iface client ) {
+    public DeactivateNode( final ConfigurationService.Iface client ) {
 
         this.client = client;
 
@@ -84,8 +83,7 @@ public class DeactivateNode
                       activateSm );
 
         int status =
-            client.RemoveServices( new FDSP_MsgHdrType(),
-                                   new FDSP_RemoveServicesType(
+            client.RemoveServices( new FDSP_RemoveServicesType(
                                      nodeName.get(),
                                      new FDSP_Uuid( nodeUuid ),
                                      activateSm,

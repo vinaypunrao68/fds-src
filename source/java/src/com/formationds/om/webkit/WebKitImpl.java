@@ -258,6 +258,7 @@ public class WebKitImpl {
 
         final FDSP_ConfigPathReq.Iface legacyConfig =
             SingletonLegacyConfig.instance().api();
+        final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
 
         logger.trace( "registering platform endpoints" );
         fdsAdminOnly( HttpMethod.GET, "/api/config/services",
@@ -267,7 +268,7 @@ public class WebKitImpl {
                       ( t ) -> new ActivateNode( legacyConfig ),
                       authorizer );
         fdsAdminOnly( HttpMethod.PUT, "/api/config/services/:node_uuid",
-                      ( t ) -> new DeactivateNode( legacyConfig ),
+                      ( t ) -> new DeactivateNode( configAPI ),
                       authorizer );
         logger.trace( "registered platform endpoints" );
 

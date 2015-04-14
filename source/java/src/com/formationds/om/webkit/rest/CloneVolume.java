@@ -59,6 +59,7 @@ public class CloneVolume
 
       Thread.sleep( 200 );
       SetVolumeQosParams.setVolumeQos( legacyConfigPath,
+                                       config,
                                        name,
                                        ( int ) volume.getSla(),
                                        volume.getPriority(),
