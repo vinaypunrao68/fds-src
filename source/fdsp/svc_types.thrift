@@ -50,6 +50,7 @@ enum  FDSPMsgTypeId {
   GetSvcStatusMsgTypeId                     = 1018;
   GetSvcStatusRespMsgTypeId                 = 1019;
   ActivateServicesMsgTypeId                 = 1020;
+  DeactivateServicesMsgTypeId               = 1021;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;
@@ -193,7 +194,7 @@ struct AsyncHdr {
   /** Message Type */
   2: required FDSPMsgTypeId     msg_type_id;
   /**  */
-  3: required i32               msg_src_id;
+  3: required i64               msg_src_id;
   /** Sender's Uuid */
   4: required common.SvcUuid    msg_src_uuid;
   /** Destination Uuid */

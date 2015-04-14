@@ -954,13 +954,26 @@ NodeDomainFSM::GRD_DmSmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
 /**
  * DACT_Shutdown
  * ------------
- * Send shutdown command to all services
+ * Send deactivate services msg to all PMs
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    // TODO(Anna) at this point we are ready to send msg to PMs to kill the services
+    // At this point we are ready to send msg to PMs to kill the services
+    LOGDEBUG << "Will send deactivate services msg to all PMs";
+    try {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
+
+        // broadcast deactivate services to all PMs
+        // all "false" params mean deactive all services that are running on node
+        dom_ctrl->om_cond_bcast_deactivate_services(false, false, false);
+    } catch(exception& e) {
+        LOGERROR << "Orch Manager encountered exception while "
+                 << "processing FSM DACT_Shutdown :: " << e.what();
+    }
+
     LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
 }
 
@@ -1601,25 +1614,6 @@ OM_NodeDomainMod::om_shutdown_domain()
     local_domain_event(ShutdownEvt());
 
     return err;
-}
-
-// om_create_domain
-// ----------------
-//
-int
-OM_NodeDomainMod::om_create_domain(const FdspCrtDomPtr &crt_domain)
-{
-    TRACEFUNC;
-    return 0;
-}
-
-// om_delete_domain
-// ----------------
-//
-int
-OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
-{
-    return 0;
 }
 
 void

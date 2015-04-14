@@ -34,7 +34,8 @@ struct SmTokenDesc {
         tokenFlags |= SMTOKEN_FLAG_VALID;
     }
     inline void setInvalid() {
-        tokenFlags &= ~SMTOKEN_FLAG_VALID;
+        tokenFlags = 0;
+        writeFileId = SM_INVALID_FILE_ID;
     }
     inline fds_bool_t isValid() const {
         return (tokenFlags & SMTOKEN_FLAG_VALID);
@@ -68,15 +69,24 @@ struct SmTokenDesc {
 #define TOKEN_DESC_TABLE_SECTOR_SIZE    (512)
 
 struct TokenDescTable {
+    /**
+     * Initializes token descriptor table to "invalid"
+     * state for all the SM tokens
+     */
     TokenDescTable();
     ~TokenDescTable();
 
     /**
-     * Called when SM comes up for the first time to
-     * init token states
-     * Currently, inits all SM tokens as valid (owned by this SM)
+     * Initialize given set of tokens as "valid"
+     * If a token already valid, does not do anything
      */
-    void initialize(const SmTokenSet& smToksValid);
+    void initializeSmTokens(const SmTokenSet& smToksValid);
+
+    /**
+     * Resets given set of tokens into "invalid" state
+     * This will cause given set of SM tokens to lose GC info
+     */
+    void invalidateSmTokens(const SmTokenSet& smToksInvalid);
 
     /**
      * Sets write file id for a given sm token id and tier
