@@ -8,19 +8,66 @@ namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace * FDS_ProtocolInterface
 
+enum fds_dmgr_txn_state {
+  FDS_DMGR_TXN_STATUS_INVALID,
+  FDS_DMGR_TXN_STATUS_OPEN,
+  FDS_DMGR_TXN_STATUS_COMMITED,
+  FDS_DMGR_TXN_STATUS_CANCELED
+}
 
 enum FDSP_MsgCodeType {
    FDSP_MSG_PUT_OBJ_REQ,
+   FDSP_MSG_GET_OBJ_REQ,
+   FDSP_MSG_DELETE_OBJ_REQ,
+   FDSP_MSG_VERIFY_OBJ_REQ,
+   FDSP_MSG_UPDATE_CAT_OBJ_REQ,
+   FDSP_MSG_DELETE_BLOB_REQ,
+   FDSP_MSG_QUERY_CAT_OBJ_REQ,
+   FDSP_MSG_GET_VOL_BLOB_LIST_REQ,
+   FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
+   FDSP_MSG_REDIR_READ_OBJ_REQ,
+   FDSP_STAT_BLOB,
+   FDSP_START_BLOB_TX,
+
+   FDSP_MSG_PUT_OBJ_RSP,
+   FDSP_MSG_GET_OBJ_RSP,
+   FDSP_MSG_DELETE_OBJ_RSP,
+   FDSP_MSG_VERIFY_OBJ_RSP,
+   FDSP_MSG_UPDATE_CAT_OBJ_RSP,
+   FDSP_MSG_DELETE_BLOB_RSP,
+   FDSP_MSG_QUERY_CAT_OBJ_RSP,
+   FDSP_MSG_GET_VOL_BLOB_LIST_RSP,
+   FDSP_MSG_OFFSET_WRITE_OBJ_RSP,
+   FDSP_MSG_REDIR_READ_OBJ_RSP,
    FDSP_MSG_GET_BUCKET_STATS_RSP,
 
    FDSP_MSG_CREATE_VOL,
    FDSP_MSG_MODIFY_VOL,
    FDSP_MSG_DELETE_VOL,
+   FDSP_MSG_CREATE_POLICY,
+   FDSP_MSG_MODIFY_POLICY,
+   FDSP_MSG_DELETE_POLICY,
    FDSP_MSG_ATTACH_VOL_CMD,
    FDSP_MSG_DETACH_VOL_CMD,
+   FDSP_MSG_REG_NODE,
+   FDSP_MSG_TEST_BUCKET,
 
+   FDSP_MSG_NOTIFY_VOL,
    FDSP_MSG_ATTACH_VOL_CTRL,
    FDSP_MSG_DETACH_VOL_CTRL,
+   FDSP_MSG_NOTIFY_NODE_ADD,
+   FDSP_MSG_NOTIFY_NODE_RMV,
+   FDSP_MSG_NOTIFY_NODE_ACTIVE,
+   FDSP_MSG_DMT_UPDATE,
+   FDSP_MSG_DMT_CLOSE,
+   FDSP_MSG_NODE_UPDATE,
+   FDSP_MSG_NOTIFY_MIGRATION,
+   FDSP_MSG_SCAVENGER_START,
+   FDSP_MSG_PUSH_META,
+
+   FDSP_MSG_SET_THROTTLE,
+   FDSP_MSG_SET_QOS_CONTROL,
+   FDSP_MSG_SNAP_VOL
 }
 
 enum FDSP_ResultType {
@@ -131,6 +178,13 @@ struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId
   3: i32  dmt_version,
 }
 
+struct FDSP_ActivateAllNodesType {
+  1: i32  domain_id,
+  2: bool activate_sm,
+  3: bool activate_dm,
+  4: bool activate_am
+}
+
 struct FDSP_ActivateOneNodeType {
   1: i32        domain_id,
   2: common.FDSP_Uuid  node_uuid,
@@ -164,10 +218,66 @@ struct FDSP_DMT_Resp_Type {
   1: i64 DMT_version
 }
 
+struct FDSP_CreateDomainType {
+
+  1: string 		 domain_name,
+  2: i32			 domain_id,
+
+}
+
+struct FDSP_AttachVolCmdType {
+  1: string		 vol_name, // Name of the volume to attach
+  // double		 vol_uuid, // UUID of the volume being attached
+  2: string		 node_id,  // Id of the hypervisor node where the volume should be attached
+  3: i32			 domain_id,
+}
+
+struct FDSP_RemoveServicesType {
+  1: string node_name, // Name of the node that contains services
+  2: common.FDSP_Uuid   node_uuid,  // used if node name is not provided
+  3: bool remove_sm,   // true if sm needs to be removed
+  4: bool remove_dm,   // true to remove dm
+  5: bool remove_am    // true to remove am
+}
+
+struct FDSP_ShutdownDomainType {
+    1: i32 domain_id;
+}
+
+struct FDSP_GetVolInfoReqType {
+ 1: string vol_name,    /* name of the volume */
+ 3: i32    domain_id,
+}
+
+exception FDSP_VolumeNotFound {
+  1: string message;
+}
+
 enum FDSP_NotifyVolFlag {
   FDSP_NOTIFY_VOL_NO_FLAG,
   FDSP_NOTIFY_VOL_CHECK_ONLY,  // for delete vol -- only check if objects in volume
   FDSP_NOTIFY_VOL_WILL_SYNC    // for create vol -- volume meta already exists on other node, will be synced
+}
+
+struct FDSP_AttachVolType {
+  1: string 		 vol_name, /* Name of the volume */
+  2: common.FDSP_VolumeDescType	 vol_desc, /* Volume properties and attributes */
+}
+
+struct FDSP_CreatePolicyType {
+  1: string                 policy_name,  /* Name of the policy */
+  2: common.FDSP_PolicyInfoType 	 policy_info,  /* Policy description */
+}
+
+struct FDSP_DeletePolicyType {
+  1: string                 policy_name,  /* Name of the policy */
+  2: i32                    policy_id,    /* policy id */
+}
+
+struct FDSP_ModifyPolicyType {
+  1: string                 policy_name,  /* Name of the policy */
+  2: i32                    policy_id,    /* policy id */
+  3: common.FDSP_PolicyInfoType 	 policy_info,  /* Policy description */
 }
 
 struct FDSP_AnnounceDiskCapability {
@@ -221,6 +331,14 @@ struct FDSP_QueueStateType {
   2: i64  vol_uuid,
   3: i32 priority,
   4: double queue_depth, //current queue depth as a fraction of the total queue size. 0.5 means 50% full.
+
+}
+
+typedef list<FDSP_QueueStateType> FDSP_QueueStateListType
+
+struct FDSP_NotifyQueueStateType {
+
+  1: FDSP_QueueStateListType queue_state_list,
 
 }
 
@@ -355,13 +473,47 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
+struct FDSP_CreateVolType {
+  1: string                  vol_name,
+  2: common.FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+}
+
+struct FDSP_DeleteVolType {
+  1: string 		 vol_name,  /* Name of the volume */
+  // i64    		 vol_uuid,
+  2: i32			 domain_id,
+}
+
+struct FDSP_ModifyVolType {
+  1: string 		 vol_name,  /* Name of the volume */
+  2: i64		 vol_uuid,
+  3: common.FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
+}
+
 /*
  * From fdscli to OM (sync messages)
  */
 service FDSP_ConfigPathReq {
+  i32 CreateVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_vol_req),
+  i32 DeleteVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_vol_req),
+  i32 ModifyVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_vol_req),
+  i32 SnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType snap_vol_req),
+  i32 CreatePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreatePolicyType crt_pol_req),
+  i32 DeletePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeletePolicyType del_pol_req),
+  i32 ModifyPolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyPolicyType mod_pol_req),
+  i32 AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType atc_vol_req),
+  i32 DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolCmdType dtc_vol_req),
+  i32 AssociateRespCallback(1:i64 ident), // Associate Response callback ICE-object with DM/SM
+  i32 CreateDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType crt_dom_req),
+  i32 DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
+  i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:common.FDSP_ThrottleMsgType throttle_msg),
+  common.FDSP_VolumeDescType GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req) throws (1:FDSP_VolumeNotFound not_found),
+  i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
+  i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
   list<common.FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),
   list <common.FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg),
+  i32 ShutdownDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ShutdownDomainType dom_req)
 }
 
 /* Not needed.  But created for symemtry */
