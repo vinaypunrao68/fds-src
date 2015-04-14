@@ -193,6 +193,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
                 status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service '
                                                     'addService {} {} > {}/cli.out 2>&1) \"'.format(
                     int(n.nd_uuid, 16), services, log_dir,), fds_tools=True)
+                om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py accesslevel debug) \"')
 
             if status != 0:
                 self.log.error("Service activation of node %s returned status %d." %

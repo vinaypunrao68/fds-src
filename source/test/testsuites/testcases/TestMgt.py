@@ -556,6 +556,11 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         else:
             action = "create"
 
+        if "node" in scenario.nd_conf_dict:
+            node = scenario.nd_conf_dict['node']
+        else:
+            node = None
+
         if action == "create":
             found = False
             for volume in scenario.cfg_sect_volumes:
@@ -577,13 +582,29 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             for volume in scenario.cfg_sect_volumes:
                 if '[' + volume.nd_conf_dict['vol-name'] + ']' == script:
                     found = True
-                    suite.addTest(TestFDSVolMgt.TestVolumeAttach(volume=volume))
+                    suite.addTest(TestFDSVolMgt.TestVolumeAttach(volume=volume, node=node))
                     break
 
             if found:
                 # Give the volume attachment some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
                     suite.addTest(TestWait(delay=delay, reason="to allow volume attachment " + script + " to propagate"))
+            else:
+                log.error("Volume not found for scenario '%s'" %
+                          (scenario.nd_conf_dict['scenario-name']))
+                raise Exception
+        elif action == "detach":
+            found = False
+            for volume in scenario.cfg_sect_volumes:
+                if '[' + volume.nd_conf_dict['vol-name'] + ']' == script:
+                    found = True
+                    suite.addTest(TestFDSVolMgt.TestVolumeDetach(volume=volume, node=node))
+                    break
+
+            if found:
+                # Give the volume attachment some time to propagate if requested.
+                if 'delay_wait' in scenario.nd_conf_dict:
+                    suite.addTest(TestWait(delay=delay, reason="to allow volume detachment " + script + " to propagate"))
             else:
                 log.error("Volume not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
