@@ -9,13 +9,31 @@ import com.formationds.commons.model.abs.ModelBase;
 /**
  * @author ptinius
  */
-public class DateRange
-  extends ModelBase {
-  private static final long serialVersionUID = -7728219218469818163L;
+public class DateRange extends ModelBase {
+    private static final long serialVersionUID = -7728219218469818163L;
 
   	// TIMES ARE IN SECONDS WHEN USED WITH STATS QUERY
     private Long start;
     private Long end;
+
+    public DateRange() {}
+
+    /**
+     * @param start
+     */
+    public DateRange(Long start) {
+      this.start = start;
+    }
+
+    /**
+     *
+     * @param start
+     * @param end
+     */
+    public DateRange(Long start, Long end) {
+      this.start = start;
+      this.end = end;
+    }
 
     /**
      * @return the {@link Long} representing the starting timestamp

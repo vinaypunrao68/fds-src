@@ -304,7 +304,7 @@ class FdsNodeConfig(FdsConfig):
                                             (fds_dir, log_dir, port),
                                              fds_bin=True)
         else:
-            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg + ' > %s/pm.out' % log_dir)
+            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg + ' &> %s/pm.out' % log_dir)
 
         if status == 0:
             time.sleep(4)

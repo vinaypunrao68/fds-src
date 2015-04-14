@@ -924,6 +924,7 @@ VolumeInfo::vol_attach_node(const NodeUuid &node_uuid)
         if (vol_am_nodes[i] == node_uuid) {
             LOGNORMAL << "Volume " << vol_name << " is already attached to node "
                       << std::hex << node_uuid << std::dec;
+            am_agent->om_send_vol_cmd(this, fpi::CtrlNotifyVolAddTypeId);
             return Error(ERR_DUPLICATE);
         }
     }

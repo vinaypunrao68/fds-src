@@ -54,7 +54,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
                            boost::shared_ptr<int32_t>& port);
 
     void attachVolumeResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId);
+                          api_type::handle_type& requestId,
+                          api_type::shared_vol_descriptor_type& volDesc);
 
     void startBlobTxResp(const api_type::error_type &error,
                          api_type::handle_type& requestId,

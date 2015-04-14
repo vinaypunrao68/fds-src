@@ -4,7 +4,7 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
 
-#include <map>
+#include <deque>
 #include <string>
 #include <fds_error.h>
 #include <unordered_map>
@@ -19,6 +19,7 @@ struct AmCache;
 struct AmRequest;
 struct AmTxDescriptor;
 struct AmVolume;
+struct AmVolumeAccessToken;
 struct AmVolumeTable;
 
 /**
@@ -94,7 +95,7 @@ struct AmTxManager {
      * Notify that there is a newly attached volume, and build any
      * necessary data structures.
      */
-    Error registerVolume(const VolumeDesc& volDesc, fds_int64_t token);
+    Error registerVolume(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
 
     /**
      * Modify the policy for an attached volume.
@@ -122,6 +123,11 @@ struct AmTxManager {
      * Return pointer to volume iff volume is attached
      */
     std::shared_ptr<AmVolume> getVolume(fds_volid_t vol_uuid) const;
+
+    /**
+     * Return tokens to all attached volumes
+     */
+    void getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const;
 
     /**
      * Updates an existing transaction with a new operation

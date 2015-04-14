@@ -4,6 +4,8 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_ACCESSMGR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_ACCESSMGR_H_
 
+#include <condition_variable>
+#include <mutex>
 #include <string>
 #include <fds_types.h>
 #include <fds_module_provider.h>
@@ -33,11 +35,11 @@ class AccessMgr : public Module, public boost::noncopyable {
      */
     int mod_init(SysParams const *const param) override;
     void mod_startup() override;
-    virtual void mod_enable_service() override;
+    void mod_enable_service() override;
+    void mod_disable_service() override;
     void mod_shutdown() override;
 
     void run();
-
     void stop();
 
     /// Shared ptr to AM's data API. It's public so that
@@ -65,7 +67,11 @@ class AccessMgr : public Module, public boost::noncopyable {
     /// Processing Layer
     std::shared_ptr<AmProcessor> amProcessor;
 
-    std::atomic_bool  shuttingDown;
+    std::mutex stop_lock;
+    std::condition_variable stop_signal;
+    bool shutting_down;
+
+    bool standalone_mode;
 };
 
 }  // namespace fds

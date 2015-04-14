@@ -39,6 +39,11 @@ class ObjectMetadataDb {
     Error openMetadataDb(const SmDiskMap::const_ptr& diskMap);
 
     /**
+     * Closes object metadata DB
+     */
+    void closeMetadataDb();
+
+    /**
      * Set number of bits per (global) token
      * ObjectMetadataDB will cache it and use it to retrieve
      * SM tokens from object IDs
@@ -83,9 +88,9 @@ class ObjectMetadataDb {
     /**
      * Returns snapshot of metadata DB for a given SM token
      */
-    void snapshot(fds_token_id smTokId,
-                  leveldb::DB*& db,
-                  leveldb::ReadOptions& opts);
+    Error snapshot(fds_token_id smTokId,
+                   leveldb::DB*& db,
+                   leveldb::ReadOptions& opts);
 
     /**
      * Returns persistent snapshot of metadata DB for a given SM token

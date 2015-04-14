@@ -110,7 +110,9 @@ def exit_test(env, shutdown, returncode):
 #
 def testsuite_pre_commit(am_ip):
     os.chdir(env.srcdir + '/Build/linux-x86_64.debug/tools')
-    return subprocess.call("./smokeTest " + am_ip, shell=True)
+    cmdLine = "./smokeTest " + am_ip
+    print "Calling " + cmdLine
+    return subprocess.call(cmdLine, shell=True)
 
 #########################################################################################
 if __name__ == "__main__":

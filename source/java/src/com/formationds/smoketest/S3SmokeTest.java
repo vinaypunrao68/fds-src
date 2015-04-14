@@ -10,6 +10,7 @@ import com.formationds.protocol.Snapshot;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -23,6 +24,8 @@ import org.junit.Test;
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -255,49 +258,76 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void testMultipartUpload() {
+    public void testMultipartUpload() throws Exception {
         String key = UUID.randomUUID()
                 .toString();
-        InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
 
+        uploadMultipart(userClient, userBucket, key);
+    }
+
+    private void uploadMultipart(AmazonS3Client client, String bucket, String blobName) throws NoSuchAlgorithmException {
         int partCount = 5;
+        InitiateMultipartUploadResult initiateResult = client.initiateMultipartUpload(new InitiateMultipartUploadRequest(bucket, blobName));
 
+        MessageDigest md5 = MessageDigest.getInstance("MD5");
         List<PartETag> etags = IntStream.range(0, partCount)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
                     UploadPartRequest request = new UploadPartRequest()
-                            .withBucketName(userBucket)
-                            .withKey(key)
+                            .withBucketName(bucket)
+                            .withKey(blobName)
                             .withInputStream(new ByteArrayInputStream(randomBytes))
                             .withPartNumber(i)
                             .withUploadId(initiateResult.getUploadId())
                             .withPartSize(randomBytes.length);
-
-                    UploadPartResult uploadPartResult = userClient.uploadPart(request);
+                    md5.update(randomBytes);
+                    UploadPartResult uploadPartResult = client.uploadPart(request);
                     return uploadPartResult.getPartETag();
                 })
                 .collect(Collectors.toList());
 
-        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(userBucket, key, initiateResult.getUploadId(), etags);
-        userClient.completeMultipartUpload(completeRequest);
-
-        ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
+        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(bucket, blobName, initiateResult.getUploadId(), etags);
+        CompleteMultipartUploadResult result = client.completeMultipartUpload(completeRequest);
+        byte[] digest = md5.digest();
+        assertEquals(result.getETag(), Hex.encodeHexString(digest));
+        ObjectMetadata objectMetadata = client.getObjectMetadata(bucket, blobName);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }
 
-    // @Test
+    @Test
     public void testCopyObject() {
         String source = UUID.randomUUID()
                 .toString();
         String destination = UUID.randomUUID()
                 .toString();
         userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
-        userClient.copyObject(userBucket, source, userBucket, destination);
-        String sourceEtag = userClient.getObjectMetadata(userBucket, destination)
-                .getETag();
-        String destinationEtag = userClient.getObjectMetadata(userBucket, destination)
-                .getETag();
+        ObjectMetadata newObjectMetadata = new ObjectMetadata();
+        newObjectMetadata.addUserMetadata("foo", "bar");
+        CopyObjectRequest request = new CopyObjectRequest(userBucket, source, userBucket, destination)
+                .withNewObjectMetadata(newObjectMetadata);
+        userClient.copyObject(request);
+
+        ObjectMetadata sourceMetadata = userClient.getObjectMetadata(userBucket, source);
+        String sourceEtag = sourceMetadata.getETag();
+        ObjectMetadata destinationMetadata = userClient.getObjectMetadata(userBucket, destination);
+        String destinationEtag = destinationMetadata.getETag();
         assertEquals(sourceEtag, destinationEtag);
+        assertEquals("bar", destinationMetadata.getUserMetadata().get("foo"));
+    }
+
+    @Test
+    public void testCopyToSelf() {
+        String source = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+
+        ObjectMetadata newObjectMetadata = new ObjectMetadata();
+        newObjectMetadata.addUserMetadata("foo", "bar");
+        CopyObjectRequest request = new CopyObjectRequest(userBucket, source, userBucket, source)
+                .withNewObjectMetadata(newObjectMetadata);
+        userClient.copyObject(request);
+
+        ObjectMetadata metadata = userClient.getObjectMetadata(userBucket, source);
+        assertEquals("bar", metadata.getUserMetadata().get("foo"));
     }
 
     @Test
@@ -341,13 +371,13 @@ public class S3SmokeTest {
         IntStream.range(from, to)
                 .map(new ConsoleProgress("Putting objects into volume", count))
                 .forEach(i -> {
-                        ObjectMetadata objectMetadata = new ObjectMetadata();
-                        Map<String, String> customMetadata = new HashMap<String, String>();
-                        String key = prefix + "-" + i;
-                        customMetadata.put(CUSTOM_METADATA_HEADER, key);
-                        objectMetadata.setUserMetadata(customMetadata);
-                        last[0] = userClient.putObject(volumeName, key, new ByteArrayInputStream(data), objectMetadata);
-                    });
+                    ObjectMetadata objectMetadata = new ObjectMetadata();
+                    Map<String, String> customMetadata = new HashMap<String, String>();
+                    String key = prefix + "-" + i;
+                    customMetadata.put(CUSTOM_METADATA_HEADER, key);
+                    objectMetadata.setUserMetadata(customMetadata);
+                    last[0] = userClient.putObject(volumeName, key, new ByteArrayInputStream(data), objectMetadata);
+                });
     }
 
     private void putGetOneObject(int byteCount) throws Exception {
@@ -438,6 +468,8 @@ public class S3SmokeTest {
         userClient.putObject(adminBucket, key, new ByteArrayInputStream(bytes), new ObjectMetadata());
         S3Object object = userClient.getObject(adminBucket, key);
         assertEquals(42l, object.getObjectMetadata().getContentLength());
+
+        uploadMultipart(userClient, adminBucket, key);
     }
 
     @Test

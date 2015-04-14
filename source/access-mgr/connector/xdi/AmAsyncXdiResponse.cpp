@@ -94,7 +94,8 @@ AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& reques
 
 void
 AmAsyncXdiResponse::attachVolumeResp(const Error &error,
-                                     boost::shared_ptr<apis::RequestId>& requestId) {
+                                     boost::shared_ptr<apis::RequestId>& requestId,
+                                     boost::shared_ptr<VolumeDesc>& volDesc) {
     if (!error.ok()) {
         boost::shared_ptr<fpi::ErrorCode> errorCode(
             boost::make_shared<fpi::ErrorCode>());

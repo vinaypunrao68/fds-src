@@ -24,6 +24,13 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
@@ -56,8 +63,8 @@ void UpdateCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyn
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg),
             fpi::UpdateCatalogRspMsg());
-    if (dmRequest)
-        delete dmRequest;
+
+    delete dmRequest;
 }
 }  // namespace dm
 }  // namespace fds

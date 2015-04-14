@@ -41,10 +41,6 @@ ObjectStore::ObjectStore(const std::string &modName,
 }
 
 ObjectStore::~ObjectStore() {
-    // Call destructors of ObjectDataStore and ObjectMetadataStore,
-    // this will chain down the components closing levelDBs
-    // and cleaning memory
-
     dataStore.reset();
     metaStore.reset();
 }
@@ -1112,10 +1108,10 @@ ObjectStore::getDiskCount() const {
 int
 ObjectStore::mod_init(SysParams const *const p) {
     static Module *objStoreDepMods[] = {
-        dataStore.get(),
-        diskMap.get(),
-        metaStore.get(),
         tierEngine.get(),
+        dataStore.get(),
+        metaStore.get(),
+        diskMap.get(),
         NULL
     };
     mod_intern = objStoreDepMods;

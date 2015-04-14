@@ -32,6 +32,13 @@ void UpdateCatalogOnceHandler::handleRequest(
 
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
     auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(message->volume_id,
