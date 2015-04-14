@@ -30,6 +30,13 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     // Handle U-turn
     HANDLE_U_TURN();
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     // Allocate a new Blob transaction class and queue to per volume queue.
     auto dmReq = new DmIoAbortBlobTx(message->volume_id,
                                      message->blob_name,

@@ -272,7 +272,7 @@ class FDS_VolumeQueue {
             return count_;
         }
 
-        void   enqueueIO(FDS_IOType *io);
+        Error enqueueIO(FDS_IOType *io);
         FDS_IOType   *dequeueIO();
 
   private:

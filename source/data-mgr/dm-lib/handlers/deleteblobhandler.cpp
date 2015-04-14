@@ -25,6 +25,13 @@ void DeleteBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     // Handle U-turn
     HANDLE_U_TURN();
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     // setup the request
     auto dmRequest = new DmIoDeleteBlob(message);
 

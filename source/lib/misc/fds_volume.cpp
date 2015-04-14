@@ -361,11 +361,13 @@ void   FDS_VolumeQueue::resumeIO() {
     volQState = FDS_VOL_Q_ACTIVE;
 }
 
-void FDS_VolumeQueue::enqueueIO(FDS_IOType *io) {
+Error FDS_VolumeQueue::enqueueIO(FDS_IOType *io) {
     if (volQState == FDS_VOL_Q_ACTIVE || volQState == FDS_VOL_Q_STOP_DEQUEUE) {
         while (!volQueue->push(io)){}
         ++count_;
+	return ERR_OK;
     }
+    return ERR_NOT_READY;
 }
 
 FDS_IOType   *FDS_VolumeQueue::dequeueIO() {

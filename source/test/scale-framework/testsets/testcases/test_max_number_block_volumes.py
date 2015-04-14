@@ -15,7 +15,7 @@ import sys
 import fds_engine
 import ssh
 import testsets.testcase as testcase
-
+import block_volumes
 
 class TestMaxNumberBlockVolumes(testcase.FDSTestCase):
     '''
@@ -27,6 +27,8 @@ class TestMaxNumberBlockVolumes(testcase.FDSTestCase):
                                                     config_file=config_file,
                                                     om_ip_address=om_ip_address)
         self.engine = fds_engine.FdsEngine(parameters['inventory_file'])
+        self.volumes = []
+        self.block_volume = block_volumes.BlockVolumes(om_ip_address)
         
     def runTest(self):
         '''
@@ -37,6 +39,7 @@ class TestMaxNumberBlockVolumes(testcase.FDSTestCase):
         self.engine.start_all_nodes_processes()
         mylist = list(xrange(config.MAX_NUM_VOLUMES))
         utils.do_work(self.create_volumes, mylist)
+        utils.do_work(self.block_volume.delete_block_volume, self.volumes)
     
     def create_volumes(self, index):
         '''
@@ -80,6 +83,7 @@ class TestMaxNumberBlockVolumes(testcase.FDSTestCase):
                     "data_connector":{"type":"BLOCK","api":"Basic, Cinder",
                     "options":{"max_size":"100","unit":["GB","TB","PB"]},
                     "attributes":{"size":1,"unit":"GB"}},"name":volume_name}
+            self.volumes.append(volume_name)
 
             json_data = json.dumps(data)
             #create volume

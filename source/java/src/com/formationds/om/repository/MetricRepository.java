@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.om.repository;
 
 import com.formationds.apis.VolumeStatus;
@@ -89,13 +88,51 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
     <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( Long volumeId,
                                                           Metrics metric );
 
-    <VDP extends IVolumeDatapoint> VDP leastRecentOccurrenceBasedOnTimestamp( Long volumeId,
-                                                           Metrics metric );
+    /**
+     * @param volumeId the volume id
+     * @return the current volume status based on most recent occurrence
+     */
+    default Optional<VolumeStatus> getLatestVolumeStatus( final Long volumeId ) {
 
-    <VDP extends IVolumeDatapoint> VDP leastRecentOccurrenceBasedOnTimestamp( String volumeName,
-                                                           Metrics metric );
+        final VolumeDatapoint blobs =
+            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.BLOBS );
+        final VolumeDatapoint usage =
+            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.PBYTES );
 
-    Optional<VolumeStatus> getLatestVolumeStatus( Long volumeId );
+        return volumeStatus( blobs, usage );
+    }
 
-    Optional<VolumeStatus> getLatestVolumeStatus( String volumeName );
+    /**
+     *
+     * @param volumeName the volume name
+     * @return the current volume status based on most recent occurrence
+     */
+    default Optional<VolumeStatus> getLatestVolumeStatus( final String volumeName ) {
+
+        final VolumeDatapoint blobs =
+            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.BLOBS );
+        final VolumeDatapoint usage =
+            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.PBYTES );
+
+        return volumeStatus( blobs, usage );
+    }
+
+    static Optional<VolumeStatus> volumeStatus( final VolumeDatapoint blobs, final VolumeDatapoint usage ) {
+        if ( (blobs != null) && (usage != null) ) {
+
+            return Optional.of( new VolumeStatus( blobs.getValue().longValue(),
+                                                  usage.getValue().longValue() ) );
+        } else if ( (blobs == null) && (usage != null) ) {
+
+            return Optional.of( new VolumeStatus( 0L,
+                                                  usage.getValue().longValue() ) );
+        } else if ( blobs != null ) {
+
+            return Optional.of( new VolumeStatus( blobs.getValue().longValue(),
+                                                  0L ) );
+        }
+
+        return Optional.empty();
+    }
+
 }

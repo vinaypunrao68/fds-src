@@ -818,7 +818,7 @@ void StatStreamTimerTask::runTimerTask() {
                     << reg_->dest.svc_uuid << std::dec << "'";
         } else {
             // XXX: hard-coded to bind to java endpoint in AM
-            EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8999,
+            EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
                     reg_->id, dataPoints);
         }
     }

@@ -106,6 +106,28 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 iter->second->vol_desc : 0);
     }
 
+    ///
+    /// Check if a given volume is active.
+    ///
+    /// @param volumeId The ID of the volume to check.
+    ///
+    /// @return ERR_OK if the volume is active. ERR_VOL_NOT_FOUND if @p volumeId is not in the
+    ///         volume map. ERR_DM_VOL_NOT_ACTIVATED if the volume exists but is not active.
+    ///
+    Error validateVolumeIsActive(fds_volid_t const volumeId) const {
+        auto volumeDesc = getVolumeDesc(volumeId);
+        if (!volumeDesc) {
+            return ERR_VOL_NOT_FOUND;
+        }
+
+        if (volumeDesc->state != Active)
+        {
+            return ERR_DM_VOL_NOT_ACTIVATED;
+        }
+
+        return ERR_OK;
+    }
+
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
     typedef enum {
@@ -121,34 +143,43 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         bool fCatSyncEnabled = true;
         bool fTestMode = false;
         bool fTimelineEnabled = true;
+        bool fVolumeTokensEnabled { false };
 
       public:
         inline bool isQosEnabled() const {
             return fQosEnabled;
         }
-        inline void setQosEnabled(bool val) {
+        inline void setQosEnabled(bool const val) {
             fQosEnabled = val;
         }
 
         inline bool isCatSyncEnabled() const {
             return fCatSyncEnabled;
         }
-        inline void setCatSyncEnabled(bool val) {
+        inline void setCatSyncEnabled(bool const val) {
             fCatSyncEnabled = val;
         }
 
         inline bool isTestMode() const {
             return fTestMode;
         }
-        inline void setTestMode(bool val) {
+        inline void setTestMode(bool const val) {
             fTestMode = val;
         }
 
         inline bool isTimelineEnabled() const {
             return fTimelineEnabled;
         }
-        inline void setTimelineEnabled(bool val) {
+        inline void setTimelineEnabled(bool const val) {
             fTimelineEnabled = val;
+        }
+
+        inline bool isVolumeTokensEnabled() const {
+            return fVolumeTokensEnabled;
+        }
+
+        inline void setVolumeTokensEnabled(bool const val) {
+            fVolumeTokensEnabled = val;
         }
     } features;
 
@@ -230,6 +261,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_STAT_VOLUME:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
+                case FDS_OPEN_VOLUME:
+                case FDS_CLOSE_VOLUME:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;

@@ -71,9 +71,11 @@ int TierEngine::mod_init(SysParams const *const param) {
 }
 
 void TierEngine::mod_startup() {
+    Module::mod_startup();
 }
 
 void TierEngine::mod_shutdown() {
+    Module::mod_shutdown();
 }
 
 void TierEngine::disableTierMigration() {

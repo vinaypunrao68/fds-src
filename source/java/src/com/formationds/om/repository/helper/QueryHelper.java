@@ -39,8 +39,6 @@ import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.persistence.EntityManager;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -136,11 +134,27 @@ public class QueryHelper {
                 series.addAll(
                     new SeriesHelper().getRollupSeries( queryResults,
                                                         query,
-                                                        StatOperation.MAX) );
+                                                        StatOperation.MAX_X) );
 
                 calculatedList.add( deDupRatio() );
 
-                final CapacityConsumed consumed = bytesConsumed();
+                // let's get the physical bytes consumed.
+            	Series physicalBytes = series.stream()
+	            		.filter( ( s ) -> { 
+	            			return s.getType().equals( Metrics.PBYTES.name() );
+	            		})
+		            	.findFirst().orElse( null );
+            	
+            	Double bytesConsumed = 0.0;
+            	
+            	if ( physicalBytes != null ) {
+            		bytesConsumed = physicalBytes.getDatapoints()
+            								     .get( physicalBytes.getDatapoints().size()-1 )
+            								     .getY();
+            	}
+                
+                final CapacityConsumed consumed = new CapacityConsumed();
+                consumed.setTotal( bytesConsumed );
                 calculatedList.add( consumed );
 
                 // only the FDS admin is allowed to get data about the capacity limit
@@ -155,13 +169,6 @@ public class QueryHelper {
 	                TotalCapacity totalCap = new TotalCapacity();
 	                totalCap.setTotalCapacity( systemCapacity );
 	                calculatedList.add( totalCap );
-	                
-	                // TODO finish implementing  -- once Nate provides a library
-	            	Series physicalBytes = series.stream()
-	            		.filter( ( s ) -> { 
-	            			return s.getType().equals( Metrics.PBYTES.name() );
-	            		})
-		            	.findFirst().orElse( null );
 	            	
 	            	if ( physicalBytes != null ){
 	            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
@@ -513,16 +520,6 @@ public class QueryHelper {
         return dedup;
     }
 
-    /**
-     * @return Returns {@link CapacityConsumed}
-     */
-    protected CapacityConsumed bytesConsumed() {
-        final CapacityConsumed consumed = new CapacityConsumed();
-        consumed.setTotal( SingletonRepositoryManager.instance()
-                                                     .getMetricsRepository()
-                                                     .sumPhysicalBytes() );
-        return consumed;
-    }
 
     /**
      * @param consumed       the {@link CapacityConsumed} representing bytes

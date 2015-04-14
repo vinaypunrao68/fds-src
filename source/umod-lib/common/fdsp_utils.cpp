@@ -9,6 +9,7 @@
 #include <fdsp/sm_api_types.h>
 #include <fds_resource.h>
 #include <net/SvcMgr.h>
+#include <net/SvcRequest.h>
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -72,7 +73,8 @@ void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header)
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
 {
     std::ostringstream oss;
-    oss << " Req Id: " << header.msg_src_id << " Type: " << header.msg_type_id
+    oss << " Req Id: " << static_cast<SvcRequestId>(header.msg_src_id)
+        << " Type: " << header.msg_type_id
         << std::hex
         << " From: " << header.msg_src_uuid.svc_uuid
         << " To: " << header.msg_dst_uuid.svc_uuid
@@ -109,6 +111,20 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
     oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest)
 	<< " Volume UUID " << std::hex << putObj.volume_id << std::dec
 	<< " Object length " << putObj.data_obj_len;
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg &openVol)
+{
+    std::ostringstream oss;
+    oss << " OpenVolumeMsg Vol Id: " << openVol.volume_id;
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg &closeVol)
+{
+    std::ostringstream oss;
+    oss << " CloseVolumeMsg Vol Id: " << closeVol.volume_id;
     return oss.str();
 }
 

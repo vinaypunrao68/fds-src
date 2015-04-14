@@ -17,6 +17,7 @@ import org.apache.thrift.TException;
 import org.eclipse.jetty.io.ByteBufferPool;
 import org.joda.time.DateTime;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -28,16 +29,15 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-// TODO: merge XDI/XDIAsync
-public class XdiAsync {
+public class AsyncStreamer {
     private AsyncAm asyncAm;
     private ByteBufferPool bufferPool;
     private XdiConfigurationApi configurationApi;
     private AsyncRequestStatistics statistics;
 
-    public XdiAsync(AsyncAm asyncAm,
-                    ByteBufferPool bufferPool,
-                    XdiConfigurationApi configurationApi) {
+    public AsyncStreamer(AsyncAm asyncAm,
+                         ByteBufferPool bufferPool,
+                         XdiConfigurationApi configurationApi) {
         this.asyncAm = asyncAm;
         this.bufferPool = bufferPool;
         this.configurationApi = configurationApi;
@@ -47,10 +47,7 @@ public class XdiAsync {
     public CompletableFuture<BlobInfo> getBlobInfo(String domain, String volume, String blob) {
         CompletableFuture<VolumeDescriptor> volumeDescriptorFuture = statVolume(domain, volume);
         CompletableFuture<BlobWithMetadata> getObject0Future = volumeDescriptorFuture
-                .thenCompose(vd -> getBlobWithMetadata(domain,
-                        volume, blob,
-                        0,
-                        vd.getPolicy().maxObjectSizeInBytes));
+                .thenCompose(vd -> asyncAm.getBlobWithMeta(domain, volume, blob, vd.getPolicy().maxObjectSizeInBytes, new ObjectOffset((long) 0)));
         return getObject0Future.thenCompose(bwm ->
                 volumeDescriptorFuture
                         .thenApply(vd -> new BlobInfo(domain, volume, blob,
@@ -76,7 +73,7 @@ public class XdiAsync {
         });
     }
 
-    public CompletableFuture<Void> writeBlobToStream(BlobInfo blob, OutputStream str) {
+    public CompletableFuture<Void> readToOutputStream(BlobInfo blob, OutputStream str, long offset, long byteCount) {
         return getBlobToConsumer(blob, bytes -> {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             CompletableFuture.runAsync(() -> {
@@ -89,19 +86,19 @@ public class XdiAsync {
             });
 
             return cf;
-        });
+        }, offset, byteCount);
     }
 
-    public CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor) {
-        int objectSize = blobInfo.volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
+    private CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor, long offset, long length) {
+        int objectSize = blobInfo.getVolumeDescriptor().getPolicy().getMaxObjectSizeInBytes();
 
         // TODO: do we need to worry about limiting reads?
         ArrayList<CompletableFuture<ByteBuffer>> readFutures = new ArrayList<>();
-        for (FdsObjectFrame frame : FdsObjectFrame.frames(0, blobInfo.blobDescriptor.byteCount, objectSize)) {
+        for (FdsObjectFrame frame : FdsObjectFrame.frames(offset, length, objectSize)) {
             if (frame.objectOffset == 0)
-                readFutures.add(CompletableFuture.completedFuture(blobInfo.object0));
+                readFutures.add(CompletableFuture.completedFuture(blobInfo.getObject0()));
             else
-                readFutures.add(getBlob(blobInfo.domain, blobInfo.volume, blobInfo.blob, frame.objectOffset, frame.internalLength));
+                readFutures.add(asyncAm.getBlob(blobInfo.getDomain(), blobInfo.getVolume(), blobInfo.getBlob(), frame.internalLength, new ObjectOffset(frame.objectOffset)));
         }
 
         CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
@@ -231,19 +228,11 @@ public class XdiAsync {
         return asyncAm.statBlob(domain, volume, blob);
     }
 
-    public CompletableFuture<BlobWithMetadata> getBlobWithMetadata(String domain, String volume, String blob, long objectOffset, int length) {
-        return asyncAm.getBlobWithMeta(domain, volume, blob, length, new ObjectOffset(objectOffset));
-    }
-
-    public CompletableFuture<ByteBuffer> getBlob(String domain, String volume, String blob, long offset, int length) {
-        return asyncAm.getBlob(domain, volume, blob, length, new ObjectOffset(offset));
-    }
-
-    public CompletableFuture<Void> updateBlobOnce(String domain, String volume, String blob, int blobMode, ByteBuffer data, int length, long offset, Map<String, String> metadata) {
+    private CompletableFuture<Void> updateBlobOnce(String domain, String volume, String blob, int blobMode, ByteBuffer data, int length, long offset, Map<String, String> metadata) {
         return asyncAm.updateBlobOnce(domain, volume, blob, blobMode, data, length, new ObjectOffset(offset), metadata);
     }
 
-    public CompletableFuture<TransactionHandle> createTx(String domain, String volume, String blob, int mode) {
+    private CompletableFuture<TransactionHandle> createTx(String domain, String volume, String blob, int mode) {
         return asyncAm.startBlobTx(domain, volume, blob, mode)
                 .thenApply(tx -> new TransactionHandle(domain, volume, blob, tx));
     }
@@ -259,6 +248,52 @@ public class XdiAsync {
         });
 
         return result;
+    }
+
+    public OutputStream openForWriting(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws Exception {
+        VolumeDescriptor volumeDescriptor = statVolume(domainName, volumeName).get();
+        int chunkSize = volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
+        TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 1).get();
+        MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+        return new OutputStream() {
+            ByteBuffer buf = ByteBuffer.allocate(chunkSize);
+            long chunksWrittenSoFar = 0;
+
+            @Override
+            public void write(int b) throws IOException {
+                if (buf.remaining() == 0) {
+                    buf.flip();
+                    try {
+                        asyncAm.updateBlob(domainName, volumeName, blobName, tx, buf, chunkSize, new ObjectOffset(chunksWrittenSoFar), false).get();
+                        buf.position(0);
+                        buf.limit(chunkSize);
+                        chunksWrittenSoFar++;
+                    } catch (Exception e) {
+                        throw new IOException(e);
+                    }
+                }
+                buf.put((byte) b);
+                messageDigest.update((byte) b);
+            }
+
+            @Override
+            public void close() throws IOException {
+                try {
+                    if (buf.position() != 0) {
+                        int length = buf.position();
+                        buf.flip();
+                        asyncAm.updateBlob(domainName, volumeName, blobName, tx, buf, length, new ObjectOffset(chunksWrittenSoFar), true).get();
+                        metadata.put(Xdi.LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
+                        metadata.put("etag", Hex.encodeHexString(messageDigest.digest()));
+                        asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata);
+                    }
+                    asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
+                } catch (Exception e) {
+                    throw new IOException(e);
+                }
+                super.close();
+            }
+        };
     }
 
     private static class PutParameters {
@@ -288,14 +323,6 @@ public class XdiAsync {
                         md.put("etag", Hex.encodeHexString(bytes));
                         return md;
                     });
-        }
-    }
-
-    public class PutResult {
-        public byte[] digest;
-
-        public PutResult(byte[] md) {
-            digest = md;
         }
     }
 
@@ -329,21 +356,4 @@ public class XdiAsync {
         }
     }
 
-    public class BlobInfo {
-        public String domain;
-        public String volume;
-        public String blob;
-        public BlobDescriptor blobDescriptor;
-        public VolumeDescriptor volumeDescriptor;
-        public ByteBuffer object0;
-
-        public BlobInfo(String domain, String volume, String blob, BlobDescriptor bd, VolumeDescriptor vd, ByteBuffer object0) {
-            this.domain = domain;
-            this.volume = volume;
-            this.blob = blob;
-            blobDescriptor = bd;
-            volumeDescriptor = vd;
-            this.object0 = object0;
-        }
-    }
 }

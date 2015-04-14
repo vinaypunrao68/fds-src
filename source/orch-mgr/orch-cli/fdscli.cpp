@@ -235,30 +235,31 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         LOGNOTIFY << vm["volume-policy"].as<int>() << " -volume policy";
         LOGNOTIFY << vm["volume-id"].as<int>() << " -volume id";
 
-        FDS_ProtocolInterface::FDSP_CreateVolType volData;
-        volData.vol_name = vm["volume-create"].as<std::string>();
-        volData.vol_info.vol_name = vm["volume-create"].as<std::string>();
-        volData.vol_info.tennantId = 0;
-        volData.vol_info.localDomainId = 0;
+        //FDS_ProtocolInterface::FDSP_CreateVolType volData;
+        //volData.vol_name = vm["volume-create"].as<std::string>();
+        //volData.vol_info.vol_name = vm["volume-create"].as<std::string>();
+        //volData.vol_info.tennantId = 0;
+        //volData.vol_info.localDomainId = 0;
 
-        volData.vol_info.capacity = vm["volume-size"].as<double>();
-        volData.vol_info.volType =
-                stringToVolType(vm.count("vol-type") ?
-                                vm["vol-type"].as<std::string>() : "");
+        //volData.vol_info.capacity = vm["volume-size"].as<double>();
+        //volData.vol_info.volType =
+        //        stringToVolType(vm.count("vol-type") ?
+        //                        vm["vol-type"].as<std::string>() : "");
 
-        if (fpi::FDSP_VOL_S3_TYPE == volData.vol_info.volType) {
-            volData.vol_info.maxObjSizeInBytes = 2097152;  // 2 MiB
-        } else {
-            volData.vol_info.maxObjSizeInBytes = 4096;  // 4k
-        }
+        //if (fpi::FDSP_VOL_S3_TYPE == volData.vol_info.volType) {
+        //    volData.vol_info.maxObjSizeInBytes = 2097152;  // 2 MiB
+        //} else {
+        //    volData.vol_info.maxObjSizeInBytes = 4096;  // 4k
+        //}
 
-        volData.vol_info.volPolicyId = vm["volume-policy"].as<int>();
-        volData.vol_info.placementPolicy = 0;
-        volData.vol_info.mediaPolicy =
-                stringToMediaPolicy(vm.count("media-policy") ?
-                                vm["media-policy"].as<std::string>() : "");
+        //volData.vol_info.volPolicyId = vm["volume-policy"].as<int>();
+        //volData.vol_info.placementPolicy = 0;
+        //volData.vol_info.mediaPolicy =
+        //        stringToMediaPolicy(vm.count("media-policy") ?
+        //                        vm["media-policy"].as<std::string>() : "");
 
-        NETWORKCHECK(return_code = cfgPrx->CreateVol(msg_hdr, volData));
+        /*NETWORKCHECK(return_code = cfgPrx->CreateVol(msg_hdr, volData));*/
+        return_code = -1;
         if (return_code !=0) {
             auto sret = std::system("clear");
             cout << "Error: Creating the Volume \n";
@@ -290,65 +291,65 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             LOGNOTIFY << vm["media-policy"].as<std::string>() << " -media policy";
         }
 
-        FDS_ProtocolInterface::FDSP_ModifyVolType volData;
-        volData.vol_name = vm["volume-modify"].as<std::string>();
-        volData.vol_desc.vol_name = volData.vol_name;
+        //FDS_ProtocolInterface::FDSP_ModifyVolType volData;
+        //volData.vol_name = vm["volume-modify"].as<std::string>();
+        //volData.vol_desc.vol_name = volData.vol_name;
 
-        volData.vol_desc.capacity = vm["volume-size"].as<double>();
-        volData.vol_desc.volType =
-                stringToVolType(vm.count("vol-type") ?
-                                vm["vol-type"].as<std::string>() : "");
+        //volData.vol_desc.capacity = vm["volume-size"].as<double>();
+        //volData.vol_desc.volType =
+        //        stringToVolType(vm.count("vol-type") ?
+        //                        vm["vol-type"].as<std::string>() : "");
 
-        if (fpi::FDSP_VOL_S3_TYPE == volData.vol_desc.volType) {
-            volData.vol_desc.maxObjSizeInBytes = 2097152;  // 2 MiB
-        } else {
-            volData.vol_desc.maxObjSizeInBytes = 4096;  // 4k
-        }
+        //if (fpi::FDSP_VOL_S3_TYPE == volData.vol_desc.volType) {
+        //    volData.vol_desc.maxObjSizeInBytes = 2097152;  // 2 MiB
+        //} else {
+        //    volData.vol_desc.maxObjSizeInBytes = 4096;  // 4k
+        //}
 
-        volData.vol_desc.placementPolicy = 0;
-        volData.vol_desc.mediaPolicy = vm.count("media_policy") ?
-                stringToMediaPolicy(vm["media-policy"].as<std::string>()) :
-                FDS_ProtocolInterface::FDSP_MEDIA_POLICY_UNSET;  // use current policy
+        //volData.vol_desc.placementPolicy = 0;
+        //volData.vol_desc.mediaPolicy = vm.count("media_policy") ?
+        //        stringToMediaPolicy(vm["media-policy"].as<std::string>()) :
+        //        FDS_ProtocolInterface::FDSP_MEDIA_POLICY_UNSET;  // use current policy
 
-        if (vm.count("volume-policy")) {
-            volData.vol_desc.volPolicyId = vm["volume-policy"].as<int>();
-        } else {
-            volData.vol_desc.volPolicyId = 0; /* 0 means don't modify actual policy id */
-            volData.vol_desc.iops_min = vm["iops-min"].as<double>();
-            volData.vol_desc.iops_max = vm["iops-max"].as<double>();
-            volData.vol_desc.rel_prio = vm["rel-prio"].as<int>();
-        }
-        NETWORKCHECK(cfgPrx->ModifyVol(msg_hdr, volData));
+        //if (vm.count("volume-policy")) {
+        //    volData.vol_desc.volPolicyId = vm["volume-policy"].as<int>();
+        //} else {
+        //    volData.vol_desc.volPolicyId = 0; /* 0 means don't modify actual policy id */
+        //    volData.vol_desc.iops_min = vm["iops-min"].as<double>();
+        //    volData.vol_desc.iops_max = vm["iops-max"].as<double>();
+        //    volData.vol_desc.rel_prio = vm["rel-prio"].as<int>();
+        //}
+        /*NETWORKCHECK(cfgPrx->ModifyVol(msg_hdr, volData));*/
 
     } else if (vm.count("volume-delete") && vm.count("volume-id")) {
         LOGNOTIFY << " Delete Volume ";
         LOGNOTIFY << vm["volume-delete"].as<std::string>() << " -volume name";
         LOGNOTIFY << vm["volume-id"].as<int>() << " -volume id";
 
-        FDS_ProtocolInterface::FDSP_DeleteVolType volData;
-        volData.vol_name = vm["volume-delete"].as<std::string>();
+        //FDS_ProtocolInterface::FDSP_DeleteVolType volData;
+        //volData.vol_name = vm["volume-delete"].as<std::string>();
 
-        NETWORKCHECK(cfgPrx->DeleteVol(msg_hdr, volData));
+        /*NETWORKCHECK(cfgPrx->DeleteVol(msg_hdr, volData));*/
 
     } else if (vm.count("volume-get")) {
         LOGNOTIFY << " Get Volume Info";
         LOGNOTIFY << vm["volume-get"].as<std::string>() << " -volume name";
 
-        FDS_ProtocolInterface::FDSP_GetVolInfoReqType vol_req;
-        vol_req.vol_name = vm["volume-get"].as<std::string>();
-        vol_req.domain_id = 0;
+        //FDS_ProtocolInterface::FDSP_GetVolInfoReqType vol_req;
+        //vol_req.vol_name = vm["volume-get"].as<std::string>();
+        //vol_req.domain_id = 0;
 
-        FDS_ProtocolInterface::FDSP_VolumeDescType vol_info;
+        //FDS_ProtocolInterface::FDSP_VolumeDescType vol_info;
         try {
-            NETWORKCHECK(cfgPrx->GetVolInfo(vol_info, msg_hdr, vol_req));
-            cout << "Volume " << vol_info.vol_name << ":"
-                 << std::hex << vol_info.volUUID << std::dec << std::endl
-                 << "     capacity " << vol_info.capacity << " MB"
-                 << ", iops_min " << vol_info.iops_min
-                 << ", iops_max " << vol_info.iops_max
-                 << ", priority " << vol_info.rel_prio
-                 << ", media policy " << mediaPolicyToString(vol_info.mediaPolicy)
-                 << std::endl;
+            /*NETWORKCHECK(cfgPrx->GetVolInfo(vol_info, msg_hdr, vol_req));*/
+            //cout << "Volume " << vol_info.vol_name << ":"
+            //     << std::hex << vol_info.volUUID << std::dec << std::endl
+            //     << "     capacity " << vol_info.capacity << " MB"
+            //     << ", iops_min " << vol_info.iops_min
+            //     << ", iops_max " << vol_info.iops_max
+            //     << ", priority " << vol_info.rel_prio
+            //     << ", media policy " << mediaPolicyToString(vol_info.mediaPolicy)
+            //     << std::endl;
         } catch(...) {
             cout << "Got non-network exception, probably volume not found" << std::endl;
         }
@@ -378,28 +379,28 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         LOGNOTIFY << vm["iops-max"].as<double>() << " -maximum iops";
         LOGNOTIFY << vm["rel-prio"].as<int>() << " -relative priority";
 
-        FDS_ProtocolInterface::FDSP_CreatePolicyType policyData;
-        policyData.policy_name = vm["policy-create"].as<std::string>();
+        //FDS_ProtocolInterface::FDSP_CreatePolicyType policyData;
+        //policyData.policy_name = vm["policy-create"].as<std::string>();
 
-        policyData.policy_info.policy_name = vm["policy-create"].as<std::string>();
-        policyData.policy_info.policy_id = vm["volume-policy"].as<int>();
-        policyData.policy_info.iops_min = vm["iops-min"].as<double>();
-        policyData.policy_info.iops_max = vm["iops-max"].as<double>();
-        policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
+        //policyData.policy_info.policy_name = vm["policy-create"].as<std::string>();
+        //policyData.policy_info.policy_id = vm["volume-policy"].as<int>();
+        //policyData.policy_info.iops_min = vm["iops-min"].as<double>();
+        //policyData.policy_info.iops_max = vm["iops-max"].as<double>();
+        //policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
 
-        NETWORKCHECK(cfgPrx->CreatePolicy(msg_hdr, policyData));
+        /*NETWORKCHECK(cfgPrx->CreatePolicy(msg_hdr, policyData));*/
 
     } else if (vm.count("policy-delete") && vm.count("volume-policy")) {
         LOGNOTIFY << " Delete Policy ";
         LOGNOTIFY << vm["policy-delete"].as<std::string>() << " -policy name";
         LOGNOTIFY << vm["volume-policy"].as<int>() << " -policy id";
 
-        FDS_ProtocolInterface::FDSP_DeletePolicyType policyData;
+        //FDS_ProtocolInterface::FDSP_DeletePolicyType policyData;
 
-        policyData.policy_name = vm["policy-delete"].as<std::string>();
-        policyData.policy_id = vm["volume-policy"].as<int>();
+        //policyData.policy_name = vm["policy-delete"].as<std::string>();
+        //policyData.policy_id = vm["volume-policy"].as<int>();
 
-        NETWORKCHECK(cfgPrx->DeletePolicy(msg_hdr, policyData));
+        /*NETWORKCHECK(cfgPrx->DeletePolicy(msg_hdr, policyData));*/
 
     } else if (vm.count("policy-modify") && vm.count("volume-policy") && \
                vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {
@@ -410,27 +411,27 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         LOGNOTIFY << vm["iops-max"].as<double>() << " -maximum iops";
         LOGNOTIFY << vm["rel-prio"].as<int>() << " -relative priority";
 
-        FDS_ProtocolInterface::FDSP_ModifyPolicyType policyData;
-        policyData.policy_name = vm["policy-modify"].as<std::string>();
+        //FDS_ProtocolInterface::FDSP_ModifyPolicyType policyData;
+        //policyData.policy_name = vm["policy-modify"].as<std::string>();
 
-        policyData.policy_info.policy_name = vm["policy-modify"].as<std::string>();
-        policyData.policy_info.policy_id = vm["volume-policy"].as<int>();
-        policyData.policy_info.iops_min = vm["iops-min"].as<double>();
-        policyData.policy_info.iops_max = vm["iops-max"].as<double>();
-        policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
+        //policyData.policy_info.policy_name = vm["policy-modify"].as<std::string>();
+        //policyData.policy_info.policy_id = vm["volume-policy"].as<int>();
+        //policyData.policy_info.iops_min = vm["iops-min"].as<double>();
+        //policyData.policy_info.iops_max = vm["iops-max"].as<double>();
+        //policyData.policy_info.rel_prio = vm["rel-prio"].as<int>();
 
-        NETWORKCHECK(cfgPrx->ModifyPolicy(msg_hdr, policyData));
+        /*NETWORKCHECK(cfgPrx->ModifyPolicy(msg_hdr, policyData));*/
 
     } else if (vm.count("domain-create") && vm.count("domain-id")) {
         LOGNOTIFY << " Domain Create ";
         LOGNOTIFY << vm["domain-create"].as<std::string>() << "-domain name";
         LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
 
-        FDS_ProtocolInterface::FDSP_CreateDomainType domainData;
-        domainData.domain_name = vm["domain-create"].as<std::string>();
-        domainData.domain_id = vm["domain-id"].as<int>();
+        //FDS_ProtocolInterface::FDSP_CreateDomainType domainData;
+        //domainData.domain_name = vm["domain-create"].as<std::string>();
+        //domainData.domain_id = vm["domain-id"].as<int>();
 
-        NETWORKCHECK(cfgPrx->CreateDomain(msg_hdr, domainData));
+        /*NETWORKCHECK(cfgPrx->CreateDomain(msg_hdr, domainData));*/
 
     }  else if (vm.count("list-services")) {
 
@@ -463,72 +464,72 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
     }  else if (vm.count("remove-services")) {
         LOGNOTIFY << " Remove services ";
         LOGNOTIFY << vm["remove-services"].as<std::string>() << "- node name";
-        FDS_ProtocolInterface::FDSP_RemoveServicesType removeServiceData;
-        removeServiceData.node_name = vm["remove-services"].as<std::string>();
-        removeServiceData.node_uuid.uuid = 0;
-        if (vm.count("node-uuid")) {
-            removeServiceData.node_uuid.uuid = vm["node-uuid"].as<fds_uint64_t>();
-            LOGNOTIFY << "Node uuid " << std::hex
-                      << removeServiceData.node_uuid.uuid << std::dec;
-        }
-        removeServiceData.remove_sm = false;
-        removeServiceData.remove_dm = false;
-        removeServiceData.remove_am = false;
+        //FDS_ProtocolInterface::FDSP_RemoveServicesType removeServiceData;
+        //removeServiceData.node_name = vm["remove-services"].as<std::string>();
+        //removeServiceData.node_uuid.uuid = 0;
+        //if (vm.count("node-uuid")) {
+        //    removeServiceData.node_uuid.uuid = vm["node-uuid"].as<fds_uint64_t>();
+        //    LOGNOTIFY << "Node uuid " << std::hex
+        //              << removeServiceData.node_uuid.uuid << std::dec;
+        //}
+        //removeServiceData.remove_sm = false;
+        //removeServiceData.remove_dm = false;
+        //removeServiceData.remove_am = false;
         // even though it is called enable-service, we just re-using same
         // command, and here it means remove service
-        std::string svc_str = vm["enable-service"].as<std::string>();
-        boost::char_separator<char> sep(",");
-        boost::tokenizer<boost::char_separator<char>> tokens(svc_str, sep);
-        for (const auto& t : tokens) {
-            if (t.compare("am") == 0) {
-                removeServiceData.remove_am = true;
-                LOGNORMAL << "   -- remove AM";
-            } else if (t.compare("sm") == 0) {
-                removeServiceData.remove_sm = true;
-                LOGNORMAL << "   -- remove SM";
-            } else if (t.compare("dm") == 0) {
-                removeServiceData.remove_dm = true;
-                LOGNORMAL << "   -- remove DM";
-            } else {
-                cout << "Unknown service " << t << ", will ignore" << std::endl;
-                LOGWARN << "Unknown service " << t << "is specified; "
-                        << "will ignore, but check your fdscli command";
-            }
-        }
+        //std::string svc_str = vm["enable-service"].as<std::string>();
+        //boost::char_separator<char> sep(",");
+        //boost::tokenizer<boost::char_separator<char>> tokens(svc_str, sep);
+        //for (const auto& t : tokens) {
+        //    if (t.compare("am") == 0) {
+        //        removeServiceData.remove_am = true;
+        //        LOGNORMAL << "   -- remove AM";
+        //    } else if (t.compare("sm") == 0) {
+        //        removeServiceData.remove_sm = true;
+        //        LOGNORMAL << "   -- remove SM";
+        //    } else if (t.compare("dm") == 0) {
+        //        removeServiceData.remove_dm = true;
+        //        LOGNORMAL << "   -- remove DM";
+        //    } else {
+        //        cout << "Unknown service " << t << ", will ignore" << std::endl;
+        //        LOGWARN << "Unknown service " << t << "is specified; "
+        //                << "will ignore, but check your fdscli command";
+        //    }
+        //}
 
-        NETWORKCHECK(cfgPrx->RemoveServices(msg_hdr, removeServiceData));
+        /*NETWORKCHECK(cfgPrx->RemoveServices(msg_hdr, removeServiceData));*/
     }  else if (vm.count("activate-nodes")) {
         LOGNOTIFY << " Activate Nodes: domain name "
                   << vm["activate-nodes"].as<std::string>()
                   << " (domain name ignored for now, using default domain)"
                   << " and enable services: "
                   << vm["enable-service"].as<std::string>();
-        FDS_ProtocolInterface::FDSP_ActivateAllNodesType activateNodesData;
-        activateNodesData.domain_id = vm["domain-id"].as<int>();
-        activateNodesData.activate_sm = false;
-        activateNodesData.activate_dm = false;
-        activateNodesData.activate_am = false;
-        std::string svc_str = vm["enable-service"].as<std::string>();
-        boost::char_separator<char> sep(",");
-        boost::tokenizer<boost::char_separator<char>> tokens(svc_str, sep);
-        for (const auto& t : tokens) {
-            if (t.compare("am") == 0) {
-                activateNodesData.activate_am = true;
-                LOGNORMAL << "   -- activate AM";
-            } else if (t.compare("sm") == 0) {
-                activateNodesData.activate_sm = true;
-                LOGNORMAL << "   -- activate SM";
-            } else if (t.compare("dm") == 0) {
-                activateNodesData.activate_dm = true;
-                LOGNORMAL << "   -- activate DM";
-            } else {
-                cout << "Unknown service " << t << ", will ignore" << std::endl;
-                LOGWARN << "Unknown service " << t << "is specified; "
-                        << "will ignore, but check your fdscli command";
-            }
-        }
+        //FDS_ProtocolInterface::FDSP_ActivateAllNodesType activateNodesData;
+        //activateNodesData.domain_id = vm["domain-id"].as<int>();
+        //activateNodesData.activate_sm = false;
+        //activateNodesData.activate_dm = false;
+        //activateNodesData.activate_am = false;
+        //std::string svc_str = vm["enable-service"].as<std::string>();
+        //boost::char_separator<char> sep(",");
+        //boost::tokenizer<boost::char_separator<char>> tokens(svc_str, sep);
+        //for (const auto& t : tokens) {
+        //    if (t.compare("am") == 0) {
+        //        activateNodesData.activate_am = true;
+        //        LOGNORMAL << "   -- activate AM";
+        //    } else if (t.compare("sm") == 0) {
+        //        activateNodesData.activate_sm = true;
+        //        LOGNORMAL << "   -- activate SM";
+        //    } else if (t.compare("dm") == 0) {
+        //        activateNodesData.activate_dm = true;
+        //        LOGNORMAL << "   -- activate DM";
+        //    } else {
+        //        cout << "Unknown service " << t << ", will ignore" << std::endl;
+        //        LOGWARN << "Unknown service " << t << "is specified; "
+        //                << "will ignore, but check your fdscli command";
+        //    }
+        //}
 
-        NETWORKCHECK(cfgPrx->ActivateAllNodes(msg_hdr, activateNodesData));
+        /*NETWORKCHECK(cfgPrx->ActivateAllNodes(msg_hdr, activateNodesData));*/
     }  else if (vm.count("activate-services")) {
         LOGNOTIFY << " Activate Services: domain name "
                   << vm["activate-services"].as<std::string>()
@@ -574,39 +575,40 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         LOGNOTIFY << vm["domain-delete"].as<std::string>() << "-domain name";
         LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
 
-        FDS_ProtocolInterface::FDSP_CreateDomainType domainData;
-        domainData.domain_name = vm["domain-delete"].as<std::string>();
-        domainData.domain_id = vm["domain-id"].as<int>();
+        //FDS_ProtocolInterface::FDSP_CreateDomainType domainData;
+        //domainData.domain_name = vm["domain-delete"].as<std::string>();
+        //domainData.domain_id = vm["domain-id"].as<int>();
 
-        NETWORKCHECK(cfgPrx->DeleteDomain(msg_hdr, domainData));
+        /*NETWORKCHECK(cfgPrx->DeleteDomain(msg_hdr, domainData));*/
     }  else if (vm.count("domain-shutdown") && vm.count("domain-id")) {
         LOGNOTIFY << " Domain Shutdown ";
         LOGNOTIFY << vm["domain-shutdown"].as<std::string>() << "-domain name";
         LOGNOTIFY << vm["domain-id"].as<int>() <<  " -domain id ";
 
-        FDS_ProtocolInterface::FDSP_ShutdownDomainType domainData;
-        domainData.domain_id = vm["domain-id"].as<int>();
+        //FDS_ProtocolInterface::FDSP_ShutdownDomainType domainData;
+        //domainData.domain_id = vm["domain-id"].as<int>();
 
-        NETWORKCHECK(cfgPrx->ShutdownDomain(msg_hdr, domainData));
+        /*NETWORKCHECK(cfgPrx->ShutdownDomain(msg_hdr, domainData));*/
     } else if (vm.count("throttle") && vm.count("throttle-level")) {
         LOGNOTIFY << " Throttle ";
         LOGNOTIFY << vm["throttle-level"].as<float>() << "-throttle_level";
 
-        FDS_ProtocolInterface::FDSP_ThrottleMsgType throttle_msg;
-        throttle_msg.domain_id = 0;
-        throttle_msg.throttle_level = vm["throttle-level"].as<float>();
+        //FDS_ProtocolInterface::FDSP_ThrottleMsgType throttle_msg;
+        //throttle_msg.domain_id = 0;
+        //throttle_msg.throttle_level = vm["throttle-level"].as<float>();
 
-        NETWORKCHECK(cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg));
+        /*NETWORKCHECK(cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg));*/
     } else if (vm.count("volume-snap")) {
         LOGNOTIFY << "Constructing the CLI";
         LOGNOTIFY << " Snap Volume ";
         LOGNOTIFY << vm["volume-snap"].as<std::string>() << " -volume name";
 
-        FDS_ProtocolInterface::FDSP_CreateVolType volData;
-        volData.vol_name = vm["volume-snap"].as<std::string>();
-        volData.vol_info.vol_name = vm["volume-snap"].as<std::string>();
+        //FDS_ProtocolInterface::FDSP_CreateVolType volData;
+        //volData.vol_name = vm["volume-snap"].as<std::string>();
+        //volData.vol_info.vol_name = vm["volume-snap"].as<std::string>();
 
-        NETWORKCHECK(return_code = cfgPrx->SnapVol(msg_hdr, volData));
+        //NETWORKCHECK(return_code = cfgPrx->SnapVol(msg_hdr, volData));
+        return_code = -1;
         if (return_code !=0) {
             auto sret = std::system("clear");
             cout << "Error: Snap Volume \n";

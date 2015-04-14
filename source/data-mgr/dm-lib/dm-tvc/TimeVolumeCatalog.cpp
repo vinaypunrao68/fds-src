@@ -16,6 +16,7 @@ extern "C" {
 #include <cstdlib>
 #include <boost/make_shared.hpp>
 #include <dm-tvc/TimeVolumeCatalog.h>
+#include <dm-tvc/VolumeAccessTable.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
 #include <fds_process.h>
 #include <ObjectLogger.h>
@@ -53,6 +54,16 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
     if (dataMgr->features.isTimelineEnabled()) {
         logMonitorThread_.reset(new std::thread(
                 std::bind(&DmTimeVolCatalog::monitorLogs, this)));
+    }
+
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        vol_tok_lease_time =
+            std::chrono::duration<fds_uint32_t>(
+                config_helper_.get_abs<fds_uint32_t>("fds.dm.token_lease_time"));
     }
 
     // TODO(Andrew): The module vector should be able to take smart pointers.
@@ -107,6 +118,54 @@ Error
 DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     createCommitLog(voldesc);
     return volcat->addCatalog(voldesc);
+}
+
+Error
+DmTimeVolCatalog::openVolume(fds_volid_t const volId,
+                             fds_int64_t& token,
+                             fpi::VolumeAccessPolicy const& policy) {
+    Error err = ERR_OK;
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        std::unique_lock<std::mutex> lk(accessTableLock_);
+        auto it = accessTable_.find(volId);
+        if (accessTable_.end() == it) {
+            auto table = new DmVolumeAccessTable(volId);
+            table->getToken(token, policy, vol_tok_lease_time);
+            accessTable_[volId].reset(table);
+        } else {
+            // Table already exists, check if we can attach again or
+            // renew the existing token.
+            err = it->second->getToken(token, policy, vol_tok_lease_time);
+        }
+    }
+
+    return err;
+}
+
+Error
+DmTimeVolCatalog::closeVolume(fds_volid_t const volId, fds_int64_t const token) {
+    Error err = ERR_OK;
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        std::unique_lock<std::mutex> lk(accessTableLock_);
+        auto it = accessTable_.find(volId);
+        if (accessTable_.end() != it) {
+            it->second->removeToken(token);
+        }
+    }
+
+    // TODO(bszmyd): Tue 07 Apr 2015 01:02:51 AM PDT
+    // Determine if there is any usefulness returning an
+    // error to this operation. Seems like it should be
+    // idempotent and never fail upon initial design.
+    return err;
 }
 
 Error
