@@ -6,20 +6,19 @@
 
 #define X_DEFINE_ENUM_WITH_STRING_CONVERSIONS_TOSTRING_CASE(r, data, elem)    \
     case data::elem :                                                         \
-                converted += "";                                              \
-                converted += BOOST_PP_STRINGIZE(elem);                        \
-                std::transform(converted.begin(), converted.end(),            \
-                converted.begin(), ::tolower);                                \
-                return converted;
+                {                                                             \
+                    static const std::string stringized =                     \
+                                BOOST_PP_STRINGIZE(elem);                     \
+                    return stringized;                                        \
+                }
 
 #define DEFINE_ENUM_WITH_STRING_CONVERSIONS(name, enumerators)                \
     enum class name {                                                         \
         BOOST_PP_SEQ_ENUM(enumerators(__MAX__))                               \
     };                                                                        \
                                                                               \
-    inline std::string EnumToString(name v)                                   \
+    inline std::string EnumToString(name v)                         \
     {                                                                         \
-        std::string converted {""};                                           \
         switch (v)                                                            \
         {                                                                     \
             BOOST_PP_SEQ_FOR_EACH(                                            \
