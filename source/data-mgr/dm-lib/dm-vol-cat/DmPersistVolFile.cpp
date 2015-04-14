@@ -242,7 +242,6 @@ Error DmPersistVolFile::getObject(const std::string & blobName, fds_uint64_t sta
         fpi::FDSP_BlobObjectInfo blobInfo;
         blobInfo.offset = objIndex * objSize_;
         blobInfo.size = objSize_;
-        blobInfo.blob_end = false;  // assume false
         std::string objStr(reinterpret_cast<const char *>(obj.GetId()), obj.GetLen());
         blobInfo.data_obj_id.digest = objStr;
 

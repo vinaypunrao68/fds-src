@@ -322,7 +322,6 @@ TEST_F(SMApi, dmsmPerf)
         FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
         updBlobInfo.offset   = 0;
         updBlobInfo.size     = 2097152;
-        updBlobInfo.blob_end = true;
         updBlobInfo.data_obj_id.digest =
             std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
         putBlobOnce->obj_list.push_back(updBlobInfo);
