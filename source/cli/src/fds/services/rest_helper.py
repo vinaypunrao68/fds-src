@@ -4,6 +4,7 @@ Created on Apr 3, 2015
 @author: nate
 '''
 import requests
+import json
 import response_writer
 
 class RESTHelper():
@@ -18,17 +19,19 @@ class RESTHelper():
         response_writer.ResponseWriter.writeTabularData( response )
     
     def defaultErrorHandler(self, error):
-        return ''
-        
-#     def login(self, username, password, hostname, port, successCallback, failureCallback=defaultErrorHandler ):
-#         payload = { "login" : username, "password" : password }
-#         response = requests.post( 'http://' + hostname + ':' + str(port) + '/api/auth/token', params=payload )
-#         response = response.json()
-#         self.__token = response['token']
-#         successCallback()
+        errorText = json.loads( error.text )
+        print str(error.status_code) + ": " + errorText["message"]
+        return
             
     def post(self, session, url, data, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
-        return ''
+        response = requests.post( url, data=data, headers=self.buildHeader( session ) )
+        
+        if ( response.ok == False ):
+            failureCallback( self, response )
+            return
+        
+        rj = response.json()
+        return rj
     
     def get(self, session, url, params={}, successCallback=defaultSuccess, failureCallback=defaultErrorHandler):
         

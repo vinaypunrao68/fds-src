@@ -8,22 +8,19 @@ import unittest
 from fds import fdscli
 from mock import patch
 from mock_auth import MockFdsAuth
-from fds.services.rest_helper import RESTHelper
-from mock_volume_service import MockVolumeService
 
 class ListVolumeTest(unittest.TestCase):
     
-    @patch( "fds.services.volume_service.VolumeService", new_callable=MockVolumeService)
+    @patch( "fds.services.volume_service.VolumeService.listVolumes", return_value="Done")
     def test(self, mockService ):
         token = MockFdsAuth().login()
-        rh = RESTHelper( token )
         
         args = ["volume", "list", "-format=json"]
         
-        cli = fdscli.FDSShell(rh)
+        cli = fdscli.FDSShell(token)
         cli.run( args )
         
-        print 'Out: ' + token
+        assert mockService.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

@@ -18,9 +18,9 @@ class FdsAuth():
         
         self.__token = None
         self.__hostname = self.get_from_parser( 'hostname' )
-        self.__password = self.get_from_parser( 'password' )
-        self.__username = self.get_from_parser( 'username' )
         self.__port = self.get_from_parser( 'port' )
+        self.__username = self.get_from_parser( 'username' )
+        self.__password = self.get_from_parser( 'password' )
         
     def get_from_parser(self, option):
         if ( self.__parser.has_section( 'connection' ) and self.__parser.has_option( 'connection', option ) ):

@@ -1,8 +1,3 @@
-'''
-Created on Mar 30, 2015
-
-@author: nate bever
-'''
 import os
 import sys
 import cmd
@@ -12,6 +7,19 @@ from argparse import ArgumentParser
 import pkgutil
 from services.fds_auth import FdsAuth
 
+'''
+Created on Mar 30, 2015
+
+This is the main wrapper for the FDS CLI tool.  It's main purpose is to 
+obtain user authorization, load the dynamic modules and setup the 
+parsers.
+
+All actual work will take place in the "plugins" or the "services" that
+are added to the server, this simply manages the state and configures
+argparse
+
+@author: nate bever
+'''
 class FDSShell( cmd.Cmd ):
    
     '''
@@ -30,6 +38,11 @@ class FDSShell( cmd.Cmd ):
         self.subParsers = self.parser.add_subparsers( help="Command suite description" )
         self.loadmodules()
         
+    '''
+    This makes assumptions about the name of the class relative to the name of the 
+    plugin.  It basically deletes all "_" and capitalizes each word so that
+    my_cool_plugin is expected to declare class MyCoolPlugin
+    '''
     def formatClassName(self, name):
         words = name.split( '_' )
         formattedName = ''
@@ -39,6 +52,11 @@ class FDSShell( cmd.Cmd ):
         
         return formattedName 
         
+    '''
+    This searches the plugins directory (relative to the location of this file)
+    and will load all the modules it find there, adding their parsing arguments
+    to the argparse setup
+    '''
     def loadmodules(self):
         mydir = os.path.dirname( os.path.abspath( __file__ ) )
         modules = pkgutil.iter_modules([os.path.join( mydir, "plugins" )] )
@@ -111,7 +129,6 @@ class FDSShell( cmd.Cmd ):
 '''
 stores and retrieves the command history specific to the user
 '''
-
 def setupHistoryFile():
     import readline
     histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history")
