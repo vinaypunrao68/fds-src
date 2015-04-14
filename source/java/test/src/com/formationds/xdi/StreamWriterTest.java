@@ -94,7 +94,7 @@ public class StreamWriterTest {
         }
 
         @Override
-        public void updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDesc, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) throws ApiException, TException {
+        public void updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDesc, ByteBuffer bytes, int length, ObjectOffset objectOffset) throws ApiException, TException {
             byte[] buf = new byte[length];
             System.arraycopy(bytes.array(), 0, buf, 0, length);
             objectsWritten.add(buf);
