@@ -27,7 +27,6 @@ namespace fds
             explicit PlatAgent(const NodeUuid &uuid);
 
             virtual void pda_register();
-            virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const override;
 
         protected:
             virtual void agent_publish_ep();

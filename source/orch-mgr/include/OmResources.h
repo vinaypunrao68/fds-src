@@ -194,6 +194,12 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_activate_services(fds_bool_t activate_sm,
                                  fds_bool_t activate_dm,
                                  fds_bool_t activate_am);
+    /**
+     * Send 'deactivate services' message to Platform
+     */
+    Error send_deactivate_services(fds_bool_t deactivate_sm,
+                                   fds_bool_t deactivate_dm,
+                                   fds_bool_t deactivate_am);
 
     /**
      * Tell platform Agent about new active service
@@ -239,7 +245,7 @@ class OM_PmAgent : public OM_NodeAgent
     }
     inline fpi::FDSP_AnnounceDiskCapability* getDiskCapabilities() {
         /* NOTE: We could get this info from configdb..for now returning from
-         * the cached nodinfo
+         * the cached node info
          */
         return &(nodeInfo->disk_info);
     }
@@ -521,6 +527,12 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_cond_bcast_remove_services(fds_bool_t activate_sm,
                                                fds_bool_t activate_dm,
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
+
+    // broadcast "deactivate services" message to all PMs in the domain
+    virtual void om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
+                                                   fds_bool_t deactivate_dm,
+                                                   fds_bool_t deactivate_am);
+
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
@@ -675,7 +687,7 @@ class OM_NodeDomainMod : public Module
     static fds_bool_t om_local_domain_up();
 
     /**
-     * Accessor methods to retrive the local node domain.  Retyping it here to avoid
+     * Accessors methods to retreive the local node domain.  Retyping it here to avoid
      * using multiple inheritance for this class.
      */
     inline OM_SmContainer::pointer om_sm_nodes() {
@@ -775,7 +787,7 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Notification that OM received migration done message from
-     * node with uuid 'uuid' for dlt version 'dlt_version'
+     * node with uuid 'uuid' for dlt version dlt_version
      */
     virtual Error om_recv_migration_done(const NodeUuid& uuid,
                                          fds_uint64_t dlt_version,
@@ -783,7 +795,7 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Notification that OM received DLT update response from
-     * node with uuid 'uuid' for dlt version 'dlt_version'
+     * node with uuid 'uuid' for dlt version dlt_version
      */
     virtual Error om_recv_dlt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
@@ -791,7 +803,7 @@ class OM_NodeDomainMod : public Module
                                           const Error& respError);
     /**
      * Notification that OM received DMT update response from
-     * node with uuid 'uuid' for dmt version 'dmt_version'
+     * node with uuid 'uuid' for dmt version dmt_version
      */
     virtual Error om_recv_dmt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
@@ -807,7 +819,7 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Notification that OM received DLT close response from
-     * node with uuid 'uuid' for dlt version 'dlt_version'
+     * node with uuid 'uuid' for dlt version dlt_version
      */
     virtual Error om_recv_dlt_close_resp(const NodeUuid& uuid,
                                          fds_uint64_t dlt_version,
@@ -815,7 +827,7 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Notification that OM received DMT close response from
-     * node with uuid 'uuid' for dmt version 'dmt_version'
+     * node with uuid 'uuid' for dmt version dmt_version
      */
     virtual Error om_recv_dmt_close_resp(const NodeUuid& uuid,
                                          fds_uint64_t dmt_version,
