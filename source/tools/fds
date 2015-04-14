@@ -134,8 +134,7 @@ function activate() {
         sleep 5
 
         logwarn "asking OM to accept all discovered nodes..."
-        (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e "$actapps" > cli.out) 2>/dev/null
-        loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
+	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local > cli.out) 2>/dev/null
     fi
 }
 
