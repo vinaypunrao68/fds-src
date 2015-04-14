@@ -906,9 +906,7 @@ int DataMgr::run()
     // TODO(Rao): Move this into module init
     initHandlers();
 
-    while (true) {
-        sleep(1);
-    }
+    _shutdownGate.waitUntilOpened();
 
     return 0;
 }
@@ -1042,6 +1040,8 @@ void DataMgr::mod_shutdown()
     delete omClient;
     delete vol_map_mtx;
     delete qosCtrl;
+
+    _shutdownGate.open();
 }
 
 void DataMgr::setup_metasync_service()

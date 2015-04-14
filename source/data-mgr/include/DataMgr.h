@@ -47,6 +47,8 @@
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
 
+#include "util/ExecutionGate.h"
+
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
@@ -422,6 +424,12 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;
     friend class dm::DeleteBlobHandler;
+
+private:
+    ///
+    /// Don't shut down until this gate is opened.
+    ///
+    util::ExecutionGate _shutdownGate;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
