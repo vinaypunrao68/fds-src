@@ -7,6 +7,8 @@ import FDS_ProtocolInterface.*;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.FDSP_ModifyVolType;
+import com.formationds.apis.FDSP_GetVolInfoReqType;
 import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.protocol.FDSP_MediaPolicy;
 import com.formationds.om.helper.MediaPolicyConverter;
@@ -65,7 +67,7 @@ public class SetVolumeQosParams implements RequestHandler {
             return new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
         }
 
-        FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, minIops, priority, maxIops, commit_log_retention, mediaPolicy );
+        FDSP_VolumeDescType volInfo = setVolumeQos(client, configService, volumeName, minIops, priority, maxIops, commit_log_retention, mediaPolicy );
         VolumeDescriptor descriptor = configService.statVolume("", volumeName);
         
         JSONObject o =
@@ -77,19 +79,19 @@ public class SetVolumeQosParams implements RequestHandler {
         return new JsonResource(o);
     }
 
-    public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, int minIops, int priority, int maxIops, long logRetention, MediaPolicy mediaPolicy ) throws org.apache.thrift.TException {
+    public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, ConfigurationService.Iface configService, String volumeName, int minIops, int priority, int maxIops, long logRetention, MediaPolicy mediaPolicy ) throws org.apache.thrift.TException {
         
     	// converting the com.formationds.api.MediaPolicy to the FDSP version
     	FDSP_MediaPolicy fdspMediaPolicy = MediaPolicyConverter.convertToFDSPMediaPolicy( mediaPolicy );
     	
-    	FDSP_VolumeDescType volInfo = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeName, 0));
+    	FDSP_VolumeDescType volInfo = configService.GetVolInfo(new FDSP_GetVolInfoReqType(volumeName, 0));
         volInfo.setIops_guarantee(minIops);
         volInfo.setRel_prio(priority);
         volInfo.setIops_max(maxIops);
         volInfo.setVolPolicyId(0);
         volInfo.setMediaPolicy(fdspMediaPolicy);
         volInfo.setContCommitlogRetention( logRetention );
-        client.ModifyVol(new FDSP_MsgHdrType(), new FDSP_ModifyVolType(volInfo.getVol_name(),
+        configService.ModifyVol(new FDSP_ModifyVolType(volInfo.getVol_name(),
                 volInfo.getVolUUID(),
                 volInfo));
         return volInfo;

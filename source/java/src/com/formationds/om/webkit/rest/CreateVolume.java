@@ -172,6 +172,7 @@ public class CreateVolume
 
           Thread.sleep( 200 );
           SetVolumeQosParams.setVolumeQos( legacyConfigPath,
+                                           configApi,
                                            volume.getName(),
                                            ( int ) volume.getSla(),
                                            volume.getPriority(),

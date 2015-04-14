@@ -92,9 +92,9 @@ public class RealAsyncAm implements AsyncAm {
     }
 
     @Override
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset) {
+    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder order, boolean descending) {
         return scheduleAsync(rid -> {
-            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset, "", BlobListOrder.UNSPECIFIED, false);
+            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset, pattern, order, descending);
         });
     }
 
@@ -152,7 +152,7 @@ public class RealAsyncAm implements AsyncAm {
     public CompletableFuture<Void> updateBlob(String domainName, String volumeName, String blobName,
                                               TxDescriptor txDescriptor, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) {
         return scheduleAsync(rid -> {
-            oneWayAm.updateBlob(rid, domainName, volumeName, blobName, txDescriptor, bytes, length, new ObjectOffset(objectOffset), isLast);
+            oneWayAm.updateBlob(rid, domainName, volumeName, blobName, txDescriptor, bytes, length, new ObjectOffset(objectOffset));
         });
     }
 

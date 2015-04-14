@@ -41,6 +41,8 @@ class NbdRequestHandler(BaseHTTPRequestHandler):
             self.write_output(self.run([self.nbdadm_path(), 'attach', params['host'][0], params['volume'][0]]))
         elif verb == 'detach' and 'host' in params and 'volume' in params:
             self.write_output(self.run([self.nbdadm_path(), 'detach', params['host'][0], params['volume'][0]]))
+        elif verb == 'detach' and 'volume' in params:
+            self.write_output(self.run([self.nbdadm_path(), 'detach', params['volume'][0]]))
         else:
             self.send_error(400, 'bad request')
 

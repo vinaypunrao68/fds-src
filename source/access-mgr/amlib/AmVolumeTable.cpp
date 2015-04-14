@@ -110,14 +110,19 @@ void AmVolumeTable::registerCallback(tx_callback_type cb) {
  * Does nothing if volume is already registered
  */
 Error
-AmVolumeTable::registerVolume(const VolumeDesc& vdesc, fds_int64_t token)
+AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
+                              boost::shared_ptr<AmVolumeAccessToken> access_token)
 {
     Error err(ERR_OK);
     fds_volid_t vol_uuid = vdesc.GetID();
 
     {
         WriteGuard wg(map_rwlock);
-        if (volume_map.count(vol_uuid) == 0) {
+        auto it = volume_map.find(vol_uuid);
+        if (volume_map.end() != it) {
+            /** Update existing access token */
+            it->second->swapToken(access_token);
+        } else {
             /** Create queue and register with QoS */
             FDS_VolumeQueue* queue {nullptr};
             if (vdesc.isSnapshot()) {
@@ -131,7 +136,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc, fds_int64_t token)
 
             /** Internal bookkeeping */
             if (err.ok()) {
-                auto new_vol = std::make_shared<AmVolume>(vdesc, queue, token);
+                auto new_vol = std::make_shared<AmVolume>(vdesc, queue, access_token);
                 /** Drain wait queue into QoS */
                 wait_queue->drain(vdesc.name,
                                   [this, vol_uuid] (AmRequest* amReq) mutable -> void {
@@ -150,8 +155,6 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc, fds_int64_t token)
                          << std::hex << vol_uuid << "]"
                          << " because: " << err;
             }
-        } else {
-            LOGNOTIFY << "Volume already registered: [0x" << std::hex << vol_uuid << "]";
         }
     }
 
@@ -232,7 +235,7 @@ AmVolumeTable::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& 
 {
     ReadGuard rg(map_rwlock);
     for (auto const& vol_pair: volume_map) {
-        tokens.push_back(std::make_pair(vol_pair.first, vol_pair.second->token));
+        tokens.push_back(std::make_pair(vol_pair.first, vol_pair.second->getToken()));
     }
 }
 

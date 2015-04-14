@@ -1,10 +1,8 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.repository;
 
-import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
@@ -22,7 +20,7 @@ import javax.persistence.criteria.Root;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * @author ptinius
@@ -101,14 +99,10 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
         }
     }
 
-    /**
-     * @return Returns the {@link Double} representing the calculated sum of logical bytes
-     */
-    @Override
-    public Double sumLogicalBytes() {
-
+    protected List<Long> getVolumeIds() {
         EntityManager em = newEntityManager();
         try {
+
             final CriteriaBuilder cb = em.getCriteriaBuilder();
             final CriteriaQuery<String> cq = cb.createQuery( String.class );
             final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
@@ -119,48 +113,43 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
             final List<VolumeDatapoint> datapoints = new ArrayList<>();
             final List<String> volumeIds = em.createQuery( cq )
                                              .getResultList();
-            volumeIds.stream().forEach( ( vId ) ->
-                                            datapoints.add( mostRecentOccurrenceBasedOnTimestamp( Long.valueOf( vId ),
-                                                                                                  Metrics.LBYTES ) ) );
+            final List<Long> volIds = volumeIds.stream()
+                                               .map( Long::valueOf )
+                                               .collect( Collectors.toList() );
 
-            return datapoints.stream()
-                             .mapToDouble( VolumeDatapoint::getValue )
-                             .summaryStatistics()
-                             .getSum();
+            return volIds;
+
         } finally {
+
             em.close();
+
         }
     }
 
     /**
-     * @return Returns the {@link Double} representing the calculated sum of physical bytes
+     * @return Returns the {@link Double} representing the calculated sum of logical bytes
      */
     @Override
+    public Double sumLogicalBytes() {
+        return sumMetric( Metrics.LBYTES );
+    }
+
+    @Override
     public Double sumPhysicalBytes() {
-        EntityManager em = newEntityManager();
-        try {
-            final CriteriaBuilder cb = em.getCriteriaBuilder();
-            final CriteriaQuery<String> cq = cb.createQuery( String.class );
-            final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+        return sumMetric( Metrics.PBYTES );
+    }
 
-            cq.distinct( true )
-              .select( from.get( "volumeId" ) );
-            cq.where( cb.equal( from.get( "key" ), Metrics.PBYTES.key() ) );
+    protected Double sumMetric( Metrics metrics ) {
+        final List<VolumeDatapoint> datapoints = new ArrayList<>();
+        final List<Long> volumeIds = getVolumeIds();
+        volumeIds.stream().forEach( ( vId ) ->
+                                        datapoints.add( mostRecentOccurrenceBasedOnTimestamp( vId,
+                                                                                              metrics ) ) );
 
-            final List<VolumeDatapoint> datapoints = new ArrayList<>();
-            final List<String> volumeIds = em.createQuery( cq )
-                                             .getResultList();
-            volumeIds.stream().forEach( ( vId ) -> datapoints.add(
-                                                                     mostRecentOccurrenceBasedOnTimestamp( Long.valueOf( vId ),
-                                                                                                           Metrics.PBYTES ) ) );
-
-            return datapoints.stream()
-                             .mapToDouble( VolumeDatapoint::getValue )
-                             .summaryStatistics()
-                             .getSum();
-        } finally {
-            em.close();
-        }
+        return datapoints.stream()
+                         .mapToDouble( VolumeDatapoint::getValue )
+                         .summaryStatistics()
+                         .getSum();
     }
 
     /**
@@ -183,6 +172,8 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
             cq.select( from );
             cq.where( cb.equal( from.get( "key" ), metric.key() ),
                       cb.and( cb.equal( from.get( "volumeName" ), volumeName ) ) );
+            cq.orderBy( cb.desc( from.get( getTimestampColumnName() ) ) );
+
             final List<VolumeDatapoint> datapoints = em.createQuery( cq )
                                                        .getResultList();
             final VolumeDatapoint[] previous = {null};
@@ -224,6 +215,8 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
             cq.where( cb.equal( from.get( "key" ), metric.key() ),
                       cb.and( cb.equal( from.get( "volumeId" ),
                                         volumeId.toString() ) ) );
+            cq.orderBy( cb.desc( from.get( getTimestampColumnName() ) ) );
+
             final List<VolumeDatapoint> datapoints = em.createQuery( cq )
                                                        .getResultList();
             final VolumeDatapoint[] previous = {null};
@@ -250,7 +243,6 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
      *
      * @return Returns the {@link VolumeDatapoint} representing the least recent
      */
-    @Override
     public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp( final Long volumeId,
                                                                   final Metrics metric ) {
 
@@ -291,7 +283,6 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
      *
      * @return Returns the {@link VolumeDatapoint} representing the least recent
      */
-    @Override
     public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp( final String volumeName,
                                                                   final Metrics metric ) {
 
@@ -325,43 +316,4 @@ public class JDOMetricsRepository extends JDORepository<IVolumeDatapoint, Long> 
         }
     }
 
-    @Override
-    public Optional<VolumeStatus> getLatestVolumeStatus( final Long volumeId ) {
-
-        final VolumeDatapoint blobs =
-            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.BLOBS );
-        final VolumeDatapoint usage =
-            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.PBYTES );
-
-        return volumeStatus( blobs, usage );
-    }
-
-    @Override
-    public Optional<VolumeStatus> getLatestVolumeStatus( final String volumeName ) {
-
-        final VolumeDatapoint blobs =
-            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.BLOBS );
-        final VolumeDatapoint usage =
-            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.PBYTES );
-
-        return volumeStatus( blobs, usage );
-    }
-
-    protected Optional<VolumeStatus> volumeStatus( final VolumeDatapoint blobs, final VolumeDatapoint usage ) {
-        if ( (blobs != null) && (usage != null) ) {
-
-            return Optional.of( new VolumeStatus( blobs.getValue().longValue(),
-                                                  usage.getValue().longValue() ) );
-        } else if ( (blobs == null) && (usage != null) ) {
-
-            return Optional.of( new VolumeStatus( 0L,
-                                                  usage.getValue().longValue() ) );
-        } else if ( blobs != null ) {
-
-            return Optional.of( new VolumeStatus( blobs.getValue().longValue(),
-                                                  0L ) );
-        }
-
-        return Optional.empty();
-    }
 }

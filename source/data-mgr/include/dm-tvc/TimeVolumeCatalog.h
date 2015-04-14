@@ -47,6 +47,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * the exclusivity of AM attachments.
      */
     std::unordered_map<fds_volid_t, std::unique_ptr<DmVolumeAccessTable>> accessTable_;
+    std::chrono::duration<fds_uint32_t> vol_tok_lease_time {60};
 
     /**
      * For executing certain blob operations (commit, delete) in a

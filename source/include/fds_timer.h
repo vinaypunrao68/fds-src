@@ -90,6 +90,12 @@ public:
     FdsTimer();
 
     /**
+     * Destructor
+     */
+    ~FdsTimer()
+    { if (!aborted_) { destroy(); } }
+
+    /**
      * Destroy the timer service 
      */
     void destroy();
@@ -223,6 +229,12 @@ public:
      * Constructor
      */
     FdsTimer();
+
+    /**
+     * Destructor
+     */
+    ~FdsTimer()
+    { if (!aborted_) { destroy(); } }
 
     /**
      * Destroy the timer service 
