@@ -175,7 +175,7 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
         // version.
         //
         // Error tmpErr = setDLTVersion(dlt->getVersion(), true);
-        fds_verify(tmpErr.ok());
+        // fds_verify(tmpErr.ok());
 
         LOGWARN << "DLT does not contain any tokens owned by this SM";
         return ERR_INVALID_DLT;
