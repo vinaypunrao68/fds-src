@@ -166,9 +166,9 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     // if there are no DLT tokens that belong to this SM
     // we don't care about this DLT
     if (dlt_toks.size() == 0) {
-        // TODO(Sean):  Sync'ing out DLT version to the SM Superblock immediately.
-        //              Since, there is no changes to the mapping, we just need to change the
-        //              version.
+        // Sync'ing out DLT version to the SM Superblock immediately.
+        // Since, there is no changes to the mapping, we just need to change the
+        // version.
         //
         Error tmpErr = setDLTVersion(dlt->getVersion(), true);
         fds_verify(tmpErr.ok());
