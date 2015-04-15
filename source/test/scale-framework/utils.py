@@ -33,11 +33,10 @@ interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
 
 def is_device_mounted(device):
     try:
-        cmd = "mount | grep %s > /dev/null" % device
-        output = subprocess.check_output([cmd], shell=True)
-        if len(output) == 0:
-            return True
-        return False
+        device = subprocess.check_output("grep '%s' /proc/mounts | awk '{printf $1}'" % device, shell=True)
+        if len(device) == 0:
+            return False
+        return True
     except Exception, e:
         log.exception(e)
         sys.exit(2)
