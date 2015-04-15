@@ -364,3 +364,20 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
 
     return params
 
+def findNodeFromInv(node_inventory, target):
+    '''
+    Looks for target in node_inventory and returns the target object.
+    :param node_inventory: A list of nodes to search through (typically nd_confg_dict)
+    :param target: Target node to find (a parameter passed into the test case)
+    :return: Returns the node object identified by target
+    '''
+
+    # If we didn't get a string, just return the original object
+    if not isinstance(target, str):
+        return target
+
+    # Otherwise look for a node with the target name
+    for node in node_inventory:
+        if node.nd_conf_dict['node-name'] == target:
+            return node
+

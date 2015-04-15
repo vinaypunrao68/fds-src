@@ -9,7 +9,7 @@
 import unittest
 import traceback
 import TestCase
-
+from fdslib.TestUtils import findNodeFromInv
 # Module-specific requirements
 import sys
 import os
@@ -132,25 +132,28 @@ class TestVolumeAttach(TestCase.FDSTestCase):
                 break
 
             nodes = fdscfg.rt_obj.cfg_nodes
-            for node in nodes:
-                if am_node == node.nd_conf_dict['node-name']:
-                    break;
+            node = findNodeFromInv(nodes, am_node)
+
             ip = node.nd_conf_dict['ip']
             offset = 3809
             port = int(node.nd_conf_dict['fds_port']) + offset
-            self.log.info("Attach volume %s on OM node %s." % (volName, am_node))
+            self.log.info("Attach volume %s on node %s." % (volName, am_node))
             cmd = ('attach %s:%s %s' % (ip, port, volName))
 
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./nbdadm.py  %s > %s/nbdadm.out 2>&1 &) \"' %
-                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
-                                                fds_tools=True)
-
+            cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
+            status, stdout = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s) \"' %
+                                                        (cinder_dir, cmd), return_stdin=True)
             if status != 0:
                 self.log.error("Attach volume %s on %s returned status %d." %
                                (volName, am_node, status))
                 return False
-            elif self.passedVolume is not None:
+
+            #stdout has the nbd device to which the volume was attached
+            volume.nd_conf_dict['nbd-dev'] = stdout
+            self.log.info("volume = %s and it's nbd device = %s" %
+                          (volume.nd_conf_dict['vol-name'], volume.nd_conf_dict['nbd-dev']))
+
+            if self.passedVolume is not None:
                 break
 
         return True
@@ -210,8 +213,9 @@ class TestVolumeDetach(TestCase.FDSTestCase):
             cmd = ('detach %s:%s %s' % (ip, port, volName))
 
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(nohup ./nbdadm.py  %s > %s/nbdadm.out 2>&1 &) \"' %
-                                                (cmd, log_dir if om_node.nd_agent.env_install else "."),
+            cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
+            status = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s >> %s/nbdadm.out 2>&1 &) \"' %
+                                                (cinder_dir, cmd, log_dir if om_node.nd_agent.env_install else "."),
                                                 fds_tools=True)
 
             if status != 0:

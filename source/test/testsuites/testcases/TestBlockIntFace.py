@@ -161,12 +161,12 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
 # writing block data.
 #
 class TestBlockFioSeqW(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, volume=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_BlockFioWrite,
                                              "Writing a block volume")
-
+        self.passedVol = volume
 
     def test_BlockFioWrite(self):
         """
@@ -186,6 +186,18 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
             # Running in a forked process. Don't
             # stop on failures.
             verify_fatal = 0
+
+        if self.passedVol is not None:
+            volumes = fdscfg.rt_get_obj('cfg_volumes')
+            for volume in volumes:
+                if self.passedVol == volume.nd_conf_dict['vol-name']:
+                    nbd_device = volume.nd_conf_dict['nbd-dev']
+                    self.log.info("nbd_device is %s" % (nbd_device))
+                    break
+                else:
+                    nbd_device = ""
+        else:
+            nbd_device = "/dev/nbd15"
 
         # TODO(Andrew): Don't hard code all of this stuff...
         fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k " \

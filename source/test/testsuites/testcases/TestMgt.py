@@ -602,7 +602,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                     break
 
             if found:
-                # Give the volume attachment some time to propagate if requested.
+                # Give the volume detachment some time to propagate if requested.
                 if 'delay_wait' in scenario.nd_conf_dict:
                     suite.addTest(TestWait(delay=delay, reason="to allow volume detachment " + script + " to propagate"))
             else:
