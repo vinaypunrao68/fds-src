@@ -21,7 +21,7 @@
 #include <orchMgr.h>
 #include <util/stringutils.h>
 #include <util/timeutils.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
@@ -96,6 +96,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId) {} //NOLINT
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
+    void createQoSPolicy(FDSP_PolicyInfoType& _return, const std::string& policyName, const int64_t minIops, const int64_t maxIops, const int32_t relPrio) {}
+    void listQoSPolicies(std::vector<FDSP_PolicyInfoType>& _return, const int64_t unused) {}
+    void modifyQoSPolicy(FDSP_PolicyInfoType& _return, const std::string& current_policy_name, const std::string& new_policy_name, const int64_t iops_min, const int64_t iops_max, const int32_t rel_prio) {};
+    void deleteQoSPolicy(const std::string& policyName) {}
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName, const int64_t timelineTime) { return 0;} //NOLINT
     void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
@@ -508,6 +512,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         fpi::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
+        LOGDEBUG << "delete volume notification received:" << *volumeName << " " << err;
     }
 
     void statVolume(VolumeDescriptor& volDescriptor,
@@ -628,6 +633,125 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void listSnapshots(std::vector<fpi::Snapshot> & _return,
                        boost::shared_ptr<int64_t>& volumeId) {
         configDB->listSnapshots(_return, *volumeId);
+    }
+
+    /**
+    * Create a QoS Policy.
+    *
+    * @param _return - Output create QoS Policy details.
+    * @param policyName - Name of the new QoS Policy. Must be unique within Global Domain.
+    * @param domainSite - Name of the new Local Domain's site.
+    */
+    void createQoSPolicy(FDSP_PolicyInfoType& _return, boost::shared_ptr<std::string>& policyName,
+                           boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
+                           boost::shared_ptr<int32_t>& relPrio ) {
+        LOGNOTIFY << "Received CreatePolicy  Msg for policy "
+                  << policyName;
+
+        auto policy_mgr = om->om_policy_mgr();
+        policy_mgr->createPolicy(_return, *policyName,
+                                 static_cast<fds_uint64_t>(*minIops), static_cast<fds_uint64_t>(*maxIops),
+                                 static_cast<fds_uint32_t>(*relPrio));
+
+        if (_return.policy_id > 0) {
+            LOGNOTIFY << "QoS Policy creation succeded. " << _return.policy_id << ": " << *policyName;
+        } else {
+            LOGERROR << "Some issue in QoS Policy creation: " << *policyName;
+            apiException("Error creating QoS Policy.");
+        }
+    }
+
+    /**
+    * List the currently defined QoS Policies.
+    *
+    * @param _return - Output vector of current QoS Policies.
+    *
+    * @return void.
+    */
+    void listQoSPolicies(std::vector<FDSP_PolicyInfoType>& _return, boost::shared_ptr<int64_t>& ignore) {
+        std::vector<FDS_VolumePolicy> qosPolicies;
+
+        if (configDB->getPolicies(qosPolicies)) {
+            for (const auto& qosPolicy : qosPolicies) {
+                FDSP_PolicyInfoType fdspQoSPolicy;
+
+                fdspQoSPolicy.policy_name = qosPolicy.volPolicyName;
+                fdspQoSPolicy.policy_id = qosPolicy.volPolicyId;
+                fdspQoSPolicy.iops_min = qosPolicy.iops_min;
+                fdspQoSPolicy.iops_max = qosPolicy.iops_max;
+                fdspQoSPolicy.rel_prio = qosPolicy.relativePrio;
+
+                _return.push_back(fdspQoSPolicy);
+            }
+        } else {
+            LOGERROR << "Some issue in listing QoS Policies.";
+            apiException("Error listing QoS Policies.");
+        }
+    }
+
+    /**
+     * Modify a QoS Policy.
+     *
+     * @param _return - Output modified QoS Policy details.
+     * @param currentPolicyName - Name of the current QoS Policy. Must be unique within Global Domain.
+     * @param newPolicyName - Name of the new QoS Policy. Must be unique within Global Domain. May be the same as
+     *                        currentPolicyName if the name is not being changed.
+     * @param minIops - New policy minimum IOPS.
+     * @param maxIops - New policy maximum IOPS.
+     * @param relPrio - New policy relative priority.
+     */
+    void modifyQoSPolicy(FDSP_PolicyInfoType& _return,
+                         boost::shared_ptr<std::string>& currentPolicyName, boost::shared_ptr<std::string>& newPolicyName,
+                         boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
+                         boost::shared_ptr<int32_t>& relPrio ) {
+        FDS_VolumePolicy qosPolicy;
+
+        qosPolicy.volPolicyId = configDB->getIdOfQoSPolicy(*currentPolicyName);
+
+        if (qosPolicy.volPolicyId > 0) {
+            qosPolicy.volPolicyName = *newPolicyName;
+            qosPolicy.iops_min = static_cast<fds_uint64_t>(*minIops);
+            qosPolicy.iops_max = static_cast<fds_uint64_t>(*maxIops);
+            qosPolicy.relativePrio = static_cast<fds_uint32_t>(*relPrio);
+            if (configDB->updatePolicy(qosPolicy)) {
+                _return.policy_id = qosPolicy.volPolicyId;
+                _return.policy_name = qosPolicy.volPolicyName;
+                _return.iops_min = qosPolicy.iops_min;
+                _return.iops_max = qosPolicy.iops_max;
+                _return.rel_prio = qosPolicy.relativePrio;
+                
+                LOGNOTIFY << "QoS Policy modification succeded. " << _return.policy_id << ": " << *currentPolicyName;
+            } else {
+                LOGERROR << "Some issue in QoS Policy modification: " << *currentPolicyName;
+                apiException("Error modifying QoS Policy.");
+            }
+        } else {
+            LOGNOTIFY << "No policy found for " << *currentPolicyName;
+        }
+
+        return;
+    }
+
+    /**
+    * Delete the QoS Policy.
+    *
+    * @param policyName - Name of the QoS Policy to be deleted.
+    *
+    * @return void.
+    */
+    void deleteQoSPolicy(boost::shared_ptr<std::string>& policyName) {
+        auto policyId = configDB->getIdOfQoSPolicy(*policyName);
+
+        if (policyId > 0) {
+            if (configDB->deletePolicy(policyId)) {
+                LOGNOTIFY << "QoS Policy delete succeded. " << policyId << ": " << *policyName;
+            } else {
+                LOGERROR << "Some issue in QoS Policy deletion: " << *policyName;
+                apiException("Error deleting QoS Policy.");
+            }
+        } else {
+            LOGNOTIFY << "No policy found for " << *policyName;
+        }
     }
 
     void restoreClone(boost::shared_ptr<int64_t>& volumeId,

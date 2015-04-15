@@ -118,8 +118,8 @@ TEST(SvcServer, multi_stop)
         sleep(1);
 
         /* Create two clients */
-        auto client1 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, true);
-        auto client2 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, true);
+        auto client1 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, SvcMgr::MAX_CONN_RETRIES);
+        auto client2 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, SvcMgr::MAX_CONN_RETRIES);
 
         /* Stop the server.  This will block until stop() completes */
         server->stop();

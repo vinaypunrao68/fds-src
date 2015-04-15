@@ -1,23 +1,24 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.  All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.om.repository.influxdb;
 
-import com.formationds.apis.VolumeStatus;
+import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.MetricRepository;
+import com.formationds.om.repository.query.OrderBy;
 import com.formationds.om.repository.query.QueryCriteria;
+import org.apache.thrift.TException;
 import org.influxdb.dto.Serie;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -88,12 +89,15 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     @Override
     synchronized public void open( Properties properties ) {
-        // command is silently ignored if the database already exists.
-        if ( !super.createDatabase( DEFAULT_METRIC_DB ) ) {
-            logger.debug( "Database " + DEFAULT_METRIC_DB.getName() + " already exists." );
-        }
+
         super.open( properties );
+
+        // command is silently ignored if the database already exists.
+        super.createDatabaseAsync( DEFAULT_METRIC_DB );
     }
+
+    @Override
+    public String getInfluxDatabaseName() { return DEFAULT_METRIC_DB.getName(); }
 
     @Override
     public String getEntityName() {
@@ -114,7 +118,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public Optional<String> getVolumeIdColumnName() {
         return Optional.of( VOL_ID_COLUMN_NAME );
     }
-    
+
     @Override
     public Optional<String> getVolumeDomainColumnName() {
     	return Optional.of( VOL_DOMAIN_COLUMN_NAME );
@@ -171,7 +175,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                                   .values(metricValues)
                                   .build();
 
-                getConnection().getDBWriter().write( TimeUnit.MILLISECONDS, serie );
+                getConnection().getAsyncDBWriter().write( TimeUnit.MILLISECONDS, serie );
             }
         }
         return vdps;
@@ -203,58 +207,6 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     /**
-     * Method to create a string from the query object that matches influx format
-     *
-     * @param queryCriteria
-     *
-     * @return
-     */
-    protected String formulateQueryString( QueryCriteria queryCriteria ) {
-
-        StringBuilder sb = new StringBuilder();
-
-        String prefix = SELECT + " * " + FROM + " " + getEntityName();
-        sb.append( prefix );
-
-        if ( queryCriteria.getRange() != null &&
-             queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
-
-            sb.append( " " + WHERE );
-        }
-
-        // do time range
-        if ( queryCriteria.getRange() != null ) {
-
-            String time = " ( " + getTimestampColumnName() + " > " + queryCriteria.getRange().getStart() + "s " + AND +
-                          " " + getTimestampColumnName() + " < " + queryCriteria.getRange().getEnd() + "s ) ";
-
-            sb.append( time );
-        }
-
-        if ( queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
-
-            sb.append( AND + " ( " );
-
-            Iterator<Volume> contextIt = queryCriteria.getContexts().iterator();
-
-            while ( contextIt.hasNext() ) {
-
-                Volume volume = contextIt.next();
-
-                sb.append( getVolumeIdColumnName().get() + " = '" + volume.getId() + "'" );
-
-                if ( contextIt.hasNext() ) {
-                    sb.append( " " + OR + " " );
-                }
-            }
-
-            sb.append( " )" );
-        }
-
-        return sb.toString();
-    }
-
-    /**
      * Convert an influxDB return type into VolumeDatapoints that we can use
      *
      * @param series
@@ -263,73 +215,75 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     protected List<IVolumeDatapoint> convertSeriesToPoints( List<Serie> series ) {
 
-    	final List<IVolumeDatapoint> datapoints = new ArrayList<IVolumeDatapoint>();
-    	
-    	// we expect rows from one and only one series.  If there are more, we'll only use
-    	// the first one
-    	if ( series == null || series.size() == 0 ) {
-    		return datapoints;
-    	}
-    	
-    	List<Map< String, Object>> rowList = series.get( 0 ).getRows();
-    	
-    	for ( Map<String, Object> row : rowList ) {
-    		
-    		// get the timestamp
-    		Object timestampO = null;
-    		Object volumeIdO = null;
-    		Object volumeNameO = null;
-    		
-    		try {
-				timestampO = row.get( getTimestampColumnName() );
-				volumeIdO = row.get( getVolumeIdColumnName().get() );
-				volumeNameO = row.get( getVolumeNameColumnName().get() );
-				
-    		} catch( NoSuchElementException nsee ) {
-    			continue;
-    		}
-    		
-    		// we expect a value for all of these fields.  If not, bail
-    		if ( timestampO == null || volumeIdO == null || volumeNameO == null ) {
-    			continue;
-    		}
-    		
-    		Long timestamp = ((Double)timestampO ).longValue();
-    		String volumeName = volumeIdO.toString();
-    		String volumeId = volumeIdO.toString();
-    		
-    		row.forEach( ( key, value ) -> {
-    		
-    			// If we run across a column for metadata we just skip it.
-    			// we're only interested in the stats columns at this point
-    			try {
-	    			if ( key.equals( getTimestampColumnName() ) ||
-	    				key.equals( getVolumeIdColumnName().get() ) || 
-	    				key.equals( getVolumeNameColumnName().get() ) ||
-	    				key.equals( getVolumeDomainColumnName().get() ) ||
-	    				value == null ) {
-	    				return;
-	    			}
-    			} catch( NoSuchElementException nsee ) {
-    				return;
-    			}
-    			
-    			Double numberValue = Double.parseDouble( value.toString() );
-    			
-    			VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeId, volumeName, key, numberValue );
-    			datapoints.add( point );
-    			
-    		});
-    	} // for each row
-    	
-    	return datapoints;
+        final List<IVolumeDatapoint> datapoints = new ArrayList<>();
+
+        // we expect rows from one and only one series.  If there are more, we'll only use
+        // the first one
+        if ( series == null || series.size() == 0 ) {
+            return datapoints;
+        }
+
+        if (series.size() > 1) {
+            logger.warn( "Expecting only one metric series.  Skipping " + (series.size() - 1) + " unexpected series." );
+        }
+
+        List<Map<String, Object>> rowList = series.get( 0 ).getRows();
+
+        for ( Map<String, Object> row : rowList ) {
+
+            // get the timestamp
+            Object timestampO = null;
+            Object volumeIdO = null;
+            Object volumeNameO = null;
+
+            try {
+                timestampO = row.get( getTimestampColumnName() );
+                volumeIdO = row.get( getVolumeIdColumnName().get() );
+                volumeNameO = row.get( getVolumeNameColumnName().get() );
+            } catch ( NoSuchElementException nsee ) {
+                continue;
+            }
+
+            // we expect a value for all of these fields.  If not, bail
+            if ( timestampO == null || volumeIdO == null || volumeNameO == null ) {
+                continue;
+            }
+
+            Long timestamp = ((Double) timestampO).longValue();
+            String volumeName = volumeIdO.toString();
+            String volumeId = volumeIdO.toString();
+
+            row.forEach( ( key, value ) -> {
+
+                // If we run across a column for metadata we just skip it.
+                // we're only interested in the stats columns at this point
+                try {
+                    if ( key.equals( getTimestampColumnName() ) ||
+                         key.equals( getVolumeIdColumnName().get() ) ||
+                         key.equals( getVolumeNameColumnName().get() ) ||
+                         key.equals( getVolumeDomainColumnName().get() ) ||
+                         value == null ) {
+                        return;
+                    }
+                } catch ( NoSuchElementException nsee ) {
+                    return;
+                }
+
+                Double numberValue = Double.parseDouble( value.toString() );
+
+                VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeId, volumeName, key, numberValue );
+                datapoints.add( point );
+            } );
+        } // for each row
+
+        return datapoints;
     }
 
     @Override
     public List<IVolumeDatapoint> query( QueryCriteria queryCriteria ) {
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), TimeUnit.SECONDS );
 
         // execute the query
         List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
@@ -340,45 +294,89 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         return datapoints;
     }
 
+    /**
+     *
+     * @return the list of volume ids
+     */
+    protected List<Long> getVolumeIds() {
+        try {
+            // expect this is fully cached.
+            List<VolumeDescriptor> volumeDescriptors = SingletonConfigAPI.instance().api().listVolumes( "" );
+
+            return volumeDescriptors.stream().map( VolumeDescriptor::getVolId ).collect( Collectors.toList() );
+
+        } catch (TException te ) {
+            throw new IllegalStateException( "Failed to access configuration service.", te );
+        }
+    }
+
     @Override
     public Double sumLogicalBytes() {
-        return null;
+        return sumMetric( Metrics.LBYTES );
     }
 
     @Override
     public Double sumPhysicalBytes() {
-        return null;
+        return sumMetric( Metrics.PBYTES );
+    }
+
+    protected Double sumMetric( Metrics metrics ) {
+        final List<VolumeDatapoint> datapoints = new ArrayList<>();
+        final List<Long> volumeIds = getVolumeIds();
+        volumeIds.stream().forEach( ( vId ) -> {
+            final VolumeDatapoint vdp = mostRecentOccurrenceBasedOnTimestamp( vId, metrics );
+            if ( vdp != null ) {
+                datapoints.add( vdp );
+            }
+        } );
+
+        return datapoints.stream()
+                         .mapToDouble( VolumeDatapoint::getValue )
+                         .summaryStatistics()
+                         .getSum();
     }
 
     @Override
     public <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( String volumeName,
                                                                                     Metrics metric ) {
-        return null;
+        try {
+
+            // expect this to be cached.
+            long volumeId = SingletonConfigAPI.instance().api().getVolumeId( volumeName );
+
+            return mostRecentOccurrenceBasedOnTimestamp( volumeId, metric );
+
+        } catch (TException te ) {
+
+            throw new IllegalStateException( "Failed to access configuration service.", te );
+
+        }
     }
 
     @Override
     public <VDP extends IVolumeDatapoint> VDP mostRecentOccurrenceBasedOnTimestamp( Long volumeId, Metrics metric ) {
-        return null;
-    }
 
-    @Override
-    public <VDP extends IVolumeDatapoint> VDP leastRecentOccurrenceBasedOnTimestamp( Long volumeId, Metrics metric ) {
-        return null;
-    }
+        QueryCriteria queryCriteria = new QueryCriteria( );
 
-    @Override
-    public <VDP extends IVolumeDatapoint> VDP leastRecentOccurrenceBasedOnTimestamp( String volumeName,
-                                                                                     Metrics metric ) {
-        return null;
-    }
+        // this only works because we know that formulateQueryString uses the volume id in the query.
+        queryCriteria.setContexts( Arrays.asList( new Volume( 0, volumeId.toString(), "", "" ) ) );
+        queryCriteria.addOrderBy( new OrderBy(getTimestampColumnName(), false) );
 
-    @Override
-    public Optional<VolumeStatus> getLatestVolumeStatus( Long volumeId ) {
-        return null;
-    }
+        // get the query string
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), TimeUnit.SECONDS );
 
-    @Override
-    public Optional<VolumeStatus> getLatestVolumeStatus( String volumeName ) {
-        return null;
+        StringBuilder sb = new StringBuilder( queryString ).append( " limit 1" );
+
+        // execute the query
+        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
+
+        if (series.isEmpty()) {
+            return null;
+        }
+
+        // convert from influxdb format to FDS model format
+        List<IVolumeDatapoint> datapoints = convertSeriesToPoints( series );
+
+        return (VDP)datapoints.get( 0 );
     }
 }

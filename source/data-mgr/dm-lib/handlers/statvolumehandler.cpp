@@ -4,8 +4,8 @@
 
 #include <dmhandler.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
-                           // incomplete type errors in BaseAsyncSvcHandler.h
-#include <net/BaseAsyncSvcHandler.h>
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
 #include <util/Log.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
@@ -25,6 +25,13 @@ void StatVolumeHandler::handleRequest(
         boost::shared_ptr<fpi::StatVolumeMsg>& message) {
     LOGTRACE << "Received a statVolume request for volume "
              << message->volume_id;
+
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
 
     auto dmReq = new DmIoStatVolume(message);
     dmReq->cb = BIND_MSG_CALLBACK(StatVolumeHandler::handleResponse, asyncHdr, message);

@@ -8,6 +8,6 @@ user_build_dir :=      \
     util               \
     stor-mgr           \
     data-mgr           \
-    restart
+    svclayer
 
 include $(topdir)/Makefile.incl

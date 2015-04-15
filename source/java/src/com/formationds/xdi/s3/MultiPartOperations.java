@@ -3,12 +3,10 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.*;
+import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.xdi.Xdi;
-import org.apache.thrift.TException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,13 +28,13 @@ class MultiPartOperations {
         return txId + "-" + String.format("%05d", partNumber);
     }
 
-    public static List<String> getMultipartUploadsInProgress(Xdi xdi, AuthenticationToken token) throws TException, ApiException {
+    public static List<String> getMultipartUploadsInProgress(Xdi xdi, AuthenticationToken token) throws Exception {
         Pattern p = Pattern.compile("^multipart-(.+)$");
         ArrayList<String> uploadIds = new ArrayList<>();
 
         // TODO: read this in chunks
         String systemVolume = xdi.getSystemVolumeName(token);
-        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
+        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         for(BlobDescriptor bd : blobDescriptors) {
             Matcher match = p.matcher(bd.getName());
             if(match.matches()) {
@@ -49,13 +47,13 @@ class MultiPartOperations {
 
     // TODO: there is obviously a race here when the number of blobs in the system bucket changes
     //       given the current API it may not be feasible to prevent it
-    public List<PartInfo> getParts() throws TException, ApiException {
+    public List<PartInfo> getParts() throws Exception {
         Pattern p = Pattern.compile("^" + Pattern.quote(txId) + "-(\\d{5})$");
         ArrayList<PartInfo> partDescriptors = new ArrayList<>();
 
         // TODO: read this in chunks
         String systemVolume = xdi.getSystemVolumeName(token);
-        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false);
+        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
         for(BlobDescriptor bd : blobDescriptors) {
             Matcher match = p.matcher(bd.getName());
             if(match.matches()) {

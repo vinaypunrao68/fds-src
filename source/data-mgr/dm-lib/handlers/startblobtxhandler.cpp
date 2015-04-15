@@ -6,8 +6,8 @@
 #include <util/Log.h>
 #include <fds_error.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
-                           // incomplete type errors in BaseAsyncSvcHandler.h
-#include <net/BaseAsyncSvcHandler.h>
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
 #include <PerfTrace.h>
 #include <VolumeMeta.h>
 
@@ -33,6 +33,13 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     if (dataMgr->testUturnStartTx) {
         LOGNOTIFY << "Uturn testing start blob tx " << logString(*asyncHdr) << logString(*message);
         handleResponse(asyncHdr, message, ERR_OK, nullptr);
+        return;
+    }
+
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
 

@@ -6,7 +6,6 @@
 
 #include <string>
 #include <util/Log.h>
-#include <fds_module.h>
 #include <fdsp/AsyncXdiServiceResponse.h>
 #include <concurrency/Thread.h>
 #include <AmAsyncDataApi.h>
@@ -36,8 +35,7 @@ namespace xdi_ats = apache::thrift::server;
  * RPC-based async server for XDI. Exposes AM data interface via
  * RPC-endpoints.
  */
-class AsyncDataServer : public Module, public boost::noncopyable {
-  private:
+class AsyncDataServer {
     fds_uint32_t               port;
 
     // Thrift endpoint related
@@ -46,31 +44,19 @@ class AsyncDataServer : public Module, public boost::noncopyable {
     boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
     boost::shared_ptr<xdi_at::TProcessorFactory>  processorFactory;
 
-    boost::shared_ptr<xdi_ats::TThreadedServer>    ttServer;
+    std::unique_ptr<xdi_ats::TThreadedServer>    ttServer;
 
-    std::shared_ptr<boost::thread> listen_thread;
+    std::shared_ptr<std::thread> listen_thread;
 
   public:
-    AsyncDataServer(const std::string &name,
-                    fds_uint32_t pmPort);
-    virtual ~AsyncDataServer() {
-        if (listen_thread) {
-            ttServer->stop();
-            listen_thread->join();
-        }
-    }
-    typedef std::unique_ptr<AsyncDataServer> unique_ptr;
+    AsyncDataServer(std::weak_ptr<AmProcessor> processor, fds_uint32_t pmPort);
+    AsyncDataServer(AsyncDataServer const&) = delete;
+    AsyncDataServer& operator=(AsyncDataServer const&) = delete;
+    virtual ~AsyncDataServer()
+        { stop(); }
 
-    int  mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
-
-    virtual void init_server(std::weak_ptr<AmProcessor> processor);
-    virtual void deinit_server();
-
-    boost::shared_ptr<xdi_ats::TThreadedServer> getTTServer() {
-        return ttServer;
-    }
+    void start();
+    void stop();
 };
 
 }  // namespace fds

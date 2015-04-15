@@ -8,8 +8,8 @@
 #include <DmIoReq.h>
 #include <PerfTrace.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
-                           // incomplete type errors in BaseAsyncSvcHandler.h
-#include <net/BaseAsyncSvcHandler.h>
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
 
 namespace fds {
 namespace dm {
@@ -33,6 +33,13 @@ void SetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asy
     if (dataMgr->testUturnSetMeta) {
         LOGNOTIFY << "Uturn testing" << logString(*message);
         handleResponse(asyncHdr, message, ERR_OK, nullptr);
+        return;
+    }
+
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
 

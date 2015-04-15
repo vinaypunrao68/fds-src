@@ -669,16 +669,32 @@ OM_NodeAgent::om_send_shutdown() {
     Error err(ERR_OK);
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
-    fpi::ShutdownMODMsgPtr msg(new fpi::ShutdownMODMsg());
+    fpi::PrepareForShutdownMsgPtr msg(new fpi::PrepareForShutdownMsg());
 
-    om_req->setPayload(FDSP_MSG_TYPEID(fpi::ShutdownMODMsg), msg);
-    om_req->setTimeoutMs(0);
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_shutdown_resp, this,
+                                   std::placeholders::_1, std::placeholders::_2,
+                                   std::placeholders::_3));
+    om_req->setTimeoutMs(20000);
     om_req->invoke();
 
     LOGNOTIFY << "OM: send shutdown message to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
-
     return err;
+}
+
+void
+OM_NodeAgent::om_send_shutdown_resp(EPSvcRequest* req,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "OM received response for Prepare For Shutdown msg from node "
+             << std::hex << req->getPeerEpId().svc_uuid << std::dec
+             << " " << error;
+
+    // Notify domain state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    domain->local_domain_event(ShutAckEvt(node_svc_type, error));
 }
 
 void
@@ -2058,22 +2074,27 @@ om_send_shutdown(fds_uint32_t ignore, NodeAgent::pointer agent) {
 // om_bcast_shutdown_msg
 // ---------------------
 //
-void
-OM_NodeContainer::om_bcast_shutdown_msg()
+fds_uint32_t
+OM_NodeContainer::om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type)
 {
     fds_uint32_t count = 0;
 
-    // send shutdown to AM nodes
-    count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
-    LOGDEBUG << "Sent SHUTDOWN to " << count << " AM services successfully";
-
-    // send shutdown to DM nodes
-    count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
-    LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
-
-    // send shutdown to SM nodes
-    count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
-    LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully";
+    if (svc_type == fpi::FDSP_DATA_MGR) {
+        // send shutdown to DM nodes
+        count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+        LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
+    } else if (svc_type == fpi::FDSP_STOR_MGR) {
+        // send shutdown to SM nodes
+        count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+        LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully"; 
+    } else if (svc_type == fpi::FDSP_ACCESS_MGR) {
+        // send shutdown to AM nodes
+        count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+        LOGDEBUG << "Sent SHUTDOWN to " << count << " AM services successfully";
+    } else {
+        LOGERROR << "Received Prepare For Shutdown request for invalid svc type.";
+    }
+    return count;
 }
 
 void OM_NodeContainer::om_bcast_svcmap()

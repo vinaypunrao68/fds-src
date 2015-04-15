@@ -199,6 +199,7 @@ ObjectDataStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
  */
 int
 ObjectDataStore::mod_init(SysParams const *const p) {
+    LOGDEBUG << "Will init Data Store";
     static Module *dataStoreDepMods[] = {
         dataCache.get(),
         persistData.get(),
@@ -215,6 +216,7 @@ ObjectDataStore::mod_init(SysParams const *const p) {
  */
 void
 ObjectDataStore::mod_startup() {
+    Module::mod_startup();
 }
 
 /**
@@ -222,6 +224,8 @@ ObjectDataStore::mod_startup() {
  */
 void
 ObjectDataStore::mod_shutdown() {
+    Module::mod_shutdown();
+    LOGDEBUG << "Done.";
 }
 
 }  // namespace fds

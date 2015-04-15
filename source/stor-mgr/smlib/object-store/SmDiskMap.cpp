@@ -99,9 +99,16 @@ void SmDiskMap::ssdTrackCapacityDelete(ObjectID oid, fds_uint64_t writeSize) {
 }
 
 void SmDiskMap::mod_startup() {
+    Module::mod_startup();
 }
 
 void SmDiskMap::mod_shutdown() {
+    if (ssdIdxMap) {
+        delete ssdIdxMap;
+        ssdIdxMap = nullptr;
+    }
+
+    Module::mod_shutdown();
 }
 
 void SmDiskMap::getDiskMap() {

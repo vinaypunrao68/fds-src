@@ -5,6 +5,7 @@
 package com.formationds.om.webkit;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+import com.formationds.protocol.commonConstants;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
@@ -20,6 +21,10 @@ import com.formationds.om.webkit.rest.platform.ActivateNode;
 import com.formationds.om.webkit.rest.platform.DeactivateNode;
 import com.formationds.om.webkit.rest.platform.ListNodes;
 import com.formationds.om.webkit.rest.snapshot.*;
+import com.formationds.om.webkit.rest.policy.PostQoSPolicy;
+import com.formationds.om.webkit.rest.policy.GetQoSPolicies;
+import com.formationds.om.webkit.rest.policy.PutQoSPolicy;
+import com.formationds.om.webkit.rest.policy.DeleteQoSPolicy;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
@@ -104,6 +109,11 @@ public class WebKitImpl {
          * provides snapshot RESTful API endpoints
          */
         snapshot( configAPI, legacyConfig );
+
+        /*
+         * provides QoS RESTful API endpoints
+         */
+        qos( configAPI );
 
         /*
          * provides metrics RESTful API endpoints
@@ -349,9 +359,9 @@ public class WebKitImpl {
         
         authenticate( HttpMethod.GET,  "/api/systemhealth",
         		( t ) -> new SystemHealthStatus(
-        				SingletonLegacyConfig.instance().api(), 
-        				SingletonConfigAPI.instance().api(), 
-        				authorizer, 
+        				SingletonLegacyConfig.instance().api(),
+        				SingletonConfigAPI.instance().api(),
+        				authorizer,
         				t ) );
     }
 
@@ -452,6 +462,46 @@ public class WebKitImpl {
                       "/api/config/snapshot/policies/:policyId",
                       ( t ) -> new DeleteSnapshotPolicy( config ) );
 
+    }
+
+    private void qos( final ConfigurationApi config ) {
+        /**
+         * Logical grouping for each HTTP method.
+         *
+         * This will allow future additions to the QoS API to be extended
+         * and quickly view to ensure that all API are added. Its very lightweight,
+         * but makes it easy to follow and maintain.
+         */
+        logger.trace( "registering QoS endpoints" );
+        qosPosts( config );
+        qosGets( config );
+        qosPuts( config );
+        qosDeletes( config );
+        logger.trace("registered QoS endpoints");
+    }
+
+    private void qosPosts( final ConfigurationApi config ) {
+        authenticate(HttpMethod.POST,
+                "/fds/config/" + commonConstants.CURRENT_XDI_VERSION + "/qos_policies",
+                (t) -> new PostQoSPolicy(config));
+    }
+
+    private void qosGets( final ConfigurationApi config ) {
+        authenticate( HttpMethod.GET,
+                      "/fds/config/" + commonConstants.CURRENT_XDI_VERSION + "/qos_policies",
+                      ( t ) -> new GetQoSPolicies( config ) );
+    }
+
+    private void qosPuts( final ConfigurationApi config ) {
+        authenticate( HttpMethod.PUT,
+                      "/fds/config/" + commonConstants.CURRENT_XDI_VERSION + "/qos_policies/:current_policy_name",
+                      ( t ) -> new PutQoSPolicy( config ) );
+    }
+
+    private void qosDeletes( final ConfigurationApi config ) {
+        authenticate( HttpMethod.DELETE,
+                      "/fds/config/" + commonConstants.CURRENT_XDI_VERSION + "/qos_policies/:policy_name",
+                      ( t ) -> new DeleteQoSPolicy( config ) );
     }
 
     private void events( ) {

@@ -455,4 +455,53 @@ service ConfigurationService {
     2:i64 fdsp_PolicyInfoId,
     3:string cloneVolumeName,
     4:i64 timelineTime)
+
+  /**
+   * Create a new QoS policy.
+   *
+   * @param policy_name - A string representing the name of the policy. Must be unique within a Global Domain.
+   * @param iops_min - An i64 representing the minimum IOPS to be achieved by the policy. Also referred to as "SLA" or
+   *                   "Service Level Agreement".
+   * @param iops_max - An i64 representing the maximum IOPS guaranteed by the policy. Also referred to as "Limit".
+   * @param rel_prio - An i32 representing the relative priority of requests against Volumes with this policy compared
+   *                   to requests against Volumes with different relative priorities.
+   *
+   * @return Returns common.FDSP_PolicyInfoType
+   */
+  common.FDSP_PolicyInfoType createQoSPolicy(1:string policy_name, 2:i64 iops_min, 3:i64 iops_max, 4:i32 rel_prio)
+      throws (1: common.ApiException e),
+
+  /**
+   * Enumerate QoS policies.
+   *
+   * @return Returns a list of FDSP_PolicyInfoType objects
+   */
+  list<common.FDSP_PolicyInfoType> listQoSPolicies(1:i64 unused)
+      throws (1: common.ApiException e),
+
+  /**
+   * Modify a QoS policy.
+   *
+   * @param current_policy_name - A string representing the current name of the policy.
+   * @param new_policy_name - A string representing the new name of the policy. Must be unique within a Global Domain.
+   *                          May be the same as current_policy_name if the name is not changing.
+   * @param iops_min - An i64 representing the new minimum IOPS to be achieved by the policy. Also referred to as "SLA" or
+   *                   "Service Level Agreement".
+   * @param iops_max - An i64 representing the new maximum IOPS guaranteed by the policy. Also referred to as "Limit".
+   * @param rel_prio - An i32 representing the new relative priority of requests against Volumes with this policy compared
+   *                   to requests against Volumes with different relative priorities.
+   *
+   * @return Returns common.FDSP_PolicyInfoType containing the modified QoS Policy.
+   */
+  common.FDSP_PolicyInfoType modifyQoSPolicy(1:string current_policy_name, 2:string new_policy_name, 3:i64 iops_min,
+                                             4:i64 iops_max, 5:i32 rel_prio)
+      throws (1: common.ApiException e),
+
+  /**
+   * Delete a QoS policy.
+   *
+   * @param policy_name the name of the QoS policy to be deleted
+   */
+  void deleteQoSPolicy(1:string policy_name)
+      throws (1: common.ApiException e),
 }

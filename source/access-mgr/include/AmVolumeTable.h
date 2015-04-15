@@ -5,16 +5,10 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMVOLUMETABLE_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMVOLUMETABLE_H_
 
-#include <iostream>
-#include <map>
 #include <string>
 #include <deque>
 #include <mutex>
 #include <unordered_map>
-#include <boost/atomic.hpp>
-#include <boost/thread/thread.hpp>
-#include <boost/lockfree/queue.hpp>
-#include <concurrency/ThreadPool.h>
 
 #include <fds_error.h>
 #include <fds_types.h>
@@ -23,7 +17,6 @@
 #include <fds_qos.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
-#include "PerfTrace.h"
 
 namespace fds {
 
@@ -46,13 +39,18 @@ struct AmVolumeTable : public HasLogger {
     using tx_callback_type = std::function<void(AmRequest*)>;
     void registerCallback(tx_callback_type cb);
 
-    Error registerVolume(const VolumeDesc& vdesc);
+    Error registerVolume(const VolumeDesc& vdesc, fds_int64_t token);
     Error removeVolume(const VolumeDesc& volDesc);
 
     /**
      * Returns NULL is volume does not exist
      */
     volume_ptr_type getVolume(fds_volid_t vol_uuid) const;
+
+    /**
+     * Return tokens to all attached volumes
+     */
+    void getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const;
 
     /**
      * Returns the volumes max object size

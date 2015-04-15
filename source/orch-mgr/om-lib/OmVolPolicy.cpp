@@ -69,6 +69,41 @@ Error VolPolicyMgr::createPolicy(const fpi::FDSP_PolicyInfoType& pol_info) {
     return err;
 }
 
+Error VolPolicyMgr::createPolicy(fpi::FDSP_PolicyInfoType& _return, const std::string& policyName,
+                                 const fds_uint64_t minIops, const fds_uint64_t maxIops,
+                                 const fds_uint32_t relPrio) {
+    Error err(ERR_OK);
+
+    LOGNORMAL << "VolPolicyMgr::createPolicy -- will add policy to the catalog ";
+
+    /**
+     * This could be cleaned up. We don't really need to check if the ID
+     * exists before creating. The lower level routines do this. But
+     * I (gcarter) was wanting to get "parity" with the earlier create routine
+     * in case some test (or someone) was watching for these messages.
+     */
+    fds_mutex::scoped_lock l(policyMutex);
+
+    /* Check if we already have this policy in the catalog */
+    auto policyId = configDB->getIdOfQoSPolicy(policyName);
+    if (policyId == 0) {
+        /* write new policy to catalog */
+        policyId = configDB->createQoSPolicy(policyName, minIops, maxIops, relPrio);
+        LOGNORMAL << "added policy [" << policyId << "] to policy catalog";
+
+        _return.policy_id = policyId;
+        _return.policy_name = policyName;
+        _return.iops_min = minIops;
+        _return.iops_max = maxIops;
+        _return.rel_prio = relPrio;
+    } else {
+        LOGERROR << "Policy already exists: " << policyName << "ID: " << policyId;
+        err = ERR_NOT_READY;
+    }
+
+    return err;
+}
+
 Error VolPolicyMgr::queryPolicy(int policy_id, FDS_VolumePolicy *volPolicy) {
     Error err(ERR_OK);
     assert(volPolicy);

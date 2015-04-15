@@ -91,21 +91,6 @@ AmVolumeTable::AmVolumeTable(size_t const qos_threads, fds_log *parent_log) :
     if (parent_log) {
         SetLog(parent_log);
     }
-
-    /* setup 'admin' queue that will hold requests to OM
-     * such as 'get bucket stats' and 'get bucket' */
-    {
-        VolumeDesc admin_vdesc("admin_vol", admin_vol_id);
-        admin_vdesc.iops_min = 10;
-        admin_vdesc.iops_max = 500;
-        admin_vdesc.relativePrio = 9;
-        admin_vdesc.capacity = 0; /* not really a volume, using volume struct to hold admin requests  */
-        if (ERR_OK == registerVolume(admin_vdesc)) {
-            LOGNOTIFY << "AmVolumeTable -- constructor registered admin volume";
-        } else {
-            LOGERROR << "AmVolumeTable -- failed to allocate admin volume struct";
-        }
-    }
 }
 
 AmVolumeTable::~AmVolumeTable() {
@@ -125,7 +110,7 @@ void AmVolumeTable::registerCallback(tx_callback_type cb) {
  * Does nothing if volume is already registered
  */
 Error
-AmVolumeTable::registerVolume(const VolumeDesc& vdesc)
+AmVolumeTable::registerVolume(const VolumeDesc& vdesc, fds_int64_t token)
 {
     Error err(ERR_OK);
     fds_volid_t vol_uuid = vdesc.GetID();
@@ -146,7 +131,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc)
 
             /** Internal bookkeeping */
             if (err.ok()) {
-                auto new_vol = std::make_shared<AmVolume>(vdesc, queue);
+                auto new_vol = std::make_shared<AmVolume>(vdesc, queue, token);
                 /** Drain wait queue into QoS */
                 wait_queue->drain(vdesc.name,
                                   [this, vol_uuid] (AmRequest* amReq) mutable -> void {
@@ -240,6 +225,15 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t vol_uuid) co
             << " does not exist";
     }
     return ret_vol;
+}
+
+void
+AmVolumeTable::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const
+{
+    ReadGuard rg(map_rwlock);
+    for (auto const& vol_pair: volume_map) {
+        tokens.push_back(std::make_pair(vol_pair.first, vol_pair.second->token));
+    }
 }
 
 fds_uint32_t

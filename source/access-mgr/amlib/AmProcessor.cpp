@@ -2,11 +2,15 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+#include <AmProcessor.h>
+
 #include <algorithm>
+#include <deque>
 #include <string>
+
+#include "fds_process.h"
 #include <ObjectId.h>
 #include "FdsRandom.h"
-#include <AmProcessor.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include "AmDispatcher.h"
@@ -26,19 +30,163 @@ namespace fds {
  */
 std::atomic_uint nextIoReqId;
 
-AmProcessor::AmProcessor(const std::string &modName, shutdown_cb_type&& cb)
-        : Module(modName.c_str()),
-          enable_shared_from_this<AmProcessor>(),
-          amDispatcher(new AmDispatcher("AM Dispatcher Module")),
-          txMgr(new AmTxManager()),
-          shutdown_cb(std::move(cb)) {
-}
+/**
+ * AM request processing layer. The processor handles state and
+ * execution for AM requests.
+ */
+class AmProcessor_impl
+{
+    using shutdown_cb_type = std::function<void(void)>;
 
-AmProcessor::~AmProcessor()
-{}
+  public:
+    AmProcessor_impl() : amDispatcher(new AmDispatcher()),
+                         txMgr(new AmTxManager()),
+                         prepareForShutdownCb(nullptr)
+    { }
+
+    AmProcessor_impl(AmProcessor_impl const&) = delete;
+    AmProcessor_impl& operator=(AmProcessor_impl const&) = delete;
+    ~AmProcessor_impl() = default;
+
+    void start(shutdown_cb_type&& cb);
+
+    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
+        { prepareForShutdownCb = cb; }
+
+    void prepareForShutdownMsgRespCallCb();
+
+    bool stop();
+
+    Error enqueueRequest(AmRequest* amReq);
+
+    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
+        { return txMgr->modifyVolumePolicy(vol_uuid, vdesc); }
+
+    void registerVolume(const VolumeDesc& volDesc);
+
+    Error removeVolume(const VolumeDesc& volDesc);
+
+    Error updateQoS(long int const* rate, float const* throttle)
+        { return txMgr->updateQoS(rate, throttle); }
+
+    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb)
+        { return amDispatcher->updateDlt(dlt_type, dlt_data, cb); }
+
+    Error updateDmt(bool dmt_type, std::string& dmt_data)
+        { return amDispatcher->updateDmt(dmt_type, dmt_data); }
+
+    bool isShuttingDown() const
+    { return shut_down; }
+
+  private:
+    /// Unique ptr to the dispatcher layer
+    std::unique_ptr<AmDispatcher> amDispatcher;
+
+    /// Unique ptr to the transaction manager
+    std::unique_ptr<AmTxManager> txMgr;
+
+    /// Unique ptr to a random num generator for tx IDs
+    std::unique_ptr<RandNumGenerator> randNumGen;
+
+    shutdown_cb_type shutdown_cb;
+    bool shut_down { false };
+
+    shutdown_cb_type prepareForShutdownCb;
+
+    void processBlobReq(AmRequest *amReq);
+
+    std::shared_ptr<AmVolume> getVolume(AmRequest* amReq, bool const allow_snapshot=true);
+
+    /**
+     * Processes a get volume metadata request
+     */
+    void getVolumeMetadata(AmRequest *amReq);
+
+    /**
+     * Attachment request, retrieve volume descriptor
+     */
+    void attachVolume(AmRequest *amReq);
+    void detachVolume(AmRequest *amReq);
+
+    /**
+     * Processes a abort blob transaction
+     */
+    void abortBlobTx(AmRequest *amReq);
+    void abortBlobTxCb(AmRequest *amReq, const Error &error);
+
+    /**
+     * Processes a commit blob transaction
+     */
+    void commitBlobTx(AmRequest *amReq);
+    void commitBlobTxCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Processes a delete blob request
+     */
+    void deleteBlob(AmRequest *amReq);
+
+    /**
+     * Processes a get blob request
+     */
+    void getBlob(AmRequest *amReq);
+    void getBlobCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Processes a put blob request
+     */
+    void putBlob(AmRequest *amReq);
+    void putBlobCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Processes a set volume metadata request
+     */
+    void setVolumeMetadata(AmRequest *amReq);
+
+    /**
+     * Processes a start blob transaction
+     */
+    void startBlobTx(AmRequest *amReq);
+    void startBlobTxCb(AmRequest *amReq, const Error &error);
+
+    /**
+     * Processes a stat volume request
+     */
+    void statVolume(AmRequest *amReq);
+    void statVolumeCb(AmRequest *amReq, const Error &error);
+
+    /**
+     * Callback for catalog query request
+     */
+    void queryCatalogCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Processes a set metadata on blob request
+     */
+    void setBlobMetadata(AmRequest *amReq);
+
+    /**
+     * Processes a stat blob request
+     */
+    void statBlob(AmRequest *amReq);
+    void statBlobCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Processes a volumeContents (aka ListBucket) request
+     */
+    void volumeContents(AmRequest *amReq);
+
+    /**
+     * Generic callback for a few responses
+     */
+    void respond_and_delete(AmRequest *amReq, const Error& error)
+        { respond(amReq, error); delete amReq; }
+
+    void respond(AmRequest *amReq, const Error& error);
+
+};
 
 Error
-AmProcessor::enqueueRequest(AmRequest* amReq) {
+AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
     Error err;
     if (shut_down) {
         err = ERR_SHUTTING_DOWN;
@@ -58,14 +206,8 @@ AmProcessor::enqueueRequest(AmRequest* amReq) {
     return err;
 }
 
-Error
-AmProcessor::updateQoS(long int const* rate,
-                       float const* throttle) {
-    return txMgr->updateQoS(rate, throttle);
-}
-
 void
-AmProcessor::processBlobReq(AmRequest *amReq) {
+AmProcessor_impl::processBlobReq(AmRequest *amReq) {
     fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
 
     fds_verify(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
@@ -90,9 +232,12 @@ AmProcessor::processBlobReq(AmRequest *amReq) {
             abortBlobTx(amReq);
             break;
 
+        case fds::FDS_DETACH_VOL:
+            detachVolume(amReq);
+            break;
+
         case fds::FDS_ATTACH_VOL:
-            /** If we're processing this, then we must be attached. Return success */
-            respond_and_delete(amReq, ERR_OK);
+            attachVolume(amReq);
             break;
 
         case fds::FDS_IO_READ:
@@ -142,42 +287,50 @@ AmProcessor::processBlobReq(AmRequest *amReq) {
 }
 
 void
-AmProcessor::mod_startup()
+AmProcessor_impl::start(shutdown_cb_type&& cb)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
     }
+    shutdown_cb = std::move(cb);
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
-    amDispatcher->mod_startup();
+    amDispatcher->start();
     auto closure = [this](AmRequest* amReq) mutable -> void { this->processBlobReq(amReq); };
     txMgr->init(std::move(closure));
 }
 
 void
-AmProcessor::respond(AmRequest *amReq, const Error& error) {
+AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     txMgr->markIODone(amReq);
     amReq->cb->call(error);
 
-    /*
-     * If we're shutting down and there are no
-     * more outstanding requests, tell the QoS
-     * Dispatcher that we're shutting down.
-     */
-    if (shut_down && txMgr->drained())
-    {
-       shutdown_cb();
+    // If we're shutting down check if the
+    // queue is empty and make the callback
+    if (isShuttingDown()) {
+        stop();
     }
 }
 
-void
-AmProcessor::respond_and_delete(AmRequest *amReq, const Error& error)
-{ respond(amReq, error); delete amReq; }
+void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
+    if (prepareForShutdownCb) {
+        prepareForShutdownCb();
+        prepareForShutdownCb = nullptr;
+    }
+}
 
-bool AmProcessor::stop() {
+bool AmProcessor_impl::stop() {
     shut_down = true;
     if (txMgr->drained()) {
+        // Close all attached volumes before finishing shutdown
+        std::deque<std::pair<fds_volid_t, fds_int64_t>> tokens;
+        txMgr->getVolumeTokens(tokens);
+        for (auto const& token_pair: tokens) {
+            if (invalid_vol_token != token_pair.second) {
+                amDispatcher->dispatchCloseVolume(token_pair.first, token_pair.second);
+            }
+        }
         shutdown_cb();
         return true;
     }
@@ -185,7 +338,7 @@ bool AmProcessor::stop() {
 }
 
 std::shared_ptr<AmVolume>
-AmProcessor::getVolume(AmRequest* amReq, bool const allow_snapshot) {
+AmProcessor_impl::getVolume(AmRequest* amReq, bool const allow_snapshot) {
     // check if this is a snapshot
     auto shVol = txMgr->getVolume(amReq->io_vol_id);
     if (!shVol) {
@@ -200,24 +353,34 @@ AmProcessor::getVolume(AmRequest* amReq, bool const allow_snapshot) {
 }
 
 void
-AmProcessor::registerVolume(const VolumeDesc& volDesc) {
+AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
     /** First we need to open the volume for access */
-    auto cb = [p = shared_from_this(), volDesc](Error e) mutable -> void {
-        static_cast<void>(ERR_OK == e ?
-            p->txMgr->registerVolume(volDesc) : p->txMgr->removeVolume(volDesc));
+    auto cb = [this, volDesc](fds_int64_t token, Error e) mutable -> void {
+        if (ERR_OK == e) {
+            GLOGDEBUG << "Received volume access token: 0x" << std::hex << token;
+            this->txMgr->registerVolume(volDesc, token);
+        } else {
+            this->txMgr->removeVolume(volDesc);
+        }
     };
 
     amDispatcher->dispatchOpenVolume(volDesc, cb);
 }
 
 Error
-AmProcessor::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
-    return txMgr->modifyVolumePolicy(vol_uuid, vdesc);
-}
+AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
+    Error err{ERR_OK};
 
-Error
-AmProcessor::removeVolume(const VolumeDesc& volDesc) {
-    auto err = txMgr->removeVolume(volDesc);
+    // If we had a token for a volume, give it back to DM
+    auto shVol = txMgr->getVolume(volDesc.volUUID);
+    if (shVol) {
+        fds_int64_t token = shVol->token;
+        amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
+    }
+
+    // Remove the volume from QoS/VolumeTable/TxMgr
+    err = txMgr->removeVolume(volDesc);
+
     if (shut_down && txMgr->drained())
     {
        shutdown_cb();
@@ -226,17 +389,17 @@ AmProcessor::removeVolume(const VolumeDesc& volDesc) {
 }
 
 void
-AmProcessor::statVolume(AmRequest *amReq) {
+AmProcessor_impl::statVolume(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.statVol",
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::statVolumeCb, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::statVolumeCb, amReq);
     amDispatcher->dispatchStatVolume(amReq);
 }
 
 void
-AmProcessor::statVolumeCb(AmRequest *amReq, const Error &error) {
+AmProcessor_impl::statVolumeCb(AmRequest *amReq, const Error &error) {
     StatVolumeCallback::ptr cb =
             SHARED_DYN_CAST(StatVolumeCallback, amReq->cb);
     cb->volStat = static_cast<StatVolumeReq *>(amReq)->volumeStatus;
@@ -244,33 +407,54 @@ AmProcessor::statVolumeCb(AmRequest *amReq, const Error &error) {
 }
 
 void
-AmProcessor::setVolumeMetadata(AmRequest *amReq) {
+AmProcessor_impl::setVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.setVolMetadata",
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchSetVolumeMetadata(amReq);
 }
 
 void
-AmProcessor::getVolumeMetadata(AmRequest *amReq) {
+AmProcessor_impl::getVolumeMetadata(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.getVolMetadata",
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchGetVolumeMetadata(amReq);
 }
 
 void
-AmProcessor::abortBlobTx(AmRequest *amReq) {
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, amReq);
+AmProcessor_impl::attachVolume(AmRequest *amReq) {
+    // This really can not fail, we have to be attached to be here
+    auto shVol = getVolume(amReq);
+    if (!shVol) return;
+
+    boost::shared_ptr<AttachCallback> cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
+    cb->volDesc = boost::make_shared<VolumeDesc>(*shVol->voldesc);
+    respond_and_delete(amReq, ERR_OK);
+}
+
+void
+AmProcessor_impl::detachVolume(AmRequest *amReq) {
+    // This really can not fail, we have to be attached to be here
+    auto shVol = getVolume(amReq);
+    if (!shVol) return;
+
+    removeVolume(*shVol->voldesc);
+    respond_and_delete(amReq, ERR_OK);
+}
+
+void
+AmProcessor_impl::abortBlobTx(AmRequest *amReq) {
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::abortBlobTxCb, amReq);
     amDispatcher->dispatchAbortBlobTx(amReq);
 }
 
 void
-AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
+AmProcessor_impl::abortBlobTxCb(AmRequest *amReq, const Error &error) {
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
     if (ERR_OK != txMgr->abortTx(*(blobReq->tx_desc)))
         LOGWARN << "Transaction unknown";
@@ -279,7 +463,7 @@ AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
 }
 
 void
-AmProcessor::startBlobTx(AmRequest *amReq) {
+AmProcessor_impl::startBlobTx(AmRequest *amReq) {
     auto shVol = getVolume(amReq, false);
     if (!shVol) return;
 
@@ -290,13 +474,13 @@ AmProcessor::startBlobTx(AmRequest *amReq) {
     // Generate a random transaction ID to use
     static_cast<StartBlobTxReq*>(amReq)->tx_desc =
         boost::make_shared<BlobTxId>(randNumGen->genNumSafe());
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::startBlobTxCb, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::startBlobTxCb, amReq);
 
     amDispatcher->dispatchStartBlobTx(amReq);
 }
 
 void
-AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
+AmProcessor_impl::startBlobTxCb(AmRequest *amReq, const Error &error) {
     StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                   amReq->cb);
 
@@ -314,7 +498,7 @@ AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
 }
 
 void
-AmProcessor::deleteBlob(AmRequest *amReq) {
+AmProcessor_impl::deleteBlob(AmRequest *amReq) {
     auto shVol = getVolume(amReq, false);
     if (!shVol) return;
 
@@ -326,12 +510,12 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
     // Update the tx manager with the delete op
     txMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
 
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchDeleteBlob(amReq);
 }
 
 void
-AmProcessor::putBlob(AmRequest *amReq) {
+AmProcessor_impl::putBlob(AmRequest *amReq) {
     auto shVol = getVolume(amReq, false);
     if (!shVol) return;
 
@@ -353,7 +537,7 @@ AmProcessor::putBlob(AmRequest *amReq) {
               respond_and_delete(amReq, ERR_OK); \
               return;);
 
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::putBlobCb, amReq);
 
     if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
         // Sending the update in a single request. Create transaction ID to
@@ -371,7 +555,7 @@ AmProcessor::putBlob(AmRequest *amReq) {
 }
 
 void
-AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
+AmProcessor_impl::putBlobCb(AmRequest *amReq, const Error& error) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
 
     if (error.ok()) {
@@ -415,7 +599,7 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
 }
 
 void
-AmProcessor::getBlob(AmRequest *amReq) {
+AmProcessor_impl::getBlob(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.getBlob",
               respond_and_delete(amReq, ERR_OK); \
               return;);
@@ -483,17 +667,17 @@ AmProcessor::getBlob(AmRequest *amReq) {
         } else {
             // We couldn't find the data in the cache even though the id was
             // obtained there. Fallback to retrieving the data from the SM.
-            amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
+            amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
             amDispatcher->dispatchGetObject(amReq);
         }
     } else {
-        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, amReq);
+        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::queryCatalogCb, amReq);
         amDispatcher->dispatchQueryCatalog(amReq);
     }
 }
 
 void
-AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
+AmProcessor_impl::getBlobCb(AmRequest *amReq, const Error& error) {
     auto blobReq = static_cast<GetBlobReq *>(amReq);
     if (error == ERR_NOT_FOUND &&
         (!blobReq->retry || (blobReq->obj_id != blobReq->last_obj_id))) {
@@ -505,7 +689,7 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
         blobReq->oid_cached = false;
         std::swap(blobReq->obj_id, blobReq->last_obj_id);
         blobReq->retry = true;
-        blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, amReq);
+        blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::queryCatalogCb, amReq);
         GLOGDEBUG << "Dispatching retry on [ " << blobReq->volume_name
                   << ", " << blobReq->getBlobName()
                   << ", 0x" << std::hex << blobReq->blob_offset << std::dec
@@ -544,17 +728,17 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
 
 
 void
-AmProcessor::setBlobMetadata(AmRequest *amReq) {
+AmProcessor_impl::setBlobMetadata(AmRequest *amReq) {
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
 
     fds_verify(txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version)));
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
 
     amDispatcher->dispatchSetBlobMetadata(amReq);
 }
 
 void
-AmProcessor::statBlob(AmRequest *amReq) {
+AmProcessor_impl::statBlob(AmRequest *amReq) {
     fds_volid_t volId = amReq->io_vol_id;
     LOGDEBUG << "volume:" << volId <<" blob:" << amReq->getBlobName();
 
@@ -576,14 +760,14 @@ AmProcessor::statBlob(AmRequest *amReq) {
     LOGTRACE << "Did not find cached blob descriptor for " << std::hex
         << volId << std::dec << " blob " << amReq->getBlobName();
 
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::statBlobCb, amReq);
     amDispatcher->dispatchStatBlob(amReq);
 }
 
 void
-AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
+AmProcessor_impl::queryCatalogCb(AmRequest *amReq, const Error& error) {
     if (error == ERR_OK) {
-        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
+        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
         amDispatcher->dispatchGetObject(amReq);
     } else {
         respond_and_delete(amReq, error);
@@ -591,7 +775,7 @@ AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
 }
 
 void
-AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
+AmProcessor_impl::statBlobCb(AmRequest *amReq, const Error& error) {
     respond(amReq, error);
 
     // Insert metadata into cache.
@@ -605,19 +789,19 @@ AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
 }
 
 void
-AmProcessor::volumeContents(AmRequest *amReq) {
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
+AmProcessor_impl::volumeContents(AmRequest *amReq) {
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchVolumeContents(amReq);
 }
 
 void
-AmProcessor::commitBlobTx(AmRequest *amReq) {
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, amReq);
+AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::commitBlobTxCb, amReq);
     amDispatcher->dispatchCommitBlobTx(amReq);
 }
 
 void
-AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
+AmProcessor_impl::commitBlobTxCb(AmRequest *amReq, const Error &error) {
     // Push the committed update to the cache and remove from manager
     // TODO(Andrew): Inserting the entire tx transaction currently
     // assumes that the tx descriptor has all of the contents needed
@@ -633,12 +817,54 @@ AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
     respond_and_delete(amReq, error);
 }
 
-Error
-AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb)
-{ return amDispatcher->updateDlt(dlt_type, dlt_data, cb); }
+/**
+ * Pimpl forwarding methods. Should just call the underlying implementaion
+ */
+AmProcessor::AmProcessor()
+        : enable_shared_from_this<AmProcessor>(),
+          _impl(new AmProcessor_impl())
+{ }
 
-Error
-AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data)
-{ return amDispatcher->updateDmt(dmt_type, dmt_data); }
+AmProcessor::~AmProcessor() = default;
+
+void AmProcessor::start(shutdown_cb_type&& cb)
+{ return _impl->start(std::move(cb)); }
+
+void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
+{
+    return _impl->prepareForShutdownMsgRespBindCb(std::move(cb));
+}
+
+void AmProcessor::prepareForShutdownMsgRespCallCb()
+{
+    return _impl->prepareForShutdownMsgRespCallCb();
+}
+
+bool AmProcessor::stop()
+{ return _impl->stop(); }
+
+Error AmProcessor::enqueueRequest(AmRequest* amReq)
+{ return _impl->enqueueRequest(amReq); }
+
+bool AmProcessor::isShuttingDown() const
+{ return _impl->isShuttingDown(); }
+
+Error AmProcessor::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
+{ return _impl->modifyVolumePolicy(vol_uuid, vdesc); }
+
+void AmProcessor::registerVolume(const VolumeDesc& volDesc)
+{ return _impl->registerVolume(volDesc); }
+
+Error AmProcessor::removeVolume(const VolumeDesc& volDesc)
+{ return _impl->removeVolume(volDesc); }
+
+Error AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb)
+{ return _impl->updateDlt(dlt_type, dlt_data, cb); }
+
+Error AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data)
+{ return _impl->updateDmt(dmt_type, dmt_data); }
+
+Error AmProcessor::updateQoS(long int const* rate, float const* throttle)
+{ return _impl->updateQoS(rate, throttle); }
 
 }  // namespace fds

@@ -11,6 +11,7 @@ extern "C" {
 #include <vector>
 #include <set>
 #include <map>
+#include <random>
 #include <limits>
 #include <DataMgr.h>
 #include <cstdlib>
@@ -39,6 +40,58 @@ static const fds_uint32_t MAX_POLL_EVENTS = 1024;
 static const fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_event) + NAME_MAX);
 
 namespace fds {
+
+/**
+ * Structure used by the TvC to prevent multi-access to a volume.
+ *
+ * NOTE(bszmyd): Tue 07 Apr 2015 02:41:14 AM PDT
+ * Not thread-safe, needs mutual exclusion at point of access
+ */
+struct DmVolumeAccessTable {
+    explicit DmVolumeAccessTable(fds_volid_t const vol_uuid)
+        : access_map(),
+          random_generator(vol_uuid)
+    {}
+    DmVolumeAccessTable(DmVolumeAccessTable const&) = delete;
+    DmVolumeAccessTable& operator=(DmVolumeAccessTable const&) = delete;
+    ~DmVolumeAccessTable() = default;
+
+    Error getToken(fds_int64_t& token, fpi::VolumeAccessPolicy const& policy) {
+        auto it = access_map.find(token);
+        if (access_map.end() == it) {
+            // check that the exclusivity policy allows for this access request
+            if ((policy.exclusive_read && read_locked) ||
+                (policy.exclusive_write && write_locked)) {
+                return ERR_VOLUME_ACCESS_DENIED;
+            }
+            token = random_generator();
+            access_map[token] = policy;
+        } else {
+            // token is already registered, just reset the timer
+        }
+        return ERR_OK;
+    }
+
+    void removeToken(fds_int64_t const token) {
+        auto it = access_map.find(token);
+        if (access_map.end() != it) {
+            if (write_locked && it->second.exclusive_write) {
+                write_locked = false;
+            }
+            if (read_locked && it->second.exclusive_read) {
+                read_locked = false;
+            }
+            access_map.erase(it);
+        }
+    }
+
+  private:
+    std::unordered_map<fds_int64_t, fpi::VolumeAccessPolicy> access_map;
+    std::mt19937_64 random_generator;
+
+    bool write_locked { false };
+    bool read_locked { false };
+};
 
 void
 DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
@@ -107,6 +160,54 @@ Error
 DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     createCommitLog(voldesc);
     return volcat->addCatalog(voldesc);
+}
+
+Error
+DmTimeVolCatalog::openVolume(fds_volid_t const volId,
+                             fds_int64_t& token,
+                             fpi::VolumeAccessPolicy const& policy) {
+    Error err = ERR_OK;
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        std::unique_lock<std::mutex> lk(accessTableLock_);
+        auto it = accessTable_.find(volId);
+        if (accessTable_.end() == it) {
+            auto table = new DmVolumeAccessTable(volId);
+            table->getToken(token, policy);
+            accessTable_[volId].reset(table);
+        } else {
+            // Table already exists, check if we can attach again or
+            // renew the existing token.
+            err = it->second->getToken(token, policy);
+        }
+    }
+
+    return err;
+}
+
+Error
+DmTimeVolCatalog::closeVolume(fds_volid_t const volId, fds_int64_t const token) {
+    Error err = ERR_OK;
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    if (dataMgr->features.isVolumeTokensEnabled()) {
+        std::unique_lock<std::mutex> lk(accessTableLock_);
+        auto it = accessTable_.find(volId);
+        if (accessTable_.end() != it) {
+            it->second->removeToken(token);
+        }
+    }
+
+    // TODO(bszmyd): Tue 07 Apr 2015 01:02:51 AM PDT
+    // Determine if there is any usefulness returning an
+    // error to this operation. Seems like it should be
+    // idempotent and never fail upon initial design.
+    return err;
 }
 
 Error

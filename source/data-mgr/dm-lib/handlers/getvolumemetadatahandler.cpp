@@ -4,8 +4,8 @@
 
 #include <dmhandler.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
-                           // incomplete type errors in BaseAsyncSvcHandler.h
-#include <net/BaseAsyncSvcHandler.h>
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
 #include <util/Log.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
@@ -25,6 +25,14 @@ void GetVolumeMetadataHandler::handleRequest(
     boost::shared_ptr<fpi::GetVolumeMetadataMsg>& message) {
     LOGTRACE << "Received a get volume metadata request for volume "
              << message->volumeId;
+
+    auto err = dataMgr->validateVolumeIsActive(message->volumeId);
+    if (!err.OK())
+    {
+        auto dummyResponse = boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();
+        handleResponse(asyncHdr, dummyResponse, err, nullptr);
+        return;
+    }
 
     boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp> response =
             boost::make_shared<fpi::GetVolumeMetadataMsgRsp>();

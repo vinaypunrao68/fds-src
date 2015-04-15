@@ -1,23 +1,20 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.repository;
 
-import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.repository.influxdb.InfluxDBConnection;
+import com.formationds.om.repository.influxdb.InfluxEventRepository;
 import com.formationds.om.repository.influxdb.InfluxMetricRepository;
 import com.formationds.om.repository.influxdb.InfluxRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.List;
-import java.util.Properties;
-import java.util.Random;
 
 /**
  * Factory to access to Metrics and Events repositories.
@@ -40,14 +37,14 @@ public enum SingletonRepositoryManager {
     /**
      * An invocation handler for dynamic proxies to the MetricRepository interface
      */
-    static class MetricRepositoryProxyIH implements InvocationHandler {
+    static class InfluxRepositoryProxyIH implements InvocationHandler {
 
         /**
-         * @return a proxy to the MetricRepository.
+         * @return a proxy to the InfluxRepository
          *
          * @throws IllegalStateException if no database implementation is enabled.
          */
-        public static MetricRepository newMetricsProxy() {
+        public static MetricRepository newMetricRepositoryProxy() {
             boolean influxEnabled = FdsFeatureToggles.PERSIST_INFLUXDB.isActive();
             boolean objectDbEnabled = FdsFeatureToggles.PERSIST_OBJECTDB.isActive();
             boolean influxQueryEnabled = FdsFeatureToggles.QUERY_INFLUXDB.isActive();
@@ -56,118 +53,155 @@ public enum SingletonRepositoryManager {
                 throw new IllegalStateException( "At least one of the metric database implementations must be enabled." );
             }
 
-            JDOMetricsRepository jdoMetricsRepository = null;
-            InfluxMetricRepository influxMetricRepository = null;
+            JDOMetricsRepository jdoRepository = null;
+            InfluxMetricRepository influxRepository = null;
 
             if ( objectDbEnabled ) {
-                jdoMetricsRepository = new JDOMetricsRepository();
+                jdoRepository = new JDOMetricsRepository( );
             }
 
             if ( influxEnabled ) {
                 logger.info( "InfluxDB feature is enabled." );
                 // TODO: need values from config
-                influxMetricRepository = new InfluxMetricRepository( "http://localhost:8086",
-                                                                     "root",
-                                                                     "root".toCharArray() );
+                influxRepository = new InfluxMetricRepository( "http://localhost:8086",
+                                                               "root",
+                                                               "root".toCharArray() );
 
-                // TODO: hide this in the repo interface (ie. just make it take the user/creds.  dbname is held by repo)
-                Properties props = new Properties( );
-                props.setProperty( InfluxRepository.CP_DBNAME, InfluxMetricRepository.DEFAULT_METRIC_DB.getName() );
-                props.setProperty( InfluxRepository.CP_USER, "root" );
-                props.setProperty( InfluxRepository.CP_CRED, "root" );
-
-                // retry connection... influx might not be up yet
-                InfluxDBConnection connection = null;
-                Random rng = new Random( System.currentTimeMillis() );
-                int maxRetries = 100;
-                int minDelay = 500;
-                int maxDelay = 10000;
-                int cnt = 0;
-                while (connection == null && ++cnt <= maxRetries) {
-                    try {
-                        influxMetricRepository.open( props );
-                        connection = influxMetricRepository.getConnection();
-                    } catch (Throwable e) {
-                        try {
-                            if (cnt==1) {
-                                logger.trace( "Connection attempt failed.  InfluxDB is not ready.  Retrying" );
-                            }
-                            Thread.sleep( Math.max( minDelay, rng.nextInt( maxDelay ) ) );
-                        } catch ( InterruptedException ie ) {
-                            // reset interrupt
-                            Thread.currentThread().interrupt();
-                            throw new IllegalStateException( "InfluxDB connection retry interrupted." );
-                        }
-                    }
-                }
-
-                if (connection == null) {
-                    logger.warn( cnt + "Retry attempts to connect to InfluxDB have failed." );
-                    if (jdoMetricsRepository != null) {
-                        logger.warn( "InfluxDB will be disabled.  Please check the logs" );
-                    } else {
-                        throw new IllegalStateException( "Failed to connect to InfluxDB metrics database. " );
-                    }
-                }
             }
 
-            return (MetricRepository) Proxy.newProxyInstance( MetricRepository.class.getClassLoader(),
+            return (MetricRepository) Proxy.newProxyInstance( SingletonRepositoryManager.class.getClassLoader(),
                                                               new Class[] { MetricRepository.class },
-                                                              new MetricRepositoryProxyIH( jdoMetricsRepository,
-                                                                                           influxMetricRepository,
+                                                              new InfluxRepositoryProxyIH( jdoRepository,
+                                                                                           influxRepository,
                                                                                            influxQueryEnabled ) );
         }
 
-        private final JDOMetricsRepository jdoMetricsRepository;
-        private final InfluxMetricRepository influxMetricRepository;
-        private final boolean influxQueryEnabled;
+        /**
+         * @return a proxy to the EventRepository.
+         *
+         * @throws IllegalStateException if no database implementation is enabled.
+         */
+        public static EventRepository newEventRepositoryProxy() {
+            boolean influxEnabled = FdsFeatureToggles.PERSIST_INFLUXDB.isActive();
+            boolean objectDbEnabled = FdsFeatureToggles.PERSIST_OBJECTDB.isActive();
+            boolean influxQueryEnabled = FdsFeatureToggles.QUERY_INFLUXDB.isActive();
 
-        public MetricRepositoryProxyIH( JDOMetricsRepository jdoMetricsRepository,
-                                        InfluxMetricRepository influxMetricRepository, boolean influxQueryEnabled ) {
-            this.jdoMetricsRepository = jdoMetricsRepository;
-            this.influxMetricRepository = influxMetricRepository;
+            if ( !(influxEnabled || objectDbEnabled) ) {
+                throw new IllegalStateException( "At least one of the metric database implementations must be enabled." );
+            }
+
+            JDOEventRepository jdoEventRepository = null;
+            InfluxEventRepository influxEventRepository = null;
+
+            if ( objectDbEnabled ) {
+                jdoEventRepository = new JDOEventRepository();
+            }
+
+            if ( influxEnabled ) {
+                logger.info( "InfluxDB feature is enabled." );
+                // TODO: need values from config
+                influxEventRepository = new InfluxEventRepository( "http://localhost:8086",
+                                                                   "root",
+                                                                   "root".toCharArray() );
+            }
+
+            return (EventRepository) Proxy.newProxyInstance( EventRepository.class.getClassLoader(),
+                                                             new Class[] { EventRepository.class },
+                                                             new InfluxRepositoryProxyIH( jdoEventRepository,
+                                                                                          influxEventRepository,
+                                                                                          influxQueryEnabled ) );
+        }
+
+        private final JDORepository    jdoRepository;
+        private final InfluxRepository influxRepository;
+        private final boolean          influxQueryEnabled;
+
+        public InfluxRepositoryProxyIH( JDORepository jdoRepository,
+                                        InfluxRepository influxRepository,
+                                        boolean influxQueryEnabled ) {
+            this.jdoRepository = jdoRepository;
+            this.influxRepository = influxRepository;
             this.influxQueryEnabled = influxQueryEnabled;
+
+            if ( influxRepository != null ) {
+                influxRepository.open( null );
+            }
         }
 
         @Override
         public Object invoke( Object proxy, Method method, Object[] args ) throws Throwable {
+            try {
+                return doInvoke( proxy, method, args );
+            } catch ( InvocationTargetException ite ) {
+                // unwrap cause and rethrow
+                throw ite.getTargetException();
+            }
+        }
 
-            switch ( method.getName() )
-            {
+        protected Object doInvoke(Object proxy, Method method, Object[] args ) throws Throwable {
+
+            switch ( method.getName() ) {
                 case "save":
-                    List<VolumeDatapoint> results = null;
-                    if ( jdoMetricsRepository != null ) {
-                        results = (List<VolumeDatapoint>)method.invoke( jdoMetricsRepository, args );
-                    }
 
-                    if ( influxMetricRepository != null ) {
+                    return doInvoke0( false, proxy, method, args );
 
-                        List<VolumeDatapoint> influxResult = (List<VolumeDatapoint>)method.invoke( influxMetricRepository, args );
-                        if (jdoMetricsRepository == null) {
-                            // use the results from the influx repo
-                            results = influxResult;
-                        }
-                    }
-
-                    return results;
-
+                // generic, base query api
                 case "query":
+                case "count":
+                // event-specific queries
+                case "findLatestFirebreak":
+                case "queryTenantUsers":
+                // metric specific queries
+                case "mostRecentOccurrenceBasedOnTimestamp":
+                case "leastRecentOccurrenceBasedOnTimestamp":
+                case "getLatestVolumeStatus":
 
-                    if ( influxMetricRepository != null && influxQueryEnabled ) {
-                        return method.invoke( influxMetricRepository, args );
-                    } else {
-                        return method.invoke( jdoMetricsRepository, args );
-                    }
+                    return doInvoke0( true, proxy, method, args );
 
                 default:
-                    // everything else allow to pass-through on the JDO repository for now
-                    return method.invoke( jdoMetricsRepository, args );
+
+                    // everything else allow to pass-through on the JDO repository for now if it is enabled.
+                    return doInvoke0( false, proxy, method, args );
+
             }
+        }
+
+        protected Object doInvoke0(boolean isQuery, Object proxy, Method method, Object[] args ) throws Throwable {
+            if ( jdoRepository == null && influxRepository == null ) {
+                throw new IllegalStateException( "No repository is enabled.  Ensure one of the repositories is enabled in the fds-features.conf file." );
+            }
+
+            Object results = null;
+            if (jdoRepository != null) {
+                results = method.invoke( jdoRepository, args );
+            }
+
+            if ( influxRepository != null ) {
+                try {
+                    Object influxResult = method.invoke( influxRepository, args );
+                    if ( jdoRepository == null || (isQuery && influxQueryEnabled)) {
+                        // use the results from the influx repo
+                        results = influxResult;
+                    }
+                } catch (Exception e) {
+                    //
+                    if ( jdoRepository == null ) {
+                        // error since ObjectDB repo is disabled
+                        logger.error( "Failed to influx repository operation.", e );
+                        throw e;
+                    } else {
+                        // only a warning since we are still using the ObjectDB repo as the main repo.
+                        logger.warn( "Failed to execute influx repository operation.  Returning data from ObjectDB repo" + e.getMessage() );
+                        logger.trace( "Influx repository error is ", e );
+                    }
+                }
+            }
+            return results;
         }
     }
 
     private MetricRepository metricsRepository = null;
-    private EventRepository eventRepository = null;
+    private EventRepository  eventRepository   = null;
 
     /**
      * @throws IllegalStateException if no database implementation is enabled, or if already initialized
@@ -178,8 +212,8 @@ public enum SingletonRepositoryManager {
             throw new IllegalStateException( "Repositories are already initialized.  Can not re-initialize them." );
         }
 
-        initializeMetricRepository( );
-        initializeEventRepository( );
+        initializeMetricRepository();
+        initializeEventRepository();
     }
 
     /**
@@ -192,7 +226,7 @@ public enum SingletonRepositoryManager {
      * </ul>
      */
     protected void initializeMetricRepository() {
-        metricsRepository = MetricRepositoryProxyIH.newMetricsProxy();
+        metricsRepository = InfluxRepositoryProxyIH.newMetricRepositoryProxy();
     }
 
     /**
@@ -205,10 +239,8 @@ public enum SingletonRepositoryManager {
      * </ul>
      */
     protected void initializeEventRepository() {
-        // TODO: fs-1111 use toggles on event repository too
-        eventRepository = new JDOEventRepository( );
+        eventRepository = InfluxRepositoryProxyIH.newEventRepositoryProxy();
     }
-
 
     /**
      * @return the {@link EventRepository}

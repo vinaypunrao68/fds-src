@@ -12,6 +12,9 @@
 
 namespace fds {
 
+struct BlobDescriptor;
+struct VolumeDesc;
+
 /**
  * AM's data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to. A
@@ -30,13 +33,15 @@ class AmAsyncResponseApi {
     typedef uint32_t size_type;
     typedef sp<std::string> shared_buffer_type;
     typedef sp<BlobDescriptor> shared_descriptor_type;
+    typedef sp<VolumeDesc> shared_vol_descriptor_type;
     typedef sp<std::vector<BlobDescriptor>> shared_descriptor_vec_type;
     typedef sp<apis::TxDescriptor> shared_tx_ctx_type;
     typedef sp<apis::VolumeStatus> shared_status_type;
     typedef sp<std::map<std::string, std::string>> shared_meta_type;
 
     virtual void attachVolumeResp(const error_type &error,
-                                  handle_type& requestId) = 0;
+                                  handle_type& requestId,
+                                  shared_vol_descriptor_type& volDesc) = 0;
 
     virtual void startBlobTxResp(const error_type &error,
                                  handle_type& requestId,

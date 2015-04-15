@@ -24,6 +24,14 @@ void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                      boost::shared_ptr<fpi::GetBucketMsg>& message) {
     LOGDEBUG << "volume: " << message->volume_id;
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        auto dummyResponse = boost::make_shared<fpi::GetBucketRspMsg>();
+        handleResponse(asyncHdr, dummyResponse, err, nullptr);
+        return;
+    }
+
     // setup the request
     auto dmRequest = new DmIoGetBucket(message);
 

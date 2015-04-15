@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Formation Data Systems. All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems. All rights reserved.
  */
 package com.formationds.commons.model.entity;
 
@@ -31,10 +31,6 @@ import java.time.Instant;
 @XmlRootElement
 @Entity
 abstract public class Event extends ModelBase {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long id;
 
     @Enumerated(EnumType.ORDINAL) private EventType type;
     @SerializedName("category")
@@ -180,24 +176,6 @@ abstract public class Event extends ModelBase {
         result = 31 * result + initialTimestamp.hashCode();
         result = 31 * result + messageKey.hashCode();
         return result;
-    }
-
-    /**
-     *
-     * @return the generated event id.
-     */
-    public long getId() {
-        return id;
-    }
-
-    /**
-     * Note that this is provided to satisfy JPA persistence requirements.
-     * The event id is a JPA generated value and should be treated as immutable
-     *
-     * @param id
-     */
-    protected void setId(long id) {
-        this.id = id;
     }
 
     /**

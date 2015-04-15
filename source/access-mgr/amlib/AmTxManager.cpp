@@ -181,12 +181,12 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::registerVolume(const VolumeDesc& volDesc)
+AmTxManager::registerVolume(const VolumeDesc& volDesc, fds_int64_t token)
 {
     auto err = amCache->registerVolume(volDesc.volUUID);
     if (ERR_OK == err) {
         LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
-        err = volTable->registerVolume(volDesc);
+        err = volTable->registerVolume(volDesc, token);
         if (ERR_OK != err) {
             amCache->removeVolume(volDesc.volUUID);
         }
@@ -223,6 +223,10 @@ AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
 AmVolumeTable::volume_ptr_type
 AmTxManager::getVolume(fds_volid_t vol_uuid) const
 { return volTable->getVolume(vol_uuid); }
+
+void
+AmTxManager::getVolumeTokens(std::deque<std::pair<fds_volid_t, fds_int64_t>>& tokens) const
+{ return volTable->getVolumeTokens(tokens); }
 
 BlobDescriptor::ptr
 AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)

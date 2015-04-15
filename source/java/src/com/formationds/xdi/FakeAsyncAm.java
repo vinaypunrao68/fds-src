@@ -1,10 +1,10 @@
 package com.formationds.xdi;
 
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeStatus;
-import com.formationds.security.AuthenticationToken;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
@@ -39,7 +39,7 @@ public class FakeAsyncAm implements AsyncAm {
     }
 
     @Override
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset) {
+    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder order, boolean descending) {
         return CompletableFuture.completedFuture(new ArrayList<BlobDescriptor>());
     }
 

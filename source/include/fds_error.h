@@ -80,6 +80,7 @@ typedef enum {
     ERR_ARCHIVE_SNAP_TAR_FAILED = 56,
     ERR_ARCHIVE_PUT_FAILED = 57,
     ERR_ARCHIVE_GET_FAILED = 58,
+    ERR_VOLUME_ACCESS_DENIED = 59,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

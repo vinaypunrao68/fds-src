@@ -800,7 +800,205 @@ uint ConfigDB::getNodeNameCounter() {
     return 0;
 }
 
-// volume policies
+// Volume QoS policy
+
+/**
+ * Create a new Local Domain provided it does not already exist. (Local Domain names
+ * are treated as case-insenative.)
+ *
+ * @param identifier: std::string - Name to use for the new QoS Policy.
+ * @param minIops: fds_uint64_t - Minimum IOPs requested for the new QoS Policy.
+ * @param maxIops: fds_uint64_t - Maximum IOPs requested for the new QoS Policy.
+ * @param relPrio: fds_uint32_t - Relative priority requested for the new QoS Policy.
+ *
+ * @return fds_uint32_t - ID generated for the new QoS Policy.
+ */
+fds_uint32_t ConfigDB::createQoSPolicy(const std::string& identifier,
+                                       const fds_uint64_t minIops, const fds_uint64_t maxIops,
+                                       const fds_uint32_t relPrio) {
+    fds_uint32_t id = 0;
+
+    TRACKMOD();
+
+    try {
+        // Check if the QoS Policy already exists.
+        std::string idLower = lower(identifier);
+
+        id = getIdOfQoSPolicy(identifier);
+        if (id > 0) {
+            // The QoS Policy already exists.
+            LOGWARN << "Trying to add an existing QoS Policy : " << id << ": " << identifier;
+            NOMOD();
+            return id;
+        }
+
+        // Get new id
+#ifndef QOS_POLICY_MANAGEMENT_CORRECTED
+        /**
+         * Note that further up the stack, VolPolicyMgr::createPolicy() has acquired
+         * a lock. So we rely upon that to serialize our access to key qos.policy:nextid.
+         */
+        auto exists = r.sendCommand("exists qos.policy:nextid");
+        if (!exists.isOk()) {
+            /**
+             * If our QoS Policy ID generator does not exist, we
+             * assume that we may have policies created already whose ID's
+             * were not generated with this mechanism. From here on out,
+             * they will be. But we need to make sure that we don't step
+             * one that already exists.
+             */
+            std::vector<FDS_VolumePolicy> qosPolicies;
+
+            if (getPolicies(qosPolicies)) {
+                for (const auto& qosPolicy : qosPolicies) {
+                    if (qosPolicy.volPolicyId > id) {
+                        id = qosPolicy.volPolicyId;
+                    }
+                }
+            }
+
+            r.sendCommand("set qos.policy:nextid %s", std::to_string(id).c_str());
+            LOGDEBUG << "QoS Policy ID generator initialized to " << std::to_string(id);
+        }
+#endif  /* QOS_POLICY_MANAGEMENT_CORRECTED */
+
+        auto reply = r.sendCommand("incr qos.policy:nextid");
+
+        // Build Local Domain object to store.
+        FDS_VolumePolicy qosPolicy;
+        id = static_cast<fds_uint32_t>(reply.getLong());
+        qosPolicy.volPolicyId = id;
+        qosPolicy.volPolicyName = identifier;
+        qosPolicy.iops_min = minIops;
+        qosPolicy.iops_max = maxIops;
+        qosPolicy.relativePrio = relPrio;
+
+#ifdef QOS_POLICY_MANAGEMENT_CORRECTED
+        /**
+         * This is what we'd like to do.
+         */
+        r.sendCommand("sadd qos.policy:list %b", idLower.data(), idLower.length());
+
+        // serialize
+        std::string serialized;
+        qosPolicy.getSerialized(serialized);
+
+        r.sendCommand("hset qos.policies %ld %b", qosPolicy.volPolicyId, serialized.data(), serialized.length());
+        return qosPolicy.volPolicyId;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Error with redis " << e.what();
+    }
+#else
+        if (!addPolicy(qosPolicy)) {
+            // Something not right.
+            qosPolicy.volPolicyId = 0;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Error with redis " << e.what();
+    }
+#endif  /* QOS_POLICY_MANAGEMENT_CORRECTED */
+
+    return id;
+}
+
+#ifdef QOS_POLICY_MANAGEMENT_CORRECTED
+/**
+* Generate a vector of QoS Policies currently defined.
+*
+* @param qosPolicies: std::vector<fds::apis::LocalDomain> - Vector of returned Local Domain names.
+*
+* @return bool - True if the vector is successfully produced. False otherwise.
+*/
+bool ConfigDB::listQoSPolicies(std::vector<FDSP_PolicyInfoType>& qosPolicies) {
+    FDS_VolumePolicy qosPolicy;
+
+    try {
+        Reply reply = r.sendCommand("hvals qos.policies");
+        StringList strings;
+        reply.toVector(strings);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Error with redis " << e.what();
+        return false;
+    }
+
+    for (const auto& value : strings) {
+        qosPolicy.loadSerialized(value);
+        LOGDEBUG << "Read QoS Policy " << qosPolicy.volPolicyName;
+        // Need to construct FDSP_PolicyInfoType from FDS_VolumePolicy.
+        qosPolicies.push_back(FDSP_PolicyInfoType);
+    }
+
+    return true;
+}
+#endif  /*QOS_POLICY_MANAGEMENT_CORRECTED*/
+
+/**
+* Return the Qos Policy ID for the named Qos Policy.
+*
+* @param identifier: std::string - Name of the QoS Policy whose ID is to be returned.
+*
+* @return fds_uint32_t - ID of the named QoS Policy. 0 otherwise.
+*/
+fds_uint32_t ConfigDB::getIdOfQoSPolicy(const std::string& identifier) {
+    fds_uint32_t id = 0;
+
+#ifdef QOS_POLICY_MANAGEMENT_CORRECTED
+    /**
+     * This is what we would like.
+     */
+    try {
+        // Check if the QoS Policy exists.
+        std::string idLower = lower(identifier);
+
+        Reply reply = r.sendCommand("sismember qos.policy:list %b", idLower.data(), idLower.length());
+        if (reply.getLong() == 1) {
+            // The QoS Policy exists.
+            std::vector<FDS_VolumePolicy> qosPolicies;
+            if (listQoSPolicies(qosPolicies)) {
+                for (const auto &qosPolicy : qosPolicies) {
+                    if (qosPolicy.volPolicyName == identifier) {
+                        id = qosPolicy.volPolicyId;
+                        break;
+                    }
+                }
+
+                if (id == 0) {
+                    LOGCRITICAL << "ConfigDB inconsistency. QoS Policy info missing : " << identifier;
+                }
+            } else {
+                LOGCRITICAL << "Unable to obtain QoS Policy list.";
+                return id;
+            }
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Error with redis " << e.what();
+        throw e;
+    }
+#else
+    /**
+     * But this is what we have time for ... work with current data model.
+     */
+    std::vector<FDS_VolumePolicy> qosPolicies;
+
+    if (getPolicies(qosPolicies)) {
+        for (const auto& qosPolicy : qosPolicies) {
+            if (qosPolicy.volPolicyName == identifier) {
+                id = qosPolicy.volPolicyId;
+                break;
+            }
+        }
+
+        if (id == 0) {
+            LOGDEBUG << "QoS Policy not defined yet : " << identifier;
+        }
+    } else {
+        LOGDEBUG << "No QoS Policies yet.";
+    }
+#endif  /*QOS_POLICY_MANAGEMENT_CORRECTED*/
+
+    return id;
+}
+
 
 bool ConfigDB::getPolicy(fds_uint32_t volPolicyId, FDS_VolumePolicy& policy, int localDomain) { //NOLINT
     try{
