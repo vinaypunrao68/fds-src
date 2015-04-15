@@ -10,13 +10,13 @@
 namespace fds { namespace convert {
 
 void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
-                             apis::FDSP_CreateVolTypePtr& request,
+                             fpi::FDSP_CreateVolTypePtr& request,
                              const std::string& domain,
                              const std::string& volume,
                              const apis::VolumeSettings volSettings);
 
 void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
-                             apis::FDSP_DeleteVolTypePtr& request,
+                             fpi::FDSP_DeleteVolTypePtr& request,
                              const std::string& domain,
                              const std::string& volume);
 

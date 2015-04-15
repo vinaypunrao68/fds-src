@@ -64,7 +64,7 @@ public class FakeAmService implements XdiService.Iface {
     }
 
     @Override
-    public void updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDesc, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) throws ApiException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDesc, ByteBuffer bytes, int length, ObjectOffset objectOffset) throws ApiException, TException {
 
     }
 

@@ -30,7 +30,7 @@ public class SyncAmTest extends BaseAmTest {
         byte[] second = new byte[arbitrarySize];
         new Random().nextBytes(second);
         TxDescriptor tx = amService.startBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, 1);
-        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(second), arbitrarySize, new ObjectOffset(0), true);
+        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(second), arbitrarySize, new ObjectOffset(0));
         amService.commitBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, tx);
 
         byte[] result = new byte[arbitrarySize];
@@ -91,7 +91,7 @@ public class SyncAmTest extends BaseAmTest {
         buf = new byte[42];
         new Random().nextBytes(buf);
         TxDescriptor tx = amService.startBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, 1);
-        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0), true);
+        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0));
         amService.commitBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, tx);
 
         bb = amService.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, Integer.MAX_VALUE, new ObjectOffset(0));

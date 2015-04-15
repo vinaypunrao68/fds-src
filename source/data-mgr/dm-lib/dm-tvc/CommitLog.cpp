@@ -194,9 +194,8 @@ void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectLis
         fds_verify(0 == objInfo.offset % objSize_);
         fds_verify(0 < objInfo.size);
         fds_verify((tx.blobMode | blob::TRUNCATE) || (objSize_ == objInfo.size));
-
         newSize = objInfo.offset + objInfo.size;
-        if (tx.blobSize < newSize || objInfo.blob_end) {
+        if (tx.blobSize < newSize) {
             tx.blobSize = newSize;
         }
 

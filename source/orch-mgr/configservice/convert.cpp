@@ -9,12 +9,12 @@ namespace fds {
 namespace convert {
 
 void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
-                             apis::FDSP_CreateVolTypePtr& request,
+                             fpi::FDSP_CreateVolTypePtr& request,
                              const std::string& domain,
                              const std::string& volume,
                              const apis::VolumeSettings volSettings) {
     header.reset(new fpi::FDSP_MsgHdrType());
-    request.reset(new apis::FDSP_CreateVolType());
+    request.reset(new fpi::FDSP_CreateVolType());
 
     header->msg_code = fpi::FDSP_MSG_CREATE_VOL;
     header->bucket_name = volume;
@@ -34,7 +34,7 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
 
     // Set connector
     // TODO(Andrew): Have the api service just replace the fdsp version
-    // so that this conversion isn't needed
+    // so that his conversion isn't needed
     switch (volSettings.volumeType) {
         case apis::OBJECT:
             request->vol_info.volType = fpi::FDSP_VOL_S3_TYPE;
@@ -54,11 +54,11 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
 }
 
 void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
-                             apis::FDSP_DeleteVolTypePtr& request,
+                             fpi::FDSP_DeleteVolTypePtr& request,
                              const std::string& domain,
                              const std::string& volume) {
     header.reset(new fpi::FDSP_MsgHdrType());
-    request.reset(new apis::FDSP_DeleteVolType());
+    request.reset(new fpi::FDSP_DeleteVolType());
 
     header->msg_code = fpi::FDSP_MSG_DELETE_VOL;
     header->bucket_name = volume;
