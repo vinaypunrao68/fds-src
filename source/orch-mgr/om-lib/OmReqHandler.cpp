@@ -35,17 +35,6 @@ int32_t FDSP_ConfigPathReqHandler::ActivateNode(
 int32_t FDSP_ConfigPathReqHandler::ActivateNode(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ActivateOneNodeTypePtr& act_node_msg) {
-
-    static bool activate_node_services_done = false;
-    bool activate_dm = act_node_msg->activate_dm;
-    if (activate_node_services_done) {
-        if (act_node_msg->activate_dm) {
-             LOGWARN << "Trying to activate DM after first issue of activate_services";
-        }
-        activate_dm = false;
-    }
-    activate_node_services_done = true;
-
     Error err(ERR_OK);
     try {
         int domain_id = act_node_msg->domain_id;
@@ -59,7 +48,7 @@ int32_t FDSP_ConfigPathReqHandler::ActivateNode(
 
         err = local->om_activate_node_services(node_uuid,
                                                act_node_msg->activate_sm,
-                                               activate_dm,
+                                               act_node_msg->activate_dm,
                                                act_node_msg->activate_am);
     }
     catch(...) {
