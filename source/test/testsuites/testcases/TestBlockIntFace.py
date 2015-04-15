@@ -191,13 +191,10 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
             volumes = fdscfg.rt_get_obj('cfg_volumes')
             for volume in volumes:
                 if self.passedVol == volume.nd_conf_dict['vol-name']:
+                    global nbd_device
                     nbd_device = volume.nd_conf_dict['nbd-dev']
                     self.log.info("nbd_device is %s" % (nbd_device))
                     break
-                else:
-                    nbd_device = ""
-        else:
-            nbd_device = "/dev/nbd15"
 
         # TODO(Andrew): Don't hard code all of this stuff...
         fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k " \
