@@ -166,11 +166,15 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     // if there are no DLT tokens that belong to this SM
     // we don't care about this DLT
     if (dlt_toks.size() == 0) {
+        // TODO(Sean):  This can be called before the SmSuperblock is created.
+        //              Need to restructure the code, so SmSuperblock exists before DLT version
+        //              can be sync'ed to disk.
+        //
         // Sync'ing out DLT version to the SM Superblock immediately.
         // Since, there is no changes to the mapping, we just need to change the
         // version.
         //
-        Error tmpErr = setDLTVersion(dlt->getVersion(), true);
+        // Error tmpErr = setDLTVersion(dlt->getVersion(), true);
         fds_verify(tmpErr.ok());
 
         LOGWARN << "DLT does not contain any tokens owned by this SM";
