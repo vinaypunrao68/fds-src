@@ -21,7 +21,7 @@ homepage "http://www.formationds.com"
 
 install_dir "/fds"
 
-fds_version = "0.7.5"
+fds_version = "0.7.6"
 build_number = ENV['BUILD_NUMBER']
 git_sha = `git rev-parse --short HEAD`.chomp unless build_number
 
