@@ -78,9 +78,15 @@ public class Xdi {
     // TODO: this is ignoring case where volume doesn't exist.  s3 apis may require the return of a
     // specific error code indicating the bucket does not exist.
     public void deleteVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
-        if (config.statVolume(domainName, volumeName) != null) {
-            attemptVolumeAccess(token, volumeName, Intent.delete);
-            config.deleteVolume(domainName, volumeName);
+        try {
+            if (config.statVolume(domainName, volumeName) != null) {
+                attemptVolumeAccess(token, volumeName, Intent.delete);
+                config.deleteVolume(domainName, volumeName);
+            }
+        } catch(ApiException ex) {
+            if(ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
+                return;
+            throw ex;
         }
     }
 
