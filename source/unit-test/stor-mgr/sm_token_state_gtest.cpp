@@ -45,7 +45,7 @@ TEST(SmTokenState, initialize) {
 
         // initialize table
         TokenDescTable tokTbl;
-        tokTbl.initialize(toks);
+        tokTbl.initializeSmTokens(toks);
         GLOGNORMAL << "Run " << run << ": Initial token desc table - " << tokTbl;
         for (SmTokenSet::const_iterator cit = toks.cbegin();
              cit != toks.cend();
@@ -66,7 +66,7 @@ TEST(SmTokenState, update) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    tokTbl.initialize(tokSet);
+    tokTbl.initializeSmTokens(tokSet);
 
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
          cit != tokSet.cend();
@@ -90,11 +90,11 @@ TEST(SmTokenState, comparison) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    tokTbl.initialize(tokSet);
+    tokTbl.initializeSmTokens(tokSet);
     GLOGNORMAL << "Initial computation - " << tokTbl;
 
     TokenDescTable tokTbl2;
-    tokTbl2.initialize(tokSet);
+    tokTbl2.initializeSmTokens(tokSet);
     GLOGNORMAL << "Initial computation 2 - " << tokTbl;
     EXPECT_TRUE(tokTbl == tokTbl2);
 
@@ -108,6 +108,50 @@ TEST(SmTokenState, comparison) {
     tokTbl2.setCompactionState(*cit, diskio::diskTier, false);
     EXPECT_TRUE(tokTbl == tokTbl2);
 }
+
+TEST(SmTokenState, invalidate) {
+    fds_uint16_t diskFileId = 0x0042;
+    fds_uint16_t flashFileId = 0x0052;
+
+    SmTokenSet tokSet;
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; tok += 3) {
+        tokSet.insert(tok);
+    }
+    TokenDescTable tokTbl;
+    tokTbl.initializeSmTokens(tokSet);
+
+    for (SmTokenSet::const_iterator cit = tokSet.cbegin();
+         cit != tokSet.cend();
+         ++cit) {
+        tokTbl.setWriteFileId(*cit, diskio::flashTier, flashFileId);
+        tokTbl.setWriteFileId(*cit, diskio::diskTier, diskFileId);
+
+        fds_uint16_t fid = tokTbl.getWriteFileId(*cit, diskio::flashTier);
+        EXPECT_EQ(flashFileId, fid);
+        fid = tokTbl.getWriteFileId(*cit, diskio::diskTier);
+        EXPECT_EQ(diskFileId, fid);
+    }
+    GLOGNORMAL << "Every 3rd token on flash has 0x0042 fileId and on-hdd 0x0052 file id -- "
+               << tokTbl;
+
+    // invalidate every token
+    tokTbl.invalidateSmTokens(tokSet);
+
+    // there must be no valid tokens
+    SmTokenSet curTokSet = tokTbl.getSmTokens();
+    EXPECT_EQ(curTokSet.size(), 0);
+
+    // check file IDs are also invalid
+    for (SmTokenSet::const_iterator cit = tokSet.cbegin();
+         cit != tokSet.cend();
+         ++cit) {
+        fds_uint16_t fid = tokTbl.getWriteFileId(*cit, diskio::flashTier);
+        EXPECT_EQ(fid, SM_INVALID_FILE_ID);
+        fid = tokTbl.getWriteFileId(*cit, diskio::diskTier);
+        EXPECT_EQ(fid, SM_INVALID_FILE_ID);
+    }
+}
+
 }  // namespace fds
 
 int main(int argc, char * argv[]) {

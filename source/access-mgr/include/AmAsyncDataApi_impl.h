@@ -398,8 +398,7 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                    shared_tx_ctx_type& txDesc,
                                    shared_buffer_type& bytes,
                                    shared_int_type& length,
-                                   shared_offset_type& objectOffset,
-                                   shared_bool_type& isLast) {
+                                   shared_offset_type& objectOffset) {
 
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
@@ -422,7 +421,6 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                         *length,
                                         bytes,
                                         blobTxDesc,
-                                        *isLast,
                                         callback);
     amProcessor->enqueueRequest(blobReq);
 }

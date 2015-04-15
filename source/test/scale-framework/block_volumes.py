@@ -17,24 +17,25 @@ class BlockVolumes(object):
 
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
-    
+
     def __init__(self, om_ip_address):
         self.om_ip_address = om_ip_address
-    
-    def create_block_volumes(self, quantity, name, size, unit):
+
+    def create_block_volumes(self, quantity, name, size, unit, userToken=None):
+        if userToken == None:
+            # Get the user token
+            userToken = str(utils.get_user_token("admin", "admin",
+                self.om_ip_address, config.FDS_REST_PORT, 0, 1))
+
+        # Create the volumes
         for i in xrange(0, quantity):
             volume_name = "%s_%s" % (name, i)
-            self.__create_block_volume(volume_name, size, unit)
+            self.__create_block_volume(volume_name, size, unit, userToken)
 
-    def __create_block_volume(self, volume_name, size, unit):
+    def __create_block_volume(self, volume_name, size, unit, userToken):
         r = None
         port = config.FDS_REST_PORT
         try:
-            #Get the user token
-            userToken = str(utils.get_user_token("admin", "admin", 
-                                                 self.om_ip_address, port, 0, 1))
-            self.log.info("userToken = %s", userToken)
-
             #Setup for the request
             url = "http://" + self.om_ip_address + ":" + `port` + "/api/config/volumes"
             self.log.info("url = %s", url)
