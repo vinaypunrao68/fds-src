@@ -166,6 +166,17 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     // if there are no DLT tokens that belong to this SM
     // we don't care about this DLT
     if (dlt_toks.size() == 0) {
+        // TODO(Sean):  This can be called before the SmSuperblock is created.
+        //              Need to restructure the code, so SmSuperblock exists before DLT version
+        //              can be sync'ed to disk.
+        //
+        // Sync'ing out DLT version to the SM Superblock immediately.
+        // Since, there is no changes to the mapping, we just need to change the
+        // version.
+        //
+        // Error tmpErr = setDLTVersion(dlt->getVersion(), true);
+        // fds_verify(tmpErr.ok());
+
         LOGWARN << "DLT does not contain any tokens owned by this SM";
         return ERR_INVALID_DLT;
     }
@@ -184,6 +195,14 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     LOGDEBUG << "Will handle new DLT, bits per token " << bitsPerToken_;
     LOGTRACE << *dlt;
 
+    // TODO(Sean):  Sync'ing out DLT version to the SM Superblock.
+    //              Here, we need to update the disk map, we should just update
+    //              the in-memory superblock only and sync out both the udpated
+    //              token/disk map and dlt version.
+    //
+    // Error tmpErr = setDLTVersion(dlt->getVersion(), false);
+    //
+    //
     // TODO(Anna) get list of SM tokens that this SM is responsible for
     // this is code below. For now commenting out and pretending SM is
     // responsible for all SM tokens. The behavior is correct, except not
@@ -205,6 +224,12 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
         sm_toks.insert(tokId);
     }
+
+    // TODO(Sean): Make sure we don't touch superblock until we have at least loaded the
+    //             superblock initially.  superblock creates a new superblock on a pristine
+    //             system.  we don't want to update it with garbage.
+    //             So, do not update Disk/Token map and set DLT version until the superblock
+    //             is loaded from the system.
 
     if (first_dlt) {
         // tell superblock about existing disks and SM tokens
@@ -235,6 +260,19 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     }
 
     return err;
+}
+
+
+Error
+SmDiskMap::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
+{
+    return superblock->setDLTVersion(dltVersion, syncImmediately);
+}
+
+fds_uint64_t
+SmDiskMap::getDLTVersion()
+{
+    return superblock->getDLTVersion();
 }
 
 fds_token_id
