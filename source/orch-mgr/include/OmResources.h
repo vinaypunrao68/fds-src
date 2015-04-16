@@ -527,6 +527,17 @@ class OM_NodeContainer : public DomainContainer
     */
     virtual void om_bcast_svcmap();
 
+    /**
+    * fs-1637: returns true if the services have been activated at least once,
+    * otherwise it returns false
+    */
+    bool have_services_been_activated_once() {
+        static bool activate_services_done_once = false;
+        bool tmp = activate_services_done_once;
+        activate_services_done_once =  true;
+        return tmp;
+    }
+
   private:
     friend class OM_NodeDomainMod;
 

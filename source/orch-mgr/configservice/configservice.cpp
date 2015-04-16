@@ -304,11 +304,27 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         OM_NodeContainer *localDomain = OM_NodeDomainMod::om_loc_domain_ctrl();
 
+        // Determine if I can activate DM or not. (fs-1637). If Activate services has been already called, prevent
+        // DM to be activated again
+        bool prevent_adding_dm_after_startup = MODULEPROVIDER()->get_conf_helper().get_abs<bool>("fds.om.prevent_adding_dm_after_startup", false);
+        if (prevent_adding_dm_after_startup)
+            LOGNOTIFY << "fs-1637 is enabled (fds.om.prevent_adding_dm_after_startup=true): We want to prevent DMs are activated " <<
+                         "once the system has started, so we prevent any DM to be activated once activate " <<
+                         "has been issued once";
+        bool activate_services_done_once = localDomain->have_services_been_activated_once();
+        bool activate_dm = *dm;
+        if (prevent_adding_dm_after_startup && activate_services_done_once) {
+            if (activate_dm) {
+                 LOGWARN << "fs-1637: Preventing DM to be activated";
+            }
+            activate_dm = false;
+        }
+
         try {
             LOGNORMAL << "Received activate services for Local Domain " << domainName;
-            LOGNORMAL << "SM: " << *sm << "; DM: " << *dm << "; AM: " << *am;
+            LOGNORMAL << "SM: " << *sm << "; DM: " << activate_dm << "; AM: " << *am;
 
-            localDomain->om_cond_bcast_activate_services(*sm, *dm, *am);
+            localDomain->om_cond_bcast_activate_services(*sm, activate_dm, *am);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
