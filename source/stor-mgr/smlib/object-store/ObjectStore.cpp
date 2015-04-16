@@ -90,7 +90,8 @@ ObjectStore::putObject(fds_volid_t volId,
                        fds_bool_t forwardedIO) {
     fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
 
-    PerfContext objWaitCtx(SM_PUT_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId, 
+                            PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -178,7 +179,7 @@ ObjectStore::putObject(fds_volid_t volId,
             updatedMeta->reconcilePutObjMetaData(objId, volId);
         }
 
-        PerfTracer::incr(SM_PUT_DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(PerfEventType::SM_PUT_DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
@@ -273,7 +274,7 @@ ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
                        diskio::DataTier& usedTier,
                        Error& err) {
-    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -373,7 +374,7 @@ ObjectStore::getObjectData(fds_volid_t volId,
                        ObjMetaData::const_ptr objMetaData,
                        Error& err)
 {
-    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -391,7 +392,7 @@ Error
 ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId,
                           fds_bool_t forwardedIO) {
-    PerfContext objWaitCtx(SM_DELETE_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfContext objWaitCtx(PerfEventType::SM_DELETE_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -502,7 +503,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
     // object from data store cache fails, it is ok
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
     if (err.ok()) {
-        PerfTracer::incr(SM_OBJ_MARK_DELETED, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(PerfEventType::SM_OBJ_MARK_DELETED, volId, PerfTracer::perfNameStr(volId));
         volumeTbl->updateDupObj(volId,
                                 objId,
                                 updatedMeta->getObjSize(),
@@ -642,7 +643,7 @@ Error
 ObjectStore::copyAssociation(fds_volid_t srcVolId,
                              fds_volid_t destVolId,
                              const ObjectID& objId) {
-    PerfContext objWaitCtx(SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId,
+    PerfContext objWaitCtx(PerfEventType::SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId,
                            PerfTracer::perfNameStr(destVolId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
