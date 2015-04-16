@@ -935,7 +935,18 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         for (auto volAssoc : msg.objectVolumeAssoc) {
             fds_volid_t volId = volAssoc.volumeAssoc;
             StorMgrVolume* vol = volumeTbl->getVolume(volId);
-            fds_assert(vol);  // SM must know about all volumes
+            //
+            // TODO(Sean):  Volume table should be updated before token resync.
+            //
+            // At this point, SM may not have all volume information.  This can be
+            // called during the SM Restart Resync path, which may or may not have the
+            // latest volume information.  Therefore, volume associated with this
+            // propagate message's ObjectMetaData may not exist yet.
+            // Continue to look for a valid volume information, but if not found, use
+            // tier::HDD.
+            if (vol == NULL) {
+                continue;
+            }
             if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_SSD) {
                 selectVol = vol;
                 break;   // ssd-only is highest media policy
@@ -953,7 +964,17 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         }
 
         // select tier to put object
-        useTier = tierEngine->selectTier(objId, *selectVol->voldesc);
+        if (selectVol != NULL) {
+            // If the volume is selected, then use the tier policy associated with
+            // the volume.
+            useTier = tierEngine->selectTier(objId, *selectVol->voldesc);
+        } else {
+            // If the volume doesn't exist, then use HDD tier as default.
+            // If the system is all SSD, then the next block of code will re-adjust.
+            useTier = diskio::diskTier;
+        }
+
+        // Adjust the tier depending on the system disk topolgy
         if (diskMap->getTotalDisks(useTier) == 0) {
             // there is no requested tier, use existing tier
             LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";

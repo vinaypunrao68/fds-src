@@ -167,7 +167,7 @@ function startApp() {
             pid=$(getAppPid $name)
             if [[ -z $pid ]] ; then
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
-                (cd ${BINDIR}; ./${apps[$name]} --fds-root ${FDSROOT} > ${name}.out 2>&1 &)
+                (cd ${BINDIR}; ./${apps[$name]} --fds-root=${FDSROOT} > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
                 sleep 2s
 		if ! (waitForApp $name) ; then

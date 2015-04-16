@@ -434,7 +434,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                 if (err.ok()) {
                     LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
                     err = timeVolCat_->activateVolume(vdesc->volUUID);
-                    fActivated = true;
+                    if (err.ok()) fActivated = true;
                 }
 
                 err = timeVolCat_->replayTransactions(srcVolumeId, vdesc->volUUID,
@@ -457,7 +457,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
-        fActivated = true;
+        if (err.ok()) fActivated = true;
     }
 
     if (err.ok() && vdesc->isClone() && fPrimary) {
@@ -554,7 +554,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
     if (err.ok()) {
         // For now, volumes only land in the map if it is already active.
-        volmeta->vol_desc->setState(Active);
+        if (fActivated) {
+            volmeta->vol_desc->setState(Active);
+        } else {
+            LOGWARN << "vol:" << vol_uuid << " not activated";
+            volmeta->vol_desc->setState(InError);
+        }
 
         // we registered queue and shadow queue if needed
         vol_meta_map[vol_uuid] = volmeta;
