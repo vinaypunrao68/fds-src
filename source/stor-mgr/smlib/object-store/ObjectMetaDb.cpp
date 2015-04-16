@@ -107,7 +107,7 @@ ObjectMetadataDb::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
                      << " " << tmpErr;
             err = tmpErr;
         } else {
-            LOGDEBUG << "Closed ObjectDB for SM token " << *cit;
+            LOGNOTIFY << "Closed ObjectDB for SM token " << *cit;
         }
     }
     return err;
