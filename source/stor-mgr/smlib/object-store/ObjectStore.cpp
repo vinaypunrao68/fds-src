@@ -938,11 +938,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             //
             // TODO(Sean):  Volume table should be updated before token resync.
             //
-            // At this point, SM may not not all volume information.  Since this can be
+            // At this point, SM may not have all volume information.  This can be
             // called during the SM Restart Resync path, which may or may not have the
-            // latest volume information.  Therefore, volume associtated with this
+            // latest volume information.  Therefore, volume associated with this
             // propagate message's ObjectMetaData may not exist yet.
-            // Continue to look for volume information, but if non-found, use
+            // Continue to look for a valid volume information, but if not found, use
             // tier::HDD.
             if (vol == NULL) {
                 continue;
