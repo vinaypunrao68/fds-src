@@ -10,7 +10,6 @@ setup = "setup.cfg"
 FDS_ROOT="/root/fds-src/"
 FDS_TOOLS="../../../source/tools/"
 FDS_CMD="sudo %s/fds %s"
-pyUnitConfig = "./../../source/test/testsuites/BuildSmokeTest.ini"
 
 S3_USER = 'fds_testing'
 S3_PASSWORD = 'bIEYKCPzDKtQDDBomnAKTKRA'
@@ -38,8 +37,10 @@ START_ALL_CLUSTER             = "./fds-tool.py -f %s -u"
 FDS_SBIN                      = "/fds/sbin"
 FORMATION_CONFIG              = "deploy_formation.conf"
 
-NDBADM_CLIENT                 = "10.1.16.101"
-FDS_MOUNT                     = "/fdsmount"
+NDBADM_CLIENT                 = "127.0.0.1"
+FDS_MOUNT                     = "/fdsmount_%s"
+NDBADM_ROOT                   = "/home/pairing/nbdadm.py"
+
 params = {
     'log_level' : 20,
     'stop_on_fail' : True,
@@ -62,7 +63,7 @@ NUMBER_USERS = 30
 MAX_NUM_VOLUMES = 1023
 SAMPLE_FILE = "test.txt"
 SAMPLE_DIR = "./samples/"
-RANDOM_DATA = "./random_data/"
+RANDOM_DATA = "random_data"
 DD = "dd if=/dev/urandom of=%s bs=%s count=1"
 TEST_DIR = "./test_files/"
 BACKUP_DIR = "./backup/"

@@ -43,7 +43,7 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
             header = {'FDS-Auth' : userToken}
             self.log.info("header = %s", header)
 
-            for i in range(0, 300):
+            for i in range(0, 100):
 
                 #volume name
                 volume_name = "test-block-" + str(i).zfill(3) + "_300"
@@ -80,7 +80,7 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
             test_passed = False
         finally:
             super(self.__class__, self).reportTestCaseResult(test_passed)
-
+            
     def tearDown(self):
         '''
         Undo it.
