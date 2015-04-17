@@ -184,7 +184,7 @@ var en_US = {
         l_edit_settings: 'Edit Settings',
         l_edit_volume: 'Edit Volume',
         l_point_timeline: 'Point from timeline:',
-        l_qos: 'Performance',
+        l_qos: 'Quality of Service',
         l_save_volume: 'Save Volume',
         l_select_to_clone: 'Select a Volume to Clone',
         l_settings: 'Settings',

@@ -64,7 +64,7 @@ AmCache::getBlobDescriptor(fds_volid_t volId,
     BlobDescriptor::ptr blobDescPtr;
     error = descriptor_cache.get(volId, blobName, blobDescPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_DESC_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_DESC_CACHE_HIT, volId);
     }
     return blobDescPtr;
 }
@@ -80,7 +80,7 @@ AmCache::getBlobOffsetObject(fds_volid_t volId,
     ObjectID::ptr blobOffsetPtr;
     error = offset_cache.get(volId, BlobOffsetPair(blobName, blobOffset), blobOffsetPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_OFFSET_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
     }
     return blobOffsetPtr;
 }
@@ -95,7 +95,7 @@ AmCache::getBlobObject(fds_volid_t volId,
     boost::shared_ptr<std::string> blobObjectPtr;
     error = object_cache.get(volId, objectId, blobObjectPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_OBJECT_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_OBJECT_CACHE_HIT, volId);
     }
     return blobObjectPtr;
 }

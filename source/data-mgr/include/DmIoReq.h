@@ -195,17 +195,17 @@ class DmIoCommitBlobTx: public dmCatReq {
         dmt_version = _dmt_version;
 
         // perf-trace related data
-        opReqFailedPerfEventType = DM_TX_COMMIT_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_TX_COMMIT_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_TX_COMMIT_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_volId);
 
-        opLatencyCtx.type = DM_VOL_CAT_WRITE;
+        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_WRITE;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volId);
 
-        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_volId);
     }
@@ -252,17 +252,17 @@ class DmIoAbortBlobTx: public dmCatReq {
                     const blob_version_t &_blob_version)
             : dmCatReq(_volId, _blobName, "", _blob_version, FDS_ABORT_BLOB_TX) {
         // perf-trace related data
-        opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_TX_OP_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_volId);
 
-        opLatencyCtx.type = DM_TX_OP;
+        opLatencyCtx.type = PerfEventType::DM_TX_OP;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volId);
 
-        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_volId);
     }
@@ -295,17 +295,17 @@ class DmIoStartBlobTx: public dmCatReq {
                         "", _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode),
             dmt_version(_dmt_ver) {
         // perf-trace related data
-        opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_TX_OP_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_volId);
 
-        opLatencyCtx.type = DM_TX_OP;
+        opLatencyCtx.type = PerfEventType::DM_TX_OP;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volId);
 
-        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_volId);
     }
@@ -347,17 +347,17 @@ class DmIoQueryCat: public dmCatReq {
                        FDS_CAT_QRY),
               queryMsg(qMsg) {
         // perf-trace related data
-        opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_QUERY_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_QUERY_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(qMsg->volume_id);
 
-        opLatencyCtx.type = DM_VOL_CAT_READ;
+        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_READ;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(qMsg->volume_id);
 
-        opQoSWaitCtx.type = DM_QUERY_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_QUERY_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(qMsg->volume_id);
     }
@@ -412,17 +412,17 @@ class DmIoUpdateCat: public dmCatReq {
             FDS_CAT_UPD), ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
             obj_list(_updcatMsg->obj_list), updcatMsg(_updcatMsg) {
         // perf-trace related data
-        opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_TX_OP_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_updcatMsg->volume_id);
 
-        opLatencyCtx.type = DM_TX_OP;
+        opLatencyCtx.type = PerfEventType::DM_TX_OP;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_updcatMsg->volume_id);
 
-        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_updcatMsg->volume_id);
     }
@@ -459,17 +459,17 @@ class DmIoUpdateCatOnce : public dmCatReq {
               commitBlobReq(_commitReq),
               updcatMsg(_updcatMsg) {
         // perf-trace related data
-        opReqFailedPerfEventType = DM_TX_COMMIT_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_TX_COMMIT_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_TX_COMMIT_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(volId);
 
-        opLatencyCtx.type = DM_VOL_CAT_WRITE;
+        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_WRITE;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(volId);
 
-        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(volId);
     }
@@ -503,17 +503,17 @@ class DmIoSetBlobMetaData: public dmCatReq {
             FDS_SET_BLOB_METADATA), ioBlobTxDesc(new BlobTxId(_setMDMsg->txId)),
             md_list(_setMDMsg->metaDataList), setMDMsg(_setMDMsg) {
         // perf-trace related data
-        opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_TX_OP_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_TX_OP_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_TX_OP_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_setMDMsg->volume_id);
 
-        opLatencyCtx.type = DM_TX_OP;
+        opLatencyCtx.type = PerfEventType::DM_TX_OP;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_setMDMsg->volume_id);
 
-        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_TX_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_setMDMsg->volume_id);
     }
@@ -568,17 +568,17 @@ class DmIoGetBlobMetaData: public dmCatReq {
             : message(message), dmCatReq(_volId, _blobName,
                      "", _blob_version, FDS_GET_BLOB_METADATA) {
         // perf-trace related data
-        opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_QUERY_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_QUERY_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_volId);
 
-        opLatencyCtx.type = DM_VOL_CAT_READ;
+        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_READ;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volId);
 
-        opQoSWaitCtx.type = DM_QUERY_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_QUERY_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_volId);
     }
@@ -603,17 +603,17 @@ struct DmIoStatVolume : dmCatReq {
     explicit DmIoStatVolume(boost::shared_ptr<fpi::StatVolumeMsg> message)
             : dmCatReq(message->volume_id, "", "", 0, FDS_STAT_VOLUME), msg(message) {
         // perf-trace related data
-        opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
+        opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
 
-        opReqLatencyCtx.type = DM_QUERY_REQ;
+        opReqLatencyCtx.type = PerfEventType::DM_QUERY_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(message->volume_id);
 
-        opLatencyCtx.type = DM_VOL_CAT_READ;
+        opLatencyCtx.type = PerfEventType::DM_VOL_CAT_READ;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(message->volume_id);
 
-        opQoSWaitCtx.type = DM_QUERY_QOS_WAIT;
+        opQoSWaitCtx.type = PerfEventType::DM_QUERY_QOS_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(message->volume_id);
     }

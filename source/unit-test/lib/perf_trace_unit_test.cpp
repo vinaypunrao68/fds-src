@@ -64,7 +64,7 @@ private:
 
 int PerfTraceUTProc::run() {
     for (unsigned i = 0; i < MAX_PERF_JOBS; ++i) {
-        jobs_[i].type = static_cast<PerfEventType>( rand() % (MAX_EVENT_TYPE - 2) + 2);
+        jobs_[i].type = static_cast<PerfEventType>( rand() % (fds_enum::get_size<PerfEventType>() - 2) + 2);
         jobs_[i].volid = static_cast<fds_volid_t>(rand());
         jobs_[i].delay = TASK_SLEEP_TIME < 0 ? (rand() % 31) + 1 : TASK_SLEEP_TIME;
         jobs_[i].id = PREFIX[rand() % 3] + boost::lexical_cast<std::string>(i);
@@ -100,10 +100,10 @@ int PerfTraceUTProc::run() {
 
 void PerfTraceUTProc::task(int id) {
     // begin perf trace
-    unsigned x = jobs_[id].type % 2;
-    unsigned y = jobs_[id].type % 4;
+    unsigned x = fds_enum::get_index<PerfEventType>(jobs_[id].type) % 2;
+    unsigned y = fds_enum::get_index<PerfEventType>(jobs_[id].type) % 4;
 
-    std::cout << "begin - task=" << jobs_[id].id << " type=" << eventTypeToStr[jobs_[id].type] <<
+    std::cout << "begin - task=" << jobs_[id].id << " type=" << jobs_[id].type <<
         " volid=" << jobs_[id].volid <<
         " delay=" << jobs_[id].delay << std::endl;
     if (!x) {
@@ -132,7 +132,7 @@ void PerfTraceUTProc::task(int id) {
             pc = PerfTracer::tracePointEnd(jobs_[id].id);
         }
 
-        std::cout << "end - task=" << jobs_[id].id << " type=" << eventTypeToStr[jobs_[id].type] <<
+        std::cout << "end - task=" << jobs_[id].id << " type=" << jobs_[id].type <<
             " volid=" << jobs_[id].volid <<
             " delay=" << jobs_[id].delay << " latency=";
         LatencyCounter * plc = dynamic_cast<LatencyCounter *>(pc ? pc->data.get() :
