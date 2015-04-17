@@ -1,7 +1,12 @@
 #!/bin/bash
 
 ##################################
-
+function s3_setup {
+    local node=$1
+    echo "Setting up s3 on $node"
+    pushd /fds/sbin && ./fdsconsole.py accesslevel debug && ./fdsconsole.py volume create volume0 --vol-type object && popd
+    sleep 10
+}
 # process_results $outfile $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs
 function process_results {
     local f=$1
@@ -49,6 +54,8 @@ n_jobs=4
 test_types="GET"
 object_sizes="4096"
 concurrencies="100"
+
+s3_setup luke
 
 cd $workspace/source/Build/linux-x86_64.release
 tar czvf java_tools.tgz tools lib/java
