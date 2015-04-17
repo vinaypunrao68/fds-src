@@ -561,6 +561,11 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         else:
             node = None
 
+        if "expect_failure" in scenario.nd_conf_dict:
+            expect_to_fail = bool(scenario.nd_conf_dict['expect_failure'])
+        else:
+            expect_to_fail = False
+
         if action == "create":
             found = False
             for volume in scenario.cfg_sect_volumes:
@@ -582,7 +587,7 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             for volume in scenario.cfg_sect_volumes:
                 if '[' + volume.nd_conf_dict['vol-name'] + ']' == script:
                     found = True
-                    suite.addTest(TestFDSVolMgt.TestVolumeAttach(volume=volume, node=node))
+                    suite.addTest(TestFDSVolMgt.TestVolumeAttach(volume=volume, node=node, expect_to_fail=expect_to_fail))
                     break
 
             if found:
