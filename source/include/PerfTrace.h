@@ -54,10 +54,6 @@ namespace fds {
 
 extern const std::string PERF_COUNTERS_NAME;
 
-
-// XXX: update eventTypeToStr[] for each event added
-extern const char * eventTypeToStr[];
-
 /**
  * Per module (SM/DM/SH) performance tracer
  *
@@ -147,7 +143,7 @@ private:
     bool enable_;
 
     // events filter for event type
-    std::bitset<MAX_EVENT_TYPE> eventsFilter_;
+    std::bitset<fds_enum::get_size<PerfEventType>()> eventsFilter_;
     bool useEventsFilter_;
 
     // events filter for event name
