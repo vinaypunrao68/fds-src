@@ -1,0 +1,10 @@
+AWS_USER = 'fds_testing'
+AWS_PASSWORD = 'bIEYKCPzDKtQDDBomnAKTKRA'
+AWS_ACCESS_KEY_ID = ''
+AWS_SECRET_ACCESS_KEY = ''
+
+AWS_IMAGE = 'ami-0f114a3f'
+AWS_INSTANCE_TYPE = 't2.medium'
+AWS_REGION = 'us-west-2'
+AWS_ZONE = 'us-west-2c'
+AWS_GROUP_ID = 'sg-43b9c126'
