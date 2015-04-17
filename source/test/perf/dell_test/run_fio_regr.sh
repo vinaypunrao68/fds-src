@@ -46,6 +46,7 @@ function process_results {
 #####################
 
 outdir=$1
+node=luke
 size="16m"
 worker=8
 workload=randomread
@@ -56,7 +57,7 @@ nbd_disk=""
 volume_setup $bs $node volume_$bs
 echo "nbd disk: $nbd_disk"
 
-fio --name=write --rw=write --filename=$nbd_disk --bs=4096 --numjobs=1 --iodepth=32 --ioengine=libaio --direct=1 --size=$size
+fio --name=write --rw=write --filename=$nbd_disk --bs=$bs --numjobs=1 --iodepth=32 --ioengine=libaio --direct=1 --size=$size
 
 #sync
 #echo 3 > /proc/sys/vm/drop_caches
