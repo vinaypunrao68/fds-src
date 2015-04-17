@@ -322,12 +322,7 @@ SmSuperblockTestDriver::removeSuperblock(std::string& path)
 void
 SmSuperblockTestDriver::loadSuperblock()
 {
-    SmTokenSet sm_toks;
-    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
-        sm_toks.insert(tok);
-    }
-
-    sblock->loadSuperblock(hdds, ssds, diskMap, sm_toks);
+    sblock->loadSuperblock(hdds, ssds, diskMap);
     GLOGNORMAL << *sblock;
 }
 

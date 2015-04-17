@@ -282,8 +282,7 @@ SmSuperblockMgr::getSuperblockPath(const std::string& dir_path) {
 Error
 SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
                                 const DiskIdSet& ssdIds,
-                                const DiskLocMap& latestDiskMap,
-                                SmTokenSet& smTokensOwned)
+                                const DiskLocMap& latestDiskMap)
 {
     Error err(ERR_OK);
     std::string superblockPath;
@@ -311,7 +310,6 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
          */
         superblockMaster.initSuperblock();
         SmTokenPlacement::compute(hddIds, ssdIds, &(superblockMaster.olt));
-        superblockMaster.tokTbl.initializeSmTokens(smTokensOwned);
 
         /* After creating a new superblock, sync to disks.
          */
@@ -339,6 +337,60 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
     }
 
     return err;
+}
+
+Error
+SmSuperblockMgr::updateNewSmTokenOwnership(SmTokenSet& smTokensOwned,
+                                           fds_uint64_t dltVersion) {
+    Error err(ERR_OK);
+
+    SCOPEDWRITE(sbLock);
+    fds_bool_t initAtLeastOne = superblockMaster.tokTbl.initializeSmTokens(smTokensOwned);
+    superblockMaster.DLTVersion = dltVersion;
+
+    // sync superblock
+    err = syncSuperblock();
+    if (err.ok()) {
+        LOGDEBUG << "SM persistent SM token ownership and DLT version="
+                 << superblockMaster.DLTVersion;
+        if (initAtLeastOne) {
+            err = ERR_SM_NOERR_GAINED_SM_TOKENS;
+        }
+    } else {
+        // TODO(Sean):  If the DLT version cannot be persisted, then for not, we will
+        //              just ignore it.  We can retry, but the chance of failure is
+        //              high at this point, since the disk is likely failed or full.
+        //
+        // TODO(Sean):  Make sure if the latest DLT version > persistent DLT version is ok.
+        //              and change DLT and DISK mapping accordingly.
+        LOGCRITICAL << "SM persistent DLT version failed to set: version "
+                    << dltVersion;
+    }
+
+    return err;
+}
+
+SmTokenSet
+SmSuperblockMgr::handleRemovedSmTokens(SmTokenSet& smTokensNotOwned,
+                                       fds_uint64_t dltVersion) {
+    SCOPEDWRITE(sbLock);
+
+    // DLT version must be already set!
+    fds_verify(dltVersion == superblockMaster.DLTVersion);
+
+    // invalidate token state for tokens that are not owned
+    SmTokenSet lostSmTokens = superblockMaster.tokTbl.invalidateSmTokens(smTokensNotOwned);
+
+    // sync superblock
+    Error err = syncSuperblock();
+    if (!err.ok()) {
+        // We couldn't persist tokens that are not valid anymore
+        // For now ignoring it! We should be ok later recovering from this
+        // inconsistency since we can always check SM ownership from DLT
+        LOGCRITICAL << "Failed to persist newly invalidated SM tokens";
+    }
+
+    return lostSmTokens;
 }
 
 /*

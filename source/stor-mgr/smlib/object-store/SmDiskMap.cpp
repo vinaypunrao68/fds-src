@@ -54,10 +54,20 @@ int SmDiskMap::mod_init(SysParams const *const param) {
         ++arrIdx;
     }
 
-    // we are not going to read superblock
-    // until we get our first DLT; when we get DLT
-    // SM knows which tokens it owns
     return 0;
+}
+
+Error
+SmDiskMap::loadPersistentState() {
+    // Load superblock, tell superblock about disk map
+    // it will handle changes in diskmap (vs. its persisted state)
+    Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map);
+    if (err.ok()) {
+        LOGDEBUG << "Loaded superblock " << *superblock;
+    } else {
+        LOGERROR << "Failed to load superblock " << err;
+    }
+    return err;
 }
 
 fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
@@ -161,112 +171,95 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt)
 Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
 {
     Error err(ERR_OK);
-
-    const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
-    // if there are no DLT tokens that belong to this SM
-    // we don't care about this DLT
-    if (dlt_toks.size() == 0) {
-        // TODO(Sean):  This can be called before the SmSuperblock is created.
-        //              Need to restructure the code, so SmSuperblock exists before DLT version
-        //              can be sync'ed to disk.
-        //
-        // Sync'ing out DLT version to the SM Superblock immediately.
-        // Since, there is no changes to the mapping, we just need to change the
-        // version.
-        //
-        // Error tmpErr = setDLTVersion(dlt->getVersion(), true);
-        // fds_verify(tmpErr.ok());
-
-        LOGWARN << "DLT does not contain any tokens owned by this SM";
-        return ERR_INVALID_DLT;
-    }
-
-    // see if this is the first DLT we got
-    fds_bool_t first_dlt = true;
     if (bitsPerToken_ == 0) {
         bitsPerToken_ = dlt->getNumBitsForToken();
     } else {
         // we already got DLT and set initial disk map
-        first_dlt = false;
-
         // dlt width should not change
         fds_verify(bitsPerToken_ == dlt->getNumBitsForToken());
     }
     LOGDEBUG << "Will handle new DLT, bits per token " << bitsPerToken_;
     LOGTRACE << *dlt;
 
-    // TODO(Sean):  Sync'ing out DLT version to the SM Superblock.
-    //              Here, we need to update the disk map, we should just update
-    //              the in-memory superblock only and sync out both the udpated
-    //              token/disk map and dlt version.
-    //
-    // Error tmpErr = setDLTVersion(dlt->getVersion(), false);
-    //
-    //
-    // TODO(Anna) get list of SM tokens that this SM is responsible for
-    // this is code below. For now commenting out and pretending SM is
-    // responsible for all SM tokens. The behavior is correct, except not
-    // very efficient -- we will have to open levelDBs for tokens that we
-    // know SM will not receive any data, GC will try to run for these
-    // tokens (but it will find out that there is nothing to GC), etc.
-    // We have to implement actual token ownership after beta 2
+
+    // get DLT tokens that belong to this SM
+    const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
+
+    // If this is restart, DLT version stored in superblock must be the same
+    // as DLT version we received from OM now. If OM currently tries to update
+    // DLT and at least one SM node is down, DLT will be aborted and DLT change
+    // will not happen. TODO(Anna) make sure to handle the case when DLT changes
+    // during SM down if OM code changes...
+    fds_uint64_t storedDltVersion = getDLTVersion();
+    if (storedDltVersion == dlt->getVersion()) {
+        // this is restart case
+        // TODO(Anna) FS-1605 check if superblock matches with this DLT
+        LOGDEBUG << "Nothing to do if superblock knows about this DLT version "
+                 << storedDltVersion;
+        return err;
+    }
+    
+    // here we handle only gaining of ownership of DLT tokens
+    // we will handle losing of DLT tokens on DLT close
+
+    // get list of SM tokens that this SM is responsible for
     SmTokenSet sm_toks;
-    /*
-     * this is code we want to have, but need to implement updating
-     * superblock and other SM state when we gain or lose ownership
-     * of an SM token...
     for (TokenList::const_iterator cit = dlt_toks.cbegin();
          cit != dlt_toks.cend();
          ++cit) {
         sm_toks.insert(smTokenId(*cit));
     }
-    */
-    for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
-        sm_toks.insert(tokId);
-    }
 
-    // TODO(Sean): Make sure we don't touch superblock until we have at least loaded the
-    //             superblock initially.  superblock creates a new superblock on a pristine
-    //             system.  we don't want to update it with garbage.
-    //             So, do not update Disk/Token map and set DLT version until the superblock
-    //             is loaded from the system.
-
-    if (first_dlt) {
-        // tell superblock about existing disks and SM tokens
-        // in this first implementation once we reported initial
-        // set of disks and SM tokens, they are not expected to
-        // change -- we need to implement handling changes in disks
-        // and SM tokens
-        err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, sm_toks);
-        LOGDEBUG << "Loaded superblock " << err << " " << *superblock;
-    } else {
-        // TODO(Anna) implement updating sm tokens in superblock when
-        // SM token ownership changes; for now it is correct if SM loses
-        // tokens but superblock still thinks we have them (GC maybe less
-        // efficient, but still correct). However, we will still assert if
-        // SM gains tokens...
-        // make sure that new SM tokens are subset of what superblock thinks
-        // are SM's owned tokens
-        SmTokenSet ownToks = superblock->getSmOwnedTokens();
-        fds_bool_t newToksSubsetOfOldToks = std::includes(ownToks.begin(),
-                                                          ownToks.end(),
-                                                          sm_toks.begin(),
-                                                          sm_toks.end());
-        fds_verify(newToksSubsetOfOldToks);
-        LOGNOTIFY << "New SM tokens are same or a subset of old SM tokens "
-                  << "owned by this SM. # of previous SM tokens "
-                  << ownToks.size() << ", # of new SM tokens " << sm_toks.size();
-        return ERR_DUPLICATE;  // to indicate we already set disk map/superblock
-    }
-
+    // tell superblock about current list of SM tokens this SM
+    // owns, and superblock will update token state for all SM
+    // tokens that this SM just gained ownership
+    // this methods also sets DLT version (even in case when SM does not
+    // own any SM tokens)
+    err = superblock->updateNewSmTokenOwnership(sm_toks, dlt->getVersion());
     return err;
 }
 
-
-Error
-SmDiskMap::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
+SmTokenSet SmDiskMap::handleDltClose(const DLT* dlt)
 {
-    return superblock->setDLTVersion(dltVersion, syncImmediately);
+    // get list of DLT tokens that this SM is responsible for
+    // according to the DLT
+    NodeUuid mySvcUuid;
+    if (!test_mode) {
+        mySvcUuid = NodeUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    } else {
+        mySvcUuid = 1;
+    }
+
+    return handleDltClose(dlt, mySvcUuid);
+}
+
+SmTokenSet SmDiskMap::handleDltClose(const DLT* dlt, NodeUuid& mySvcUuid)
+{
+    // get DLT tokens that belong to this SM
+    const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
+
+    // here we are handling losing ownership of DLT / SM tokens
+    SmTokenSet smToksNotOwned;
+    // get list of SM tokens that SM does not own
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+        smToksNotOwned.insert(tok);
+    }
+    for (TokenList::const_iterator cit = dlt_toks.cbegin();
+         cit != dlt_toks.cend();
+         ++cit) {
+        smToksNotOwned.erase(smTokenId(*cit));
+    }
+
+    // tell superblock about current list of SM tokens this SM
+    // owns, and superblock will update token state for all SM
+    // tokens that this SM just gained ownership
+    // this methods also sets DLT version (even in case when SM does not
+    // own any SM tokens)
+    SmTokenSet rmToks = superblock->handleRemovedSmTokens(smToksNotOwned,
+                                                          dlt->getVersion());
+
+    // return SM tokens that were just invalidated
+    return rmToks;
 }
 
 fds_uint64_t

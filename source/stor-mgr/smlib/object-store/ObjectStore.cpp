@@ -51,22 +51,40 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     metaStore->setNumBitsPerToken(nbits);
 
     Error err = diskMap->handleNewDlt(dlt);
-    if (err == ERR_DUPLICATE) {
-        return ERR_OK;  // everythin setup already
-    } else if (err == ERR_INVALID_DLT) {
-        return ERR_OK;  // we are ignoring this DLT
-    }
-    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
+    if (err == ERR_SM_NOERR_GAINED_SM_TOKENS) {
+        // we gained new SM tokens -- open metadata store for these SM tokens
+        Error openErr = metaStore->openMetadataStore(diskMap);
+        if (!openErr.ok()) {
+            LOGERROR << "Failed to open Metadata Store " << openErr;
+            return openErr;
+        }
 
-    // open metadata store for tokens owned by this SM
-    Error openErr = metaStore->openMetadataStore(diskMap);
-    if (!openErr.ok()) {
-        LOGERROR << "Failed to open Metadata Store " << openErr;
-        return openErr;
+        err = dataStore->openDataStore(diskMap, false);
     }
 
-    err = dataStore->openDataStore(diskMap,
-                                   (err == ERR_SM_NOERR_PRISTINE_STATE));
+    return err;
+}
+
+Error
+ObjectStore::handleDltClose(const DLT* dlt) {
+    Error err(ERR_OK);
+
+    SmTokenSet rmTokens = diskMap->handleDltClose(dlt);
+    if (rmTokens.size()) {
+        // we lost SM tokens -- close & remove metadata store for these SM tokens
+        err = metaStore->closeAndDeleteMetadataDbs(rmTokens);
+        if (!err.ok()) {
+            LOGERROR << "Failed to close Metadata DBs " << err;
+            // ignoring for now -- nothing horrible should happen
+        }
+
+        // also close & remove data store
+        err = dataStore->closeAndDeleteSmTokensStore(rmTokens);
+        if (!err.ok()) {
+            LOGERROR << "Failed to close token files " << err;
+        }
+    }
+
     return err;
 }
 
@@ -1128,6 +1146,22 @@ ObjectStore::mod_init(SysParams const *const p) {
                 "fds.sm.objectstore.synchronizer_size");
     taskSynchronizer = std::unique_ptr<HashedLocks<ObjectID, ObjectHash>>(
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
+
+
+    // do initial validation of SM persistent state
+    Error err = diskMap->loadPersistentState();
+    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
+
+    // open metadata store for tokens owned by this SM
+    Error openErr = metaStore->openMetadataStore(diskMap);
+    if (!openErr.ok()) {
+        LOGERROR << "Failed to open Metadata Store " << openErr;
+        return -1;
+    } else {
+        // open data store for tokens owned by this SM
+        err = dataStore->openDataStore(diskMap,
+                                       (err == ERR_SM_NOERR_PRISTINE_STATE));
+    }
 
     LOGDEBUG << "Done";
     return 0;
