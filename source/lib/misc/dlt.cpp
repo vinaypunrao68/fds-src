@@ -291,6 +291,29 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
     }
 }
 
+//get source node for a given token id of destination node
+NodeUuid DLT::getSourceNodeForToken(const NodeUuid &nodeUuid, const fds_token_id &tokenId) {
+    DltTokenGroupPtr tokenNodeGroup = getNodes(tokenId);
+    for (fds_uint8_t idx = 0; idx < tokenNodeGroup->getLength(); idx++) {
+        // idx = 0 is primary node for a given token id.
+        if (nodeUuid != tokenNodeGroup->get(idx)) {
+            return tokenNodeGroup->get(idx);
+        }
+    }
+    return INVALID_RESOURCE_UUID;
+}
+
+// get source nodes for all the tokens of a given destination node
+void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
+                                    SourceNodeMap &srcNodeTokenMap) {
+    const TokenList& nodeTokenList = getTokens(nodeUuid);
+    for (TokenList::const_iterator tokenIter = nodeTokenList.begin();
+         tokenIter != nodeTokenList.end();
+         tokenIter++) {
+        srcNodeTokenMap[*tokenIter] = getSourceNodeForToken(nodeUuid, *tokenIter);
+    }
+}
+
 void DLT::dump() const {
     // go thru with the fn iff loglevel is debug or lesser.
 

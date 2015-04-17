@@ -501,6 +501,44 @@ TEST_F(SmObjectStoreTest, concurrent_gets_2mb) {
     runMultithreadedTest(TestVolume::STORE_OP_GET, largeObjVolume);
 }
 
+TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+
+    unsigned destSm = 1; // destination SM id
+    unsigned srcSm = 2; // expected source SM id to be assinged for resync
+    dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
+
+    for (DLT::SourceNodeMap::iterator itr = srcNodeMap.begin();
+         itr != srcNodeMap.end();
+         itr++) {
+         ASSERT_TRUE(itr->second == NodeUuid(srcSm));
+    }
+
+    destSm = 3; // destination SM id
+    srcSm = 1; // expected source SM id to be assigned for resync
+    srcNodeMap.clear();
+    dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
+
+    for (DLT::SourceNodeMap::iterator itr = srcNodeMap.begin();
+         itr != srcNodeMap.end();
+         itr++) {
+         ASSERT_TRUE(itr->second == NodeUuid(srcSm));
+    }
+
+    //invalid destination SM id test
+    destSm = 10000; // destination SM id
+    srcNodeMap.clear();
+    dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
+    ASSERT_EQ(srcNodeMap.size(), 0);
+
+    delete dlt;
+}
+
 }  // namespace fds
 
 int

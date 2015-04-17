@@ -88,6 +88,29 @@ namespace fds {
         const TokenList& getTokens(const NodeUuid &uid) const;
         void getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const;
 
+        typedef std::map<fds_token_id, NodeUuid> SourceNodeMap;
+
+        /**
+         * To resync token data from a node in the replica set,
+         * get source node for a given token. The first choice for the
+         * source node will be the primary node for a given token.
+         * If, for some reason primary node is not available, then the
+         * node replica with highest node uuid will be designated as
+         * source node
+         */
+        NodeUuid getSourceNodeForToken(const NodeUuid &nodeUuid,
+                                       const fds_token_id &tokenId);
+
+        /**
+         * get source nodes for all the tokens of a give node. This returns
+         * a map of <Token id - Source Node Uuid>.
+         */
+        void getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
+                                        SourceNodeMap &srcNodeMap);
+
+        bool isInvalidSourceNodeMap (SourceNodeMap &srcNodeMap)
+        { return srcNodeMap.empty(); }
+
         /**
          * set the node for given token at a given index
          * index range [0..MAX_REPLICA_FACTOR-1]
