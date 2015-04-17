@@ -84,6 +84,11 @@ def test_file_generator():
     fgen = file_generator.FileGenerator('4', 100, 'K')
     fgen.generate_files()
 
+def test_mount_point():
+    device ="/fds_100gb_block_volume"
+    print utils.is_device_mounted(device)
+    print utils.is_device_mounted("/filesystem")
+
 def test_ssh_file():
     path = os.path.join(config.ANSIBLE_ROOT, "")
     sshconn = ssh.SSHConn(hostname, "ubuntu", None, "ssh.config")

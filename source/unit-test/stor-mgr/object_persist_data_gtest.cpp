@@ -20,6 +20,8 @@
 using ::testing::AtLeast;
 using ::testing::Return;
 
+static const fds_uint32_t bitsPerDltToken = 8;
+
 namespace fds {
 
 // this seem to be required to properly bring up globals like
@@ -82,13 +84,10 @@ void
 SmObjectPersistDataTest::init() {
     // init SM disk map
     smDiskMap->mod_init(NULL);
-    DLT* dlt = new DLT(8, 1, 1, true);
+    DLT* dlt = new DLT(bitsPerDltToken, 1, 1, true);
     SmUtUtils::populateDlt(dlt, 1);
     GLOGDEBUG << "Using DLT: " << *dlt;
     smDiskMap->handleNewDlt(dlt);
-
-    // init persistData, but do not open data store..
-    persistData->mod_init(NULL);
 }
 
 void
@@ -243,19 +242,19 @@ TEST_F(SmObjectPersistDataTest, restart) {
     Error err(ERR_OK);
 
     // open data store
-    err = persistData->openPersistDataStore(smDiskMap, true);
+    err = persistData->openObjectDataFiles(smDiskMap, true);
     EXPECT_TRUE(err.ok());
 
     // restart without cleaning
     restart();
 
     // open data store again
-    err = persistData->openPersistDataStore(smDiskMap, false);
+    err = persistData->openObjectDataFiles(smDiskMap, false);
     EXPECT_TRUE(err.ok());
 
     // restart from clean state
     cleanRestart();
-    err = persistData->openPersistDataStore(smDiskMap, true);
+    err = persistData->openObjectDataFiles(smDiskMap, true);
     EXPECT_TRUE(err.ok());
 }
 
@@ -267,7 +266,7 @@ TEST_F(SmObjectPersistDataTest, write_read) {
     testdata.generateDataset(dsize, objSize);
 
     // open data store
-    err = persistData->openPersistDataStore(smDiskMap, true);
+    err = persistData->openObjectDataFiles(smDiskMap, true);
     EXPECT_TRUE(err.ok());
 
     // do few puts
@@ -281,9 +280,83 @@ TEST_F(SmObjectPersistDataTest, write_read) {
 
     // restart, and then read and validate again
     restart();
-    err = persistData->openPersistDataStore(smDiskMap, false);
+    err = persistData->openObjectDataFiles(smDiskMap, false);
     EXPECT_TRUE(err.ok());
     readDataset(objSize, testdata, locMap);
+}
+
+TEST_F(SmObjectPersistDataTest, sm_token_ownership) {
+    Error err(ERR_OK);
+    fds_uint32_t dsize = 70;
+    fds_uint32_t objSize = 4096;
+    const FdsRootDir* rootDir = g_fdsprocess->proc_fdsroot();
+    TestDataset testdata;
+    testdata.generateDataset(dsize, objSize);
+
+    // open token files -- SM owns all SM tokens
+    err = persistData->openObjectDataFiles(smDiskMap, true);
+    EXPECT_TRUE(err.ok());
+
+    // all token files should exist
+    fds_bool_t exists = false;
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+        exists = SmUtUtils::existsInSubdirs(rootDir->dir_dev(),
+                                            std::string("tokenFile_") + std::to_string(tok)
+                                            + std::string("_"),
+                                            false);
+        EXPECT_TRUE(exists);
+    }
+
+    // pretend we lost ownership of half of SM tokens
+    SmTokenSet tokSet;
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; tok += 2) {
+        tokSet.insert(tok);
+    }
+    err = persistData->closeAndDeleteObjectDataFiles(tokSet);
+    EXPECT_TRUE(err.ok());
+
+    // verify that corresponding token files are removed
+    for (SmTokenSet::const_iterator cit = tokSet.cbegin();
+         cit != tokSet.cend();
+         ++cit) {
+        exists = SmUtUtils::existsInSubdirs(rootDir->dir_dev(),
+                                            std::string("tokenFile_") + std::to_string(*cit)
+                                            + std::string("_"),
+                                            false);
+        EXPECT_FALSE(exists);
+    }
+
+    // Puts for SM tokens owned by SM should succeed and PUTs for
+    // SM tokens not owned by this SM should fail with ERR_NOT_FOUND
+    for (fds_uint32_t i = 0; i < testdata.dataset_.size(); ++i) {
+        ObjectID oid = testdata.dataset_[i];
+        boost::shared_ptr<std::string> data =
+                testdata.dataset_map_[oid].getObjectData();
+        ObjectBuf objBuf(data);
+        diskio::DiskRequest* req = createPutRequest(oid, &objBuf, diskio::diskTier);
+        err = persistData->writeObjectData(oid, req);
+
+        fds_token_id smTokId = SmDiskMap::smTokenId(oid, bitsPerDltToken);
+        LOGDEBUG << "writeObjectData for " << oid << " smToken " << smTokId
+                 << " returned " << err;
+        if (tokSet.count(smTokId) == 0) {
+            // owned by SM
+            EXPECT_TRUE(err.ok());
+        } else {
+            // not owned by SM
+            EXPECT_TRUE(err == ERR_NOT_FOUND);
+        }
+
+        delete req;
+    }
+
+    // since we did not change smDiskMap, the following call
+    // will create and open token files that were removed from the
+    // close and delete call
+    // we are pretending that DLT changed such that SM gained ownership
+    // of all tokens again
+    err = persistData->openObjectDataFiles(smDiskMap, false);
+    EXPECT_TRUE(err.ok());
 }
 
 TEST_F(SmObjectPersistDataTest, write_delete) {
@@ -294,7 +367,7 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     testdata.generateDataset(dsize, objSize);
 
     // open data store
-    err = persistData->openPersistDataStore(smDiskMap, true);
+    err = persistData->openObjectDataFiles(smDiskMap, true);
     EXPECT_TRUE(err.ok());
 
     // do few puts
@@ -331,7 +404,7 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
 
     // restart
     restart();
-    err = persistData->openPersistDataStore(smDiskMap, false);
+    err = persistData->openObjectDataFiles(smDiskMap, false);
     EXPECT_TRUE(err.ok());
 
     // verify stats after restart

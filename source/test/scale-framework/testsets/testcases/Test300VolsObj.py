@@ -53,7 +53,7 @@ class TestCreateThreehundredObjectVolumes(testcase.FDSTestCase):
 
             #Get number of volumes currently?
 
-            for i in range(0, 300):
+            for i in range(0, 100):
 
                 #bucket name
                 bucket_name = "test-" + str(i).zfill(3) + "_300"

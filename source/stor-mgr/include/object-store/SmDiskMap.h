@@ -104,6 +104,13 @@ class SmDiskMap : public Module, public boost::noncopyable {
     */
     void ssdTrackCapacityDelete(ObjectID oid, fds_uint64_t writeSize);
 
+
+    /**
+     * Set and get current (i.e. closed DLT) to persitent storgate.
+     */
+    Error setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately);
+    fds_uint64_t getDLTVersion();
+
     /**
      * Module methods
      */

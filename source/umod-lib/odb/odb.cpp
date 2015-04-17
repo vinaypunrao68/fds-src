@@ -85,6 +85,18 @@ ObjectDB::~ObjectDB() {
     delete db;
 }
 
+/**
+ * All operations on this levelDB will fail after calling
+ * this method
+ */
+void ObjectDB::closeAndDestroy() {
+    delete options.filter_policy;
+    options.filter_policy = nullptr;
+    delete db;
+    db = nullptr;
+    leveldb::DestroyDB(file, leveldb::Options());
+}
+
 /** Puts an object at a disk location.
  *
  * @param disk_location (i) Location to put obj.
@@ -95,6 +107,9 @@ ObjectDB::~ObjectDB() {
 fds::Error ObjectDB::Put(const DiskLoc& disk_location,
                          const ObjectBuf& obj_buf) {
     fds::Error err(fds::ERR_OK);
+    if (!db) {
+        return fds::ERR_NOT_READY;
+    }
 
     leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
     leveldb::Slice value(obj_buf.getData(), obj_buf.getSize());
@@ -120,6 +135,9 @@ fds::Error ObjectDB::Put(const DiskLoc& disk_location,
 fds::Error ObjectDB::Put(const DiskLoc& disk_location,
                          const ObjectID& obj_id) {
     fds::Error err(fds::ERR_OK);
+    if (!db) {
+        return fds::ERR_NOT_READY;
+    }
 
     leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
     leveldb::Slice value((char *)obj_id.GetId(), obj_id.getDigestLength());
@@ -147,6 +165,9 @@ fds::Error ObjectDB::Put(const DiskLoc& disk_location,
 fds::Error ObjectDB::Delete(const ObjectID& object_id)
 {
     fds::Error err(fds::ERR_OK);
+    if (!db) {
+        return fds::ERR_NOT_READY;
+    }
 
     leveldb::Slice key((const char*)object_id.GetId(), object_id.getDigestLength());
     std::string value;
@@ -173,6 +194,9 @@ fds::Error ObjectDB::Delete(const ObjectID& object_id)
 fds::Error ObjectDB::Put(const ObjectID& object_id,
                          const ObjectBuf& obj_buf) {
     fds::Error err(fds::ERR_OK);
+    if (!db) {
+        return fds::ERR_NOT_READY;
+    }
 
     leveldb::Slice key((const char *)object_id.GetId(), object_id.getDigestLength());
     leveldb::Slice value(obj_buf.getData(), obj_buf.getSize());
@@ -198,6 +222,9 @@ fds::Error ObjectDB::Put(const ObjectID& object_id,
 fds::Error ObjectDB::Get(const DiskLoc& disk_location,
                          ObjectBuf& obj_buf) {
     fds::Error err(fds::ERR_OK);
+    if (!db) {
+        return fds::ERR_NOT_READY;
+    }
 
     leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
     std::string value = "";
@@ -230,6 +257,9 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
  */
 fds::Error ObjectDB::Delete(const DiskLoc& disk_location) {
     fds::Error err(fds::ERR_OK);
+    if (!db) {
+        return fds::ERR_NOT_READY;
+    }
 
     leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
     std::string value;
@@ -256,6 +286,9 @@ fds::Error ObjectDB::Delete(const DiskLoc& disk_location) {
 fds::Error ObjectDB::Get(const ObjectID& obj_id,
                          ObjectBuf& obj_buf) {
     fds::Error err(fds::ERR_OK);
+    if (!db) {
+        return fds::ERR_NOT_READY;
+    }
 
     leveldb::Slice key((const char *)obj_id.GetId(), obj_id.getDigestLength());
     std::string value;
@@ -290,6 +323,10 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
     fds_assert(!fileName.empty());
     fds::Error err(ERR_OK);
     leveldb::CopyEnv *env;
+
+    if (!db) {
+        return fds::ERR_NOT_READY;
+    }
 
     env = static_cast<leveldb::CopyEnv*>(options.env);
     fds_assert(env);

@@ -58,10 +58,6 @@ UpdateBlobInfoNoData(boost::shared_ptr<T> updateCat, size_t objSize, size_t blob
          FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
          updBlobInfo.offset   = blobOffset;
          updBlobInfo.size     = sz;
-         if ((blobOffset + objSize) < blobSize)
-             updBlobInfo.blob_end =  false;
-         else
-             updBlobInfo.blob_end =  true;
          updBlobInfo.data_obj_id.digest =
                    std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
          updateCat->obj_list.push_back(updBlobInfo);
@@ -79,7 +75,6 @@ UpdateBlobInfo(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
          FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
          updBlobInfo.offset   = blobOffset;
          updBlobInfo.size     = blobSize;
-         updBlobInfo.blob_end = dataGen->hasNext() == false;
          updBlobInfo.data_obj_id.digest =
                    std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
          updateCatMsg->obj_list.push_back(updBlobInfo);

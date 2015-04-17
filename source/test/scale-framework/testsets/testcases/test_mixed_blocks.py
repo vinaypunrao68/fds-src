@@ -1,5 +1,6 @@
 import os
 import sys
+import unittest
 
 from boto.s3.key import Key
 
@@ -29,7 +30,8 @@ class TestMixedBlocks(testcase.FDSTestCase):
         self.buckets = []
         self.s3_connections = []
         self.blocks = []
-        
+    
+    @unittest.expectedFailure
     def runTest(self):
         '''
         Run the test

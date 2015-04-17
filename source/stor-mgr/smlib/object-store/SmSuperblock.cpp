@@ -89,6 +89,8 @@ void
 SmSuperblock::initSuperblock()
 {
     Header.initSuperblockHeader();
+
+    DLTVersion = 0UL;
 }
 
 
@@ -309,7 +311,7 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
          */
         superblockMaster.initSuperblock();
         SmTokenPlacement::compute(hddIds, ssdIds, &(superblockMaster.olt));
-        superblockMaster.tokTbl.initialize(smTokensOwned);
+        superblockMaster.tokTbl.initializeSmTokens(smTokensOwned);
 
         /* After creating a new superblock, sync to disks.
          */
@@ -642,6 +644,46 @@ SmSuperblockMgr::reconcileSuperblock()
     return err;
 }
 
+
+Error
+SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
+{
+    Error err(ERR_OK);
+    SCOPEDWRITE(sbLock);
+
+    superblockMaster.DLTVersion = dltVersion;
+
+    if (syncImmediately) {
+        // sync superblock
+        err = syncSuperblock();
+
+        if (err.ok()) {
+            LOGDEBUG << "SM persistent DLT version=" << superblockMaster.DLTVersion;
+        } else {
+            // TODO(Sean):  If the DLT version cannot be persisted, then for not, we will
+            //              just ignore it.  We can retry, but the chance of failure is
+            //              high at this point, since the disk is likely failed or full.
+            //
+            // TODO(Sean):  Make sure if the latest DLT version > persistent DLT version is ok.
+            //              and change DLT and DISK mapping accordingly.
+            LOGCRITICAL << "SM persistent DLT version failed to set.";
+        }
+    }
+
+    return err;
+}
+
+fds_uint64_t
+SmSuperblockMgr::getDLTVersion()
+{
+    SCOPEDREAD(sbLock);
+
+    return superblockMaster.DLTVersion;
+}
+
+
+
+
 /* This iface is only used for the SmSuperblock unit test.  Should not
  * be called by anyone else.
  */
@@ -715,6 +757,7 @@ SmSuperblockMgr::getSmOwnedTokens(fds_uint16_t diskId) {
 // So we can print class members for logging
 std::ostream& operator<< (std::ostream &out,
                           const SmSuperblockMgr& sbMgr) {
+    out << "Current DLT Version=" << sbMgr.superblockMaster.DLTVersion << "\n";
     out << "Current disk map:\n" << sbMgr.diskMap;
     out << sbMgr.superblockMaster.olt;
     out << sbMgr.superblockMaster.tokTbl;

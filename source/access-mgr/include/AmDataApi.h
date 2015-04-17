@@ -161,16 +161,14 @@ class AmDataApi : public apis::XdiServiceIf {
                     const apis::TxDescriptor& txDesc,
                     const std::string& bytes,
                     const int32_t length,
-                    const apis::ObjectOffset& objectOffset,
-                    const bool isLast);
+                    const apis::ObjectOffset& objectOffset);
     void updateBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName,
                     boost::shared_ptr<apis::TxDescriptor>& txDesc,
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
-                    boost::shared_ptr<apis::ObjectOffset>& objectOffset,
-                    boost::shared_ptr<bool>& isLast);
+                    boost::shared_ptr<apis::ObjectOffset>& objectOffset);
 
     void deleteBlob(const std::string& domainName,
                     const std::string& volumeName,
