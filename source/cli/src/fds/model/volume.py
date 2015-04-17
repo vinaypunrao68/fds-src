@@ -1,5 +1,4 @@
 class Volume( object ):
-    
     '''
     Created on Apr 3, 2015
     

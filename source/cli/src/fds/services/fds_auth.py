@@ -3,6 +3,7 @@ import getpass
 import requests
 import os
 from requests.exceptions import ConnectionError
+from __builtin__ import True
 
 class FdsAuth():
     
@@ -65,12 +66,19 @@ class FdsAuth():
     def get_token(self):
         return self.__token
     
-    def isAllowed(self, feature):
+    def is_allowed(self, feature):
         
         for capability in self.__features:
             if ( capability == feature ):
                 return True
         # end of for loop
+        
+        return False
+    
+    def is_authenticated(self):
+        
+        if ( self.__token != None ):
+            return True
         
         return False
     

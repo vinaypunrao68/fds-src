@@ -17,7 +17,7 @@ class MockFdsAuth(FdsAuth):
         
         return "thisisavalidmocktoken"
     
-    def isAllowed(self, feature):
+    def is_allowed(self, feature):
         
         for capability in self.__features:
             if ( capability == feature ):

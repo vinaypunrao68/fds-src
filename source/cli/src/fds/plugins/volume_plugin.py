@@ -29,7 +29,7 @@ class VolumePlugin( abstract_plugin.AbstractPlugin):
         @see: AbstractPlugin
         '''         
         
-        if ( self.session.isAllowed( "VOL_MGMT" ) == False ):
+        if ( self.session.is_allowed( "VOL_MGMT" ) == False ):
             return
         
         self.__volume_service = volume_service.VolumeService( session )
@@ -110,7 +110,7 @@ class VolumePlugin( abstract_plugin.AbstractPlugin):
             fields.append(("ID", volume.id))
             fields.append(("Name", volume.name))
             
-            if ( self.session.isAllowed( "TENANT_MGMT" ) ):
+            if ( self.session.is_allowed( "TENANT_MGMT" ) ):
                 fields.append(("Tenant ID", volume.tenant_id))
             
             fields.append(("State", volume.state))
