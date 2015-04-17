@@ -79,14 +79,18 @@ struct TokenDescTable {
     /**
      * Initialize given set of tokens as "valid"
      * If a token already valid, does not do anything
+     * @return true if at least one token was initialized to "valid"
+     *         false if all given tokes were already valid
      */
-    void initializeSmTokens(const SmTokenSet& smToksValid);
+    fds_bool_t initializeSmTokens(const SmTokenSet& smToksValid);
 
     /**
      * Resets given set of tokens into "invalid" state
      * This will cause given set of SM tokens to lose GC info
+     * @return set of tokens that were invalidated and that were
+     * valid before they were invalidated
      */
-    void invalidateSmTokens(const SmTokenSet& smToksInvalid);
+    SmTokenSet invalidateSmTokens(const SmTokenSet& smToksInvalid);
 
     /**
      * Sets write file id for a given sm token id and tier
