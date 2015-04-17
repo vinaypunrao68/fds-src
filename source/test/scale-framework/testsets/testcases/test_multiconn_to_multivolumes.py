@@ -82,6 +82,7 @@ class TestMultiConnToMultiVolume(testcase.FDSTestCase):
         s3conn.s3_connect()
         return s3conn
 
+    @unittest.expectedFailure
     def runTest(self):
         self.log.info("Starting the multi connection to multi volume test...\n")
         bucket_name = "volume0%s-test"
