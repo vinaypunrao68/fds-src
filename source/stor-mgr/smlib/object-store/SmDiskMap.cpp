@@ -181,24 +181,9 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     LOGDEBUG << "Will handle new DLT, bits per token " << bitsPerToken_;
     LOGTRACE << *dlt;
 
-
     // get DLT tokens that belong to this SM
     const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
 
-    // If this is restart, DLT version stored in superblock must be the same
-    // as DLT version we received from OM now. If OM currently tries to update
-    // DLT and at least one SM node is down, DLT will be aborted and DLT change
-    // will not happen. TODO(Anna) make sure to handle the case when DLT changes
-    // during SM down if OM code changes...
-    fds_uint64_t storedDltVersion = getDLTVersion();
-    if (storedDltVersion == dlt->getVersion()) {
-        // this is restart case
-        // TODO(Anna) FS-1605 check if superblock matches with this DLT
-        LOGDEBUG << "Nothing to do if superblock knows about this DLT version "
-                 << storedDltVersion;
-        return err;
-    }
-    
     // here we handle only gaining of ownership of DLT tokens
     // we will handle losing of DLT tokens on DLT close
 

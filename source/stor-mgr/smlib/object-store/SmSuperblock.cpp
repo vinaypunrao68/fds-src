@@ -345,6 +345,19 @@ SmSuperblockMgr::updateNewSmTokenOwnership(SmTokenSet& smTokensOwned,
     Error err(ERR_OK);
 
     SCOPEDWRITE(sbLock);
+    // If this is restart, DLT version stored in superblock must be the same
+    // as DLT version we received from OM now. If OM currently tries to update
+    // DLT and at least one SM node is down, DLT will be aborted and DLT change
+    // will not happen. TODO(Anna) make sure to handle the case when DLT changes
+    // during SM down if OM code changes...
+    if (dltVersion == superblockMaster.DLTVersion) {
+        // this is restart case
+        // TODO(Anna) FS-1605 check if superblock matches with this DLT
+        LOGDEBUG << "Nothing to do if superblock knows about this DLT version "
+                 << dltVersion;
+        return err;
+    }
+
     fds_bool_t initAtLeastOne = superblockMaster.tokTbl.initializeSmTokens(smTokensOwned);
     superblockMaster.DLTVersion = dltVersion;
 
