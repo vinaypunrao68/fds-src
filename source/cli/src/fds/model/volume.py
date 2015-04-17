@@ -6,20 +6,24 @@ class Volume( object ):
     
     @author: nate
     '''
-    __id = -1
-    __name = ""
-    __priority = 7
-    __type = "object"
-    __iops_limit = 0
-    __iops_guarantee = 0
-    __continuous_protection = 86400
-    __media_policy = "hybrid"
-    __state = "Inactive"
-    __current_size = 10
-    __current_units = "GB"
-    __last_performance_firebreak = 0
-    __last_capacity_firebreak = 0
-    __tenant_id = 0
+    
+    def __init__(self, name="Unnamed", priority=7, volume_type="object", iops_limit=0, iops_guarantee=0, media_policy="hybrid",
+                 current_size=10, current_units="GB", tenant_id=0, continuous_protection=86400 ):
+        
+        self.__id = -1
+        self.__name = name
+        self.__priority = priority
+        self.__type = volume_type
+        self.__iops_limit = iops_limit
+        self.__iops_guarantee = iops_guarantee
+        self.__continuous_protection = continuous_protection
+        self.__media_policy = media_policy
+        self.__state = "Inactive"
+        self.__current_size = current_size
+        self.__current_units = current_units
+        self.__last_performance_firebreak = 0
+        self.__last_capacity_firebreak = 0
+        self.__tenant_id = tenant_id
     
     @property
     def id(self):
