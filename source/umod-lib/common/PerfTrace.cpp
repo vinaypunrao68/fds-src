@@ -109,7 +109,6 @@ namespace fds {
 const std::string PERF_COUNTERS_NAME("perf");
 
 const unsigned PERF_CONTEXT_TIMEOUT = 1800;  // in seconds (30 mins)
-
 PerfTracer::PerfTracer() : aggregateCounters_(fds_enum::get_size<PerfEventType>()),
                            namedCounters_(fds_enum::get_size<PerfEventType>()),
                            enable_(true),

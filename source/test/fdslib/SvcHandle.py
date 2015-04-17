@@ -6,6 +6,12 @@ import socket
 import struct
 import time
 import logging
+import os
+import sys
+
+sys.path.append(os.path.join(os.getcwd(), 'fdslib'))
+sys.path.append(os.path.join(os.getcwd(), 'fdslib/pyfdsp'))
+
 
 from common.ttypes import *
 from FDS_ProtocolInterface.ttypes import *
