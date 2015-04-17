@@ -112,7 +112,7 @@
 
 -   name: copy new upstart configs
     copy:
-        src=../files/deploy_fds/fds-{{item}}.conf
+        src=../files/deploy_fds/upstart/fds-{{item}}.conf
         dest=/etc/init/fds-{{item}}.conf
         owner=root
         group=root
