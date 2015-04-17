@@ -43,6 +43,10 @@ class SmSuperblockTestDriver {
     bool compareFiles(const std::string& filePath1,
                       const std::string& filePath2);
     std::string getDiskPath(uint16_t diskOffset);
+
+    Error setDLTVersion(fds_uint64_t dltVersion, bool syncNow);
+    fds_uint64_t getDLTVersion();
+
     std::string getSmSuperblockFileName() {
         return (sblock->SmSuperblockMgrTestGetFileName());
     };
@@ -336,6 +340,19 @@ SmSuperblockTestDriver::syncSuperblock()
     sblock->syncSuperblock();
 }
 
+Error
+SmSuperblockTestDriver::setDLTVersion(fds_uint64_t dltVersion, bool syncNow)
+{
+    return sblock->setDLTVersion(dltVersion, syncNow);
+}
+
+fds_uint64_t
+SmSuperblockTestDriver::getDLTVersion()
+{
+    return sblock->getDLTVersion();
+}
+
+
 bool
 SmSuperblockTestDriver::compareFiles(const std::string& filePath1,
                                      const std::string& filePath2)
@@ -572,6 +589,45 @@ TEST(SmSuperblockTestDriver, DISABLED_test7)
     /* Never reached here
      */
     EXPECT_TRUE(0 == 1);
+}
+
+
+/*
+ * test8
+ *
+ * Test to check the sync'ing of DLT version stored in the SMSuperblock.
+ */
+TEST(SmSuperblockTestDriver, test8)
+{
+    SmSuperblockTestDriver *test8_1 = new SmSuperblockTestDriver();
+
+    test8_1->deleteDirs();
+    test8_1->createDirs();
+    test8_1->loadSuperblock();
+
+    /* Very first version (i.e. pristine state) has version 0. */
+    EXPECT_EQ(0UL, test8_1->getDLTVersion());
+
+    /* Set to some version and verify that it's stored properly. */
+    test8_1->setDLTVersion(0xff, true);
+    test8_1->syncSuperblock();
+
+    /* Create another superblock instance to verify that the first instance
+     * correctly sync'ed to disk.
+     */
+    SmSuperblockTestDriver *test8_2 = new SmSuperblockTestDriver();
+
+    test8_2->loadSuperblock();
+    EXPECT_EQ(test8_1->getDLTVersion(), test8_2->getDLTVersion());
+
+    /* Set the dlt version to 1 and see if the version is updated correctly.
+     */
+    test8_1->setDLTVersion(1, true);
+    test8_1->syncSuperblock();
+
+    test8_2->loadSuperblock();
+    EXPECT_EQ(test8_1->getDLTVersion(), test8_2->getDLTVersion());
+
 }
 
 

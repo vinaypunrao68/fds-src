@@ -3,6 +3,7 @@ import os
 import random
 import shutil
 import sys
+import unittest
 
 from boto.s3.key import Key
 
@@ -35,6 +36,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         self.sample_files = []
         self.hash_table = {}
     
+    @unittest.expectedFailure
     def runTest(self):
         
         utils.create_dir(config.DOWNLOAD_DIR)

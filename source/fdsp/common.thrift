@@ -21,6 +21,7 @@ enum ResourceState {
   Offline, /* resource is offline - will come back later */
   MarkedForDeletion, /* resource will be deleted soon. */
   Deleted, /* resource is gone now and will not come back*/
+  InError,  /*in known erroneous state*/
 }
 
 enum BlobListOrder {
