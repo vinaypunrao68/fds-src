@@ -13,9 +13,30 @@ describe( 'Edit user', function(){
     var unc;
     var duke;
     
-    it ( 'should be able to click edit and see new page', function(){
+    it ( 'should create a user with no tenancy', function(){
         
         login();
+        goto( 'users' );
+        browser.sleep( 200 );
+
+        element( by.css( '.add-user-link' ) ).click();
+        editPage = element.all( by.css( '.slide-window-stack-slide' ) ).get(1);
+        
+        username = editPage.element( by.css( '.create-user-name' ) ).element( by.tagName( 'input' ) );
+        password = editPage.element( by.css( '.create-user-password' ) ).element( by.tagName( 'input' ) );
+        confirm = editPage.element( by.css( '.create-user-confirm' ) ).element( by.tagName( 'input' ) );
+        
+        username.sendKeys( 'notenant' );
+        password.sendKeys( 'password' );
+        confirm.sendKeys( 'password' );
+        
+        element( by.css( '.create-user-button' ) ).click();
+        browser.sleep( 200 );
+    });
+    
+    it ( 'should be able to click edit and see new page', function(){
+        
+//        login();
         createTenant( 'duke' );
         createTenant( 'northcarolina' );
         
@@ -64,6 +85,26 @@ describe( 'Edit user', function(){
     });
     
     it ( 'should allow the tenancy to be changed', function(){
+        
+        tenantDropdown.click();
+        duke.click();
+        
+        element( by.css( '.create-user-button' ) ).click();
+        
+        browser.sleep( 200 );
+        
+        userRow.element( by.css( '.tenant-name' )).getText().then( function( txt ){
+            expect( txt ).toBe( 'duke' );
+        });
+        
+    });
+    
+    it( 'should allow the tenancy to be changed for a user that was created with no tenancy', function(){
+        
+        userRow = element( by.cssContainingText( '.user-row', 'notenant' ));
+        userRow.element( by.css( '.icon-edit' ) ).click();
+        
+        browser.sleep( 200 );
         
         tenantDropdown.click();
         duke.click();
