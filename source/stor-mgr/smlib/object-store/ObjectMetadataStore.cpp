@@ -54,6 +54,11 @@ ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
     return metaDb_->openMetadataDb(diskMap);
 }
 
+Error
+ObjectMetadataStore::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
+    return metaDb_->closeAndDeleteMetadataDbs(smTokensLost);
+}
+
 ObjMetaData::const_ptr
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,

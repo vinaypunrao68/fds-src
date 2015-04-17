@@ -934,6 +934,10 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // by offline smcheck.
     objStorMgr->storeCurrentDLT();
 
+    // tell superblock that DLT is closed, so that it will invalidate
+    // appropriate SM tokens
+    err = objStorMgr->objectStore->handleDltClose(objStorMgr->getDLT());
+
     // re-enable GC and Tier Migration
     // If this SM did not receive start migration or rebalance
     // message and GC and TierMigration were not disabled, this operation

@@ -146,6 +146,12 @@ class AmProcessor_impl
     void getBlobCb(AmRequest *amReq, const Error& error);
 
     /**
+     * Look for object data in cache
+     * or fallback to SM
+     */
+    void getObject(AmRequest *amReq);
+
+    /**
      * Processes a put blob request
      */
     void putBlob(AmRequest *amReq);
@@ -685,10 +691,10 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
     // Review this in the next sprint!
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
     amReq->blob_offset = (amReq->blob_offset * maxObjSize);
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
+    Error err = ERR_OK;
 
     // If we need to return metadata, check the cache
-    Error err = ERR_OK;
-    GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
     if (blobReq->get_metadata) {
         BlobDescriptor::ptr cachedBlobDesc = txMgr->getBlobDescriptor(volId,
                                                                       amReq->getBlobName(),
@@ -714,33 +720,41 @@ AmProcessor_impl::getBlob(AmRequest *amReq) {
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
         amReq->obj_id = *objectId;
-
-        // Check cache for object data
-        boost::shared_ptr<std::string> objectData = txMgr->getBlobObject(volId,
-                                                                           *objectId,
-                                                                           err);
-        if (err == ERR_OK) {
-            // Data was found in cache, so fill data and callback
-            LOGTRACE << "Found cached object " << *objectId;
-
-            // Pull out the GET callback object so we can populate it
-            // with cache contents and send it to the requester.
-            GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-
-            cb->returnSize = std::min(amReq->data_len, objectData->size());
-            cb->returnBuffer = objectData;
-
-            // Report results of GET request to requestor.
-            respond_and_delete(amReq, err);
-        } else {
-            // We couldn't find the data in the cache even though the id was
-            // obtained there. Fallback to retrieving the data from the SM.
-            amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
-            amDispatcher->dispatchGetObject(amReq);
-        }
+        getObject(amReq);
     } else {
+        // Need to read from DataMgr
         amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::queryCatalogCb, amReq);
         amDispatcher->dispatchQueryCatalog(amReq);
+    }
+}
+
+void
+AmProcessor_impl::getObject(AmRequest *amReq) {
+    Error err = ERR_OK;
+    fds_volid_t volId = amReq->io_vol_id;
+
+    // Check cache for object data
+    boost::shared_ptr<std::string> objectData = txMgr->getBlobObject(volId,
+                                                                     amReq->obj_id,
+                                                                     err);
+    if (err == ERR_OK) {
+        // Data was found in cache, so fill data and callback
+        LOGTRACE << "Found cached object " << amReq->obj_id;
+
+        // Pull out the GET callback object so we can populate it
+        // with cache contents and send it to the requester.
+        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+
+        cb->returnSize = std::min(amReq->data_len, objectData->size());
+        cb->returnBuffer = objectData;
+
+        // Report results of GET request to requestor.
+        respond_and_delete(amReq, err);
+    } else {
+        // We couldn't find the data in the cache even though the id was
+        // obtained there. Fallback to retrieving the data from the SM.
+        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
+        amDispatcher->dispatchGetObject(amReq);
     }
 }
 
@@ -835,8 +849,7 @@ AmProcessor_impl::statBlob(AmRequest *amReq) {
 void
 AmProcessor_impl::queryCatalogCb(AmRequest *amReq, const Error& error) {
     if (error == ERR_OK) {
-        amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::getBlobCb, amReq);
-        amDispatcher->dispatchGetObject(amReq);
+        getObject(amReq);
     } else {
         respond_and_delete(amReq, error);
     }

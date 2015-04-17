@@ -36,7 +36,7 @@ class AmCache {
      * Creates cache structures for the volume described
      * in the volume descriptor.
      */
-    Error registerVolume(fds_volid_t const volDesc);
+    Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs);
 
     /**
      * Removes volume cache for the volume.
@@ -115,8 +115,6 @@ class AmCache {
     offset_cache_type offset_cache;
     object_cache_type object_cache;
 
-    /// Max number of object data entries per volume cache
-    size_t max_data_entries;
     /// Max number of metadta entries per volume cache
     size_t max_metadata_entries;
 };
