@@ -74,7 +74,6 @@ class VerifyAggregateIOCounters(TestCase.FDSTestCase):
                 if cntrs != None:
                     aggregate_cntrs += cntrs
                     continue
-
         print "CNTRS[{}] = {} EXPECTED = {}".format(self.counter, aggregate_cntrs, self.expected_value)
         # If it is not the expected value, fail the test
         if aggregate_cntrs != int(self.expected_value):
