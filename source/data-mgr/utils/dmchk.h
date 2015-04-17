@@ -26,8 +26,7 @@ class DmChecker : public FdsProcess {
               const std::string & config,
               const std::string & basePath,
               Module *vec[],
-              const std::string &moduleName,
-              fds_volid_t volumeUuid);
+              const std::string &moduleName);
     virtual ~DmChecker() = default;
 
     virtual void proc_pre_startup() override {
@@ -37,8 +36,10 @@ class DmChecker : public FdsProcess {
         return 0;
     }
 
-    void listBlobs();
-
+    Error loadVolume(fds_volid_t volumeUuid);
+    Error listBlobs(bool fStatsOnly = false);
+    void blobInfo(const std::string& blobname);
+    void getVolumeIds(std::vector<fds_volid_t>& vecVolumes);
   private:
     boost::shared_ptr<VolumeDesc> volDesc;
     boost::shared_ptr<DmVolumeCatalog> volCat;
