@@ -109,3 +109,21 @@
     tags:
         - post-install
         - init
+
+-   name: copy new upstart configs
+    copy:
+        src=../files/deploy_fds/upstart/fds-{{item}}.conf
+        dest=/etc/init/fds-{{item}}.conf
+        owner=root
+        group=root
+        mode=0644
+    with_items:
+        - am
+        - bare_am
+        - sm
+        - dm
+        - om
+        - pm
+    tags:
+        - post-install
+        - init
