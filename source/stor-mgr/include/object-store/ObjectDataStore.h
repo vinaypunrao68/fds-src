@@ -59,6 +59,12 @@ class ObjectDataStore : public Module, public boost::noncopyable {
                         fds_bool_t pristineState);
 
     /**
+     * Closes and deletes object data files for given SM tokens
+     * @param[in] set of SM tokens for which this SM lost ownership
+     */
+    Error closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost);
+
+    /**
      * Peristently stores object data.
      */
     Error putObjectData(fds_volid_t volId,

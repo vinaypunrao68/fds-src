@@ -735,8 +735,17 @@ class TestBootInfluxDB(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
+        # Make sure we don't try to boot influx if it wasn't actually configured to do so
+        boot_influx = n.nd_conf_dict.get('influxdb', False)
+        if isinstance(boot_influx, str):
+            if boot_influx.lower() == 'false':
+                boot_influx = False
 
+        if not boot_influx:
+            self.log.warn('InfluxDB was not configured for {} returning True'.format(n.nd_conf_dict['node-name']))
+            return True
+
+        self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
         status = n.nd_agent.exec_wait("service influxdb start")
         time.sleep(2)
 
@@ -882,6 +891,40 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         # influxdb init script status returns 3 if the process is down. 1 if remote.
         if (status != 3) and (n.nd_agent.env_install and status != 1):
             self.log.error("Verify InfluxDB is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+class TestModifyPlatformConf(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, current_string=None, replace_string=None):
+        '''
+        Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
+        :param parameters: Params filled in by .ini file
+        :current_string: String in platform.conf to repalce e.g. authentication=true
+        :replace_string: String to replace current_string with. e.g. authentication=false
+        '''
+
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_TestModifyPlatformConf,
+                                             "Modify Platform.conf")
+
+        self.current_string = current_string
+        self.replace_string = replace_string
+
+    def test_TestModifyPlatformConf(self):
+
+        fdscfg = self.parameters['fdscfg']
+        status = []
+        for node in fdscfg.rt_obj.cfg_nodes:
+
+            plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
+
+            status.append(node.nd_agent.exec_wait(
+                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file)))
+
+        print status
+        if sum(status) != 0:
             return False
 
         return True

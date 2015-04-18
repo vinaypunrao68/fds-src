@@ -376,6 +376,14 @@ void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
         p->updateBlobResp(e, requestId);
     };
 
+    // Quick check, if these don't match reject!
+    if (*length != bytes->size()) {
+        LOGWARN << "Rejecting updateBlobOnce,"
+                << " request specified length: " << *length
+                << " actual length of payload was: " << bytes->size();
+        return closure(nullptr, ERR_INVALID_ARG);
+    }
+
     auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
 
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
@@ -403,16 +411,24 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
-    // Setup the transcation descriptor
-    BlobTxId::ptr blobTxDesc(new BlobTxId(
-            txDesc->txId));
-
     // Closure for response call
     auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
         p->updateBlobResp(e, requestId);
     };
 
+    // Quick check, if these don't match reject!
+    if (*length != bytes->size()) {
+        LOGWARN << "Rejecting updateBlob,"
+                << " request specified length: " << *length
+                << " actual length of payload was: " << bytes->size();
+        return closure(nullptr, ERR_INVALID_ARG);
+    }
+
     auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
+
+
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(txDesc->txId));
 
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                         *volumeName,
