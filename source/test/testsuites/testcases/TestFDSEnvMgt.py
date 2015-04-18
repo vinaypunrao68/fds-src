@@ -13,7 +13,7 @@ import os
 import time
 import tempfile
 import TestFDSSysMgt
-
+from fdslib.TestUtils import findNodeFromInv
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -902,6 +902,7 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
         :param parameters: Params filled in by .ini file
         :current_string: String in platform.conf to repalce e.g. authentication=true
         :replace_string: String to replace current_string with. e.g. authentication=false
+        :node: FDS node
         '''
 
         super(self.__class__, self).__init__(parameters,
@@ -915,27 +916,27 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
 
     def test_TestModifyPlatformConf(self):
 
-        fdscfg = self.parameters['fdscfg']
-        status = []
-        for node in fdscfg.rt_obj.cfg_nodes:
-            if self.passedNode is not None:
-                node = findNodeFromInv(nodes, self.passedNode)
-
+        def doit(node):
             plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
 
-            status.append(node.nd_agent.exec_wait(
-                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file)))
+            return node.nd_agent.exec_wait(
+                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file))
 
-        print status
+        fdscfg = self.parameters['fdscfg']
+        status = []
+        if self.passedNode is not None:
+            self.log.info("Modifying platform.conf for node: " + self.passedNode)
+            node = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            status.append(doit(node))
+        else:
+            self.log.info("Modifying platform.conf for all nodes")
+            for node in fdscfg.rt_obj.cfg_nodes:
+                status.append(doit(node))
+
         if sum(status) != 0:
             return False
-        elif self.passedNode is not None:
+        else:
             return True
-
-
-
-        return True
-
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
