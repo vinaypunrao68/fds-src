@@ -367,6 +367,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     bool fPrimary = false;
     bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
 
+    LOGDEBUG << "vol:" << vol_name
+             << " snap:" << vdesc->isSnapshot()
+             << " state:" << vdesc->getState()
+             << " created:" << vdesc->isStateCreated()
+             << " old:" << fOldVolume;
+
     if (vdesc->isSnapshot() || vdesc->isClone()) {
         fPrimary = amIPrimary(vdesc->srcVolumeId);
     } else {
@@ -622,7 +628,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         std::vector<std::string> vecDirs;
         util::getSubDirectories(snapDir, vecDirs);
         fds_volid_t snapId;
-        LOGDEBUG << "will load [" << vecDirs.size() << "] snapshots for vol:" << vol_uuid;
+        LOGDEBUG << "will load [" << vecDirs.size() << "]"
+                 << " snapshots for vol:" << vol_uuid
+                 << " from:" << snapDir;
         for (const auto& snap : vecDirs) {
             snapId = std::atoll(snap.c_str());
             //now add the snap
@@ -1391,7 +1399,7 @@ namespace dmutil {
 std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     if (snapId > 0) {
-        return util::strformat("%s/%ld/snapshot/%ld", root->dir_sys_repo_dm().c_str(), volId, snapId);
+        return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb", root->dir_user_repo_dm().c_str(), volId, snapId);
     } else {
         return util::strformat("%s/%ld", root->dir_sys_repo_dm().c_str(), volId);
     }
@@ -1400,14 +1408,14 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
 // location of all snapshots for a volume
 std::string getSnapshotDir(fds_volid_t volId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    return util::strformat("%s/%ld/snapshot", root->dir_sys_repo_dm().c_str(), volId);
+    return util::strformat("%s/%ld/snapshot", root->dir_user_repo_dm().c_str(), volId);
 }
 
 std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     if (snapId > 0) {
-        return util::strformat("%s/%ld/snapshot/%ld/%ld_vcat.ldb",
-                                 root->dir_sys_repo_dm().c_str(), volId, snapId, snapId);
+        return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
+                                 root->dir_user_repo_dm().c_str(), volId, snapId);
     } else {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
                                  root->dir_sys_repo_dm().c_str(), volId, volId);
