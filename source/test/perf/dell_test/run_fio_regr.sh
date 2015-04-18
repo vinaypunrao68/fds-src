@@ -49,7 +49,7 @@ outdir=$1
 node=luke
 size="16m"
 worker=8
-workload=randomread
+workload="randread"
 bs=4096
 d=50
 
@@ -61,6 +61,7 @@ fio --name=write --rw=write --filename=$nbd_disk --bs=$bs --numjobs=1 --iodepth=
 
 #sync
 #echo 3 > /proc/sys/vm/drop_caches
+echo fio --name=test --rw=$workload --filename=$nbd_disk --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60
 fio --name=test --rw=$workload --filename=$nbd_disk --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60 | tee $outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size
 process_results $outfile $worker $workload $bs $d $size
 volume_detach volume_$bs
