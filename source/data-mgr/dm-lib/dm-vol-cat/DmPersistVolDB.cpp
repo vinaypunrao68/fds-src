@@ -54,6 +54,13 @@ Error DmPersistVolDB::activate() {
         catName += "/" + getVolIdStr() + "_vcat.ldb";
     }
 
+    if (clone_ || snapshot_) {
+        struct stat info;
+        if (stat(catName.c_str(), &info)) {
+            LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
+            return ERR_OK;
+        }
+    }
     LOGNOTIFY << "Activating '" << catName << "'";
     FdsRootDir::fds_mkdir(catName.c_str());
 

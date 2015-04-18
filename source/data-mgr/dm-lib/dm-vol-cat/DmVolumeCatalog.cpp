@@ -70,7 +70,7 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc & voldesc) {
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
     */
         vol.reset(new DmPersistVolDB(voldesc.volUUID, voldesc.maxObjSizeInBytes,
-                    voldesc.isSnapshot(), voldesc.isSnapshot(),
+                    voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     /*
     } else {
