@@ -896,7 +896,7 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         return True
 
 class TestModifyPlatformConf(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, current_string=None, replace_string=None):
+    def __init__(self, parameters=None, current_string=None, replace_string=None, node=None):
         '''
         Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
         :param parameters: Params filled in by .ini file
@@ -911,12 +911,15 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
 
         self.current_string = current_string
         self.replace_string = replace_string
+        self.passedNode = node
 
     def test_TestModifyPlatformConf(self):
 
         fdscfg = self.parameters['fdscfg']
         status = []
         for node in fdscfg.rt_obj.cfg_nodes:
+            if self.passedNode is not None:
+                node = findNodeFromInv(nodes, self.passedNode)
 
             plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
 
@@ -926,6 +929,10 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
         print status
         if sum(status) != 0:
             return False
+        elif self.passedNode is not None:
+            return True
+
+
 
         return True
 
