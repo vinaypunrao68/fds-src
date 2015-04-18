@@ -37,10 +37,9 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     void initiateClientConnect();
     inline void checkClientConnect() {
-        if (asyncRespClient == NULL && serverPort > 0) {
+        if (!asyncRespClient && serverPort > 0) {
             initiateClientConnect();
         }
-        fds_assert(asyncRespClient);
     }
 
   public:

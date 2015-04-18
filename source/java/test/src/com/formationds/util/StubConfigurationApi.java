@@ -1,8 +1,11 @@
 package com.formationds.util;
 
 import com.formationds.apis.*;
-import com.formationds.protocol.*;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ResourceState;
+import com.formationds.protocol.FDSP_PolicyInfoType;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -126,12 +129,6 @@ public class StubConfigurationApi implements ConfigurationApi {
     public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
             throws TException {
         return;
-    }
-
-    @Override
-    public int RemoveServices(FDSP_RemoveServicesType rm_node_req)
-            throws TException {
-        return 0;
     }
 
     @Override
@@ -273,17 +270,6 @@ public class StubConfigurationApi implements ConfigurationApi {
                 .findFirst()
                 .get()
                 .getName();
-    }
-
-    @Override
-    public FDSP_VolumeDescType GetVolInfo(FDSP_GetVolInfoReqType vol_info_req)
-            throws TException {
-        return null;
-    }
-
-    @Override
-    public int ModifyVol(FDSP_ModifyVolType mod_vol_req) throws ApiException, TException {
-        return 0;
     }
 
     @Override

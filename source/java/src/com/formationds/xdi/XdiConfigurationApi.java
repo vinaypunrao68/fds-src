@@ -8,7 +8,6 @@ import com.formationds.apis.*;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_PolicyInfoType;
 import com.formationds.protocol.ApiException;
-import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
@@ -226,18 +225,6 @@ public class XdiConfigurationApi implements ConfigurationApi {
             return vol.getName();
         }
         return config.getVolumeName(volumeId);
-    }
-
-    @Override
-    public FDSP_VolumeDescType GetVolInfo(FDSP_GetVolInfoReqType vol_info_req)
-            throws ApiException, org.apache.thrift.TException {
-        return config.GetVolInfo(vol_info_req);
-    }
-
-    @Override
-    public int ModifyVol(FDSP_ModifyVolType mod_vol_req)
-            throws ApiException, TException {
-        return config.ModifyVol(mod_vol_req);
     }
 
     @Override
@@ -469,13 +456,6 @@ public class XdiConfigurationApi implements ConfigurationApi {
         config.removeLocalDomainServices(domainName, sm, dm, am);
         return;
     }
-
-    @Override
-    public int RemoveServices(FDSP_RemoveServicesType rm_node_req)
-            throws TException {
-        return config.RemoveServices(rm_node_req);
-    }
-
 
     public CachedConfiguration getCache() {
         return fillCacheMaybe();
