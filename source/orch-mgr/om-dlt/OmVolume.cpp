@@ -323,7 +323,9 @@ VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     fds_verify(vol != NULL);
     GLOGDEBUG << "VolumeFSM VACT_NotifCrt for volume " << vol->vol_get_name();
     VolumeDesc* volDesc= vol->vol_get_properties();
-    volDesc->state = fpi::ResourceState::Loading;
+    if (fpi::ResourceState::Created != volDesc->state) {
+        volDesc->state = fpi::ResourceState::Loading;
+    }
 
     // TODO(prem): store state even for volume.
     if (volDesc->isSnapshot()) {
@@ -1134,7 +1136,11 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
 
     // register before b-casting vol crt, in case we start recevings acks
     // before vol_event for create vol returns
-    vol->setState(fpi::ResourceState::Loading);
+    if (vol->isStateActive()) {
+        vol->setState(fpi::ResourceState::Created);
+    } else {
+        vol->setState(fpi::ResourceState::Loading);
+    }
     err = rs_register(vol);
     if (!err.ok()) {
         LOGERROR << "unable to register vol as resource : " << vname;
@@ -1754,6 +1760,13 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
                 << "[" << volumeDesc.name << ":" <<volumeDesc.volUUID << "]";
     }
 
+    if (vol->isStateActive()) {
+        // if it was previously active then it means that 
+        // this is an old volume
+        vol->setState(fpi::ResourceState::Created);
+    } else {
+        vol->setState(fpi::ResourceState::Loading);
+    }
 
     // this event will broadcast vol create msg to other nodes and wait for acks
     vol->vol_event(VolCreateEvt(vol.get()));
@@ -1808,6 +1821,8 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
         rs_free_resource(vol);
         return err;
     }
+
+    vol->setState(fpi::ResourceState::Loading);
 
     // store it in the configDB
     gl_orch_mgr->getConfigDB()->createSnapshot(const_cast<fpi::Snapshot&>(snapshot));
