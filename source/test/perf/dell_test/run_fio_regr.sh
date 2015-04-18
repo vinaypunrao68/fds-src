@@ -28,6 +28,7 @@ function process_results {
     local bs=$4
     local iodepth=$5
     local disksize=$6
+    local nodes=$7
 
     iops=`grep iops $f | sed -e 's/[ ,=:]/ /g' | awk '{e+=$7}END{print e}'`
     latency=`grep clat $f | grep avg| awk -F '[,=:()]' '{print $9}' | awk '{i+=1; e+=$1}END{print e/i}'`
@@ -40,12 +41,14 @@ function process_results {
     echo disksize=$disksize >> .data
     echo iops=$iops >> .data
     echo latency=$latency >> .data
-    ../common/push_to_influxdb.py dell_test .data
+    echo nodes=$nodes >> .data
+    ../common/push_to_influxdb.py fio_regr .data
 }
 
 #####################
 
 outdir=$1
+nodes=$2
 node=luke
 size="16m"
 worker=8
@@ -63,5 +66,5 @@ fio --name=write --rw=write --filename=$nbd_disk --bs=$bs --numjobs=1 --iodepth=
 #echo 3 > /proc/sys/vm/drop_caches
 echo fio --name=test --rw=$workload --filename=$nbd_disk --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60
 fio --name=test --rw=$workload --filename=$nbd_disk --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60 | tee $outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size
-process_results $outfile $worker $workload $bs $d $size
+process_results $outfile $worker $workload $bs $d $size $nodes
 volume_detach volume_$bs
