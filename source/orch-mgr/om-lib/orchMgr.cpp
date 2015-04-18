@@ -250,6 +250,107 @@ OrchMgr::om_stor_prefix()
     return orchMgr->stor_prefix;
 }
 
+int OrchMgr::CreatePolicy(const FdspMsgHdrPtr& fdsp_msg,
+                          const FdspCrtPolPtr& crt_pol_req)
+{
+    Error err(ERR_OK);
+    int policy_id = (crt_pol_req->policy_info).policy_id;
+
+    LOGNOTIFY << "Received CreatePolicy  Msg for policy "
+              << (crt_pol_req->policy_info).policy_name
+              << ", id" << policy_id;
+
+    om_mutex->lock();
+    err = policy_mgr->createPolicy(crt_pol_req->policy_info);
+    om_mutex->unlock();
+    return err.GetErrno();
+}
+
+int OrchMgr::DeletePolicy(const FdspMsgHdrPtr& fdsp_msg,
+                          const FdspDelPolPtr& del_pol_req)
+{
+    Error err(ERR_OK);
+    int policy_id = del_pol_req->policy_id;
+    std::string policy_name = del_pol_req->policy_name;
+    LOGNOTIFY << "Received DeletePolicy  Msg for policy "
+              << policy_name << ", id " << policy_id;
+
+    om_mutex->lock();
+    err = policy_mgr->deletePolicy(policy_id, policy_name);
+    if (err.ok()) {
+        /* removed policy from policy catalog or policy didn't exist 
+         * TODO: what do we do with volumes that use policy we deleted ? */
+    }
+    om_mutex->unlock();
+    return err.GetErrno();
+}
+
+int OrchMgr::ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
+                          const FdspModPolPtr& mod_pol_req)
+{
+    Error err(ERR_OK);
+    int policy_id = (mod_pol_req->policy_info).policy_id;
+    LOGNOTIFY
+            << "Received ModifyPolicy  Msg for policy "
+            << (mod_pol_req->policy_info).policy_name
+            << ", id " << policy_id;
+
+    om_mutex->lock();
+    err = policy_mgr->modifyPolicy(mod_pol_req->policy_info);
+    if (err.ok()) {
+        /* modified policy in the policy catalog 
+         * TODO: we probably should send modify volume messages to SH/DM, etc.  O */
+    }
+    om_mutex->unlock();
+    return err.GetErrno();
+}
+
+void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
+                              const FDSP_NotifyQueueStateTypePtr& queue_state_req) {
+    // Use some simple logic for now to come up with the throttle level
+    // based on the queue_depth for queues of various pririty
+
+    om_mutex->lock();
+    FDSP_QueueStateListType& que_st_list = queue_state_req->queue_state_list;
+    int min_priority = que_st_list[0].priority;
+    int min_p_q_depth = que_st_list[0].queue_depth;
+
+    for (uint i = 0; i < que_st_list.size(); i++) {
+        LOGNOTIFY << "Received queue full for volume "
+                  << que_st_list[i].vol_uuid
+                  << ", priority - " << que_st_list[i].priority
+                  << " queue_depth - " << que_st_list[i].queue_depth;
+
+        assert((que_st_list[i].priority >= 0) && (que_st_list[i].priority <= 10));
+        assert((que_st_list[i].queue_depth >= 0.5) && (que_st_list[i].queue_depth <= 1));
+        if (que_st_list[i].priority < min_priority) {
+            min_priority = que_st_list[i].priority;
+            min_p_q_depth = que_st_list[i].queue_depth;
+        }
+    }
+
+    float throttle_level = static_cast<float>(min_priority) +
+            static_cast<float>(1-min_p_q_depth)/0.5;
+
+    // For now we will ignore if the calculated throttle level is greater than
+    // the current throttle level. But it will have to be more complicated than this.
+    // Every time we set a throttle level, we need to fire off a timer and
+    // bring back to the normal throttle level (may be gradually) unless
+    // we get more of these QueueFull messages, in which case, we will have to
+    // extend the throttle period.
+    om_mutex->unlock();
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    if (throttle_level < local->om_get_cur_throttle_level()) {
+        local->om_set_throttle_lvl(throttle_level);
+    } else {
+        LOGNORMAL << "Calculated throttle level " << throttle_level
+                  << " less than current throttle level of "
+                  << local->om_get_cur_throttle_level()
+                  << ". Ignoring.";
+    }
+}
+
 void OrchMgr::defaultS3BucketPolicy()
 {
     Error err(ERR_OK);

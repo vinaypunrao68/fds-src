@@ -96,6 +96,24 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
 }
 
 Error
+ObjectMetadataDb::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
+    Error err(ERR_OK);
+    for (SmTokenSet::const_iterator cit = smTokensLost.cbegin();
+         cit != smTokensLost.cend();
+         ++cit) {
+        Error tmpErr = closeObjectDB(*cit, true);
+        if (!tmpErr.ok()) {
+            LOGERROR << "Failed to close ObjectDB for SM token " << *cit
+                     << " " << tmpErr;
+            err = tmpErr;
+        } else {
+            LOGNOTIFY << "Closed ObjectDB for SM token " << *cit;
+        }
+    }
+    return err;
+}
+
+Error
 ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
@@ -180,15 +198,20 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
     }
 }
 
-void ObjectMetadataDb::closeObjectDB(fds_token_id smTokId) {
-    osm::ObjectDB *objdb = NULL;
+Error ObjectMetadataDb::closeObjectDB(fds_token_id smTokId,
+                                      fds_bool_t destroy) {
+    osm::ObjectDB *objdb = nullptr;
 
     SCOPEDWRITE(dbmapLock_);
     TokenTblIter iter = tokenTbl.find(smTokId);
-    if (iter == tokenTbl.end()) return;
+    if (iter == tokenTbl.end()) return ERR_NOT_FOUND;
     objdb = iter->second;
     tokenTbl.erase(iter);
+    if (destroy) {
+        objdb->closeAndDestroy();
+    }
     delete objdb;
+    return ERR_OK;
 }
 
 /**
@@ -210,7 +233,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
     }
 
     // get meta from DB
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     err = odb->Get(objId, buf);
     if (!err.ok()) {
@@ -232,7 +255,7 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
     }
 
     // store gata
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     ObjectBuf buf;
     objMeta->serializeTo(buf);
@@ -250,7 +273,7 @@ Error ObjectMetadataDb::remove(fds_volid_t volId,
         return ERR_NOT_READY;
     }
 
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     return odb->Delete(objId);
 }

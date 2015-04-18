@@ -55,13 +55,13 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
              text: $filter( 'translate' )('tenants.title' ), 
              iconClass: 'icon-tenant', 
              selected: false, 
-             permission: SYS_MGMT },
-        { 
-            id: 'admin', 
-            link: 'homepage.admin', 
-            text: $filter( 'translate' )('admin.title' ), 
-            iconClass: 'icon-admin', 
-            selected: false }
+             permission: SYS_MGMT }
+//        { 
+//            id: 'admin', 
+//            link: 'homepage.admin', 
+//            text: $filter( 'translate' )('admin.title' ), 
+//            iconClass: 'icon-admin', 
+//            selected: false }
     ];
 
     $scope.showMenu = function(){

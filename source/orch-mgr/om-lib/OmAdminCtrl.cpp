@@ -101,6 +101,14 @@ void FdsAdminCtrl::removeDiskCapacity(const fpi::FDSP_AnnounceDiskCapability *di
               << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
 }
 
+void FdsAdminCtrl::getAvailableDiskCapacity(const FdspVolDescPtr pVolInfo)
+{
+}
+
+void FdsAdminCtrl::updateAvailableDiskCapacity(const FdspVolDescPtr pVolInfo)
+{
+}
+
 void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
 {
     /* release  the resources since volume is deleted */

@@ -226,6 +226,61 @@ class SmUtUtils {
         const std::string rmPath = dir->dir_dev();
         cleanAllInDir(rmPath);
     }
+
+    /// returns true if file/dir that has substring findSubstr in its name
+    /// exists in given directory "path".
+    static fds_bool_t existsInDir(const std::string& path,
+                                  const std::string& findSubstr,
+                                  fds_bool_t exactName) {
+        boost::filesystem::path findInPath(path.c_str());
+
+        fds_bool_t foundName = false;
+        if (boost::filesystem::is_directory(path.c_str())) {
+            for (boost::filesystem::directory_iterator itEndDir, it(findInPath);
+                 it != itEndDir;
+                 ++it) {
+                if (!exactName) {
+                    std::size_t found = it->path().string().find(findSubstr);
+                    if (found != std::string::npos) {
+                        foundName = true;
+                    }
+                } else {
+                    foundName = (it->path().stem().string().compare(findSubstr) == 0);
+                }
+
+                if (foundName) {
+                    GLOGNORMAL << "Found file/dir "<< it->path().string()
+                               << " in directory " << path;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// returns true if file that has substring findSubstr in its name
+    /// exists in given directory "path". Searches two levels down
+    static fds_bool_t existsInSubdirs(const std::string& path,
+                                      const std::string& findSubstr,
+                                      fds_bool_t exactName) {
+        boost::filesystem::path findInPath(path.c_str());
+
+        fds_bool_t found = false;
+        if (boost::filesystem::is_directory(path.c_str())) {
+            for (boost::filesystem::directory_iterator itEndDir, it(findInPath);
+                 it != itEndDir;
+                 ++it) {
+                if (boost::filesystem::is_directory(it->path().c_str())) {
+                    found = existsInDir(it->path().string(), findSubstr, exactName);
+                    if (found) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
 };
 
 }  // namespace fds

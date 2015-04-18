@@ -53,6 +53,7 @@ class TestCreateMultivolume(testcase.FDSTestCase):
                 self.hash_table[current] = encode
         self.log.info("hash table: %s" % self.hash_table)
         
+    @unittest.expectedFailure
     def runTest(self):
         self.log.info("Starting the multivolume test...\n")
         for ip in self.ip_addresses:

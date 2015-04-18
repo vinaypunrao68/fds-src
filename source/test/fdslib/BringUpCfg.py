@@ -12,6 +12,7 @@ import os
 import os.path
 import FdsSetup as inst
 import socket
+import requests
 
 ###
 # Base config class, which is key/value dictionary.
@@ -208,7 +209,7 @@ class FdsNodeConfig(FdsConfig):
             else:
                 log_dir = _log_dir
 
-            print "\nStart OM in", self.nd_host_name()
+            print "Start OM on %s in %s" % (self.nd_host_name(),fds_dir)
 
             self.nd_start_influxdb();
 
@@ -222,35 +223,43 @@ class FdsNodeConfig(FdsConfig):
 
             time.sleep(2)
         else:
-            log.warn("Attempting to start OM on node %s which is not configured to host OM." % self.nd_host_name())
+            log.warning("Attempting to start OM on node %s which is not configured to host OM." % self.nd_host_name())
             status = -1
 
         return status
 
     def nd_start_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
-        log.info("Starting InfluxDB")
-        print "\nStart influxdb on", self.nd_host_name()
+        log.info("Starting InfluxDB on %s" % (self.nd_host_name()))
 
         ## check if influx is running on the node.  If not, start it
         influxstat = self.nd_status_influxdb()
         if influxstat != 0:
-            status = self.nd_agent.exec_wait('service influxdb start')
+            status = self.nd_agent.exec_wait('service influxdb start 2>&1 >> /dev/null', output=False)
+            if status != 0:
+                print "Failed to start InfluxDB on %s" % (self.nd_host_name())
+                log.info("Failed to start InfluxDB on %s" % (self.nd_host_name()))
         else:
-            print "\nInfluxDB is already running."
+            log.debug("InfluxDB is already running.")
             status = 0
         return status
 
     def nd_stop_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
-        log.info("Stopping InfluxDB")
-        status = self.nd_agent.exec_wait('service influxdb stop')
+        log.info("Stopping InfluxDB on %s" % (self.nd_host_name()))
+
+        status = self.nd_status_influxdb()
+        if status == 0:
+            status = self.nd_agent.exec_wait('service influxdb stop 2>&1 >> /dev/null', output=False)
+            if status != 0:
+                print "Failed to stop InfluxDB on %s" % (self.nd_host_name())
+                log.warning("Failed to stop InfluxDB on %s" % (self.nd_host_name()))
         return status
 
     def nd_status_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
-        log.info("Checking InfluxDB")
-        status = self.nd_agent.exec_wait('service influxdb status')
+        log.info("Checking InfluxDB status on %s" % (self.nd_host_name()))
+        status = self.nd_agent.exec_wait('service influxdb status 2>&1 >> /dev/null', output=False)
         return status
 
     def nd_clean_influxdb(self):
@@ -259,12 +268,47 @@ class FdsNodeConfig(FdsConfig):
         fds_dir = self.nd_conf_dict['fds_root']
         var_dir = fds_dir + '/var'
 
-        ## todo: read from influx config file or change if we put under /fds/var/db etc
-        influxdb_data_dir = "/opt/influxdb/shared/data/db"
+        status = 0
+        if self.nd_run_om():
+            log.info("Cleaning InfluxDB")
+            ## check if influx is running on the node.  If not, start it
+            influxstat = self.nd_status_influxdb()
+            if influxstat != 0:
+                log.info("Starting InfluxDB for clean on %s" % (self.nd_host_name()))
+                ## note: sleep appears to be necessary because the http request retries appear
+                ## to occur in a tight loop and complete before influx is fully started.
+                status = self.nd_agent.exec_wait('service influxdb start 2>&1 >> /dev/null && sleep 5', output=False)
 
-        log.info("Cleaning InfluxDB")
-        status = self.nd_agent.exec_wait('service influxdb stop')
-        self.nd_agent.exec_wait('rm -rf '  + influxdb_data_dir)
+            ## setup the http requests session with an adapter configured for retries.
+            ## 400 seems to be the max you can set for max_retries - any more than that
+            ## and it complains about recursion depth.  Really need something with a
+            ## timed backoff and/or a timeout
+            s = requests.session()
+            a = requests.adapters.HTTPAdapter(max_retries=400)
+            s.mount("http://", a)
+            for db in [ 'om-metricdb', 'om-eventdb' ]:
+                log.info('Removing database ' + db)
+                try:
+                    response = s.delete("http://" + self.nd_host + ":8086/db/" + db + "?u=root&p=root")
+                    if response.status_code < 200 or response.status_code >= 300:
+                        # influx reported an unsuccessful error code.  Print the message output from the response.
+                        # we don't currently distinguish between errors and things like redirects.
+                        print('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+
+                        # todo: attempted to use log.warning, but getting error message about no handlers.
+                        log.info('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+                except Exception as e:
+                    print "Failed to drop influxDB database: %s: %s" % (db, e)
+                    # todo: attempted to use log.warning, but getting error message about no handlers.
+                    log.info("Failed to drop influxDB database: %s: %s" % (db, e))
+
+            ## close the http session
+            s.close()
+
+            ## if influx was NOT running originally, stop it again.
+            if influxstat != 0:
+                status = self.nd_agent.exec_wait('service influxdb stop 2>&1 >> /dev/null', output=False)
+
         return status
 
     ###
@@ -294,7 +338,7 @@ class FdsNodeConfig(FdsConfig):
         else:
             log_dir = _log_dir
 
-        print "\nStart platform daemon in", self.nd_host_name()
+        print "Start platform daemon on %s in %s" % (self.nd_host_name(),fds_dir)
 
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
@@ -436,13 +480,6 @@ class FdsNodeConfig(FdsConfig):
         if test_harness:
             log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
 
-            fds_dir = self.nd_conf_dict['fds_root']
-            bin_dir = _bin_dir
-            sbin_dir = _bin_dir + '../sbin'
-            tools_dir = sbin_dir + '/tools'
-            dev_dir = fds_dir + '/dev'
-            var_dir = fds_dir + '/var'
-
             status = self.nd_agent.exec_wait('ls ' + bin_dir)
             if status == 0:
                 log.info("Cleanup cores in: %s" % bin_dir)
@@ -489,21 +526,20 @@ class FdsNodeConfig(FdsConfig):
                 log.info("Cleanup 0x* in: %s" % '/dev/shm')
                 self.nd_agent.exec_wait('rm -f /dev/shm/0x*')
 
-            status = self.nd_agent.exec_wait('ls ' + influxdb_data_dir )
-            if status == 0:
-                log.info("Cleanup influx database in: %s" % influxdb_data_dir)
-                self.nd_clean_influxdb()
+            log.info("Cleanup influx database in: %s" % influxdb_data_dir)
+            self.nd_clean_influxdb()
 
             status = 0
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
-            status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +
-                '(cd %s && rm -r logs db stats); ' % var_dir +
-                '(cd /corefiles && rm *.core); '  +
-                '(cd %s/core && rm *.core); ' % var_dir +
-                '(cd %s && ./fds clean -i); ' % tools_dir +
-                '(cd %s && rm -rf hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
-                '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
+            status = self.nd_agent.exec_wait('(cd %s && rm -f core *.core); ' % bin_dir +
+                '(cd %s && rm -rf logs db stats); ' % var_dir +
+                '(rm -f /corefiles/*.core); '  +
+                '(rm -f %s/core/*.core); ' % var_dir +
+                '([ -f "%s/fds" ] && %s/fds clean -i) 2>&1>>/dev/null; ' % (tools_dir, tools_dir) +
+                '(rm -rf %s/hdd-*/*); ' % dev_dir +
+                '(rm -rf %s/ssd-*/*); ' % dev_dir +
+                '(rm -rf %s/*-repo/); ' % fds_dir +
                 '(cd /dev/shm && rm -f 0x*)')
             self.nd_clean_influxdb()
 
@@ -511,7 +547,7 @@ class FdsNodeConfig(FdsConfig):
         if status == -1:
             # ssh_exec() returns -1 when there is output to syserr and
             # status from the command execution was 0. In this case, we'll
-            # assume that the failure was due to some of these componets
+            # assume that the failure was due to some of these components
             # missing. But since we wanted to delete them anyway, we'll
             # call it good.
             status = 0
