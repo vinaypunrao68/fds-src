@@ -467,9 +467,6 @@ class FdsNodeConfig(FdsConfig):
     def nd_cleanup_node(self, test_harness=False, _bin_dir=None):
         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_cleanup_node')
 
-        ## ensure services are down before cleaning
-        self.nd_cleanup_daemons()
-
         fds_dir = self.nd_conf_dict['fds_root']
         bin_dir = fds_dir + '/bin'
         sbin_dir = fds_dir + '/sbin'
