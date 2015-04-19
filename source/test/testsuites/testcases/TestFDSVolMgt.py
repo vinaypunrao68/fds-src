@@ -210,7 +210,7 @@ class TestVolumeDetach(TestCase.FDSTestCase):
             offset = 3809
             port = int(node.nd_conf_dict['fds_port']) + offset
             self.log.info("Detach volume %s on node %s." % (volName, am_node))
-            cmd = ('detach %s:%s %s' % (ip, port, volName))
+            cmd = ('detach %s' % (volName))
 
 
             cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
