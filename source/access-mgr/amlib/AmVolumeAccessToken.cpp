@@ -3,6 +3,7 @@
  */
 
 #include "AmVolumeAccessToken.h"
+#include "util/Log.h"
 
 namespace fds
 {
@@ -16,14 +17,16 @@ AmVolumeAccessToken::AmVolumeAccessToken(FdsTimer& _timer,
 {
 }
 
-void 
-AmVolumeAccessToken::runTimerTask() {
-    cb(token);
+AmVolumeAccessToken::~AmVolumeAccessToken() {
+    LOGTRACE << "AccessToken for: 0x" << std::hex << token << " is being destroyed";
 }
 
-AmVolumeAccessToken::token_type
-AmVolumeAccessToken::getToken() const {
-    return token;
+void
+AmVolumeAccessToken::runTimerTask() {
+    LOGTRACE << "AccessToken for: 0x" << std::hex << token << " is being renewed";
+    if (cb) {
+        cb();
+    }
 }
 
 }  // namespace fds

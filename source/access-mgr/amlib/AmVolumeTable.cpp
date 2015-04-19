@@ -119,10 +119,7 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
     {
         WriteGuard wg(map_rwlock);
         auto it = volume_map.find(vol_uuid);
-        if (volume_map.end() != it) {
-            /** Update existing access token */
-            it->second->swapToken(access_token);
-        } else {
+        if (volume_map.end() == it) {
             /** Create queue and register with QoS */
             FDS_VolumeQueue* queue {nullptr};
             if (vdesc.isSnapshot()) {
@@ -155,6 +152,9 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
                          << std::hex << vol_uuid << "]"
                          << " because: " << err;
             }
+        } else {
+            // This volume is already registered...race?
+            return ERR_DUPLICATE;
         }
     }
 
