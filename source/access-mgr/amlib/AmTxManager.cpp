@@ -191,7 +191,8 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc,
 {
     // The cache size is controlled in terms of MiB, but the LRU
     // knows only terms in # of elements. Do this conversion.
-    auto num_cached_objs = (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes);
+    auto num_cached_objs = (0 < volDesc.maxObjSizeInBytes) ?
+        (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes) : 0;
 
     // A duplicate is ok, we're probably updating the access_token
     auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs);
