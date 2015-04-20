@@ -385,6 +385,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     void updateCatalog(dmCatReq *io);
     /* End of new refactored DM message handlers */
 
+    void flushIO();
     void scheduleDeleteCatObjSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void snapVolCat(dmCatReq *io);
