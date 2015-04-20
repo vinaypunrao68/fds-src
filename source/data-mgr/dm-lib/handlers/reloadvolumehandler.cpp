@@ -27,6 +27,14 @@ void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     // Handle U-turn
     HANDLE_U_TURN();
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        auto dummyResponse = boost::make_shared<fpi::ReloadVolumeMsg>();
+        handleResponse(asyncHdr, dummyResponse, err, nullptr);
+        return;
+    }
+
     auto dmReq = new DmIoReloadVolume(message);
     dmReq->cb = BIND_MSG_CALLBACK(ReloadVolumeHandler::handleResponse, asyncHdr, message);
 

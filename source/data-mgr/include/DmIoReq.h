@@ -722,19 +722,12 @@ struct DmIoDeleteBlob: dmCatReq {
 };
 
 struct DmIoReloadVolume : dmCatReq {
-    const boost::shared_ptr<fpi::ReloadVolumeMsg> & message;
+    boost::shared_ptr<fpi::ReloadVolumeMsg> message;
     boost::shared_ptr<fpi::ReloadVolumeRspMsg> response;
-    explicit DmIoReloadVolume(const boost::shared_ptr<fpi::ReloadVolumeMsg> &msg)
-        : message(msg),
-          dmCatReq(msg->volume_id, "", "", 0, FDS_DM_RELOAD_VOLUME) {
-        // message = msg;
-        response.reset(new fpi::ReloadVolumeRspMsg());
-
-        /*
+    explicit DmIoReloadVolume(boost::shared_ptr<fpi::ReloadVolumeMsg> msg)
             : message(msg),
               response(new fpi::ReloadVolumeRspMsg()),
-              dmCatReq(message->volume_id, "", "", 0, FDS_DM_RELOAD_VOLUME) {
-        */
+              dmCatReq(msg->volume_id, "", "", 0, FDS_DM_RELOAD_VOLUME) {
     }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoReloadVolume& io) {

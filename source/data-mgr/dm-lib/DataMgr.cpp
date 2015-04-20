@@ -17,7 +17,6 @@ Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
 
     boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
-    // boost::shared_ptr<fpi::ReloadVolumeMsg> msg(new fpi::ReloadVolumeMsg());
     msg->volume_id = volId;
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ReloadVolumeMsg), msg);
 
@@ -481,8 +480,6 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     if (err.ok() && vdesc->isClone() && fPrimary) {
         // all actions were successful now rsync it to other DMs
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
-        Error err1;
-        std::vector<NodeUuid> dmIds(nodes->getLength());
         for (uint i = 1; i < nodes->getLength(); i++) {
             LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
                      << "to node:" << nodes->get(i);
