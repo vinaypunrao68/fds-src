@@ -821,6 +821,7 @@ int DataMgr::mod_init(SysParams const *const param)
     standalone = false;
     numTestVols = 10;
     scheduleRate = 10000;
+    shuttingDown = false;
 
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
@@ -905,6 +906,9 @@ void DataMgr::initHandlers() {
 
 DataMgr::~DataMgr()
 {
+    // shutdown all data manager modules
+    LOGDEBUG << "Received shutdown message DM ... shutdown mnodules..";
+    mod_shutdown();
 }
 
 int DataMgr::run()
@@ -1015,6 +1019,19 @@ void DataMgr::mod_enable_service() {
     }
 }
 
+//   Block new IO's  and flush queued IO's 
+void DataMgr::flushIO()
+{
+    shuttingDown = true;
+    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
+                 it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+        qosCtrl->quieseceIOs(it->first);
+    }
+
+}
+
 void DataMgr::mod_shutdown()
 {
     shuttingDown = true;
@@ -1035,7 +1052,7 @@ void DataMgr::mod_shutdown()
                  it = vol_meta_map.begin();
          it != vol_meta_map.end();
          it++) {
-        qosCtrl->quieseceIOs(it->first);
+        //  qosCtrl->quieseceIOs(it->first);
         qosCtrl->deregisterVolume(it->first);
         delete it->second;
     }
