@@ -388,7 +388,7 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
         if (!err.ok()) {
             // if error, more logging for debugging
             for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId){
-                LOGNOTIFY << "SM token must be valid? : " << (smTokensOwned.count(tokId) > 0)
+                LOGNOTIFY << "SM token " << tokId << " must be valid? " << (smTokensOwned.count(tokId) > 0)
                           << "; valid in superblock? " << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
             }
         }

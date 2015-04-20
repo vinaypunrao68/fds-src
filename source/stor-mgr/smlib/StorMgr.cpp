@@ -350,6 +350,9 @@ Error ObjectStorMgr::handleDltUpdate() {
         LOGNORMAL << "SM received first DLT after restart, which matched "
                   << "its persistent state, will start full resync of DLT tokens";
         // TODO(Anna) FS-1649 actually start the resync process
+
+        // for now pretend we successfully started resync, return success
+        err = ERR_OK;
     }
 
     return err;
