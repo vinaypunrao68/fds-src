@@ -285,9 +285,11 @@ class SmSuperblockMgr {
      * but was not previously owned, and updates TokenState to valid
      * Also updates DLT version
      * @return ERR_SM_NOERR_GAINED_SM_TOKENS if SM gained ownership of
-     * new SM tokens; ERR_OK if success
+     * new SM tokens; ERR_SM_NOERR_GAINED_SM_TOKENS if dltVersion matches
+     * the version saved in superblock, but tokens that are not in smTokensOwned
+     * are marked valid in superblock; ERR_OK if success
      */
-    Error updateNewSmTokenOwnership(SmTokenSet& smTokensOwned,
+    Error updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
                                     fds_uint64_t dltVersion);
 
     /**
@@ -364,6 +366,9 @@ class SmSuperblockMgr {
     /// serialized by the caller. We will most likely refactor this
     /// pretty soon
     fds_rwlock sbLock;
+
+    /// this is used for extra checks only
+    fds_bool_t noDltReceived;
 
     /// set of disks.
     DiskLocMap diskMap;

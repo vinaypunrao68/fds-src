@@ -24,7 +24,7 @@
 #include <concurrency/RwLock.h>
 
 namespace fds {
-#define DLT_VER_INVALID 0  /**< Defines 0 as invalid DLT version */
+#define DLT_VER_INVALID 0UL  /**< Defines 0 as invalid DLT version */
 
     typedef TableColumn DltTokenGroup;
     typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;

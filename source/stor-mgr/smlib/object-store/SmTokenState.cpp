@@ -61,6 +61,28 @@ TokenDescTable::invalidateSmTokens(const SmTokenSet& smToksInvalid) {
     return tokens;
 }
 
+
+Error
+TokenDescTable::checkSmTokens(const SmTokenSet& smTokensOwned) {
+    for (SmTokenSet::const_iterator cit = smTokensOwned.cbegin();
+         cit != smTokensOwned.cend();
+         ++cit) {
+        if (!stateTbl[fds_hdd_row][*cit].isValid()) {
+            // a tokens that we think we own is not valid!
+            return ERR_SM_SUPERBLOCK_INCONSISTENT;
+        }
+    }
+    // all tokens in smTokensOwned are marked 'valid'
+    for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
+        if (stateTbl[fds_hdd_row][tokId].isValid() &&
+            (smTokensOwned.count(tokId) == 0)) {
+            // token is marked valid but we don't own it
+            return ERR_SM_NOERR_LOST_SM_TOKENS;
+        }
+    }
+    return ERR_OK;
+}
+
 fds_uint32_t
 TokenDescTable::row(diskio::DataTier tier) const {
     // here we are explicit with translation of tier to row number
