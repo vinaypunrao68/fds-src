@@ -112,6 +112,32 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     return err;
 }
 
+/**
+ * Starts token resync for all DLT tokens assigned to this SM.
+ * It identifies the source SMs for assigned tokens from the
+ * new dlt version passed to it and starts the migration process.
+ */
+Error
+SmTokenMigrationMgr::startResync(fds::DLT *dlt,
+                                 OmStartMigrationCbType cb,
+                                 const NodeUuid& mySvcUuid,
+                                 fds_uint32_t bitsPerDltToken) {
+    fpi::CtrlNotifySMStartMigrationPtr resyncMsg(
+                       new fpi::CtrlNotifySMStartMigration());
+    resyncMsg->DLT_version = dlt->getVersion();
+    //std::map<NodeUuid, std::vector<fds_int32_t>> srcSmTokensMap;
+    DLT::SourceNodeMap srcSmTokensMap;
+    dlt->getSourceForAllNodeTokens(mySvcUuid, srcSmTokensMap);
+
+    for (auto &ptr: srcSmTokensMap) {
+        fpi::SMTokenMigrationGroup grp;
+        grp.source = ptr.first.toSvcUuid();
+        grp.tokens = ptr.second;
+        resyncMsg->migrations.push_back(grp);
+    }
+    return startMigration(resyncMsg, cb, mySvcUuid, bitsPerDltToken);
+}
+
 void
 SmTokenMigrationMgr::startSmTokenMigration(fds_token_id smToken) {
     smTokenInProgress = smToken;

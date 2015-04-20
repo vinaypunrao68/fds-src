@@ -1,22 +1,29 @@
-'''
-Created on Apr 8, 2015
-
-@author: nate
-'''
 from ConfigParser import SafeConfigParser
 import getpass
 import requests
 import os
 from requests.exceptions import ConnectionError
+from __builtin__ import True
 
 class FdsAuth():
     
+    '''
+    Created on Apr 8, 2015
+
+    This class encapsulates all of the authentication process necessary to interact with the FDS REST 
+    endpoints.  This class will hold onto the returned information (including header token) to be 
+    used in all REST interactions as well as the allowed feature list to prevent unauthorized access
+    to features
+    
+    @author: nate
+    '''        
     def __init__(self, confFile=os.path.join(os.path.expanduser("~"), ".fdscli.conf")):
         
         self.__parser = SafeConfigParser()
         self.__parser.read( confFile )
         
         self.__token = None
+        self.__features = []
         self.__hostname = self.get_from_parser( 'hostname' )
         self.__port = self.get_from_parser( 'port' )
         self.__username = self.get_from_parser( 'username' )
@@ -59,7 +66,27 @@ class FdsAuth():
     def get_token(self):
         return self.__token
     
+    def is_allowed(self, feature):
+        
+        for capability in self.__features:
+            if ( capability == feature ):
+                return True
+        # end of for loop
+        
+        return False
+    
+    def is_authenticated(self):
+        
+        if ( self.__token != None ):
+            return True
+        
+        return False
+    
     def login(self):
+    
+        '''
+        uses the connection parameters to try and login into the FDS system
+        '''
     
         try:
             payload = { "login" : self.get_username(), "password" : self.get_password() }
@@ -71,6 +98,9 @@ class FdsAuth():
         
             if ( 'token' in response ):
                 self.__token = response['token']
+                
+            if ( 'features' in response ):
+                self.__features = response['features']
                 
             return self.__token
         

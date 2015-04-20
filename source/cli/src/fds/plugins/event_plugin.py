@@ -10,6 +10,9 @@ to enact the correct calls to retrieve the events
 '''
 class EventPlugin( abstract_plugin.AbstractPlugin):
     
+    def __init__(self, session):
+        abstract_plugin.AbstractPlugin.__init__(self, session)
+        
     '''
     @see: AbstractPlugin
     '''
