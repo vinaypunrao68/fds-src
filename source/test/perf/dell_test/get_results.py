@@ -3,7 +3,6 @@
 import os,re,sys
 import tabulate
 import operator
-import dataset
 
 
 def order_by(table, columns):
@@ -16,10 +15,6 @@ def order_by(table, columns):
 
 directory=sys.argv[1]
 
-# connect to temporary db
-db = dataset.connect('sqlite:////tmp/test.db')
-
-files = os.listdir(directory)
 table = []
 for f in files:
 	# out.numjobs=4.workload=write.bs=512.iodepth=256.disksize=8g
@@ -40,10 +35,6 @@ for f in files:
 	table.append({"numjobs" : numjobs, "workload" : workload, "bs" : bs, "iodepth" : iodepth, "disksize" : disksize, "iops" : iops})
 	
 	#if workload == "read" or workload == "randread":
-
-# add table to temporary db
-for e in table:
-    db["experiments"].insert(e)
 
 #table = sorted(table, key = lambda x : x["workload"])
 table = order_by(table, ["numjobs", "workload", "bs", "iodepth", "disksize"])
