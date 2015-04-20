@@ -679,21 +679,10 @@ class TestRestartInfluxDBClean(TestCase.FDSTestCase):
 
         self.log.info("Restart InfluxDB clean on %s." % n.nd_conf_dict['node-name'])
 
-# TODO: influx doesn't have a clean option.  have to stop, delete the data directories and restart.
-#        status = n.nd_agent.exec_wait("service influxdb restart")
-#        time.sleep(2)
-#
-#        if status != 0:
-#            self.log.error("Restart InfluxDB before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
-#            return False
-#
-#        status = n.nd_agent.exec_wait("service influxdb clean")
-#        time.sleep(2)
-#
-#        if status != 0:
-#            self.log.error("Clean InluxDB on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
-#            return False
-#
+        # issue the clean request (drop dbs etc)
+        status = n.nd_clean_influxdb()
+
+        # restart influx
         status = n.nd_agent.exec_wait("service influxdb restart")
         time.sleep(2)
 
