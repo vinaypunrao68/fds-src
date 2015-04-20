@@ -134,13 +134,17 @@ public class Main {
         XdiService.Iface amService = AmServiceClientFactory.newAmService(amHost, amServicePort).getClient();
         SingletonAmAPI.instance().api( amService );
 
-        String omHost = "localhost";
+        final String omHost = platformConfig.defaultString("fds.common.om_ip_list", "localhost");
+        /*
+         * TODO(Tinius) currently we only support a single OM
+         */
+        final String omPrimaryHostname = omHost.contains( "," ) ? omHost.split( "," )[ 0 ] : omHost;
         int omLegacyConfigPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
         String webDir = platformConfig.defaultString( "fds.om.web_dir",
                                                       "../lib/admin-webapp" );
 
         FDSP_ConfigPathReq.Iface legacyConfigClient =
-            ConfigServiceClientFactory.newLegacyConfigService(omHost,
+            ConfigServiceClientFactory.newLegacyConfigService(omPrimaryHostname,
                                                               omLegacyConfigPort)
                                       .getClient();
 
@@ -171,7 +175,10 @@ public class Main {
         // TODO: pass om host/port (or url) to stat stream registration handler
         // create and start the statistics stream registration handler to manage stat
         // stream register/deregister requests
-        configCache.startStatStreamRegistrationHandler();
+        /*
+         * TODO(Tinius) should be using the https port here, but requires more SSL certs ( AM service )
+         */
+        configCache.startStatStreamRegistrationHandler( omPrimaryHostname, httpPort );
 
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
