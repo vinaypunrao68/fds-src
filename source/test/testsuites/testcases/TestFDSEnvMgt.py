@@ -735,7 +735,7 @@ class TestBootInfluxDB(TestCase.FDSTestCase):
             return True
 
         self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
-        status = n.nd_agent.exec_wait("service influxdb start")
+        status = n.nd_start_influxdb()
         time.sleep(2)
 
         if status != 0:
