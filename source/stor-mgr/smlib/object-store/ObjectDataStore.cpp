@@ -42,6 +42,11 @@ ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
 }
 
 Error
+ObjectDataStore::closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost) {
+    return persistData->closeAndDeleteObjectDataFiles(smTokensLost);
+}
+
+Error
 ObjectDataStore::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                diskio::DataTier tier,

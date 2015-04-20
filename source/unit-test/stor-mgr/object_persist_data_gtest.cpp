@@ -84,6 +84,7 @@ void
 SmObjectPersistDataTest::init() {
     // init SM disk map
     smDiskMap->mod_init(NULL);
+    smDiskMap->loadPersistentState();
     DLT* dlt = new DLT(bitsPerDltToken, 1, 1, true);
     SmUtUtils::populateDlt(dlt, 1);
     GLOGDEBUG << "Using DLT: " << *dlt;

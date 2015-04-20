@@ -11,18 +11,16 @@
 namespace fds {
 
 AmCache::AmCache()
-    : max_data_entries(0),
-      max_metadata_entries(0)
+    : max_metadata_entries(0)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    max_data_entries = conf.get<fds_uint32_t>("cache.max_data_entries");
     max_metadata_entries = conf.get<fds_uint32_t>("cache.max_metadata_entries");
 }
 
 AmCache::~AmCache() = default;
 
 Error
-AmCache::registerVolume(fds_volid_t const vol_uuid) {
+AmCache::registerVolume(fds_volid_t const vol_uuid, size_t const num_objs) {
     Error err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
     if (ERR_OK != err) {
         return err;
@@ -32,7 +30,7 @@ AmCache::registerVolume(fds_volid_t const vol_uuid) {
         descriptor_cache.removeVolume(vol_uuid);
         return err;
     }
-    err = object_cache.addVolume(vol_uuid, max_data_entries);
+    err = object_cache.addVolume(vol_uuid, num_objs);
     if (ERR_OK != err) {
         offset_cache.removeVolume(vol_uuid);
         descriptor_cache.removeVolume(vol_uuid);

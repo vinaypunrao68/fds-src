@@ -28,8 +28,9 @@ TokenDescTable::TokenDescTable() {
 TokenDescTable::~TokenDescTable() {
 }
 
-void
+fds_bool_t
 TokenDescTable::initializeSmTokens(const SmTokenSet& smToksValid) {
+    fds_bool_t initAtLeastOneToken = false;
     // token id is also a column index into stateTbl
     for (SmTokenSet::const_iterator cit = smToksValid.cbegin();
          cit != smToksValid.cend();
@@ -38,19 +39,26 @@ TokenDescTable::initializeSmTokens(const SmTokenSet& smToksValid) {
             SmTokenDesc td(SM_INIT_FILE_ID, SMTOKEN_FLAG_VALID);
             stateTbl[fds_hdd_row][*cit] = td;
             stateTbl[fds_ssd_row][*cit] = td;
+            initAtLeastOneToken = true;
         }
     }
+    return initAtLeastOneToken;
 }
 
-void
+SmTokenSet
 TokenDescTable::invalidateSmTokens(const SmTokenSet& smToksInvalid) {
+    SmTokenSet tokens;
     // token id is also a column index into stateTbl
     for (SmTokenSet::const_iterator cit = smToksInvalid.cbegin();
          cit != smToksInvalid.cend();
          ++cit) {
-        stateTbl[fds_hdd_row][*cit].setInvalid();
-        stateTbl[fds_ssd_row][*cit].setInvalid();
+        if (stateTbl[fds_hdd_row][*cit].isValid()) {
+            stateTbl[fds_hdd_row][*cit].setInvalid();
+            stateTbl[fds_ssd_row][*cit].setInvalid();
+            tokens.insert(*cit);
+        }
     }
+    return tokens;
 }
 
 fds_uint32_t
