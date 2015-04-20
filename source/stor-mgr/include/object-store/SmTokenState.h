@@ -122,6 +122,11 @@ struct TokenDescTable {
                                       diskio::DataTier tier) const;
 
     /**
+     * Checks whether token is valid on at least one tier
+     */
+    fds_bool_t isValidOnAnyTier(fds_token_id smToken) const;
+
+    /**
      * Get a set of SM tokens that reside on this SM
      * @param[out] tokenSet is populated with SM tokens
      */

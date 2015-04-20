@@ -67,14 +67,14 @@ TokenDescTable::checkSmTokens(const SmTokenSet& smTokensOwned) {
     for (SmTokenSet::const_iterator cit = smTokensOwned.cbegin();
          cit != smTokensOwned.cend();
          ++cit) {
-        if (!stateTbl[fds_hdd_row][*cit].isValid()) {
-            // a tokens that we think we own is not valid!
+        if (!isValidOnAnyTier(*cit)) {
+            // a token that we think we own is not valid!
             return ERR_SM_SUPERBLOCK_INCONSISTENT;
         }
     }
     // all tokens in smTokensOwned are marked 'valid'
     for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
-        if (stateTbl[fds_hdd_row][tokId].isValid() &&
+        if (isValidOnAnyTier(tokId) &&
             (smTokensOwned.count(tokId) == 0)) {
             // token is marked valid but we don't own it
             return ERR_SM_NOERR_LOST_SM_TOKENS;
@@ -125,6 +125,12 @@ fds_bool_t
 TokenDescTable::isCompactionInProgress(fds_token_id smToken,
                                        diskio::DataTier tier) const {
     return stateTbl[row(tier)][smToken].isCompacting();
+}
+
+fds_bool_t
+TokenDescTable::isValidOnAnyTier(fds_token_id smToken) const {
+    return (stateTbl[row(diskio::diskTier)][smToken].isValid() ||
+            stateTbl[row(diskio::flashTier)][smToken].isValid());
 }
 
 SmTokenSet

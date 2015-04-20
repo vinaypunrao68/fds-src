@@ -385,6 +385,13 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
             err = ERR_SM_NOERR_NEED_RESYNC;
             LOGDEBUG << "Superblock knows about this DLT version " << dltVersion;
         }
+        if (!err.ok()) {
+            // if error, more logging for debugging
+            for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId){
+                LOGNOTIFY << "SM token must be valid? : " << (smTokensOwned.count(tokId) > 0)
+                          << "; valid in superblock? " << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
+            }
+        }
     } else if (noDltReceived && (superblockMaster.DLTVersion != DLT_VER_INVALID)) {
         // If this is restart, DLT version stored in superblock must be the same
         // as DLT version we received from OM now. If OM currently tries to update
