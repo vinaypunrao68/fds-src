@@ -513,10 +513,8 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     unsigned srcSm = 2; // expected source SM id to be assinged for resync
     dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
 
-    for (DLT::SourceNodeMap::iterator itr = srcNodeMap.begin();
-         itr != srcNodeMap.end();
-         itr++) {
-         ASSERT_TRUE(itr->second == NodeUuid(srcSm));
+    for (auto obj : srcNodeMap) {
+         ASSERT_EQ(obj.first, NodeUuid(srcSm));
     }
 
     destSm = 3; // destination SM id
@@ -524,10 +522,8 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     srcNodeMap.clear();
     dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
 
-    for (DLT::SourceNodeMap::iterator itr = srcNodeMap.begin();
-         itr != srcNodeMap.end();
-         itr++) {
-         ASSERT_TRUE(itr->second == NodeUuid(srcSm));
+    for (auto obj : srcNodeMap) {
+         ASSERT_EQ(obj.first, NodeUuid(srcSm));
     }
 
     //invalid destination SM id test
