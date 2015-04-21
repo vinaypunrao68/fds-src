@@ -59,7 +59,7 @@ Error DmPersistVolDB::activate() {
     if (clone_ || snapshot_) {
         if (!fAlreadyExists) {
             LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
-            return ERR_DM_MIGRATION_ABORTED;
+            return ERR_OK;
         }
     }
 

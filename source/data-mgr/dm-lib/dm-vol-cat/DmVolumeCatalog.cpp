@@ -133,7 +133,7 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
         */
             vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
-                    voldesc.isSnapshot(), voldesc.srcVolumeId));
+                    voldesc.isSnapshot(), voldesc.isClone(), voldesc.srcVolumeId));
         /*
         } else {
             vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
