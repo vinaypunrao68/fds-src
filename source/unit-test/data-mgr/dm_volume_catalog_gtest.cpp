@@ -147,6 +147,7 @@ TEST_F(DmVolumeCatalogTest, copy_volume) {
         fds_uint64_t blobCount = 0;
         fds_uint64_t objCount = 0;
         rc = volcat->statVolume(snapshots[i]->volUUID, &size, &blobCount, &objCount);
+        std::cout << Color::Yellow << "[statVolume returned: ] " << rc << Color::End << std::endl;
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(blobCount, 1);
         EXPECT_EQ(size, blobCount * BLOB_SIZE);
