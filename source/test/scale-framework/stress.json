@@ -1,0 +1,13 @@
+{
+	"test_sets" : {
+		"test_basic_op" : [
+			{
+				"name" : "TestStressSetup",
+				"file" : "test_stress_setup.py",
+				"arguments" : [],
+				"depends" : [],
+				"config" : "config/stress.cfg"
+			}
+		]
+	}
+}

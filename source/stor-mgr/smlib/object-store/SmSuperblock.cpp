@@ -8,6 +8,7 @@
 #include <boost/crc.hpp>
 #include <util/Log.h>
 #include <fds_process.h>
+#include <dlt.h>
 #include <object-store/SmSuperblock.h>
 
 namespace fds {
@@ -89,6 +90,8 @@ void
 SmSuperblock::initSuperblock()
 {
     Header.initSuperblockHeader();
+
+    DLTVersion = DLT_VER_INVALID;
 }
 
 
@@ -258,6 +261,7 @@ SmSuperblock::operator ==(const SmSuperblock& rhs) const {
  */
 
 SmSuperblockMgr::SmSuperblockMgr()
+        : noDltReceived(true)
 {
 }
 
@@ -280,8 +284,7 @@ SmSuperblockMgr::getSuperblockPath(const std::string& dir_path) {
 Error
 SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
                                 const DiskIdSet& ssdIds,
-                                const DiskLocMap& latestDiskMap,
-                                SmTokenSet& smTokensOwned)
+                                const DiskLocMap& latestDiskMap)
 {
     Error err(ERR_OK);
     std::string superblockPath;
@@ -309,7 +312,6 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
          */
         superblockMaster.initSuperblock();
         SmTokenPlacement::compute(hddIds, ssdIds, &(superblockMaster.olt));
-        superblockMaster.tokTbl.initialize(smTokensOwned);
 
         /* After creating a new superblock, sync to disks.
          */
@@ -337,6 +339,126 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
     }
 
     return err;
+}
+
+Error
+SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
+                                           fds_uint64_t dltVersion) {
+    Error err(ERR_OK);
+
+    SCOPEDWRITE(sbLock);
+    // If this is restart, DLT version stored in superblock must be the same
+    // as DLT version we received from OM now. If OM currently tries to update
+    // DLT and at least one SM node is down, DLT will be aborted and DLT change
+    // will not happen. TODO(Anna) make sure to handle the case when DLT changes
+    // during SM down if OM code changes...
+    if (dltVersion == superblockMaster.DLTVersion) {
+        // this is restart case, otherwise all duplicate DLTs are catched at upper layers
+        fds_verify(superblockMaster.DLTVersion != DLT_VER_INVALID);
+        // this is the extra check that SM is just coming up from persistent state
+        // and we received the first dlt
+        if (!noDltReceived) {
+            LOGNORMAL << "Superblock already handled this DLT version " << dltVersion;
+            return ERR_DUPLICATE;
+        }
+
+        // Check if superblock matches with this DLT
+        // We care that all tokens that owned by this SM are "valid" in superblock
+        // If SM went down between DLT update and DLT close, then we may have not
+        // updated SM tokens that became invalid. I think that's fine. We
+        // are going to check if all smTokensOwned are marked 'valid' in superblock
+        // and invalidate all other tokens (invalidation will be done by the caller)
+        err = superblockMaster.tokTbl.checkSmTokens(smTokensOwned);
+        if (err == ERR_SM_SUPERBLOCK_INCONSISTENT) {
+            LOGERROR << "Superblock knows about this DLT version " << dltVersion
+                     << ", but at least one token that must be valid in SM "
+                     << " based on DLT version is marked invalid in superblock! ";
+        } else if (err == ERR_SM_NOERR_LOST_SM_TOKENS) {
+            LOGNOTIFY << "Superblock knows about this DLT version " << dltVersion
+                      << ", but at least one token that should be invalid in SM "
+                      << " based on DLT version is marked valid in superblock. ";
+        } else {
+            fds_verify(err.ok());
+            // if this is the first token ownership notify since the start and SM not in
+            // pristine state, tell the caller
+            // dltVersion must match dlt version in superblock only in that case above
+            err = ERR_SM_NOERR_NEED_RESYNC;
+            LOGDEBUG << "Superblock knows about this DLT version " << dltVersion;
+        }
+        if (!err.ok()) {
+            // if error, more logging for debugging
+            for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId){
+                LOGNOTIFY << "SM token " << tokId << " must be valid? " << (smTokensOwned.count(tokId) > 0)
+                          << "; valid in superblock? " << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
+            }
+        }
+    } else if (noDltReceived && (superblockMaster.DLTVersion != DLT_VER_INVALID)) {
+        // If this is restart, DLT version stored in superblock must be the same
+        // as DLT version we received from OM now. If OM currently tries to update
+        // DLT and at least one SM node is down, DLT will be aborted and DLT change
+        // will not happen. TODO(Anna) make sure to handle the case when DLT changes
+        // during SM down if OM code changes...
+        LOGCRITICAL << "We expect first DLT on SM restart to be the same version "
+                    << " as when SM went down; OM DLT change should have been aborted "
+                    << " if at least one SM not responsive... if this changed "
+                    << " handle this case in SM."
+                    << " Received DLT version " << dltVersion
+                    << " DLT version in superblock " << superblockMaster.DLTVersion;
+        err = ERR_INVALID_ARG;
+    }
+    noDltReceived = false;
+
+    if (!err.ok()) {
+        // we either already handled the update or error happened
+        return err;
+    }
+
+    fds_bool_t initAtLeastOne = superblockMaster.tokTbl.initializeSmTokens(smTokensOwned);
+    superblockMaster.DLTVersion = dltVersion;
+
+    // sync superblock
+    err = syncSuperblock();
+    if (err.ok()) {
+        LOGDEBUG << "SM persistent SM token ownership and DLT version="
+                 << superblockMaster.DLTVersion;
+        if (initAtLeastOne) {
+            err = ERR_SM_NOERR_GAINED_SM_TOKENS;
+        }
+    } else {
+        // TODO(Sean):  If the DLT version cannot be persisted, then for not, we will
+        //              just ignore it.  We can retry, but the chance of failure is
+        //              high at this point, since the disk is likely failed or full.
+        //
+        // TODO(Sean):  Make sure if the latest DLT version > persistent DLT version is ok.
+        //              and change DLT and DISK mapping accordingly.
+        LOGCRITICAL << "SM persistent DLT version failed to set: version "
+                    << dltVersion;
+    }
+
+    return err;
+}
+
+SmTokenSet
+SmSuperblockMgr::handleRemovedSmTokens(SmTokenSet& smTokensNotOwned,
+                                       fds_uint64_t dltVersion) {
+    SCOPEDWRITE(sbLock);
+
+    // DLT version must be already set!
+    fds_verify(dltVersion == superblockMaster.DLTVersion);
+
+    // invalidate token state for tokens that are not owned
+    SmTokenSet lostSmTokens = superblockMaster.tokTbl.invalidateSmTokens(smTokensNotOwned);
+
+    // sync superblock
+    Error err = syncSuperblock();
+    if (!err.ok()) {
+        // We couldn't persist tokens that are not valid anymore
+        // For now ignoring it! We should be ok later recovering from this
+        // inconsistency since we can always check SM ownership from DLT
+        LOGCRITICAL << "Failed to persist newly invalidated SM tokens";
+    }
+
+    return lostSmTokens;
 }
 
 /*
@@ -642,6 +764,46 @@ SmSuperblockMgr::reconcileSuperblock()
     return err;
 }
 
+
+Error
+SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
+{
+    Error err(ERR_OK);
+    SCOPEDWRITE(sbLock);
+
+    superblockMaster.DLTVersion = dltVersion;
+
+    if (syncImmediately) {
+        // sync superblock
+        err = syncSuperblock();
+
+        if (err.ok()) {
+            LOGDEBUG << "SM persistent DLT version=" << superblockMaster.DLTVersion;
+        } else {
+            // TODO(Sean):  If the DLT version cannot be persisted, then for not, we will
+            //              just ignore it.  We can retry, but the chance of failure is
+            //              high at this point, since the disk is likely failed or full.
+            //
+            // TODO(Sean):  Make sure if the latest DLT version > persistent DLT version is ok.
+            //              and change DLT and DISK mapping accordingly.
+            LOGCRITICAL << "SM persistent DLT version failed to set.";
+        }
+    }
+
+    return err;
+}
+
+fds_uint64_t
+SmSuperblockMgr::getDLTVersion()
+{
+    SCOPEDREAD(sbLock);
+
+    return superblockMaster.DLTVersion;
+}
+
+
+
+
 /* This iface is only used for the SmSuperblock unit test.  Should not
  * be called by anyone else.
  */
@@ -715,6 +877,7 @@ SmSuperblockMgr::getSmOwnedTokens(fds_uint16_t diskId) {
 // So we can print class members for logging
 std::ostream& operator<< (std::ostream &out,
                           const SmSuperblockMgr& sbMgr) {
+    out << "Current DLT Version=" << sbMgr.superblockMaster.DLTVersion << "\n";
     out << "Current disk map:\n" << sbMgr.diskMap;
     out << sbMgr.superblockMaster.olt;
     out << sbMgr.superblockMaster.tokTbl;

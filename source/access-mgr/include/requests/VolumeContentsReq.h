@@ -31,7 +31,7 @@ struct VolumeContentsReq: public AmRequest {
                 count(_count), offset(_offset), pattern(_pattern), orderBy(_orderBy),
                 descending(_descending)
     {
-        e2e_req_perf_ctx.type = AM_VOLUME_CONTENTS_REQ;
+        e2e_req_perf_ctx.type = PerfEventType::AM_VOLUME_CONTENTS_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 };

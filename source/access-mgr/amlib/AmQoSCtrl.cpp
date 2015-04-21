@@ -83,7 +83,7 @@ Error AmQoSCtrl::markIODone(FDS_IOType *io) {
         ;;
     };
     fds_uint32_t queue_size = htb_dispatcher->count(io->io_vol_id);
-    PerfTracer::incr(AM_QOS_QUEUE_SIZE, io->io_vol_id, queue_size, 1); // Let this be a latency counter
+    PerfTracer::incr(PerfEventType::AM_QOS_QUEUE_SIZE, io->io_vol_id, queue_size, 1); // Let this be a latency counter
     if (queue_size > 0) {
         StatsCollector::singleton()->recordEvent(io->io_vol_id,
                                                  io->io_done_ts,

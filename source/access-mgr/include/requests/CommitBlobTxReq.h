@@ -31,7 +31,7 @@ struct CommitBlobTxReq :
             final_blob_size(0ULL),
             final_meta_data()
     {
-        e2e_req_perf_ctx.type = AM_COMMIT_BLOB_OBJ_REQ;
+        e2e_req_perf_ctx.type = PerfEventType::AM_COMMIT_BLOB_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 

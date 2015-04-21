@@ -58,11 +58,13 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
                    fds_uint32_t objSize,
                    fds_bool_t snapshot,
                    fds_bool_t readOnly,
+                   fds_bool_t clone,
                    fds_volid_t srcVolId = invalid_vol_id)
             : DmPersistVolCat(volId,
                               objSize,
                               snapshot,
                               readOnly,
+                              clone,
                               fpi::FDSP_VOL_S3_TYPE,
                               srcVolId),
               configHelper_(g_fdsprocess->get_conf_helper())

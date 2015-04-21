@@ -86,7 +86,7 @@ void SvcProcess::start_modules()
 
 
     /* Defer any incoming requests over the network */
-    svcMgr_->getSvcRequestHandler()->deferRequests(true);
+    svcMgr_->getSvcRequestHandler()->setHandlerState(PlatNetSvcHandler::DEFER_REQUESTS);
 
     mod_vectors_->mod_init_modules();
 
@@ -119,9 +119,9 @@ void SvcProcess::start_modules()
     mod_vectors_->mod_run_locksteps();
 
     /* At this time service is ready for network requests.  Any pending request
-     * are drained in notifyAllowRequests() call.
+     * are drained.
      */
-    svcMgr_->getSvcRequestHandler()->deferRequests(false);
+    svcMgr_->getSvcRequestHandler()->setHandlerState(PlatNetSvcHandler::ACCEPT_REQUESTS);
 
 }
 

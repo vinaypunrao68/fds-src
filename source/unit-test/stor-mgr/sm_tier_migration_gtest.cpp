@@ -141,7 +141,7 @@ class SmTierMigrationTest : public ::testing::Test {
     // done condition
     std::condition_variable done_cond;
     std::mutex cond_mutex;
-    std::atomic<fds_bool_t> migration_done;
+    std::atomic<fds_bool_t> migration_done {false};
 };
 
 void

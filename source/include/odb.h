@@ -49,6 +49,13 @@ class ObjectDB {
      */
     ~ObjectDB();
 
+    /**
+     * Closes levelDB and destroyes all data
+     * All key-value accesses to this ObjectDB will fail
+     * after this call
+     */
+    void closeAndDestroy();
+
     fds::Error Put(const DiskLoc& disk_location,
                    const ObjectBuf& object_buf);
 

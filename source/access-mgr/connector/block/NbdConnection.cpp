@@ -166,7 +166,7 @@ NbdConnection::write_response() {
                 throw NbdError::connection_closed;
             }
         } else {
-            LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
+            // Didn't write all the data yet, update offset
             write_offset += nwritten;
         }
         return false;
@@ -560,8 +560,12 @@ bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
                 LOGERROR << "Socket read error: [" << strerror(errno) << "]";
                 throw NbdError::shutdown_requested;
         }
+    } else if (0 == nread) {
+        // Orderly shutdown of the TCP connection
+        LOGNORMAL << "Client disconnected.";
+        throw NbdError::connection_closed;
     } else if (nread < len) {
-        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << len << "]";
+        // Only received some of the data so far
         off += nread;
         return false;
     }

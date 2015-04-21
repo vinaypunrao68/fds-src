@@ -280,6 +280,19 @@ struct VolumeCloseHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+/**
+ * Reload the volume. Close and re-instantiate leveldb for specified volume
+ */
+struct ReloadVolumeHandler : Handler {
+    explicit ReloadVolumeHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::ReloadVolumeMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::ReloadVolumeMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

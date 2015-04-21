@@ -46,6 +46,9 @@ struct AmTxManager {
     /// Maximum number of entries to stage
     fds_uint32_t maxStagedEntries;
 
+    /// Maximum size of volume cache in bytes
+    fds_uint32_t maxPerVolumeCacheSize;
+
     /// The number of QoS threads
     fds_uint32_t qos_threads;
 

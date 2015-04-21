@@ -458,8 +458,7 @@ AmDataApi::updateBlob(const std::string& domainName,
                       const apis::TxDescriptor& txDesc,
                       const std::string& bytes,
                       const int32_t length,
-                      const apis::ObjectOffset& objectOffset,
-                      const bool isLast) {
+                      const apis::ObjectOffset& objectOffset) {
     fds_panic("You shouldn't be here.");
 }
 
@@ -470,8 +469,7 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<apis::TxDescriptor>& txDesc,
                       boost::shared_ptr<std::string>& bytes,
                       boost::shared_ptr<int32_t>& length,
-                      boost::shared_ptr<apis::ObjectOffset>& objectOffset,
-                      boost::shared_ptr<bool>& isLast) {
+                      boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
     if ((true == testUturnAll) ||
         (true == testUturnUpdateBlob)) {
         LOGDEBUG << "Uturn testing update blob";
@@ -496,7 +494,6 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
                                         *length,
                                         bytes,
                                         blobTxDesc,
-                                        *isLast,
                                         putHandler);
     amProcessor->enqueueRequest(blobReq);
 

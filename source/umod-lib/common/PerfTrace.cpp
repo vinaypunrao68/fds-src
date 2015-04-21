@@ -39,6 +39,7 @@ void createLatencyCounter(fds::PerfContext & ctx) {
     plc->update(ctx.end_cycle - ctx.start_cycle);
     ctx.data.reset(plc);
 }
+
 // FIXME(matteo): ctx may be useless here
 template <typename T>
 void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent,
@@ -46,14 +47,14 @@ void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent,
                     std::string name) {
     fds_assert(ctx);
     fds_assert(0 == ctx->data.get());
-    GLOGTRACE << "Creating performance counter for type='" << fds::eventTypeToStr[ctx->type]
+    GLOGTRACE << "Creating performance counter for type='" << ctx->type
               << "' volid='" << ctx->volid
               << "' name='" << ctx->name
-              << "' from type='" << fds::eventTypeToStr[type]
+              << "' from type='" << type
               << "' volid='" << volid
               << "' name='" << name << "' ";
 
-    std::string counterName = fds::eventTypeToStr[type];
+    std::string counterName = EnumToString(type);
     if (!name.empty()) {
         counterName += "." + name;
     }
@@ -61,13 +62,13 @@ void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent,
     ctx->data.reset(new T(counterName, volid, parent));
 }
 
-void stringToEventsFilter(const std::string & str, std::bitset<fds::MAX_EVENT_TYPE> & filter) {
+void stringToEventsFilter(const std::string & str, std::bitset<fds_enum::get_size<fds::PerfEventType>()> & filter) {
     // Sanitize the input and return bitset
     std::vector<std::string> tokenVec;
     boost::split(tokenVec, str, boost::is_any_of(","));
     for (std::string & str : tokenVec) {
         boost::trim(str);
-        unsigned startPos = fds::MAX_EVENT_TYPE;
+        unsigned startPos = fds_enum::get_size<fds::PerfEventType>();
         unsigned endPos = startPos;
         if (std::string::npos == str.find('-')) {
             startPos = endPos = boost::lexical_cast<unsigned>(str);
@@ -84,15 +85,15 @@ void stringToEventsFilter(const std::string & str, std::bitset<fds::MAX_EVENT_TY
             endPos = boost::lexical_cast<unsigned>(rangeVec[1]);
         }
 
-        if (fds::MAX_EVENT_TYPE <= startPos) {
+        if (fds_enum::get_size<fds::PerfEventType>() <= startPos) {
             throw std::runtime_error("Invalid start value in a range");
         }
         if (endPos < startPos) {
             throw std::runtime_error("Invalid end value in a range");
         }
 
-        if (fds::MAX_EVENT_TYPE <= endPos) {
-            endPos = fds::MAX_EVENT_TYPE - 1;
+        if (fds_enum::get_size<fds::PerfEventType>() <= endPos) {
+            endPos = fds_enum::get_size<fds::PerfEventType>() - 1;
         }
 
         for (unsigned pos = startPos; pos <= endPos; ++pos) {
@@ -108,107 +109,8 @@ namespace fds {
 const std::string PERF_COUNTERS_NAME("perf");
 
 const unsigned PERF_CONTEXT_TIMEOUT = 1800;  // in seconds (30 mins)
-
-const char * eventTypeToStr[] = {
-        "trace",  // generic event
-        "trace_err",
-
-        // Store Manager
-        "sm_put_io",
-        "sm_e2e_put_obj_req",
-        "sm_put_obj_req_err",
-        "sm_put_qos_queue_wait",
-        "sm_put_obj_task_sync_wait",
-
-        "sm_get_io",
-        "sm_e2e_get_obj_req",
-        "sm_get_obj_req_err",
-        "sm_get_qos_queue_wait",
-        "sm_get_obj_task_sync_wait",
-
-        "sm_delete_io",
-        "sm_e2e_delete_obj_req",
-        "sm_delete_obj_req_err",
-        "sm_delete_qos_queue_wait",
-        "sm_delete_obj_task_sync_wait",
-
-        "sm_e2e_add_object_ref_req",
-        "sm_add_object_ref_req_err",
-        "sm_add_object_ref_io",
-        "sm_add_object_ref_qos_queue_wait",
-        "sm_add_object_ref_task_sync_wait",
-
-        "sm_put_duplicate_obj",
-        "sm_obj_metadata_db_read",
-        "sm_obj_metadata_db_write",
-        "sm_obj_metadata_db_remove",
-        "sm_obj_metadata_cache_hit",
-        "sm_obj_data_cache_hit",
-        "sm_obj_data_disk_read",
-        "sm_obj_data_disk_write",
-        "sm_obj_data_ssd_write",
-        "sm_obj_data_ssd_read",
-        "sm_obj_mark_deleted",
-
-        // Access Manager
-        "am_put_obj_req",
-        "am_put_qos",
-        "am_put_hash",
-        "am_put_sm",
-        "am_put_dm",
-
-        "am_get_obj_req",
-        "am_get_qos",
-        "am_get_hash",
-        "am_get_sm",
-        "am_get_dm",
-
-        "am_delete_obj_req",
-        "am_delete_qos",
-        "am_delete_hash",
-        "am_delete_sm",
-        "am_delete_dm",
-
-        "am_stat_blob_obj_req",
-        "am_set_blob_meta_obj_req",
-        "am_get_volume_meta_obj_req",
-        "am_get_blob_meta_obj_req",
-        "am_start_blob_obj_req",
-        "am_commit_blob_obj_req",
-        "am_abort_blob_obj_req",
-        "am_volume_attach_req",
-        "am_volume_contents_req",
-        "am_volume_stats_req",
-
-        "am_qos_queue_size",
-
-        "am_descriptor_cache_hit",
-        "am_offset_cache_hit",
-        "am_object_cache_hit",
-
-        // Data Manager
-        "dm_tx_op",
-        "dm_tx_op_err",
-        "dm_tx_op_req",
-        "DM_TX_OP_REQ_ERR",
-
-        "dm_tx_started",
-        "dm_tx_committed",
-        "dm_tx_commit_req",
-        "dm_tx_commit_req_err",
-        "dm_vol_cat_write",
-        "dm_tx_qos_wait",
-
-        "dm_query_req",
-        "dm_query_req_err",
-        "dm_vol_cat_read",
-        "dm_query_qos_wait",
-
-        "dm_cache_hit"
-};
-
-PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
-                           namedCounters_(fds::MAX_EVENT_TYPE),
+PerfTracer::PerfTracer() : aggregateCounters_(fds_enum::get_size<PerfEventType>()),
+                           namedCounters_(fds_enum::get_size<PerfEventType>()),
                            enable_(true),
                            useEventsFilter_(false),
                            nameFilter_("^$"),
@@ -256,7 +158,7 @@ void PerfTracer::reconfig() {
 
     // read events filter settings
     const std::string eventsFilterKey(PERF_COUNTERS_NAME + "." + "event_types");
-    std::bitset<MAX_EVENT_TYPE> efilt;
+    std::bitset<fds_enum::get_size<PerfEventType>()> efilt;
     bool tmpUseEventsFilter = config_helper_.exists(eventsFilterKey);
     if (tmpUseEventsFilter) {
         std::string efStr = config_helper_.get<std::string>(eventsFilterKey);
@@ -297,7 +199,7 @@ void PerfTracer::reconfig() {
 
     // update events filter config
     if (tmpUseEventsFilter) {
-        for (unsigned i = 0; i < MAX_EVENT_TYPE; ++i) {
+        for (unsigned i = 0; i < fds_enum::get_size<PerfEventType>(); ++i) {
             eventsFilter_[i] = efilt[i];
         }
     }
@@ -311,7 +213,7 @@ void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
         const uint64_t & val,  const uint64_t cnt, const fds_volid_t volid,
         const std::string name) {
     if (!isEnabled()) return;
-    GLOGTRACE << "Updating performance counter for type='" << eventTypeToStr[ctx.type]
+    GLOGTRACE << "Updating performance counter for type='" << ctx.type
               << "' val='" << val << "' count='" << cnt << "' name='"
               << ctx.name << "'";
     FdsCounters * counterParent = ctx.enabled ? exportedCounters.get() : 0;
@@ -338,8 +240,8 @@ void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
 
     FDSGUARD(ptrace_mutex_named_);
 
-    PerfContextMap::iterator pos = namedCounters_[type][volid].find(name);
-    if (namedCounters_[type][volid].end() != pos) {
+    PerfContextMap::iterator pos = namedCounters_[fds_enum::get_index<PerfEventType>(type)][volid].find(name);
+    if (namedCounters_[fds_enum::get_index<PerfEventType>(type)][volid].end() != pos) {
         if (!pos->second->enabled) {
             return;  // disabled for this name
         }
@@ -355,7 +257,7 @@ void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
 #endif
         }
 
-        namedCounters_[type][volid][name] = ctx;
+        namedCounters_[fds_enum::get_index<PerfEventType>(type)][volid][name] = ctx;
     }
 
     // update counter
@@ -367,8 +269,8 @@ void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
     if (!isEnabled()) return;
     FDSGUARD(ptrace_mutex_named_);
 
-    PerfContextMap::iterator pos = namedCounters_[type][volid].find(name);
-    fds_assert(pos != namedCounters_[type][volid].end());
+    PerfContextMap::iterator pos = namedCounters_[fds_enum::get_index<PerfEventType>(type)][volid].find(name);
+    fds_assert(pos != namedCounters_[fds_enum::get_index<PerfEventType>(type)][volid].end());
     if (!pos->second->enabled) {
         return;  // disabled for this name
     }
@@ -392,16 +294,18 @@ void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid, std::string
 void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid,
         uint64_t val, uint64_t cnt /* = 0 */, std::string name /* = "" */) {
     if (!isEnabled()) return;
-    fds_assert(type < MAX_EVENT_TYPE);
+    fds_assert(fds_enum::get_index<PerfEventType>(type) < fds_enum::get_size<PerfEventType>());
 
-    if (instance().useEventsFilter_  && !instance().eventsFilter_[type]) {
+    if (instance().useEventsFilter_  && !instance().eventsFilter_[
+                                fds_enum::get_index<PerfEventType>(type)]) {
         return;
     }
 
     // update aggregate counter first
     {
         FDSGUARD(instance().ptrace_mutex_aggregate_);
-        instance().updateCounter(instance().aggregateCounters_[type][volid],
+        instance().updateCounter(instance().aggregateCounters_[
+                                fds_enum::get_index<PerfEventType>(type)][volid],
                                  type, val, cnt, volid, name);
     }
     if (!name.empty() && instance().useNameFilter_) {
@@ -418,16 +322,18 @@ void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid,
 void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
         uint64_t val, std::string name /* = "" */) {
     if (!isEnabled()) return;
-    fds_assert(type < MAX_EVENT_TYPE);
+    fds_assert(fds_enum::get_index<PerfEventType>(type) < fds_enum::get_size<PerfEventType>());
 
-    if (instance().useEventsFilter_  && !instance().eventsFilter_[type]) {
+    if (instance().useEventsFilter_  && !instance().eventsFilter_[
+                        fds_enum::get_index<PerfEventType>(type)]) {
         return;
     }
 
     // update aggregate counter first
     {
         FDSGUARD(instance().ptrace_mutex_aggregate_);
-        PerfContext & ctx = instance().aggregateCounters_[type][volid];
+        PerfContext & ctx = instance().aggregateCounters_[
+                        fds_enum::get_index<PerfEventType>(type)][volid];
         NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get()); //NOLINT
         fds_assert(pnc || !"Counter type mismatch between tracepoints!");
         pnc->decr(val);
@@ -447,7 +353,7 @@ void PerfTracer::tracePointBegin(const std::string & id,
         std::string name /* = "" */) {
     if (!isEnabled()) return;
     GLOGTRACE << "Received tracePointBegin() for id='" << id << "' type='" <<
-            eventTypeToStr[type] << "' name='" << name << "'  volid='" << volid << "'";
+            type << "' name='" << name << "'  volid='" << volid << "'";
     PerfContext * ctx = new PerfContext(type, volid, name);
     tracePointBegin(*ctx);
 
@@ -467,7 +373,7 @@ void PerfTracer::tracePointBegin(const std::string & id,
 
 void PerfTracer::tracePointBegin(PerfContext & ctx) {
     if (!isEnabled()) return;
-    GLOGTRACE << "Starting perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
+    GLOGTRACE << "Starting perf trace for type='" << ctx.type << "' name='" <<
             ctx.name << "'";
 #ifdef USE_RDTSC_TIME
     ctx.start_cycle = util::getNanosFromTicks(util::getClockTicks());
@@ -497,7 +403,7 @@ boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id)
 
 void PerfTracer::tracePointEnd(PerfContext & ctx) {
     if (!isEnabled()) return;
-    GLOGTRACE << "Ending perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
+    GLOGTRACE << "Ending perf trace for type='" << ctx.type << "' name='" <<
             ctx.name << "'";
 #ifdef USE_RDTSC_TIME
     ctx.end_cycle = util::getNanosFromTicks(util::getClockTicks());
@@ -505,13 +411,13 @@ void PerfTracer::tracePointEnd(PerfContext & ctx) {
     ctx.end_cycle = util::getTimeStampNanos();
 #endif
     // Avoid creating a counter if counter has not been properly initialized. Print warning instead
-    if (ctx.name != "" && ctx.type != TRACE) {
+    if (ctx.name != "" && ctx.type != PerfEventType::TRACE) {
         createLatencyCounter(ctx);
         LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get()); //NOLINT
         incr(ctx.type, ctx.volid, plc->total_latency(), plc->count(), ctx.name);
     } else {
         GLOGDEBUG << "Counter wothout a name or type -  name: "
-                  << ctx.name << " type: " << eventTypeToStr[ctx.type];
+                  << ctx.name << " type: " << ctx.type;
     }
 }
 

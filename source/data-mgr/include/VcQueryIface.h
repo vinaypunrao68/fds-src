@@ -56,6 +56,13 @@ class VolumeCatalogQueryIface {
                                     fpi::FDSP_MetaDataList &metadataList) = 0;
 
     /**
+     * Closes catalog for a volume and reopens it
+     * @param[in] voldesc volume descriptor
+     * @return ERR_OK on success
+     */
+    virtual Error reloadCatalog(const VolumeDesc & voldesc) = 0;
+
+    /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'
      * @param[in] volume_id volume uuid
      * @param[in] blob_name name of the blob

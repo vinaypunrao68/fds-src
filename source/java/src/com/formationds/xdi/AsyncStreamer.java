@@ -285,7 +285,7 @@ public class AsyncStreamer {
                         asyncAm.updateBlob(domainName, volumeName, blobName, tx, buf, length, new ObjectOffset(chunksWrittenSoFar), true).get();
                         metadata.put(Xdi.LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
                         metadata.put("etag", Hex.encodeHexString(messageDigest.digest()));
-                        asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata);
+                        asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
                     }
                     asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
                 } catch (Exception e) {
