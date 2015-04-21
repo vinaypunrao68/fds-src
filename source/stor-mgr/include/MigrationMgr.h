@@ -81,7 +81,8 @@ class SmTokenMigrationMgr {
     Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                          OmStartMigrationCbType cb,
                          const NodeUuid& mySvcUuid,
-                         fds_uint32_t bitsPerDltToken);
+                         fds_uint32_t bitsPerDltToken,
+                         bool forResync);
 
     /**
      * Start resync process for SM tokens. Find the list of
