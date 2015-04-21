@@ -520,6 +520,22 @@ int32_t FDSP_ConfigPathReqHandler::ActivateNode(
         int domain_id = act_node_msg->domain_id;
         // use default domain for now
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        // Determine if I can activate DM or not. (fs-1637). If Activate services has been already called, prevent
+        // DM to be activated again
+        bool prevent_adding_dm_after_startup = MODULEPROVIDER()->get_conf_helper().get_abs<bool>("fds.om.prevent_adding_dm_after_startup", false);
+        if (prevent_adding_dm_after_startup)
+            LOGNOTIFY << "fs-1637 is enabled (fds.om.prevent_adding_dm_after_startup=true): We want to prevent DMs are activated " <<
+                         "once the system has started, so we prevent any DM to be activated once activate " <<
+                         "has been issued once";
+        bool activate_services_done_once = local->have_services_been_activated_once();
+        bool activate_dm = act_node_msg->activate_dm;
+        if (prevent_adding_dm_after_startup && activate_services_done_once) {
+            if (activate_dm) {
+                 LOGWARN << "fs-1637: Preventing DM to be activated";
+            }
+            activate_dm = false;
+        }
+
         NodeUuid node_uuid((act_node_msg->node_uuid).uuid);
 
         LOGNORMAL << "Received Activate Node Req for domain " << domain_id
@@ -528,7 +544,7 @@ int32_t FDSP_ConfigPathReqHandler::ActivateNode(
 
         err = local->om_activate_node_services(node_uuid,
                                                act_node_msg->activate_sm,
-                                               act_node_msg->activate_dm,
+                                               activate_dm,
                                                act_node_msg->activate_am);
     }
     catch(...) {

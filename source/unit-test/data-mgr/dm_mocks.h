@@ -149,6 +149,10 @@ struct DMTester :  SvcProcess {
             std::ostringstream oss;
             oss << "rm -rf " << root->dir_user_repo_dm() << "*";
             int rc = system(oss.str().c_str());
+
+            oss.str("");
+            oss << "rm -rf " << root->dir_sys_repo_dm() << "*";
+            rc = system(oss.str().c_str());
         } else {
             GLOGERROR << "unable to get fds root dir";
         }

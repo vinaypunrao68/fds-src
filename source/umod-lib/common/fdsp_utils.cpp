@@ -128,6 +128,12 @@ std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg &closeVol)
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg & vol) {
+    std::ostringstream oss;
+    oss << " ReloadVolumeMsg Vol Id: " << vol.volume_id;
+    return oss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
 {
     std::ostringstream oss;

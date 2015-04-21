@@ -17,7 +17,7 @@ install_dir "#{default_root}/#{name}"
 
 #build_version Omnibus::BuildVersion.semver
 build_version '0.7.6'
-build_iteration 1
+build_iteration 3
 
 # Creates required build directories
 dependency "preparation"
@@ -32,6 +32,7 @@ dependency "pycrypto"
 dependency "html5lib"
 dependency "colorama"
 dependency "distlib"
+dependency "requests"
 dependency "fstab"
 dependency "parted"
 dependency "libconfig"

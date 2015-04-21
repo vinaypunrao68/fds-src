@@ -94,6 +94,9 @@ if __name__ == '__main__':
     # Cleanup
     if options.clus_clean:
         for n in nodes:
+            ## ensure services are down before cleaning
+            n.nd_cleanup_daemons()
+
             n.nd_cleanup_node()
             # todo: move into BringUpCfg.py where all the other cleanup is done
             n.nd_agent.ssh_exec('(cd {} && ./redis.sh clean)'.format(

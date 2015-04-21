@@ -10,6 +10,9 @@ to use those arguments to make the appropriate local domain REST calls
 '''
 class LocalDomainPlugin( abstract_plugin.AbstractPlugin):
     
+    def __init__(self, session):
+        abstract_plugin.AbstractPlugin.__init__(self, session)    
+    
     '''
     @see: AbstractPlugin
     '''

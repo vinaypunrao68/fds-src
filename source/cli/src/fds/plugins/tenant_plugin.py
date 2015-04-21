@@ -10,6 +10,9 @@ maps those options to the appropriate calls for tenant management
 '''
 class TenantPlugin( abstract_plugin.AbstractPlugin):
     
+    def __init__(self, session):
+        abstract_plugin.AbstractPlugin.__init__(self, session)    
+    
     '''
     @see: AbstractPlugin
     '''
