@@ -107,7 +107,7 @@ void AmVolumeTable::registerCallback(tx_callback_type cb) {
 
 /*
  * Creates volume if it has not been created yet
- * Does nothing if volume is already registered
+ * Does nothing if volume is already registered, call is idempotent
  */
 Error
 AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
@@ -152,9 +152,6 @@ AmVolumeTable::registerVolume(const VolumeDesc& vdesc,
                          << std::hex << vol_uuid << "]"
                          << " because: " << err;
             }
-        } else {
-            // This volume is already registered...race?
-            return ERR_DUPLICATE;
         }
     }
 

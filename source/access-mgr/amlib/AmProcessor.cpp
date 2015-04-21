@@ -436,8 +436,7 @@ AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
             auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
             if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
             {
-                LOGERROR << "Failed to schedule token renewal timer!";
-                err = ERR_NOT_READY;
+                LOGWARN << "Failed to schedule token renewal timer!";
             }
         }
     }
