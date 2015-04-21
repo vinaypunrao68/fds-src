@@ -14,8 +14,8 @@ import aws_config
 import error_codes
 import config
 
-# aws_access_key: AKIAJAWXAU57VVTDDWAA
-# aws_secret_key: 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
+#aws_access_key: AKIAJAWXAU57VVTDDWAA
+#aws_secret_key: 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
 # 'ami-1fa78f2f', instance_type='m3.medium'
 
 AWS_ACCESS_KEY = "AKIAJAWXAU57VVTDDWAA"
@@ -24,11 +24,14 @@ AWS_SECRET_KEY = "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"
 class EC2(object):
     
     # static elements of the EC2 class
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                        datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
     
     def __init__(self, name, region=aws_config.AWS_REGION, image=aws_config.AWS_IMAGE,
-                 instance_type=aws_config.AWS_INSTANCE_TYPE, is_om_node=False):
+                 instance_type=aws_config.AWS_INSTANCE_TYPE, is_om_node=False,
+                 zone=aws_config.AWS_ZONE):
         
         self.region = region
         self.name = name
@@ -43,10 +46,11 @@ class EC2(object):
         self.image = image
         self.instance_type = instance_type
         self.is_om_node = is_om_node
+        self.zone = zone
         
     
     def start_instance(self):
-        if self.instance is  None:
+        if self.instance != None:
             self.log.warning("Instance has already been instantiated. Nothing to do")
             return
         try:
@@ -65,17 +69,21 @@ class EC2(object):
         except Exception, e:
             self.log.exception(e)
             # please add the error code here.
-            msg = {
-                'error': 101,
-                'message': "Failed to instantiate EC2 instance: %s" % e
-            }
-            raise Ec2FailedToInstantiate(msg)
     
+    def get_volumes_status(self, id):
+        if self.volumes == {}:
+            self.log.warning("No volumes attached yet.")
+            return None
+        for volume in self.volumes.keys():
+            if volume.id == id:
+                return volume.attachment_state()
+            
     def get_instance_status(self):
         if self.instance == None:
             self.log.warning("Instance hasn't been created yet.")
+            return None
         else:
-            return self.instance.status
+            return self.instance.state
 
     def stop_instance(self):
         if self.instance == None:
@@ -96,18 +104,32 @@ class EC2(object):
             self.log.warning("Unknown instance state, do nothing.")
             
     def terminate_instance(self):
-        if self.instance.state != 'running':
-            self.log.warning("Cannot terminate instance. it's not in a 'running' state")
+        if self.instance.state not in ('running', 'stopped'):
+            self.log.warning("Cannot terminate. It's not in a 'running' or 'stopped' state")
         else:
             self.log.info("Attempting to terminate instance: %s" % self.instance.id)
             self.ec2_conn.terminate_instances(instance_ids=[self.instance.id])
-            while self.instance.state != 'stopped':
+            while self.instance.state != 'terminated':
                 time.sleep(10)
                 self.instance.update()
                 self.log.info("Instance state: %s" % (self.instance.state))
             self.log.info("Instance %s terminated" % self.instance.id)
             self.instance == None
     
+    def detach_volume(self, device):
+        if self.instance == None:
+            self.log.warning("Instance hasn't being instantiated yet.")
+            return None
+        elif device not in self.volumes:
+            self.log.warning("Device %s is not attached" % device)
+            return None
+        else:
+            volume = self.volumes[device]
+            if self.ec2_conn.attach_volume(volume.id, self.instance.id, device, force=True):
+                self.log.info("Device %s has been detached from %s" % (device, self.instance.id))
+                return volume.attachment_state()
+            return None
+            
     def attach_volume(self, size, device):
         if self.instance == None:
             self.log.warning("Instance hasn't being instantiated yet.")
@@ -118,20 +140,15 @@ class EC2(object):
         try:
             # assert the volume being created is greater than 1GB but less than 1TB
             assert (size >= 1 and size <= 1024)
-            volume = self.ec_conn.create_volume(size, self.region)
+            volume = self.ec2_conn.create_volume(size, self.zone)
             while volume.status != 'available':
-                time.sleep(10)
-                self.log.info(volume.state)
+                time.sleep(30)
+                self.log.info("Volume status: %s" % volume.status)
             
             self.log.info("Attempting to attach volume %s to instance %s" % (volume.id,
                                                                              self.instance.id))
-            self.ec_conn.attach_volume(volume.id, self.instance.id, device)
+            self.ec2_conn.attach_volume(volume.id, self.instance.id, device)
             self.volumes.append(volume)
-        except Exception e:
+            return volume.id
+        except Exception, e:
             self.log.exception(e)
-        
-                                                
-
-if __name__ == "__main__":
-    ec2 = EC2(name="testlib")
-    ec2.start_instance()
