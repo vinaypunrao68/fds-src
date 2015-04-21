@@ -95,7 +95,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
             fds_bool_t dirs = true);
 
     // volcat  replay
-    Error dmReplayCatJournalOps(Catalog *destCat,
+    Error dmReplayCatJournalOps(Catalog& destCat,
                                 const std::vector<std::string> &files,
                                 util::TimeStamp fromTime,
                                 util::TimeStamp toTime);

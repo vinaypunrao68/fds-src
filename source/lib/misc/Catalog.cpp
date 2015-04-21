@@ -57,47 +57,47 @@ Catalog::Catalog(const std::string& _file,
                  const std::string& logDirName /* = empty */,
                  const std::string& logFilePrefix /* = empty */,
                  fds_uint32_t maxLogFiles /* = 0 */,
-                 leveldb::Comparator * cmp /* = 0 */) : backing_file(_file) {
+                 leveldb::Comparator * cmp /* = 0 */) : backing_file(_file)
+{
+    filter_policy.reset(leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY));
+
     /*
      * Setup DB options
      */
     options.create_if_missing = 1;
-    options.filter_policy     =
-            leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
+    options.filter_policy     = filter_policy.get();
     options.write_buffer_size = writeBufferSize;
     options.block_cache = leveldb::NewLRUCache(cacheSize);
     if (cmp) {
         options.comparator = cmp;
     }
-    env = new leveldb::CopyEnv(leveldb::Env::Default());
+    env.reset(new leveldb::CopyEnv(*leveldb::Env::Default()));
     if (!logDirName.empty() && !logFilePrefix.empty()) {
-        leveldb::CopyEnv * cenv = static_cast<leveldb::CopyEnv*>(env);
-        cenv->logDirName() = logDirName;
-        cenv->logFilePrefix() = logFilePrefix;
-        cenv->maxLogFiles() = maxLogFiles;
+        env->logDirName() = logDirName;
+        env->logFilePrefix() = logFilePrefix;
+        env->maxLogFiles() = maxLogFiles;
 
-        cenv->logRotate() = !logFilePrefix.empty();
+        env->logRotate() = !logFilePrefix.empty();
     }
 
-    options.env = env;
+    options.env = env.get();
 
     write_options.sync = true;
 
-    leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
+    leveldb::Status status;
+    {
+        leveldb::DB* db_out;
+        status = leveldb::DB::Open(options, backing_file, &db_out);
+        db.reset(db_out);
+    }
 
     /* Open has to succeed */
     if (!status.ok())
     {
+        db.release();
         throw CatalogException(std::string(__FILE__) + ":" + std::to_string(__LINE__) +
                                " :leveldb::DB::Open(): " + status.ToString());
     }
-}
-
-/** The default destructor
- */
-Catalog::~Catalog() {
-    delete options.filter_policy;
-    delete db;
 }
 
 /** Updates the catalog
@@ -175,7 +175,7 @@ Catalog::Delete(const Record& key) {
 
 bool
 Catalog::DbEmpty() {
-Catalog::catalog_iterator_t *db_it = NewIterator();
+auto db_it = NewIterator();
     for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next()) {
        return true;
     }
@@ -184,8 +184,8 @@ Catalog::catalog_iterator_t *db_it = NewIterator();
 
 bool
 Catalog::DbDelete() {
-    delete options.filter_policy;
-    delete db;
+    filter_policy.reset();
+    db.reset();
     return true;
 }
 
@@ -211,27 +211,35 @@ Catalog::DbSnap(const std::string& fileName) {
 }
 
 Error
-Catalog::QueryNew(const std::string& _file, const Record& key, std::string* value) {
+Catalog::QueryNew(const std::string& _file, const Record& key, std::string* value)
+{
+    filter_policy.reset(leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY));
+
     Error err(ERR_OK);
     leveldb::Status status;
     options.create_if_missing = 1;
-    options.filter_policy     =
-            leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
+    options.filter_policy     = filter_policy.get();
     options.write_buffer_size = WRITE_BUFFER_SIZE;
 
     write_options.sync = true;
 
-    delete db;
-    status = leveldb::DB::Open(options, _file, &db);
-    assert(status.ok());
+    db.reset();
+    {
+        {
+            leveldb::DB* db_out;
+            status = leveldb::DB::Open(options, _file, &db_out);
+            db.reset(db_out);
+        }
+        assert(status.ok());
 
-    status = db->Get(read_options, key, value);
-    if (status.IsNotFound()) {
-        err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
-        return err;
-    } else if (!status.ok()) {
-        err = fds::Error(fds::ERR_DISK_READ_FAILED);
-        return err;
+        status = db->Get(read_options, key, value);
+        if (status.IsNotFound()) {
+            err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
+            return err;
+        } else if (!status.ok()) {
+            err = fds::Error(fds::ERR_DISK_READ_FAILED);
+            return err;
+        }
     }
 
     return err;
@@ -241,16 +249,21 @@ Error
 Catalog::QuerySnap(const std::string& _file, const Record& key, std::string* value) {
     Error err(ERR_OK);
 
-    leveldb::DB* dbSnap;
+    filter_policy.reset(leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY));
+
+    std::unique_ptr<leveldb::DB> dbSnap;
     leveldb::Status status;
     options.create_if_missing = 1;
-    options.filter_policy     =
-            leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
+    options.filter_policy     = filter_policy.get();
     options.write_buffer_size = WRITE_BUFFER_SIZE;
 
     write_options.sync = true;
 
-    status = leveldb::DB::Open(options, _file, &dbSnap);
+    {
+        leveldb::DB* dbSnap_out;
+        status = leveldb::DB::Open(options, _file, &dbSnap_out);
+        dbSnap.reset(dbSnap_out);
+    }
     assert(status.ok());
 
     status = dbSnap->Get(read_options, key, value);

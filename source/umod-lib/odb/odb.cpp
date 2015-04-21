@@ -60,8 +60,8 @@ ObjectDB::ObjectDB(const std::string& filename,
 
     write_options.sync = sync_write;
 
-    env = new leveldb::CopyEnv(leveldb::Env::Default());
-    options.env = env;
+    env.reset(new leveldb::CopyEnv(*leveldb::Env::Default()));
+    options.env = env.get();
 
     leveldb::Status status = leveldb::DB::Open(options, file, &db);
 

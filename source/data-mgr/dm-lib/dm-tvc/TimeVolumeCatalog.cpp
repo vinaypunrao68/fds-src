@@ -713,7 +713,7 @@ void DmTimeVolCatalog::monitorLogs() {
     }
 }
 
-Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog *destCat,
+Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog& destCat,
                                               const std::vector<std::string> &files,
                                               util::TimeStamp fromTime,
                                               util::TimeStamp toTime) {
@@ -733,7 +733,7 @@ Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog *destCat,
                 break;
             }
             if (ts >= fromTime && ts <= toTime) {
-                rc = destCat->Update(&wb);
+                rc = destCat.Update(&wb);
             }
         }
     }
@@ -800,7 +800,7 @@ Error DmTimeVolCatalog::replayTransactions(fds_volid_t srcVolId,
         return ERR_NOT_FOUND;
     }
 
-    return dmReplayCatJournalOps(catalog, journalFiles, fromTime, toTime);
+    return dmReplayCatJournalOps(*catalog, journalFiles, fromTime, toTime);
 }
 
 void DmTimeVolCatalog::cancelLogMonitoring() {

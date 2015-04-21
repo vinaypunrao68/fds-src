@@ -12,6 +12,8 @@
 #include <fdsp/DMSvc.h>
 #include <DMSvcHandler.h>
 
+#include "util/Log.h"
+
 template<class T, class... ArgTs> std::unique_ptr<T> make_unique(ArgTs&&... args)
 {
     return std::unique_ptr<T>(new T(std::forward<ArgTs>(args)...));
@@ -80,6 +82,8 @@ int main(int argc, char *argv[])
     auto dmMain = DMMain::build(argc, argv);
 
     auto ret = dmMain->main();
+
+    LOGNORMAL << "Normal exit.";
 
     return ret;
 }

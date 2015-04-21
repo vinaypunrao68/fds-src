@@ -10,6 +10,7 @@
 #define SOURCE_STOR_MGR_ODB_H_
 
 #include <iostream>  // NOLINT(*)
+#include <memory>
 #include <string>
 
 #include <fds_types.h>
@@ -120,7 +121,7 @@ class ObjectDB {
     /*
      * leveldb file system interface
      */
-    leveldb::Env* env;
+    std::unique_ptr<leveldb::CopyEnv> env;
 
     /*
      * Database options. These are not expected
