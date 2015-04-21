@@ -97,8 +97,7 @@ void GetBucketHandler::handleQueueItem(dmCatReq *dmRequest) {
 void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                                       const Error &e, dmCatReq *dmRequest) {
-    LOGDEBUG << " volid: " << dmRequest->volId
-             << " err: " << e;
+    LOGDEBUG << " volid: " << (dmRequest ? dmRequest->volId : 0) << " err: " << e;
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetBucketRspMsgTypeId, message);
     delete dmRequest;

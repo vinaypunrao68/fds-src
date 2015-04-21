@@ -93,6 +93,11 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error activateCatalog(fds_volid_t volId);
 
     /**
+     * Reload catalog for the given volume
+     */
+    Error reloadCatalog(const VolumeDesc & voldesc) override;
+
+    /**
      * VolumeCatalogQueryIface methods. This interface is used by DM
      * processing layer to query for committed blob metadata.
      */
@@ -112,7 +117,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * @return ERR_OK if catalog was deleted; ERR_NOT_READY if volume is not marked
      * as deleted.
      */
-    Error deleteEmptyCatalog(fds_volid_t volId);
+    Error deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted = true);
 
     /**
      * Returns size of volume and number of blob in the volume 'volume_id'
