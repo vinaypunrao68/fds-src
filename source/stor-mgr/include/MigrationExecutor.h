@@ -33,6 +33,7 @@ class MigrationExecutor {
                       fds_token_id smTokId,
                       fds_uint64_t id,
                       fds_uint64_t targetDltVer,
+                      bool forResync,
                       MigrationExecutorDoneHandler doneHandler);
     ~MigrationExecutor();
 
@@ -150,6 +151,11 @@ class MigrationExecutor {
      * from source SM has a unique sequence number.
      */
     MigrationDoubleSeqNum seqNumDeltaSet;
+
+    /**
+     * Is this migration for a SM resync
+     */
+     bool forResync;
 
     /// true if standalone (no rpc sent)
     fds_bool_t testMode;
