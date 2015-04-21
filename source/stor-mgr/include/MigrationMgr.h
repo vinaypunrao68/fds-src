@@ -119,6 +119,13 @@ class SmTokenMigrationMgr {
     Error rebalanceDeltaSetResp();
 
     /**
+     * Handle message from destination SM to finish token resync.
+     * Migration client corresponding to given executorId will stop forwarding IO
+     * and migration manager will remove the corresponding migration client
+     */
+    Error finishClientResync(fds_uint64_t executorId);
+
+    /**
      * Forwards object to destination SM if needed
      * Forwarding will happen if the following conditions are true:
      *    - migration is in progress

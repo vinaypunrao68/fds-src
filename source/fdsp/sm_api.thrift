@@ -344,6 +344,27 @@ struct CtrlObjectRebalanceFilterSet {
   6: list<sm_types.CtrlObjectMetaDataSync>    objectsToFilter;
 }
 
+/**
+ * Message body to request Source SM to stop syncing any data/metadata to
+ * the destination SM for the given executor on the destination SM. Destination
+ * SM will send this message when it starts accepting IO for the corresponding
+ * set of DLT tokens and needs source SM to finish forwarding or when error happened
+ * on destination SM during resync and it needs to stop syncing. In response
+ * to this message, source SM will: 1) stop forwarding IO for this executor ID
+ * if it is in the process of forwarding IO; 2) cleanup corresponding data structures
+ * that are used for token resync;
+ */
+struct CtrlFinishClientTokenResyncMsg {
+  /** unique id of executor on the destination SM */
+  1: i64    executorID;
+}
+
+/**
+ * Response from Source SM to CtrlFinishClientTokenResyncMsg
+ */
+struct CtrlFinishClientTokenResyncRspMsg {
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/

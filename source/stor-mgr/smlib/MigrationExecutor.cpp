@@ -385,6 +385,8 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
                 // must be a bug somewhere...
                 fds_panic("Unexpected migration executor state!");
             }
+            // we finished second phase of migration. If this is resync after restart
+            // send finish client resync message to the source.
         } else {
             firstRoundFinished = true;
             // we just finished first round and started second round
@@ -395,6 +397,10 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         // this executor
         MigrationExecutorState newState = ME_ERROR;
         std::atomic_store(&state, newState);
+
+        // in case the source started forwarding, we don't want it to continue
+        // on error; so just send stop client resync message to source SM so
+        // it can cleanup and stop forwarding
     }
 
     LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
