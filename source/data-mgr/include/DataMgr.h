@@ -259,6 +259,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
                 case FDS_STAT_VOLUME:
+                case FDS_GET_VOLUME_METADATA:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
                 case FDS_OPEN_VOLUME:
