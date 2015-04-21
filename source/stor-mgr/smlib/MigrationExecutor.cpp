@@ -20,6 +20,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_token_id smTokId,
                                      fds_uint64_t executorID,
                                      fds_uint64_t targetDltVer,
+                                     bool resync,
                                      MigrationExecutorDoneHandler doneHandler)
         : executorId(executorID),
           migrDoneHandler(doneHandler),
@@ -27,7 +28,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           bitsPerDltToken(bitsPerToken),
           smTokenId(smTokId),
           sourceSmUuid(srcSmId),
-          targetDltVersion(targetDltVer)
+          targetDltVersion(targetDltVer),
+          forResync(resync)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");

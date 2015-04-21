@@ -171,6 +171,8 @@ enum  FDSPMsgTypeId {
   OpenVolumeRspMsgTypeId;
   CloseVolumeMsgTypeId;
   CloseVolumeRspMsgTypeId;
+  ReloadVolumeMsgTypeId;
+  ReloadVolumeRspMsgTypeId;
 }
 
 /**

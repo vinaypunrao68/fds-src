@@ -7,28 +7,30 @@ from argparse import ArgumentParser
 import pkgutil
 from services.fds_auth import FdsAuth
 
-'''
-Created on Mar 30, 2015
-
-This is the main wrapper for the FDS CLI tool.  It's main purpose is to 
-obtain user authorization, load the dynamic modules and setup the 
-parsers.
-
-All actual work will take place in the "plugins" or the "services" that
-are added to the server, this simply manages the state and configures
-argparse
-
-@author: nate bever
-'''
 class FDSShell( cmd.Cmd ):
-   
     '''
-    initialize the CLI session
+    Created on Mar 30, 2015
+    
+    This is the main wrapper for the FDS CLI tool.  It's main purpose is to 
+    obtain user authorization, load the dynamic modules and setup the 
+    parsers.
+    
+    All actual work will take place in the "plugins" or the "services" that
+    are added to the server, this simply manages the state and configures
+    argparse
+    
+    @author: nate bever
     '''
+
     def __init__(self, session, *args ):
+        '''
+        initialize the CLI session
+        '''
         
         cmd.Cmd.__init__(self, *args)
+        
         setupHistoryFile()
+
         self.plugins = []
         self.__session = session
         
@@ -38,12 +40,13 @@ class FDSShell( cmd.Cmd ):
         self.subParsers = self.parser.add_subparsers( help="Command suite description" )
         self.loadmodules()
         
-    '''
-    This makes assumptions about the name of the class relative to the name of the 
-    plugin.  It basically deletes all "_" and capitalizes each word so that
-    my_cool_plugin is expected to declare class MyCoolPlugin
-    '''
+
     def formatClassName(self, name):
+        '''
+        This makes assumptions about the name of the class relative to the name of the 
+        plugin.  It basically deletes all "_" and capitalizes each word so that
+        my_cool_plugin is expected to declare class MyCoolPlugin
+        '''        
         words = name.split( '_' )
         formattedName = ''
         
@@ -52,12 +55,14 @@ class FDSShell( cmd.Cmd ):
         
         return formattedName 
         
-    '''
-    This searches the plugins directory (relative to the location of this file)
-    and will load all the modules it find there, adding their parsing arguments
-    to the argparse setup
-    '''
+
     def loadmodules(self):
+        '''
+        This searches the plugins directory (relative to the location of this file)
+        and will load all the modules it find there, adding their parsing arguments
+        to the argparse setup
+        '''
+
         mydir = os.path.dirname( os.path.abspath( __file__ ) )
         modules = pkgutil.iter_modules([os.path.join( mydir, "plugins" )] )
         
@@ -70,16 +75,17 @@ class FDSShell( cmd.Cmd ):
 
             clazzName = self.formatClassName( mod_name )
             clazz = getattr( loadedModule, clazzName )
-            clazz = clazz()
+            clazz = clazz(self.__session)
             self.plugins.append( clazz )
             
             clazz.build_parser( self.subParsers, self.__session )
             
-    '''
-    Default method that gets called when no 'do_*' method
-    is found for the command prompt sent in
-    '''
+
     def default(self, line):
+        '''
+        Default method that gets called when no 'do_*' method
+        is found for the command prompt sent in
+        '''        
         
         try:
             argList = shlex.split( line )
@@ -90,13 +96,14 @@ class FDSShell( cmd.Cmd ):
         except SystemExit:
             return
        
-    '''
-    Called from main to actually start the CLI tool running
-    
-    By default Cmd will try to run a do_* argv method if one exists.
-    If not, it will call into the loop which ends up in the "default" function
-    ''' 
+
     def run( self, argv ):
+        '''
+        Called from main to actually start the CLI tool running
+        
+        By default Cmd will try to run a do_* argv method if one exists.
+        If not, it will call into the loop which ends up in the "default" function
+        '''         
         
         # If there are no arguments we will execute as an interactive shell
         if argv == None or len( argv ) == 0:
@@ -106,32 +113,45 @@ class FDSShell( cmd.Cmd ):
             strCmd = ' '.join( map( pipes.quote, argv ) )
             self.onecmd( strCmd );
         
-    '''
-    Just one method to exit the program so we can link a few commands to it
-    '''
+
     def exitCli(self, *args):
+        '''
+        Just one method to exit the program so we can link a few commands to it
+        '''
         print 'Bye!'
         sys.exit()
         
-    '''
-    Handles the command 'exit' magically.
-    '''
+
     def do_exit(self, *args):
-        self.exitCli( *args )
-        
-    '''
-    Handles the command 'quit' magically
-    '''
-    def do_quit(self, *args):
+        '''
+        Handles the command 'exit' magically.
+        '''        
         self.exitCli( *args )
         
 
-'''
-stores and retrieves the command history specific to the user
-'''
+    def do_quit(self, *args):
+        '''
+        Handles the command 'quit' magically
+        '''        
+        self.exitCli( *args )
+        
+
+    def do_bye(self, *args):
+        '''
+        Handles the command 'bye' magically
+        '''
+        self.exitCli( *args )
+        
+
+
 def setupHistoryFile():
+    '''
+    stores and retrieves the command history specific to the user
+    '''
+        
     import readline
     histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history")
+    readline.set_history_length(20)
     try:
         readline.read_history_file(histfile)
     except IOError:

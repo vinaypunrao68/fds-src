@@ -22,11 +22,13 @@ class VolumeConverter( object ):
         volume = Volume();
         
         volume.name = json.pop( "name", None )
-        volume.iops_guarantee = json.pop( "sla", volume.iops_guarantee )
-        volume.iops_limit = json.pop( "limit", volume.iops_limit )
+        volume.iops_guarantee = json.pop( "sla", int(volume.iops_guarantee) )
+        volume.iops_limit = json.pop( "limit", int(volume.iops_limit) )
         volume.id = json.pop( "id", volume.id )
         volume.media_policy = json.pop( "mediaPolicy", volume.media_policy )
-        volume.continuous_protection = json.pop( "commit_log_retention", volume.continuous_protection )
+        volume.continuous_protection = json.pop( "commit_log_retention", int(volume.continuous_protection) )
+        volume.priority = json.pop( "priority", int(volume.priority) )
+        volume.tenant_id = json.pop( "tenantId", volume.tenant_id)
         
         dc = json.pop( "data_connector", None )
         
@@ -69,7 +71,7 @@ class VolumeConverter( object ):
             dc["type"] = "BLOCK"
             attrs = dict()
             attrs["size"] = volume.current_size
-            attrs["units"] = volume.current_units
+            attrs["unit"] = volume.current_units
             dc["attributes"] = attrs
             
         d["data_connector"] = dc

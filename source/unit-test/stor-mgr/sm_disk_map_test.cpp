@@ -371,13 +371,17 @@ TEST(SmDiskMap, restart) {
 
     // SM will receive DLT that was there before restart
     err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
-    EXPECT_TRUE(err.ok());
+    EXPECT_TRUE(err == ERR_SM_NOERR_NEED_RESYNC);
+
+    // second DLT notification about the same DLT should
+    // return an error
+    err = smDiskMap->handleNewDlt(dlt, myNodeUuid);
+    EXPECT_TRUE(err == ERR_DUPLICATE);
 
     // cleanup
     delete dlt;
     SmUtUtils::cleanAllInDir(devPath);
 }
-
 
 }  // namespace fds
 

@@ -123,7 +123,8 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                            asyncHdr, migrationMsg->DLT_version,
                                                            std::placeholders::_1),
                                                        objStorMgr->getUuid(),
-                                                       dlt->getNumBitsForToken());
+                                                       dlt->getNumBitsForToken(),
+                                                       false); //false because it's not a resync case
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "
                  << " called on addition of the first set of SMs to the domain";
