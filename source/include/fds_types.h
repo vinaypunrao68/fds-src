@@ -288,7 +288,6 @@ class FDS_IOType {
     fds_uint64_t io_done_ts;
 
     // performance data collection related structures
-    std::string perfNameStr;
     PerfEventType opReqFailedPerfEventType;
     PerfContext opReqLatencyCtx;
     PerfContext opLatencyCtx;
