@@ -274,7 +274,9 @@ class FdsNodeConfig(FdsConfig):
             influxstat = self.nd_status_influxdb()
             if influxstat != 0:
                 log.info("Starting InfluxDB for clean on %s" % (self.nd_host_name()))
-                status = self.nd_agent.exec_wait('service influxdb start 2>&1 >> /dev/null', output=False)
+                status = self.nd_agent.exec_wait('service influxdb start 2>&1 >> /dev/null',
+                                                 output=False,
+                                                 wait_compl=False)
 
             for db in [ 'om-metricdb', 'om-eventdb' ]:
                 status = self.dropInfluxDBDatabase(db)
@@ -310,12 +312,16 @@ class FdsNodeConfig(FdsConfig):
         status = 0
         ## setup the http requests session with an adapter configured for retries.
         s = requests.session()
-        a = requests.adapters.HTTPAdapter(max_retries=Retry(total=max_retries, backoff_factor=backoff_factor))
+        a = requests.adapters.HTTPAdapter(max_retries=Retry(total=max_retries,
+                                                            backoff_factor=backoff_factor))
         s.mount("http://", a)
 
-        log.info('Removing database %s with up to %d retries @ %s seconds backoff factor' % (db,max_retries,backoff_factor))
+        log.debug('Removing database %s with up to %d retries @ %s seconds backoff factor' %
+                  (db,max_retries,backoff_factor))
         try:
             response = s.delete("http://" + self.nd_host + ":8086/db/" + db + "?u=root&p=root")
+            log.debug("Remove database %s request completed [response code %d msg: %s]" %
+                      (db,response.status_code,response.text))
             if response.status_code < 200 or response.status_code >= 300:
                 if response.status_code == 400:
                     ## 400 indicates the database does not exist
@@ -329,9 +335,11 @@ class FdsNodeConfig(FdsConfig):
                     # todo: attempted to use log.warning, but getting error message about no handlers.
                     log.info('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
                     status = 1
+            else:
+                log.info("Successfully dropped InfluxDB database %s" % (db))
         except Exception as e:
             print "Failed to drop influxDB database: %s: %s" % (db, e)
-            # todo: attempted to use log.warning, but getting error message about no handlers.
+            # todo: attempted to use log.warn, but getting error message about no handlers.
             log.info("Failed to drop influxDB database: %s: %s" % (db, e))
             status = 1
 
