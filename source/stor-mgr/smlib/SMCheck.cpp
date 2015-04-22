@@ -363,15 +363,13 @@ boost::shared_ptr<ObjMetaData> SMCheckOffline::MetadataIterator::value() {
 // compilation or linker issues.  So, decided to decouple offline vs. online
 // smcheck.  This can be refactored, but it will take some effort to do it.
 // For now, live with having two flavors for SMCheck.
-SMCheckOnline::SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap, CommonModuleProviderIf *modProvider)
-    : modProvider_(modProvider),
-      dataStore(datastore),
+SMCheckOnline::SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap)
+    : dataStore(datastore),
       diskMap(diskmap),
       latestClosedDLT(nullptr)
 
 {
     SMChkActive = ATOMIC_VAR_INIT(false);
-
     resetStats();
 
     snapRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
@@ -449,7 +447,7 @@ SMCheckOnline::startIntegrityCheck()
     SMCheckUuid = objStorMgr->getUuid();
 #endif
     // Get UUID of the SM.
-    SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    SMCheckUuid = g_fdsprocess->get_plf_manager()->plf_get_my_node_uuid()->uuid_get_val();
 
     LOGNORMAL << "Starting SM Integrity Check: active=" << getActiveStatus();
 
