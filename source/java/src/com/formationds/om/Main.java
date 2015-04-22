@@ -110,7 +110,7 @@ public class Main {
         EventManager.INSTANCE.initEventListeners();
 
         // TODO: should there be an OM property for the am host?
-        String amHost = platformConfig.defaultString("fds.xdi.am_host", grabFirstOmIpAddress);
+        String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
 
         // TODO: the base service port needs to configurable in platform.conf
         // TODO: we are going to AM on the same node as OM here; otherwise we need to get a platform
