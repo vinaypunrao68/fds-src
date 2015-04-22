@@ -107,10 +107,11 @@ class VolumePlugin( AbstractPlugin):
         __editGroup.add_argument( "-" + AbstractPlugin.data_str, help="A JSON string representing the volume quality of service parameters.  This argument will take precedence over all individual arguments.", default=None)
         __editGroup.add_argument( "-" + AbstractPlugin.volume_name_str, help="The name of the volume you would like to edit.", default=None)
         __editGroup.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume you would like to edit.", default=None)
-        __editParser.add_argument( "-" + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited and is the default if not specified.", type=VolumeValidator.iops_limit, default=None, metavar="" )
-        __editParser.add_argument( "-" + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee and is the default if not specified.", type=VolumeValidator.iops_guarantee, default=None, metavar="" )
+        __editParser.add_argument( "-" + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited.", type=VolumeValidator.iops_limit, default=None, metavar="" )
+        __editParser.add_argument( "-" + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee.", type=VolumeValidator.iops_guarantee, default=None, metavar="" )
+        __editParser.add_argument( "-" + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.", type=VolumeValidator.priority, default=None, metavar="")
 #         __editParser.add_argument( "-media_policy", help="The policy that will determine where the data will live over time.", choices=["HYBRID_ONLY", "SSD_ONLY", "HDD_ONLY"], default=None)
-        __editParser.add_argument( "-" + AbstractPlugin.media_policy_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=None, metavar="" )
+        __editParser.add_argument( "-" + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=None, metavar="" )
         
         __editParser.set_defaults( func=self.edit_volume, format="tabular")
         
@@ -403,7 +404,8 @@ class VolumePlugin( AbstractPlugin):
         volume.iops_guarantee = iops_guarantee
         volume.iops_limit = iops_limit
         volume.priority = priority
-        volume.continuous_protection = continuous_protection        
+        volume.continuous_protection = continuous_protection 
+        volume.name = args[AbstractPlugin.name_str]       
         
         # one URL when snapshot was chosen, a different one if the time / volume was chosen
         response = None

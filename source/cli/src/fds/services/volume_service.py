@@ -80,6 +80,15 @@ class VolumeService():
         data = VolumeConverter.to_json( volume )
         return self.__restHelper.post( self.__session, url, data )
     
+    def clone_from_snapshot_id(self, snapshot_id, volume):
+        '''
+        Use a snapshot ID and volume QoS settings to clone a new volume
+        '''
+        
+        url = self.__get_url_preamble() + "/api/config/snapshot/clone/" + snapshot_id + "/" + volume.name
+        data = VolumeConverter.to_json( volume )
+        return self.__restHelper.post( self.__session, url, data )
+    
     def edit_volume(self, volume):
         '''
         Takes a volume formatted object and tries to make the edits
