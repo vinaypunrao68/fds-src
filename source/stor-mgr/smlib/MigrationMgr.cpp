@@ -299,14 +299,19 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
 Error
 SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
     Error err(ERR_OK);
+    // we must only receive this message when are resyncing on restart
+    fds_verify(forResync);
 
     // TODO(Anna) can we be in migration aborted state, since it is resync?
 
     SCOPEDREAD(clientLock);
     // ok if migration client does not exist
     if (migrClients.count(executorId) > 0) {
-        LOGDEBUG << "Will stop and remove migration client for executor " << executorId;
-        // TODO(Anna) stop forwarding and remove client
+        LOGDEBUG << "Remove migration client for executor " << executorId
+                 << " which means that forwarding from this client will stop too";
+        // the destination SM told us it does not need this client anymore
+        // just remove it, which will also stop forwarding IO from this client
+        migrClients.erase(executorId);
     }
 
     return err;

@@ -389,6 +389,9 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
             }
             // we finished second phase of migration. If this is resync after restart
             // send finish client resync message to the source.
+            if (forResync) {
+                sendFinishResyncToClient();
+            }
         } else {
             firstRoundFinished = true;
             // we just finished first round and started second round
@@ -400,9 +403,12 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         MigrationExecutorState newState = ME_ERROR;
         std::atomic_store(&state, newState);
 
-        // in case the source started forwarding, we don't want it to continue
-        // on error; so just send stop client resync message to source SM so
-        // it can cleanup and stop forwarding
+        if (forResync) {
+            // in case the source started forwarding, we don't want it to continue
+            // on error; so just send stop client resync message to source SM so
+            // it can cleanup and stop forwarding
+            sendFinishResyncToClient();
+        }
     }
 
     LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
@@ -413,6 +419,45 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
         migrDoneHandler(executorId, smTokenId, firstRoundFinished, error);
+    }
+}
+
+void
+MigrationExecutor::sendFinishResyncToClient() {
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " sending finish resync msg to Client";
+
+    // send message to source SM to finish resync for this executor
+    if (!testMode) {
+        fpi::fpi::CtrlFinishClientTokenResyncMsgPtr msg(new fpi::CtrlFinishClientTokenResyncMsg());
+        msg->executorID = executorId;
+
+        auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+        asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
+        asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(
+            MigrationExecutor::finishResyncResp));
+        asyncFinishClientReq->setTimeoutMs(5000);
+        asyncFinishClientReq->invoke();
+    } else {
+        LOGMIGRATE << "TESTMODE: pretending sent finish resync message to client, executor ID "
+                   << std::hex << executorId << std::dec;
+    }
+}
+
+void
+MigrationExecutor::finishResyncResp(EPSvcRequest* req,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload)
+{
+    LOGMIGRATE << "Received finish resync response from client for executor "
+               << std::hex << executorId << std::dec << " " << error;
+
+    // here we just print an error if that happened... but nothing
+    // we can do on destination since we already either finished sync or
+    // aborted with error
+    if (!error.ok()) {
+        LOGWARN << "Received error for finish resync from client " << err
+                << ", not changing any state, source should be able to deal with it";
     }
 }
 
