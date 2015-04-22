@@ -138,15 +138,18 @@ TEST_F(DmVolumeCatalogTest, copy_volume) {
         snapshots[i]->srcVolumeId = volumes[i]->volUUID;
 
         Error rc = volcat->copyVolume(*snapshots[i]);
+        std::cout << "[copyVolume returned: ] " << rc << std::endl;
         EXPECT_TRUE(rc.ok());
 
         rc = volcat->activateCatalog(snapshots[i]->volUUID);
+        std::cout << "[activateCatalog returned: ] " << rc << std::endl;
         EXPECT_TRUE(rc.ok());
 
         fds_uint64_t size = 0;
         fds_uint64_t blobCount = 0;
         fds_uint64_t objCount = 0;
         rc = volcat->statVolume(snapshots[i]->volUUID, &size, &blobCount, &objCount);
+        std::cout << "[statVolume returned: ] " << rc << std::endl;
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(blobCount, 1);
         EXPECT_EQ(size, blobCount * BLOB_SIZE);

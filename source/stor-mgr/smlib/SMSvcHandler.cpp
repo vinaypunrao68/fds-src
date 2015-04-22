@@ -122,7 +122,8 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                            asyncHdr, migrationMsg->DLT_version,
                                                            std::placeholders::_1),
                                                        objStorMgr->getUuid(),
-                                                       dlt->getNumBitsForToken());
+                                                       dlt->getNumBitsForToken(),
+                                                       false); //false because it's not a resync case
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "
                  << " called on addition of the first set of SMs to the domain";
@@ -933,6 +934,10 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // Store the current DLT to the presistent storage to be used
     // by offline smcheck.
     objStorMgr->storeCurrentDLT();
+
+    // tell superblock that DLT is closed, so that it will invalidate
+    // appropriate SM tokens
+    err = objStorMgr->objectStore->handleDltClose(objStorMgr->getDLT());
 
     // re-enable GC and Tier Migration
     // If this SM did not receive start migration or rebalance

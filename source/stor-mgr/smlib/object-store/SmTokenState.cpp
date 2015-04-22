@@ -28,8 +28,9 @@ TokenDescTable::TokenDescTable() {
 TokenDescTable::~TokenDescTable() {
 }
 
-void
+fds_bool_t
 TokenDescTable::initializeSmTokens(const SmTokenSet& smToksValid) {
+    fds_bool_t initAtLeastOneToken = false;
     // token id is also a column index into stateTbl
     for (SmTokenSet::const_iterator cit = smToksValid.cbegin();
          cit != smToksValid.cend();
@@ -38,19 +39,48 @@ TokenDescTable::initializeSmTokens(const SmTokenSet& smToksValid) {
             SmTokenDesc td(SM_INIT_FILE_ID, SMTOKEN_FLAG_VALID);
             stateTbl[fds_hdd_row][*cit] = td;
             stateTbl[fds_ssd_row][*cit] = td;
+            initAtLeastOneToken = true;
         }
     }
+    return initAtLeastOneToken;
 }
 
-void
+SmTokenSet
 TokenDescTable::invalidateSmTokens(const SmTokenSet& smToksInvalid) {
+    SmTokenSet tokens;
     // token id is also a column index into stateTbl
     for (SmTokenSet::const_iterator cit = smToksInvalid.cbegin();
          cit != smToksInvalid.cend();
          ++cit) {
-        stateTbl[fds_hdd_row][*cit].setInvalid();
-        stateTbl[fds_ssd_row][*cit].setInvalid();
+        if (stateTbl[fds_hdd_row][*cit].isValid()) {
+            stateTbl[fds_hdd_row][*cit].setInvalid();
+            stateTbl[fds_ssd_row][*cit].setInvalid();
+            tokens.insert(*cit);
+        }
     }
+    return tokens;
+}
+
+
+Error
+TokenDescTable::checkSmTokens(const SmTokenSet& smTokensOwned) {
+    for (SmTokenSet::const_iterator cit = smTokensOwned.cbegin();
+         cit != smTokensOwned.cend();
+         ++cit) {
+        if (!isValidOnAnyTier(*cit)) {
+            // a token that we think we own is not valid!
+            return ERR_SM_SUPERBLOCK_INCONSISTENT;
+        }
+    }
+    // all tokens in smTokensOwned are marked 'valid'
+    for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
+        if (isValidOnAnyTier(tokId) &&
+            (smTokensOwned.count(tokId) == 0)) {
+            // token is marked valid but we don't own it
+            return ERR_SM_NOERR_LOST_SM_TOKENS;
+        }
+    }
+    return ERR_OK;
 }
 
 fds_uint32_t
@@ -95,6 +125,12 @@ fds_bool_t
 TokenDescTable::isCompactionInProgress(fds_token_id smToken,
                                        diskio::DataTier tier) const {
     return stateTbl[row(tier)][smToken].isCompacting();
+}
+
+fds_bool_t
+TokenDescTable::isValidOnAnyTier(fds_token_id smToken) const {
+    return (stateTbl[row(diskio::diskTier)][smToken].isValid() ||
+            stateTbl[row(diskio::flashTier)][smToken].isValid());
 }
 
 SmTokenSet

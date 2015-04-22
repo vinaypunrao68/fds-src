@@ -55,9 +55,9 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     // ctor & dtor
     DmPersistVolDB(fds_volid_t volId, fds_uint32_t objSize,
-                   fds_bool_t snapshot, fds_bool_t readOnly,
+                   fds_bool_t snapshot, fds_bool_t readOnly, fds_bool_t clone,
                    fds_volid_t srcVolId = invalid_vol_id)
-            : DmPersistVolCat(volId, objSize, snapshot, readOnly, fpi::FDSP_VOL_S3_TYPE,
+            : DmPersistVolCat(volId, objSize, snapshot, readOnly, clone, fpi::FDSP_VOL_S3_TYPE,
             srcVolId), catalog_(0), configHelper_(g_fdsprocess->get_conf_helper()) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         timelineDir_ = root->dir_timeline_dm() + getVolIdStr() + "/";

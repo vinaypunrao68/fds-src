@@ -13,7 +13,7 @@ import os
 import time
 import tempfile
 import TestFDSSysMgt
-
+from fdslib.TestUtils import findNodeFromInv
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -679,21 +679,10 @@ class TestRestartInfluxDBClean(TestCase.FDSTestCase):
 
         self.log.info("Restart InfluxDB clean on %s." % n.nd_conf_dict['node-name'])
 
-# TODO: influx doesn't have a clean option.  have to stop, delete the data directories and restart.
-#        status = n.nd_agent.exec_wait("service influxdb restart")
-#        time.sleep(2)
-#
-#        if status != 0:
-#            self.log.error("Restart InfluxDB before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
-#            return False
-#
-#        status = n.nd_agent.exec_wait("service influxdb clean")
-#        time.sleep(2)
-#
-#        if status != 0:
-#            self.log.error("Clean InluxDB on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
-#            return False
-#
+        # issue the clean request (drop dbs etc)
+        status = n.nd_clean_influxdb()
+
+        # restart influx
         status = n.nd_agent.exec_wait("service influxdb restart")
         time.sleep(2)
 
@@ -735,9 +724,18 @@ class TestBootInfluxDB(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
+        # Make sure we don't try to boot influx if it wasn't actually configured to do so
+        boot_influx = n.nd_conf_dict.get('influxdb', False)
+        if isinstance(boot_influx, str):
+            if boot_influx.lower() == 'false':
+                boot_influx = False
 
-        status = n.nd_agent.exec_wait("service influxdb start")
+        if not boot_influx:
+            self.log.warn('InfluxDB was not configured for {} returning True'.format(n.nd_conf_dict['node-name']))
+            return True
+
+        self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
+        status = n.nd_start_influxdb()
         time.sleep(2)
 
         if status != 0:
@@ -886,6 +884,48 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
 
         return True
 
+class TestModifyPlatformConf(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, current_string=None, replace_string=None, node=None):
+        '''
+        Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
+        :param parameters: Params filled in by .ini file
+        :current_string: String in platform.conf to repalce e.g. authentication=true
+        :replace_string: String to replace current_string with. e.g. authentication=false
+        :node: FDS node
+        '''
+
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_TestModifyPlatformConf,
+                                             "Modify Platform.conf")
+
+        self.current_string = current_string
+        self.replace_string = replace_string
+        self.passedNode = node
+
+    def test_TestModifyPlatformConf(self):
+
+        def doit(node):
+            plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
+
+            return node.nd_agent.exec_wait(
+                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file))
+
+        fdscfg = self.parameters['fdscfg']
+        status = []
+        if self.passedNode is not None:
+            self.log.info("Modifying platform.conf for node: " + self.passedNode)
+            node = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            status.append(doit(node))
+        else:
+            self.log.info("Modifying platform.conf for all nodes")
+            for node in fdscfg.rt_obj.cfg_nodes:
+                status.append(doit(node))
+
+        if sum(status) != 0:
+            return False
+        else:
+            return True
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

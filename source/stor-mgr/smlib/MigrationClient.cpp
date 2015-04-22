@@ -24,13 +24,15 @@ namespace fds {
 MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
                                  NodeUuid& _destSMNodeID,
                                  fds_uint64_t& _targetDltVersion,
-                                 fds_uint32_t bitsPerToken)
+                                 fds_uint32_t bitsPerToken,
+                                 bool resync)
     : dataStore(_dataStore),
       destSMNodeID(_destSMNodeID),
       targetDltVersion(_targetDltVersion),
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
       forwardingIO(false),
+      forResync(resync),
       testMode(false)
 {
 

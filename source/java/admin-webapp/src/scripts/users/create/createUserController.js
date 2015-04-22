@@ -89,16 +89,27 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
         var user = $scope.userVars.selectedUser;
         
         // check if an edit is necessary
-        if ( $scope.userVars.selectedUser.tenant.id === $scope.tenant.id ){
+        if ( angular.isDefined( user.tenant ) && user.tenant.id === $scope.tenant.id ){
             return;
         }
         
         // right now we only support the user in one tenant so we remove, then add.
-        $tenant_api.revokeUser( user.tenant, user.id, function(){
+        var setTenant = function(){
             $tenant_api.attachUser( $scope.tenant, user.id, function(){
                 $scope.cancel();
             });
-        });
+        };
+        
+        if ( angular.isDefined( user.tenant ) ){
+            $tenant_api.revokeUser( user.tenant, user.id, function(){
+                setTenant();
+            });
+        }
+        else {
+            setTenant();
+        }
+        
+
     };
     
     $scope.save = function(){
