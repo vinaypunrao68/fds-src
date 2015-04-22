@@ -52,7 +52,7 @@ class FdsConfig {
         if (!exists(key)) return default_value;
         try {
             return get<T>(key);
-        } catch (fds::Exception& e) {
+        } catch (fds::Exception const& e) {
         }
         return default_value;
     }

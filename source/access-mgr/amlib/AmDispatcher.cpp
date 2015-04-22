@@ -55,6 +55,9 @@ AmDispatcher::start() {
         fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
         mockTimeoutUs_ = conf.get<uint32_t>("uturn_dispatcher_timeout");
         mockHandler_.reset(new MockSvcHandler());
+    } else {
+        // Set a custom time for the io messages to dm and sm
+        message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
     }
 
     if (conf.get<bool>("standalone", false)) {
@@ -133,10 +136,10 @@ AmDispatcher::dispatchOpenVolume(fds_volid_t const vol_id,
     volMDMsg->volume_id = vol_id;
     volMDMsg->token = token;
 
-    auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
+    auto asyncOpenVolReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
             dmtMgr->getCommittedNodeGroup(vol_id)));
-    asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
+    asyncOpenVolReq->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), volMDMsg);
 
     /** What to do with the response */
     auto svc_cb = [cb] (QuorumSvcRequest* svcReq,
@@ -147,8 +150,8 @@ AmDispatcher::dispatchOpenVolume(fds_volid_t const vol_id,
         cb((msg ? msg->token : invalid_vol_token), e);
     };
 
-    asyncStatVolReq->onResponseCb(svc_cb);
-    asyncStatVolReq->invoke();
+    asyncOpenVolReq->onResponseCb(svc_cb);
+    asyncOpenVolReq->invoke();
 }
 
 /**
@@ -163,11 +166,11 @@ AmDispatcher::dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token) {
     volMDMsg->volume_id = vol_id;
     volMDMsg->token = token;
 
-    auto asyncStatVolReq = gSvcRequestPool->newQuorumSvcRequest(
+    auto asyncCloseVolReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
             dmtMgr->getCommittedNodeGroup(vol_id)));
-    asyncStatVolReq->setPayload(FDSP_MSG_TYPEID(fpi::CloseVolumeMsg), volMDMsg);
-    asyncStatVolReq->invoke();
+    asyncCloseVolReq->setPayload(FDSP_MSG_TYPEID(fpi::CloseVolumeMsg), volMDMsg);
+    asyncCloseVolReq->invoke();
 }
 
 void
@@ -439,6 +442,8 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
             dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updCatMsg);
     asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogCb, amReq));
+    if (0 < message_timeout_io)
+        { asyncUpdateCatReq->setTimeoutMs(message_timeout_io); }
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
@@ -487,6 +492,8 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
             dmtMgr->getCommittedNodeGroup(amReq->io_vol_id)));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), updCatMsg);
     asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogOnceCb, amReq));
+    if (0 < message_timeout_io)
+        { asyncUpdateCatReq->setTimeoutMs(message_timeout_io); }
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << logString(*updCatMsg);
@@ -567,6 +574,8 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
     asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
                                                    amReq, dlt->getVersion()));
+    if (0 < message_timeout_io)
+        { asyncPutReq->setTimeoutMs(message_timeout_io); }
     asyncPutReq->invoke();
 
     LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg)
@@ -642,6 +651,8 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
         boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId)));
     asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
     asyncGetReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq, dlt->getVersion()));
+    if (0 < message_timeout_io)
+        { asyncGetReq->setTimeoutMs(message_timeout_io); }
     asyncGetReq->invoke();
 
     LOGDEBUG << asyncGetReq->logString() << logString(*getObjMsg);
@@ -712,6 +723,8 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     asyncQueryReq->onEPAppStatusCb(std::bind(&AmDispatcher::getQueryCatalogAppStatusCb,
                                              this, amReq, std::placeholders::_1,
                                              std::placeholders::_2));
+    if (0 < message_timeout_io)
+        { asyncQueryReq->setTimeoutMs(message_timeout_io); }
     asyncQueryReq->invoke();
 
     LOGDEBUG << asyncQueryReq->logString() << logString(*queryMsg);
