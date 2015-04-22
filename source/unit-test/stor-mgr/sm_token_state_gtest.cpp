@@ -169,6 +169,36 @@ TEST(SmTokenState, invalidate) {
     }
 }
 
+TEST(SmTokenState, check_state) {
+    SmTokenSet tokSet;
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; tok += 4) {
+        tokSet.insert(tok);
+    }
+    TokenDescTable tokTbl;
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    EXPECT_TRUE(initAtLeastOneToken);
+
+    // if we compare to tokSet again, state should match exactly
+    Error err = tokTbl.checkSmTokens(tokSet);
+    EXPECT_TRUE(err.ok());
+
+    // add one more token to tokSet -- check should return error
+    tokSet.insert(1);
+    err = tokTbl.checkSmTokens(tokSet);
+    EXPECT_TRUE(err == ERR_SM_SUPERBLOCK_INCONSISTENT);
+
+    // remove the token we just added, everything should be ok
+    tokSet.erase(1);
+    err = tokTbl.checkSmTokens(tokSet);
+    EXPECT_TRUE(err.ok());
+
+    // remove one token from set, should return a warning kind of
+    // error that we lost tokens
+    tokSet.erase(4);
+    err = tokTbl.checkSmTokens(tokSet);
+    EXPECT_TRUE(err == ERR_SM_NOERR_LOST_SM_TOKENS);
+}
+
 }  // namespace fds
 
 int main(int argc, char * argv[]) {

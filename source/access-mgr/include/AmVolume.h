@@ -23,7 +23,7 @@ struct AmVolume : public FDS_Volume {
     ~AmVolume();
 
     fds_int64_t getToken() const;
-    void swapToken(boost::shared_ptr<AmVolumeAccessToken>& _token);
+    void setToken(fds_int64_t const _token);
 
     /** per volume queue */
     FDS_VolumeQueue* volQueue;

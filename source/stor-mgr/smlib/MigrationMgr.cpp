@@ -42,7 +42,8 @@ Error
 SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                                     OmStartMigrationCbType cb,
                                     const NodeUuid& mySvcUuid,
-                                    fds_uint32_t bitsPerDltToken) {
+                                    fds_uint32_t bitsPerDltToken,
+                                    bool forResync) {
     Error err(ERR_OK);
 
     // it's strange to receive empty message from OM, but ok we just ignore that
@@ -93,6 +94,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                                           bitsPerDltToken,
                                           srcSmUuid,
                                           smTok, globalExecId, targetDltVersion,
+                                          forResync,
                                           std::bind(
                                               &SmTokenMigrationMgr::migrationExecutorDoneCb, this,
                                               std::placeholders::_1, std::placeholders::_2,
@@ -110,6 +112,32 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     fds_verify(cit != migrExecutors.cend());
     startSmTokenMigration(cit->first);
     return err;
+}
+
+/**
+ * Starts token resync for all DLT tokens assigned to this SM.
+ * It identifies the source SMs for assigned tokens from the
+ * new dlt version passed to it and starts the migration process.
+ */
+Error
+SmTokenMigrationMgr::startResync(fds::DLT *dlt,
+                                 OmStartMigrationCbType cb,
+                                 const NodeUuid& mySvcUuid,
+                                 fds_uint32_t bitsPerDltToken) {
+    fpi::CtrlNotifySMStartMigrationPtr resyncMsg(
+                       new fpi::CtrlNotifySMStartMigration());
+    resyncMsg->DLT_version = dlt->getVersion();
+    DLT::SourceNodeMap srcSmTokensMap;
+    bool forResync = true;
+    dlt->getSourceForAllNodeTokens(mySvcUuid, srcSmTokensMap);
+
+    for (auto &ptr: srcSmTokensMap) {
+        fpi::SMTokenMigrationGroup grp;
+        grp.source = ptr.first.toSvcUuid();
+        grp.tokens = ptr.second;
+        resyncMsg->migrations.push_back(grp);
+    }
+    return startMigration(resyncMsg, cb, mySvcUuid, bitsPerDltToken, forResync);
 }
 
 void
@@ -217,7 +245,8 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
             migrClient.reset(new MigrationClient(smReqHandler,
                                                  executorNodeUuid,
                                                  targetDltVersion,
-                                                 bitsPerDltToken));
+                                                 bitsPerDltToken,
+                                                 rebalSetMsg->forResync));
             migrClients[executorId] = migrClient;
         } else {
             migrClient = migrClients[executorId];

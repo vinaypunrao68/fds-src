@@ -26,8 +26,8 @@ AmVolume::getToken() const {
 }
 
 void
-AmVolume::swapToken(boost::shared_ptr<AmVolumeAccessToken>& _token) {
-    access_token.swap(_token);
+AmVolume::setToken(fds_int64_t const _token) {
+    access_token->setToken(_token);
 }
 
 }  // namespace fds

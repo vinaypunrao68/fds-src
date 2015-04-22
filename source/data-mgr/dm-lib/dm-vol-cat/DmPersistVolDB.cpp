@@ -55,7 +55,13 @@ Error DmPersistVolDB::activate() {
         catName += "/" + getVolIdStr() + "_vcat.ldb";
     }
 
-    bool fAlreadyExists = util::fileExists(catName);
+    bool fAlreadyExists = util::dirExists(catName);
+    if (clone_ || snapshot_) {
+        if (!fAlreadyExists) {
+            LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
+            return ERR_OK;
+        }
+    }
 
     LOGNOTIFY << "Activating '" << catName << "'";
     FdsRootDir::fds_mkdir(catName.c_str());

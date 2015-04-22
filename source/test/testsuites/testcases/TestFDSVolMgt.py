@@ -90,7 +90,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # volume attachment.
 class TestVolumeAttach(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, volume=None, node=None):
+    def __init__(self, parameters=None, volume=None, node=None, expect_to_fail=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_VolumeAttach,
@@ -98,6 +98,7 @@ class TestVolumeAttach(TestCase.FDSTestCase):
 
         self.passedVolume = volume
         self.passedNode = node
+        self.expect_to_fail = expect_to_fail
 
     def test_VolumeAttach(self):
         """
@@ -143,7 +144,7 @@ class TestVolumeAttach(TestCase.FDSTestCase):
             cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'cinder')
             status, stdout = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s) \"' %
                                                         (cinder_dir, cmd), return_stdin=True)
-            if status != 0:
+            if status != 0 and not self.expect_to_fail:
                 self.log.error("Attach volume %s on %s returned status %d." %
                                (volName, am_node, status))
                 return False
@@ -157,7 +158,6 @@ class TestVolumeAttach(TestCase.FDSTestCase):
                 break
 
         return True
-
 
 # This class contains the attributes and methods to test
 # volume detachment.
@@ -210,7 +210,7 @@ class TestVolumeDetach(TestCase.FDSTestCase):
             offset = 3809
             port = int(node.nd_conf_dict['fds_port']) + offset
             self.log.info("Detach volume %s on node %s." % (volName, am_node))
-            cmd = ('detach %s:%s %s' % (ip, port, volName))
+            cmd = ('detach %s' % (volName))
 
 
             cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')

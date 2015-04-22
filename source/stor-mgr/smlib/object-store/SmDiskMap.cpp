@@ -171,8 +171,10 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt)
 Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
 {
     Error err(ERR_OK);
+    fds_bool_t firstDlt = false;
     if (bitsPerToken_ == 0) {
         bitsPerToken_ = dlt->getNumBitsForToken();
+        firstDlt = true;
     } else {
         // we already got DLT and set initial disk map
         // dlt width should not change
@@ -201,6 +203,11 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
     // this methods also sets DLT version (even in case when SM does not
     // own any SM tokens)
     err = superblock->updateNewSmTokenOwnership(sm_toks, dlt->getVersion());
+    if (err == ERR_SM_NOERR_LOST_SM_TOKENS) {
+        // this should only happen on first DLT -- SM may go down between
+        // DLT update and DLT close; but for subsequent DLTs that should not happen!
+        fds_verify(firstDlt);
+    }
     return err;
 }
 
