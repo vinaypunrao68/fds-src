@@ -110,41 +110,43 @@ public class Main {
         EventManager.INSTANCE.initEventListeners();
 
         // TODO: should there be an OM property for the am host?
-        String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
+        String amHost = platformConfig.defaultString("fds.xdi.am_host", grabFirstOmIpAddress);
 
         // TODO: the base service port needs to configurable in platform.conf
-	// TODO: we are going to AM on the same node as OM here; otherwise we need to get a platform
-	// port of another node (but this is the same functionality as was before with instanceID)
-	int pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
-	int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 2988);
+        // TODO: we are going to AM on the same node as OM here; otherwise we need to get a platform
+        // port of another node (but this is the same functionality as was before with instanceID)
+        int pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
+        int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 2988);
         int amServicePort = pmPort + amServicePortOffset;
 
         // TODO: this needs to be configurable in platform.conf
         int omConfigPort = 9090;
 
+        String omHost = platformConfig.defaultString("fds.common.om_ip_list", "localhost");
+        String grabFirstOmIpAddress = omHost.contains(",")?omHost.split(",")[0]:omHost;
+
         ThriftClientFactory<ConfigurationService.Iface> configApiFactory =
-            ConfigServiceClientFactory.newConfigService("localhost", omConfigPort);
+            ConfigServiceClientFactory.newConfigService(grabFirstOmIpAddress, omConfigPort);
 
         final OmConfigurationApi configCache = new OmConfigurationApi(configApiFactory);
-        configCache.startConfigurationUpdater();
+        configCache.startConfigurationUpdater( );
         SingletonConfigAPI.instance().api( configCache );
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
 
-        XdiService.Iface amService = AmServiceClientFactory.newAmService(amHost, amServicePort).getClient();
+        XdiService.Iface amService = AmServiceClientFactory.newAmService(amHost, amServicePort).getClient( );
         SingletonAmAPI.instance().api( amService );
 
-        final String omHost = platformConfig.defaultString("fds.common.om_ip_list", "localhost");
         /*
          * TODO(Tinius) currently we only support a single OM
          */
-        final String omPrimaryHostname = omHost.contains( "," ) ? omHost.split( "," )[ 0 ] : omHost;
+
         int omLegacyConfigPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
         String webDir = platformConfig.defaultString( "fds.om.web_dir",
                                                       "../lib/admin-webapp" );
 
         FDSP_ConfigPathReq.Iface legacyConfigClient =
-            ConfigServiceClientFactory.newLegacyConfigService(omPrimaryHostname,
+            ConfigServiceClientFactory.newLegacyConfigService(grabFirstOmIpAddress,
                                                               omLegacyConfigPort)
                                       .getClient();
 
@@ -178,7 +180,7 @@ public class Main {
         /*
          * TODO(Tinius) should be using the https port here, but requires more SSL certs ( AM service )
          */
-        configCache.startStatStreamRegistrationHandler( omPrimaryHostname, httpPort );
+        configCache.startStatStreamRegistrationHandler( grabFirstOmIpAddress, httpPort );
 
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
