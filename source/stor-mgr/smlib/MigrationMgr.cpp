@@ -49,14 +49,18 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
         LOGWARN << "We received empty migrations message from OM, nothing to do";
-        cb(ERR_OK);
+        if (cb) {
+            cb(ERR_OK);
+        }
         return err;
     }
 
     // Check if the migraion feature is enabled or disabled.
     if (false == enableMigrationFeature) {
         LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
-        cb(ERR_OK);
+        if (cb) {
+            cb(ERR_OK);
+        }
         return err;
     }
 
@@ -98,8 +102,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                                           std::bind(
                                               &SmTokenMigrationMgr::migrationExecutorDoneCb, this,
                                               std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3, std::placeholders::_4,
-                                              std::placeholders::_5)));
+                                              std::placeholders::_3, std::placeholders::_4)));
             }
             // tell migration executor that it is responsible for this DLT token
             migrExecutors[smTok][srcSmUuid]->addDltToken(dltTok);
@@ -121,8 +124,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
  * new dlt version passed to it and starts the migration process.
  */
 Error
-SmTokenMigrationMgr::startResync(fds::DLT *dlt,
-                                 OmStartMigrationCbType cb,
+SmTokenMigrationMgr::startResync(const fds::DLT *dlt,
                                  const NodeUuid& mySvcUuid,
                                  fds_uint32_t bitsPerDltToken) {
     fpi::CtrlNotifySMStartMigrationPtr resyncMsg(
@@ -138,7 +140,8 @@ SmTokenMigrationMgr::startResync(fds::DLT *dlt,
         grp.tokens = ptr.second;
         resyncMsg->migrations.push_back(grp);
     }
-    return startMigration(resyncMsg, cb, mySvcUuid, bitsPerDltToken, forResync);
+    
+    return startMigration(resyncMsg, NULL, mySvcUuid, bitsPerDltToken, forResync);
 }
 
 void
@@ -339,7 +342,6 @@ void
 SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                                              fds_token_id smToken,
                                              fds_bool_t isFirstRound,
-                                             fds_bool_t isResync,
                                              const Error& error) {
     LOGMIGRATE << "Migration executor " << std::hex << executorId << std::dec
                << " finished migration round first? " << isFirstRound << " done? "
@@ -380,7 +382,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         ++it;
         if (it != migrExecutors.end()) {
             // we have more SM tokens to migrate
-            if (isFirstRound || isResync) {
+            if (isFirstRound) {
                 startSmTokenMigration(it->first);
             } else {
                 startSecondRebalanceRound(it->first);
@@ -392,8 +394,10 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                 startSecondRebalanceRound(migrExecutors.begin()->first);
             } else {
                 // done with second round -- all done
-                omStartMigrCb(ERR_OK);
-                omStartMigrCb = NULL;  // we replied, so reset
+                if (omStartMigrCb) {
+                    omStartMigrCb(ERR_OK);
+                    omStartMigrCb = NULL;  // we replied, so reset
+                }
             }
         }
     }

@@ -23,7 +23,6 @@ class EPSvcRequest;
 typedef std::function<void (fds_uint64_t executorId,
                             fds_token_id smToken,
                             fds_bool_t isFirstRound,
-                            fds_bool_t isResync,
                             const Error& error)> MigrationExecutorDoneHandler;
 
 class MigrationExecutor {

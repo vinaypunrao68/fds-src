@@ -88,8 +88,7 @@ class SmTokenMigrationMgr {
      * Start resync process for SM tokens. Find the list of
      * SMTokenMigrationGroups and call startMigration.
      */
-     Error startResync(fds::DLT *dlt,
-                       OmStartMigrationCbType cb,
+     Error startResync(const fds::DLT *dlt,
                        const NodeUuid& mySvcUuid,
                        fds_uint32_t bitsPerDltToken);
 
@@ -181,7 +180,6 @@ class SmTokenMigrationMgr {
     void migrationExecutorDoneCb(fds_uint64_t executorId,
                                  fds_token_id smToken,
                                  fds_bool_t isFirstRound,
-                                 fds_bool_t isResync,
                                  const Error& error);
 
     /// enqueues snapshot message to qos

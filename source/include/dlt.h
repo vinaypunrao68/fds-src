@@ -98,14 +98,14 @@ namespace fds {
          * in the token node group is chosen.
          */
         NodeUuid getSourceNodeForToken(const NodeUuid &nodeUuid,
-                                       const fds_token_id &tokenId);
+                                       const fds_token_id &tokenId) const;
 
         /**
          * Get source nodes for all the tokens of a given node. This
          * fills up a passed map of <Source Node Uuid - std::vector of tokens>.
          */
         void getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
-                                       SourceNodeMap &srcNodeMap);
+                                       SourceNodeMap &srcNodeMap) const;
 
         /**
          * set the node for given token at a given index

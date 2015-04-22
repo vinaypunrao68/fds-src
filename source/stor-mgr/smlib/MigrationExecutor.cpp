@@ -57,6 +57,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     ObjMetaData omd;
 
     MigrationExecutorState expectState = ME_INIT;
+    MigrationExecutorState nextState = ME_INIT;
     if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_REBALANCE_START)) {
         LOGNOTIFY << "startObjectRebalance called in non- ME_INIT state " << state;
         return ERR_NOT_READY;
@@ -142,14 +143,19 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // receive responses before finish sending all the messages...
     // we sent all the messages, go to next state
     expectState = ME_FIRST_PHASE_REBALANCE_START;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_APPLYING_DELTA)) {
+    if (forResync) {
+        nextState = ME_SECOND_PHASE_APPLYING_DELTA;
+    } else {
+        nextState = ME_FIRST_PHASE_APPLYING_DELTA;
+    }
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, nextState)) {
         // this must not happen
         LOGERROR << "Executor " << std::hex << executorId << std::dec
                  << ": Unexpected migration executor state";
         fds_panic("Unexpected migration executor state!");
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-               << " ME_FIRST_PHASE_REBALANCE_START --> ME_FIRST_PHASE_APPLYING_DELTA state";
+               << " ME_FIRST_PHASE_REBALANCE_START --> " << nextState;
 
     // send rebalance set of objects to source SM
     for (auto tok : dltTokens) {
@@ -376,29 +382,21 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     // check and set the state
     if (error.ok()) {
         // if no error, we must be in one of the apply delta states
-        if (forResync) {
-            // if we were in first round of migration for resync, we are done now
-            MigrationExecutorState expect = ME_FIRST_PHASE_APPLYING_DELTA;
+
+        // if we were in first round of migration, go to second round
+        MigrationExecutorState expect = ME_FIRST_PHASE_APPLYING_DELTA;
+        if (!std::atomic_compare_exchange_strong(&state,
+                                                 &expect,
+                                                 ME_SECOND_PHASE_REBALANCE_START)) {
+            // ok, see if we are in the second round of migration
+            expect = ME_SECOND_PHASE_APPLYING_DELTA;
             if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
                 // must be a bug somewhere...
                 fds_panic("Unexpected migration executor state!");
             }
         } else {
-            // if we were in first round of migration, go to second round
-            MigrationExecutorState expect = ME_FIRST_PHASE_APPLYING_DELTA;
-            if (!std::atomic_compare_exchange_strong(&state,
-                                                     &expect,
-                                                     ME_SECOND_PHASE_REBALANCE_START)) {
-                // ok, see if we are in the second round of migration
-                expect = ME_SECOND_PHASE_APPLYING_DELTA;
-                if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
-                    // must be a bug somewhere...
-                    fds_panic("Unexpected migration executor state!");
-                }
-            } else {
-                firstRoundFinished = true;
-                // we just finished first round and started second round
-            }
+            firstRoundFinished = true;
+            // we just finished first round and started second round
         }
     } else {
         // beta2: any error will stop the whole migration process
@@ -416,7 +414,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
-        migrDoneHandler(executorId, smTokenId, firstRoundFinished, forResync, error);
+        migrDoneHandler(executorId, smTokenId, firstRoundFinished, error);
     }
 }
 
