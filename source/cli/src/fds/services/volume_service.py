@@ -1,6 +1,7 @@
 from rest_helper import RESTHelper
 from fds.utils.volume_converter import VolumeConverter
 from fds.utils.snapshot_converter import SnapshotConverter
+from fds.services.snapshot_service import SnapshotService
 
 
 class VolumeService():
@@ -20,7 +21,6 @@ class VolumeService():
         
 
     def __get_url_preamble(self):
-        
         '''
         Helper method to construct the base URI
         '''        
@@ -52,8 +52,15 @@ class VolumeService():
         '''
         try to find the volume from the snapshot ID
         '''
-        #TODO
-        # need to get a snapshot object by ID - then use the volume ID
+        snapshot_service = SnapshotService( self.__session)
+        snapshot = snapshot_service.get_snapshot_by_id( snapshotId )
+        snapshot = SnapshotConverter.build_snapshot_from_json( snapshot )
+        
+        if ( snapshot == None ):
+            return
+        
+        volume = self.find_volume_by_id( snapshot.volume_id )
+        return volume
     
     def list_volumes(self):
         
