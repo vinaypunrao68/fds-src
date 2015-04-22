@@ -21,7 +21,7 @@
     "grunt-contrib-cssmin": "",
     "grunt-contrib-uglify": "",
     "connect-livereload" : "",
-    "grunt-connect-proxy": "",
+    "grunt-connect-proxy": "0.1.6",
     "grunt-text-replace": "",
     "grunt-html2js": "",
     "karma": "",
