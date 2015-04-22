@@ -181,6 +181,7 @@ class SmTokenMigrationMgr {
     void migrationExecutorDoneCb(fds_uint64_t executorId,
                                  fds_token_id smToken,
                                  fds_bool_t isFirstRound,
+                                 fds_bool_t isResync,
                                  const Error& error);
 
     /// enqueues snapshot message to qos

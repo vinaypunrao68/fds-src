@@ -83,6 +83,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
+        msg->forResync = forResync;
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << "Filter Set Msg: token=" << dltTok << ", seqNum="
                    << msg->seqNum << ", last=" << msg->lastFilterSet;
@@ -375,21 +376,29 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     // check and set the state
     if (error.ok()) {
         // if no error, we must be in one of the apply delta states
-
-        // if we were in first round of migration, go to second round
-        MigrationExecutorState expect = ME_FIRST_PHASE_APPLYING_DELTA;
-        if (!std::atomic_compare_exchange_strong(&state,
-                                                 &expect,
-                                                 ME_SECOND_PHASE_REBALANCE_START)) {
-            // ok, see if we are in the second round of migration
-            expect = ME_SECOND_PHASE_APPLYING_DELTA;
+        if (forResync) {
+            // if we were in first round of migration for resync, we are done now
+            MigrationExecutorState expect = ME_FIRST_PHASE_APPLYING_DELTA;
             if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
                 // must be a bug somewhere...
                 fds_panic("Unexpected migration executor state!");
             }
         } else {
-            firstRoundFinished = true;
-            // we just finished first round and started second round
+            // if we were in first round of migration, go to second round
+            MigrationExecutorState expect = ME_FIRST_PHASE_APPLYING_DELTA;
+            if (!std::atomic_compare_exchange_strong(&state,
+                                                     &expect,
+                                                     ME_SECOND_PHASE_REBALANCE_START)) {
+                // ok, see if we are in the second round of migration
+                expect = ME_SECOND_PHASE_APPLYING_DELTA;
+                if (!std::atomic_compare_exchange_strong(&state, &expect, ME_DONE)) {
+                    // must be a bug somewhere...
+                    fds_panic("Unexpected migration executor state!");
+                }
+            } else {
+                firstRoundFinished = true;
+                // we just finished first round and started second round
+            }
         }
     } else {
         // beta2: any error will stop the whole migration process
@@ -402,11 +411,12 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
                << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
                << ", SM token " << smTokenId
-               << " firstRound? " << firstRoundFinished;
+               << " firstRound? " << firstRoundFinished
+               << " isResync? " << forResync;
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
-        migrDoneHandler(executorId, smTokenId, firstRoundFinished, error);
+        migrDoneHandler(executorId, smTokenId, firstRoundFinished, forResync, error);
     }
 }
 

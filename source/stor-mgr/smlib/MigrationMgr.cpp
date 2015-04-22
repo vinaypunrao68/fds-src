@@ -98,7 +98,8 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                                           std::bind(
                                               &SmTokenMigrationMgr::migrationExecutorDoneCb, this,
                                               std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3, std::placeholders::_4)));
+                                              std::placeholders::_3, std::placeholders::_4,
+                                              std::placeholders::_5)));
             }
             // tell migration executor that it is responsible for this DLT token
             migrExecutors[smTok][srcSmUuid]->addDltToken(dltTok);
@@ -338,6 +339,7 @@ void
 SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                                              fds_token_id smToken,
                                              fds_bool_t isFirstRound,
+                                             fds_bool_t isResync,
                                              const Error& error) {
     LOGMIGRATE << "Migration executor " << std::hex << executorId << std::dec
                << " finished migration round first? " << isFirstRound << " done? "
@@ -358,7 +360,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         return;
     }
 
-    // check if we there are other executors that need to start migration
+    // check if there are other executors for the same SM Token that need to start migration
     MigrExecutorMap::const_iterator it = migrExecutors.find(smTokenInProgress);
     fds_verify(it != migrExecutors.end());
     // if we are done migration for all executors migrating current SM token,
@@ -378,7 +380,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         ++it;
         if (it != migrExecutors.end()) {
             // we have more SM tokens to migrate
-            if (isFirstRound) {
+            if (isFirstRound || isResync) {
                 startSmTokenMigration(it->first);
             } else {
                 startSecondRebalanceRound(it->first);
