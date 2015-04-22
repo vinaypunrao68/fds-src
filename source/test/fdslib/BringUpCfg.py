@@ -13,7 +13,7 @@ import os.path
 import FdsSetup as inst
 import socket
 import requests
-from urllib3.util import retry
+from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 ###
@@ -312,7 +312,7 @@ class FdsNodeConfig(FdsConfig):
         status = 0
         ## setup the http requests session with an adapter configured for retries.
         s = requests.session()
-        a = requests.adapters.HTTPAdapter(max_retries=retry(total=max_retries,
+        a = requests.adapters.HTTPAdapter(max_retries=Retry(total=max_retries,
                                                             backoff_factor=backoff_factor))
         s.mount("http://", a)
 
