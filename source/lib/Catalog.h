@@ -83,6 +83,8 @@ class Catalog {
             const std::string& logFilePrefix = empty, fds_uint32_t maxLogFiles = 0,
             leveldb::Comparator * cmp = 0);
 
+    ~Catalog();
+
     /** Uses the underlying leveldb iterator */
     typedef leveldb::Iterator catalog_iterator_t;
     /** Gets catalog iterator

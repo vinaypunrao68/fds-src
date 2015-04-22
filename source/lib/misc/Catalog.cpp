@@ -100,6 +100,13 @@ Catalog::Catalog(const std::string& _file,
     }
 }
 
+Catalog::~Catalog()
+{
+    // Order is important here, db references env.
+    db.reset();
+    env.reset();
+}
+
 /** Updates the catalog
  * @param[in] key the key to write to
  * @param[in] val the data to write
@@ -175,7 +182,7 @@ Catalog::Delete(const Record& key) {
 
 bool
 Catalog::DbEmpty() {
-auto db_it = NewIterator();
+    auto db_it = NewIterator();
     for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next()) {
        return true;
     }
@@ -184,8 +191,10 @@ auto db_it = NewIterator();
 
 bool
 Catalog::DbDelete() {
-    filter_policy.reset();
+    // Order is important. db references env, env references filter_policy.
     db.reset();
+    env.reset();
+    filter_policy.reset();
     return true;
 }
 

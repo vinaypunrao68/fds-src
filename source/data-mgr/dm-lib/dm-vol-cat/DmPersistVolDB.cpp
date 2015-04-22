@@ -25,6 +25,7 @@ const std::string DmPersistVolDB::CATALOG_CACHE_SIZE_STR("catalog_cache_size");
 const std::string DmPersistVolDB::CATALOG_MAX_LOG_FILES_STR("catalog_max_log_files");
 
 DmPersistVolDB::~DmPersistVolDB() {
+    catalog_.reset();
     if (deleted_) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
