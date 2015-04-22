@@ -14,7 +14,8 @@ SmTokenMigrationMgr::SmTokenMigrationMgr(SmIoReqHandler *dataStore)
         : smReqHandler(dataStore),
           omStartMigrCb(NULL),
           targetDltVersion(DLT_VER_INVALID),
-          numBitsPerDltToken(0)
+          numBitsPerDltToken(0),
+          resyncOnRestart(false)
 {
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
@@ -66,6 +67,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
         LOGNOTIFY << "startMigration called in non-idle state " << migrState;
         return ERR_NOT_READY;
     }
+    resyncOnRestart = forResync;
     targetDltVersion = migrationMsg->DLT_version;
     numBitsPerDltToken = bitsPerDltToken;
     omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
@@ -234,6 +236,7 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& 
     }
     numBitsPerDltToken = bitsPerDltToken;
     targetDltVersion = rebalSetMsg->targetDltVersion;
+    resyncOnRestart = rebalSetMsg->forResync;
 
     MigrationClient::shared_ptr migrClient;
     int64_t executorId = rebalSetMsg->executorID;
@@ -299,10 +302,16 @@ SmTokenMigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDelta
 Error
 SmTokenMigrationMgr::finishClientResync(fds_uint64_t executorId) {
     Error err(ERR_OK);
-    // we must only receive this message when are resyncing on restart
-    fds_verify(forResync);
 
-    // TODO(Anna) can we be in migration aborted state, since it is resync?
+    if (atomic_load(&migrState) == MIGR_ABORTED) {
+        // Something happened, for now stopping migration on any error
+        LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+    fds_verify(atomic_load(&migrState) == MIGR_IN_PROGRESS);
+
+    // we must only receive this message when are resyncing on restart
+    fds_verify(resyncOnRestart);
 
     SCOPEDREAD(clientLock);
     // ok if migration client does not exist
@@ -399,20 +408,27 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         ++it;
         if (it != migrExecutors.end()) {
             // we have more SM tokens to migrate
-            if (isFirstRound) {
+            if (isFirstRound || resyncOnRestart) {
                 startSmTokenMigration(it->first);
             } else {
                 startSecondRebalanceRound(it->first);
             }
         } else {
             // we are done migrating, reply to start migration msg from OM
-            if (isFirstRound) {
+            if (isFirstRound && !resyncOnRestart) {
                 // start with first executor to do the second round
                 startSecondRebalanceRound(migrExecutors.begin()->first);
             } else {
                 // done with second round -- all done
                 omStartMigrCb(ERR_OK);
                 omStartMigrCb = NULL;  // we replied, so reset
+
+                if (resyncOnRestart) {
+                    // done with executors
+                    migrExecutors.clear();
+                    // see if clients are also done so we can cleanup
+                    checkResyncDoneAndCleanup();
+                }
             }
         }
     }
@@ -539,11 +555,12 @@ SmTokenMigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
 
     // we only do forwarding if migration is in progress
     if (isMigrationInProgress()) {
-        if (reqDltVersion == targetDltVersion) {
+        if (!resyncOnRestart && (reqDltVersion == targetDltVersion)) {
             // this request was also sent to the destination SM
             // since AM sending the request is already on new DLT version
             return forwarded;
         }
+        // in resync on restart case we always forward if forward flag is set
 
         // This request has a set of object IDs that may belong to different
         // DLT tokens.  We need to forward a set of object IDs to correct
@@ -590,7 +607,31 @@ SmTokenMigrationMgr::handleDltClose() {
         migrClients.clear();
     }
     targetDltVersion = DLT_VER_INVALID;
+    resyncOnRestart = false;
     return err;
+}
+
+void
+SmTokenMigrationMgr::checkResyncDoneAndCleanup() {
+    if (!resyncOnRestart) {
+        // not resync case
+        return;
+    }
+    if (migrExecutors.size() == 0) {
+        // we are done with executors
+        SCOPEDWRITE(clientLock);
+        if (migrClients.size() == 0) {
+            // we are also done with clients = done with resync
+            MigrationState expectState = MIGR_IN_PROGRESS;
+            if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
+                LOGMIGRATE << "Already done or aborted, nothing to do, current state " << migrState;
+                return;  // this is ok
+            }
+            // reset per-migration/resync state
+            targetDltVersion = DLT_VER_INVALID;
+            resyncOnRestart = false;
+        }
+    }
 }
 
 /**
@@ -630,6 +671,7 @@ SmTokenMigrationMgr::abortMigration(const Error& error) {
 
     migrExecutors.clear();
     targetDltVersion = DLT_VER_INVALID;
+    resyncOnRestart = false;
 }
 
 fds_uint64_t

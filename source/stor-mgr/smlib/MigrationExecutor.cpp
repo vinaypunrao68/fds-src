@@ -429,7 +429,7 @@ MigrationExecutor::sendFinishResyncToClient() {
 
     // send message to source SM to finish resync for this executor
     if (!testMode) {
-        fpi::fpi::CtrlFinishClientTokenResyncMsgPtr msg(new fpi::CtrlFinishClientTokenResyncMsg());
+        fpi::CtrlFinishClientTokenResyncMsgPtr msg(new fpi::CtrlFinishClientTokenResyncMsg());
         msg->executorID = executorId;
 
         auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
@@ -456,7 +456,7 @@ MigrationExecutor::finishResyncResp(EPSvcRequest* req,
     // we can do on destination since we already either finished sync or
     // aborted with error
     if (!error.ok()) {
-        LOGWARN << "Received error for finish resync from client " << err
+        LOGWARN << "Received error for finish resync from client " << error
                 << ", not changing any state, source should be able to deal with it";
     }
 }

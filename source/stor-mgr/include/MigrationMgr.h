@@ -209,6 +209,12 @@ class SmTokenMigrationMgr {
      */
     void abortMigration(const Error& error);
 
+    /**
+     * If all executors and clients are done, moves migration to IDLE state
+     * and resets the state
+     */
+    void checkResyncDoneAndCleanup();
+
     /// state of migration manager
     std::atomic<MigrationState> migrState;
     /// target DLT version for which current migration is happening
@@ -235,6 +241,7 @@ class SmTokenMigrationMgr {
     /// TODO(Anna) make it more general if we want to migrate several
     /// tokens at a time
     fds_token_id smTokenInProgress;
+    fds_bool_t resyncOnRestart;  // true if resyncing tokens without DLT change
 
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues
