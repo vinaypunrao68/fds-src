@@ -58,6 +58,7 @@ AmDispatcher::start() {
     } else {
         // Set a custom time for the io messages to dm and sm
         message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
+        LOGNOTIFY << "AM IO timeout set to: " << message_timeout_io  << " ms";
     }
 
     if (conf.get<bool>("standalone", false)) {
