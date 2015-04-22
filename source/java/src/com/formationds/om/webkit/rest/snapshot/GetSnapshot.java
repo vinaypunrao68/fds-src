@@ -93,6 +93,7 @@ public class GetSnapshot
 			mSnapshot.setName( snapshot.getSnapshotName() );
 			mSnapshot.setRetention( snapshot.getRetentionTimeSeconds() );
 			mSnapshot.setTimelineTime( snapshot.getTimelineTime() );
+			mSnapshot.setVolumeId( Long.toString( snapshot.getVolumeId() ) );
 			
 			TextResource tr = new TextResource( mSnapshot.toJSON() );
 			return tr;
