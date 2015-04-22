@@ -15,6 +15,8 @@
 #include "qos_tokbucket.h"
 #include "fds_qos.h"
 
+#include "EclipseWorkarounds.h"
+
 #define HTB_QUEUE_RATE_MIN                20         /* protection from queues not going to absolute 0 rate, eg. when
 						     * setting throttle levels, etc. */
 #define HTB_QUEUE_RATE_INFINITE_MAX       500000    /* a token bucket max rate when iops_max policy is set to 0 */

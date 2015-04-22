@@ -2,6 +2,8 @@
 #include <map>
 #include <atomic>
 
+#include "EclipseWorkarounds.h"
+
 namespace fds {
 
   const unsigned int io_dispatch_type_rate = 0;
