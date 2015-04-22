@@ -224,7 +224,7 @@ public class MemoryAmService implements XdiService.Iface {
     }
 
     @Override
-    public void updateBlob(String domain, String volume, String blob, TxDescriptor txDescriptor, ByteBuffer buffer, int length, ObjectOffset objectOffset, boolean ignored) throws ApiException, TException {
+    public void updateBlob(String domain, String volume, String blob, TxDescriptor txDescriptor, ByteBuffer buffer, int length, ObjectOffset objectOffset) throws ApiException, TException {
         byte[] object = new byte[length];
         buffer.get(object);
         getTx(volume, blob, txDescriptor.getTxId()).putObject(objectOffset.getValue(), object);
@@ -233,7 +233,7 @@ public class MemoryAmService implements XdiService.Iface {
     @Override
     public void updateBlobOnce(String domain, String volume, String blob, int mode, ByteBuffer buffer, int length, ObjectOffset objectOffset, Map<String, String> stringStringMap) throws ApiException, TException {
         TxDescriptor descriptor = startBlobTx(domain, volume, blob, mode);
-        updateBlob(domain, volume, blob, descriptor, buffer, length, objectOffset, false);
+        updateBlob(domain, volume, blob, descriptor, buffer, length, objectOffset);
         updateMetadata(domain, volume, blob, descriptor, stringStringMap);
         commitBlobTx(domain, volume, blob, descriptor);
     }

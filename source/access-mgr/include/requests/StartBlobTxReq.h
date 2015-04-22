@@ -32,7 +32,7 @@ struct StartBlobTxReq :
             AmRequest(FDS_START_BLOB_TX, _volid, _vol_name, _blob_name, _cb),
             blob_mode(_blob_mode)
     {
-        e2e_req_perf_ctx.type = AM_START_BLOB_OBJ_REQ;
+        e2e_req_perf_ctx.type = PerfEventType::AM_START_BLOB_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 };

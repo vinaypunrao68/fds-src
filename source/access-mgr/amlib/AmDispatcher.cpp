@@ -279,6 +279,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
         auto response = MSG_DESERIALIZE(GetVolumeMetadataMsgRsp, error, payload);
         boost::shared_ptr<GetVolumeMetadataCallback> cb =
                 SHARED_DYN_CAST(GetVolumeMetadataCallback, amReq->cb);
+        cb->metadata = boost::make_shared<std::map<std::string, std::string>>();
         // Copy the FDSP structure into the API structure
         for (auto const &meta : response->metadataList) {
             cb->metadata->emplace(std::pair<std::string, std::string>(meta.key, meta.value));
@@ -425,7 +426,6 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
     FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
     updBlobInfo.offset   = amReq->blob_offset;
     updBlobInfo.size     = amReq->data_len;
-    updBlobInfo.blob_end = blobReq->last_buf;
     updBlobInfo.data_obj_id.digest = std::string(
         reinterpret_cast<const char*>(amReq->obj_id.GetId()),
         amReq->obj_id.GetLen());

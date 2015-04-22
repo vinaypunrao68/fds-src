@@ -33,13 +33,25 @@ class SmDiskMap : public Module, public boost::noncopyable {
     typedef std::shared_ptr<const SmDiskMap> const_ptr;
 
     /**
+     * Loads and validates superblock / disk map
+     * @return ERR_SM_NOERR_PRISTINE_STATE is SM comes up from
+     * pristine state; otherwise ERR_OK on success
+     */
+    Error loadPersistentState();
+
+    /**
      * Updates SM token on-disk location table.
-     * Currently assumes that new DLT does not change ownership
-     * of SM tokens by this SM, will assert otherwise. This will
-     * change when we port back SM token migration
      */
     Error handleNewDlt(const DLT* dlt);
     Error handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid);
+
+    /**
+     * Updates SM token on-disk location table -- invalidates
+     * SM tokens for which this SM lost ownership
+     * @return set of SM tokens for which SM lost ownership
+     */
+    SmTokenSet handleDltClose(const DLT* dlt);
+    SmTokenSet handleDltClose(const DLT* dlt, NodeUuid& mySvcUuid);
 
     /**
      * Translation from token or object ID to SM token ID
@@ -103,6 +115,12 @@ class SmDiskMap : public Module, public boost::noncopyable {
     *
     */
     void ssdTrackCapacityDelete(ObjectID oid, fds_uint64_t writeSize);
+
+
+    /**
+     * Get current (i.e. closed DLT) from persitent storgate.
+     */
+    fds_uint64_t getDLTVersion();
 
     /**
      * Module methods

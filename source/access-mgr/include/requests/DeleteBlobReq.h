@@ -21,20 +21,20 @@ struct DeleteBlobReq: AmRequest, AmTxReq {
             :   AmRequest(FDS_DELETE_BLOB, volId, volumeName, _blob_name, cb),
                 AmTxReq(_txDesc)
     {
-        qos_perf_ctx.type = AM_DELETE_QOS;
+        qos_perf_ctx.type = PerfEventType::AM_DELETE_QOS;
         qos_perf_ctx.name = "volume:" + std::to_string(volId);
         qos_perf_ctx.reset_volid(volId);
-        hash_perf_ctx.type = AM_DELETE_HASH;
+        hash_perf_ctx.type = PerfEventType::AM_DELETE_HASH;
         hash_perf_ctx.name = "volume:" + std::to_string(volId);
         hash_perf_ctx.reset_volid(volId);
-        dm_perf_ctx.type = AM_DELETE_DM;
+        dm_perf_ctx.type = PerfEventType::AM_DELETE_DM;
         dm_perf_ctx.name = "volume:" + std::to_string(volId);
         dm_perf_ctx.reset_volid(volId);
-        sm_perf_ctx.type = AM_DELETE_SM;
+        sm_perf_ctx.type = PerfEventType::AM_DELETE_SM;
         sm_perf_ctx.name = "volume:" + std::to_string(volId);
         sm_perf_ctx.reset_volid(volId);
 
-        e2e_req_perf_ctx.type = AM_DELETE_OBJ_REQ;
+        e2e_req_perf_ctx.type = PerfEventType::AM_DELETE_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 };

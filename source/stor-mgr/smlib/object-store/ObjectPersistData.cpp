@@ -34,12 +34,12 @@ ObjectPersistData::~ObjectPersistData() {
 }
 
 Error
-ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
-                                        fds_bool_t pristineState) {
+ObjectPersistData::openObjectDataFiles(const SmDiskMap::const_ptr& diskMap,
+                                       fds_bool_t pristineState) {
     Error err(ERR_OK);
     smDiskMap = diskMap;
     DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
-    LOGDEBUG << "Will open token data files";
+    LOGDEBUG << "Will open token data files which are not opened yet.";
 
     SmTokenSet smToks = diskMap->getSmTokens();
     diskio::DataTier tier = diskio::diskTier;
@@ -52,24 +52,35 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
             fds_uint16_t fileId = diskMap->superblock->getWriteFileId(*cit, tier);
             fds_verify(fileId != SM_INVALID_FILE_ID);
             write_synchronized(mapLock) {
-                fds_verify(writeFileIdMap.count(wkey) == 0);
-                writeFileIdMap[wkey] = fileId;
+                if (writeFileIdMap.count(wkey) == 0) {
+                    writeFileIdMap[wkey] = fileId;
+                } else {
+                    fds_uint64_t fkey = getFileKey(tier, *cit, writeFileIdMap[wkey]);
+                    fds_verify(tokFileTbl.count(fkey) > 0);
+                    LOGDEBUG << "Token file already open for SM token " << *cit;
+                    err = ERR_DUPLICATE;
+                }
             }
 
-            // actually open SM token file
-            err = openTokenFile(tier, *cit, fileId);
-            fds_verify(err != ERR_DUPLICATE);  // file should not be already open
-            if (!err.ok()) {
-                LOGERROR << "Failed to open File for SM token " << *cit
-                         << " tier " << tier << " " << err;
-                break;
-            }
+            if (err != ERR_DUPLICATE) {
+                // actually open SM token file
+                err = openTokenFile(tier, *cit, fileId);
+                if (!err.ok()) {
+                    LOGERROR << "Failed to open File for SM token " << *cit
+                             << " tier " << tier << " " << err;
+                    fds_verify(err != ERR_DUPLICATE);  // file should not be already open
+                    break;
+                }
 
-            // also open old file if compaction is in progress
-            if (diskMap->superblock->compactionInProgress(*cit, tier)) {
-                fds_uint16_t oldFileId = getShadowFileId(fileId);
-                err = openTokenFile(diskio::diskTier, *cit, oldFileId);
-                fds_verify(err.ok());
+
+                // also open old file if compaction is in progress
+                if (diskMap->superblock->compactionInProgress(*cit, tier)) {
+                    fds_uint16_t oldFileId = getShadowFileId(fileId);
+                    err = openTokenFile(diskio::diskTier, *cit, oldFileId);
+                    fds_verify(err.ok());
+                }
+            } else {
+                err = ERR_OK;
             }
         }
         if ((tierNum == 0) && (ssdIds.size() > 0)) {
@@ -83,24 +94,77 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
         }
     }
 
-    // at this moment scavenger should be disabled
-    if (!pristineState) {
+    // if scavenger is disabled, most likely this is the
+    // first time we are opening file; if not, the call
+    // below does not do anything.
+    if ((!scavenger->isEnabled()) && !pristineState) {
         // for now this just tells scavenger that some
         // stats may not be available (like delete bytes,
         // reclaimable bytes) because we don't persist them (yet)
         scavenger->setPersistState();
     }
 
-    // we enable scavenger by default
-    err = scavenger->enableScavenger(diskMap, SM_CMD_INITIATOR_USER);
-    if (!err.ok()) {
-        if (err == ERR_SM_GC_TEMP_DISABLED) {
-            LOGWARN << "Failed to start scavenger because a background "
-                    << "process requires scavenger not run; Scavenger will "
-                    << "enabled when the background process finishes";
-            err = ERR_OK;   // ok, scavenger will be enabled later
+    // we enable scavenger by default, if not enabled yet
+    if (err.ok()) {
+        err = scavenger->enableScavenger(diskMap, SM_CMD_INITIATOR_USER);
+        if (!err.ok()) {
+            if (err == ERR_SM_GC_TEMP_DISABLED) {
+                LOGWARN << "Failed to start scavenger because a background "
+                        << "process requires scavenger not run; Scavenger will "
+                        << "enabled when the background process finishes";
+                err = ERR_OK;   // ok, scavenger will be enabled later
+            } else if (err == ERR_SM_GC_ENABLED) {
+                LOGNORMAL << "Scavenger already enabled, ok";
+                err = ERR_OK;
+            } else {
+                LOGERROR << "Failed to start Scavenger " << err;
+            }
+        }
+    }
+    return err;
+}
+
+Error
+ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost) {
+    Error err(ERR_OK);
+    DiskIdSet ssdIds = smDiskMap->getDiskIds(diskio::flashTier);
+    diskio::DataTier tier = diskio::diskTier;
+
+    for (fds_uint32_t tierNum = 0; tierNum < 2; ++tierNum) {
+        for (SmTokenSet::const_iterator cit = smTokensLost.cbegin();
+             cit != smTokensLost.cend();
+             ++cit) {
+            // get write file IDs from SM superblock and close corresponding token files
+            fds_uint64_t wkey = getWriteFileIdKey(tier, *cit);
+            fds_uint16_t fileId = SM_INVALID_FILE_ID;
+            write_synchronized(mapLock) {
+                fds_verify(writeFileIdMap.count(wkey) > 0);
+                fileId = writeFileIdMap[wkey];
+                writeFileIdMap.erase(wkey);
+            }
+            fds_verify(fileId != SM_INVALID_FILE_ID);
+
+            // actually close and delete SM token file
+            closeTokenFile(tier, *cit, fileId, true);
+            LOGNOTIFY << "Closed and deleted token file for tier " << tier
+                      << " smTokId " << *cit << " fileId " << fileId;
+
+            // also close and delete old file if compaction is in progress
+            if (smDiskMap->superblock->compactionInProgress(*cit, tier)) {
+                fds_uint16_t oldFileId = getShadowFileId(fileId);
+                closeTokenFile(tier, *cit, oldFileId, true);
+                LOGDEBUG << "Closed and deleted shadow token file for tier " << tier
+                         << " smTokId " << *cit << " fileId " << fileId;
+            }
+        }
+        if ((tierNum == 0) && (ssdIds.size() > 0)) {
+            // also close token files on SSDs
+            fds_verify(tier != diskio::flashTier);
+            LOGDEBUG << "Will close & delete token files on SSDs";
+            tier = diskio::flashTier;
         } else {
-            LOGERROR << "Failed to start Scavenger " << err;
+            // no SSDs, finished closing token files
+            break;
         }
     }
     return err;
@@ -109,16 +173,23 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
 Error
 ObjectPersistData::writeObjectData(const ObjectID& objId,
                                    diskio::DiskRequest* req) {
+    diskio::PersisDataIO *iop = nullptr;
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = getWriteFileId(req->getTier(), smTokId);
-    diskio::PersisDataIO *iop = getTokenFile(req->getTier(),
-                                             smTokId,
-                                             fileId, false);
-    if (shuttingDown) {
-        return ERR_NOT_READY;
+
+    if (fileId != SM_INVALID_FILE_ID) {
+        iop = getTokenFile(req->getTier(), smTokId, fileId, false);
     }
 
-    fds_verify(iop);
+    if (shuttingDown) {
+        return ERR_NOT_READY;
+    } else if (iop == nullptr) {
+        // most likely we don't have ownership of corresponding
+        // SM token, or something went very wrong. The caller should
+        // check SM token ownership
+        return ERR_NOT_FOUND;
+    }
+
     return iop->disk_write(req);
 }
 
@@ -287,7 +358,8 @@ ObjectPersistData::openTokenFile(diskio::DataTier tier,
 void
 ObjectPersistData::closeTokenFile(diskio::DataTier tier,
                                   fds_token_id smTokId,
-                                  fds_uint16_t fileId) {
+                                  fds_uint16_t fileId,
+                                  fds_bool_t delFile) {
     diskio::FilePersisDataIO *delFdesc = NULL;
     fds_uint64_t fkey = getFileKey(tier, smTokId, fileId);
 
@@ -300,6 +372,14 @@ ObjectPersistData::closeTokenFile(diskio::DataTier tier,
     if (tokFileTbl.count(fkey) > 0) {
         delFdesc = tokFileTbl[fkey];
         if (delFdesc) {
+            if (delFile) {
+                Error err = delFdesc->delete_file();
+                if (!err.ok()) {
+                    LOGWARN << "Failed to delete file, tier " << tier
+                            << " smTokId " << smTokId << " fileId" << fileId
+                            << ", but ok, ignoring " << err;
+                }
+            }
             delete delFdesc;
             delFdesc = NULL;
         }
@@ -313,6 +393,7 @@ ObjectPersistData::getTokenFile(diskio::DataTier tier,
                                 fds_uint16_t fileId,
                                 fds_bool_t openIfNotExist) {
     diskio::FilePersisDataIO *fdesc = NULL;
+    fds_verify(fileId != SM_INVALID_FILE_ID);
     fds_uint64_t fkey = getFileKey(tier, smTokId, fileId);
 
     read_synchronized(mapLock) {
@@ -320,9 +401,10 @@ ObjectPersistData::getTokenFile(diskio::DataTier tier,
             return tokFileTbl[fkey];
         } else {
             if (shuttingDown) {
-                return NULL;
+                return nullptr;
+            } else if (openIfNotExist == false) {
+                return nullptr;
             }
-            fds_verify(openIfNotExist == true);
         }
     }
 
@@ -339,8 +421,11 @@ ObjectPersistData::getWriteFileId(diskio::DataTier tier,
                                   fds_token_id smTokId) {
     fds_uint64_t key = getWriteFileIdKey(tier, smTokId);
     SCOPEDREAD(mapLock);
-    fds_verify(writeFileIdMap.count(key) > 0);
-    return writeFileIdMap[key];
+    if (writeFileIdMap.count(key) > 0) {
+        return writeFileIdMap[key];
+    }
+    // else
+    return SM_INVALID_FILE_ID;
 }
 
 void
