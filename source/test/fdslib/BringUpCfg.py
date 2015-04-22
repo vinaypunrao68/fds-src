@@ -13,7 +13,7 @@ import os.path
 import FdsSetup as inst
 import socket
 import requests
-from requests.packages.urllib3.util import Retry
+from urllib3.util import retry
 from requests.adapters import HTTPAdapter
 
 ###
