@@ -13,7 +13,7 @@ import os
 import time
 import tempfile
 import TestFDSSysMgt
-
+from fdslib.TestUtils import findNodeFromInv
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -679,21 +679,10 @@ class TestRestartInfluxDBClean(TestCase.FDSTestCase):
 
         self.log.info("Restart InfluxDB clean on %s." % n.nd_conf_dict['node-name'])
 
-# TODO: influx doesn't have a clean option.  have to stop, delete the data directories and restart.
-#        status = n.nd_agent.exec_wait("service influxdb restart")
-#        time.sleep(2)
-#
-#        if status != 0:
-#            self.log.error("Restart InfluxDB before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
-#            return False
-#
-#        status = n.nd_agent.exec_wait("service influxdb clean")
-#        time.sleep(2)
-#
-#        if status != 0:
-#            self.log.error("Clean InluxDB on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
-#            return False
-#
+        # issue the clean request (drop dbs etc)
+        status = n.nd_clean_influxdb()
+
+        # restart influx
         status = n.nd_agent.exec_wait("service influxdb restart")
         time.sleep(2)
 
@@ -746,7 +735,7 @@ class TestBootInfluxDB(TestCase.FDSTestCase):
             return True
 
         self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
-        status = n.nd_agent.exec_wait("service influxdb start")
+        status = n.nd_start_influxdb()
         time.sleep(2)
 
         if status != 0:
@@ -896,12 +885,13 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         return True
 
 class TestModifyPlatformConf(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, current_string=None, replace_string=None):
+    def __init__(self, parameters=None, current_string=None, replace_string=None, node=None):
         '''
         Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
         :param parameters: Params filled in by .ini file
         :current_string: String in platform.conf to repalce e.g. authentication=true
         :replace_string: String to replace current_string with. e.g. authentication=false
+        :node: FDS node
         '''
 
         super(self.__class__, self).__init__(parameters,
@@ -911,24 +901,31 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
 
         self.current_string = current_string
         self.replace_string = replace_string
+        self.passedNode = node
 
     def test_TestModifyPlatformConf(self):
 
-        fdscfg = self.parameters['fdscfg']
-        status = []
-        for node in fdscfg.rt_obj.cfg_nodes:
-
+        def doit(node):
             plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
 
-            status.append(node.nd_agent.exec_wait(
-                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file)))
+            return node.nd_agent.exec_wait(
+                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file))
 
-        print status
+        fdscfg = self.parameters['fdscfg']
+        status = []
+        if self.passedNode is not None:
+            self.log.info("Modifying platform.conf for node: " + self.passedNode)
+            node = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            status.append(doit(node))
+        else:
+            self.log.info("Modifying platform.conf for all nodes")
+            for node in fdscfg.rt_obj.cfg_nodes:
+                status.append(doit(node))
+
         if sum(status) != 0:
             return False
-
-        return True
-
+        else:
+            return True
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

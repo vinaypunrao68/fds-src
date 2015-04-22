@@ -146,8 +146,8 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost)
 
             // actually close and delete SM token file
             closeTokenFile(tier, *cit, fileId, true);
-            LOGDEBUG << "Closed and deleted token file for tier " << tier
-                     << " smTokId " << *cit << " fileId " << fileId;
+            LOGNOTIFY << "Closed and deleted token file for tier " << tier
+                      << " smTokId " << *cit << " fileId " << fileId;
 
             // also close and delete old file if compaction is in progress
             if (smDiskMap->superblock->compactionInProgress(*cit, tier)) {

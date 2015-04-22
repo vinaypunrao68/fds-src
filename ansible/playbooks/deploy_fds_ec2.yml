@@ -37,7 +37,6 @@
                 Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
             key_name: fds-ie
-            group_id: sg-43b9c126
             instance_type:  "{{ instance_type }}"
             image: "{{ image }}"
             volumes:

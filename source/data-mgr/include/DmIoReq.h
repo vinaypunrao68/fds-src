@@ -45,6 +45,7 @@ extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& 
 extern std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
 extern std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg& msg);
+extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 // ======
 
     /*
@@ -718,6 +719,21 @@ struct DmIoDeleteBlob: dmCatReq {
                                           message->blob_version,
                                           FDS_DELETE_BLOB) {
     }
+};
+
+struct DmIoReloadVolume : dmCatReq {
+    boost::shared_ptr<fpi::ReloadVolumeMsg> message;
+    boost::shared_ptr<fpi::ReloadVolumeRspMsg> response;
+    explicit DmIoReloadVolume(boost::shared_ptr<fpi::ReloadVolumeMsg> msg)
+            : message(msg),
+              response(new fpi::ReloadVolumeRspMsg()),
+              dmCatReq(msg->volume_id, "", "", 0, FDS_DM_RELOAD_VOLUME) {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoReloadVolume& io) {
+        return out << "DmIoReloadVolume vol " << std::hex << io.volId << std::dec;
+    }
+
 };
 
 }  // namespace fds

@@ -407,8 +407,11 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
 void DMSvcHandler::shutdownDM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::PrepareForShutdownMsg>& shutdownMsg) {
-    LOGDEBUG << "Received shutdown message DM ... shuttting down...";
-    dataMgr->mod_shutdown();
+    LOGDEBUG << "Received shutdown message DM ... flush IOs..";
+    dataMgr->flushIO();
+
+    // respond to OM
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
 void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,

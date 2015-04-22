@@ -279,6 +279,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
         auto response = MSG_DESERIALIZE(GetVolumeMetadataMsgRsp, error, payload);
         boost::shared_ptr<GetVolumeMetadataCallback> cb =
                 SHARED_DYN_CAST(GetVolumeMetadataCallback, amReq->cb);
+        cb->metadata = boost::make_shared<std::map<std::string, std::string>>();
         // Copy the FDSP structure into the API structure
         for (auto const &meta : response->metadataList) {
             cb->metadata->emplace(std::pair<std::string, std::string>(meta.key, meta.value));
