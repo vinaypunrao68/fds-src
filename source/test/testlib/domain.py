@@ -45,9 +45,9 @@ class Domain(object):
             else:
                 terminated.append(node)
         
-        self.log.info("%s/%s nodes running", % (len(running), self.cluster_size))
-        self.log.info("%s/%s nodes halted", % (len(halted), self.cluster_size))
-        self.log.info("%s/%s nodes terminated", % (len(terminated), self.cluster_size))
+        self.log.info("%s/%s nodes running" % (len(running), self.cluster_size))
+        self.log.info("%s/%s nodes halted" % (len(halted), self.cluster_size))
+        self.log.info("%s/%s nodes terminated" % (len(terminated), self.cluster_size))
         
     def halt(self):
         if not self.has_started:
@@ -59,7 +59,7 @@ class Domain(object):
             thread.start()
             thread.join()
 
-    def shutdown(self):
+    def terminate(self):
         if not self.has_started:
             self.log.warning("Cluster has not been created yet. Nothing to do")
             return
