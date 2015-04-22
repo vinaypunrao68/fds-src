@@ -25,10 +25,10 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
     }
 
     if (!volQueue) {
-        volQueue = new FDS_VolumeQueue(4096,
-                                       vdesc.iops_throttle,
-                                       vdesc.iops_assured,
-                                       vdesc.relativePrio);
+        volQueue.reset(new FDS_VolumeQueue(4096,
+                                           vdesc.iops_throttle,
+                                           vdesc.iops_assured,
+                                           vdesc.relativePrio));
     }
     volQueue->activate();
 }
