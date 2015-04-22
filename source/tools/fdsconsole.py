@@ -9,6 +9,8 @@ sys.path.insert(0,'{}/lib/python2.7/dist-packages/fdslib/pyfdsp'.format(dirname)
 sys.path.insert(0,'{}/lib/python2.7/dist-packages/fdslib'.format(dirname))
 sys.path.insert(0,'{}/lib/python2.7/dist-packages'.format(dirname))
 
+print "PATH = {}".format(sys.path)
+
 
 import fdsconsole.console
 

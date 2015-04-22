@@ -102,7 +102,7 @@ class SMCheckOffline {
 // This is a online version of smchecker.
 class SMCheckOnline {
   public:
-    SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap);
+    SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap, CommonModuleProviderIf *modProvider);
     ~SMCheckOnline();
 
     Error startIntegrityCheck();
@@ -126,6 +126,8 @@ class SMCheckOnline {
 
 
   private:
+
+    CommonModuleProviderIf *modProvider_;
 
     // A simple boolean to indicate state of the checker.
     // If we ever got to multiple requests, this can be converted to

@@ -363,8 +363,9 @@ boost::shared_ptr<ObjMetaData> SMCheckOffline::MetadataIterator::value() {
 // compilation or linker issues.  So, decided to decouple offline vs. online
 // smcheck.  This can be refactored, but it will take some effort to do it.
 // For now, live with having two flavors for SMCheck.
-SMCheckOnline::SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap)
-    : dataStore(datastore),
+SMCheckOnline::SMCheckOnline(SmIoReqHandler *datastore, SmDiskMap::ptr diskmap, CommonModuleProviderIf *modProvider)
+    : modProvider_(modProvider),
+      dataStore(datastore),
       diskMap(diskmap),
       latestClosedDLT(nullptr)
 
@@ -448,7 +449,7 @@ SMCheckOnline::startIntegrityCheck()
     SMCheckUuid = objStorMgr->getUuid();
 #endif
     // Get UUID of the SM.
-    SMCheckUuid = *(Platform::plf_get_my_svc_uuid());
+    SMCheckUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
 
     LOGNORMAL << "Starting SM Integrity Check: active=" << getActiveStatus();
 
