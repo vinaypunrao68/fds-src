@@ -9,7 +9,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
-import org.openqa.jetty.http.HttpException;
+import org.mortbay.jetty.HttpException;
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.util.thrift.ConfigurationApi;
