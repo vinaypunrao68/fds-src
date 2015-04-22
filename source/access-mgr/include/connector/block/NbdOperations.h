@@ -97,7 +97,7 @@ class NbdResponseVector {
     explicit NbdResponseVector(int64_t hdl, NbdOperation op,
                                uint64_t off, uint32_t len, uint32_t maxOSize,
                                uint32_t objCnt)
-      : handle(hdl), operation(op), doneCount(), offset(off), length(len),
+      : handle(hdl), operation(op), doneCount(0), offset(off), length(len),
         maxObjectSizeInBytes(maxOSize), objCount(objCnt), opError(ERR_OK) {
         if (op == READ) {
             bufVec.resize(objCnt, NULL);
