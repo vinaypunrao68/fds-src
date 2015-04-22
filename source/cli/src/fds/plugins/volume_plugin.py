@@ -281,22 +281,22 @@ class VolumePlugin( AbstractPlugin):
         
         #if -data exists all other arguments will be ignored!
         if ( args[AbstractPlugin.data_str] != None ):
-            jsonData = json.loads( args["data"] )
+            jsonData = json.loads( args[AbstractPlugin.data_str] )
             volume = VolumeConverter.build_volume_from_json( jsonData )
         # build the volume object from the arguments
         else:
             volume = Volume()
-            volume.name = args["name"]
-            volume.continuous_protection = args["continuous_protection"]
-            volume.iops_guarantee = args["iops_guarantee"]
-            volume.iops_limit = args["iops_limit"]
-            volume.priority = args["priority"]
-            volume.type = args["type"]
-            volume.media_policy = args["media_policy"]
+            volume.name = args[AbstractPlugin.name_str]
+            volume.continuous_protection = args[AbstractPlugin.continuous_protection_str]
+            volume.iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
+            volume.iops_limit = args[AbstractPlugin.iops_limit_str]
+            volume.priority = args[AbstractPlugin.priority_str]
+            volume.type = args[AbstractPlugin.type_str]
+            volume.media_policy = args[AbstractPlugin.media_policy_str]
             
             if ( volume.type == "block" ):
-                volume.current_size = args["size"]
-                volume.current_units = args["size_unit"]
+                volume.current_size = args[AbstractPlugin.size_str]
+                volume.current_units = args[AbstractPlugin.size_unit_str]
         
         volume = self.get_volume_service().create_volume( volume )
         
@@ -314,31 +314,31 @@ class VolumePlugin( AbstractPlugin):
         volume = None
         isFromData = False
         
-        if ( args["data"] != None):
+        if ( args[AbstractPlugin.data_str] != None):
             isFromData = True
-            jsonData = json.loads( args["data"] )
+            jsonData = json.loads( args[AbstractPlugin.data_str] )
             volume =  VolumeConverter.build_volume_from_json( jsonData )  
         
-        if ( isFromData == False and args["volume_name"] != None ):
-            volume = self.get_volume_service().find_volume_by_name( args["volume_name"] )
-        elif ( isFromData == False and args["volume_id"] != None ):
-            volume = self.get_volume_service().find_volume_by_id( args["volume_id"] )
+        if ( isFromData == False and args[AbstractPlugin.volume_name_str] != None ):
+            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
+        elif ( isFromData == False and args[AbstractPlugin.volume_id_str] != None ):
+            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
                
         if ( volume.id == None ):
             print "Could not find a volume that matched your entry.\n"
             return       
            
-        if ( args["iops_guarantee"] != None and isFromData == False ):
-            volume.iops_guarantee = args["iops_guarantee"]
+        if ( args[AbstractPlugin.iops_guarantee_str] != None and isFromData == False ):
+            volume.iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
             
-        if ( args["iops_limit"] != None and isFromData == False):
-            volume.iops_limit = args["iops_limit"]
+        if ( args[AbstractPlugin.iops_limit_str] != None and isFromData == False):
+            volume.iops_limit = args[AbstractPlugin.iops_limit_str]
             
-        if ( args["priority"] != None and isFromData == False):
-            volume.priority = args["priority"]
+        if ( args[AbstractPlugin.priority_str] != None and isFromData == False):
+            volume.priority = args[AbstractPlugin.priority_str]
             
-        if ( args["continuous_protection"] != None and isFromData == False):
-            volume.continuous_protection = args["continuous_protection"]      
+        if ( args[AbstractPlugin.continuous_protection_str] != None and isFromData == False):
+            volume.continuous_protection = args[AbstractPlugin.continuous_protection_str]      
             
         response = self.get_volume_service().edit_volume( volume );
         
@@ -352,17 +352,17 @@ class VolumePlugin( AbstractPlugin):
         #now
         fromTime = time.time() * 1000
         
-        if ( args["time"] != None ):
-            fromTime = args["time"]
+        if ( args[AbstractPlugin.time_str] != None ):
+            fromTime = args[AbstractPlugin.time_str]
         
         volume = None
         
-        if ( args["volume_name"] != None):
-            volume = self.get_volume_service().find_volume_by_name( args["volume_name"] )
-        elif ( args["volume_id" ] != None):
-            volume = self.get_volume_service().find_volume_by_id( args["volume_id"] )
-        elif ( args["snapshot_id"] != None):
-            volume = self.get_volume_service().find_volume_from_snapshot_id( args["snapshot_id"] )
+        if ( args[AbstractPlugin.volume_name_str] != None):
+            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
+        elif ( args[AbstractPlugin.volume_id_str] != None):
+            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
+        elif ( args[AbstractPlugin.snapshot_id_str] != None):
+            volume = self.get_volume_service().find_volume_from_snapshot_id( args[AbstractPlugin.snapshot_id_str] )
         
         if ( volume == None ):
             print "Could not find a volume associated with the input parameters."
@@ -373,20 +373,20 @@ class VolumePlugin( AbstractPlugin):
         priority = volume.priority
         continuous_protection = volume.continuous_protection
         
-        if ( args["iops_guarantee"] != None ):
-            iops_guarantee = args["iops_gurantee"]
+        if ( args[AbstractPlugin.iops_guarantee_str] != None ):
+            iops_guarantee = args[AbstractPlugin.iops_guarantee_str]
         
-        if ( args["iops_limit"] != None):
-            iops_limit = args["iops_limit"]
+        if ( args[AbstractPlugin.iops_limit_str] != None):
+            iops_limit = args[AbstractPlugin.iops_limit_str]
             
-        if ( args["priority"] != None):
-            priority = args["priority"]
+        if ( args[AbstractPlugin.priority_str] != None):
+            priority = args[AbstractPlugin.priority_str]
             
-        if ( args["continuous_protection"] != None):
-            continuous_protection = args["continuous_protection"]
+        if ( args[AbstractPlugin.continuous_protection_str] != None):
+            continuous_protection = args[AbstractPlugin.continuous_protection_str]
         
-        if ( args["data"] != None ):
-            jsonData = json.loads( args["data"] )
+        if ( args[AbstractPlugin.data_str] != None ):
+            jsonData = json.loads( args[AbstractPlugin.data_str] )
             
             if ( jsonData["priority"] != None ):
                 priority = jsonData["priority"]
@@ -407,8 +407,8 @@ class VolumePlugin( AbstractPlugin):
         
         # one URL when snapshot was chosen, a different one if the time / volume was chosen
         response = None
-        if ( args["snapshot_id"] != None ):
-            response = self.get_volume_service().clone_from_snapshot_id( args["snapshot_id"], volume )
+        if ( args[AbstractPlugin.snapshot_id_str] != None ):
+            response = self.get_volume_service().clone_from_snapshot_id( args[AbstractPlugin.snapshot_id_str], volume )
         else:
             response = self.get_volume_service().clone_from_timeline( fromTime, volume )
             
@@ -420,13 +420,13 @@ class VolumePlugin( AbstractPlugin):
         '''
         Delete the indicated volume
         '''
-        volName = args["volume_name"]
+        volName = args[AbstractPlugin.volume_name_str]
         
-        if ( args["volume_id"] != None):
-            volume = self.get_volume_service().find_volume_by_id( args["volume_id"])
+        if ( args[AbstractPlugin.volume_id_str] != None):
+            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str])
             
             if ( volume == None ):
-                print "No volume found with an ID of " + args["volume_id"]
+                print "No volume found with an ID of " + args[AbstractPlugin.volume_id_str]
                 return
                 
             volName = volume.name
@@ -445,10 +445,10 @@ class VolumePlugin( AbstractPlugin):
         
         volume = None
         
-        if ( args["volume_name"] != None ):
-            volume = self.get_volume_service().find_volume_by_name( args["volume_name"] )
+        if ( args[AbstractPlugin.volume_name_str] != None ):
+            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str] )
         else:
-            volume = self.get_volume_service().find_volume_by_id( args["volume_id"] )
+            volume = self.get_volume_service().find_volume_by_id( args[AbstractPlugin.volume_id_str] )
             
         if ( volume == None ):
             print "No volume found with the specified identification.\n"
@@ -456,8 +456,8 @@ class VolumePlugin( AbstractPlugin):
         
         snapshot = Snapshot()
         
-        snapshot.name = args["name"]
-        snapshot.retention = args["retention"]
+        snapshot.name = args[AbstractPlugin.name_str]
+        snapshot.retention = args[AbstractPlugin.retention_str]
         snapshot.timeline_time = 0
         snapshot.volume_id = volume.id
         
@@ -470,13 +470,13 @@ class VolumePlugin( AbstractPlugin):
         '''
         List snapshots for this volume
         '''
-        volId = args["volume_id"]
+        volId = args[AbstractPlugin.volume_id_str]
         
-        if ( args["volume_name"] != None):
-            volume = self.get_volume_service().find_volume_by_name( args["volume_name"])
+        if ( args[AbstractPlugin.volume_name_str] != None):
+            volume = self.get_volume_service().find_volume_by_name( args[AbstractPlugin.volume_name_str])
             
             if ( volume == None ):
-                print "No volume found with a name of " + args["volume_name"] + "\n"
+                print "No volume found with a name of " + args[AbstractPlugin.volume_name_str] + "\n"
                 return
             
             volId = volume.id
@@ -487,7 +487,7 @@ class VolumePlugin( AbstractPlugin):
             print "No snapshots found for volume with ID " + volId;
         
         #print it all out
-        if "format" in args  and args["format"] == "json":
+        if "format" in args  and args[AbstractPlugin.format_str] == "json":
             response_writer.ResponseWriter.writeJson( response )
         else:
             #The tabular format is very poor for a volume object, so we need to remove some keys before display
