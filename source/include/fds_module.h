@@ -208,11 +208,12 @@ class FdsRootDir
     inline const std::string &dir_user_repo_dm() const { return d_user_repo_dm; }
     inline const std::string &dir_timeline_dm() const { return d_timeline_dm; }
     inline const std::string &dir_user_repo_stats() const { return d_user_repo_stats; }
-    inline const std::string &dir_user_repo_snap() const { return d_user_repo_snap; }
     inline const std::string &dir_sys_repo() const { return d_sys_repo; }
     inline const std::string &dir_sys_repo_etc() const { return d_sys_repo_etc; }
     inline const std::string &dir_sys_repo_domain() const { return d_sys_repo_domain; }
     inline const std::string &dir_sys_repo_volume() const { return d_sys_repo_volume; }
+    inline const std::string &dir_sys_repo_dm() const { return d_sys_repo_dm; }
+    inline const std::string &dir_sys_repo_stats() const { return d_sys_repo_stats; }
     inline const std::string &dir_sys_repo_inventory() const {
         return d_sys_repo_inventory;
     }
@@ -234,14 +235,15 @@ class FdsRootDir
     std::string              d_user_repo;
     std::string              d_user_repo_objs;
     std::string              d_user_repo_dm;
-    std::string              d_timeline_dm;
     std::string              d_user_repo_stats;
-    std::string              d_user_repo_snap;
     std::string              d_sys_repo;
     std::string              d_sys_repo_etc;
     std::string              d_sys_repo_domain;
     std::string              d_sys_repo_volume;
     std::string              d_sys_repo_inventory;
+    std::string              d_sys_repo_dm;
+    std::string              d_timeline_dm;
+    std::string              d_sys_repo_stats;
     std::string              d_fds_repo;
 };
 

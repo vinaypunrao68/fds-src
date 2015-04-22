@@ -29,7 +29,7 @@ struct AbortBlobTxReq :
         AmRequest(FDS_ABORT_BLOB_TX, _volid, _vol_name, _blob_name, _cb),
         AmTxReq(_txDesc)
     {
-        e2e_req_perf_ctx.type = AM_ABORT_BLOB_OBJ_REQ;
+        e2e_req_perf_ctx.type = PerfEventType::AM_ABORT_BLOB_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 };

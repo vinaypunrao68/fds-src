@@ -36,18 +36,10 @@ class MockDataMgr : public SvcProcess {
 
 struct TestOMgrClient : OMgrClient {
     TestOMgrClient(fpi::FDSP_MgrIdType node_type,
-                   const std::string& _omIpStr,
-                   fds_uint32_t _omPort,
                    const std::string& node_name,
-                   fds_log *parent_log,
-                   boost::shared_ptr<netSessionTbl> nst,
-                   Platform *plf_mgr) : OMgrClient(node_type,
-                                                   _omIpStr,
-                                                   _omPort,
-                                                   node_name,
-                                                   parent_log,
-                                                   nst,
-                                                   plf_mgr) {
+                   fds_log *parent_log) : OMgrClient(node_type,
+                                                     node_name,
+                                                     parent_log) {
         setupTestMode();
     }
 
@@ -105,8 +97,6 @@ struct DMTester :  SvcProcess {
         dataMgr = new DataMgr(this);
         dataMgr->runMode = DataMgr::TEST_MODE;
         dataMgr->standalone = true;
-        dataMgr->omConfigPort = 8904;
-        dataMgr->omIpStr = "localhost";
         dataMgr->vol_map_mtx = new fds_mutex("Volume map mutex");
         dataMgr->features.setQosEnabled(false);
         dataMgr->features.setTestMode(true);
@@ -114,12 +104,8 @@ struct DMTester :  SvcProcess {
         dataMgr->features.setTimelineEnabled(false);
         auto nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
         dataMgr->omClient = new TestOMgrClient(FDSP_DATA_MGR,
-                                               dataMgr->omIpStr,
-                                               dataMgr->omConfigPort,
                                                "dm",
-                                               GetLog(),
-                                               nullptr,
-                                               nullptr);
+                                               GetLog());
 
         dataMgr->initHandlers();
         dataMgr->mod_enable_service();
@@ -163,6 +149,10 @@ struct DMTester :  SvcProcess {
             std::ostringstream oss;
             oss << "rm -rf " << root->dir_user_repo_dm() << "*";
             int rc = system(oss.str().c_str());
+
+            oss.str("");
+            oss << "rm -rf " << root->dir_sys_repo_dm() << "*";
+            rc = system(oss.str().c_str());
         } else {
             GLOGERROR << "unable to get fds root dir";
         }

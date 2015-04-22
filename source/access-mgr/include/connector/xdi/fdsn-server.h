@@ -6,7 +6,6 @@
 
 #include <string>
 #include <util/Log.h>
-#include <fds_module.h>
 #include <fdsp/XdiService.h>
 #include <concurrency/Thread.h>
 #include <AmDataApi.h>
@@ -36,7 +35,7 @@ class FdsnIf;
  * RPC-based server for FDSN. Exposes FDSN interface via
  * RPC-endpoints.
  */
-class FdsnServer : public Module {
+class FdsnServer {
   private:
     fds_uint32_t             port;
     AmDataApi::shared_ptr dataApi;
@@ -52,29 +51,20 @@ class FdsnServer : public Module {
 
     boost::shared_ptr<xdi_atc::ThreadManager>      threadManager;
     boost::shared_ptr<xdi_atc::PosixThreadFactory> threadFactory;
-    boost::shared_ptr<xdi_ats::TThreadedServer>    server;
-    boost::shared_ptr<xdi_ats::TNonblockingServer> nbServer;
+    std::unique_ptr<xdi_ats::TNonblockingServer> nbServer;
 
-    boost::shared_ptr<boost::thread> listen_thread;
+    std::unique_ptr<std::thread> listen_thread;
 
   public:
-    FdsnServer(const std::string &name,
-               AmDataApi::shared_ptr &_dataApi,
-               fds_uint32_t instanceId = 0);
-    virtual ~FdsnServer() {
-    }
-    typedef std::unique_ptr<FdsnServer> unique_ptr;
+    FdsnServer(AmDataApi::shared_ptr &_dataApi,
+               fds_uint32_t pmPort);
+    FdsnServer(FdsnServer const&) = delete;
+    FdsnServer& operator=(FdsnServer const&) = delete;
+    ~FdsnServer()
+        { stop(); }
 
-    int  mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
-
-    virtual void init_server();
-    virtual void deinit_server();
-
-    boost::shared_ptr<xdi_ats::TNonblockingServer> getNBServer() {
-        return nbServer;
-    }
+    void start();
+    void stop();
 };
 
 }  // namespace fds

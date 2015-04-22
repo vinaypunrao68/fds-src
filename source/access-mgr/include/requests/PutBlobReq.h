@@ -12,23 +12,14 @@
 namespace fds
 {
 
-class StorHvQosCtrl;
-
 struct PutBlobReq
     :   public AmRequest,
         public AmTxReq
 {
-    // TODO(Andrew): Fields that could use some cleanup.
-    // We can mostly remove these with the new callback mechanism
-    BucketContext *bucket_ctxt;
-    void *req_context;
-    void *callback_data;
-    fds_bool_t last_buf;
-
     // Needed fields
     fds_uint64_t dmt_version;
 
-    /// Shared pointer to data. If this is used, the inherited raw pointer is NULL
+    /// Shared pointer to data.
     boost::shared_ptr<std::string> dataPtr;
 
     /// Used for putBlobOnce scenarios.
@@ -54,10 +45,6 @@ struct PutBlobReq
                fds_uint64_t _data_len,
                boost::shared_ptr<std::string> _data,
                BlobTxId::ptr _txDesc,
-               fds_bool_t _last_buf,
-               BucketContext* _bucket_ctxt,
-               PutPropertiesPtr _put_props,
-               void* _req_context,
                CallbackPtr _cb);
 
     /// Constructor used on putBlobOnce requests.
@@ -71,10 +58,6 @@ struct PutBlobReq
                boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                CallbackPtr _cb);
 
-    std::string getEtag() const {
-        return put_properties ? put_properties->md5 : std::string();
-    }
-
     void setTxId(const BlobTxId &txId) {
         // We only expect to need to set this in putBlobOnce cases
         fds_verify(tx_desc == NULL);
@@ -84,9 +67,6 @@ struct PutBlobReq
     virtual ~PutBlobReq();
 
     void notifyResponse(const Error &e);
-
- private:
-    PutPropertiesPtr put_properties;
 };
 
 }  // namespace fds

@@ -259,7 +259,11 @@ namespace fds {
 
             if (bypass_dispatcher == false) {
                 FDS_VolumeQueue *que = queue_map[queue_id];
-                que->enqueueIO(io);
+                err = que->enqueueIO(io);
+                if (!err.ok()) {
+                    qda_lock.read_unlock();
+                    return err;
+                }
 
                 ioProcessForEnqueue(queue_id, io);
 

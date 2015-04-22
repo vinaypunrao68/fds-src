@@ -6,16 +6,21 @@
     vars_files:
     -   ../vars_files/credentials/aws_fds_testing.yml
     -   ../vars_files/credentials/fds-deploy_rsa.yml
+    vars:
+    -   instance_type: "{% if ec2_instance_type is defined %}{{ ec2_instance_type }}{% else %}t2.medium{% endif %}"
+    -   root_volume_size_GB: "{% if ec2_root_volume_size_GB is defined %}{{ ec2_root_volume_size_GB }}{% else %}30{% endif %}"
+    -   vpc_subnet_id: "{% if ec2_vpc_subnet_id is defined %}{{ ec2_vpc_subnet_id }}{% else %}subnet-195bac40{% endif %}"
+    -   image: "{% if ec2_image is defined %}{{ ec2_image }}{% else %}ami-0f114a3f{% endif %}"
 
     tasks:
 
-    -   name: check for instance_name_tag
-        fail: msg="You must supply a value for instance_name_tag"
-        when: instance_name_tag is not defined
-
-    -   name: check for instance_count
-        fail: msg="You must supply a value for instance_count"
-        when: instance_count is not defined
+    -   name: check for required variables
+        fail: 
+            msg: "You must supply a value for {{ item }}"
+        when: "{{ item }} is not defined"
+        with_items:
+            - instance_count
+            - instance_name_tag
 
     -   name: copy FDS deploy key locally
         include: ../tasks/deploy_fds/copy_fds_deploy_key.yml
@@ -32,14 +37,13 @@
                 Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
             key_name: fds-ie
-            group_id: sg-43b9c126
-            instance_type: t2.medium
-            image: ami-0f114a3f
+            instance_type:  "{{ instance_type }}"
+            image: "{{ image }}"
             volumes:
                 -   device_name: /dev/sda1
-                    volume_size: 30
+                    volume_size: "{{ root_volume_size_GB }}"
                     delete_on_termination: true
-            vpc_subnet_id: subnet-195bac40
+            vpc_subnet_id: "{{ vpc_subnet_id }}"
             monitoring: no
             region: us-west-2
             zone: us-west-2c
@@ -92,9 +96,6 @@
         tags:
           - install-local
 
-#    -   debug:
-#            msg: "{{groups.cody-foobar}}"
-
     -   name: wait for SSH to come up on all instances
         wait_for: host={{ item }} port=22 delay=1 timeout=300 state=started
         with_items: groups.{{ fds_cluster_name }}
@@ -109,6 +110,7 @@
         this_is_an_ec2_node: true
     vars_files:
     -   ../vars_files/multi_om_setup.yml
+    -   ../vars_files/credentials/ssl_certs.yml
 
     handlers:
     -   name: restart ssh
@@ -116,5 +118,12 @@
             state=restarted
 
     tasks:
+
+    -   name: DUMPING EC2 IP ADDRESS AT -- /tmp/yourinventoryfilename_ips.txt
+        local_action: template src=../templates/deploy_fds/ec2_ips.txt.j2
+            dest=/tmp/{{fds_cluster_name}}_ips.txt
+            mode=0400
+        sudo: false
+        ignore_errors: true
 
     -   include: ../tasks/deploy_fds/deploy_fds.yml

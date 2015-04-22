@@ -16,6 +16,7 @@ ObjectMetadataStore::ObjectMetadataStore(const std::string& modName)
 
 ObjectMetadataStore::~ObjectMetadataStore() {
     metaDb_.reset();
+    metaCache.reset();
 }
 
 int
@@ -33,10 +34,14 @@ ObjectMetadataStore::mod_init(SysParams const *const param) {
 
 void
 ObjectMetadataStore::mod_startup() {
+    Module::mod_startup();
 }
 
 void
 ObjectMetadataStore::mod_shutdown() {
+    metaDb_->closeMetadataDb();
+    Module::mod_shutdown();
+    LOGDEBUG << "Done.";
 }
 
 void
@@ -49,6 +54,11 @@ ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
     return metaDb_->openMetadataDb(diskMap);
 }
 
+Error
+ObjectMetadataStore::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
+    return metaDb_->closeAndDeleteMetadataDbs(smTokensLost);
+}
+
 ObjMetaData::const_ptr
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
@@ -57,7 +67,7 @@ ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
     ObjMetaData::const_ptr objMeta
             = metaCache->getObjectMetadata(volId, objId, err);
     if (err.ok()) {
-        PerfTracer::incr(SM_OBJ_METADATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(PerfEventType::SM_OBJ_METADATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
         LOGDEBUG << "Got " << objId << " metadata from cache";
         return objMeta;
     }
@@ -123,7 +133,7 @@ ObjectMetadataStore::snapshot(fds_token_id smTokId,
     leveldb::DB *db;
     leveldb::ReadOptions options;
 
-    metaDb_->snapshot(smTokId, db, options);
+    err = metaDb_->snapshot(smTokId, db, options);
     notifFn(err, snapReq, options, db);
 }
 

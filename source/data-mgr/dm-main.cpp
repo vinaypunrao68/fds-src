@@ -31,21 +31,9 @@ class DMMain : public SvcProcess
             NULL
         };
 
-        /* Before calling init, close all file descriptors.  Later, we may daemonize the
-         * process, in which case we may be closing all existing file descriptors while
-         * threads may access the file descriptor.
-         */
-        closeAllFDs();
-
         /* Init Service process */
         init<fds::DMSvcHandler, fpi::DMSvcProcessor>(argc, argv, "platform.conf",
                 "fds.dm.", "dm.log", dmVec);
-
-        /* Daemonize */
-        fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
-        if (noDaemon == false) {
-            daemonize();
-        }
     }
 
     virtual ~DMMain() {
@@ -62,6 +50,9 @@ class DMMain : public SvcProcess
 
 int main(int argc, char *argv[])
 {
+    /* Based on command line arg --foreground is set, don't daemonize the process */
+    fds::FdsProcess::checkAndDaemonize(argc, argv);
+
     auto dmMain = new DMMain(argc, argv);
     auto ret = dmMain->main();
     delete dmMain;

@@ -7,7 +7,7 @@ user_fds_ar_libs  := \
     fds-am-engine \
     fds-am-connectors
 
-user_cc           := ngx_modules.c
+user_cc           :=
 user_cpp          := \
     smapi_gtest.cpp
 
@@ -19,10 +19,10 @@ user_bin_exe      := \
     slsmperf_gtest \
     svc_gtest
 
-smapi_gtest           := smapi_gtest.cpp ngx_modules.c
-smperf_gtest          := smperf_gtest.cpp ngx_modules.c
-slsmperf_gtest        := slsmperf_gtest.cpp ngx_modules.c
-svc_gtest             := svc_gtest.cpp ngx_modules.c
-smperf_dmsm_gtest     := smperf_dmsm_gtest.cpp ngx_modules.c
+smapi_gtest           := smapi_gtest.cpp
+smperf_gtest          := smperf_gtest.cpp
+slsmperf_gtest        := slsmperf_gtest.cpp
+svc_gtest             := svc_gtest.cpp
+smperf_dmsm_gtest     := smperf_dmsm_gtest.cpp
 
 include $(test_topdir)/Makefile.svc

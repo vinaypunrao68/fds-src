@@ -29,6 +29,22 @@ void ObjectMetadataDb::setNumBitsPerToken(fds_uint32_t nbits) {
     bitsPerToken_ = nbits;
 }
 
+void
+ObjectMetadataDb::closeMetadataDb() {
+    std::unordered_map<fds_token_id, osm::ObjectDB *>::iterator it;
+    LOGDEBUG << "Will close all open Metadata DBs";
+
+    SCOPEDWRITE(dbmapLock_);
+    for (it = tokenTbl.begin();
+         it != tokenTbl.end();
+         ++it) {
+        osm::ObjectDB * objDb = it->second;
+        delete objDb;
+        it->second = NULL;
+    }
+    tokenTbl.clear();
+}
+
 Error
 ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     Error err(ERR_OK);
@@ -80,6 +96,24 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
 }
 
 Error
+ObjectMetadataDb::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
+    Error err(ERR_OK);
+    for (SmTokenSet::const_iterator cit = smTokensLost.cbegin();
+         cit != smTokensLost.cend();
+         ++cit) {
+        Error tmpErr = closeObjectDB(*cit, true);
+        if (!tmpErr.ok()) {
+            LOGERROR << "Failed to close ObjectDB for SM token " << *cit
+                     << " " << tmpErr;
+            err = tmpErr;
+        } else {
+            LOGNOTIFY << "Closed ObjectDB for SM token " << *cit;
+        }
+    }
+    return err;
+}
+
+Error
 ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
@@ -116,11 +150,15 @@ osm::ObjectDB *ObjectMetadataDb::getObjectDB(const ObjectID& objId) {
 
     SCOPEDREAD(dbmapLock_);
     TokenTblIter iter = tokenTbl.find(smTokId);
-    fds_verify(iter != tokenTbl.end());
-    return iter->second;
+    if (iter != tokenTbl.end()) {
+        return iter->second;
+    }
+
+    // else did not find it
+    return NULL;
 }
 
-void
+Error
 ObjectMetadataDb::snapshot(fds_token_id smTokId,
                            leveldb::DB*& db,
                            leveldb::ReadOptions& opts) {
@@ -128,13 +166,17 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
 
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
-        fds_verify(iter != tokenTbl.end());
-        odb = iter->second;
+        if (iter != tokenTbl.end()) {
+            odb = iter->second;
+        }
     }
-    fds_verify(odb != nullptr);
+    if (!odb) {
+        return ERR_NOT_FOUND;
+    }
 
     db = odb->GetDB();
     opts.snapshot = db->GetSnapshot();
+    return ERR_OK;
 }
 
 Error
@@ -144,8 +186,9 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
     osm::ObjectDB *odb = nullptr;
     read_synchronized(dbmapLock_) {
         TokenTblIter iter = tokenTbl.find(smTokId);
-        fds_verify(iter != tokenTbl.end());
-        odb = iter->second;
+        if (iter != tokenTbl.end()) {
+            odb = iter->second;
+        }
     }
 
     if (odb == nullptr) {
@@ -155,15 +198,20 @@ ObjectMetadataDb::snapshot(fds_token_id smTokId,
     }
 }
 
-void ObjectMetadataDb::closeObjectDB(fds_token_id smTokId) {
-    osm::ObjectDB *objdb = NULL;
+Error ObjectMetadataDb::closeObjectDB(fds_token_id smTokId,
+                                      fds_bool_t destroy) {
+    osm::ObjectDB *objdb = nullptr;
 
     SCOPEDWRITE(dbmapLock_);
     TokenTblIter iter = tokenTbl.find(smTokId);
-    if (iter == tokenTbl.end()) return;
+    if (iter == tokenTbl.end()) return ERR_NOT_FOUND;
     objdb = iter->second;
     tokenTbl.erase(iter);
+    if (destroy) {
+        objdb->closeAndDestroy();
+    }
     delete objdb;
+    return ERR_OK;
 }
 
 /**
@@ -178,10 +226,14 @@ ObjectMetadataDb::get(fds_volid_t volId,
     ObjectBuf buf;
 
     osm::ObjectDB *odb = getObjectDB(objId);
-    fds_verify(odb != NULL);
+    if (!odb) {
+        LOGWARN << "ObjectDB probably not open, is this expected?";
+        err = ERR_NOT_READY;
+        return NULL;
+    }
 
     // get meta from DB
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     err = odb->Get(objId, buf);
     if (!err.ok()) {
@@ -190,9 +242,6 @@ ObjectMetadataDb::get(fds_volid_t volId,
     }
 
     ObjMetaData::const_ptr objMeta(new ObjMetaData(buf));
-    // objMeta->deserializeFrom(buf);
-    // TODO(Anna) token sync code -- objMeta.checkAndDemoteUnsyncedData;
-
     return objMeta;
 }
 
@@ -200,10 +249,13 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
                             const ObjectID& objId,
                             ObjMetaData::const_ptr objMeta) {
     osm::ObjectDB *odb = getObjectDB(objId);
-    fds_verify(odb != NULL);
+    if (!odb) {
+        LOGWARN << "ObjectDB probably not open, is this expected?";
+        return ERR_NOT_READY;
+    }
 
     // store gata
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     ObjectBuf buf;
     objMeta->serializeTo(buf);
@@ -216,9 +268,12 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
 Error ObjectMetadataDb::remove(fds_volid_t volId,
                                const ObjectID& objId) {
     osm::ObjectDB *odb = getObjectDB(objId);
-    fds_verify(odb != NULL);
+    if (!odb) {
+        LOGWARN << "ObjectDB probably not open, is this expected?";
+        return ERR_NOT_READY;
+    }
 
-    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
+    PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     return odb->Delete(objId);
 }

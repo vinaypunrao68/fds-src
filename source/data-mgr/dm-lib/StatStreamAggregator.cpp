@@ -285,7 +285,7 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
 
-    root->fds_mkdir(root->dir_user_repo_stats().c_str());
+    root->fds_mkdir(root->dir_sys_repo_stats().c_str());
 
     fpi::StatStreamRegistrationMsgPtr minLogReg(new fpi::StatStreamRegistrationMsg());
     minLogReg->id = MinLogRegId;
@@ -467,7 +467,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     char buf[50];
 
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string fileName = root->dir_user_repo_stats() + std::to_string(vol_id) +
+    const std::string fileName = root->dir_sys_repo_stats() + std::to_string(vol_id) +
             std::string("/") + (isMin ? "stat_min.log" : "stat_hour.log");
 
     FILE   *pFile = fopen((const char *)fileName.c_str(), "a+");
@@ -513,7 +513,7 @@ Error
 StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     Error err(ERR_OK);
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string src_dir = root->dir_user_repo_stats() + std::to_string(vol_id) +
+    const std::string src_dir = root->dir_sys_repo_stats() + std::to_string(vol_id) +
                                               std::string("/");
     const fpi::SvcUuid & dmSvcUuid = dm_uuid.toSvcUuid();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
@@ -529,7 +529,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
         svcmgr->mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM), "fds_root");
     std::string dst_ip = dmSvcInfo.ip;
 
-    const std::string dst_node = node_root + "user-repo/vol-stats/" +
+    const std::string dst_node = node_root + "sys-repo/vol-stats/" +
                                     std::to_string(vol_id) + std::string("/");
     const std::string rsync_cmd = "sshpass -p passwd rsync -r "
             + src_dir + "  root@" + dst_ip + ":" + dst_node + "";
@@ -818,7 +818,7 @@ void StatStreamTimerTask::runTimerTask() {
                     << reg_->dest.svc_uuid << std::dec << "'";
         } else {
             // XXX: hard-coded to bind to java endpoint in AM
-            EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8999,
+            EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
                     reg_->id, dataPoints);
         }
     }

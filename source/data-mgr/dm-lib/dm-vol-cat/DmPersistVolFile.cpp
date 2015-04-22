@@ -23,7 +23,7 @@ DmPersistVolFile::DmPersistVolFile(fds_volid_t volId, fds_uint32_t objSize,
             std::string("DmOIDArrayMmap") + std::to_string(volId), MMAP_CACHE_SIZE));
 
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    dirname_ = root->dir_user_repo_dm();
+    dirname_ = snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm();
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
         // volume
         dirname_ += getVolIdStr();
@@ -98,6 +98,10 @@ Error DmPersistVolFile::copyVolDir(const std::string & destName) {
         return ERR_DISK_WRITE_FAILED;
     }
 
+    return ERR_OK;
+}
+
+Error DmPersistVolFile::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
     return ERR_OK;
 }
 
@@ -238,13 +242,16 @@ Error DmPersistVolFile::getObject(const std::string & blobName, fds_uint64_t sta
         fpi::FDSP_BlobObjectInfo blobInfo;
         blobInfo.offset = objIndex * objSize_;
         blobInfo.size = objSize_;
-        blobInfo.blob_end = false;  // assume false
         std::string objStr(reinterpret_cast<const char *>(obj.GetId()), obj.GetLen());
         blobInfo.data_obj_id.digest = objStr;
 
         objList.push_back(blobInfo);
     }
 
+    return ERR_OK;
+}
+
+Error DmPersistVolFile::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
     return ERR_OK;
 }
 

@@ -45,6 +45,7 @@
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <dm-tvc/TimelineDB.h>
 #include <StatStreamAggregator.h>
+#include <DataMgrIf.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -57,7 +58,7 @@ struct DataMgr;
 class DMSvcHandler;
 extern DataMgr *dataMgr;
 
-struct DataMgr : Module, DmIoReqHandler {
+struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     OMgrClient     *omClient;
@@ -97,12 +98,34 @@ struct DataMgr : Module, DmIoReqHandler {
         return vol_meta_map[volId]->vol_desc->name;
     }
 
-    inline const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
+    virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
         FDSGUARD(vol_map_mtx);
         std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
                 vol_meta_map.find(volId);
         return (vol_meta_map.end() != iter && iter->second ?
                 iter->second->vol_desc : 0);
+    }
+
+    ///
+    /// Check if a given volume is active.
+    ///
+    /// @param volumeId The ID of the volume to check.
+    ///
+    /// @return ERR_OK if the volume is active. ERR_VOL_NOT_FOUND if @p volumeId is not in the
+    ///         volume map. ERR_DM_VOL_NOT_ACTIVATED if the volume exists but is not active.
+    ///
+    Error validateVolumeIsActive(fds_volid_t const volumeId) const {
+        auto volumeDesc = getVolumeDesc(volumeId);
+        if (!volumeDesc) {
+            return ERR_VOL_NOT_FOUND;
+        }
+
+        if (volumeDesc->state != Active)
+        {
+            return ERR_DM_VOL_NOT_ACTIVATED;
+        }
+
+        return ERR_OK;
     }
 
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
@@ -120,34 +143,43 @@ struct DataMgr : Module, DmIoReqHandler {
         bool fCatSyncEnabled = true;
         bool fTestMode = false;
         bool fTimelineEnabled = true;
+        bool fVolumeTokensEnabled { false };
 
       public:
         inline bool isQosEnabled() const {
             return fQosEnabled;
         }
-        inline void setQosEnabled(bool val) {
+        inline void setQosEnabled(bool const val) {
             fQosEnabled = val;
         }
 
         inline bool isCatSyncEnabled() const {
             return fCatSyncEnabled;
         }
-        inline void setCatSyncEnabled(bool val) {
+        inline void setCatSyncEnabled(bool const val) {
             fCatSyncEnabled = val;
         }
 
         inline bool isTestMode() const {
             return fTestMode;
         }
-        inline void setTestMode(bool val) {
+        inline void setTestMode(bool const val) {
             fTestMode = val;
         }
 
         inline bool isTimelineEnabled() const {
             return fTimelineEnabled;
         }
-        inline void setTimelineEnabled(bool val) {
+        inline void setTimelineEnabled(bool const val) {
             fTimelineEnabled = val;
+        }
+
+        inline bool isVolumeTokensEnabled() const {
+            return fVolumeTokensEnabled;
+        }
+
+        inline void setVolumeTokensEnabled(bool const val) {
+            fVolumeTokensEnabled = val;
         }
     } features;
 
@@ -226,8 +258,13 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
+                case FDS_STAT_VOLUME:
                 case FDS_GET_VOLUME_METADATA:
+                case FDS_SET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
+                case FDS_OPEN_VOLUME:
+                case FDS_CLOSE_VOLUME:
+                case FDS_DM_RELOAD_VOLUME:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -261,8 +298,6 @@ struct DataMgr : Module, DmIoReqHandler {
     std::string  stor_prefix;   /* String prefix to make file unique */
     fds_uint32_t  scheduleRate;
     fds_bool_t   standalone;    /* Whether to bootstrap from OM */
-    std::string  omIpStr;       /* IP addr of the OM used to bootstrap */
-    fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
 
     std::string myIp;
 
@@ -352,6 +387,7 @@ struct DataMgr : Module, DmIoReqHandler {
     void updateCatalog(dmCatReq *io);
     /* End of new refactored DM message handlers */
 
+    void flushIO();
     void scheduleDeleteCatObjSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void snapVolCat(dmCatReq *io);
@@ -377,7 +413,14 @@ struct DataMgr : Module, DmIoReqHandler {
      */
     Error deleteSnapshot(const fds_uint64_t snapshotId);
 
+    virtual std::string getSnapDirBase() const override;
+
     Error deleteVolumeContents(fds_volid_t volId);
+
+    virtual std::string getSysVolumeName(const fds_volid_t &volId) const override;
+
+    virtual std::string getSnapDirName(const fds_volid_t &volId,
+                                       const int64_t snapId) const override;
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;

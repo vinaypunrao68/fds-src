@@ -548,15 +548,15 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_user_repo(root     + std::string("user-repo/")),
       d_user_repo_objs(d_user_repo + std::string("objects/")),
       d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
-      d_timeline_dm(d_user_repo + std::string("timeline/")),
       d_user_repo_stats(d_user_repo   + std::string("vol-stats/")),
-      d_user_repo_snap(d_user_repo   + std::string("snap/")),
-
       d_sys_repo(root      + std::string("sys-repo/")),
       d_sys_repo_etc(d_sys_repo       + std::string("etc/")),
       d_sys_repo_domain(d_sys_repo    + std::string("domain/")),
       d_sys_repo_volume(d_sys_repo    + std::string("volume/")),
       d_sys_repo_inventory(d_sys_repo + std::string("inventory/")),
+      d_sys_repo_dm(d_sys_repo        + std::string("dm-names/")),
+      d_timeline_dm(d_sys_repo + std::string("timeline/")),
+      d_sys_repo_stats(d_sys_repo   + std::string("vol-stats/")),
       d_fds_repo(root      + std::string("fds-repo/")) {}
 
 /*

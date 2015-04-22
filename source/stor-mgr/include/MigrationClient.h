@@ -35,7 +35,8 @@ class MigrationClient {
     explicit MigrationClient(SmIoReqHandler *_dataStore,
                              NodeUuid& _destinationSMNodeID,
                              fds_uint64_t& targetDltVersion,
-                             fds_uint32_t bitsPerToken);
+                             fds_uint32_t bitsPerToken,
+                             bool forResync);
     ~MigrationClient();
 
      enum MigrationClientState {
@@ -114,6 +115,9 @@ class MigrationClient {
      */
     fds_bool_t forwardIfNeeded(fds_token_id dltToken,
                                FDS_IOType* req);
+    fds_bool_t forwardAddObjRefIfNeeded(fds_token_id dltToken,
+                                        fpi::AddObjectRefMsgPtr addObjRefReq);
+
 
   private:
     /* Verify that set of DLT tokens belong to the same SM token.
@@ -274,6 +278,11 @@ class MigrationClient {
      * from the source SM to destination SM.
      */
     std::atomic<uint64_t> seqNumDeltaSet;
+
+    /**
+     * Is this migration for a SM resync
+     */
+    bool forResync;
 
     /**
      * Standalone test mode.

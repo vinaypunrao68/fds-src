@@ -9,7 +9,6 @@ user_cpp         :=      \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
     fds_timer.cpp        \
-    LocalClusterMap.cpp  \
     OMgrClient.cpp       \
     QoSWFQDispatcher.cpp \
     qos_htb.cpp          \
@@ -19,14 +18,14 @@ user_cpp         :=      \
     serialize.cpp        \
     fds_counters.cpp     \
     fds_types.cpp        \
-    ClusterCommMgr.cpp   \
     fds_volume.cpp       \
     dmt.cpp              \
     fds_error.cpp        \
     PerfHistory.cpp      \
     StatsCollector.cpp   \
     ObjectLogger.cpp 	 \
-	Histogram.cpp
+	Histogram.cpp 	\
+    S3Client.cpp
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \

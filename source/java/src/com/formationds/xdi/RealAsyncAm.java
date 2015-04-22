@@ -5,12 +5,14 @@ import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
+import com.formationds.util.Retry;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
+import org.joda.time.Duration;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -57,7 +59,10 @@ public class RealAsyncAm implements AsyncAm {
             responseListener.start();
 
             if (connectedMode) {
-                handshake(port).get();
+                new Retry<Void, Void>((x, i) ->
+                        handshake(port).get(),
+                        120, Duration.standardSeconds(1), "async handshake with bare_am")
+                        .apply(null);
                 LOG.info("Async AM handshake done");
             }
 
@@ -92,9 +97,9 @@ public class RealAsyncAm implements AsyncAm {
     }
 
     @Override
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset) {
+    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder order, boolean descending) {
         return scheduleAsync(rid -> {
-            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset, "", BlobListOrder.UNSPECIFIED, false);
+            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset, pattern, order, descending);
         });
     }
 
@@ -152,7 +157,7 @@ public class RealAsyncAm implements AsyncAm {
     public CompletableFuture<Void> updateBlob(String domainName, String volumeName, String blobName,
                                               TxDescriptor txDescriptor, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) {
         return scheduleAsync(rid -> {
-            oneWayAm.updateBlob(rid, domainName, volumeName, blobName, txDescriptor, bytes, length, new ObjectOffset(objectOffset), isLast);
+            oneWayAm.updateBlob(rid, domainName, volumeName, blobName, txDescriptor, bytes, length, new ObjectOffset(objectOffset));
         });
     }
 

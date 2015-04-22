@@ -51,7 +51,7 @@ service XdiService {
         throws (1: common.ApiException e),
 
     void updateBlob(1:string domainName,
-                    2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset, 9:bool isLast) throws (1: common.ApiException e),
+                    2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset) throws (1: common.ApiException e),
 
     void updateBlobOnce(1:string domainName,
                         2:string volumeName, 3:string blobName, 4:i32 blobMode, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset, 8:map<string, string> metadata) throws (1: common.ApiException e),
@@ -72,6 +72,12 @@ service AsyncXdiServiceRequest {
     oneway void volumeContents(1:RequestId requestId, 2:string domainName,
                                3:string volumeName, 4:i32 count, 5:i64 offset, 6:string pattern,
                                7:common.BlobListOrder orderBy, 8:bool descending),
+
+    oneway void setVolumeMetadata(1:RequestId requestId, 2:string domainName,
+                                  3:string volumeName, 4:map<string, string> metadata),
+
+    oneway void getVolumeMetadata(1:RequestId requestId, 2:string domainName,
+                                  3:string volumeName),
 
     oneway void statBlob(1:RequestId requestId, 2:string domainName,
                          3:string volumeName, 4:string blobName),
@@ -96,7 +102,7 @@ service AsyncXdiServiceRequest {
 
     oneway void updateBlob(1:RequestId requestId, 2:string domainName,
                            3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc, 6:binary bytes, 
-                           7:i32 length, 8:ObjectOffset objectOffset, 9:bool isLast),
+                           7:i32 length, 8:ObjectOffset objectOffset),
 
     oneway void updateBlobOnce(1:RequestId requestId, 2:string domainName,
                                3:string volumeName, 4:string blobName, 5:i32 blobMode, 6:binary bytes, 
@@ -114,6 +120,10 @@ service AsyncXdiServiceResponse {
     oneway void attachVolumeResponse(1:RequestId requestId),
 
     oneway void volumeContents(1:RequestId requestId, 2:list<common.BlobDescriptor> response),
+
+    oneway void setVolumeMetadataResponse(1:RequestId requestId),
+
+    oneway void getVolumeMetadataResponse(1:RequestId requestId, 2:map<string, string> metadata),
 
     oneway void statBlobResponse(1:RequestId requestId, 2:common.BlobDescriptor response),
 

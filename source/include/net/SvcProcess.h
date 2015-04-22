@@ -7,6 +7,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include <fds_process.h>
+#include <fdsp/svc_types_types.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {

@@ -1,5 +1,6 @@
 /*
  * Copyright 2015 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp
  */
 
 namespace cpp FDS_ProtocolInterface
@@ -8,9 +9,9 @@ namespace java com.formationds.protocol.dm.types
 include "common.thrift"
 
 /**
- * Metadata information for a volume.
+ * Volume status information.
  */
-struct FDSP_VolumeMetaData {
+struct VolumeStatus {
   /** The number of blobs in the volume */
   1: i64 blobCount;
   /** The total logical capacity consumed by all blobs the volume */
@@ -75,7 +76,6 @@ struct FDSP_BlobObjectInfo {
  1: i64 offset,
  2: common.FDS_ObjectIdType data_obj_id,
  3: i64 size
- 4: bool blob_end;
 }
 
 /**

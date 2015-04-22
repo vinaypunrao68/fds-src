@@ -12,6 +12,9 @@ import os
 import os.path
 import FdsSetup as inst
 import socket
+import requests
+from requests.packages.urllib3.util import Retry
+from requests.adapters import HTTPAdapter
 
 ###
 # Base config class, which is key/value dictionary.
@@ -208,7 +211,7 @@ class FdsNodeConfig(FdsConfig):
             else:
                 log_dir = _log_dir
 
-            print "\nStart OM in", self.nd_host_name()
+            print "Start OM on %s in %s" % (self.nd_host_name(),fds_dir)
 
             self.nd_start_influxdb();
 
@@ -222,49 +225,127 @@ class FdsNodeConfig(FdsConfig):
 
             time.sleep(2)
         else:
-            log.warn("Attempting to start OM on node %s which is not configured to host OM." % self.nd_host_name())
+            log.warning("Attempting to start OM on node %s which is not configured to host OM." % self.nd_host_name())
             status = -1
 
         return status
 
     def nd_start_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
-        log.info("Starting InfluxDB")
-        print "\nStart influxdb on", self.nd_host_name()
+        log.info("Starting InfluxDB on %s" % (self.nd_host_name()))
 
         ## check if influx is running on the node.  If not, start it
-        pidstat = self.nd_agent.exec_wait('pgrep -f influxdb', output=False)
-        if pidstat == 1:
-            status = self.nd_agent.exec_wait('service influxdb start')
+        influxstat = self.nd_status_influxdb()
+        if influxstat != 0:
+            status = self.nd_agent.exec_wait('service influxdb start 2>&1 >> /dev/null', output=False)
+            if status != 0:
+                print "Failed to start InfluxDB on %s" % (self.nd_host_name())
+                log.info("Failed to start InfluxDB on %s" % (self.nd_host_name()))
         else:
-            print "\nInfluxDB is already running."
+            log.debug("InfluxDB is already running.")
             status = 0
         return status
 
     def nd_stop_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
-        log.info("Stopping InfluxDB")
-        status = self.nd_agent.exec_wait('service influxdb stop')
+        log.info("Stopping InfluxDB on %s" % (self.nd_host_name()))
+
+        status = self.nd_status_influxdb()
+        if status == 0:
+            status = self.nd_agent.exec_wait('service influxdb stop 2>&1 >> /dev/null', output=False)
+            if status != 0:
+                print "Failed to stop InfluxDB on %s" % (self.nd_host_name())
+                log.warning("Failed to stop InfluxDB on %s" % (self.nd_host_name()))
         return status
 
     def nd_status_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
-        log.info("Checking InfluxDB")
-        status = self.nd_agent.exec_wait('service influxdb status')
+        log.info("Checking InfluxDB status on %s" % (self.nd_host_name()))
+        status = self.nd_agent.exec_wait('service influxdb status 2>&1 >> /dev/null', output=False)
         return status
 
     def nd_clean_influxdb(self):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
 
-        fds_dir = self.nd_conf_dict['fds_root']
-        var_dir = fds_dir + '/var'
+        status = 0
+        if self.nd_run_om():
+            log.info("Cleaning InfluxDB")
+            ## check if influx is running on the node.  If not, start it
+            influxstat = self.nd_status_influxdb()
+            if influxstat != 0:
+                log.info("Starting InfluxDB for clean on %s" % (self.nd_host_name()))
+                status = self.nd_agent.exec_wait('service influxdb start 2>&1 >> /dev/null',
+                                                 output=False,
+                                                 wait_compl=False)
 
-        ## todo: read from influx config file or change if we put under /fds/var/db etc
-        influxdb_data_dir = "/opt/influxdb/shared/data/db"
+            for db in [ 'om-metricdb', 'om-eventdb' ]:
+                status = self.dropInfluxDBDatabase(db)
 
-        log.info("Cleaning InfluxDB")
-        status = self.nd_agent.exec_wait('service influxdb stop')
-        self.nd_agent.exec_wait('rm -rf '  + influxdb_data_dir)
+            ## if influx was NOT running originally, stop it again.
+            if influxstat != 0:
+                status = self.nd_agent.exec_wait('service influxdb stop 2>&1 >> /dev/null', output=False)
+
+        return status
+
+    ##
+    #
+    #
+    def dropInfluxDBDatabase(self, db, max_retries=6, backoff_factor=0.5):
+        """Drop the InfluxDB database
+
+        db -- the database name
+        max_retries -- max number of retries (default 6)
+        backoff_factor -- amount of time to factor the backoff time per retry (default 0.5)
+
+        The backoff factor is the amount of time added for each retry.  The default setting
+        amounts to a possible total wait time of 31.5 seconds.
+
+        For 10 retries at 0.1, its a total wait time of:
+           (0.1 + 0.2 + 0.4 + 0.8 + 1.6 + 3.2 + 6.4 + 12.8 + 25.6 + 51.2) = 102.3 Seconds
+        and 8 @ 0.4s = 102.0
+        and 5 retries at 0.5:
+           (0.5 + 1.0 + 2 + 4 + 8) = 15500  (and 6 is 31500)
+
+        """
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+
+        status = 0
+        ## setup the http requests session with an adapter configured for retries.
+        s = requests.session()
+        a = requests.adapters.HTTPAdapter(max_retries=Retry(total=max_retries,
+                                                            backoff_factor=backoff_factor))
+        s.mount("http://", a)
+
+        log.debug('Removing database %s with up to %d retries @ %s seconds backoff factor' %
+                  (db,max_retries,backoff_factor))
+        try:
+            response = s.delete("http://" + self.nd_host + ":8086/db/" + db + "?u=root&p=root")
+            log.debug("Remove database %s request completed [response code %d msg: %s]" %
+                      (db,response.status_code,response.text))
+            if response.status_code < 200 or response.status_code >= 300:
+                if response.status_code == 400:
+                    ## 400 indicates the database does not exist
+                    log.info("InfluxDB database %s does not exist. [OK]" % (db))
+                    status = 0
+                else:
+                    # influx reported an unsuccessful error code.  Print the message output from the response.
+                    # we don't currently distinguish between errors and things like redirects.
+                    print('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+
+                    # todo: attempted to use log.warning, but getting error message about no handlers.
+                    log.info('InfluxDB [HTTP %d] %s' % (response.status_code, response.text))
+                    status = 1
+            else:
+                log.info("Successfully dropped InfluxDB database %s" % (db))
+        except Exception as e:
+            print "Failed to drop influxDB database: %s: %s" % (db, e)
+            # todo: attempted to use log.warn, but getting error message about no handlers.
+            log.info("Failed to drop influxDB database: %s: %s" % (db, e))
+            status = 1
+
+        ## close the http session
+        s.close()
+
         return status
 
     ###
@@ -294,7 +375,7 @@ class FdsNodeConfig(FdsConfig):
         else:
             log_dir = _log_dir
 
-        print "\nStart platform daemon in", self.nd_host_name()
+        print "Start platform daemon on %s in %s" % (self.nd_host_name(),fds_dir)
 
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
@@ -304,9 +385,7 @@ class FdsNodeConfig(FdsConfig):
                                             (fds_dir, log_dir, port),
                                              fds_bin=True)
         else:
-            self.nd_agent.exec_wait('bash -c \"(rm -rf /dev/shm/0x*)\"')
-            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
-                                            ' > %s/pm.out' % log_dir)
+            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg + ' &> %s/pm.out' % log_dir)
 
         if status == 0:
             time.sleep(4)
@@ -324,29 +403,51 @@ class FdsNodeConfig(FdsConfig):
         else:
             port = 7000  # PM default.
 
-        fds_dir = om_node.nd_conf_dict['fds_root']
-
         # From the --list-services output we can determine node name
         # and node UUID.
-        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdscli --fds-root=%s --list-services) \"' % (fds_dir),
-                                                 return_stdin=True,
-                                                 fds_bin=True)
+        # Figure out the platform uuid.  Platform has 'pm' as the name
+        # port should match the read port from fdscli --list-services output
+        # Group 0 = Entire matched expression
+        # Group 1 = node UUID
+        # Group 2 = Node root (not showing up)
+        # Group 3 = Node ID
+        # Group 4 = IPv4
+        # Group 5 = IPv6
+        # Group 6 = Service name
+        # Group 8 = Service Type
+        # Group 9 = Service UUID
+        # Group 10 = Control port
+        # Group 11 = Data port
+        # Group 12 = Migration port
+        # TODO(brian): uncomment this regex when we start capturing node root correctly
+        #svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
+        #                    '\s*(\d.\d.\d.\d)\s*(\w{2})\s*(\w*)\s*(0x[a-f0-9]{16})\s*'
+        #                    '([A-Za-z0-9_]*)\s*(\d*)\s*(\d*)\s*(\d*)')
+        # Use this regex for now
+        svc_re = re.compile(r'(0x[a-f0-9]{16})(\s+)(\d{1})\s+(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
+                            '\s+(\d.\d.\d.\d)\s+(\w{2})\s+(\w*)\s+(0x[a-f0-9]{16})\s+'
+                            '([A-Za-z0-9_]*)\s+(\d+)\s+(\d+)\s+(\d+)')
+
+        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain listServices local) \"',
+                                                    return_stdin=True,
+                                                    fds_tools=True)
 
         # Figure out the platform uuid.  Platform has 'pm' as the name
         # port should match the read port from fdscli --list-services output
         if status == 0:
             for line in stdout.split('\n'):
-                if line.count("Node UUID") > 0:
-                    assigned_uuid = line.split()[2]
-                if line.count("IPv4") > 0:
-                    ipad = line.split()[1]
-                    hostName = socket.gethostbyaddr(ipad)[0]
-                    ourIP = (ipad == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
-                if line.count("Name") > 0:
-                    assigned_name = line.split()[1]
-                if line.count("Data") > 0:
-                    readPort = (int(line.split()[2]))
-                    if assigned_name == 'pm' and readPort == int(port):
+                res = svc_re.match(line)
+                if res is not None:
+                    # UUID
+                    assigned_uuid = res.group(1)
+                    # IP
+                    hostName = socket.gethostbyaddr(res.group(4))
+                    ourIP = (res.group(4) == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
+                    # Service name
+                    assigned_name = res.group(6)
+                    # Ports
+                    readPort = int(res.group(11))
+                    if assigned_name.lower() == 'pm' and readPort == int(port):
                         self.nd_assigned_name = assigned_name
                         self.nd_uuid = assigned_uuid
                         break
@@ -357,7 +458,7 @@ class FdsNodeConfig(FdsConfig):
                 log.error("Results from service list:\n%s." % stdout)
                 status = -1
             else:
-                log.debug("Node %s has assigned name %s and UUID 0x%s." %
+                log.debug("Node %s has assigned name %s and UUID %s." %
                           (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
         else:
             log.error("status = %s" % status)
@@ -416,13 +517,6 @@ class FdsNodeConfig(FdsConfig):
         if test_harness:
             log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
 
-            fds_dir = self.nd_conf_dict['fds_root']
-            bin_dir = _bin_dir
-            sbin_dir = _bin_dir + '../sbin'
-            tools_dir = sbin_dir + '/tools'
-            dev_dir = fds_dir + '/dev'
-            var_dir = fds_dir + '/var'
-
             status = self.nd_agent.exec_wait('ls ' + bin_dir)
             if status == 0:
                 log.info("Cleanup cores in: %s" % bin_dir)
@@ -431,8 +525,9 @@ class FdsNodeConfig(FdsConfig):
 
             status = self.nd_agent.exec_wait('ls ' + var_dir)
             if status == 0:
-                log.info("Cleanup logs and stats in: %s" % var_dir)
+                log.info("Cleanup logs,db and stats in: %s" % var_dir)
                 self.nd_agent.exec_wait('rm -rf ' + var_dir + '/logs')
+                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/db')
                 self.nd_agent.exec_wait('rm -rf ' + var_dir + '/stats')
 
             status = self.nd_agent.exec_wait('ls /corefiles')
@@ -468,21 +563,20 @@ class FdsNodeConfig(FdsConfig):
                 log.info("Cleanup 0x* in: %s" % '/dev/shm')
                 self.nd_agent.exec_wait('rm -f /dev/shm/0x*')
 
-            status = self.nd_agent.exec_wait('ls ' + influxdb_data_dir )
-            if status == 0:
-                log.info("Cleanup influx database in: %s" % influxdb_data_dir)
-                self.nd_clean_influxdb()
+            log.info("Cleanup influx database in: %s" % influxdb_data_dir)
+            self.nd_clean_influxdb()
 
             status = 0
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
-            status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +
-                '(cd %s && rm -r logs stats); ' % var_dir +
-                '(cd /corefiles && rm *.core); '  +
-                '(cd %s/core && rm *.core); ' % var_dir +
-                '(cd %s && ./fds clean -i); ' % tools_dir +
-                '(cd %s && rm -rf hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
-                '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
+            status = self.nd_agent.exec_wait('(cd %s && rm -f core *.core); ' % bin_dir +
+                '(cd %s && rm -rf logs db stats); ' % var_dir +
+                '(rm -f /corefiles/*.core); '  +
+                '(rm -f %s/core/*.core); ' % var_dir +
+                '([ -f "%s/fds" ] && %s/fds clean -i) 2>&1>>/dev/null; ' % (tools_dir, tools_dir) +
+                '(rm -rf %s/hdd-*/*); ' % dev_dir +
+                '(rm -rf %s/ssd-*/*); ' % dev_dir +
+                '(rm -rf %s/*-repo/); ' % fds_dir +
                 '(cd /dev/shm && rm -f 0x*)')
             self.nd_clean_influxdb()
 
@@ -490,7 +584,7 @@ class FdsNodeConfig(FdsConfig):
         if status == -1:
             # ssh_exec() returns -1 when there is output to syserr and
             # status from the command execution was 0. In this case, we'll
-            # assume that the failure was due to some of these componets
+            # assume that the failure was due to some of these components
             # missing. But since we wanted to delete them anyway, we'll
             # call it good.
             status = 0

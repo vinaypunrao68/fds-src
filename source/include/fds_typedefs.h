@@ -14,7 +14,6 @@
 #include <unordered_set>
 #include <fds_types.h>
 #include <fdsp/FDSP_types.h>
-#include <fdsp/dm_api_types.h>
 
 namespace fpi = FDS_ProtocolInterface;
 

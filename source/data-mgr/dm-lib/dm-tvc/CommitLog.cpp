@@ -75,6 +75,10 @@ DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId,
         started_(false) {
     std::ostringstream oss;
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    oss << root->dir_sys_repo_dm() << volId_;
+    FdsRootDir::fds_mkdir(oss.str().c_str());
+
+    oss.str("");
     oss << root->dir_user_repo_dm() << volId_;
     FdsRootDir::fds_mkdir(oss.str().c_str());
 }
@@ -190,9 +194,8 @@ void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectLis
         fds_verify(0 == objInfo.offset % objSize_);
         fds_verify(0 < objInfo.size);
         fds_verify((tx.blobMode | blob::TRUNCATE) || (objSize_ == objInfo.size));
-
         newSize = objInfo.offset + objInfo.size;
-        if (tx.blobSize < newSize || objInfo.blob_end) {
+        if (tx.blobSize < newSize) {
             tx.blobSize = newSize;
         }
 

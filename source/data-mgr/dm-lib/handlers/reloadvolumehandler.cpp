@@ -4,59 +4,75 @@
 
 #include <dmhandler.h>
 #include <util/Log.h>
-#include <DmIoReq.h>
+#include <fds_error.h>
 #include <DMSvcHandler.h>  // This shouldn't be necessary, included because of
-                           // incomplete type errors in BaseAsyncSvcHandler.h
-#include <net/BaseAsyncSvcHandler.h>
+                           // incomplete type errors in PlatNetSvcHandler.h
+#include <net/PlatNetSvcHandler.h>
 #include <PerfTrace.h>
-
-#include <boost/algorithm/string/replace.hpp>
-#include <pcrecpp.h>
-
-#include <map>
-#include <string>
-
-using fpi::AsyncHdr;
-using fpi::BlobDescriptorListType;
-using fpi::FDSP_MetaDataList;
-using fpi::ReloadVolumeMsg;
-using fpi::ReloadVolumeMsgTypeId;
-
-using boost::replace_all;
-
-using pcrecpp::RE;
-using pcrecpp::UTF8;
-
-using std::map;
-using std::string;
+#include <VolumeMeta.h>
 
 namespace fds {
 namespace dm {
 
 ReloadVolumeHandler::ReloadVolumeHandler() {
     if (!dataMgr->features.isTestMode()) {
-        REGISTER_DM_MSG_HANDLER(ReloadVolumeMsg, handleRequest);
+        REGISTER_DM_MSG_HANDLER(fpi::ReloadVolumeMsg, handleRequest);
     }
 }
 
 void ReloadVolumeHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                        boost::shared_ptr<ReloadVolumeMsg>& message) {
-    /**
-     * immediately responding to the command as this should happen on a brand new volume
-     * and need not be qos'ed
-     */
-    fds_volid_t volId = message->volId;
-    LOGDEBUG << "reloading catalog for vol:" << volId;
-    Error err = dataMgr->timeVolCat_->queryIface()->activateCatalog(volId);
-    asyncHdr->msg_code = err.GetErrno();
-    DM_SEND_ASYNC_RESP(*asyncHdr, ReloadVolumeMsgTypeId, EmptyMsg());
+                                        boost::shared_ptr<fpi::ReloadVolumeMsg>& message) {
+    LOGDEBUG << logString(*asyncHdr) << logString(*message);
+
+    // Handle U-turn
+    HANDLE_U_TURN();
+
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        auto dummyResponse = boost::make_shared<fpi::ReloadVolumeMsg>();
+        handleResponse(asyncHdr, dummyResponse, err, nullptr);
+        return;
+    }
+
+    auto dmReq = new DmIoReloadVolume(message);
+    dmReq->cb = BIND_MSG_CALLBACK(ReloadVolumeHandler::handleResponse, asyncHdr, message);
+
+    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
+    addToQueue(dmReq);
 }
 
-void ReloadVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {}
+void ReloadVolumeHandler::handleQueueItem(dmCatReq* dmRequest) {
+    QueueHelper helper(dmRequest);
+    DmIoReloadVolume* typedRequest = static_cast<DmIoReloadVolume*>(dmRequest);
+
+    LOGTRACE << "Will reload volume " << *typedRequest;
+
+    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(typedRequest->message->volume_id);
+    if (!voldesc) {
+        LOGERROR << "Volume entry not found in descriptor map for volume '" << std::hex
+                << typedRequest->message->volume_id << std::dec << "'";
+        helper.err = ERR_VOL_NOT_FOUND;
+    } else {
+        helper.err = dataMgr->timeVolCat_->queryIface()->reloadCatalog(*voldesc);
+    }
+
+    if (!helper.err.ok()) {
+        PerfTracer::incr(typedRequest->opReqFailedPerfEventType,
+                         typedRequest->getVolId(),
+                         typedRequest->perfNameStr);
+    }
+}
 
 void ReloadVolumeHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                         boost::shared_ptr<ReloadVolumeMsg>& message,
-                                         Error const& e, dmCatReq* dmRequest) {
+                                        boost::shared_ptr<fpi::ReloadVolumeMsg>& message,
+                                        Error const& e, dmCatReq* dmRequest) {
+    asyncHdr->msg_code = e.GetErrno();
+    LOGDEBUG << "Reload volume completed " << e << " " << logString(*asyncHdr);
+
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(ReloadVolumeRspMsg), fpi::ReloadVolumeRspMsg());
+
+    delete dmRequest;
 }
 
 }  // namespace dm

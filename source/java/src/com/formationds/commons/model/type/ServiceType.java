@@ -1,8 +1,8 @@
 package com.formationds.commons.model.type;
 
-import FDS_ProtocolInterface.FDSP_MgrIdType;
-import FDS_ProtocolInterface.FDSP_NodeState;
-import FDS_ProtocolInterface.FDSP_Node_Info_Type;
+import com.formationds.protocol.FDSP_MgrIdType;
+import com.formationds.protocol.FDSP_NodeState;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.commons.model.AccessManagerService;
 import com.formationds.commons.model.DataManagerService;
 import com.formationds.commons.model.OrchestrationManagerService;
@@ -25,7 +25,7 @@ public enum ServiceType {
 
             final FDSP_MgrIdType type = fdspNodeInfoType.getNode_type();
             switch( type ) {
-                case FDSP_STOR_HVISOR:
+                case FDSP_ACCESS_MGR:
                     service = buildService( AM, fdspNodeInfoType );
                     break;
                 case FDSP_DATA_MGR:

@@ -1,39 +1,19 @@
 # Copyright (c) 2014 Formation Data Systems
 # All Rights Reserved.
 
-from oslo.config import cfg
-import re
+
 import requests
 
-from cinder import context
-from cinder.db.sqlalchemy import api
-from cinder import exception
-from cinder.image import image_utils
-from cinder.openstack.common import log as logging
-from cinder.openstack.common.processutils import ProcessExecutionError
-from cinder.volume import driver
-from cinder.brick import exception as brick_exception
-from cinder.brick.iscsi import iscsi
-from cinder.volume.driver import ISCSIDriver
-from cinder.volume.drivers.fds.apis.AmService import Client as AmClient
-from cinder.volume.drivers.fds.apis.ConfigurationService import Client as CsClient
-from cinder.openstack.common import processutils
-from cinder import utils
-from cinder.volume import driver
-from cinder.volume import utils as volutils
 
-from apis.ttypes import *
 from thrift.transport.TSocket import TFramedTransport
 from thrift.transport import TSocket
 from thrift.protocol import TBinaryProtocol
-from apis.AmService import Client as AmClient
-from apis.ConfigurationService import Client as CsClient
-import os
-import uuid
+from fds_api.am_api.AMSvc import Client as AmClient
+from fds_api.config_api.ConfigurationService import Client as CsClient
+from fds_api.config_types.ttypes import *
+from fds_api.common.ttypes import ApiException
 
 from contextlib import contextmanager
-
-LOG = logging.getLogger(__name__)
 
 class FDSServices(object):
     def __init__(self, am=("localhost", 9988), cs=("localhost", 9090)):
@@ -125,13 +105,14 @@ class NbdManager(object):
         (stdout, stderr) = self._execute('nbdadm.py', 'attach', nbd_server, volume_name, run_as_root=True)
         return stdout.strip()
 
-
     def detach_nbd_local(self, nbd_server, volume_name):
         self._execute('nbdadm.py', 'detach', nbd_server, volume_name, run_as_root=True)
 
     @staticmethod
     def execute_remote_nbd_operation(url, operation, nbd_server, volume_name):
-        params = {'op': operation, 'host': nbd_server, 'volume': volume_name}
+        params = {'op': operation, 'volume': volume_name}
+        if nbd_server is not None:
+            params["host"] = nbd_server
         result = requests.get(url, params=params)
         if result.status_code != 200:
             raise Exception('NBD REST service responded with HTTP status code %d' % result.status_code)
@@ -144,6 +125,9 @@ class NbdManager(object):
     def detach_nbd_remote(self, url, nbd_server, volume_name):
         self.execute_remote_nbd_operation(url, 'detach', nbd_server, volume_name)
 
+    def detach_nbd_remote_all(self, url, volume_name):
+        self.execute_remote_nbd_operation(url, 'detach', None, volume_name)
+
     def attach_nbd_remote(self, url, nbd_server, volume_name):
         return self.execute_remote_nbd_operation(url, 'attach', nbd_server, volume_name)
 
@@ -151,18 +135,6 @@ class NbdManager(object):
     def use_nbd_local(self, nbd_server, name):
         yield self.attach_nbd_local(nbd_server, name)
         self.detach_nbd_local(nbd_server, name)
-
-    def image_via_nbd(self, nbd_server, context, volume, image_service, image_id):
-        with self.use_nbd_local(nbd_server, volume["name"]) as dev:
-            LOG.warning('Copy image to volume: %s %s' % (dev, volume["size"]))
-            temp_filename="/tmp/fds_vol_" + str(uuid.uuid4())
-            image_utils.fetch_to_raw(
-                context,
-                image_service,
-                image_id,
-                temp_filename,
-                size=volume["size"])
-            self._execute('dd', 'if=' + temp_filename, 'of=' + dev, 'bs=4096', 'oflag=sync', run_as_root=True)
 
     def set_execute(self, execute):
         self._execute = execute

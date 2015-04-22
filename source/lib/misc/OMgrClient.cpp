@@ -4,7 +4,6 @@
 #include "./OMgrClient.h"
 #include <fds_assert.h>
 #include <boost/thread.hpp>
-#include <NetSession.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TSimpleServer.h>
 #include <thrift/transport/TServerSocket.h>
@@ -29,20 +28,11 @@ namespace fds {
 extern SvcRequestPool *gSvcRequestPool;
 
 OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
-                       const std::string& _omIpStr,
-                       fds_uint32_t _omPort,
                        const std::string& node_name,
-                       fds_log *parent_log,
-                       boost::shared_ptr<netSessionTbl> nst,
-                       Platform *plf,
-                       fds_uint32_t _instanceId)
+                       fds_log *parent_log)
         : dltMgr(new DLTManager()),
-          dmtMgr(new DMTManager(1)),
-          instanceId(_instanceId) {
-    fds_verify(_omPort != 0);
+          dmtMgr(new DMTManager(1)) {
     my_node_type = node_type;
-    omIpStr      = _omIpStr;
-    omConfigPort = _omPort;
     my_node_name = node_name;
     node_evt_hdlr = NULL;
     bucket_stats_cmd_hdlr = NULL;
@@ -56,10 +46,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
     fNoNetwork = false;
 }
 
-OMgrClient::~OMgrClient()
-{
-    delete clustMap;
-}
+OMgrClient::~OMgrClient() = default;
 
 int OMgrClient::registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr) {
     this->migrate_evt_hdlr = migrate_event_hdlr;
@@ -102,7 +89,6 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 }
 
 int OMgrClient::testBucket(const std::string& bucket_name,
-                           const fpi::FDSP_VolumeDescTypePtr& vol_info,
                            fds_bool_t attach_vol_reqd,
                            const std::string& accessKeyId,
                            const std::string& secretAccessKey)
@@ -113,7 +99,6 @@ int OMgrClient::testBucket(const std::string& bucket_name,
         fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
         fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
         test_buck_msg->bucket_name = bucket_name;
-        test_buck_msg->vol_info = *vol_info;
         test_buck_msg->attach_vol_reqd = attach_vol_reqd;
         test_buck_msg->accessKeyId = accessKeyId;
         test_buck_msg->secretAccessKey;
@@ -136,15 +121,15 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
     return (0);
 }
 
-Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
+Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
     Error err(ERR_OK);
     LOGNOTIFY << "OMClient received new DLT version  " << dlt_type;
 
     // dltMgr is threadsafe
-    err = dltMgr->addSerializedDLT(dlt_data, NULL, dlt_type);
-    if (err.ok()) {
+    err = dltMgr->addSerializedDLT(dlt_data, cb, dlt_type);
+    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
         dltMgr->dump();
-    } else {
+    } else if (ERR_DUPLICATE != err) {
         LOGERROR << "Failed to update DLT! check dlt_data was set " << err;
     }
 
@@ -163,17 +148,6 @@ Error OMgrClient::updateDmt(bool dmt_type, std::string& dmt_data) {
     omc_lock.write_unlock();
 
     return err;
-}
-
-int
-OMgrClient::getNodeInfo(fds_uint64_t node_id,
-                        unsigned int *node_ip_addr,
-                        fds_uint32_t *node_port,
-                        int *node_state) {
-    return clustMap->getNodeInfo(node_id,
-                                 node_ip_addr,
-                                 node_port,
-                                 node_state);
 }
 
 fds_uint32_t OMgrClient::getLatestDlt(std::string& dlt_data) {
@@ -217,22 +191,6 @@ OMgrClient::getNodeType() const {
 const TokenList&
 OMgrClient::getTokensForNode(const NodeUuid &uuid) const {
     return dltMgr->getDLT()->getTokens(uuid);
-}
-
-fds_uint32_t
-OMgrClient::getNodeMigPort(NodeUuid uuid) {
-    return clustMap->getNodeMigPort(uuid);
-}
-
-fds_uint32_t
-OMgrClient::getNodeMetaSyncPort(NodeUuid uuid) {
-    return clustMap->getNodeMetaSyncPort(uuid);
-}
-
-
-NodeMigReqClientPtr
-OMgrClient::getMigClient(fds_uint64_t node_id) {
-    return clustMap->getMigClient(node_id);
 }
 
 DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(const ObjectID &objId) {

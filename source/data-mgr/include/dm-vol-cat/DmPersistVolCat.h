@@ -24,6 +24,7 @@ namespace fds {
 
 extern const fds_uint64_t INVALID_BLOB_ID;
 extern const fds_uint32_t BLOB_META_INDEX;
+extern const std::string VOL_META_INDEX;
 
 struct __attribute__((packed)) BlobObjKey {
     fds_uint64_t blobId;
@@ -48,10 +49,11 @@ class DmPersistVolCat {
     DmPersistVolCat(fds_volid_t volId, fds_uint32_t objSize,
                     fds_bool_t snapshot,
                     fds_bool_t readOnly,
+                    fds_bool_t clone,
                     fpi::FDSP_VolType volType = fpi::FDSP_VOL_S3_TYPE,
                     fds_volid_t srcVolId = invalid_vol_id) : volId_(volId), objSize_(objSize),
             volType_(volType), srcVolId_(srcVolId), snapshot_(snapshot), readOnly_(readOnly),
-            initialized_(false), deleted_(false), activated_(false) {
+            clone_(clone), initialized_(false), deleted_(false), activated_(false) {
         fds_verify(objSize > 0);
         if (invalid_vol_id == srcVolId_) {
             srcVolId_ = volId;
@@ -96,6 +98,10 @@ class DmPersistVolCat {
         return readOnly_;
     }
 
+    inline fds_bool_t isClone() const {
+        return clone_;
+    }
+
     inline fds_bool_t isActivated() const {
         return activated_;
     }
@@ -116,6 +122,8 @@ class DmPersistVolCat {
     }
 
     // gets
+    virtual Error getVolumeMetaDesc(VolumeMetaDesc & blobMeta) = 0;
+
     virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) = 0;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) = 0;
@@ -130,6 +138,8 @@ class DmPersistVolCat {
             fds_uint64_t endOffset, BlobObjList & objList) = 0;
 
     // puts
+    virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
+
     virtual Error putBlobMetaDesc(const std::string & blobName,
             const BlobMetaDesc & blobMeta) = 0;
 
@@ -159,6 +169,10 @@ class DmPersistVolCat {
 
   protected:
     // methods
+
+    // TODO(Andrew): We should use a collision free function if we're going
+    // to map the string names to an int. There's no point in the data being
+    // collision free if the metadata isn't.
     static inline fds_uint64_t getBlobIdFromName(const std::string & blobName) {
         return fds_get_uuid64(blobName);
     }
@@ -171,6 +185,7 @@ class DmPersistVolCat {
     fds_volid_t srcVolId_;
     fds_bool_t snapshot_;
     fds_bool_t readOnly_;
+    fds_bool_t clone_;
 
     fds_bool_t initialized_;
     fds_bool_t deleted_;

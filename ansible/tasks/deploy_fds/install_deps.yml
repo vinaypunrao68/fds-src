@@ -45,16 +45,8 @@
     tags:
         - install-deps
 
--   name: add local fds nightly platform repo
-    when: cluster_location is defined and (fds_deploy_local_deps is not defined or fds_deploy_local_deps == false)
-    apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/formation-apt platform nightly"
-        state=present
-        update_cache=yes
-    tags:
-      - install-deps
-
 -   name: add Artifactory fds nightly platform repo
-    when: cluster_location is not defined and (fds_deploy_local_deps is not defined or fds_deploy_local_deps == false)
+    when: fds_deploy_local_deps is not defined or fds_deploy_local_deps == false
     apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
         state=present
         update_cache=yes

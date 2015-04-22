@@ -9,7 +9,7 @@ import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.SeriesBuilder;
-import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.util.DateTimeUtil;
@@ -23,8 +23,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
 /**
@@ -50,10 +52,9 @@ public class SeriesHelper {
         this.vdpHelper = new VolumeDatapointHelper();
     }
 
-    public final List<Series> getRollupSeries(
-    	final List<VolumeDatapoint> datapoints,
-    	final MetricQueryCriteria query,
-    	final StatOperation operation ) {
+    public final List<Series> getRollupSeries( final List<IVolumeDatapoint> datapoints,
+    	                                       final MetricQueryCriteria query,
+    	                                       final StatOperation operation ) {
     	
     	/*
          * So the idea is that we need to sum up all the volume datapoints
@@ -123,7 +124,7 @@ public class SeriesHelper {
         throw new IllegalArgumentException( "Date Range is invalid" );    	
     }
     
-    private List<Series> hourRollup( final List<VolumeDatapoint> datapoints, 
+    private List<Series> hourRollup( final List<IVolumeDatapoint> datapoints,
     								 final Long epoch,
     								 final List<Metrics> metrics,
     								 final StatOperation operation ) {
@@ -144,7 +145,7 @@ public class SeriesHelper {
     	return series;
     }
     
-    private List<Series> dayRollup(	final List<VolumeDatapoint> datapoints, 
+    private List<Series> dayRollup(	final List<IVolumeDatapoint> datapoints,
 			 						final Long epoch,
 			 						final List<Metrics> metrics,
 			 						final StatOperation operation	) {
@@ -164,7 +165,7 @@ public class SeriesHelper {
 		return series;
 	}    
     
-    private List<Series> weekRollup(final List<VolumeDatapoint> datapoints, 
+    private List<Series> weekRollup(final List<IVolumeDatapoint> datapoints,
 									final Long epoch,
 									final List<Metrics> metrics,
 									final StatOperation operation ) {
@@ -184,7 +185,7 @@ public class SeriesHelper {
 		return series;
 	}      
     
-    private List<Series> thirtyDaysRollup(	final List<VolumeDatapoint> datapoints, 
+    private List<Series> thirtyDaysRollup(	final List<IVolumeDatapoint> datapoints,
 											final Long epoch,
 											final List<Metrics> metrics,
 											final StatOperation operation ) {
@@ -203,7 +204,7 @@ public class SeriesHelper {
 		return series;
 	}  
     
-    private List<Series> longTermRollup( final List<VolumeDatapoint> datapoints,
+    private List<Series> longTermRollup( final List<IVolumeDatapoint> datapoints,
     		final long epoch,
     		final List<Metrics> metrics,
     		final StatOperation operation ){
@@ -241,22 +242,22 @@ public class SeriesHelper {
      * @param operation
      * @return
      */
-    private Series generate(
-        final List<VolumeDatapoint> volumeDatapoints,
+    protected Series generate(
+        final List<IVolumeDatapoint> volumeDatapoints,
         final Long timestamp,
         final Metrics metrics,
         final Long distribution,
         final int maxResults,
         final StatOperation operation ) {
     	
-        Map<Long, Set<VolumeDatapoint>> groupByTimestamp =
+        Map<Long, Set<? extends IVolumeDatapoint>> groupByTimestamp =
             vdpHelper.groupByTimestamp( volumeDatapoints );
 
         final List<Datapoint> datapoints = new ArrayList<>( );
         groupByTimestamp.forEach( ( bytesTimestamp, bytesValues ) -> {
             
         	// this is always a sum because it represents collapsing
-        	// a set of points that are cumulative numbers by nature
+        	// a set of points that are cumulative numbers by nature because there is one per volume
         	// i.e. if you are wanting the average number of PUTS over a time frame
         	// you still need to sum them here, and divide that number by the 
         	// distribution in order to get a real average.  Otherwise you'll
@@ -264,10 +265,10 @@ public class SeriesHelper {
         	// the value you desire.
         	Double d = bytesValues.stream()
                                         .filter( ( value ) -> {
-                                        	return value.getKey().equalsIgnoreCase( metrics.key() );
+                                        	return metrics.matches( value.getKey() );
                                         })
                                         .peek( ( l ) -> logger.trace( l.toString() ) )
-                                        .mapToDouble( VolumeDatapoint::getValue )
+                                        .mapToDouble( IVolumeDatapoint::getValue )
                                         .sum();
              
             logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
@@ -309,19 +310,30 @@ public class SeriesHelper {
         for ( Double key : bucketMap.keySet() ){
         	
         	Double rolledupValue = 0.0;
-        	DoubleStream ds = bucketMap.get( key ).stream().mapToDouble( Datapoint::getY );
+        	DoubleStream dsY = bucketMap.get( key ).stream().mapToDouble( Datapoint::getY );
         	
         	switch( operation ) {
         		case RATE:
-        			rolledupValue = ds.sum() / TimeUnit.MINUTES.toSeconds( distribution );
+        			rolledupValue = dsY.sum() / TimeUnit.MINUTES.toSeconds( distribution );
         			break;
-        		case MAX:
+        		case MAX_Y:
         			// capacity is an example of using max for bucket calculation
         			// each time capacity is reported, it's the current state of the system
         			// so summing each value in this list makes no sense - so we take the last
         			// value (or max) in the list and use it for our indicator of the 
         			// state of the system at this time.
-        			rolledupValue = ds.max().getAsDouble();
+        			rolledupValue = dsY.max().getAsDouble();
+        			break;
+        		case MAX_X:
+                	// getting the max datapoint by time (i.e. most recent) but use the Y value
+                	Optional<Datapoint> maxDatapoint = bucketMap.get( key ).stream().max( (dp1, dp2) ->{
+                		return dp1.getX().compareTo( dp2.getX() );
+                	});
+                	
+        			if ( maxDatapoint.isPresent() ){
+        				rolledupValue = maxDatapoint.get().getY();
+        			}
+        			
         			break;
         		case SUM:
         			// the default case is to sum everything in this bucket assuming the values
@@ -329,7 +341,7 @@ public class SeriesHelper {
         			// encapsulates.  Performance # of gets is a good example of why you would use
         			// SUM
         		default:
-        			rolledupValue = ds.sum();
+        			rolledupValue = dsY.sum();
         			break;
         	}
         	

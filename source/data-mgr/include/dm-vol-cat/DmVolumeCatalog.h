@@ -93,6 +93,11 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error activateCatalog(fds_volid_t volId);
 
     /**
+     * Reload catalog for the given volume
+     */
+    Error reloadCatalog(const VolumeDesc & voldesc) override;
+
+    /**
      * VolumeCatalogQueryIface methods. This interface is used by DM
      * processing layer to query for committed blob metadata.
      */
@@ -112,7 +117,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * @return ERR_OK if catalog was deleted; ERR_NOT_READY if volume is not marked
      * as deleted.
      */
-    Error deleteEmptyCatalog(fds_volid_t volId);
+    Error deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted = true);
 
     /**
      * Returns size of volume and number of blob in the volume 'volume_id'
@@ -122,8 +127,29 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog
      */
-    Error getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize, fds_uint64_t* blobCount,
-            fds_uint64_t* objCount);
+    Error statVolume(fds_volid_t volId, fds_uint64_t* volSize,
+                     fds_uint64_t* blobCount, fds_uint64_t* objCount);
+
+    /**
+     * Sets the key-value metadata pairs for the volume. Any keys that already
+     * existed are overwritten and previously set keys are left unchanged.
+     * @param[in] volId The ID of the volume's catalog to update
+     * @param[in] metadataList A list of metadata key value pairs to set.
+     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
+     * to volume catalog.
+     */
+    Error setVolumeMetadata(fds_volid_t volId,
+                            const fpi::FDSP_MetaDataList &metadataList);
+
+    /**
+     * Gets the key-value metadata pairs for the volume.
+     * @param[in]  volId The ID of the volume's catalog to update
+     * @param[out] metadataList A returned list of metadata key value pairs.
+     * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
+     * to volume catalog.
+     */
+    Error getVolumeMetadata(fds_volid_t volId,
+                            fpi::FDSP_MetaDataList &metadataList);
 
     /**
      * Get all objects for the volume
@@ -225,8 +251,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error getBlobMetaDesc(fds_volid_t volId, const std::string & blobName,
             BlobMetaDesc & blobMeta);
 
-    Error getVolumeMetaInternal(fds_volid_t volId, fds_uint64_t * volSize,
-            fds_uint64_t * blobCount, fds_uint64_t * objCount);
+    Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
+                             fds_uint64_t * blobCount, fds_uint64_t * objCount);
 
     inline void mergeMetaList(MetaDataList & lhs, const MetaDataList & rhs) {
         for (auto & it : rhs) {

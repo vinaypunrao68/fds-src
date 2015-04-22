@@ -213,16 +213,65 @@ struct ForwardCatalogUpdateHandler : Handler {
                           Error const& e, dmCatReq* dmRequest);
 };
 
-struct GetVolumeMetaDataHandler : Handler {
-    GetVolumeMetaDataHandler();
+struct StatVolumeHandler : Handler {
+    StatVolumeHandler();
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message);
+                       boost::shared_ptr<fpi::StatVolumeMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
+                        boost::shared_ptr<fpi::StatVolumeMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
 
+struct SetVolumeMetadataHandler : Handler {
+    SetVolumeMetadataHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::SetVolumeMetadataMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::SetVolumeMetadataMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+struct GetVolumeMetadataHandler : Handler {
+    GetVolumeMetadataHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::GetVolumeMetadataMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+/**
+ * Attempt to retrieve an access token for the given volume
+ */
+struct VolumeOpenHandler : Handler {
+    VolumeOpenHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::OpenVolumeMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::OpenVolumeMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+/**
+ * Close an existing access token for the given volume
+ */
+struct VolumeCloseHandler : Handler {
+    VolumeCloseHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CloseVolumeMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CloseVolumeMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+/**
+ * Reload the volume. Close and re-instantiate leveldb for specified volume
+ */
 struct ReloadVolumeHandler : Handler {
     ReloadVolumeHandler();
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

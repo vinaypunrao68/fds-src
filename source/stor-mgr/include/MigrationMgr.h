@@ -81,7 +81,17 @@ class SmTokenMigrationMgr {
     Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                          OmStartMigrationCbType cb,
                          const NodeUuid& mySvcUuid,
-                         fds_uint32_t bitsPerDltToken);
+                         fds_uint32_t bitsPerDltToken,
+                         bool forResync);
+
+    /**
+     * Start resync process for SM tokens. Find the list of
+     * SMTokenMigrationGroups and call startMigration.
+     */
+     Error startResync(fds::DLT *dlt,
+                       OmStartMigrationCbType cb,
+                       const NodeUuid& mySvcUuid,
+                       fds_uint32_t bitsPerDltToken);
 
     /**
      * Handles message from OM to abort migration
@@ -135,6 +145,8 @@ class SmTokenMigrationMgr {
     fds_bool_t forwardReqIfNeeded(const ObjectID& objId,
                                   fds_uint64_t reqDltVersion,
                                   FDS_IOType* req);
+    fds_bool_t forwardAddObjRefIfNeeded(FDS_IOType* req);
+
     fds_uint64_t getTargetDltVersion() const;
 
     /**
@@ -235,7 +247,7 @@ class SmTokenMigrationMgr {
 
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
-    fds_mutex clientLock;
+    fds_rwlock clientLock;
 
     /// maximum number of items in the delta set.
     fds_uint32_t maxDeltaSetSize;

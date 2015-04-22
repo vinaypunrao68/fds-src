@@ -9,6 +9,7 @@
 #include <fds_process.h>
 #include <fds_module.h>
 #include <util/timeutils.h>
+#include <util/path.h>
 
 #include <dm-vol-cat/DmPersistVolDB.h>
 
@@ -28,7 +29,8 @@ DmPersistVolDB::~DmPersistVolDB() {
 
     if (deleted_) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-        const std::string loc_src_db = root->dir_user_repo_dm() + std::to_string(srcVolId_) +
+        const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
+                root->dir_sys_repo_dm()) + std::to_string(srcVolId_) +
                 (snapshot_ ? "/snapshot/" : "/") + getVolIdStr() + "_vcat.ldb";
         const std::string rm_cmd = "rm -rf  " + loc_src_db;
         int retcode = std::system((const char *)rm_cmd.c_str());
@@ -38,7 +40,7 @@ DmPersistVolDB::~DmPersistVolDB() {
 
 Error DmPersistVolDB::activate() {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string catName(root->dir_user_repo_dm());
+    std::string catName(snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm());
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
         // volume
         catName += getVolIdStr();
@@ -51,6 +53,14 @@ Error DmPersistVolDB::activate() {
         // snapshot
         catName += std::to_string(srcVolId_) + "/snapshot";
         catName += "/" + getVolIdStr() + "_vcat.ldb";
+    }
+
+    bool fAlreadyExists = util::dirExists(catName);
+    if (clone_ || snapshot_) {
+        if (!fAlreadyExists) {
+            LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
+            return ERR_OK;
+        }
     }
 
     LOGNOTIFY << "Activating '" << catName << "'";
@@ -66,7 +76,7 @@ Error DmPersistVolDB::activate() {
             Catalog::CACHE_SIZE);
     fds_uint32_t maxLogFiles = configHelper_.get<fds_uint32_t>(CATALOG_MAX_LOG_FILES_STR, 5);
 
-    std::string logDirName = snapshot_ ? "" : root->dir_user_repo_dm() + getVolIdStr() + "/";
+    std::string logDirName = snapshot_ ? "" : root->dir_sys_repo_dm() + getVolIdStr() + "/";
     std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
 
     try
@@ -79,10 +89,21 @@ Error DmPersistVolDB::activate() {
     {
         LOGERROR << "Failed to create catalog for volume " << std::hex << volId_ << std::dec;
         LOGERROR << e.what();
+        if (fAlreadyExists) {
+            LOGERROR << "unable to load existing vol:" << volId_ << " ...not activating";
+            return ERR_DM_VOL_NOT_ACTIVATED;
+        }
         return ERR_NOT_READY;
     }
 
     catalog_->GetWriteOptions().sync = false;
+
+    // Write out the initial superblock descriptor into the volume
+    fpi::FDSP_MetaDataList emptyMetadataList;
+    VolumeMetaDesc volMetaDesc(emptyMetadataList);
+    if (ERR_OK != putVolumeMetaDesc(volMetaDesc)) {
+        return ERR_DM_VOL_NOT_ACTIVATED;
+    }
 
     activated_ = true;
     return ERR_OK;
@@ -90,6 +111,19 @@ Error DmPersistVolDB::activate() {
 
 Error DmPersistVolDB::copyVolDir(const std::string & destName) {
     return catalog_->DbSnap(destName);
+}
+
+Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {
+    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+
+    std::string value;
+    Error rc = catalog_->Query(keyRec, &value);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to get metadata volume: " << std::hex << volId_
+                 << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+    return volDesc.loadSerialized(value);
 }
 
 Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
@@ -173,7 +207,6 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         fpi::FDSP_BlobObjectInfo blobInfo;
         blobInfo.offset = static_cast<fds_uint64_t>(key->objIndex) * objSize_;
         blobInfo.size = objSize_;
-        blobInfo.blob_end = false;  // assume false
         blobInfo.data_obj_id.digest = std::move(dbIt->value().ToString());
 
         objList.push_back(std::move(blobInfo));
@@ -217,6 +250,28 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     delete dbIt;
 
     return ERR_OK;
+}
+
+Error DmPersistVolDB::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
+    const Record keyRec(VOL_META_INDEX.c_str(), VOL_META_INDEX.size());
+
+    std::string value;
+    Error rc = volDesc.getSerialized(value);
+    if (rc.ok()) {
+        CatWriteBatch batch;
+        TIMESTAMP_OP(batch);
+        batch.Put(keyRec, value);
+        rc = catalog_->Update(&batch);
+        if (!rc.ok()) {
+            LOGERROR << "Failed to update metadata descriptor for volume: "
+                     << volDesc;
+        } else {
+            LOGNORMAL << "Successfully updated metadata descriptor for volume: "
+                      << volDesc;
+        }
+    }
+
+    return rc;
 }
 
 Error DmPersistVolDB::putBlobMetaDesc(const std::string & blobName,

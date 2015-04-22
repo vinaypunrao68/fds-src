@@ -30,7 +30,7 @@ namespace fds
     const ShmObjRO *NodeInventory::node_shm_ctrl() const
     {
         TRACEFUNC;
-        if (node_svc_type == fpi::FDSP_STOR_HVISOR)
+        if (node_svc_type == fpi::FDSP_ACCESS_MGR)
         {
             return NodeShmCtrl::shm_am_inventory();
         }
@@ -205,64 +205,6 @@ namespace fds
         node_rw_idx = rw;
     }
 
-    // node_info_msg_to_shm
-    // --------------------
-    // Convert data from the node info message to record to save to the shared memory seg.
-    //
-    /* static */ void NodeInventory::node_info_msg_to_shm(const fpi::NodeInfoMsg *msg,
-                                                          node_data_t *rec)
-    {
-        TRACEFUNC;
-        const fpi::UuidBindMsg   *msg_bind;
-
-        msg_bind             = &msg->node_loc;
-        rec->nd_node_uuid    = msg_bind->svc_node.svc_uuid.svc_uuid;
-        rec->nd_service_uuid = msg_bind->svc_id.svc_uuid.svc_uuid;
-        rec->nd_base_port    = msg->nd_base_port;
-        rec->nd_svc_type     = fpi::FDSP_PLATFORM;
-        rec->nd_svc_mask     = static_cast<fds_uint32_t>(msg->nd_svc_mask);
-        rec->nd_dlt_version  = DLT_VER_INVALID;
-        rec->nd_disk_type    = msg->node_stor.disk_type;
-
-        node_stor_cap_to_shm(&msg->node_stor, &rec->nd_capability);
-        strncpy(rec->nd_ip_addr, msg_bind->svc_addr.c_str(), FDS_MAX_IP_STR);
-        strncpy(rec->nd_auto_name, msg_bind->svc_auto_name.c_str(), FDS_MAX_NODE_NAME);
-        strncpy(rec->nd_assign_name, msg_bind->svc_id.svc_name.c_str(), FDS_MAX_NODE_NAME);
-    }
-
-    // node_info_msg_frm_shm
-    // ---------------------
-    // Convert data from shm at the given index to the node info message.
-    //
-    /* static */ void NodeInventory::node_info_msg_frm_shm(bool am, int ro_idx,
-                                                           fpi::NodeInfoMsg *msg)
-    {
-        TRACEFUNC;
-        fpi::UuidBindMsg    *msg_bind;
-        const ShmObjRO      *shm;
-        const node_data_t   *rec;
-
-        if (am == true)
-        {
-            shm = NodeShmCtrl::shm_am_inventory();
-        }else {
-            shm = NodeShmCtrl::shm_node_inventory();
-        }
-        fds_verify(ro_idx != -1);
-        rec = shm->shm_get_rec<node_data_t>(ro_idx);
-
-        msg_bind = &msg->node_loc;
-        msg_bind->svc_id.svc_uuid.svc_uuid   = rec->nd_service_uuid;
-        msg_bind->svc_node.svc_uuid.svc_uuid = rec->nd_node_uuid;
-        msg_bind->svc_type                   = rec->nd_svc_type;
-        msg->nd_base_port                    = rec->nd_base_port;
-
-        msg_bind->svc_addr.assign(rec->nd_ip_addr);
-        msg_bind->svc_auto_name.assign(rec->nd_auto_name);
-        msg_bind->svc_id.svc_name.assign(rec->nd_assign_name);
-        node_stor_cap_frm_shm(&msg->node_stor, &rec->nd_capability);
-    }
-
     // init_plat_info_msg
     // ------------------
     // Format the NodeInfoMsg that will be processed by functions above.  The data is taken
@@ -277,7 +219,6 @@ namespace fds
 
         msg_bind = &msg->node_loc;
         psvc->ep_fmt_uuid_binding(msg_bind, &msg->node_domain);
-        init_stor_cap_msg(&msg->node_stor);
 
         msg->nd_base_port           = plat->plf_get_my_node_port();
         msg_bind->svc_type          = plat->plf_get_node_type();
@@ -330,7 +271,6 @@ namespace fds
 
         msg_bind->svc_id.svc_uuid.svc_uuid   = gl_OmPmUuid.uuid_get_val();
         msg_bind->svc_node.svc_uuid.svc_uuid = gl_OmPmUuid.uuid_get_val();
-        init_stor_cap_msg(&msg->node_stor);
     }
 
     // init_node_info_msg
@@ -339,80 +279,6 @@ namespace fds
     void NodeInventory::init_node_info_msg(fpi::NodeInfoMsg *msg) const
     {
         TRACEFUNC;
-        node_info_msg_frm_shm(node_svc_type == fpi::FDSP_STOR_HVISOR ? true : false, node_ro_idx,
-                              msg);
-    }
-
-    // node_stor_cap_to_shm
-    // --------------------
-    // Format storage capability info in shared memory from a network message.
-    //
-    /* static */ void NodeInventory::node_stor_cap_to_shm(const fpi::StorCapMsg *msg,
-                                                          node_stor_cap_t *stor)
-    {
-        TRACEFUNC;
-        stor->disk_capacity    = msg->disk_capacity;
-        stor->disk_iops_max    = msg->disk_iops_max;
-        stor->disk_iops_min    = msg->disk_iops_min;
-        stor->disk_latency_max = msg->disk_latency_max;
-        stor->disk_latency_min = msg->disk_latency_min;
-        stor->ssd_iops_max     = msg->ssd_iops_max;
-        stor->ssd_iops_min     = msg->ssd_iops_min;
-        stor->ssd_capacity     = msg->ssd_capacity;
-        stor->ssd_latency_max  = msg->ssd_latency_max;
-        stor->ssd_latency_min  = msg->ssd_latency_min;
-    }
-
-    // node_stor_cap_frm_shm
-    // ---------------------
-    // Format storage capability info to a network message from data in shared memory.
-    //
-    /* static */ void NodeInventory::node_stor_cap_frm_shm(fpi::StorCapMsg *msg,
-                                                           const node_stor_cap_t *stor)
-    {
-        TRACEFUNC;
-        msg->disk_capacity    = stor->disk_capacity;
-        msg->disk_iops_max    = stor->disk_iops_max;
-        msg->disk_iops_min    = stor->disk_iops_min;
-        msg->disk_latency_max = stor->disk_latency_max;
-        msg->disk_latency_min = stor->disk_latency_min;
-        msg->ssd_iops_max     = stor->ssd_iops_max;
-        msg->ssd_iops_min     = stor->ssd_iops_min;
-        msg->ssd_capacity     = stor->ssd_capacity;
-        msg->ssd_latency_max  = stor->ssd_latency_max;
-        msg->ssd_latency_min  = stor->ssd_latency_min;
-    }
-
-    // init_stor_cap_msg
-    // -----------------
-    //
-    void NodeInventory::init_stor_cap_msg(fpi::StorCapMsg *msg) const
-    {
-        TRACEFUNC;
-        const ShmObjRO      *shm;
-        const node_data_t   *rec;
-
-        if (node_ro_idx == -1)
-        {
-            /* Don't have real numbers, made up some values. */
-            msg->disk_iops_max     = 10000;
-            msg->disk_iops_min     = 4000;
-            msg->disk_capacity     = 0x7ffff;
-            msg->disk_latency_max  = 1000000 / msg->disk_iops_min;
-            msg->disk_latency_min  = 1000000 / msg->disk_iops_max;
-            msg->ssd_iops_max      = 200000;
-            msg->ssd_iops_min      = 20000;
-            msg->ssd_capacity      = 0x1000;
-            msg->ssd_latency_max   = 1000000 / msg->ssd_iops_min;
-            msg->ssd_latency_min   = 1000000 / msg->ssd_iops_max;
-            msg->ssd_count         = 2;
-            msg->disk_count        = 24;
-            msg->disk_type         = FDS_DISK_SATA;
-        }else {
-            shm = node_shm_ctrl();
-            rec = shm->shm_get_rec<node_data_t>(node_ro_idx);
-            node_stor_cap_frm_shm(msg, &rec->nd_capability);
-        }
     }
 
     // svc_info_frm_shm

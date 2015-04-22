@@ -6,7 +6,14 @@ import socket
 import struct
 import time
 import logging
+import os
+import sys
 
+sys.path.append(os.path.join(os.getcwd(), 'fdslib'))
+sys.path.append(os.path.join(os.getcwd(), 'fdslib/pyfdsp'))
+
+
+from common.ttypes import *
 from FDS_ProtocolInterface.ttypes import *
 from svc_api.ttypes import *
 from svc_api.constants import *
@@ -62,7 +69,7 @@ class SvcMap(object):
     svc_type_map = {
         'sm' : [FDSP_MgrIdType.FDSP_STOR_MGR,       SMSvc],
         'dm' : [FDSP_MgrIdType.FDSP_DATA_MGR,       DMSvc],
-        'am' : [FDSP_MgrIdType.FDSP_STOR_HVISOR,    PlatNetSvc],
+        'am' : [FDSP_MgrIdType.FDSP_ACCESS_MGR,    PlatNetSvc],
         #TODO(prem): add config service with different name
         #'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       ConfigurationService],
         'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       OMSvc],

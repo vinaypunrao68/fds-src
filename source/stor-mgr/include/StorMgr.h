@@ -34,9 +34,6 @@
 #include "lib/qos_min_prio.h"
 #include "lib/QoSWFQDispatcher.h"
 
-/* TODO: avoid include across module, put API header file to include dir */
-#include "lib/OMgrClient.h"
-
 #include "fds_module.h"
 
 #include "fdsp/SMSvc.h"
@@ -52,6 +49,7 @@
 using namespace FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
+struct OMgrClient;
 
 extern ObjectStorMgr *objStorMgr;
 
@@ -198,6 +196,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      virtual void mod_startup() override;
      virtual void mod_shutdown() override;
      virtual void mod_enable_service() override;
+     virtual void mod_disable_service() override;
 
      int run();
 
@@ -205,8 +204,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_bool_t testUturnAll;
      /// Enables uturn testing for put object ops
      fds_bool_t testUturnPutObj;
-
-     checksum_calc   *chksumPtr;
 
      fds_bool_t isShuttingDown() const {
          return shuttingDown;
@@ -301,12 +298,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      void storeCurrentDLT();
 
-     static Error volEventOmHandler(fds::fds_volid_t volume_id,
-                                    fds::VolumeDesc *vdb,
-                                    int vol_action,
-                                    FDSP_NotifyVolFlag vol_flag,
-                                    FDSP_ResultType resut);
-
      virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
      /* Made virtual for google mock */
@@ -332,7 +323,20 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      }
 
      friend class SmLoadProc;
+     friend class SmUnitTest;
      friend class SMSvcHandler;
+
+  private:
+     static Error registerVolume(fds::fds_volid_t volume_id,
+                                 fds::VolumeDesc *vdb,
+                                 FDSP_NotifyVolFlag vol_flag,
+                                 FDSP_ResultType resut);
+
+     // for standalone test
+     DLT* standaloneTestDlt;
+     void setTestDlt(DLT* dlt) {
+         standaloneTestDlt = dlt;
+     }
 };
 
 }  // namespace fds

@@ -264,7 +264,7 @@ void DLT::generateNodeTokenMap() const {
 }
 
 // get the Tokens for a given Node
-const TokenList& DLT::getTokens(const NodeUuid &uid) const{
+const TokenList& DLT::getTokens(const NodeUuid &uid) const {
     static TokenList emptyTokenList;
     NodeTokenMap::const_iterator iter = mapNodeTokens->find(uid);
     if (iter != mapNodeTokens->end()) {
@@ -288,6 +288,34 @@ void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const
                 tokenList->push_back(*tokenIter);
             }
         }
+    }
+}
+
+//get source node for a given token id assigned to destination node
+NodeUuid DLT::getSourceNodeForToken(const NodeUuid &nodeUuid,
+                                    const fds_token_id &tokenId) {
+    DltTokenGroupPtr tokenNodeGroup = getNodes(tokenId);
+    for (fds_uint8_t idx = 0; idx < tokenNodeGroup->getLength(); idx++) {
+        // idx = 0 is primary node for a given token id.
+        if (nodeUuid != tokenNodeGroup->get(idx)) {
+            return tokenNodeGroup->get(idx);
+        }
+    }
+    return INVALID_RESOURCE_UUID;
+}
+
+// get source nodes for all the tokens of a given destination node
+void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
+                                    SourceNodeMap &srcNodeTokenMap) {
+    if (nodeUuid == INVALID_RESOURCE_UUID) {
+        LOGERROR << "Invalid node uuid";
+        return;
+    }
+    const TokenList& nodeTokenList = getTokens(nodeUuid);
+    for (TokenList::const_iterator tokenIter = nodeTokenList.begin();
+         tokenIter != nodeTokenList.end();
+         tokenIter++) {
+        srcNodeTokenMap[getSourceNodeForToken(nodeUuid, *tokenIter)].push_back(*tokenIter);
     }
 }
 
@@ -338,11 +366,11 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
                 if (firstToken != prevToken) {
                     oss << std::setw(8)
                         << firstToken
-                        <<" - " << prevToken <<" : " << prevNodeListStr << "\n";
+                        <<" - " << prevToken <<" : " << std::hex << prevNodeListStr << std::dec << "\n";
                 } else {
                     oss << std::setw(8)
                         << firstToken
-                        << " : " << prevNodeListStr << "\n";
+                        << " : " << std::hex << prevNodeListStr << "\n";
                 }
                 firstToken =  count;
             }
@@ -355,11 +383,11 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
             if (firstToken != prevToken) {
                 oss << std::setw(8)
                     << firstToken
-                    <<" - " << prevToken <<" : " << prevNodeListStr << "\n";
+                    <<" - " << prevToken <<" : " << std::hex << prevNodeListStr << std::dec << "\n";
             } else {
                 oss << std::setw(8)
                     << firstToken
-                    << " : " << prevNodeListStr << "\n";
+                    << " : " << std::hex << prevNodeListStr << std::dec << "\n";
             }
         }
     }
@@ -373,7 +401,7 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
     for (tokenMapiter = dlt.mapNodeTokens->begin(); tokenMapiter != dlt.mapNodeTokens->end(); ++tokenMapiter) { // NOLINT
         TokenList::const_iterator tokenIter;
         const TokenList& tlist = tokenMapiter->second;
-        oss << std::setw(8) << tokenMapiter->first.uuid_get_val() << " : ";
+        oss << std::setw(8) << std::hex << tokenMapiter->first.uuid_get_val() << std::dec << " : ";
         prevToken = 0;
         firstToken = 0;
         bool fFirst = true;

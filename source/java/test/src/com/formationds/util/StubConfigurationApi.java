@@ -3,16 +3,20 @@ package com.formationds.util;
 import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ResourceState;
+import com.formationds.protocol.FDSP_PolicyInfoType;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -30,6 +34,9 @@ public class StubConfigurationApi implements ConfigurationApi {
 
     private List<SnapshotPolicy> snapshotPolicies;
     private AtomicLong snapshotPolicyId;
+
+    private List<FDSP_PolicyInfoType> qosPolicies;
+    private AtomicInteger qosPolicyId;
 
     private List<Tenant> tenants;
     private AtomicLong tenantId;
@@ -51,6 +58,8 @@ public class StubConfigurationApi implements ConfigurationApi {
         localDomainId = new AtomicLong(0);
         snapshotPolicies = new CopyOnWriteArrayList<>();
         snapshotPolicyId = new AtomicLong(0);
+        qosPolicies = new CopyOnWriteArrayList<>();
+        qosPolicyId = new AtomicInteger(0);
         tenants = new CopyOnWriteArrayList<>();
         tenantId = new AtomicLong(0);
         users = new CopyOnWriteArrayList<>();
@@ -71,6 +80,55 @@ public class StubConfigurationApi implements ConfigurationApi {
     @Override
     public List<LocalDomain> listLocalDomains(int ignore) throws TException {
         return localDomains;
+    }
+    
+    @Override
+    public void updateLocalDomainName(String oldDomainName, String newDomainName) throws TException {
+        return;
+    }
+    
+    @Override
+    public void updateLocalDomainSite(String domainName, String newSiteName) throws TException {
+        return;
+    }
+    
+    @Override
+    public void setThrottle(String domainName, double throttleLevel) throws TException {
+        return;
+    }
+    
+    @Override
+    public void setScavenger(String domainName, String scavengerAction) throws TException {
+        return;
+    }
+
+    @Override
+    public void shutdownLocalDomain(String domainName)
+            throws TException {
+        return;
+    }
+    
+    @Override
+    public void deleteLocalDomain(String domainName) throws TException {
+        return;
+    }
+
+    @Override
+    public void activateLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
+            throws TException {
+        return;
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
+            throws TException {
+        return null;
+    }
+
+    @Override
+    public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
+            throws TException {
+        return;
     }
 
     @Override
@@ -320,5 +378,29 @@ public class StubConfigurationApi implements ConfigurationApi {
         configurationVersion.incrementAndGet();
 
         return 0;
+    }
+
+    @Override
+    public FDSP_PolicyInfoType createQoSPolicy(String policyName, long minIops, long maxIops, int relPrio) throws ApiException, TException {
+        configurationVersion.incrementAndGet();
+        FDSP_PolicyInfoType policy = new FDSP_PolicyInfoType(policyName, qosPolicyId.incrementAndGet(), minIops, maxIops, relPrio);
+        qosPolicies.add(policy);
+        return policy;
+    }
+
+    @Override
+    public List<FDSP_PolicyInfoType> listQoSPolicies(long ignore) throws TException {
+        return qosPolicies;
+    }
+
+    @Override
+    public FDSP_PolicyInfoType modifyQoSPolicy(String currentPolicyName, String newPolicyName, long minIops, long maxIops, int relPrio) throws ApiException, TException {
+        configurationVersion.incrementAndGet();
+        FDSP_PolicyInfoType policy = qosPolicies.get(0);
+        return policy;
+    }
+
+    @Override
+    public void deleteQoSPolicy(String policyName) throws TException {
     }
 }

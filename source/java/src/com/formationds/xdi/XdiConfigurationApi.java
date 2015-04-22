@@ -5,10 +5,13 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.FDSP_PolicyInfoType;
 import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -317,6 +320,32 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public FDSP_PolicyInfoType createQoSPolicy(String policyName, long minIops, long maxIops, int relPrio)
+            throws ApiException, TException {
+        FDSP_PolicyInfoType qosPolicy = config.createQoSPolicy(policyName, minIops, maxIops, relPrio);
+        return qosPolicy;
+    }
+
+    @Override
+    public List<FDSP_PolicyInfoType> listQoSPolicies(long ignore)
+            throws ApiException, TException {
+        return config.listQoSPolicies(0);
+    }
+
+    @Override
+    public FDSP_PolicyInfoType modifyQoSPolicy(String currentPolicyName, String newPolicyName, long minIops, long maxIops, int relPrio)
+            throws ApiException, TException {
+        FDSP_PolicyInfoType qosPolicy = config.modifyQoSPolicy(currentPolicyName, newPolicyName, minIops, maxIops, relPrio);
+        return qosPolicy;
+    }
+
+    @Override
+    public void deleteQoSPolicy(String policyName)
+        throws ApiException, TException {
+        config.deleteQoSPolicy(policyName);
+    }
+
+    @Override
     public void createSnapshot(long volumeId, String snapshotName, long retentionTime, long timelineTime)
             throws ApiException, TException {
         config.createSnapshot(volumeId, snapshotName, retentionTime, timelineTime);
@@ -362,8 +391,70 @@ public class XdiConfigurationApi implements ConfigurationApi {
 
     @Override
     public List<LocalDomain> listLocalDomains(int ignore)
-            throws TException {
+            throws ApiException, TException {
         return config.listLocalDomains(0);
+    }
+    
+    @Override
+    public void updateLocalDomainName(String oldDomainName, String newDomainName)
+        throws ApiException, TException {
+        config.updateLocalDomainName(oldDomainName, newDomainName);
+        return;
+    }
+    
+    @Override
+    public void updateLocalDomainSite(String domainName, String newSiteName)
+        throws ApiException, TException {
+        config.updateLocalDomainSite(domainName, newSiteName);
+        return;
+    }
+    
+    @Override
+    public void setThrottle(String domainName, double throttleLevel)
+        throws ApiException, TException {
+        config.setThrottle(domainName, throttleLevel);
+        return;
+    }
+    
+    @Override
+    public void setScavenger(String domainName, String scavengerAction)
+        throws ApiException, TException {
+        config.setScavenger(domainName, scavengerAction);
+        return;
+    }
+
+    @Override
+    public void shutdownLocalDomain(String domainName)
+            throws TException {
+        config.shutdownLocalDomain(domainName);
+        return;
+    }
+    
+    @Override
+    public void deleteLocalDomain(String domainName)
+        throws ApiException, TException {
+        config.deleteLocalDomain(domainName);
+        return;
+    }
+
+    @Override
+    public void activateLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
+            throws TException {
+        config.activateLocalDomainServices(domainName, sm, dm, am);
+        return;
+    }
+
+    @Override
+    public List<FDSP_Node_Info_Type> listLocalDomainServices(String domainName)
+            throws TException {
+        return config.listLocalDomainServices(domainName);
+    }
+
+    @Override
+    public void removeLocalDomainServices(String domainName, boolean sm, boolean dm, boolean am)
+            throws TException {
+        config.removeLocalDomainServices(domainName, sm, dm, am);
+        return;
     }
 
     public CachedConfiguration getCache() {

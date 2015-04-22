@@ -142,7 +142,7 @@ public class SvcLayerClient
                     Service service = null;
                     ServiceType type = null;
                     switch( svcInfo.getSvc_type() ) {
-                        case FDSP_STOR_HVISOR: // AM
+                        case FDSP_ACCESS_MGR:
                             service = new AccessManagerService();
                             type = ServiceType.AM;
                             break;

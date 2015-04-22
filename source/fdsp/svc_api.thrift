@@ -99,9 +99,12 @@ struct EmptyMsg {
 }
 
 /**
- * Shutdown service.
+ * Message from OM to a service to prepare for shutdown
+ * The service receiving the message should stop receiving IO,
+ * drain the IO and sync its state to persistent storage (if needed
+ * to be persisted).
  */
-struct ShutdownMODMsg {
+struct PrepareForShutdownMsg {
 }
 
 /**
@@ -115,14 +118,9 @@ struct UpdateSvcMapMsg {
    Common Services
    ------------------------------------------------------------*/
 
-service BaseAsyncSvc {
-  oneway void asyncReqt(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
-  oneway void asyncResp(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
-  svc_types.AsyncHdr uuidBind(1: svc_types.UuidBindMsg msg);
-}
-
-service PlatNetSvc extends BaseAsyncSvc {
-    oneway void allUuidBinding(1: svc_types.UuidBindMsg mine);
+service PlatNetSvc {
+    oneway void asyncReqt(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
+    oneway void asyncResp(1: svc_types.AsyncHdr asyncHdr, 2: string payload);
     oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info);
 
     list<svc_types.NodeInfoMsg> notifyNodeInfo(1: svc_types.NodeInfoMsg info, 2: bool bcast);

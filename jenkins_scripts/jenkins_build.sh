@@ -1,6 +1,7 @@
 #!/bin/bash -le
 
 DESIRED_SHM_SIZE="3G"      # In gigs, in full Gigs only.
+KILL_LIST=(bare_am AmFunctionalTest NbdFunctionalTest)
 
 export CCACHE_DIR="/dev/shm/.ccache"
 
@@ -38,8 +39,11 @@ function configure_cache
 
 function clean_up_environment
 {
-   message "KILLING ANY RUNNING bare_am"
-   pkill -9 -f bare_am || true
+   for proc in ${KILL_LIST[@]}
+   do
+       message "KILLING ANY RUNNING ${proc}"
+       pkill -9 -f $proc || true
+   done
 
    message "STOPPING redis"
    sudo source/tools/redis.sh stop

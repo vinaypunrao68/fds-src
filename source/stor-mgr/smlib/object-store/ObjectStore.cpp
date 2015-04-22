@@ -41,10 +41,6 @@ ObjectStore::ObjectStore(const std::string &modName,
 }
 
 ObjectStore::~ObjectStore() {
-    // Call destructors of ObjectDataStore and ObjectMetadataStore,
-    // this will chain down the components closing levelDBs
-    // and cleaning memory
-
     dataStore.reset();
     metaStore.reset();
 }
@@ -55,22 +51,58 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     metaStore->setNumBitsPerToken(nbits);
 
     Error err = diskMap->handleNewDlt(dlt);
-    if (err == ERR_DUPLICATE) {
-        return ERR_OK;  // everythin setup already
-    } else if (err == ERR_INVALID_DLT) {
-        return ERR_OK;  // we are ignoring this DLT
-    }
-    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
+    if (err == ERR_SM_NOERR_GAINED_SM_TOKENS) {
+        // we gained new SM tokens -- open metadata store for these SM tokens
+        Error openErr = metaStore->openMetadataStore(diskMap);
+        if (!openErr.ok()) {
+            LOGERROR << "Failed to open Metadata Store " << openErr;
+            return openErr;
+        }
 
-    // open metadata store for tokens owned by this SM
-    Error openErr = metaStore->openMetadataStore(diskMap);
-    if (!openErr.ok()) {
-        LOGERROR << "Failed to open Metadata Store " << openErr;
-        return openErr;
+        err = dataStore->openDataStore(diskMap, false);
+    } else if (err == ERR_SM_NOERR_LOST_SM_TOKENS) {
+        // disk map already verified that this happend on our first DLT
+        // this is the case, where SM went down between DLT update and DLT close
+        // and we did not reflect losing SM token ownership in superblock;
+        // that's ok -- do it now by "simulating" DLT close
+        LOGDEBUG << "Looks like we lost SM tokens, will invalidate";
+        err = handleDltClose(dlt);
+
+        // we are now always doing full resync on restart (see above comment, this
+        // error happens only on first DLT update after restart
+        if (err.ok()) {
+            err = ERR_SM_NOERR_NEED_RESYNC;
+        }
+    } else if (err == ERR_SM_SUPERBLOCK_INCONSISTENT) {
+        LOGCRITICAL << "We got DLT version that superblock already knows about ["
+                    << dlt->getVersion() << "] but not all SM tokens are marked valid."
+                    << " We don't know how to handle this yet.. Failing DLT update!";
+        err = ERR_PERSIST_STATE_MISMATCH;
     }
 
-    err = dataStore->openDataStore(diskMap,
-                                   (err == ERR_SM_NOERR_PRISTINE_STATE));
+    return err;
+}
+
+Error
+ObjectStore::handleDltClose(const DLT* dlt) {
+    Error err(ERR_OK);
+
+    SmTokenSet rmTokens = diskMap->handleDltClose(dlt);
+    if (rmTokens.size()) {
+        // we lost SM tokens -- close & remove metadata store for these SM tokens
+        err = metaStore->closeAndDeleteMetadataDbs(rmTokens);
+        if (!err.ok()) {
+            LOGERROR << "Failed to close Metadata DBs " << err;
+            // ignoring for now -- nothing horrible should happen
+        }
+
+        // also close & remove data store
+        err = dataStore->closeAndDeleteSmTokensStore(rmTokens);
+        if (!err.ok()) {
+            LOGERROR << "Failed to close token files " << err;
+        }
+    }
+
     return err;
 }
 
@@ -94,7 +126,8 @@ ObjectStore::putObject(fds_volid_t volId,
                        fds_bool_t forwardedIO) {
     fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
 
-    PerfContext objWaitCtx(SM_PUT_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId, 
+                            PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -182,7 +215,7 @@ ObjectStore::putObject(fds_volid_t volId,
             updatedMeta->reconcilePutObjMetaData(objId, volId);
         }
 
-        PerfTracer::incr(SM_PUT_DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(PerfEventType::SM_PUT_DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
@@ -277,7 +310,7 @@ ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
                        diskio::DataTier& usedTier,
                        Error& err) {
-    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -377,7 +410,7 @@ ObjectStore::getObjectData(fds_volid_t volId,
                        ObjMetaData::const_ptr objMetaData,
                        Error& err)
 {
-    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -395,7 +428,7 @@ Error
 ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId,
                           fds_bool_t forwardedIO) {
-    PerfContext objWaitCtx(SM_DELETE_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfContext objWaitCtx(PerfEventType::SM_DELETE_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
@@ -506,7 +539,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
     // object from data store cache fails, it is ok
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
     if (err.ok()) {
-        PerfTracer::incr(SM_OBJ_MARK_DELETED, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(PerfEventType::SM_OBJ_MARK_DELETED, volId, PerfTracer::perfNameStr(volId));
         volumeTbl->updateDupObj(volId,
                                 objId,
                                 updatedMeta->getObjSize(),
@@ -646,7 +679,7 @@ Error
 ObjectStore::copyAssociation(fds_volid_t srcVolId,
                              fds_volid_t destVolId,
                              const ObjectID& objId) {
-    PerfContext objWaitCtx(SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId,
+    PerfContext objWaitCtx(PerfEventType::SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId,
                            PerfTracer::perfNameStr(destVolId));
     PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
@@ -664,8 +697,19 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
         return err;
     }
 
+    // TODO(Sean):
+    // Here, we have to careful about what it means to have forwarded copyAssociation()
+    // operation (i.e. AddObjectRef()) and not have the objMetaData not present.
+    // We will have to handle it similar to other data paths (i.e. PUT and DELETE), but
+    // not sure if doing it at this point makes too much sense, since DM side of
+    // it will be re-done.  For now, make a note and re-visit, once DM has the
+    // design.
+
     // copy association entry
     updatedMeta.reset(new ObjMetaData(objMeta));
+
+    // TODO(Sean):
+    // Why do we need to get volsrefcnt here?  What do we do with it?
     std::map<fds_volid_t, fds_uint64_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->copyAssocEntry(objId, srcVolId, destVolId);
@@ -928,16 +972,27 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         for (auto volAssoc : msg.objectVolumeAssoc) {
             fds_volid_t volId = volAssoc.volumeAssoc;
             StorMgrVolume* vol = volumeTbl->getVolume(volId);
-            fds_assert(vol);  // SM must know about all volumes
-            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+            //
+            // TODO(Sean):  Volume table should be updated before token resync.
+            //
+            // At this point, SM may not have all volume information.  This can be
+            // called during the SM Restart Resync path, which may or may not have the
+            // latest volume information.  Therefore, volume associated with this
+            // propagate message's ObjectMetaData may not exist yet.
+            // Continue to look for a valid volume information, but if not found, use
+            // tier::HDD.
+            if (vol == NULL) {
+                continue;
+            }
+            if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_SSD) {
                 selectVol = vol;
                 break;   // ssd-only is highest media policy
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID) {
                 // we didn't find ssd-only volume yet, so potential candidate
                 // but we may see ssd-only volumes, so continue search
                 selectVol = vol;
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
-                if (selectVol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
+                if (selectVol->voldesc->mediaPolicy != fpi::FDSP_MEDIA_POLICY_HYBRID) {
                     selectVol = vol;
                 }
             } else if (!selectVol) {
@@ -946,7 +1001,17 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
         }
 
         // select tier to put object
-        useTier = tierEngine->selectTier(objId, *selectVol->voldesc);
+        if (selectVol != NULL) {
+            // If the volume is selected, then use the tier policy associated with
+            // the volume.
+            useTier = tierEngine->selectTier(objId, *selectVol->voldesc);
+        } else {
+            // If the volume doesn't exist, then use HDD tier as default.
+            // If the system is all SSD, then the next block of code will re-adjust.
+            useTier = diskio::diskTier;
+        }
+
+        // Adjust the tier depending on the system disk topolgy
         if (diskMap->getTotalDisks(useTier) == 0) {
             // there is no requested tier, use existing tier
             LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
@@ -1100,10 +1165,10 @@ ObjectStore::getDiskCount() const {
 int
 ObjectStore::mod_init(SysParams const *const p) {
     static Module *objStoreDepMods[] = {
-        dataStore.get(),
-        diskMap.get(),
-        metaStore.get(),
         tierEngine.get(),
+        dataStore.get(),
+        metaStore.get(),
+        diskMap.get(),
         NULL
     };
     mod_intern = objStoreDepMods;
@@ -1121,6 +1186,22 @@ ObjectStore::mod_init(SysParams const *const p) {
                 "fds.sm.objectstore.synchronizer_size");
     taskSynchronizer = std::unique_ptr<HashedLocks<ObjectID, ObjectHash>>(
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
+
+
+    // do initial validation of SM persistent state
+    Error err = diskMap->loadPersistentState();
+    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
+
+    // open metadata store for tokens owned by this SM
+    Error openErr = metaStore->openMetadataStore(diskMap);
+    if (!openErr.ok()) {
+        LOGERROR << "Failed to open Metadata Store " << openErr;
+        return -1;
+    } else {
+        // open data store for tokens owned by this SM
+        err = dataStore->openDataStore(diskMap,
+                                       (err == ERR_SM_NOERR_PRISTINE_STATE));
+    }
 
     LOGDEBUG << "Done";
     return 0;

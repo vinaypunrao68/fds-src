@@ -21,8 +21,7 @@ class TestTrafficGen(TestCase.FDSTestCase):
     def __init__(self, parameters=None, hostname=None, n_conns=None,
                  n_files=None, n_reqs=None, no_reuse=None, object_size=None,
                  outstanding_reqs=None, port=None, runtime=None, test_type=None,
-                 timeout=None, token=None, username=None, verify=None,
-                 volume_name=None):
+                 timeout=None, token=None, username=None, volume_name=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_TrafficGen,
@@ -75,8 +74,6 @@ class TestTrafficGen(TestCase.FDSTestCase):
         if username is not None:
             self.traffic_gen_cmd.append('-username')
             self.traffic_gen_cmd.append(username)
-        if verify is not None and 'true' in verify:
-            self.traffic_gen_cmd.append('-verify')
         if volume_name is not None:
             self.traffic_gen_cmd.append('-volume_name')
             self.traffic_gen_cmd.append(volume_name)
@@ -110,10 +107,13 @@ class TestTrafficGen(TestCase.FDSTestCase):
 
         try:
             output = subprocess.check_output(self.traffic_gen_cmd)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            self.log.error("CalledProcessError: {}. The return "
+                           "code was: {}. Output was: {}".format(e.message, e.returncode, e.output))
             return False
         except OSError as e:
-            self.log.error(e.message)
+            self.log.error("OSError: {}. The return "
+                           "code was: {}. Output was: {}".format(e.message, e.returncode, e.output))
             return False
 
         # Change back?
@@ -121,9 +121,6 @@ class TestTrafficGen(TestCase.FDSTestCase):
 
         # Suppressing the output for now as it spams our logs
         #self.log.info(output)
-
-        if output != 0:
-            return False
 
         return True
 
@@ -135,8 +132,7 @@ class RunTrafficGen(TestCase.FDSTestCase):
     def __init__(self, parameters=None, hostname=None, n_conns=None,
                  n_files=None, n_reqs=None, no_reuse=None, object_size=None,
                  outstanding_reqs=None, port=None, runtime=None, test_type=None,
-                 timeout=None, token=None, username=None, verify=None,
-                 volume_name=None):
+                 timeout=None, token=None, username=None, volume_name=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.run_TrafficGen,
@@ -189,8 +185,6 @@ class RunTrafficGen(TestCase.FDSTestCase):
         if username is not None:
             self.traffic_gen_cmd.append('-username')
             self.traffic_gen_cmd.append(username)
-        if verify is not None and 'true' in verify:
-            self.traffic_gen_cmd.append('-verify')
         if volume_name is not None:
             self.traffic_gen_cmd.append('-volume_name')
             self.traffic_gen_cmd.append(volume_name)

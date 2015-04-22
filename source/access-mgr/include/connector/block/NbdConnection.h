@@ -19,7 +19,7 @@
 namespace fds
 {
 
-struct OmConfigApi;
+struct AmProcessor;
 
 #pragma pack(push)
 #pragma pack(1)
@@ -51,7 +51,8 @@ struct message {
 };
 
 struct NbdConnection : public NbdOperationsResponseIface {
-    NbdConnection(boost::shared_ptr<OmConfigApi> omApi, int clientsd);
+    NbdConnection(int clientsd,
+                  std::shared_ptr<AmProcessor> processor);
     NbdConnection(NbdConnection const& rhs) = delete;
     NbdConnection(NbdConnection const&& rhs) = delete;
     NbdConnection operator=(NbdConnection const& rhs) = delete;
@@ -60,17 +61,20 @@ struct NbdConnection : public NbdOperationsResponseIface {
 
     // implementation of NbdOperationsResponseIface
     void readWriteResp(NbdResponseVector* response);
+    void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc);
 
   private:
     template<typename T>
     using unique = std::unique_ptr<T>;
     using resp_vector_type = unique<iovec[]>;
 
+    bool standalone_mode { false };
+
     int clientSocket;
     size_t volume_size;
     size_t object_size;
 
-    boost::shared_ptr<OmConfigApi> omConfigApi;
+    std::shared_ptr<AmProcessor> amProcessor;
     NbdOperations::shared_ptr nbdOps;
 
     size_t resp_needed;

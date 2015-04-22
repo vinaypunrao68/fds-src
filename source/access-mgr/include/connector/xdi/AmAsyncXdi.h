@@ -37,10 +37,9 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     void initiateClientConnect();
     inline void checkClientConnect() {
-        if (asyncRespClient == NULL && serverPort > 0) {
+        if (!asyncRespClient && serverPort > 0) {
             initiateClientConnect();
         }
-        fds_assert(asyncRespClient);
     }
 
   public:
@@ -54,7 +53,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
                            boost::shared_ptr<int32_t>& port);
 
     void attachVolumeResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId);
+                          api_type::handle_type& requestId,
+                          api_type::shared_vol_descriptor_type& volDesc);
 
     void startBlobTxResp(const api_type::error_type &error,
                          api_type::handle_type& requestId,
@@ -84,6 +84,15 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
         api_type::handle_type& requestId,
         api_type::shared_descriptor_vec_type& volContents);
 
+    void setVolumeMetadataResp(
+        const api_type::error_type &error,
+        api_type::handle_type& requestId);
+
+    void getVolumeMetadataResp(
+        const api_type::error_type &error,
+        api_type::handle_type& requestId,
+        api_type::shared_meta_type& metadata);
+
     void getBlobResp(const api_type::error_type &error,
                      api_type::handle_type& requestId,
                      api_type::shared_buffer_type buf,
@@ -106,8 +115,8 @@ struct AmAsyncXdiRequest
 {
     using api_type = AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>;
 
-    explicit AmAsyncXdiRequest(boost::shared_ptr<AmAsyncResponseApi<api_type::handle_type>> response_api):
-        api_type(response_api)
+    explicit AmAsyncXdiRequest(std::shared_ptr<AmProcessor> processor, boost::shared_ptr<AmAsyncResponseApi<api_type::handle_type>> response_api):
+        api_type(processor, response_api)
     {}
 
     // This is only a Thrift interface, not a generic AmAsyncData one just to
@@ -157,8 +166,8 @@ struct AmAsyncXdiRequest
     { api_type::startBlobTx(requestId, domainName, volumeName, blobName, blobMode); }
     void statBlob(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName)  // NOLINT
     { api_type::statBlob(requestId, domainName, volumeName, blobName); }
-    void updateBlob(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc, api_type::shared_string_type& bytes, api_type::shared_int_type& length, api_type::shared_offset_type& objectOffset, api_type::shared_bool_type& isLast)  // NOLINT
-    { logio(__func__, requestId, blobName, length, objectOffset); api_type::updateBlob(requestId, domainName, volumeName, blobName, txDesc, bytes, length, objectOffset, isLast); }   // NOLINT
+    void updateBlob(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc, api_type::shared_string_type& bytes, api_type::shared_int_type& length, api_type::shared_offset_type& objectOffset)  // NOLINT
+    { logio(__func__, requestId, blobName, length, objectOffset); api_type::updateBlob(requestId, domainName, volumeName, blobName, txDesc, bytes, length, objectOffset); }   // NOLINT
     void updateBlobOnce(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_int_type& blobMode, api_type::shared_string_type& bytes, api_type::shared_int_type& length, api_type::shared_offset_type& objectOffset, api_type::shared_meta_type& metadata)  // NOLINT
     { logio(__func__, requestId, blobName, length, objectOffset); api_type::updateBlobOnce(requestId, domainName, volumeName, blobName, blobMode, bytes, length, objectOffset, metadata); }   // NOLINT
     void updateMetadata(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc, api_type::shared_meta_type& metadata)  // NOLINT
@@ -167,6 +176,10 @@ struct AmAsyncXdiRequest
     { api_type::volumeContents(requestId, domainName, volumeName, count, offset, pattern, orderBy, descending); }
     void volumeStatus(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
     { api_type::volumeStatus(requestId, domainName, volumeName); }
+    void setVolumeMetadata(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_meta_type& metadata)  // NOLINT
+    { api_type::setVolumeMetadata(requestId, domainName, volumeName, metadata); }
+    void getVolumeMetadata(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
+    { api_type::getVolumeMetadata(requestId, domainName, volumeName); }
 
     // TODO(bszmyd): Tue 13 Jan 2015 04:00:24 PM PST
     // Delete these when we can. These are the synchronous forwarding.
@@ -192,13 +205,17 @@ struct AmAsyncXdiRequest
     { you_should_not_be_here(); }
     void updateMetadata(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const apis::TxDescriptor& txDesc, const std::map<std::string, std::string> & metadata)  // NOLINT
     { you_should_not_be_here(); }
-    void updateBlob(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const apis::TxDescriptor& txDesc, const std::string& bytes, const int32_t length, const apis::ObjectOffset& objectOffset, const bool isLast)  // NOLINT
+    void updateBlob(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const apis::TxDescriptor& txDesc, const std::string& bytes, const int32_t length, const apis::ObjectOffset& objectOffset)  // NOLINT
     { you_should_not_be_here(); }
     void updateBlobOnce(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const int32_t blobMode, const std::string& bytes, const int32_t length, const apis::ObjectOffset& objectOffset, const std::map<std::string, std::string> & metadata)  // NOLINT
     { you_should_not_be_here(); }
     void volumeContents(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const int32_t count, const int64_t offset, const std::string& pattern, const fpi::BlobListOrder orderBy, const bool descending)  // NOLINT
     { you_should_not_be_here(); }
     void volumeStatus(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName)  // NOLINT
+    { you_should_not_be_here(); }
+    void setVolumeMetadata(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::map<std::string, std::string>& metadata)  // NOLINT
+    { you_should_not_be_here(); }
+    void getVolumeMetadata(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName)  // NOLINT
     { you_should_not_be_here(); }
 };
 

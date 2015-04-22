@@ -5,6 +5,7 @@ require( './mockTenant' );
 require( './mockNode' );
 require( './mockStats' );
 require( './mockActivities' );
+require( './mockMediaPolicyHelper' );
 
 addModule = function( moduleName, module ){
 
@@ -13,6 +14,7 @@ addModule = function( moduleName, module ){
     }
 };
 
+addModule( 'utility-directives', mockMedia );
 addModule( 'user-management', mockAuth );
 addModule( 'volume-management', mockVolume );
 addModule( 'qos', mockSnapshot );

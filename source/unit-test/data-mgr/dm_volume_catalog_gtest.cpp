@@ -131,22 +131,25 @@ TEST_F(DmVolumeCatalogTest, copy_volume) {
 
     for (fds_uint32_t i = 0; i < NUM_VOLUMES; ++i) {
         boost::shared_ptr<const BlobDetails> blob(new BlobDetails());
-        PerfTracer::tracePointBegin(blob->name, DM_VOL_CAT_WRITE, volumes[i]->volUUID);
+        PerfTracer::tracePointBegin(blob->name, PerfEventType::DM_VOL_CAT_WRITE, volumes[i]->volUUID);
         testPutBlob(volumes[i]->volUUID, blob);
 
         snapshots[i]->fSnapshot = true;
         snapshots[i]->srcVolumeId = volumes[i]->volUUID;
 
         Error rc = volcat->copyVolume(*snapshots[i]);
+        std::cout << "[copyVolume returned: ] " << rc << std::endl;
         EXPECT_TRUE(rc.ok());
 
         rc = volcat->activateCatalog(snapshots[i]->volUUID);
+        std::cout << "[activateCatalog returned: ] " << rc << std::endl;
         EXPECT_TRUE(rc.ok());
 
         fds_uint64_t size = 0;
         fds_uint64_t blobCount = 0;
         fds_uint64_t objCount = 0;
-        rc = volcat->getVolumeMeta(snapshots[i]->volUUID, &size, &blobCount, &objCount);
+        rc = volcat->statVolume(snapshots[i]->volUUID, &size, &blobCount, &objCount);
+        std::cout << "[statVolume returned: ] " << rc << std::endl;
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(blobCount, 1);
         EXPECT_EQ(size, blobCount * BLOB_SIZE);
@@ -160,7 +163,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         fds_volid_t volId = volumes[i % volumes.size()]->volUUID;
 
         boost::shared_ptr<const BlobDetails> blob(new BlobDetails());
-        PerfTracer::tracePointBegin(blob->name, DM_VOL_CAT_WRITE, volId);
+        PerfTracer::tracePointBegin(blob->name, PerfEventType::DM_VOL_CAT_WRITE, volId);
         g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testPutBlob,
                 this, volId, blob);
     }
@@ -174,9 +177,23 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
     // get volume details
     for (auto vdesc : volumes) {
         fds_uint64_t size = 0, blobCount = 0, objCount = 0;
-        Error rc = volcat->getVolumeMeta(vdesc->volUUID, &size, &blobCount, &objCount);
+        Error rc = volcat->statVolume(vdesc->volUUID, &size, &blobCount, &objCount);
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(size, static_cast<fds_uint64_t>(blobCount) * BLOB_SIZE);
+
+        // Set/get/check some metadata for the volume
+        fpi::FDSP_MetaDataPair metadataPair;
+        metadataPair.key = "Volume Name";
+        metadataPair.value = vdesc->name;
+        fpi::FDSP_MetaDataList setMetadataList;
+        setMetadataList.push_back(metadataPair);
+        rc = volcat->setVolumeMetadata(vdesc->volUUID, setMetadataList);
+        EXPECT_TRUE(rc.ok());
+
+        fpi::FDSP_MetaDataList getMetadataList;
+        rc = volcat->getVolumeMetadata(vdesc->volUUID, getMetadataList);
+        EXPECT_TRUE(rc.ok());
+        EXPECT_TRUE(getMetadataList == setMetadataList);
 
         // get list of blobs for volume
         fpi::BlobDescriptorListType blobList;
@@ -192,7 +209,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         taskCount.reset(taskCount.getNumTasks() + blobCount);
         fds_uint64_t e2eStatTs = util::getTimeStampNanos();
         for (auto it : blobList) {
-            PerfTracer::tracePointBegin(it.name, DM_VOL_CAT_READ, vdesc->volUUID);
+            PerfTracer::tracePointBegin(it.name, PerfEventType::DM_VOL_CAT_READ, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testGetBlob,
                     this, vdesc->volUUID, it.name);
         }
@@ -216,7 +233,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
                 continue;
             }
 
-            PerfTracer::tracePointBegin(it.name, DM_TX_OP, vdesc->volUUID);
+            PerfTracer::tracePointBegin(it.name, PerfEventType::DM_TX_OP, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testDeleteBlob,
                     this, vdesc->volUUID, it.name, version);
         }

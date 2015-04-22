@@ -214,9 +214,9 @@ void ObjectRankEngine::deleteObject(const ObjectID& objId)
 fds_uint32_t ObjectRankEngine::getRank(const ObjectID& objId, const VolumeDesc& voldesc)
 {
     fds_uint32_t rank = 0;
-    if (voldesc.mediaPolicy == FDSP_MEDIA_POLICY_HDD)
+    if (voldesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HDD)
         return OBJECT_RANK_ALL_DISK;
-    if (voldesc.mediaPolicy == FDSP_MEDIA_POLICY_SSD)
+    if (voldesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_SSD)
         return OBJECT_RANK_ALL_SSD;
 
     rank = ((getObjectSubrank(objId) << 16) & 0xFFFF0000) + getVolumeRank(voldesc);

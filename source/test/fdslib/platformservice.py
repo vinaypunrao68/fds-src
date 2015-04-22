@@ -11,8 +11,7 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
-from common.ttypes import SvcID;
-from common.ttypes import SvcUuid;
+from common.ttypes import *
 from FDS_ProtocolInterface.ttypes import *
 from svc_types.ttypes import *
 from svc_types.constants import *

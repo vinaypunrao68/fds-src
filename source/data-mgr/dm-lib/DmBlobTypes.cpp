@@ -313,7 +313,6 @@ void BlobObjList::toFdspPayload(fpi::FDSP_BlobObjectList& blob_obj_list) const {
         obj_info.size = (cit.second).size;
         obj_info.data_obj_id.digest = std::string((const char *)((cit.second).oid.GetId()),
                                                   (size_t)(cit.second).oid.GetLen());
-        obj_info.blob_end = false;  // assume we are not using it in resp
         blob_obj_list.push_back(obj_info);
     }
 }
@@ -352,6 +351,41 @@ std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list) {
             << "," << (cit.second).size << "]\n";
     }
     out << " End of blob? " << obj_list.endOfBlob() << "\n";
+    return out;
+}
+
+//---------   VolumeMetaDesc implementation   -----------//
+
+/**
+ * Constructs invalid version of a volume metadata object
+ * until someone else actually assigns valid data
+ */
+VolumeMetaDesc::VolumeMetaDesc(const fpi::FDSP_MetaDataList &metadataList)
+        : meta_list(metadataList) {    
+}
+
+VolumeMetaDesc::~VolumeMetaDesc() = default;
+
+uint32_t VolumeMetaDesc::write(serialize::Serializer* s) const {
+    uint32_t bytes = 0;
+    // bytes += desc.write(s);
+    bytes += meta_list.write(s);
+    return bytes;
+}
+
+uint32_t VolumeMetaDesc::read(serialize::Deserializer* d) {
+    uint32_t bytes = 0;
+    // bytes += desc.read(d);
+    bytes += meta_list.read(d);
+    return bytes;
+}
+
+VolumeMetaDesc& VolumeMetaDesc::operator=(const VolumeMetaDesc &rhs) = default;
+
+std::ostream& operator<<(std::ostream& out, const VolumeMetaDesc& blobMetaDesc) {
+    out << "VolumeMeta: ";
+    // out << blobMetaDesc.desc;
+    out << blobMetaDesc.meta_list;
     return out;
 }
 

@@ -5,7 +5,7 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 
 #include <string>
-#include <fds_module.h>
+#include <fds_volume.h>
 #include <net/SvcRequest.h>
 #include "AmRequest.h"
 
@@ -13,15 +13,15 @@ namespace fds {
 
 /* Forward declaarations */
 class MockSvcHandler;
+class OMgrClient;
 
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
  * does the work to send and receive AM network messages over
- * the service layer. The layer is stateless and does not
- * internal locking.
+ * the service layer.
  */
-class AmDispatcher : public Module, public boost::noncopyable {
-  public:
+struct AmDispatcher
+{
     /**
      * The dispatcher takes a shared ptr to the DMT manager
      * which it uses when deciding who to dispatch to. The
@@ -29,19 +29,67 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * TODO(Andrew): Make the dispatcher own this piece or
      * iterface with platform lib.
      */
-    AmDispatcher(const std::string &modName,
-                 DLTManagerPtr _dltMgr,
-                 DMTManagerPtr _dmtMgr);
+    AmDispatcher();
+    AmDispatcher(AmDispatcher const&)               = delete;
+    AmDispatcher& operator=(AmDispatcher const&)    = delete;
+    AmDispatcher(AmDispatcher &&)                   = delete;
+    AmDispatcher& operator=(AmDispatcher &&)        = delete;
     ~AmDispatcher();
-    typedef std::unique_ptr<AmDispatcher> unique_ptr;
-    typedef boost::shared_ptr<AmDispatcher> shared_ptr;
 
     /**
-     * Module methods
+     * Initialize the OM client, and retrieve Dlt/Dmt managers
      */
-    int mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
+    void start();
+
+    /**
+     * Dlt/Dmt updates
+     */
+    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data);
+
+    /**
+     * Dispatches a test volume request to OM.
+     */
+    Error attachVolume(std::string const& volume_name);
+    void dispatchAttachVolume(AmRequest *amReq);
+
+    /**
+     * Dispatches an open volume request to DM.
+     */
+    void dispatchOpenVolume(fds_volid_t const vol_id,
+                            fds_int64_t const token,
+                            std::function<void(fds_int64_t const, Error const)> cb);
+
+    /**
+     * Dispatches an open volume request to DM.
+     */
+    void dispatchCloseVolume(fds_int64_t vol_id, fds_int64_t token);
+
+    /**
+     * Dispatches a stat volume request.
+     */
+    void dispatchStatVolume(AmRequest *amReq);
+
+    /**
+     * Callback for stat volume responses.
+     */
+    void statVolumeCb(AmRequest* amReq,
+                      FailoverSvcRequest* svcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
+
+    /**
+     * Dispatches a set volume metadata request.
+     */
+    void dispatchSetVolumeMetadata(AmRequest *amReq);
+
+    /**
+     * Callback for set volume metadata responses.
+     */
+    void setVolumeMetadataCb(AmRequest* amReq,
+                             QuorumSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload);
 
     /**
      * Dispatches a get volume metadata request.
@@ -133,10 +181,15 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void dispatchVolumeContents(AmRequest *amReq);
 
   private:
-    /// Shared ptrs to the DLT and DMT managers used
-    /// for deciding who to dispatch to
-    DLTManagerPtr dltMgr;
-    DMTManagerPtr dmtMgr;
+    /** OM Client to attach and manage the DLT/DMT */
+    std::unique_ptr<OMgrClient> om_client;
+
+    /**
+     * Shared ptrs to the DLT and DMT managers used
+     * for deciding who to dispatch to.
+     */
+    boost::shared_ptr<DLTManager> dltMgr;
+    boost::shared_ptr<DMTManager> dmtMgr;
 
     /**
      * Callback for delete blob responses.

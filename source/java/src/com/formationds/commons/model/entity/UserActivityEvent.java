@@ -8,7 +8,6 @@ package com.formationds.commons.model.entity;
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
-import com.formationds.commons.model.User;
 
 import javax.persistence.Entity;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -22,8 +21,43 @@ public class UserActivityEvent extends Event {
     protected UserActivityEvent() {
     }
 
-    public UserActivityEvent(Long userId, EventCategory category, EventSeverity severity, String defaultMessageFmt, String messageKey, Object... messageArgs) {
+    /**
+     *
+     * @param userId
+     * @param category event category
+     * @param severity event severity
+     * @param defaultMessageFmt default message format string
+     * @param messageKey the message localization key
+     * @param messageArgs the message format args
+     */
+    public UserActivityEvent(Long userId,
+                             EventCategory category,
+                             EventSeverity severity,
+                             String defaultMessageFmt,
+                             String messageKey,
+                             Object... messageArgs) {
         super(EventType.USER_ACTIVITY, category, severity, defaultMessageFmt, messageKey, messageArgs);
+        this.userId = userId;
+    }
+
+    /**
+     *
+     * @param ts the event timestamp
+     * @param userId the event user id
+     * @param category event category
+     * @param severity event severity
+     * @param defaultMessageFmt default message format string
+     * @param messageKey the message localization key
+     * @param messageArgs the message format args
+     */
+    public UserActivityEvent(Long ts,
+                             Long userId,
+                             EventCategory category,
+                             EventSeverity severity,
+                             String defaultMessageFmt,
+                             String messageKey,
+                             Object... messageArgs) {
+        super(ts, EventType.USER_ACTIVITY, category, severity, defaultMessageFmt, messageKey, messageArgs);
         this.userId = userId;
     }
 

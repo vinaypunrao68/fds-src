@@ -11,10 +11,10 @@
 #include <fds_types.h>
 #include <fds_error.h>
 #include <fds_volume.h>
-#include <lib/OMgrClient.h>
 
 namespace fds { 
 
+struct OMgrClient;
 
 /* **********************************************
  *  FDS_QoSDispatcher: Pluggable Dispatcher with dispatchIOs - main routine
@@ -68,10 +68,6 @@ class FDS_QoSControl {
    void quieseceIOs(fds_volid_t volUUID);
 
    virtual fds_uint32_t queueSize(fds_volid_t volId);
-
-   /* will register OM client with perfstats that will enable pushing
-    * perfstats to OM periodically, note that perfstats have to be enabled for that  */
-   void registerOmClient(OMgrClient* om_client);
 };
 
 }

@@ -6,6 +6,8 @@ import com.formationds.hadoop.OwnerGroupInfo;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.util.Progressable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -25,6 +27,8 @@ import static org.junit.Assert.*;
 @Ignore
 public class HdfsSmokeTest {
     private final int OBJECT_SIZE = 1024 * 1024 * 2;
+    private final int amResponsePortOffset = 2876;
+    private final int amServicePortOffset = 2988;
     private FdsFileSystem fileSystem;
 
     private static boolean isIntegrationTest() {
@@ -224,6 +228,17 @@ public class HdfsSmokeTest {
     }
 
     @Test
+    public void testRenameRecursive() throws Exception {
+        fileSystem.mkdirs(new Path("/foo/bar"), FsPermission.getDefault());
+        byte[] data = new byte[]{1, 2, 4, 5};
+        createWithContent(new Path("/foo/bar/hello"), data);
+        assertTrue(fileSystem.exists(new Path("/foo/bar/hello")));
+        fileSystem.rename(new Path("/foo"), new Path("/panda"));
+        assertTrue(fileSystem.exists(new Path("/panda/bar/hello")));
+        assertFalse(fileSystem.exists(new Path("/foo/bar/hello")));
+    }
+
+    @Test
     public void testInputStream() throws Exception {
         byte[] contents = new byte[]{-1, -2, -114, -65};
         Path p = new Path("/panda");
@@ -231,6 +246,27 @@ public class HdfsSmokeTest {
         DataInputStream dis = new DataInputStream(fileSystem.open(p));
         int foo = dis.readInt();
         assertEquals(-94529, foo);
+    }
+
+    @Test
+    public void testCreateNonRecursive() throws Exception {
+        byte[] contents = new byte[]{-1, -2, -114, -65};
+        Path p = new Path("/foo/bar");
+        Progressable progress = () -> {
+        };
+
+        try {
+            fileSystem.createNonRecursive(p, FsPermission.getDefault(), true, 1024, (short) 1, 1024, progress);
+            fail("Should have gotten an IOException!");
+        } catch (IOException e) {
+        }
+
+        fileSystem.mkdirs(new Path("/foo"));
+        FSDataOutputStream out = fileSystem.createNonRecursive(p, FsPermission.getDefault(), true, 1024, (short) 1, 1024, progress);
+        out.write(contents);
+        out.flush();
+        out.close();
+        assertPathContent(p, contents);
     }
 
     @Test
@@ -341,12 +377,14 @@ public class HdfsSmokeTest {
 
     @Before
     public void setUpIntegration() throws Exception {
-        XdiClientFactory xdiCf = new XdiClientFactory();
+        Integer pmPort = 7000;
+
+        XdiClientFactory xdiCf = new XdiClientFactory(pmPort + amResponsePortOffset);
         String host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
 
         ConfigurationService.Iface cs = xdiCf.remoteOmService(host, 9090);
-        XdiService.Iface am = xdiCf.remoteAmService(host, 9988);
+        XdiService.Iface am = xdiCf.remoteAmService(host, pmPort + amServicePortOffset);
 
         String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
         String userName = "hdfs-user-" + UUID.randomUUID().toString();

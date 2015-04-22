@@ -69,8 +69,19 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /**
      * Notification about DLT change
+     * @return ERR_OK on success;
+     *         ERR_SM_NOERR_NEED_RESYNC if StorMgr should start full token resync
+     *         ERR_PERSIST_STATE_MISMATCH SM is just starting up and its persistent
+     *         state did not match given DLT
+     *         ERR_INVALID_ARG if ObjectStore already handled DLT with the same version
      */
     Error handleNewDlt(const DLT* dlt);
+
+    /**
+     * Notification about DLT close
+     * This method handles losing ownership of SM tokens
+     */
+    Error handleDltClose(const DLT* dlt);
 
     /**
      * Adds a new volume to the object store. Some physical

@@ -5,20 +5,20 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_
 
 #include <string>
-#include <fds_module.h>
 #include <fds_volume.h>
 #include <blob/BlobTypes.h>
 #include <cache/VolumeSharedKvCache.h>
-#include <am-tx-mgr.h>
 
 namespace fds {
+
+struct AmTxDescriptor;
 
 /**
  * A client-side cache of blob metadata and data. The cache
  * multiplexes different volumes and allows for different
  * policy management for each volume.
  */
-class AmCache : public Module, public boost::noncopyable {
+class AmCache {
     typedef VolumeSharedCacheManager<std::string, BlobDescriptor>
         descriptor_cache_type;
     typedef VolumeSharedCacheManager<BlobOffsetPair, ObjectID, BlobOffsetPairHash>
@@ -27,31 +27,23 @@ class AmCache : public Module, public boost::noncopyable {
         object_cache_type;
 
   public:
-    explicit AmCache(const std::string &modName);
-
-    ~AmCache() {}
-    typedef std::shared_ptr<AmCache> shared_ptr;
-
-    /**
-     * Module methods
-     */
-    int mod_init(SysParams const *const param)
-    { Module::mod_init(param); return 0; }
-    void mod_startup()  {}
-    void mod_shutdown() {}
+    AmCache();
+    AmCache(AmCache const&) = delete;
+    AmCache& operator=(AmCache const&) = delete;
+    ~AmCache();
 
     /**
      * Creates cache structures for the volume described
      * in the volume descriptor.
      */
-    Error createCache(const VolumeDesc& volDesc);
+    Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs);
 
     /**
      * Removes volume cache for the volume.
      * Any dirty entries must be flushed back to persistent
      * storage prior to removal, otherwise they will be lost.
      */
-    Error removeCache(fds_volid_t volId);
+    Error removeVolume(fds_volid_t const volId);
 
     /**
      * Retrieves blob descriptor from cache for given volume
@@ -87,7 +79,7 @@ class AmCache : public Module, public boost::noncopyable {
      * transaction. Any previously existing info will be
      * overwritten.
      */
-    Error putTxDescriptor(const AmTxDescriptor::ptr txDesc, fds_uint64_t const blobSize);
+    Error putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize);
 
     /**
      * Updates a blob descriptor in the cache for given volume id
@@ -123,8 +115,6 @@ class AmCache : public Module, public boost::noncopyable {
     offset_cache_type offset_cache;
     object_cache_type object_cache;
 
-    /// Max number of object data entries per volume cache
-    size_t max_data_entries;
     /// Max number of metadta entries per volume cache
     size_t max_metadata_entries;
 };

@@ -8,7 +8,7 @@ import unittest
 import requests
 import json
 import testsets.testcase as testcase
-
+import block_volumes
 
 class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
 
@@ -19,6 +19,9 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
     def __init__(self, parameters=None, config_file=None, om_ip_address=None):
         super(TestCreateThreehundredBlockVolumes, self).__init__(parameters=parameters,
                 config_file=config_file, om_ip_address=om_ip_address)
+        
+        self.volumes = []
+        self.block_volume = block_volumes.BlockVolumes(om_ip_address)
 
     '''
     Do it.
@@ -40,16 +43,11 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
             header = {'FDS-Auth' : userToken}
             self.log.info("header = %s", header)
 
-            #Get the s3 connection from the testcase parameters
-            # conn = self.parameters['s3'].get_s3_connection()
-
-            #Get number of volumes currently?
-
-            for i in range(0, 300):
+            for i in range(0, 100):
 
                 #volume name
                 volume_name = "test-block-" + str(i).zfill(3) + "_300"
-
+                self.volumes.append(volume_name)
                 #prep data
                 data = {"sla":0,"limit":0,"priority":10,"snapshotPolicies":[],
                         "timelinePolicies":[{"retention":604800,
@@ -75,29 +73,20 @@ class TestCreateThreehundredBlockVolumes(testcase.FDSTestCase):
                     #Check return code
                     self.assertTrue(200 == r.status_code)
 
-                #Write to the volume
-
-                #Read from volume
-
-            #Get Volumes
-            #r = requests.get(url, headers=header)
-            #self.log.info("response = %s", r.json())
-            #self.log.info("Status = %s", r.status_code)
-
-            #Yay?
             test_passed = True
-
 
         except Exception, e:
             self.log.exception(e)
             test_passed = False
         finally:
             super(self.__class__, self).reportTestCaseResult(test_passed)
-
-    '''
-    Undo it.
-    '''
-#    def tearDown(self):
+            
+    def tearDown(self):
+        '''
+        Undo it.
+        '''
+        for volume in self.volumes:
+            self.block_volume.delete_block_volume(volume)
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

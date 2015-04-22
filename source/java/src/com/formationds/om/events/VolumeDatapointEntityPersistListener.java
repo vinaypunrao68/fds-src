@@ -1,7 +1,6 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.events;
 
 import com.formationds.commons.crud.EntityPersistListener;
@@ -10,9 +9,9 @@ import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.FirebreakEvent;
-import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.om.repository.EventRepository;
-import com.formationds.om.repository.MetricsRepository;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import org.apache.thrift.TException;
@@ -27,34 +26,37 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * A postPersist listener on VolumeDatapoint persistence operations to intercept and detect firebreak events.
  */
-public class VolumeDatapointEntityPersistListener implements EntityPersistListener<VolumeDatapoint> {
+public class VolumeDatapointEntityPersistListener implements EntityPersistListener<IVolumeDatapoint> {
 
     private static final Logger logger = LoggerFactory.getLogger(VolumeDatapointEntityPersistListener.class);
 
-    private MetricsRepository mr = SingletonRepositoryManager.instance()
-                                                             .getMetricsRepository();
+    private MetricRepository mr = SingletonRepositoryManager.instance()
+                                                            .getMetricsRepository();
 
-    class FBInfo { private final Volume v; private final FirebreakType type;
-        public FBInfo(Volume v, FirebreakType type) {
+    class FBInfo {
+        private final Volume        v;
+        private final FirebreakType type;
+
+        public FBInfo( Volume v, FirebreakType type ) {
             this.v = v;
             this.type = type;
         }
 
         @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+        public boolean equals( Object o ) {
+            if ( this == o ) return true;
+            if ( o == null || getClass() != o.getClass() ) return false;
 
             FBInfo fbInfo = (FBInfo) o;
-            if (!Objects.equals(this.type, fbInfo.type)) return false;
+            if ( !Objects.equals( this.type, fbInfo.type ) ) return false;
             // TODO: should be based on a unique id... once backend supports it
-            return Objects.equals(this.v.getName(), fbInfo.v.getName());
+            return Objects.equals( this.v.getName(), fbInfo.v.getName() );
         }
 
         @Override
         public int hashCode() {
             // TODO: should be based on a unique id... once backend supports it
-            return Objects.hash(v.getName(), type);
+            return Objects.hash( v.getName(), type );
         }
     }
 
@@ -65,7 +67,7 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
     // if errors are not handled here.  There could also be some impact on performance of that operation, though it
     // is unlikely to be in the user data path and so impact should be minimal.
     @Override
-    public void postPersist(Collection<VolumeDatapoint> vdp) {
+    public <R extends IVolumeDatapoint> void postPersist( Collection<R> vdp) {
         logger.trace( "postPersist handling of {} Volume data points.", vdp.size());
         try {
             doPostPersist(vdp);
@@ -84,11 +86,11 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
      * @param vdp list of volume datapoints
      * @throws TException
      */
-    protected void doPostPersist(Collection<VolumeDatapoint> vdp) throws TException {
+    protected <R extends IVolumeDatapoint> void doPostPersist(Collection<R> vdp) throws TException {
         Map<String, EnumMap<FirebreakType,FirebreakHelper.VolumeDatapointPair>> fb =
             new FirebreakHelper().findFirebreakEvents( (vdp instanceof List ?
-                                                        (List<VolumeDatapoint>) vdp :
-                                                        new ArrayList<>( vdp )) );
+                                                        (List<IVolumeDatapoint>) vdp :
+                                                        new ArrayList<IVolumeDatapoint>( vdp )) );
 
         // first iterate over each volume
         fb.forEach((vid, fbvdps) -> {
@@ -152,19 +154,12 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
     }
 
     protected void loadActiveFirebreaks(Volume vol, FirebreakType fbtype) {
-        // TODO: it really shouldn't be necessary to create a new instance here, but without it i'm
-        // seeing duplicate results.  Need to revisit.  Note it may have something to do with the
-        // "in" clause used in EventRepository.
-        EventRepository er = new EventRepository();
-        try {
-            FirebreakEvent fb = er.findLatestFirebreak(vol, fbtype);
+        EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
+        FirebreakEvent fb = er.findLatestFirebreak(vol, fbtype);
 
-            if (fb != null) {
-                activeFirebreaks.put(new FBInfo(vol, fb.getFirebreakType()), fb);
-                isVolumeloaded.put(vol, Boolean.TRUE);
-            }
-        } finally {
-            er.close();
+        if (fb != null) {
+            activeFirebreaks.put(new FBInfo(vol, fb.getFirebreakType()), fb);
+            isVolumeloaded.put(vol, Boolean.TRUE);
         }
     }
 }

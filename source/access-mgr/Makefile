@@ -5,13 +5,10 @@ speedup           = -j $(threads)
 user_build_dir    := \
     include \
     amlib \
-    stor-hvisor \
     connector \
     test
 
-user_incl_dir     := \
-	stor-hvisor \
-	include
+user_incl_dir     := include
 
 user_fds_ar_libs  :=  \
     fds-qos-lib \
@@ -25,16 +22,6 @@ user_fds_ar_libs  :=  \
     fds-hash \
     fds-thread \
     fds-osdep
-
-user_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core \
-    pthread crypt pcre crypto z
 
 user_non_fds_libs :=  \
     boost_log \
@@ -50,8 +37,7 @@ user_non_fds_libs :=  \
     crypto \
     hiredis \
     event \
-	rt \
-    $(user_nginx_libs) \
+    rt \
     fiu \
     dl \
     tcmalloc

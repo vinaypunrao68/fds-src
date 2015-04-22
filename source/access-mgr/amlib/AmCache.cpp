@@ -6,47 +6,49 @@
 #include <fds_process.h>
 #include <PerfTrace.h>
 #include <climits>
+#include "AmTxDescriptor.h"
 
 namespace fds {
 
-AmCache::AmCache(const std::string &modName)
-    :   Module(modName.c_str()),
-        descriptor_cache("AM blob descriptor cache manager"),
-        offset_cache("AM blob offset cache manager"),
-        object_cache("AM blob object cache manager"),
-        max_data_entries(500),
-        max_metadata_entries(500)
+AmCache::AmCache()
+    : max_metadata_entries(0)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    max_data_entries = conf.get<fds_uint32_t>("cache.max_data_entries");
     max_metadata_entries = conf.get<fds_uint32_t>("cache.max_metadata_entries");
 }
 
+AmCache::~AmCache() = default;
+
 Error
-AmCache::createCache(const VolumeDesc& volDesc) {
-    Error err = descriptor_cache.createCache(volDesc.volUUID, max_metadata_entries);
-    if (err != ERR_OK) {
+AmCache::registerVolume(fds_volid_t const vol_uuid, size_t const num_objs) {
+    Error err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
+    if (ERR_OK != err) {
         return err;
     }
-    err = offset_cache.createCache(volDesc.volUUID, max_metadata_entries);
-    if (err != ERR_OK) {
+    err = offset_cache.addVolume(vol_uuid, max_metadata_entries);
+    if (ERR_OK != err) {
+        descriptor_cache.removeVolume(vol_uuid);
         return err;
     }
-    err = object_cache.createCache(volDesc.volUUID, max_data_entries);
+    err = object_cache.addVolume(vol_uuid, num_objs);
+    if (ERR_OK != err) {
+        offset_cache.removeVolume(vol_uuid);
+        descriptor_cache.removeVolume(vol_uuid);
+    }
     return err;
 }
 
 Error
-AmCache::removeCache(fds_volid_t volId) {
-    Error err = descriptor_cache.deleteCache(volId);
+AmCache::removeVolume(fds_volid_t const volId) {
+    Error err = descriptor_cache.removeVolume(volId);
     if (err != ERR_OK) {
         return err;
     }
-    err = offset_cache.deleteCache(volId);
+    err = offset_cache.removeVolume(volId);
     if (err != ERR_OK) {
         return err;
     }
-    err = object_cache.deleteCache(volId);
+    err = object_cache.removeVolume(volId);
     return err;
 }
 
@@ -60,7 +62,7 @@ AmCache::getBlobDescriptor(fds_volid_t volId,
     BlobDescriptor::ptr blobDescPtr;
     error = descriptor_cache.get(volId, blobName, blobDescPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_DESC_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_DESC_CACHE_HIT, volId);
     }
     return blobDescPtr;
 }
@@ -76,7 +78,7 @@ AmCache::getBlobOffsetObject(fds_volid_t volId,
     ObjectID::ptr blobOffsetPtr;
     error = offset_cache.get(volId, BlobOffsetPair(blobName, blobOffset), blobOffsetPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_OFFSET_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
     }
     return blobOffsetPtr;
 }
@@ -91,13 +93,13 @@ AmCache::getBlobObject(fds_volid_t volId,
     boost::shared_ptr<std::string> blobObjectPtr;
     error = object_cache.get(volId, objectId, blobObjectPtr);
     if (error == ERR_OK) {
-        PerfTracer::incr(AM_OBJECT_CACHE_HIT, volId);
+        PerfTracer::incr(PerfEventType::AM_OBJECT_CACHE_HIT, volId);
     }
     return blobObjectPtr;
 }
 
 Error
-AmCache::putTxDescriptor(const AmTxDescriptor::ptr txDesc, fds_uint64_t const blobSize) {
+AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize) {
     LOGTRACE << "Cache insert tx descriptor for volume " << std::hex
              << txDesc->volId << std::dec << " blob " << txDesc->blobName;
     Error err(ERR_OK);

@@ -18,12 +18,11 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <SMSvcHandler.h>
+#include "lib/OMgrClient.h"
 
 using diskio::DataTier;
 
 namespace fds {
-
-fds_bool_t  stor_mgr_stopping = false;
 
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
@@ -44,7 +43,11 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
       modProvider_(modProvider),
       totalRate(6000),  // will be over-written using node capability
       qosThrds(100),  // will be over-written from config
-      qosOutNum(10)
+      qosOutNum(10),
+      volTbl(nullptr),
+      qosCtrl(nullptr),
+      omClient(nullptr),
+      shuttingDown(false)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -55,52 +58,20 @@ void ObjectStorMgr::setModProvider(CommonModuleProviderIf *modProvider) {
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
-    // Setting shuttingDown will cause any IO going to the QOS queue
-    // to return ERR_SM_SHUTTING_DOWN
     LOGDEBUG << " Destructing  the Storage  manager";
-    shuttingDown = true;
-
-    // Shutdown scavenger
-    SmScavengerCmd *shutdownCmd = new SmScavengerCmd();
-    shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
-    objectStore->scavengerControlCmd(shutdownCmd);
-    LOGDEBUG << "Scavenger is now shut down.";
-
-    /*
-     * Clean up the QoS system. Need to wait for I/Os to
-     * complete and deregister each volume. The volume info
-     * is freed when the table is deleted.
-     * TODO: We should prevent further volume registration and
-     * accepting network I/Os while shutting down.
-     */
-    if (volTbl) {
-        std::list<fds_volid_t> volIds = volTbl->getVolList();
-        for (std::list<fds_volid_t>::iterator vit = volIds.begin();
-             vit != volIds.end();
-             vit++) {
-            qosCtrl->quieseceIOs((*vit));
-            qosCtrl->deregisterVolume((*vit));
-        }
+    if (qosCtrl) {
+        delete qosCtrl;
+        qosCtrl = nullptr;
+        LOGDEBUG << "qosCtrl destructed...";
     }
-        // delete perfStats;
-    LOGDEBUG << "Volumes deregistered...";
-    /*
-     * TODO: Assert that the waiting req map is empty.
-     */
+    if (volTbl) {
+        delete volTbl;
+        volTbl = NULL;
+        LOGDEBUG << "volTbl destructed...";
+    }
 
-    delete qosCtrl;
-    LOGDEBUG << "qosCtrl destructed...";
-    delete volTbl;
-    LOGDEBUG << "volTbl destructed...";
-
-    // Now clean up the persistent layer
     objectStore.reset();
-    LOGDEBUG << "Persistent layer has been destructed...";
-
-    // TODO(brian): Make this a cleaner exit
-    // Right now it will cause mod_shutdown to be called for each
-    // module. When we reach the SM module we bomb out
-    delete modProvider_;
+    LOGDEBUG << "Destructed Object Store";
 }
 
 int
@@ -111,44 +82,21 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
 
-    omClient = NULL;
+    fds_verify(omClient == nullptr);
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     if (testStandalone == false) {
-        std::string omIP;
-        fds_uint32_t omPort = 0;
-        MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIP, omPort);
-        LOGNOTIFY << "om ip: " << omIP
-                  << " port: " << omPort;
         omClient = new OMgrClient(FDSP_STOR_MGR,
-                                  omIP,
-                                  omPort,
                                   MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog(),
-                                  nullptr,
-                                  nullptr);
+                                  GetLog());
     }
 
-
-    return 0;
-}
-
-void ObjectStorMgr::mod_startup()
-{
-    // todo: clean up the code below.  It's doing too many things here.
-    // Refactor into functions or make it part of module vector
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
 
-    // init the checksum verification class
-    chksumPtr =  new checksum_calc();
-
     /*
-     * Create local volume table. Create after omClient
-     * is initialized, because it needs to register with the
-     * omClient. Create before register with OM because
-     * the OM vol event receivers depend on this table.
+     * Create local volume table.
      */
     volTbl = new StorMgrVolumeTable(this, GetLog());
 
@@ -163,8 +111,18 @@ void ObjectStorMgr::mod_startup()
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
                                                           volTbl));
-    objectStore->mod_init(mod_params);
 
+    static Module *smDepMods[] = {
+        objectStore.get(),
+        NULL
+    };                                                                                                                                                                            
+    mod_intern = smDepMods;
+    Module::mod_init(param);
+    return 0;
+}
+
+void ObjectStorMgr::mod_startup()
+{
     // Init token migration manager
     migrationMgr = SmTokenMigrationMgr::unique_ptr(new SmTokenMigrationMgr(this));
 
@@ -187,6 +145,8 @@ void ObjectStorMgr::mod_startup()
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
+
+    Module::mod_startup();
 }
 
 //
@@ -268,11 +228,10 @@ void ObjectStorMgr::mod_enable_service()
             else
                 testVdb->mediaPolicy = FDSP_MEDIA_POLICY_HYBRID_PREFCAP;
 
-            volEventOmHandler(testVolId,
-                              testVdb,
-                              FDS_VOL_ACTION_CREATE,
-                              FDS_ProtocolInterface::FDSP_NOTIFY_VOL_NO_FLAG,
-                              FDS_ProtocolInterface::FDSP_ERR_OK);
+            registerVolume(testVolId,
+                           testVdb,
+                           FDS_ProtocolInterface::FDSP_NOTIFY_VOL_NO_FLAG,
+                           FDS_ProtocolInterface::FDSP_ERR_OK);
 
             delete testVdb;
         }
@@ -281,11 +240,54 @@ void ObjectStorMgr::mod_enable_service()
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         gSvcRequestPool->setDltManager(omClient->getDltManager());
     }
+
+    Module::mod_enable_service();
+}
+
+void ObjectStorMgr::mod_disable_service() {
+    LOGDEBUG << "Disable (shutdown) service is called on SM";
+    // Setting shuttingDown will cause any IO going to the QOS queue
+    // to return ERR_NOT_READY
+    fds_bool_t expectShuttingDown = false;
+    if (!shuttingDown.compare_exchange_strong(expectShuttingDown, true)) {
+        LOGNOTIFY << "SM already started shutting down, nothing to do";
+        return;
+    }
+
+    // Stop scavenger
+    SmScavengerCmd *shutdownCmd = new SmScavengerCmd();
+    shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
+    objectStore->scavengerControlCmd(shutdownCmd);
+    LOGDEBUG << "Scavenger is now shut down.";
+
+    // Disable tier migration
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_DISABLE);
+    objectStore->tieringControlCmd(&tierCmd);
+
+    /*
+     * Clean up the QoS system. Need to wait for I/Os to
+     * complete;
+     * TODO: We should prevent further volume registration
+     */
+    if (volTbl) {
+        std::list<fds_volid_t> volIds = volTbl->getVolList();
+        for (std::list<fds_volid_t>::iterator vit = volIds.begin();
+             vit != volIds.end();
+             vit++) {
+            qosCtrl->quieseceIOs((*vit));
+        }
+    }
+    // once we are here, enqueue msg to qos queues will return
+    // not ready error == requests will be rejected
+    LOGDEBUG << "Started draining volume QoS queues...";
 }
 
 void ObjectStorMgr::mod_shutdown()
 {
     LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
+    fds_verify(shuttingDown == true);
+
+    Module::mod_shutdown();
 }
 
 int ObjectStorMgr::run()
@@ -322,6 +324,9 @@ ObjectStorMgr::getUuid() const {
 }
 
 const DLT* ObjectStorMgr::getDLT() {
+    if (testStandalone == true) {
+        return standaloneTestDlt;
+    }
     if (!omClient) { return nullptr; }
     return omClient->getCurrentDLT();
 }
@@ -341,87 +346,52 @@ Error ObjectStorMgr::handleDltUpdate() {
     // to SM tokens
     const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
+    if (err == ERR_SM_NOERR_NEED_RESYNC) {
+        LOGNORMAL << "SM received first DLT after restart, which matched "
+                  << "its persistent state, will start full resync of DLT tokens";
+        // TODO(Anna) FS-1649 actually start the resync process
 
-    if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
-        LOGDEBUG << "Received DLT update that has removed this node.";
-        // TODO(brian): Not sure if this is where we should kill scavenger or not
+        // for now pretend we successfully started resync, return success
+        err = ERR_OK;
     }
+
     return err;
 }
 
 /*
- * Note this function is generally run in the context
- * of an Ice thread.
+ * Note this method register volumes outside of SMSvc
  */
 Error
-ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
-                                 VolumeDesc  *vdb,
-                                 int          action,
-                                 FDSP_NotifyVolFlag vol_flag,
-                                 FDSP_ResultType result) {
+ObjectStorMgr::registerVolume(fds_volid_t  volumeId,
+                              VolumeDesc  *vdb,
+                              FDSP_NotifyVolFlag vol_flag,
+                              FDSP_ResultType result) {
     StorMgrVolume* vol = NULL;
     Error err(ERR_OK);
     fds_assert(vdb != NULL);
 
-    switch (action) {
-        case FDS_VOL_ACTION_CREATE :
-            GLOGNOTIFY << "Received create for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb->getName() << "]";
-            /*
-             * Needs to reference the global SM object
-             * since this is a static function.
-             */
-            err = objStorMgr->volTbl->registerVolume(*vdb);
-            if (err.ok()) {
-                vol = objStorMgr->volTbl->getVolume(volumeId);
-                fds_assert(vol != NULL);
-                err = objStorMgr->qosCtrl->registerVolume(vdb->isSnapshot() ?
-                        vdb->qosQueueId : vol->getVolId(),
-                        static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
-                if (!err.ok()) {
-                    // most likely axceeded min iops
-                    objStorMgr->volTbl->deregisterVolume(volumeId);
-                }
-            }
-            if (!err.ok()) {
-                GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
-                          << std::dec << " error: " << err.GetErrstr();
-            }
-            break;
-        case FDS_VOL_ACTION_DELETE:
-            GLOGNOTIFY << "Received delete for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb->getName() << "]";
-            objStorMgr->qosCtrl->quieseceIOs(volumeId);
-            objStorMgr->qosCtrl->deregisterVolume(volumeId);
-            objStorMgr->volTbl->deregisterVolume(volumeId);
-            break;
-        case fds_notify_vol_mod:
-            GLOGNOTIFY << "Received modify for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb->getName() << "]";
-
-            vol = objStorMgr->volTbl->getVolume(volumeId);
-            fds_assert(vol != NULL);
-            if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
-                GLOGWARN << "Modify volume requested to modify media policy "
-                         << "- Not supported yet! Not modifying media policy";
-            }
-
-            vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
-            err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
-                                                             vdb->iops_min,
-                                                             vdb->iops_max,
-                                                             vdb->relativePrio);
-            if ( !err.ok() )  {
-                GLOGERROR << "Modify volume policy failed for vol " << vdb->getName()
-                          << std::hex << volumeId << std::dec << " error: "
-                          << err.GetErrstr();
-            }
-            break;
-        default:
-            fds_panic("Unknown (corrupt?) volume event recieved!");
+    GLOGNOTIFY << "Received create for vol "
+               << "[" << std::hex << volumeId << std::dec << ", "
+               << vdb->getName() << "]";
+    /*
+     * Needs to reference the global SM object
+     * since this is a static function.
+     */
+    err = objStorMgr->regVol(*vdb);
+    if (err.ok()) {
+        vol = objStorMgr->getVol(volumeId);
+        fds_assert(vol != NULL);
+        err = objStorMgr->regVolQos(vdb->isSnapshot() ?
+                vdb->qosQueueId : vol->getVolId(),
+                static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
+        if (!err.ok()) {
+            // most likely axceeded min iops
+            objStorMgr->deregVol(volumeId);
+        }
+    }
+    if (!err.ok()) {
+        GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
+                  << std::dec << " error: " << err.GetErrstr();
     }
 
     return err;
@@ -508,6 +478,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
                                      objId,
                                      boost::make_shared<std::string>(putReq->putObjectNetReq->data_obj),
                                      putReq->forwardedReq);
+
         qosCtrl->markIODone(*putReq);
 
         // end of ObjectStore layer latency
@@ -515,7 +486,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
 
         // forward this IO to destination SM if needed, but only if we succeeded locally
         // and was not already a forwarded request.
-        // The assumption is that forward will not take a multiple hop.  It will be only from
+        // The assumption is that forward will not take  multiple hops.  It will be only from
         // one source to one destionation SM.
         if (err.ok() && (false == putReq->forwardedReq)) {
             bool forwarded = migrationMgr->forwardReqIfNeeded(objId, putReq->dltVersion, putReq);
@@ -554,6 +525,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
                                         objId,
                                         delReq->forwardedReq);
 
+
         qosCtrl->markIODone(*delReq);
 
         // end of ObjectStore layer latency
@@ -561,7 +533,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 
         // forward this IO to destination SM if needed, but only if we succeeded locally
         // and was not already a forwarded request.
-        // The assumption is that forward will not take a multiple hop.  It will be only from
+        // The assumption is that forward will not take multiple hops.  It will be only from
         // one source to one destionation SM.
         if (err.ok() && (false == delReq->forwardedReq)) {
             bool forwarded = migrationMgr->forwardReqIfNeeded(objId, delReq->dltVersion, delReq);
@@ -578,7 +550,8 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 }
 
 Error
-ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq) {
+ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
+{
     fds_assert(0 != addObjRefReq);
     fds_assert(0 != addObjRefReq->getSrcVolId());
     fds_assert(0 != addObjRefReq->getDestVolId());
@@ -589,23 +562,62 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq) {
         return rc;
     }
 
+    uint64_t origNumObjIds = addObjRefReq->objIds().size();
+
     // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(addObjRefReq->opLatencyCtx);
 
-    for (auto objId : addObjRefReq->objIds()) {
-        ObjectID oid = ObjectID(objId.digest);
+    for (std::vector<fpi::FDS_ObjectIdType>::iterator it = addObjRefReq->objIds().begin();
+         it != addObjRefReq->objIds().end();
+         ++it) {
+        ObjectID oid = ObjectID(it->digest);
+
+        // token lock
+        auto token_lock = getTokenLock(oid);
+
         rc = objectStore->copyAssociation(addObjRefReq->getSrcVolId(),
-                addObjRefReq->getDestVolId(), oid);
+                                          addObjRefReq->getDestVolId(),
+                                              oid);
         if (!rc.ok()) {
             LOGERROR << "Failed to add association entry for object " << oid
                      << "in to odb with err " << rc;
-            break;
+            // Remove from the list before forwarding, if failed.
+            // Will forward only the successfully applied volume association.
+            // Also, only remove, if it's going to be forwarded, since we only
+            // forward successful request.
+            if (false == addObjRefReq->forwardedReq) {
+                addObjRefReq->objIds().erase(it);
+            }
         }
     }
 
     qosCtrl->markIODone(*addObjRefReq);
     // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(addObjRefReq->opLatencyCtx);
+
+    // TODO(Sean): not sure how to handle the error case above, since there is no
+    // roll back mechsnim.  It's hard to tell what it means if there is an error
+    // for this operation.  Who ever designed this need to think about this one.
+    // For now, just dealing
+
+
+    // forward this IO to destination SM if needed, but only if we succeeded locally
+    // and was not already a forwarded request.
+    // The assumption is that forward will not take multiple hops.  It will be only from
+    // one source to one destionation SM.
+    if ((addObjRefReq->objIds().size() > 0) && (false == addObjRefReq->forwardedReq)) {
+        bool forwarded = migrationMgr->forwardReqIfNeeded(NullObjectID,
+                                                          addObjRefReq->dltVersion,
+                                                          addObjRefReq);
+        if (forwarded) {
+            // we forwarded request, however we will ack to AM right away, and if
+            // forwarded request fails, we will fail the migration
+            LOGMIGRATE << "Forwarded addObjRefReq: "
+                       << " Original ObjIds=" << origNumObjIds
+                       << " number of Objects=" << addObjRefReq->objIds().size()
+                       << " to destination SM ";
+        }
+    }
 
     addObjRefReq->response_cb(rc, addObjRefReq);
 
@@ -664,13 +676,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     ObjectID objectId;
     ioReq->setVolId(volId);
 
-    // TODO(brian): Move this elsewhere ?
-    // Return ERR_SM_SHUTTING_DOWN here if SM is in shutdown state
-    if (isShuttingDown()) {
-        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-        return ERR_SM_SHUTTING_DOWN;
-    }
-
     switch (ioReq->io_type) {
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
@@ -705,7 +710,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     }
 
     if (err != fds::ERR_OK) {
-        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string() << " " << err;
     }
 
     return err;

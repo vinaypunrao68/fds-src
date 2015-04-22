@@ -1,6 +1,7 @@
 import boto
 import os
 import sys
+import unittest
 
 from boto.s3.key import Key
 
@@ -27,64 +28,46 @@ class TestCreateMultipleBuckets(testcase.FDSTestCase):
         super(TestCreateMultipleBuckets, self).__init__(parameters=parameters,
                                                     config_file=config_file,
                                                     om_ip_address=om_ip_address)
-        self.my_users = []
         # since the FDS doesn't support creating more than 1024 buckets,
         # we will limit this to 1023.
-        for i in xrange(1, config.NUMBER_USERS):
-            user = users.User(id=i)
-            self.my_users.append(user)
-            
-        self.table = {}
+        self.buckets = []
         self.conn = self.parameters['s3'].conn
     
+    @unittest.expectedFailure
     def runTest(self):
         '''
         First create the S3 buckets for every user, and then store a
         test file in that particular bucket.
         '''
-        test_passed = False
-        try:
-            self.test_create_multiple_buckets()          
-            for k, v in self.table.iteritems():
-                if not k:
-                    raise
-            test_passed = True
-        except:
-            test_passed = False
-        super(self.__class__, self).reportTestCaseResult(test_passed)
+        self.test_create_multiple_buckets()          
     
+    @unittest.expectedFailure
     def tearDown(self):
         '''
         Remove all the buckets which were created by this test.
         '''
-        for bucket, v in self.table.iteritems():
+        for bucket in self.buckets:
             if bucket:
                 for key in bucket.list():
                     bucket.delete_key(key)
+                self.log.info("Deleting bucket %s" % bucket.name)
                 self.conn.delete_bucket(bucket.name)
-        self.table = {}
         
     def test_create_multiple_buckets(self):
         '''
         Create a bucket per user, and upload a simple file, to assert
         the data is there.
         '''
-        curr_dir = os.path.dirname(os.path.abspath(__file__))
-        full_file_name = os.path.join(curr_dir, config.SAMPLE_FILE)
-        for user in self.my_users:
+        for i in xrange(0, 1023):
             # the bucket name is a 7 char key.
-            name = "hello_" + str(user.id)
+            name = "volume_" + str(i)
             try:
                 bucket = self.conn.create_bucket(name)
                 if bucket == None:
                     raise Exception("Invalid bucket.")
                     sys.exit(1)
-                self.table[bucket] = user
-                k = Key(bucket)
-                k.key = config.SAMPLE_FILE
-                k.set_contents_from_filename(full_file_name,
-                                             cb=utils.percent_cb,
-                                             num_cb=10)
+                self.log.info("Created bucket %s" % name)
+                self.buckets.append(bucket)
             except Exception, e:
                 self.log.exception(e)
                 continue

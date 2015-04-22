@@ -38,7 +38,12 @@ ObjectDataStore::~ObjectDataStore() {
 Error
 ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
                                fds_bool_t pristineState) {
-    return persistData->openPersistDataStore(diskMap, pristineState);
+    return persistData->openObjectDataFiles(diskMap, pristineState);
+}
+
+Error
+ObjectDataStore::closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost) {
+    return persistData->closeAndDeleteObjectDataFiles(smTokensLost);
 }
 
 Error
@@ -67,7 +72,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
                             sync, tier);
 
     { // scope for perf counter
-        PerfContext tmp_pctx(SM_OBJ_DATA_DISK_WRITE,
+        PerfContext tmp_pctx(PerfEventType::SM_OBJ_DATA_DISK_WRITE,
                              volId, PerfTracer::perfNameStr(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = persistData->writeObjectData(objId, plReq);
@@ -77,7 +82,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
         if (tier == diskio::flashTier) {
-            PerfTracer::incr(SM_OBJ_DATA_SSD_WRITE, volId, PerfTracer::perfNameStr(volId));
+            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_WRITE, volId, PerfTracer::perfNameStr(volId));
             odsCntrs.ssd_writes.incr();
         } else if (tier == diskio::diskTier) {
             odsCntrs.hdd_writes.incr();
@@ -108,7 +113,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
             = dataCache->getObjectData(volId, objId, err);
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " from cache";
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(PerfEventType::SM_OBJ_DATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
         return objCachedData;
     }
 
@@ -135,7 +140,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
     (objBuf.data)->resize(objMetaData->getObjSize(), 0);
 
     {  // scope for perf counter
-        PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ,
+        PerfContext tmp_pctx(PerfEventType::SM_OBJ_DATA_DISK_READ,
                              volId, PerfTracer::perfNameStr(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = persistData->readObjectData(objId, plReq);
@@ -145,7 +150,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                  << " tier " << tier << " volume " << std::hex
                  << volId << std::dec;
         if (tier == diskio::flashTier) {
-            PerfTracer::incr(SM_OBJ_DATA_SSD_READ, volId, PerfTracer::perfNameStr(volId));
+            PerfTracer::incr(PerfEventType::SM_OBJ_DATA_SSD_READ, volId, PerfTracer::perfNameStr(volId));
             odsCntrs.ssd_reads.incr();
         } else if (tier == diskio::diskTier) {
             odsCntrs.hdd_reads.incr();
@@ -199,6 +204,7 @@ ObjectDataStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
  */
 int
 ObjectDataStore::mod_init(SysParams const *const p) {
+    LOGDEBUG << "Will init Data Store";
     static Module *dataStoreDepMods[] = {
         dataCache.get(),
         persistData.get(),
@@ -215,6 +221,7 @@ ObjectDataStore::mod_init(SysParams const *const p) {
  */
 void
 ObjectDataStore::mod_startup() {
+    Module::mod_startup();
 }
 
 /**
@@ -222,6 +229,8 @@ ObjectDataStore::mod_startup() {
  */
 void
 ObjectDataStore::mod_shutdown() {
+    Module::mod_shutdown();
+    LOGDEBUG << "Done.";
 }
 
 }  // namespace fds

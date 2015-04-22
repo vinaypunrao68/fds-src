@@ -1,5 +1,6 @@
 /*
  * Copyright 2013-2015 Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
 include "config_types.thrift"
@@ -37,9 +38,120 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
+   * Change the name of the given Local Domain.
+   *
+   * @param oldDomainName - A string representing the old name of the Local Domain.
+   * @param newDomainName - A string representing the new name of the Local Domain.
+   *
+   * @return void.
+   */
+  void updateLocalDomainName(1:string oldDomainName, 2:string newDomainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Change the name of the given Local Domain's site.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose site is to be changed.
+   * @param newSiteName - A string representing the new name of the Local Domain's site.
+   *
+   * @return void.
+   */
+  void updateLocalDomainSite(1:string domainName, 2:string newSiteName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Set the throttle of the given Local Domain.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose throttle is to be set.
+   * @param throttleLevel - A double representing the new throttle level for the Local Domain.
+   *
+   * @return void.
+   */
+  void setThrottle(1:string domainName, 2:double throttleLevel)
+      throws (1: common.ApiException e);
+
+  /**
+   * Set the scavenger actin for the given Local Domain.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose scavenger action is to be set.
+   * @param scavengerAction - A string representing the new scavenger action for the Local Domain. One of
+   *                          "enable", "disable", "start", "stop".
+   *
+   * @return void.
+   */
+  void setScavenger(1:string domainName, 2:string scavengerAction)
+      throws (1: common.ApiException e);
+
+  /**
+   * Shutdown currently the named Local Domain.
+   *
+   * Shutdown involves stopping all processes associated with SM, DM, and AM services. However,
+   * none of them are unregistered from the Domain as would be the case with "removing" services.
+   *
+   * @param domainName - A string representing the name of the Local Domain to be shutdown.
+   *
+   * @return void.
+   */
+  void shutdownLocalDomain(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Delete currently the named Local Domain.
+   *
+   * @param domainName - A string representing the name of the Local Domain to be deleted.
+   *
+   * @return void.
+   */
+  void deleteLocalDomain(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Activate currently defined Services for the named Local Domain.
+   *
+   * If all Service flags are set to False, it will
+   * be interpreted to mean activate all Services currently defined for the Node. If there are
+   * no Services currently defined for the node, it will be interpreted to mean activate all
+   * Services on the Node (SM, DM, and AM), and define all Services for the Node.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose Services are to be activated.
+   * @param sm - A bool indicating whether the SM Service should be activated (True) or not (False)
+   * @param dm - A bool indicating whether the DM Service should be activated (True) or not (False)
+   * @param am - A bool indicating whether the AM Service should be activated (True) or not (False)
+   *
+   * @return void.
+   */
+  void activateLocalDomainServices(1:string domainName, 2:bool sm, 3:bool dm, 4:bool am)
+      throws (1: common.ApiException e);
+
+  /**
+   * Lists currently defined Services for the named Local Domain.
+   *
+   * @return Returns the list of FDSP_Node_Info_Type's.
+   */
+  list<common.FDSP_Node_Info_Type> listLocalDomainServices(1:string domainName)
+      throws (1: common.ApiException e);
+
+  /**
+   * Remove currently defined Services from the named Local Domain.
+   *
+   * If all Service flags are set to False, it will
+   * be interpreted to mean remove all Services currently defined for the Node.
+   * Removal means that the Service is unregistered from the Domain and shutdown.
+   *
+   * @param domainName - A string representing the name of the Local Domain whose Services are to be removed.
+   * @param sm - A bool indicating whether the SM Service should be removed (True) or not (False)
+   * @param dm - A bool indicating whether the DM Service should be removed (True) or not (False)
+   * @param am - A bool indicating whether the AM Service should be removed (True) or not (False)
+   *
+   * @return void.
+   */
+  void removeLocalDomainServices(1:string domainName, 2:bool sm, 3:bool dm, 4:bool am)
+      throws (1: common.ApiException e);
+
+  /**
    * Create a new tenant.
    *
-   * @param identifier a string represnting the tenants identifier or name
+   * @param identifier a string representing the tenants identifier or name
    *
    * @return Returns the tenants id
    */
@@ -343,4 +455,53 @@ service ConfigurationService {
     2:i64 fdsp_PolicyInfoId,
     3:string cloneVolumeName,
     4:i64 timelineTime)
+
+  /**
+   * Create a new QoS policy.
+   *
+   * @param policy_name - A string representing the name of the policy. Must be unique within a Global Domain.
+   * @param iops_min - An i64 representing the minimum IOPS to be achieved by the policy. Also referred to as "SLA" or
+   *                   "Service Level Agreement".
+   * @param iops_max - An i64 representing the maximum IOPS guaranteed by the policy. Also referred to as "Limit".
+   * @param rel_prio - An i32 representing the relative priority of requests against Volumes with this policy compared
+   *                   to requests against Volumes with different relative priorities.
+   *
+   * @return Returns common.FDSP_PolicyInfoType
+   */
+  common.FDSP_PolicyInfoType createQoSPolicy(1:string policy_name, 2:i64 iops_min, 3:i64 iops_max, 4:i32 rel_prio)
+      throws (1: common.ApiException e),
+
+  /**
+   * Enumerate QoS policies.
+   *
+   * @return Returns a list of FDSP_PolicyInfoType objects
+   */
+  list<common.FDSP_PolicyInfoType> listQoSPolicies(1:i64 unused)
+      throws (1: common.ApiException e),
+
+  /**
+   * Modify a QoS policy.
+   *
+   * @param current_policy_name - A string representing the current name of the policy.
+   * @param new_policy_name - A string representing the new name of the policy. Must be unique within a Global Domain.
+   *                          May be the same as current_policy_name if the name is not changing.
+   * @param iops_min - An i64 representing the new minimum IOPS to be achieved by the policy. Also referred to as "SLA" or
+   *                   "Service Level Agreement".
+   * @param iops_max - An i64 representing the new maximum IOPS guaranteed by the policy. Also referred to as "Limit".
+   * @param rel_prio - An i32 representing the new relative priority of requests against Volumes with this policy compared
+   *                   to requests against Volumes with different relative priorities.
+   *
+   * @return Returns common.FDSP_PolicyInfoType containing the modified QoS Policy.
+   */
+  common.FDSP_PolicyInfoType modifyQoSPolicy(1:string current_policy_name, 2:string new_policy_name, 3:i64 iops_min,
+                                             4:i64 iops_max, 5:i32 rel_prio)
+      throws (1: common.ApiException e),
+
+  /**
+   * Delete a QoS policy.
+   *
+   * @param policy_name the name of the QoS policy to be deleted
+   */
+  void deleteQoSPolicy(1:string policy_name)
+      throws (1: common.ApiException e),
 }

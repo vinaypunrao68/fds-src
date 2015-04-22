@@ -31,6 +31,43 @@ log = logging.getLogger(__name__)
 
 interfaces = ["eth0","eth1","eth2","wlan0","wlan1","wifi0","ath0","ath1","ppp0"]
 
+def is_device_mounted(device):
+    try:
+        device = subprocess.check_output("grep '%s' /proc/mounts | awk '{printf $1}'" % device, shell=True)
+        if len(device) == 0:
+            return False
+        return True
+    except Exception, e:
+        log.exception(e)
+        sys.exit(2)
+
+def create_s3_connection(om_ip, am_ip, auth=None):
+    '''
+    Given the two ip addresses (OM and AM nodes), establish a S3 connection to
+    the FDS cluster
+
+    Attributes:
+    -----------
+    om_ip: The OM Node IP address
+    am_ip: the AM node IP address
+    '''
+    s3conn = s3.S3Connection(
+            config.FDS_DEFAULT_ADMIN_USER,
+            auth,
+            om_ip,
+            config.FDS_S3_PORT,
+            am_ip
+    )
+    s3conn.s3_connect()
+    return s3conn
+
+def execute_cmd(cmd):
+    try:
+        return subprocess.check_output([cmd], shell=True)
+    except Exception, e:
+        log.exception(e)
+        sys.exit(2)
+
 def do_work(function, params):
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         results = {executor.submit(function, param): param for param in params}
@@ -52,7 +89,7 @@ def create_test_files_dir():
     if os.listdir(config.TEST_DIR) == []:
         fname = download_file(config.REPOSITORY_URL)
         untar_file(fname)
-    
+
 def untar_file(fname):
     if (fname.endswith("tar.gz")):
         tar = tarfile.open(fname)
@@ -88,12 +125,12 @@ def hash_file_content(path):
     '''
     Hash the file content using MD5, and store the hash key for later. If
     The file content changed, or was corrupted, the hash key will show it.
-     
+
     Attributes:
     -----------
     fname : str
         the name of the file to be hashed
-    
+
     Returns:
     --------
     str: a MD5 hash key
@@ -333,3 +370,26 @@ def exec_commands(cmds):
             break
         else:
             time.sleep(0.05)
+
+def compare_hashes(dict1_hashes, dict2_hashes):
+    '''
+	This function compares two dictionary hashes.
+
+    Attributes:
+    -----------
+	Takes two dictionary hashes
+
+    Returns:
+    --------
+	Returns true if two dictionary hashes are the same
+    '''
+
+    for k, v in dict1_hashes.iteritems():
+
+	    log.info("Comparing hashes for file %s" % k)
+	    if dict1_hashes[k]  != dict2_hashes[k]:
+		log.warning("%s != %s - on key=%s" % (dict1_hashes[k], dict2_hashes[k], k))
+		return False
+		break
+
+    return True

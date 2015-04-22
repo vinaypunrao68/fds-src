@@ -304,9 +304,14 @@ FdsProcess::sig_handler(void* param)
 {
     sigset_t ctrl_c_sigs;
     sigemptyset(&ctrl_c_sigs);
-    sigaddset(&ctrl_c_sigs, SIGHUP);
-    sigaddset(&ctrl_c_sigs, SIGINT);
     sigaddset(&ctrl_c_sigs, SIGTERM);
+    /*
+     * NOTE: We arent doing anything for SIGHUP and SIGINT.  Becuase
+     * most processes that derive fds_process are daemonized.  When we do
+     * sigwait on these signals, when we gdb the process, hitting ctrl+c is
+     * delivered to the process instead of gdb.
+     * see https://bugzilla.kernel.org/show_bug.cgi?id=9039#c1
+     */
 
     while (true)
     {
@@ -339,14 +344,12 @@ FdsProcess::sig_handler(void* param)
 void FdsProcess::setup_sig_handler()
 {
     /*
-     * We will block ctrl+c like signals in the main thread.  All
+     * We will block sigterm signal in the main thread.  All
      * other threads will have signals blocked as well.  We will
      * create a thread to listen for signals
      */
     sigset_t ctrl_c_sigs;
     sigemptyset(&ctrl_c_sigs);
-    sigaddset(&ctrl_c_sigs, SIGHUP);
-    sigaddset(&ctrl_c_sigs, SIGINT);
     sigaddset(&ctrl_c_sigs, SIGTERM);
 
     int rc = pthread_sigmask(SIG_BLOCK, &ctrl_c_sigs, 0);
@@ -435,15 +438,42 @@ FdsProcess::closeAllFDs()
             fflush(stdout);
             fflush(stderr);
             ret = dup2(i, devNullFd);
+#if 0
             if (-1 == ret) {
-                LOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
+                // xxx: Not sure if we can log here as we are closing all fds in this loop.
+                // we should log to syslog
+                GLOGERROR << "Error on redirecting stdio to /dev/null: errno " << errno;
             }
+#endif
         } else {
             ret = close(i);
             /* intentionally ignoring return value. some file descriptor may not be
              * open for closing.  not all entries in the dtable is populated.
              */
         }
+    }
+}
+
+void FdsProcess::checkAndDaemonize(int argc, char *argv[]) {
+    bool makeDaemon = true;
+    volatile bool gdb = false;
+    for (int i = 1; i < argc; i++) {
+        if (std::string(argv[i]).find("--foreground") != std::string::npos) {
+            makeDaemon = false;
+        }
+        if (std::string(argv[i]).find("--gdb") != std::string::npos) {
+            gdb = true;
+        }
+    }
+
+    /* When --gdb is set, wait until gdb flag is unset from inside a gdb session */
+    while (gdb) {
+        sleep(1);
+    }
+
+    if (makeDaemon) {
+        closeAllFDs();
+        daemonize();
     }
 }
 
@@ -459,12 +489,12 @@ void FdsProcess::daemonize() {
     int childpid = fork();
     if (childpid < 0) {
         /* fork failed */
-        LOGERROR << "error forking for daemonize : " << errno;
+        GLOGERROR << "error forking for daemonize : " << errno;
         exit(1);
     }
     if (childpid > 0) {
         /* parent process */
-        LOGNORMAL << "forked successfully : child pid : " << childpid;
+        GLOGNORMAL << "forked successfully : child pid : " << childpid;
         exit(0);
     }
 

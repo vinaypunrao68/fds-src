@@ -24,7 +24,6 @@
 #   [lxc-nodes:vars]
 #   ansible_ssh_user=root
 #   ansible_ssh_pass=passwd
-#   cluster_location=bld
 #   deploy_artifact=local
 #   fds_default_nic=eth0
 #   fds_om_host=lxc-node-01
@@ -38,8 +37,6 @@
 #   be "nodeNN" where NN can be any number. There must also be a node in the
 #   inventory (first stanza) that matches the hostname assigned to the
 #   "fds_om_host" variable.
-#
-#   cluster_location is optional. Determines which FDS-held apt mirror to use for large FDS package downloads. Valid values are bld and fre. Omission causes packages to be downloaded from Artifactory (potentially VERY slow)
 #
 #   deploy_artifact is optional. Determines where the fds-*.deb pacakges should be found. nightly will download latest nightly build from appropriate apt repo. local will attempt to copy locally-built debs to the target hosts. Testing changes and performance will likely benefit most from local 
 #

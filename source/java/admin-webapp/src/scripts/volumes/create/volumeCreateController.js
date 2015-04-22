@@ -4,6 +4,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.dataConnector = {};
     $scope.volumeName = '';
     $scope.mediaPolicy = 0;
+    $scope.enableDc = false;
     
     $scope.timelinePolicies = {};
     
@@ -130,7 +131,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             return;
         }
         
-        if ( $scope.volumeVars.toClone === 'clone' ){
+        if ( angular.isDefined( $scope.volumeVars.toClone ) && $scope.volumeVars.toClone.value === 'clone' ){
             volume.timelineTime = $scope.volumeVars.cloneFromVolume.timelineTime;
             cloneVolume( volume );
         }
@@ -142,11 +143,13 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
 
     $scope.cancel = function(){
         $scope.volumeVars.creating = false;
-        $scope.volumeVars.toClone = false;
+        $scope.volumeVars.toClone = {value: false};
         $scope.volumeVars.back();
     };
     
     var syncWithClone = function( volume ){
+        
+        $scope.enableDc = false;
         
         $scope.newQos = {
             sla: volume.sla,
@@ -154,29 +157,37 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             priority: volume.priority
         };
         
-        $scope.data_connector = volume.data_connector;
+        $scope.dataConnector = volume.data_connector;
+        
+        $scope.$broadcast( 'fds::tiering-choice-refresh' );
+        $scope.$broadcast('fds::fui-slider-refresh' );
+        $scope.$broadcast( 'fds::qos-reinit' );
     };
     
     $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
         
-        if ( $scope.volumeVars.toClone === 'new' ){
+        if ( !angular.isDefined( $scope.volumeVars.toClone) || $scope.volumeVars.toClone.value === 'new' ){
+            $scope.enableDc = true;
             return;
         }
         
         if ( !angular.isDefined( newVal ) ){
+            $scope.enableDc = true;
             return;
         }
-        
+    
         syncWithClone( newVal );
     });
     
     $scope.$watch( 'volumeVars.toClone', function( newVal ){
         
-        if ( newVal === 'new' ){
+        if ( !angular.isDefined( newVal ) || newVal.value === 'new' ){
+            $scope.enableDc = true;
             return;
         }
         
         if ( !angular.isDefined( $scope.volumeVars.cloneFromVolume ) ){
+            $scope.enableDc = true;
             return;
         }
         
@@ -220,6 +231,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
                 ]
             };;
             
+            $scope.$broadcast( 'fds::tiering-choice-refresh' );
             $scope.$broadcast('fds::fui-slider-refresh' );
             $scope.$broadcast( 'fds::qos-reinit' );
         }

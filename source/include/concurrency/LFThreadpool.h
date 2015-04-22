@@ -241,6 +241,7 @@ struct LFMQThreadpool {
     {
         for (auto &w : workers) {
             w->finish();
+            delete w;
         }
     }
     template <class F, class... Args>

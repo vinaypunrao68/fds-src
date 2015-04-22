@@ -23,6 +23,13 @@ void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
                                         boost::shared_ptr<fpi::QueryCatalogMsg>& message) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
+    auto err = dataMgr->validateVolumeIsActive(message->volume_id);
+    if (!err.OK())
+    {
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
     auto dmReq = new DmIoQueryCat(message);
     dmReq->cb = BIND_MSG_CALLBACK(QueryCatalogHandler::handleResponse, asyncHdr, message);
 

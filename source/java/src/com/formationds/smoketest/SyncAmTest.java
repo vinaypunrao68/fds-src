@@ -30,7 +30,7 @@ public class SyncAmTest extends BaseAmTest {
         byte[] second = new byte[arbitrarySize];
         new Random().nextBytes(second);
         TxDescriptor tx = amService.startBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, 1);
-        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(second), arbitrarySize, new ObjectOffset(0), true);
+        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(second), arbitrarySize, new ObjectOffset(0));
         amService.commitBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, tx);
 
         byte[] result = new byte[arbitrarySize];
@@ -91,7 +91,7 @@ public class SyncAmTest extends BaseAmTest {
         buf = new byte[42];
         new Random().nextBytes(buf);
         TxDescriptor tx = amService.startBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, 1);
-        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0), true);
+        amService.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0));
         amService.commitBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, tx);
 
         bb = amService.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, Integer.MAX_VALUE, new ObjectOffset(0));
@@ -178,8 +178,9 @@ public class SyncAmTest extends BaseAmTest {
 
     @BeforeClass
     public static void setUpOnce() throws Exception {
+        int pmPort = 7000;
         xdiCf = new XdiClientFactory(MY_AM_RESPONSE_PORT);
-        amService = xdiCf.remoteAmService("localhost", 9988);
+        amService = xdiCf.remoteAmService("localhost", pmPort + 2988);
         configService = xdiCf.remoteOmService("localhost", 9090);
     }
 

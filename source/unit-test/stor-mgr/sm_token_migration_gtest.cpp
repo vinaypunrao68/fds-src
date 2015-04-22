@@ -242,7 +242,7 @@ TEST_F(SmTokenMigrationTest, destination) {
         dataStore->createObjectDBIfNeeded(SmDiskMap::smTokenId(i+100));
         msg->migrations.push_back(grp);
     }
-    err = tokenMigrationMgr->startMigration(msg, NULL, NodeUuid(0x12345), bitsPerDltToken);
+    err = tokenMigrationMgr->startMigration(msg, NULL, NodeUuid(0x12345), bitsPerDltToken, false);
 
     // wait until migration is finished
     // TODO(anna) we do not set migration_done to true anywhere

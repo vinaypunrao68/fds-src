@@ -21,7 +21,7 @@
          * Stat Streaming refactoring. Considering current frequency is                 \
          * 2 to 5 minutes, making connection every time is temp solution                \
          */                                                                             \
-        auto eph = allocRpcClient<SendIfT>(ip, port, true);                             \
+        auto eph = allocRpcClient<SendIfT>(ip, port, SvcMgr::MAX_CONN_RETRIES);         \
         if (!eph) {                                                                     \
             GLOGERROR << "Failed to get the end point handle for ip: " << ip            \
                     << ", port: " << port;                                              \
@@ -82,7 +82,7 @@ std::string logString(const FDS_ProtocolInterface::SvcInfo &info);
 std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info);
 template<class T>
 extern boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
-                                           const bool &blockOnConnect);
+                                           const int &retryCnt);
 
 /*--------------- Utility classes --------------*/
 struct SvcUuidHash {
@@ -362,6 +362,15 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     static fpi::SvcUuid mapToSvcUuid(const fpi::SvcUuid &in,
                                      const fpi::FDSP_MgrIdType& svcType);
+
+    /**
+    * @brief Minimum connection retries
+    */
+    static int32_t MIN_CONN_RETRIES;
+    /**
+    * @brief Max connection retries
+    */
+    static int32_t MAX_CONN_RETRIES;
 
  protected:
     /**

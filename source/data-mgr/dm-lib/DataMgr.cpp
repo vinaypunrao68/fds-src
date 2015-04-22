@@ -12,6 +12,23 @@
 #include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
 
+namespace {
+Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
+    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
+
+    boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
+    msg->volume_id = volId;
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ReloadVolumeMsg), msg);
+
+    SvcRequestCbTask<EPSvcRequest, fpi::ReloadVolumeRspMsg> waiter;
+    asyncReq->onResponseCb(waiter.cb);
+
+    asyncReq->invoke();
+    waiter.await();
+    return waiter.error;
+}
+} // namespace
+
 namespace fds {
 
 /**
@@ -115,10 +132,10 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
 
     // collect capacity stats for volumes for which this DM is primary
     for (cit = prim_vols.cbegin(); cit != prim_vols.cend(); ++cit) {
-        err = timeVolCat_->queryIface()->getVolumeMeta(*cit,
-                                                       &total_bytes,
-                                                       &total_blobs,
-                                                       &total_objects);
+        err = timeVolCat_->queryIface()->statVolume(*cit,
+                                                    &total_bytes,
+                                                    &total_blobs,
+                                                    &total_objects);
         if (!err.ok()) {
             LOGERROR << "Failed to get volume meta for vol " << std::hex
                      << *cit << std::dec << " " << err;
@@ -213,6 +230,27 @@ Error
 DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
     // TODO(umesh): implement this
     return ERR_OK;
+}
+
+std::string DataMgr::getSnapDirBase() const
+{
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    return root->dir_user_repo_dm();
+}
+
+std::string DataMgr::getSysVolumeName(const fds_volid_t &volId) const
+{
+    std::stringstream stream;
+    stream << "SYSTEM_VOLUME_" << getVolumeDesc(volId)->tennantId;
+    return stream.str();
+}
+
+std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
+                                    const int64_t snapId) const
+{
+    std::stringstream stream;
+    stream << getSnapDirBase() << "/" << volId << "/" << snapId;
+    return stream.str();
 }
 
 //
@@ -413,7 +451,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                 if (err.ok()) {
                     LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
                     err = timeVolCat_->activateVolume(vdesc->volUUID);
-                    fActivated = true;
+                    if (err.ok()) fActivated = true;
                 }
 
                 err = timeVolCat_->replayTransactions(srcVolumeId, vdesc->volUUID,
@@ -436,13 +474,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
-        fActivated = true;
+        if (err.ok()) fActivated = true;
     }
 
     if (err.ok() && vdesc->isClone() && fPrimary) {
         // all actions were successful now rsync it to other DMs
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
-        Error err1;
         for (uint i = 1; i < nodes->getLength(); i++) {
             LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
                      << "to node:" << nodes->get(i);
@@ -451,7 +488,11 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             if (!err.ok()) {
                 LOGWARN << "catalog sync failed on clone, vol:" << vdesc->volUUID;
             } else {
-                // send message to reload DB
+                // send message to reload volume
+                err = sendReloadVolumeRequest((*nodes)[i], vdesc->volUUID);
+                if (!err.ok()) {
+                    LOGWARN << "catalog reload failed on clone, vol:" << vdesc->volUUID;
+                }
             }
         }
     }
@@ -532,6 +573,14 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     }
 
     if (err.ok()) {
+        // For now, volumes only land in the map if it is already active.
+        if (fActivated) {
+            volmeta->vol_desc->setState(Active);
+        } else {
+            LOGWARN << "vol:" << vol_uuid << " not activated";
+            volmeta->vol_desc->setState(InError);
+        }
+
         // we registered queue and shadow queue if needed
         vol_meta_map[vol_uuid] = volmeta;
     }
@@ -562,7 +611,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
         const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-        const std::string stat_dir = root->dir_user_repo_stats() + std::to_string(vol_uuid);
+        const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid);
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
 
@@ -789,10 +838,10 @@ int DataMgr::mod_init(SysParams const *const param)
 {
     Error err(ERR_OK);
 
-    omConfigPort = 0;
     standalone = false;
     numTestVols = 10;
     scheduleRate = 10000;
+    shuttingDown = false;
 
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
@@ -826,6 +875,12 @@ int DataMgr::mod_init(SysParams const *const param)
     if (features.isTimelineEnabled()) {
         timeline.reset(new TimelineDB());
     }
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.volume_open_support", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -833,7 +888,6 @@ int DataMgr::mod_init(SysParams const *const param)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
-    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(omIpStr, omConfigPort);
     standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     if (!standalone) {
         LOGDEBUG << " Initialising the OM client ";
@@ -841,12 +895,8 @@ int DataMgr::mod_init(SysParams const *const param)
          * Setup communication with OM.
          */
         omClient = new OMgrClient(FDSP_DATA_MGR,
-                                  omIpStr,
-                                  omConfigPort,
                                   MODULEPROVIDER()->getSvcMgr()->getSelfSvcName(),
-                                  GetLog(),
-                                  nullptr,
-                                  nullptr);
+                                  GetLog());
         omClient->setNoNetwork(false);
     }
 
@@ -867,12 +917,19 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
-    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
-    new dm::ReloadVolumeHandler();
+    handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler();
+    handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler();
+    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler();
+    handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler();
+    handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler();
+    handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler();
 }
 
 DataMgr::~DataMgr()
 {
+    // shutdown all data manager modules
+    LOGDEBUG << "Received shutdown message DM ... shutdown mnodules..";
+    mod_shutdown();
 }
 
 int DataMgr::run()
@@ -971,7 +1028,7 @@ void DataMgr::mod_enable_service() {
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     if (features.isTimelineEnabled()) {
         timeline->open();
     }
@@ -981,6 +1038,19 @@ void DataMgr::mod_enable_service() {
     if (!features.isTestMode()) {
         gSvcRequestPool->setDltManager(omClient->getDltManager());
     }
+}
+
+//   Block new IO's  and flush queued IO's 
+void DataMgr::flushIO()
+{
+    shuttingDown = true;
+    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
+                 it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+        qosCtrl->quieseceIOs(it->first);
+    }
+
 }
 
 void DataMgr::mod_shutdown()
@@ -1003,7 +1073,7 @@ void DataMgr::mod_shutdown()
                  it = vol_meta_map.begin();
          it != vol_meta_map.end();
          it++) {
-        qosCtrl->quieseceIOs(it->first);
+        //  qosCtrl->quieseceIOs(it->first);
         qosCtrl->deregisterVolume(it->first);
         delete it->second;
     }

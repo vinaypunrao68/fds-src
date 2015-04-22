@@ -50,6 +50,7 @@ enum  FDSPMsgTypeId {
   GetSvcStatusMsgTypeId                     = 1018;
   GetSvcStatusRespMsgTypeId                 = 1019;
   ActivateServicesMsgTypeId                 = 1020;
+  DeactivateServicesMsgTypeId               = 1021;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;
@@ -103,9 +104,6 @@ enum  FDSPMsgTypeId {
   /** AM-> OM */
   CtrlTestBucketTypeId                      = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
-  CtrlCreateBucketTypeId                    = 3002;
-  CtrlDeleteBucketTypeId                    = 3003;
-  CtrlModifyBucketTypeId                    = 3004;
 
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;
@@ -120,7 +118,7 @@ enum  FDSPMsgTypeId {
   DeleteObjectRspMsgTypeId                  = 10005;
   AddObjectRefMsgTypeId                     = 10006;
   AddObjectRefRspMsgTypeId                  = 10007;
-  ShutdownMODMsgTypeId                      = 10008;
+  PrepareForShutdownMsgTypeId               = 10008;
 
   /** DM Type Ids */
   QueryCatalogMsgTypeId                     = 20000;
@@ -135,10 +133,12 @@ enum  FDSPMsgTypeId {
   SetBlobMetaDataRspMsgTypeId;
   GetBlobMetaDataMsgTypeId;
   GetBlobMetaDataRspMsgTypeId;
-  SetVolumeMetaDataMsgTypeId;
-  SetVolumeMetaDataRspMsgTypeId;
-  GetVolumeMetaDataMsgTypeId;
-  GetVolumeMetaDataRspMsgTypeId;
+  StatVolumeMsgTypeId;
+  StatVolumeRspMsgTypeId;
+  SetVolumeMetadataMsgTypeId;
+  SetVolumeMetadataRspMsgTypeId;
+  GetVolumeMetadataMsgTypeId;
+  GetVolumeMetadataRspMsgTypeId;
   CommitBlobTxMsgTypeId;
   CommitBlobTxRspMsgTypeId;
   AbortBlobTxMsgTypeId;
@@ -165,8 +165,12 @@ enum  FDSPMsgTypeId {
   GetDmStatsMsgRespTypeId;
   ListBlobsByPatternMsgTypeId;
   ListBlobsByPatternRspMsgTypeId;
+  OpenVolumeMsgTypeId;
+  OpenVolumeRspMsgTypeId;
+  CloseVolumeMsgTypeId;
+  CloseVolumeRspMsgTypeId;
   ReloadVolumeMsgTypeId;
-  ReloadVolumeRspMsgTypeId
+  ReloadVolumeRspMsgTypeId;
 }
 
 /**
@@ -192,7 +196,7 @@ struct AsyncHdr {
   /** Message Type */
   2: required FDSPMsgTypeId     msg_type_id;
   /**  */
-  3: required i32               msg_src_id;
+  3: required i64               msg_src_id;
   /** Sender's Uuid */
   4: required common.SvcUuid    msg_src_uuid;
   /** Destination Uuid */
@@ -230,7 +234,7 @@ struct FDSP_DLT_Data_Type {
 struct SvcInfo {
   1: required common.SvcID          svc_id;
   2: required i32                   svc_port;
-  3: required FDSP.FDSP_MgrIdType   svc_type;
+  3: required common.FDSP_MgrIdType   svc_type;
   4: required ServiceStatus         svc_status;
   5: required string                svc_auto_name;
   // TODO(Rao): We should make these required.  They aren't made required as of this writing
@@ -264,7 +268,7 @@ struct UuidBindMsg {
     3: required i32                   svc_port;
     4: required common.SvcID          svc_node;
     5: required string                svc_auto_name;
-    6: required FDSP.FDSP_MgrIdType   svc_type;
+    6: required common.FDSP_MgrIdType   svc_type;
 }
 
 /**
@@ -275,7 +279,7 @@ struct NodeSvcInfo {
     2: i32                               node_base_port,
     3: string                            node_addr,
     4: string                            node_auto_name,
-    5: FDSP.FDSP_NodeState               node_state;
+    5: common.FDSP_NodeState               node_state;
     6: i32                               node_svc_mask,
     7: list<SvcInfo>                     node_svc_list,
 }

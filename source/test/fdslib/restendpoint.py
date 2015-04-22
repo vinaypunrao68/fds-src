@@ -8,6 +8,11 @@ import unittest
 import random
 import xml.etree.ElementTree as ET
 import time
+from tabulate import tabulate
+from collections import OrderedDict
+import socket, struct
+import pyfdsp.common.constants as TConstants
+
 try:
     import requests
     from requests import ConnectionError
@@ -46,6 +51,7 @@ class RestEndpoint(object):
         self.ssl = ssl
         self.setHost(host)
         self.setPort(port)
+        self.setConfigPrefix()
 
         self.user = user
         self.password = password
@@ -65,6 +71,9 @@ class RestEndpoint(object):
     def setPort(self, port):
         self.port = port
         self.base_path = 'http{}://{}:{}'.format('s' if self.ssl else '',self.host,self.port)
+
+    def setConfigPrefix(self):
+        self.configPrefix = "/fds/config/" + TConstants.CURRENT_XDI_VERSION
 
     def login(self, user, password):
         '''
@@ -169,6 +178,16 @@ class ServiceEndpoint:
         else:
             return []
 
+    def startService(self, nodeUuid, svcs):
+        rest_path = '{}/{}'.format(self.rest_path, nodeUuid)
+
+        res = self.rest.post(rest_path, data=json.dumps(svcs))
+        if res is not None:
+            if res.content == '{"status": 0}\n':
+                return True
+
+        return False
+
 
 class TenantEndpoint():
     def __init__(self, rest):
@@ -244,32 +263,43 @@ class VolumeEndpoint:
         self.rest = rest
         self.rest_path = self.rest.base_path + '/api/config/volumes'
 
-    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit, max_object_size=0):
+    def createVolume(self, volume_name, priority, sla, limit, vol_type, size=10*1024, unit="MB", 
+                    media_policy='hdd', commit_log_retention=86400, max_object_size=0):
 
-        volume_info = {
-            'name' : volume_name,
-            'priority' : int(priority),
-            'max_object_size': int(max_object_size),
-            'sla': int(sla),
-            'limit': int(limit),
-            'data_connector': {
-                'type': vol_type,
-                'attributes': {
-                    'size': size,
-                    'unit': unit
-                }
-            }
+        if vol_type == "object":
+            data_connector = {"api":"S3,Swift","type":"OBJECT"}
+        elif vol_type == "block":
+            data_connector = { "api":"Basic,Cinder",
+                               "type":"BLOCK",
+                               "attributes":{
+                                    "size": str(size),
+                                    "unit": unit
+                                    }
+                             }
+        else:
+            raise Exception("This vol_type is not defined: " + vol_type)
+
+        if media_policy == "hdd":
+            media_policy = "HDD_ONLY"
+        elif media_policy == "ssd":
+            media_policy = "SSD_ONLY"
+        elif media_policy == "hybrid":
+            media_policy = "HYBRID_ONLY"
+        else:
+            raise Exception("This media_policy is not defined: " + media_policy)
+
+        request= {
+             'name' : volume_name,
+             'priority' : int(priority),
+             'sla': int(sla),
+             'limit': int(limit),
+             'data_connector': data_connector,
+            'mediaPolicy': media_policy,
+            'commit_log_retention': commit_log_retention,
+            'max_object_size' : max_object_size,
         }
-#new rest api
-#             'name' : volume_name,
-#             'priority' : int(priority),
-#             'sla': int(sla),
-#             'limit': int(limit),
-#             'data_connector': data_connector,
-#            'media_policy': 'HDD_ONLY',
-#            'commit_log_retention': 86400
-#        }
-        res = self.rest.post(self.rest_path, data=json.dumps(volume_info))
+
+        res = self.rest.post(self.rest_path, data=json.dumps(request))
         res = self.rest.parse_result(res)
 
         if type(res) != dict or 'status' not in res:
@@ -545,7 +575,7 @@ class DomainEndpoint():
         self.rest = rest
         self.rest_path = self.rest.base_path + '/local_domains'
 
-    def createDomain(self, domain_name, domain_site):
+    def createLocalDomain(self, domain_name, domain_site):
 
         '''
         Create a new local domain in the system.
@@ -571,7 +601,7 @@ class DomainEndpoint():
         else:
             return None
 
-    def listDomains(self):
+    def listLocalDomains(self):
         '''
         List all local domains in the global domain.
         Params:
@@ -582,27 +612,21 @@ class DomainEndpoint():
         res = self.rest.get(self.rest_path)
         res = self.rest.parse_result(res)
         if res is not None:
-            return res
+            # Take the opportunity here to create the column headings
+            # and ordering that we want.
+            new_res = list()
+            for row in res:
+                new_row = OrderedDict([
+                    ("name", row["name"]),
+                    ("id", row["id"]),
+                    ("site", row["site"])])
+                new_res.append(new_row)
+
+            return tabulate(new_res, headers="keys")
         else:
             return None
 
-    def listServices(self, domain_name):
-        '''
-        List all services that reside within the local domain.
-        Params:
-           domain_name - str: Name of the local domain whose services are to be listed
-        Returns:
-           List of services that reside within the specified local domain, None on failure
-        '''
-        path = '{}/{}/services'.format(self.rest_path, domain_name)
-        res = self.rest.get(self.rest_path)
-        res = self.rest.parse_result(res)
-        if res is not None:
-            return res
-        else:
-            return None
-
-    def updateDomain(self, old_domain_name, new_domain_name):
+    def updateLocalDomainName(self, old_domain_name, new_domain_name):
         '''
         Change the domain_name of a particular local domain.
         Params:
@@ -611,8 +635,15 @@ class DomainEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}?action=rename&new_domain_name={}'.format(self.rest_path, old_domain_name, new_domain_name)
-        res = self.rest.put(path)
+
+        path = '{}/{}'.format(self.rest_path, old_domain_name)
+
+        domain_info = {
+            'action': 'rename',
+            'new_domain_name': new_domain_name,
+        }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -622,21 +653,24 @@ class DomainEndpoint():
         else:
             return False
 
-    def activateDomain(self, domain_name, sm=False, dm=False, am=False):
+    def updateLocalDomainSite(self, domain_name, new_site_name):
         '''
-        Activate the named services on all the nodes in the specified local domain.
+        Change the site_name of a particular local domain.
         Params:
-           domain_name - str: Name of the local domain whose node services are to be activated
-           sm, dm, am - bool: True if the service is to be activated on each node in the local domain.
+           domain_name - str: Name of the local domain whose site is to be changed
+           new_site_name - str: New name of the local domain site
         Returns:
            True success, False otherwise
         '''
 
-        if not sm and not dm and not am:
-            return True
+        path = '{}/{}'.format(self.rest_path, domain_name)
 
-        path = '{}/{}?action=activate&sm={}&dm={}&am={}'.format(self.rest_path, domain_name, sm, dm, am)
-        res = self.rest.put(path)
+        domain_info = {
+            'action': 'change_site',
+            'new_site_name': new_site_name,
+        }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -655,8 +689,14 @@ class DomainEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}/throttle?throttle_level={}'.format(self.rest_path, domain_name, throttle_level)
-        res = self.rest.put(path)
+
+        path = '{}/{}/throttle'.format(self.rest_path, domain_name)
+
+        throttle_info = {
+            'throttle_level': throttle_level,
+        }
+
+        res = self.rest.put(path, data=json.dumps(throttle_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -675,8 +715,14 @@ class DomainEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}/scavenger?action={}'.format(self.rest_path, domain_name, scavenger_action)
-        res = self.rest.put(path)
+
+        path = '{}/{}/scavenger'.format(self.rest_path, domain_name)
+
+        scavenger_info = {
+            'action': scavenger_action,
+        }
+
+        res = self.rest.put(path, data=json.dumps(scavenger_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -686,7 +732,7 @@ class DomainEndpoint():
         else:
             return False
 
-    def shutdownDomain(self, domain_name):
+    def shutdownLocalDomain(self, domain_name):
         '''
         Shutdown the specified local domain.
         Params:
@@ -694,8 +740,14 @@ class DomainEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}?action=shutdown'.format(self.rest_path, domain_name)
-        res = self.rest.put(path)
+
+        path = '{}/{}'.format(self.rest_path, domain_name)
+
+        domain_info = {
+            'action': 'shutdown',
+        }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
         res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
@@ -705,7 +757,7 @@ class DomainEndpoint():
         else:
             return False
 
-    def deleteDomain(self, domain_name):
+    def deleteLocalDomain(self, domain_name):
         '''
         Delete the specified local domain.
         Params:
@@ -723,6 +775,235 @@ class DomainEndpoint():
                 return False
         else:
             return False
+
+
+    def activateLocalDomainServices(self, domain_name, sm, dm, am):
+        '''
+        Activate the specified or pre-defined services on all the nodes in the specified local domain. If
+        all Service switches are false, we interpret it as meaning to activate all defined
+        Services for each node. If in that case there are no Services defined for the Node, we interpret
+        it to mean activate all Services (SM, DM,and AM) for the Node.
+
+        Params:
+           domain_name - str: Name of the local domain whose node services are to be activated
+           sm - bool: Activate the SM Service (True)
+           dm - bool: Activate the DM Service (True)
+           am - bool: Activate the AM Service (True)
+
+        Returns:
+           True success, False otherwise
+        '''
+
+        path = '{}/{}/services'.format(self.rest_path, domain_name)
+
+        service_info = {
+            'action': 'activate',
+            'sm': sm,
+            'dm': dm,
+            'am': am,
+        }
+
+        res = self.rest.put(path, data=json.dumps(service_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def listLocalDomainServices(self, domain_name):
+        '''
+        List all services that reside within the local domain.
+        Params:
+           domain_name - str: Name of the local domain whose services are to be listed
+        Returns:
+           List of services that reside within the specified local domain, None on failure
+        '''
+        path = '{}/{}/services'.format(self.rest_path, domain_name)
+        res = self.rest.get(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            # Take the opportunity here to create the column headings
+            # and ordering that we want.
+            new_res = list()
+            for row in res:
+                new_row = OrderedDict([
+                    ("node_uuid", "0x"+hex(row["node_uuid"])[2:].zfill(16)),
+                    ("node_root", row["node_root"]),
+                    ("node_id", row["node_id"]),
+                    ("IPv4", socket.inet_ntoa(struct.pack('!L', row["ip_lo_addr"]))),
+                    ("IPv6", socket.inet_ntoa(struct.pack('!L', row["ip_hi_addr"]))),
+                    ("service_name", row["node_name"]),
+                    ("service_type", row["node_type"]),
+                    ("service_uuid", "0x"+hex(row["service_uuid"])[2:].zfill(16)),
+                    ("service_state", row["node_state"]),
+                    ("control_port", row["control_port"]),
+                    ("data_port", row["data_port"]),
+                    ("migration_port", row["migration_port"]),
+                    ("metasync_port", row["metasync_port"])])
+                new_res.append(new_row)
+
+            return tabulate(new_res, headers="keys")
+        else:
+            return None
+
+    def removeLocalDomainServices(self, domain_name, sm, dm, am):
+        '''
+        Remove the specified or pre-defined services on all the nodes in the specified local domain. If
+        all Service switches are false, we interpret it as meaning to remove all defined
+        Services for each node. If in that case there are no Services defined for the Node, we
+        do nothing.
+
+        Note that Service removal means to unregister the Service from the Local Domain and
+        stop the processes associated with the Service.
+
+        Params:
+           domain_name - str: Name of the local domain whose node services are to be removed
+           sm - bool: Remove the SM Service (True)
+           dm - bool: Remove the DM Service (True)
+           am - bool: Remove the AM Service (True)
+
+        Returns:
+           True success, False otherwise
+        '''
+
+        path = '{}/{}/services'.format(self.rest_path, domain_name)
+
+        service_info = {
+            'action': 'remove',
+            'sm': sm,
+            'dm': dm,
+            'am': am,
+        }
+
+        res = self.rest.put(path, data=json.dumps(service_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
+
+class QoSPolicyEndpoint():
+
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + self.rest.configPrefix + '/qos_policies'
+
+    def createQoSPolicy(self, policy_name, iops_min, iops_max, rel_prio):
+
+        '''
+        Create a new QoS Policy in the system.
+        Params:
+           policy_name - str: name of the new QoS Policy
+           iops_min - int: minimum IOPS
+           iops_max - int: maximum IOPS
+           rel_prio - int: relative priority
+        Returns:
+           A JSON set of the newly created QoS Policy attributes.
+        '''
+        path = self.rest_path
+
+        policy_info = {
+            'policy_name': policy_name,
+            'iops_min': iops_min,
+            'iops_max': iops_max,
+            'rel_prio': rel_prio
+        }
+
+        res = self.rest.post(path, data=json.dumps(policy_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if ('policy_id' in res) and (int(res['policy_id']) > 0):
+                return res
+            else:
+                return None
+        else:
+            return None
+
+    def listQoSPolicies(self):
+        '''
+        List all QoS Policies in the global domain.
+        Params:
+           None
+        Returns:
+           List of Qos Policies and their attributes, None on failure
+        '''
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            # Take the opportunity here to create the column headings
+            # and ordering that we want.
+            new_res = list()
+            for row in res:
+                new_row = OrderedDict([
+                    ("policy_name", row["policy_name"]),
+                    ("policy_id", row["policy_id"]),
+                    ("iops_min", row["iops_min"]),
+                    ("iops_max", row["iops_max"]),
+                    ("rel_prio", row["rel_prio"])])
+                new_res.append(new_row)
+
+            return tabulate(new_res, headers="keys")
+        else:
+            return None
+
+    def updateQosPolicy(self, current_policy_name, new_policy_name, iops_min, iops_max, rel_prio):
+        '''
+        Change the attributes of a particular QoS Policy.
+        Params:
+            current_policy_name - str: Current name of the QoS Policy.
+            new_policy_name - str: New name for the QoS Policy. Same as current name if name is not changing.
+            iops_min - int: New minimum IOPS guarantee.
+            iops_max - int: New maximum IOPS guarantee.
+            rel_prio - int: New relative priority.
+        Returns:
+           The updated policy results are returned upon success, otherwise nothing.
+        '''
+
+        path = '{}/{}'.format(self.rest_path, current_policy_name)
+
+        domain_info = {
+            'new_policy_name': new_policy_name,
+            'iops_min': iops_min,
+            'iops_max': iops_max,
+            'rel_prio': rel_prio,
+        }
+
+        res = self.rest.put(path, data=json.dumps(domain_info))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if ('policy_id' in res) and (int(res['policy_id']) > 0):
+                return res
+            else:
+                return None
+        else:
+            return None
+
+    def deleteQoSPolicy(self, policy_name):
+        '''
+        Delete the specified QoS Policy.
+        Params:
+           policy_name - str: Name of the QoS Policy to be deleted
+        Returns:
+           True success, False otherwise
+        '''
+        path = '{}/{}'.format(self.rest_path, policy_name)
+        res = self.rest.delete(path)
+        res = self.rest.parse_result(res)
+        if res is not None:
+            if 'status' in res and res['status'].lower() == 'ok':
+                return True
+            else:
+                return False
+        else:
+            return False
+
 
             
 class TestServiceEndpoints(unittest.TestCase):

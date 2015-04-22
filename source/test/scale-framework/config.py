@@ -10,7 +10,6 @@ setup = "setup.cfg"
 FDS_ROOT="/root/fds-src/"
 FDS_TOOLS="../../../source/tools/"
 FDS_CMD="sudo %s/fds %s"
-pyUnitConfig = "./../../source/test/testsuites/BuildSmokeTest.ini"
 
 S3_USER = 'fds_testing'
 S3_PASSWORD = 'bIEYKCPzDKtQDDBomnAKTKRA'
@@ -38,8 +37,10 @@ START_ALL_CLUSTER             = "./fds-tool.py -f %s -u"
 FDS_SBIN                      = "/fds/sbin"
 FORMATION_CONFIG              = "deploy_formation.conf"
 
-NDBADM_CLIENT                 = "10.1.16.101"
-FDS_MOUNT                     = "/fdsmount"
+NDBADM_CLIENT                 = "127.0.0.1"
+FDS_MOUNT                     = "/fdsmount_%s"
+NDBADM_ROOT                   = "/home/pairing/nbdadm.py"
+
 params = {
     'log_level' : 20,
     'stop_on_fail' : True,
@@ -62,6 +63,8 @@ NUMBER_USERS = 30
 MAX_NUM_VOLUMES = 1023
 SAMPLE_FILE = "test.txt"
 SAMPLE_DIR = "./samples/"
+RANDOM_DATA = "random_data"
+DD = "dd if=/dev/urandom of=%s bs=%s count=1"
 TEST_DIR = "./test_files/"
 BACKUP_DIR = "./backup/"
 REPOSITORY_URL = "http://coke.formationds.com/jenkins_tests/samples.tar.gz"
@@ -76,9 +79,11 @@ VAULT_PASS = ".vault_pass.txt"
 DESTROY_EC2 = "scripts/teardown_ec2_cluster.sh %s"
 START_EC2 = "scripts/deploy_fds_ec2.sh %s %s %s"
 START_BAREMETAL = "scripts/deploy_fds.sh %s %s"
+START_STATIC_AWS = "scripts/provision_fds_ec2.sh %s %s"
 
-LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202", 
+LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202",
                           "10.2.10.203")
+DEFAULT_AWS_INVENTORY = "static_16node_ec2"
 
 CONFIG_DIR = "./config/"
 SYSTEM_FRAMEWORK = "testsuites"

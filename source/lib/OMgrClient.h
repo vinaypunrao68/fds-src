@@ -14,17 +14,9 @@
 #include <concurrency/RwLock.h>
 #include <dlt.h>
 #include <fds_dmt.h>
-#include <LocalClusterMap.h>
 
 #include <string>
 using namespace FDS_ProtocolInterface; // NOLINT
-
-#define FDS_VOL_ACTION_NONE   0
-#define FDS_VOL_ACTION_CREATE 1
-#define FDS_VOL_ACTION_DELETE 2
-#define FDS_VOL_ACTION_MODIFY 3
-#define FDS_VOL_ACTION_ATTACH 4
-#define FDS_VOL_ACTION_DETACH 5
 
 namespace FDS_ProtocolInterface {
 class FDSP_OMControlPathReqClient;
@@ -41,25 +33,6 @@ typedef netClientSessionEx<FDSP_OMControlPathReqClient,
                            FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 
 namespace fds {
-
-class Platform;
-
-typedef enum {
-    fds_notify_vol_default = 0,
-    fds_notify_vol_add     = 1,
-    fds_notify_vol_rm      = 2,
-    fds_notify_vol_mod     = 3,
-    fds_notify_vol_attatch = 4,
-    fds_notify_vol_detach  = 5,
-    fds_notify_vol_snap    = 6,
-    MAX
-} fds_vol_notify_t;
-
-typedef enum {
-    fds_catalog_push_meta = 0,
-    fds_catalog_dmt_commit = 1,
-    fds_catalog_dmt_close = 2
-} fds_catalog_action_t;
 
 // Callback for DMT close
 typedef std::function<void(Error &err)> DmtCloseCb;
@@ -90,12 +63,6 @@ class OMgrClient {
     DMTManagerPtr dmtMgr;
     float current_throttle_level;
 
-    /**
-     * Map of current cluster members
-     */
-    LocalClusterMap *clustMap;
-    Platform        *plf_mgr;
-
     fds_rwlock omc_lock;  // to protect node_map
 
     node_event_handler_t node_evt_hdlr;
@@ -105,18 +72,10 @@ class OMgrClient {
 
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
-    /// Tracks local instances (only used for multi-AM at the moment)
-    fds_uint32_t instanceId;
-
   public:
     OMgrClient(fpi::FDSP_MgrIdType node_type,
-               const std::string& _omIpStr,
-               fds_uint32_t _omPort,
                const std::string& node_name,
-               fds_log *parent_log,
-               boost::shared_ptr<netSessionTbl> nst,
-               Platform *plf_mgr,
-               fds_uint32_t _instanceId = 0);
+               fds_log *parent_log);
     void setNoNetwork(bool fNoNetwork) {
         this->fNoNetwork = fNoNetwork;
     }
@@ -136,12 +95,6 @@ class OMgrClient {
 
     int sendMigrationStatusToOM(const Error& err);
 
-    int getNodeInfo(fds_uint64_t node_id,
-                    unsigned int *node_ip_addr,
-                    fds_uint32_t *node_port,
-                    int *node_state);
-    NodeMigReqClientPtr getMigClient(fds_uint64_t node_id);
-
     fds_uint64_t getDltVersion();
     fds_uint32_t getLatestDlt(std::string& dlt_data);
     DltTokenGroupPtr getDLTNodesForDoidKey(const ObjectID &objId);
@@ -149,8 +102,6 @@ class OMgrClient {
     void setCurrentDLTClosed();
     const DLT* getPreviousDLT();
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
-    fds_uint32_t getNodeMigPort(NodeUuid uuid);
-    fds_uint32_t getNodeMetaSyncPort(NodeUuid uuid);
 
     DLTManagerPtr getDltManager() { return dltMgr; }
     DMTManagerPtr getDmtManager() { return dmtMgr; }
@@ -166,14 +117,13 @@ class OMgrClient {
     fds_uint64_t getDMTVersion() const;
     fds_bool_t hasCommittedDMT() const;
     int testBucket(const std::string& bucket_name,
-                   const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_info,
                    fds_bool_t attach_vol_reqd,
                    const std::string& accessKeyId,
                    const std::string& secretAccessKey);
 
     int recvMigrationEvent(bool dlt_type);
-    Error updateDlt(bool dlt_type, std::string& dlt_data);
 
+    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data);
 };
 

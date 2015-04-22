@@ -13,7 +13,7 @@ import os
 import time
 import tempfile
 import TestFDSSysMgt
-
+from fdslib.TestUtils import findNodeFromInv
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -135,32 +135,19 @@ class TestFDSInstall(TestCase.FDSTestCase):
                            (node.nd_conf_dict['node-name'], status))
             return False
 
-        # Make sure the platform config file specifies the correct PM port and
-        # AM instance ID and port configurations.
+        # Make sure the platform config file specifies the correct PM port given
+        # in the test config file.
         if 'fds_port' in node.nd_conf_dict:
             port = node.nd_conf_dict['fds_port']
         else:
             self.log.error("FDS platform configuration file is missing 'platform_port = ' config")
             return False
 
-        status = node.nd_agent.exec_wait('rm %s/platform.conf ' % dest_config_dir)
+        node.nd_agent.exec_wait('rm {}/platform.conf '.format(dest_config_dir))
 
-        # Obtain these defaults from platform.conf.
-        s3_http_port = 8000 + node.nd_nodeID
-        s3_https_port = 8443 + node.nd_nodeID
-        swift_port = 9999 + node.nd_nodeID
-        nbd_server_port = 10809 + node.nd_nodeID
-        status = node.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = %s/g" '
-                                      '-e "s/ instanceId = 0/ instanceId = %s/g" '
-                                      '-e "s/ s3_http_port=8000/ s3_http_port=%s/g" '
-                                      '-e "s/ s3_https_port=8443/ s3_https_port=%s/g" '
-                                      '-e "s/ swift_port=9999/ swift_port=%s/g" '
-                                              '-e "s/ server_port=10809/ server_port=%s/g" '
-                                      '-e "1,$w %s/platform.conf" '
-                                      '%s/platform.conf ' %
-                                      (port, node.nd_nodeID, s3_http_port, s3_https_port,
-                                       swift_port, nbd_server_port,
-                                       dest_config_dir, src_config_dir))
+        status = node.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = {}/g" '
+                                         '-e "1,$w {}/platform.conf" '
+                                         '{}/platform.conf '.format(port, dest_config_dir, src_config_dir))
 
         if status != 0:
             self.log.error("FDS platform configuration file modification failed.")
@@ -253,12 +240,6 @@ class TestFDSInstall(TestCase.FDSTestCase):
         testCaseSuccess = domainKill.test_NodeKill(ansibleBoot=True)
         if not testCaseSuccess:
             self.log.error("FDS package installation domain kill failed.")
-            return False
-
-        cleanup = TestFDSSelectiveInstDirClean(parameters=self.parameters)
-        testCaseSuccess = cleanup.test_FDSSelectiveInstDirClean()
-        if not testCaseSuccess:
-            self.log.error("FDS package installation domain clean failed." % status)
             return False
 
         return True
@@ -449,30 +430,23 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Restart Redis clean on %s." % n.nd_conf_dict['node-name'])
 
-        status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh restart", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
             self.log.error("Restart Redis before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        status = n.nd_agent.exec_wait("%s/redis.sh clean" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh clean", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
             self.log.error("Clean Redis on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh restart", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
@@ -514,16 +488,9 @@ class TestBootRedis(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Boot Redis on node %s." %n.nd_conf_dict['node-name'])
 
-        status = n.nd_agent.exec_wait("%s/redis.sh start" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh start", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
@@ -566,19 +533,13 @@ class TestShutdownRedis(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Shutdown Redis on node %s." %n.nd_conf_dict['node-name'])
 
-        status = n.nd_agent.exec_wait("%s/redis.sh stop" % sbin_dir)
+        status = n.nd_agent.exec_wait("./redis.sh stop", fds_tools=True)
         time.sleep(2)
 
-        if status != 0:
+        # Status == 127 on a remote install if redis.sh does not exist.
+        if (status != 0) and (n.nd_agent.env_install and status != 127):
             self.log.error("Shutdown Redis on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
@@ -617,17 +578,10 @@ class TestVerifyRedisUp(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Verify Redis is up node %s." % n.nd_conf_dict['node-name'])
 
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = n.nd_agent.exec_wait("%s/redis.sh status" % sbin_dir, return_stdin=True)
+        status, stdout = n.nd_agent.exec_wait("./redis.sh status", return_stdin=True, fds_tools=True)
 
         if status != 0:
             self.log.error("Verify Redis is up on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
@@ -673,29 +627,305 @@ class TestVerifyRedisDown(TestCase.FDSTestCase):
         else:
             n = fdscfg.rt_om_node
 
-        # Set the right execution directory depending up whether we are
-        # working with a development environment or a product deployment.
-        if n.nd_agent.env_install:
-            sbin_dir = n.nd_agent.get_sbin_dir()
-        else:
-            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
-
         self.log.info("Verify Redis is down node %s." % n.nd_conf_dict['node-name'])
 
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = n.nd_agent.exec_wait("%s/redis.sh status" % sbin_dir, return_stdin=True)
+        status, stdout = n.nd_agent.exec_wait("./redis.sh status", return_stdin=True, fds_tools=True)
 
-        if status != 0:
+        # Status == 127 on a remote install if redis.sh does not exist.
+        if (status != 0) and (n.nd_agent.env_install and status != 127):
             self.log.error("Verify Redis is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        self.log.info(stdout)
+        if len(stdout) > 0:
+            self.log.info(stdout)
 
-        if stdout.count("NOT") == 0:
+        if (stdout.count("NOT") == 0) and not (n.nd_agent.env_install and status == 127):
             return False
 
         return True
 
+# This class contains the attributes and methods to test
+# restarting InfluxDB to a "clean" state.
+class TestRestartInfluxDBClean(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RestartInfluxDBClean,
+                                             "Restart InfluxDB clean")
+
+        self.passedNode = node
+
+    def test_RestartInfluxDBClean(self):
+        """
+        Test Case:
+        Attempt to restart InfluxDB to a "clean" state.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        self.log.info("Restart InfluxDB clean on %s." % n.nd_conf_dict['node-name'])
+
+        # issue the clean request (drop dbs etc)
+        status = n.nd_clean_influxdb()
+
+        # restart influx
+        status = n.nd_agent.exec_wait("service influxdb restart")
+        time.sleep(2)
+
+        if status != 0:
+            self.log.error("Restart InfluxDB after clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+# This class contains the attributes and methods to test
+# booting up InfluxDB.
+class TestBootInfluxDB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_BootInfluxDB,
+                                             "Boot InfluxDB")
+
+        self.passedNode = node
+
+    def test_BootInfluxDB(self):
+        """
+        Test Case:
+        Attempt to boot InfluxDB.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        # Make sure we don't try to boot influx if it wasn't actually configured to do so
+        boot_influx = n.nd_conf_dict.get('influxdb', False)
+        if isinstance(boot_influx, str):
+            if boot_influx.lower() == 'false':
+                boot_influx = False
+
+        if not boot_influx:
+            self.log.warn('InfluxDB was not configured for {} returning True'.format(n.nd_conf_dict['node-name']))
+            return True
+
+        self.log.info("Boot InfluxDB on node %s." %n.nd_conf_dict['node-name'])
+        status = n.nd_start_influxdb()
+        time.sleep(2)
+
+        if status != 0:
+            self.log.error("Boot InfluxDB on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# shutting down InfluxDB.
+class TestShutdownInfluxDB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_ShutdownInfluxDB,
+                                             "Shutdown InfluxDB",
+                                             True)  # Always execute.
+
+        self.passedNode = node
+
+    def test_ShutdownInfluxDB(self):
+        """
+        Test Case:
+        Attempt to shutdown InfluxDB.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        self.log.info("Shutdown InfluxDB on node %s." %n.nd_conf_dict['node-name'])
+
+        status = n.nd_agent.exec_wait("service influxdb stop")
+        time.sleep(2)
+
+        # If we get a 1 from a remote (i.e. "install" or  over Paramiko connection) execution, we're good.
+        if (status != 0) and (n.nd_agent.env_install and status != 1):
+            self.log.error("Shutdown InfluxDB on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# verifying that InfluxDB is up.
+class TestVerifyInfluxDBUp(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifyInfluxDBUp,
+                                             "Verify InfluxDB is up")
+
+        self.passedNode = node
+
+    def test_VerifyInfluxDBUp(self):
+        """
+        Test Case:
+        Attempt to verify InfluxDB is up.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        self.log.info("Verify InfluxDB is up node %s." % n.nd_conf_dict['node-name'])
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = n.nd_agent.exec_wait("service influxdb status", return_stdin=True)
+
+        if status != 0:
+            self.log.error("Verify InfluxDB is up on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        self.log.info(stdout)
+
+        if stdout.count("NOT") > 0:
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# verifying that InfluxDB is down.
+class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifyInfluxDBDown,
+                                             "Verify InfluxDB is down")
+
+        self.passedNode = node
+
+    def test_VerifyInfluxDBDown(self):
+        """
+        Test Case:
+        Attempt to verify InfluxDB is Down.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # If we were passed a node, use it and get out. Otherwise,
+        # we use the one captured as the OM node during config parsing.
+        if self.passedNode is not None:
+            n = self.passedNode
+        else:
+            n = fdscfg.rt_om_node
+
+        self.log.info("Verify InfluxDB is down node %s." % n.nd_conf_dict['node-name'])
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status = n.nd_agent.exec_wait("service influxdb status 2>&1 >> /dev/null", return_stdin=False)
+
+        # influxdb init script status returns 3 if the process is down. 1 if remote.
+        if (status != 3) and (n.nd_agent.env_install and status != 1):
+            self.log.error("Verify InfluxDB is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+class TestModifyPlatformConf(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, current_string=None, replace_string=None, node=None):
+        '''
+        Uses sed to modify particular lines in platform.conf. Should be used prior to startup but after install.
+        :param parameters: Params filled in by .ini file
+        :current_string: String in platform.conf to repalce e.g. authentication=true
+        :replace_string: String to replace current_string with. e.g. authentication=false
+        :node: FDS node
+        '''
+
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_TestModifyPlatformConf,
+                                             "Modify Platform.conf")
+
+        self.current_string = current_string
+        self.replace_string = replace_string
+        self.passedNode = node
+
+    def test_TestModifyPlatformConf(self):
+
+        def doit(node):
+            plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
+
+            return node.nd_agent.exec_wait(
+                'sed -ir "s/{}/{}/g" {}'.format(self.current_string, self.replace_string, plat_file))
+
+        fdscfg = self.parameters['fdscfg']
+        status = []
+        if self.passedNode is not None:
+            self.log.info("Modifying platform.conf for node: " + self.passedNode)
+            node = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            status.append(doit(node))
+        else:
+            self.log.info("Modifying platform.conf for all nodes")
+            for node in fdscfg.rt_obj.cfg_nodes:
+                status.append(doit(node))
+
+        if sum(status) != 0:
+            return False
+        else:
+            return True
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

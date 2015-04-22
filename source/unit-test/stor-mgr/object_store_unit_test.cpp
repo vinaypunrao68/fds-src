@@ -11,6 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <fdsp/sm_types_types.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
 #include <fds_types.h>
@@ -252,6 +253,9 @@ TEST_F(SmObjectStoreTest, one_thread_dup_puts) {
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
         err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
         EXPECT_TRUE(err.ok());
+        if (!err.ok()) {
+            std::cout << oid << " putObject returned " << err << std::endl;
+        }
     }
 }
 
@@ -293,7 +297,7 @@ initMetaDataPropagate(fpi::CtrlObjectMetaDataPropagate &msg) {
     msg.objectSize = 0;
 
     // init
-    MetaDataVolumeAssoc volAssoc;
+    fpi::MetaDataVolumeAssoc volAssoc;
     volAssoc.volumeAssoc = (migrVolume->voldesc_).volUUID;
     volAssoc.volumeRefCnt = 1;
     msg.objectReconcileFlag = fpi::OBJ_METADATA_NO_RECONCILE;
@@ -417,7 +421,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
         EXPECT_TRUE(err.ok());
 
         // add new volume association
-        MetaDataVolumeAssoc volAssoc2;
+        fpi::MetaDataVolumeAssoc volAssoc2;
         volAssoc2.volumeAssoc = (volume1->voldesc_).volUUID;
         volAssoc2.volumeRefCnt = 3;
         msg.objectRefCnt = 3;
@@ -495,6 +499,40 @@ TEST_F(SmObjectStoreTest, concurrent_gets_2mb) {
     GLOGDEBUG << "Running concurrent_gets_2mb test";
     numOps = 2 * (largeObjVolume->testdata_).dataset_.size();
     runMultithreadedTest(TestVolume::STORE_OP_GET, largeObjVolume);
+}
+
+TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
+    fds_uint32_t sm_count = 4;
+    fds_uint32_t cols = 4;
+
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    DLT::SourceNodeMap srcNodeMap;
+
+    unsigned destSm = 1; // destination SM id
+    unsigned srcSm = 2; // expected source SM id to be assinged for resync
+    dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
+
+    for (auto obj : srcNodeMap) {
+         ASSERT_EQ(obj.first, NodeUuid(srcSm));
+    }
+
+    destSm = 3; // destination SM id
+    srcSm = 1; // expected source SM id to be assigned for resync
+    srcNodeMap.clear();
+    dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
+
+    for (auto obj : srcNodeMap) {
+         ASSERT_EQ(obj.first, NodeUuid(srcSm));
+    }
+
+    //invalid destination SM id test
+    destSm = 10000; // destination SM id
+    srcNodeMap.clear();
+    dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
+    ASSERT_EQ(srcNodeMap.size(), 0);
+
+    delete dlt;
 }
 
 }  // namespace fds

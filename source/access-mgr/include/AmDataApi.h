@@ -12,6 +12,8 @@
 
 namespace fds {
 
+struct AmProcessor;
+
 /**
  * AM's data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to.
@@ -37,9 +39,10 @@ class AmDataApi : public apis::XdiServiceIf {
 
     std::atomic_ullong      io_log_counter;
     fds_uint64_t            io_log_interval;
+    std::shared_ptr<AmProcessor> amProcessor;
 
   public:
-    AmDataApi();
+    explicit AmDataApi(std::shared_ptr<AmProcessor> processor);
     ~AmDataApi();
     typedef boost::shared_ptr<AmDataApi> shared_ptr;
 
@@ -158,16 +161,14 @@ class AmDataApi : public apis::XdiServiceIf {
                     const apis::TxDescriptor& txDesc,
                     const std::string& bytes,
                     const int32_t length,
-                    const apis::ObjectOffset& objectOffset,
-                    const bool isLast);
+                    const apis::ObjectOffset& objectOffset);
     void updateBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName,
                     boost::shared_ptr<apis::TxDescriptor>& txDesc,
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
-                    boost::shared_ptr<apis::ObjectOffset>& objectOffset,
-                    boost::shared_ptr<bool>& isLast);
+                    boost::shared_ptr<apis::ObjectOffset>& objectOffset);
 
     void deleteBlob(const std::string& domainName,
                     const std::string& volumeName,

@@ -1,10 +1,17 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
+ * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
+ */
+/**
+ *
  */
 
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol
+
+const string INITIAL_XDI_VERSION = "0_8"
+const string CURRENT_XDI_VERSION = INITIAL_XDI_VERSION
 
 enum ResourceState {
   Unknown,
@@ -14,6 +21,7 @@ enum ResourceState {
   Offline, /* resource is offline - will come back later */
   MarkedForDeletion, /* resource will be deleted soon. */
   Deleted, /* resource is gone now and will not come back*/
+  InError,  /*in known erroneous state*/
 }
 
 enum BlobListOrder {
@@ -85,6 +93,56 @@ struct FDS_ObjectIdType {
   1: string  digest
 }
 
+enum FDSP_NodeState {
+     FDS_Node_Up,
+     FDS_Node_Down,
+     FDS_Node_Rmvd,
+     FDS_Node_Discovered,
+     FDS_Start_Migration
+}
+
+enum FDSP_MgrIdType {
+    FDSP_PLATFORM       = 0x0,
+    FDSP_STOR_MGR       = 0x1,
+    FDSP_DATA_MGR       = 0x2,
+    FDSP_ACCESS_MGR     = 0x3,
+    FDSP_ORCH_MGR       = 0x4,
+    FDSP_CLI_MGR        = 0x5,
+    FDSP_OMCLIENT_MGR   = 0x6,
+    FDSP_MIGRATION_MGR  = 0x7,
+    FDSP_PLATFORM_SVC   = 0x8,
+    FDSP_METASYNC_MGR   = 0x9,
+    FDSP_TEST_APP       = 0xa,
+    FDSP_CONSOLE        = 0xb,
+    FDSP_INVALID_SVC    = 0xc
+}
+
+/**
+ * Despite its name, this structure captures information about Services,
+ * which, of course, includes a good bit of Node information as well.
+ */
+struct FDSP_Node_Info_Type {
+  1: i32            node_id,
+  2: FDSP_NodeState node_state,
+  3: FDSP_MgrIdType node_type, /* Actually, type of Service - SM/DM/AM */
+  4: string         node_name, /* node identifier - string */
+  5: i64            ip_hi_addr, /* IP V6 high address */
+  6: i64            ip_lo_addr, /* IP V4 address of V6 low address of the node */
+  7: i32            control_port, /* Port number to contact for control messages */
+  8: i32            data_port, /* Port number to send datapath requests */
+  9: i32            migration_port, /* Migration service port */
+  10: i64           node_uuid, /* UUID of the node */
+  11: i64           service_uuid, /* UUID of the service */
+  12: string        node_root, /* node root - string */
+  13: i32           metasync_port, /* Migration service port */
+}
+
+typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
+
+struct FDSP_Uuid {
+  1: i64          uuid,
+}
+
 /**
  *    A throttle level of X.Y (e.g, 5.6) means we should
  *    1. throttle all traffic for priorities greater than X (priorities 6,7,8,9
@@ -148,21 +206,12 @@ struct FDSP_VolumeDescType {
   20: i32                       iops_guarantee, /* 0-100 percentage of max_iops that is guaranteed */
 }
 
-struct FDSP_CreateVolType {
-  1: string                  vol_name,
-  2: FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
-}
-
-struct FDSP_DeleteVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  // i64    		 vol_uuid,
-  2: i32			 domain_id,
-}
-
-struct FDSP_ModifyVolType {
-  1: string 		 vol_name,  /* Name of the volume */
-  2: i64		 vol_uuid,
-  3: FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
+struct FDSP_PolicyInfoType {
+  1: string                 policy_name, /* Name of the policy */
+  2: i32                    policy_id,   /* policy id */
+  3: double                 iops_min,    /* minimum (guaranteed) iops */
+  4: double                 iops_max,    /* maximum iops */
+  5: i32                    rel_prio,    /* relative priority */
 }
 
 /**
@@ -178,4 +227,9 @@ struct Snapshot {
     6:i64 retentionTimeSeconds,
     7:ResourceState state,
     8:i64 timelineTime,
+}
+
+struct VolumeAccessPolicy {
+  1: optional bool exclusive_read = true;
+  2: optional bool exclusive_write = true;
 }

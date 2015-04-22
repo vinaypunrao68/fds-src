@@ -96,14 +96,13 @@ def generate_scaling_iops(conns, iops):
     plt.savefig(filename)
     return filename
 
-def generate_scaling_lat(conns, lat, java_lat, am_lat):
+def generate_scaling_lat(conns, lat, am_lat):
     filename = "scaling_lat.png"
     title = "Latency"
     xlabel = "Connections"
     ylabel = "Latency [ms]"
     plt.figure()
     plt.plot(conns, lat, label="client e2e")
-    plt.plot(conns, java_lat, label="xdi e2e")
     plt.plot(conns, am_lat, label="bare\_am e2e")
     #plt.plot(conns, sm_lat, label="sm e2e")
     #plt.plot(conns, dm_lat, label="dm e2e")
@@ -248,7 +247,6 @@ if __name__ == "__main__":
                 sm_lat = []
                 #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
                 dm_lat = []
-                java_lat = [x["javalat"] for x in experiments]
                 cpus = {}
                 for a in agents:
                     cpus[a] = [x[a+":cpu"] for x in experiments]
@@ -274,7 +272,7 @@ if __name__ == "__main__":
                 
                 images = [] 
                 images.append(generate_scaling_iops(conns, iops))
-                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_scaling_lat(conns, lat, am_lat))
                 images.append(generate_cpus(conns, cpus))
                 images.append(generate_lat_bw(iops, lat))
                 mail_success(recipients2, images, label)
@@ -291,7 +289,6 @@ if __name__ == "__main__":
                 sm_lat = []
                 #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
                 dm_lat = []
-                java_lat = [x["javalat"] for x in experiments]
                 cpus = {}
                 for a in agents:
                     cpus[a] = [x[a+":cpu"] for x in experiments]
@@ -313,7 +310,7 @@ if __name__ == "__main__":
                 
                 images = [] 
                 images.append(generate_scaling_object_size(objs, bw))
-                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_scaling_lat(conns, lat, am_lat))
                 images.append(generate_cpus(conns, cpus))
                 images.append(generate_lat_bw(iops, lat))
                 mail_success(recipients2, images, label)
@@ -335,7 +332,6 @@ if __name__ == "__main__":
                 sm_lat = []
                 #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
                 dm_lat = []
-                java_lat = [x["javalat"] for x in experiments]
                 cpus = {}
                 for a in agents:
                     cpus[a] = [x[a+":cpu"] for x in experiments]
@@ -370,7 +366,7 @@ if __name__ == "__main__":
 
                 images = [] 
                 images.append(generate_scaling_iops(conns, iops_get_mean))
-                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_scaling_lat(conns, lat, am_lat))
                 images.append(generate_cpus(conns, cpus))
                 images.append(generate_lat_bw(iops_get_mean, lat))
                 mail_success(recipients2, images, label)
@@ -394,7 +390,6 @@ if __name__ == "__main__":
                 sm_lat = []
                 #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
                 dm_lat = []
-                java_lat = [x["javalat"] for x in experiments]
                 cpus = {}
                 for a in agents:
                     cpus[a] = [x[a+":cpu"] for x in experiments]
@@ -419,7 +414,7 @@ if __name__ == "__main__":
 
                 images = [] 
                 images.append(generate_scaling_iops(conns, iops_put_mean))
-                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_scaling_lat(conns, lat, am_lat))
                 images.append(generate_cpus(conns, cpus))
                 images.append(generate_lat_bw(iops_put_mean, lat))
                 mail_success(recipients2, images, label)
@@ -441,7 +436,6 @@ if __name__ == "__main__":
                 sm_lat = []
                 #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
                 dm_lat = []
-                java_lat = [x["javalat"] for x in experiments]
                 cpus = {}
                 for a in agents:
                     cpus[a] = [x[a+":cpu"] for x in experiments]
@@ -479,7 +473,7 @@ if __name__ == "__main__":
 
                 images = [] 
                 images.append(generate_scaling_iops(conns, iops_mean))
-                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_scaling_lat(conns, lat, am_lat))
                 images.append(generate_cpus(conns, cpus))
                 images.append(generate_lat_bw(iops_mean, lat))
                 mail_success(recipients2, images, label)

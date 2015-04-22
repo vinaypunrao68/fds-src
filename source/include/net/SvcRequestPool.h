@@ -66,9 +66,18 @@ class SvcRequestPool : HasModuleProvider {
     void setDltManager(DLTManagerPtr dltManager);
 
     static fpi::AsyncHdr swapSvcReqHeader(const fpi::AsyncHdr &reqHdr);
-    static uint64_t SVC_UNTRACKED_REQ_ID;
+    static SvcRequestId SVC_UNTRACKED_REQ_ID;
 
  protected:
+    inline SvcRequestId getNextAsyncReqId_() {
+        SvcRequestId id =  ++nextAsyncReqId_;
+        /* Ensure nextAsyncReqId_ isn't SVC_UNTRACKED_REQ_ID */
+        while (id == SVC_UNTRACKED_REQ_ID) {
+            id =  ++nextAsyncReqId_;
+        }
+        return id;
+    }
+
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);
 
     template<typename T>
@@ -77,7 +86,7 @@ class SvcRequestPool : HasModuleProvider {
     /* align it to 64, so atomic doesn't share with cacheline with other
      * vars.  This is to prevent false-sharing and cache ping-pong.
      */
-    alignas(64) std::atomic<uint64_t> nextAsyncReqId_;
+    alignas(64) std::atomic<SvcRequestId> nextAsyncReqId_;
     /* Common completion callback for svc requests */
     SvcRequestCompletionCb finishTrackingCb_;
     /* Lock free threadpool on which svc requests are sent */

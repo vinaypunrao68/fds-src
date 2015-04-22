@@ -33,9 +33,8 @@ namespace fds {
 // typedef fds_uint64_t fds_volid_t;
 typedef boost::posix_time::ptime ptime;
 
-static const fds_volid_t invalid_vol_id = 0;
-/// not real volume, used to queue admin commands from AM to OM
-static const fds_volid_t admin_vol_id = 0x8001;
+static constexpr fds_volid_t invalid_vol_id = 0;
+static constexpr fds_int64_t invalid_vol_token = -1;
 
 /**
  * Basic descriptor class for a volume. This is intended
@@ -218,9 +217,9 @@ class FDS_VolumePolicy : public serialize::Serializable {
     FDS_VolumePolicy();
     ~FDS_VolumePolicy();
 
-    fds_uint32_t virtual write(serialize::Serializer*  s) const;
-    fds_uint32_t virtual read(serialize::Deserializer* d);
-    fds_uint32_t virtual getEstimatedSize() const;
+    uint32_t virtual write(serialize::Serializer*  s) const;
+    uint32_t virtual read(serialize::Deserializer* d);
+    uint32_t virtual getEstimatedSize() const;
     friend std::ostream& operator<<(std::ostream& os, const FDS_VolumePolicy& policy);
 };
 
@@ -273,7 +272,7 @@ class FDS_VolumeQueue {
             return count_;
         }
 
-        void   enqueueIO(FDS_IOType *io);
+        Error enqueueIO(FDS_IOType *io);
         FDS_IOType   *dequeueIO();
 
   private:

@@ -83,16 +83,13 @@
         - init
         - influxdb
 
--   name: create influxdb log and data dirs
+-   name: create influxdb log/data dir
     file:
-        path=/fds/var/{{item}}/influxdb
+        path=/opt/influxdb/shared
         state=directory
         owner=influxdb
         group=root
         mode=0755
-    with_items:
-        - logs
-        - db
     tags:
         - post-install
         - influxdb
@@ -113,13 +110,20 @@
         - post-install
         - init
 
--   name: render gmond config
-    template: src=../templates/deploy_fds/gmond.conf.j2
-        dest=/opt/fds-deps/embedded/etc/gmond.conf
-
--   name: start gmond services
-    service: name={{item}}
-        state=running
+-   name: copy new upstart configs
+    copy:
+        src=../files/deploy_fds/upstart/fds-{{item}}.conf
+        dest=/etc/init/fds-{{item}}.conf
+        owner=root
+        group=root
+        mode=0644
     with_items:
-        - gmond
-        - gmond-influxdb-bridge
+        - am
+        - bare_am
+        - sm
+        - dm
+        - om
+        - pm
+    tags:
+        - post-install
+        - init

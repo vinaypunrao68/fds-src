@@ -11,7 +11,6 @@ dir_list="
     umod-lib                            \
     util                                \
     lib                                 \
-    nginx-driver                        \
     persistent-layer                    \
     platform                            \
     orch-mgr                            \

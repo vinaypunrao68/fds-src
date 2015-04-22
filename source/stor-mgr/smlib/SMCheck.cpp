@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <fds_assert.h>
 #include <fds_process.h>
+#include "platform/platform_consts.h"
+#include "platform/platform.h"
+
 #include <dlt.h>
 #include <ObjectId.h>
 #include <StorMgr.h>
@@ -18,9 +21,6 @@
 #include <boost/program_options.hpp>
 #include <persistent-layer/dm_io.h>
 
-
-#include "platform/platform_consts.h"
-#include "platform/platform.h"
 
 #include <SMCheck.h>
 
@@ -68,8 +68,13 @@ SMCheckOffline::SMCheckOffline(SmDiskMap::ptr smDiskMap,
         std::cout << "DLT Table:" << std::endl << *curDLT << std::endl;
     }
 
-    Error err = smDiskMap->handleNewDlt(curDLT, smUuid);
+    Error err = smDiskMap->loadPersistentState();
     fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
+
+    Error dltErr = smDiskMap->handleNewDlt(curDLT, smUuid);
+    fds_verify(dltErr.ok() ||
+               (dltErr == ERR_SM_NOERR_GAINED_SM_TOKENS) ||
+               (dltErr == ERR_SM_NOERR_NEED_RESYNC));
 
     // Open the data store
     smObjStore->openDataStore(smDiskMap,

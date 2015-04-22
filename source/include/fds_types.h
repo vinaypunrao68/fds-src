@@ -219,6 +219,9 @@ typedef enum {
     FDS_ABORT_BLOB_TX,
     FDS_COMMIT_BLOB_TX,
     FDS_ATTACH_VOL,
+    FDS_DETACH_VOL,
+    FDS_OPEN_VOLUME,
+    FDS_CLOSE_VOLUME,
     FDS_LIST_BLOB,
     FDS_PUT_BLOB,
     FDS_PUT_BLOB_ONCE,
@@ -226,7 +229,9 @@ typedef enum {
     FDS_STAT_BLOB,
     FDS_GET_BLOB_METADATA,
     FDS_SET_BLOB_METADATA,
+    FDS_STAT_VOLUME,
     FDS_GET_VOLUME_METADATA,
+    FDS_SET_VOLUME_METADATA,
     FDS_DELETE_BLOB,
     FDS_DELETE_BLOB_SVC,
     FDS_VOLUME_CONTENTS,
@@ -249,6 +254,7 @@ typedef enum {
     FDS_DM_PURGE_COMMIT_LOG,
     FDS_DM_STAT_STREAM,
     FDS_DM_SYS_STATS,
+    FDS_DM_RELOAD_VOLUME,
     FDS_OP_INVALID,
     FDS_DM_LIST_BLOBS_BY_PATTERN
 } fds_io_op_t;
@@ -265,7 +271,7 @@ class FDS_IOType {
     virtual ~FDS_IOType() {}
 
     typedef enum {
-        STOR_HV_IO,
+        ACCESS_MGR_IO,
         STOR_MGR_IO,
         DATA_MGR_IO
     } ioModule;

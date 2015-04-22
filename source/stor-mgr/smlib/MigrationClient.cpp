@@ -24,13 +24,15 @@ namespace fds {
 MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
                                  NodeUuid& _destSMNodeID,
                                  fds_uint64_t& _targetDltVersion,
-                                 fds_uint32_t bitsPerToken)
+                                 fds_uint32_t bitsPerToken,
+                                 bool resync)
     : dataStore(_dataStore),
       destSMNodeID(_destSMNodeID),
       targetDltVersion(_targetDltVersion),
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
       forwardingIO(false),
+      forResync(resync),
       testMode(false)
 {
 
@@ -61,8 +63,36 @@ MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
 }
 
 fds_bool_t
+MigrationClient::forwardAddObjRefIfNeeded(fds_token_id dltToken,
+                                          fpi::AddObjectRefMsgPtr addObjRefReq)
+{
+    fds_bool_t forwarded = false;
+
+    if (!forwardingIO || (dltTokenIDs.count(dltToken) == 0)) {
+        // don't need to forward
+        return false;
+    }
+
+    if (!testMode) {
+        addObjRefReq->forwardedReq = true;
+
+        auto asyncAddObjRefReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
+        asyncAddObjRefReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg),
+                                      addObjRefReq);
+        // TODO(Sean):
+        // Should we wait for response?  Since this is do as much as possible, does it
+        // matter?  Will address it when this is re-written as part of DM work.
+        asyncAddObjRefReq->invoke();
+
+    }
+
+    return forwarded;
+}
+
+fds_bool_t
 MigrationClient::forwardIfNeeded(fds_token_id dltToken,
-                                 FDS_IOType* req) {
+                                 FDS_IOType* req)
+{
     if (!forwardingIO || (dltTokenIDs.count(dltToken) == 0)) {
         // don't need to forward
         return false;
@@ -71,11 +101,11 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
     // forward to destination SM
     if (req->io_type == FDS_SM_PUT_OBJECT) {
         SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req);
-        LOGMIGRATE << "Forwarding " << *putReq;
+        LOGMIGRATE << "Forwarding " << *putReq
+                   << " to Uuid " << std::hex << destSMNodeID << std::dec;
         if (!testMode) {
             // Set the forwarded flag, so the destination can appropriately handle
             // forwarded request.
-            fds_assert(false == putReq->putObjectNetReq->forwardedReq);
             putReq->putObjectNetReq->forwardedReq = true;
 
             auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
@@ -87,11 +117,11 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         }
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {
         SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
-        LOGMIGRATE << "Forwarding " << *delReq;
+        LOGMIGRATE << "Forwarding " << *delReq
+                   << " to Uuid " << std::hex << destSMNodeID << std::dec;
         if (!testMode) {
             // Set the forwarded flag, so the destination can appropriately handle
             // forwarded request.
-            fds_assert(false == delReq->delObjectNetReq->forwardedReq);
             delReq->delObjectNetReq->forwardedReq = true;
 
             auto asyncDelReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
