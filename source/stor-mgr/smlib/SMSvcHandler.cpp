@@ -200,7 +200,8 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fds_verify(dlt != NULL);
     err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
                                                          asyncHdr->msg_src_uuid,
-                                                         dlt->getNumBitsForToken());
+                                                         objStorMgr->getUuid(),
+                                                         dlt->getNumBitsForToken(), dlt);
 
     // respond with error code
     asyncHdr->msg_code = err.GetErrno();

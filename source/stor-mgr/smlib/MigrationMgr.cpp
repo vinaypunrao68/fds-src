@@ -215,12 +215,20 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
 Error
 SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                           const fpi::SvcUuid &executorSmUuid,
-                                          fds_uint32_t bitsPerDltToken) {
+                                          const NodeUuid& mySvcUuid,
+                                          fds_uint32_t bitsPerDltToken,
+                                          const DLT* dlt) {
     Error err(ERR_OK);
     LOGMIGRATE << "Object Rebalance Initial Set executor SM Id " << std::hex
                << executorSmUuid.svc_uuid << " executor ID " << rebalSetMsg->executorID
                << std::dec << " seqNum " << rebalSetMsg->seqNum
                << " last " << rebalSetMsg->lastFilterSet;
+
+    if ((atomic_load(&migrState) != MIGR_ABORTED) &&
+        (!acceptSourceResponsibility(rebalSetMsg->tokenId, rebalSetMsg->forResync,
+                                     executorSmUuid, mySvcUuid, dlt))) {
+        return ERR_SM_RESYNC_SOURCE_DECLINE;
+    }
 
     // If this SM is just a source and does not get Start Migration from OM
     // make sure that we set the migration state in progress
@@ -269,6 +277,56 @@ SmTokenMigrationMgr::startObjectRebalanceResp() {
     Error err(ERR_OK);
     LOGMIGRATE << "";
     return err;
+}
+
+fds_bool_t
+SmTokenMigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
+                                                fds_bool_t resyncOnRestart,
+                                                const fpi::SvcUuid &executorSmUuid,
+                                                const NodeUuid& mySvcUuid,
+                                                const DLT* dlt) {
+    // If this SM is already a destination for this DLT token and it has a lower
+    // responsibility for this DLT token compared to the destination SM,
+    // decline the request -- this is to prevent circular resync between two SMs
+    // that are both source and destination for the same SM token
+    fds_token_id smTok = SmDiskMap::smTokenId(dltToken);
+    if (migrExecutors.count(smTok) > 0) {
+        for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smTok].cbegin();
+             cit != migrExecutors[smTok].cend();
+             ++cit) {
+            if (cit->second->responsibleForDltToken(dltToken)) {
+                // this SM is already a destination for this token ID
+                // this must not happen if this is migration triggered by OM!
+                if (!resyncOnRestart) {
+                    // we are going to return an error that will trigger abort migration
+                    LOGERROR << "Add/remove SM migration process: SM is already a destination "
+                             << " for the DLT token " << dltToken << " returning error";
+                    return false;
+                }
+
+                // see if it has higher responsibility for the DLT token
+                DltTokenGroupPtr smGroup = dlt->getNodes(dltToken);
+                NodeUuid executorNodeUuid(executorSmUuid);
+                // see which SM we find first
+                for (uint i = 0; i < smGroup->getLength(); ++i) {
+                    if (smGroup->get(i) == executorNodeUuid) {
+                        LOGMIGRATE << "Token resync on restart: declining to be a source for DLT token "
+                                   << dltToken << " for which this SM is already a destination"
+                                   << " and has a lower responsibility then SM that initiated this sync";
+                        return false;
+                    } else if (smGroup->get(i) == mySvcUuid) {
+                        // this SM has higher responsibility for DLT token -- accept source SM responsibility
+                        LOGMIGRATE << "Token resync on restart: this SM is already a destination for DLT token "
+                                   << dltToken << " but this SM has a higher responsibility for the "
+                                   << " DLT token -- accepting source SM responsibility for this DLT token";
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 /**

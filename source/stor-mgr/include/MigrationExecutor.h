@@ -71,6 +71,7 @@ class MigrationExecutor {
      * Can only be called before startObjectRebalance
      */
     void addDltToken(fds_token_id dltTok);
+    fds_bool_t responsibleForDltToken(fds_token_id dltTok) const;
 
     /**
      * Start the object rebalance.  The rebalance inintiated by the

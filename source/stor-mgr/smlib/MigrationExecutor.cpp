@@ -47,6 +47,11 @@ MigrationExecutor::addDltToken(fds_token_id dltTok) {
     dltTokens.insert(dltTok);
 }
 
+fds_bool_t
+MigrationExecutor::responsibleForDltToken(fds_token_id dltTok) const {
+    return (dltTokens.count(dltTok) > 0);
+}
+
 // DO NOT release snapshot here, becuase it maybe passed to other
 // migration executors
 Error

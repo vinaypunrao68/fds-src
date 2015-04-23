@@ -103,7 +103,9 @@ class SmTokenMigrationMgr {
      */
     Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                const fpi::SvcUuid &executorSmUuid,
-                               fds_uint32_t bitsPerDltToken);
+                               const NodeUuid& mySvcUuid,
+                               fds_uint32_t bitsPerDltToken,
+                               const DLT* dlt);
 
     /**
      * Ack from source SM when it receives the whole filter set of
@@ -203,6 +205,19 @@ class SmTokenMigrationMgr {
      */
     fds_uint64_t getExecutorId(fds_uint32_t localId,
                                const NodeUuid& smSvcUuid) const;
+
+    /**
+     * If this is migration due to DLT change, decline to be a source
+     * if this SM is already a destination for the given dltToken;
+     * If this is resync on restart, decline to be a source if this SM is
+     * already a destination for the given SM token AND it has lower
+     * responsibility for this DLT token
+     */
+    fds_bool_t acceptSourceResponsibility(fds_token_id dltToken,
+                                          fds_bool_t resyncOnRestart,
+                                          const fpi::SvcUuid &executorSmUuid,
+                                          const NodeUuid& mySvcUuid,
+                                          const DLT* dlt);
 
     /**
      * Stops migration and sends ack with error to OM
