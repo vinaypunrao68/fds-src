@@ -9,10 +9,27 @@
 namespace fds
 {
 
+std::shared_ptr<FdsTimer>
+DmVolumeAccessTable::getTimer() {
+    static std::mutex lock;
+    static std::weak_ptr<FdsTimer> _timer;
+
+    // Create a timer instance if we need one, we
+    // use a weak pointer so the timer can be deleted
+    // once all volumes have been closed; i.e. shutdown
+    std::lock_guard<std::mutex> g(lock);
+    auto ret_val(_timer.lock());
+    if (!ret_val) {
+        ret_val = std::make_shared<FdsTimer>();
+        _timer = ret_val;
+    }
+    return ret_val;
+}
+
 DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)
     : access_map(),
       random_generator(vol_uuid),
-      timer(new FdsTimer())
+      timer(DmVolumeAccessTable::getTimer())
 { }
 
 Error
@@ -64,6 +81,7 @@ DmVolumeAccessTable::removeToken(fds_int64_t const token) {
     std::unique_lock<std::mutex> lk(lock);
     auto it = access_map.find(token);
     if (access_map.end() != it) {
+        timer->cancel(it->second.second);
         if (write_locked && it->second.first.exclusive_write) {
             write_locked = false;
         }

@@ -194,7 +194,7 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc,
     auto num_cached_objs = (0 < volDesc.maxObjSizeInBytes) ?
         (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes) : 0;
 
-    // A duplicate is ok, we're probably updating the access_token
+    // A duplicate is ok, though strange that we got another register call
     auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs);
     if ((ERR_OK == err) || (ERR_DUPLICATE == err)) {
         LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;

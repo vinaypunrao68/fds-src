@@ -69,6 +69,11 @@ class AmProcessor_impl
                           fds_int64_t const token,
                           Error const error);
 
+    void renewToken(const fds_volid_t vol_id);
+    void renewTokenCb(fds_volid_t const vol_id,
+                      fds_int64_t const new_token,
+                      Error const error);
+
     Error removeVolume(const VolumeDesc& volDesc);
 
     Error updateQoS(long int const* rate, float const* throttle)
@@ -402,9 +407,7 @@ AmProcessor_impl::registerVolume(const VolumeDesc& volDesc, fds_int64_t const to
         auto access_token = boost::make_shared<AmVolumeAccessToken>(
                 token_timer,
                 invalid_vol_token,
-                [this, volDesc] (fds_int64_t const token) mutable -> void {
-                    // No-op
-                });
+                nullptr);
         this->txMgr->registerVolume(volDesc, access_token);
     }
 }
@@ -413,7 +416,8 @@ void
 AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
                                    fds_int64_t const token,
                                    Error const error) {
-    if (ERR_OK == error) {
+    Error err {error};
+    if (ERR_OK == err) {
         GLOGDEBUG << "For volume: " << volDesc.volUUID
                   << ", received access token: 0x" << std::hex << token;
 
@@ -422,33 +426,76 @@ AmProcessor_impl::registerVolumeCb(const VolumeDesc& volDesc,
         auto access_token = boost::make_shared<AmVolumeAccessToken>(
                 token_timer,
                 token,
-                [this, volDesc] (fds_int64_t const token) mutable -> void {
-                    this->registerVolume(volDesc, token);
+                [this, vol_id = volDesc.volUUID] () mutable -> void {
+                    this->renewToken(vol_id);
                 });
 
-        auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-        if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
-        {
-            LOGERROR << "Failed to schedule token renewal timer!";
-            this->txMgr->removeVolume(volDesc);
-        } else {
+        err = this->txMgr->registerVolume(volDesc, access_token);
+        if (ERR_OK == err) {
             // Yay, success!
-            this->txMgr->registerVolume(volDesc, access_token);
+            auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
+            if (!token_timer.scheduleRepeated(timer_task, vol_tok_renewal_freq))
+            {
+                LOGWARN << "Failed to schedule token renewal timer!";
+            }
         }
-    } else {
+    }
+
+    if (ERR_OK != err) {
         LOGNOTIFY << "Failed to open volume, error: " << error;
         this->txMgr->removeVolume(volDesc);
     }
 }
 
+void
+AmProcessor_impl::renewToken(const fds_volid_t vol_id) {
+    // Get the current volume and token
+    auto shVol = txMgr->getVolume(vol_id);
+
+    // Dispatch for a renewal to DM, update the token on success. Remove the
+    // volume otherwise.
+
+    auto cb = [this, vol_id]
+                (fds_int64_t const token, Error const e) mutable -> void {
+                    this->renewTokenCb(vol_id, token, e);
+                };
+    amDispatcher->dispatchOpenVolume(vol_id, shVol->getToken(), cb);
+}
+
+void
+AmProcessor_impl::renewTokenCb(fds_volid_t const vol_id,
+                               fds_int64_t const new_token,
+                               Error const error) {
+    // Get the current volume
+    auto shVol = txMgr->getVolume(vol_id);
+
+    if (ERR_OK == error) {
+        // TODO(bszmyd): Tue 14 Apr 2015 04:08:24 PM PDT
+        // Eventually DM could issue a new token...should mean something
+        fds_assert(new_token == shVol->getToken());
+        LOGDEBUG << "Received renewal of token: " << new_token;
+        shVol->setToken(new_token);
+    } else {
+        LOGERROR << "Failed to renew token: " << error;
+        shVol->setToken(invalid_vol_token);
+        removeVolume(*shVol->voldesc);
+    }
+}
+
 Error
 AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
+    LOGNORMAL << "Removing volume: " << volDesc.name;
     Error err{ERR_OK};
 
     // If we had a token for a volume, give it back to DM
     auto shVol = txMgr->getVolume(volDesc.volUUID);
     if (shVol) {
         fds_int64_t token = shVol->getToken();
+        if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(shVol->access_token))) {
+            LOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
+        } else {
+            LOGWARN << "Failed to cancel timer, volume with re-attach!";
+        }
         amDispatcher->dispatchCloseVolume(volDesc.volUUID, token);
     }
 

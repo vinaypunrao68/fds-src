@@ -12,6 +12,7 @@
 #include <util/Log.h>
 #include <fds_assert.h>
 
+#include "EclipseWorkarounds.h"
 
 /**
  * This is a simple histogram class.
