@@ -49,14 +49,18 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
     // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
         LOGWARN << "We received empty migrations message from OM, nothing to do";
-        cb(ERR_OK);
+        if (cb) {
+            cb(ERR_OK);
+        }
         return err;
     }
 
     // Check if the migraion feature is enabled or disabled.
     if (false == enableMigrationFeature) {
         LOGCRITICAL << "Migration is disabled! ignoring start migration msg";
-        cb(ERR_OK);
+        if (cb) {
+            cb(ERR_OK);
+        }
         return err;
     }
 
@@ -120,8 +124,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
  * new dlt version passed to it and starts the migration process.
  */
 Error
-SmTokenMigrationMgr::startResync(fds::DLT *dlt,
-                                 OmStartMigrationCbType cb,
+SmTokenMigrationMgr::startResync(const fds::DLT *dlt,
                                  const NodeUuid& mySvcUuid,
                                  fds_uint32_t bitsPerDltToken) {
     fpi::CtrlNotifySMStartMigrationPtr resyncMsg(
@@ -137,7 +140,8 @@ SmTokenMigrationMgr::startResync(fds::DLT *dlt,
         grp.tokens = ptr.second;
         resyncMsg->migrations.push_back(grp);
     }
-    return startMigration(resyncMsg, cb, mySvcUuid, bitsPerDltToken, forResync);
+    
+    return startMigration(resyncMsg, NULL, mySvcUuid, bitsPerDltToken, forResync);
 }
 
 void
@@ -358,7 +362,7 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
         return;
     }
 
-    // check if we there are other executors that need to start migration
+    // check if there are other executors for the same SM Token that need to start migration
     MigrExecutorMap::const_iterator it = migrExecutors.find(smTokenInProgress);
     fds_verify(it != migrExecutors.end());
     // if we are done migration for all executors migrating current SM token,
@@ -390,8 +394,10 @@ SmTokenMigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
                 startSecondRebalanceRound(migrExecutors.begin()->first);
             } else {
                 // done with second round -- all done
-                omStartMigrCb(ERR_OK);
-                omStartMigrCb = NULL;  // we replied, so reset
+                if (omStartMigrCb) {
+                    omStartMigrCb(ERR_OK);
+                    omStartMigrCb = NULL;  // we replied, so reset
+                }
             }
         }
     }

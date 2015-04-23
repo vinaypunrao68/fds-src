@@ -54,7 +54,9 @@ MigrationClient::~MigrationClient()
 
 void
 MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
-    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET) {
+    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET ||
+        (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET &&
+        forResync == true)) {
         fds_verify(smTok == SMTokenID);
         LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
                    << " executorId " << std::hex << executorID << std::dec;

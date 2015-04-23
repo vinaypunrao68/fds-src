@@ -349,8 +349,13 @@ Error ObjectStorMgr::handleDltUpdate() {
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
         LOGNORMAL << "SM received first DLT after restart, which matched "
                   << "its persistent state, will start full resync of DLT tokens";
-        // TODO(Anna) FS-1649 actually start the resync process
 
+        // Start the resync process
+        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
+            err = objStorMgr->migrationMgr->startResync(curDlt,
+                                                        objStorMgr->getUuid(),
+                                                        curDlt->getNumBitsForToken());
+        }
         // for now pretend we successfully started resync, return success
         err = ERR_OK;
     }

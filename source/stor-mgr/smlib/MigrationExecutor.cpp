@@ -57,6 +57,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     ObjMetaData omd;
 
     MigrationExecutorState expectState = ME_INIT;
+    MigrationExecutorState nextState = ME_INIT;
     if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_REBALANCE_START)) {
         LOGNOTIFY << "startObjectRebalance called in non- ME_INIT state " << state;
         return ERR_NOT_READY;
@@ -83,6 +84,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
+        msg->forResync = forResync;
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                    << "Filter Set Msg: token=" << dltTok << ", seqNum="
                    << msg->seqNum << ", last=" << msg->lastFilterSet;
@@ -141,14 +143,19 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // receive responses before finish sending all the messages...
     // we sent all the messages, go to next state
     expectState = ME_FIRST_PHASE_REBALANCE_START;
-    if (!std::atomic_compare_exchange_strong(&state, &expectState, ME_FIRST_PHASE_APPLYING_DELTA)) {
+    if (forResync) {
+        nextState = ME_SECOND_PHASE_APPLYING_DELTA;
+    } else {
+        nextState = ME_FIRST_PHASE_APPLYING_DELTA;
+    }
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, nextState)) {
         // this must not happen
         LOGERROR << "Executor " << std::hex << executorId << std::dec
                  << ": Unexpected migration executor state";
         fds_panic("Unexpected migration executor state!");
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-               << " ME_FIRST_PHASE_REBALANCE_START --> ME_FIRST_PHASE_APPLYING_DELTA state";
+               << " ME_FIRST_PHASE_REBALANCE_START --> " << nextState;
 
     // send rebalance set of objects to source SM
     for (auto tok : dltTokens) {
@@ -402,7 +409,8 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     LOGMIGRATE << "Migration finished for executor " << std::hex << executorId
                << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
                << ", SM token " << smTokenId
-               << " firstRound? " << firstRoundFinished;
+               << " firstRound? " << firstRoundFinished
+               << " isResync? " << forResync;
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
