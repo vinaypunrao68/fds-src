@@ -54,7 +54,9 @@ MigrationClient::~MigrationClient()
 
 void
 MigrationClient::setForwardingFlagIfSecondPhase(fds_token_id smTok) {
-    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET) {
+    if (getMigClientState() == MIG_CLIENT_SECOND_PHASE_DELTA_SET ||
+        (getMigClientState() == MIG_CLIENT_FIRST_PHASE_DELTA_SET &&
+        forResync == true)) {
         fds_verify(smTok == SMTokenID);
         LOGMIGRATE << "Setting forwarding flag for SM token " << smTok
                    << " executorId " << std::hex << executorID << std::dec;
@@ -117,6 +119,12 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         }
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {
         SmIoDeleteObjectReq* delReq = static_cast<SmIoDeleteObjectReq *>(req);
+        // we are currently not forwarding 'delete' during resync on restart
+        if (forResync) {
+            LOGMIGRATE << "Not forwarding delete during resync on restart " << *delReq;
+            return false;
+        }
+
         LOGMIGRATE << "Forwarding " << *delReq
                    << " to Uuid " << std::hex << destSMNodeID << std::dec;
         if (!testMode) {
