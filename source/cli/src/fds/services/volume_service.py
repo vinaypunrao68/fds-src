@@ -1,10 +1,10 @@
-from rest_helper import RESTHelper
+from abstract_service import AbstractService
 from fds.utils.volume_converter import VolumeConverter
 from fds.utils.snapshot_converter import SnapshotConverter
 from fds.services.snapshot_service import SnapshotService
 
 
-class VolumeService():
+class VolumeService( AbstractService ):
 
     '''
     Created on Apr 3, 2015
@@ -16,15 +16,16 @@ class VolumeService():
     '''
     
     def __init__(self, session):
-        self.__session = session
-        self.__restHelper = RESTHelper()
+        AbstractService.__init__(self, session)
+#         self.__session = session
+#         self.__restHelper = RESTHelper()
         
 
-    def __get_url_preamble(self):
-        '''
-        Helper method to construct the base URI
-        '''        
-        return "http://" + self.__session.get_hostname() + ":" + str( self.__session.get_port() )
+#     def __get_url_preamble(self):
+#         '''
+#         Helper method to construct the base URI
+#         '''        
+#         return "http://" + self.__session.get_hostname() + ":" + str( self.__session.get_port() )
     
     def find_volume_by_id(self, an_id):
         '''
@@ -67,8 +68,8 @@ class VolumeService():
         '''
         Return the raw json list of volumes from the FDS REST call
         '''
-        url = self.__get_url_preamble() + "/api/config/volumes"
-        return self.__restHelper.get( self.__session, url )
+        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes" )
+        return self.rest_helper.get( self.session, url )
     
     def create_volume(self, volume):
         '''
@@ -76,27 +77,27 @@ class VolumeService():
         endpoint to make the creation request
         '''
         
-        url = self.__get_url_preamble() + "/api/config/volumes"
+        url = "{}{}".format( self.get_url_preamble(), "/api/config/volumes" )
         data = VolumeConverter.to_json( volume )
-        return self.__restHelper.post( self.__session, url, data )
+        return self.rest_helper.post( self.session, url, data )
     
     def clone_from_snapshot_id(self, snapshot_id, volume):
         '''
         Use a snapshot ID and volume QoS settings to clone a new volume
         '''
         
-        url = self.__get_url_preamble() + "/api/config/snapshot/clone/" + snapshot_id + "/" + volume.name
+        url = "{}{}{}/{}".format( self.get_url_preamble(), "/api/config/snapshot/clone/", snapshot_id, volume.name )
         data = VolumeConverter.to_json( volume )
-        return self.__restHelper.post( self.__session, url, data )
+        return self.rest_helper.post( self.session, url, data )
     
     def clone_from_timeline(self, a_time, volume ):
         '''
         Create a clone of the specified volume from the closest snapshot to the time provided
         '''
         
-        url = self.__get_url_preamble() + "/api/config/volumes/clone/" + volume.id + "/" + volume.name + "/" + a_time
+        url = "{}{}{}/{}/{}".format( self.get_url_preamble(), "/api/config/volumes/clone/", volume.id, volume.name, a_time )
         data = VolumeConverter.to_json( volume )
-        return self.__restHelper.post( self.__session, url, data )
+        return self.rest_helper.post( self.session, url, data )
     
     def edit_volume(self, volume):
         '''
@@ -104,31 +105,31 @@ class VolumeService():
         to the volume it points to
         '''
         
-        url = self.__get_url_preamble() + "/api/config/volumes/" + str(volume.id)
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", str(volume.id) )
         data = VolumeConverter.to_json( volume )
-        return self.__restHelper.put( self.__session, url, data )
+        return self.rest_helper.put( self.session, url, data )
     
     def delete_volume(self, name):
         '''
         Deletes a volume based on the volume name.  It expects this name to be unique
         '''
         
-        url = self.__get_url_preamble() + "/api/config/volumes/" + name
-        return self.__restHelper.delete( self.__session, url )
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", name )
+        return self.rest_helper.delete( self.session, url )
     
     def create_snapshot(self, snapshot ):
         '''
         Create a snapshot for the volume specified
         '''
         
-        url = self.__get_url_preamble() + "/api/config/volumes/" + snapshot.volume_id + "/snapshot"
+        url = "{}{}{}{}".format( self.get_url_preamble(), "/api/config/volumes/", snapshot.volume_id, "/snapshot" )
         data = SnapshotConverter.to_json(snapshot)
-        return self.__restHelper.post( self.__session, url, data )
+        return self.rest_helper.post( self.session, url, data )
     
     def list_snapshots(self, an_id):
         '''
         Get a list of all the snapshots that exists for a given volume
         '''
         
-        url = self.__get_url_preamble() + "/api/config/volumes/" + an_id + "/snapshots"
-        return self.__restHelper.get( self.__session, url )
+        url = "{}{}{}{}".format ( self.get_url_preamble(), "/api/config/volumes/", an_id, "/snapshots" )
+        return self.rest_helper.get( self.session, url )

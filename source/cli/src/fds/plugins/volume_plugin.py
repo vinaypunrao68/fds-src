@@ -435,7 +435,7 @@ class VolumePlugin( AbstractPlugin):
         
         response = self.get_volume_service().delete_volume( volName )
         
-        if ( response["status"] == "OK" ):
+        if ( response["status"].lower() == "ok" ):
             print 'Deletion request completed successfully.'
             
             self.list_volumes(args)

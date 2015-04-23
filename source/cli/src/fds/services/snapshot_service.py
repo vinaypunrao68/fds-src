@@ -1,6 +1,6 @@
-from rest_helper import RESTHelper
+from abstract_service import AbstractService
 
-class SnapshotService():
+class SnapshotService( AbstractService ):
 
     '''
     Created on Apr 22, 2015
@@ -12,19 +12,12 @@ class SnapshotService():
     '''
     
     def __init__(self, session):
-        self.__session = session
-        self.__restHelper = RESTHelper()
-        
-    def __get_url_preamble(self):
-        '''
-        Helper method to construct the base URI
-        '''        
-        return "http://" + self.__session.get_hostname() + ":" + str( self.__session.get_port() )
-    
+        AbstractService.__init__(self, session)
+
     def get_snapshot_by_id(self, an_id):
         '''
         retrieve a specific snapshot using its ID
         '''
         
-        url = self.__get_url_preamble() + "/api/config/snapshots/" + an_id
-        return self.__restHelper.get( self.__session, url )        
+        url = "{}{}{}".format( self.get_url_preamble(), "/api/config/snapshots/", an_id )
+        return self.rest_helper.get( self.session, url )        
