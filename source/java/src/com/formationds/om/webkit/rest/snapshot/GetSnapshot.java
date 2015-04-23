@@ -75,10 +75,10 @@ public class GetSnapshot
 			} catch (Exception e) {
 				
 				if ( volume != null ){
-					LOG.error( "Problem listing snapshots for volume: " + volume.getName() + " (" + volume.getVolId() + ")" );
+					LOG.error( "Problem listing snapshots for volume: " + volume.getName() + " (" + volume.getVolId() + ")", e );
 				}
 				else {
-					LOG.error( "Trying to list snapshots for a null volume." );
+					LOG.error( "Trying to list snapshots for a null volume.", e );
 				}
 				
 				LOG.error( "Skipping..." );
