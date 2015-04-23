@@ -3,35 +3,14 @@ Created on Apr 9, 2015
 
 @author: nate
 '''
-
-import unittest
 import mock_functions
-from fds import fdscli
 from mock import patch
-from mock_auth import MockFdsAuth
+from base_cli_test import BaseCliTest
 
-class VolumeTest1(unittest.TestCase):
+class VolumeTest1( BaseCliTest ):
     '''
     This test class handles listing volumes and creating/deleting volumes
     '''
-    
-    @classmethod
-    def setUpClass(self):
-        print "Setting up the test..."
-        
-        auth = MockFdsAuth()
-        auth.login()
-        self.__cli = fdscli.FDSShell( auth ) 
-        print "Done with setup\n\n"
-        
-    def callMessageFormatter(self, args):
-        
-        message = ""
-        
-        for arg in args:
-            message += arg + " "
-            
-        print "Making call: " + message
     
     @patch( "fds.services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes )
     def test_listVolumes(self, mockService ):
@@ -40,7 +19,7 @@ class VolumeTest1(unittest.TestCase):
         
         print "Making call: volume list -format=json"
 
-        self.__cli.run( args )
+        self.cli.run( args )
          
         self.callMessageFormatter(args)
          
@@ -56,7 +35,7 @@ class VolumeTest1(unittest.TestCase):
         
         self.callMessageFormatter(args)
         
-        self.__cli.run( args )
+        self.cli.run( args )
         
         assert mockCall.call_count == 1
         
@@ -73,7 +52,7 @@ class VolumeTest1(unittest.TestCase):
         
         self.callMessageFormatter(args)
         
-        self.__cli.run( args )
+        self.cli.run( args )
         
         assert mockDelete.call_count == 1
         assert mockFind.call_count == 1
@@ -94,7 +73,7 @@ class VolumeTest1(unittest.TestCase):
 
         self.callMessageFormatter(args)
       
-        self.__cli.run( args )
+        self.cli.run( args )
         
         assert volumeCreateMethod.call_count == 1
         
@@ -121,7 +100,7 @@ class VolumeTest1(unittest.TestCase):
                 "-media_policy=SSD_ONLY", "-type=block", "-size=2", "-size_unit=MB"]
          
         self.callMessageFormatter(args)
-        self.__cli.run( args )
+        self.cli.run( args )
          
         volume = volumeCreate.call_args[0][0]
          
@@ -150,60 +129,57 @@ class VolumeTest1(unittest.TestCase):
         self.callMessageFormatter(args)
         
         print "Testing bad priority"        
-        self.__cli.run( args )
+        self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad iops_guarantee"
         args[3] = "-priority=1"
         args[4] = "-iops_guarantee=-1"
         
-        self.__cli.run( args )
+        self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad iops_limit"
         args[4] = "-iops_guarantee=4000"
         args[5] = "-iops_limit=100000"
         
-        self.__cli.run( args )
+        self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad continuous protection"
         args[5] = "-iops_limit=1000"
         args[6] = "-continuous_protection=1000"
         
-        self.__cli.run( args )
+        self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad media policy"
         args[6] = "-continuous_protection=86400"
         args[7] = "-media_policy=MY_POLICY"
         
-        self.__cli.run( args )
+        self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad volume type"
         args[7] = "-media_policy=SSD_ONLY"
         args[8] = "-type=NFS"
         
-        self.__cli.run( args )
+        self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad block size"
         args[8] = "-type=block"
         args[9] = "-size=1025"
         
-        self.__cli.run( args )
+        self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad units"
         args[9] = "-size=2"
         args[10] = "-size_unit=EB"
         
-        self.__cli.run( args )
+        self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "test_create_boundary_checking passed.\n\n"
-
-if __name__ == '__main__':
-    unittest.main()
 

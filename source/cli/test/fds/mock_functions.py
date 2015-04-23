@@ -23,6 +23,10 @@ def createVolume(volume):
     volume = VolumeConverter.to_json( volume )
     return volume
 
+def editVolume(volume):
+    volume = VolumeConverter.to_json( volume )
+    return volume
+
 def deleteVolume(name):
     
     response = dict()

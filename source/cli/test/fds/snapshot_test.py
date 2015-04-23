@@ -1,33 +1,15 @@
-import unittest
 from mock import patch
-from mock_auth import MockFdsAuth
-from fds import fdscli
 import mock_functions
+from base_cli_test import BaseCliTest
 
-class SnapshotTest(unittest.TestCase):
+class SnapshotTest(BaseCliTest):
     '''
     Created on Apr 22, 2015
     
+    This class tests out the snapshot functionality with regards to the volumes
+    
     @author: nate
     '''
-
-    @classmethod
-    def setUpClass(self):
-        print "Setting up the test..."
-        
-        auth = MockFdsAuth()
-        auth.login()
-        self.__cli = fdscli.FDSShell( auth ) 
-        print "Done with setup\n\n"
-        
-    def callMessageFormatter(self, args):
-        
-        message = ""
-        
-        for arg in args:
-            message += arg + " "
-            
-        print "Making call: " + message
         
     @patch( "fds.services.volume_service.VolumeService.find_volume_by_name", side_effect=mock_functions.findVolumeByName )        
     @patch( "fds.services.volume_service.VolumeService.list_snapshots", side_effect=mock_functions.listSnapshots )
@@ -41,7 +23,7 @@ class SnapshotTest(unittest.TestCase):
         args = ["volume", "list_snapshots", "-volume_id=100"]
         
         self.callMessageFormatter(args)
-        self.__cli.run( args )
+        self.cli.run( args )
         
         volId = mockList.call_args[0][0]
         
@@ -64,7 +46,7 @@ class SnapshotTest(unittest.TestCase):
         args = ["volume", "list_snapshots", "-volume_name=MyVol"]
         
         self.callMessageFormatter(args)
-        self.__cli.run( args )
+        self.cli.run( args )
         
         volId = mockList.call_args[0][0]
         name = mockFind.call_args[0][0]
@@ -88,7 +70,7 @@ class SnapshotTest(unittest.TestCase):
         args = ["volume", "list_snapshots"]
         
         self.callMessageFormatter(args)
-        self.__cli.run( args )
+        self.cli.run( args )
         
         assert mockList.call_count == 0
         
@@ -108,7 +90,7 @@ class SnapshotTest(unittest.TestCase):
         
         self.callMessageFormatter(args)
         
-        self.__cli.run( args )
+        self.cli.run( args )
         
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
@@ -136,7 +118,7 @@ class SnapshotTest(unittest.TestCase):
         args = ["volume", "create_snapshot", "-name=MySnap", "-volume_id=5"]
         
         self.callMessageFormatter(args)
-        self.__cli.run( args )
+        self.cli.run( args )
         
         assert mockCreate.call_count == 1
         assert mockList.call_count == 1
@@ -161,12 +143,10 @@ class SnapshotTest(unittest.TestCase):
         args = ["volume", "create_snapshot", "-name=MySnap"]
         
         self.callMessageFormatter(args)
-        self.__cli.run( args )
+        self.cli.run( args )
         
         assert mockList.call_count == 0
         
         print "Failed correctly."          
-        
-if __name__ == '__main__':
-    unittest.main()        
+          
         
